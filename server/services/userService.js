@@ -30,8 +30,21 @@ class UserService {
 
   static async update(id, data) {
     try {
-      return User.findOneAndUpdate({ _id: id }, data, { new: true, upsert: false });
+      console.log('UserService: Updating user with ID:', id, 'Data:', data);
+      
+      // Remove sensitive fields that shouldn't be updated directly
+      const { password, refreshToken, _id, createdAt, ...updateData } = data;
+      
+      const updatedUser = await User.findOneAndUpdate(
+        { _id: id }, 
+        updateData, 
+        { new: true, upsert: false }
+      );
+      
+      console.log('UserService: User updated successfully');
+      return updatedUser;
     } catch (err) {
+      console.error('UserService: Error updating user:', err);
       throw new Error(`Database error while updating user ${id}: ${err}`);
     }
   }
@@ -64,9 +77,11 @@ class UserService {
     }
   }
 
-  static async create({ email, password, name = '' }) {
+  static async create({ email, password, firstName = '', lastName = '', phone = '', role = 'customer' }) {
     if (!email) throw new Error('Email is required');
     if (!password) throw new Error('Password is required');
+
+    console.log('UserService: Creating user with email:', email);
 
     const existingUser = await UserService.getByEmail(email);
     if (existingUser) throw new Error('User with this email already exists');
@@ -74,15 +89,26 @@ class UserService {
     const hash = await generatePasswordHash(password);
 
     try {
+      // Generate full name from first and last name
+      const name = `${firstName} ${lastName}`.trim();
+
       const user = new User({
         email,
         password: hash,
+        firstName,
+        lastName,
         name,
+        phone,
+        role,
+        // Set default avatar based on initials
+        avatar: `https://via.placeholder.com/150x150/3b82f6/ffffff?text=${firstName.charAt(0)}${lastName.charAt(0)}`,
       });
 
       await user.save();
+      console.log('UserService: User created successfully');
       return user;
     } catch (err) {
+      console.error('UserService: Error creating user:', err);
       throw new Error(`Database error while creating new user: ${err}`);
     }
   }

@@ -21,6 +21,9 @@ import { useAuth } from "@/contexts/AuthContext"
 type RegisterForm = {
   email: string
   password: string
+  firstName: string
+  lastName: string
+  phone: string
 }
 
 export function Register() {
@@ -28,12 +31,13 @@ export function Register() {
   const { toast } = useToast()
   const { register: registerUser } = useAuth()
   const navigate = useNavigate()
-  const { register, handleSubmit } = useForm<RegisterForm>()
+  const { register, handleSubmit, formState: { errors } } = useForm<RegisterForm>()
 
   const onSubmit = async (data: RegisterForm) => {
     try {
       setLoading(true)
-      await registerUser(data.email, data.password);
+      console.log('Registering user with data:', data);
+      await registerUser(data.email, data.password, data.firstName, data.lastName, data.phone);
       toast({
         title: "Success",
         description: "Account created successfully",
@@ -60,13 +64,49 @@ export function Register() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input
+                  id="firstName"
+                  placeholder="Enter your first name"
+                  {...register("firstName", { required: "First name is required" })}
+                />
+                {errors.firstName && (
+                  <p className="text-sm text-destructive">{errors.firstName.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  placeholder="Enter your last name"
+                  {...register("lastName", { required: "Last name is required" })}
+                />
+                {errors.lastName && (
+                  <p className="text-sm text-destructive">{errors.lastName.message}</p>
+                )}
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="Enter your email"
-                {...register("email", { required: true })}
+                {...register("email", { required: "Email is required" })}
+              />
+              {errors.email && (
+                <p className="text-sm text-destructive">{errors.email.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="Enter your phone number"
+                {...register("phone")}
               />
             </div>
             <div className="space-y-2">
@@ -75,8 +115,11 @@ export function Register() {
                 id="password"
                 type="password"
                 placeholder="Choose a password"
-                {...register("password", { required: true })}
+                {...register("password", { required: "Password is required" })}
               />
+              {errors.password && (
+                <p className="text-sm text-destructive">{errors.password.message}</p>
+              )}
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? (

@@ -16,6 +16,66 @@ const schema = new mongoose.Schema({
     required: true,
     validate: { validator: isPasswordHash, message: 'Invalid password hash' },
   },
+  firstName: {
+    type: String,
+    default: '',
+  },
+  lastName: {
+    type: String,
+    default: '',
+  },
+  name: {
+    type: String,
+    default: '',
+  },
+  phone: {
+    type: String,
+    default: '',
+  },
+  role: {
+    type: String,
+    enum: ['customer', 'staff', 'admin'],
+    default: 'customer',
+  },
+  invoiceAddress: {
+    street: { type: String, default: '' },
+    city: { type: String, default: '' },
+    state: { type: String, default: '' },
+    zipCode: { type: String, default: '' },
+    country: { type: String, default: '' },
+  },
+  paymentAddress: {
+    street: { type: String, default: '' },
+    city: { type: String, default: '' },
+    state: { type: String, default: '' },
+    zipCode: { type: String, default: '' },
+    country: { type: String, default: '' },
+    sameAsInvoice: { type: Boolean, default: true },
+  },
+  avatar: {
+    type: String,
+    default: '',
+  },
+  preferences: {
+    notifications: {
+      email: { type: Boolean, default: true },
+      sms: { type: Boolean, default: true },
+      push: { type: Boolean, default: true },
+    },
+    communication: {
+      orderUpdates: { type: Boolean, default: true },
+      promotions: { type: Boolean, default: false },
+      newsletter: { type: Boolean, default: true },
+    },
+  },
+  totalOrders: {
+    type: Number,
+    default: 0,
+  },
+  totalSpent: {
+    type: Number,
+    default: 0,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

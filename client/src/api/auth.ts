@@ -24,13 +24,19 @@ export const login = async (email: string, password: string) => {
 
 // Description: Register user functionality
 // Endpoint: POST /api/auth/register
-// Request: { email: string, password: string }
-// Response: { email: string }
-export const register = async (email: string, password: string) => {
+// Request: { email: string, password: string, firstName?: string, lastName?: string, phone?: string }
+// Response: { success: boolean, message: string, user: object }
+export const register = async (email: string, password: string, firstName?: string, lastName?: string, phone?: string) => {
   console.log('Making register request with email:', email);
   
   try {
-    const response = await api.post('/api/auth/register', {email, password});
+    const response = await api.post('/api/auth/register', {
+      email, 
+      password,
+      firstName: firstName || '',
+      lastName: lastName || '',
+      phone: phone || ''
+    });
     console.log('Register response received:', response.data);
     return response.data;
   } catch (error) {

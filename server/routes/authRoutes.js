@@ -54,10 +54,24 @@ router.post('/register', async (req, res, next) => {
   }
   
   try {
-    console.log('Creating new user with email:', req.body.email);
-    const user = await UserService.create(req.body);
+    const { email, password, firstName, lastName, phone, role } = req.body;
+    
+    console.log('Creating new user with email:', email);
+    const user = await UserService.create({
+      email,
+      password,
+      firstName: firstName || '',
+      lastName: lastName || '',
+      phone: phone || '',
+      role: role || 'customer'
+    });
+    
     console.log('User created successfully:', user.email);
-    return res.status(200).json(user);
+    return res.status(200).json({ 
+      success: true,
+      message: 'User registered successfully',
+      user: user 
+    });
   } catch (error) {
     console.error(`Error while registering user: ${error.message}`);
     return res.status(400).json({ message: error.message });

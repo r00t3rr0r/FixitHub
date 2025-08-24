@@ -6,6 +6,7 @@ const session = require("express-session");
 const MongoStore = require('connect-mongo');
 const basicRoutes = require("./routes/index");
 const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
 const { connectDB } = require("./config/database");
 const cors = require("cors");
 
@@ -47,6 +48,8 @@ app.on("error", (error) => {
 app.use(basicRoutes);
 // Authentication Routes
 app.use('/api/auth', authRoutes);
+// User Routes
+app.use('/api/users', userRoutes);
 
 // If no routes handled the request, it's a 404
 app.use((req, res, next) => {
@@ -62,5 +65,5 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+  console.log(`Server running at http://localhost:3000`);
 });
