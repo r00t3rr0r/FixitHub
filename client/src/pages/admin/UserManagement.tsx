@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/useToast"
-import { getUsers, createUser, updateUserRole, updateUserStatus, bulkUpdateUserStatus, User, CreateUserData } from "@/api/users"
+import { getUsers, createUser, updateUserRole, updateUserStatus, bulkUpdateUserStatus, deleteUser, User, CreateUserData } from "@/api/users"
 import {
   Users,
   Search,
@@ -83,6 +83,7 @@ export function UserManagement() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [creating, setCreating] = useState(false)
   const [updating, setUpdating] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
   const { toast } = useToast()
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateUserData>()
@@ -243,6 +244,31 @@ export function UserManagement() {
         description: error.message || "Failed to update users",
         variant: "destructive"
       })
+    }
+  }
+
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      setDeleting(userId)
+      console.log("Deleting user:", userId)
+      await deleteUser(userId)
+
+      // Remove user from local state
+      setUsers(users.filter(user => user._id !== userId))
+
+      toast({
+        title: "Success!",
+        description: "User deleted successfully"
+      })
+    } catch (error: any) {
+      console.error("Error deleting user:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete user",
+        variant: "destructive"
+      })
+    } finally {
+      setDeleting(null)
     }
   }
 
@@ -674,10 +700,36 @@ export function UserManagement() {
                             Edit User
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete User
-                          </DropdownMenuItem>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem 
+                                className="text-destructive"
+                                onSelect={(e) => e.preventDefault()}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete User
+                              </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action cannot be undone. This will permanently delete the user
+                                  "{user.name}" and remove all their data from the system.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteUser(user._id)}
+                                  disabled={deleting === user._id}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  {deleting === user._id ? "Deleting..." : "Delete"}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

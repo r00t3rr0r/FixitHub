@@ -8,7 +8,7 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 
 router.post('/login', async (req, res) => {
-  console.log('Login request received:', { body: req.body, headers: req.headers });
+  console.log('Login request received:', { body: { email: req.body.email, password: '[HIDDEN]' }, headers: req.headers });
   
   const sendError = msg => {
     console.log('Sending login error:', msg);
@@ -24,6 +24,8 @@ router.post('/login', async (req, res) => {
 
   try {
     console.log('Attempting to authenticate user:', email);
+    console.log('Password provided length:', password.length);
+    
     const user = await UserService.authenticateWithPassword(email, password);
 
     if (user) {
@@ -37,6 +39,7 @@ router.post('/login', async (req, res) => {
       return res.json({...user.toObject(), accessToken, refreshToken});
     } else {
       console.log('Authentication failed for user:', email);
+      console.log('This usually means either user not found or password mismatch');
       return sendError('Email or password is incorrect');
     }
   } catch (error) {

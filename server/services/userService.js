@@ -12,6 +12,57 @@ class UserService {
     }
   }
 
+  static async listWithFilters(filters = {}, options = {}) {
+    try {
+      const { page = 1, limit = 50 } = options;
+      const skip = (page - 1) * limit;
+
+      console.log('UserService.listWithFilters: Filters:', filters, 'Options:', options);
+
+      const [data, total] = await Promise.all([
+        User.find(filters)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .exec(),
+        User.countDocuments(filters).exec()
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      console.log(`UserService.listWithFilters: Found ${data.length} users out of ${total} total`);
+
+      return {
+        data,
+        total,
+        currentPage: page,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      };
+    } catch (err) {
+      console.error('UserService.listWithFilters: Database error:', err);
+      throw new Error(`Database error while listing users with filters: ${err}`);
+    }
+  }
+
+  static async bulkUpdateStatus(userIds, isActive) {
+    try {
+      console.log('UserService.bulkUpdateStatus: Updating users:', userIds, 'isActive:', isActive);
+
+      const result = await User.updateMany(
+        { _id: { $in: userIds } },
+        { $set: { isActive } }
+      ).exec();
+
+      console.log('UserService.bulkUpdateStatus: Update result:', result);
+      return result;
+    } catch (err) {
+      console.error('UserService.bulkUpdateStatus: Database error:', err);
+      throw new Error(`Database error while bulk updating user status: ${err}`);
+    }
+  }
+
   static async get(id) {
     try {
       return User.findOne({ _id: id }).exec();
@@ -39,16 +90,16 @@ class UserService {
   static async update(id, data) {
     try {
       console.log('UserService: Updating user with ID:', id, 'Data:', data);
-      
+
       // Remove sensitive fields that shouldn't be updated directly
       const { password, refreshToken, _id, createdAt, ...updateData } = data;
-      
+
       const updatedUser = await User.findOneAndUpdate(
-        { _id: id }, 
-        updateData, 
+        { _id: id },
+        updateData,
         { new: true, upsert: false }
       );
-      
+
       console.log('UserService: User updated successfully');
       return updatedUser;
     } catch (err) {
@@ -59,9 +110,12 @@ class UserService {
 
   static async delete(id) {
     try {
+      console.log('UserService.delete: Deleting user with ID:', id);
       const result = await User.deleteOne({ _id: id }).exec();
+      console.log('UserService.delete: Delete result:', result);
       return (result.deletedCount === 1);
     } catch (err) {
+      console.error('UserService.delete: Database error:', err);
       throw new Error(`Database error while deleting user ${id}: ${err}`);
     }
   }
@@ -72,6 +126,8 @@ class UserService {
 
     try {
       console.log(`UserService.authenticateWithPassword: Attempting to authenticate user: ${email}`);
+      console.log(`UserService.authenticateWithPassword: Password provided length: ${password.length}`);
+      
       const user = await User.findOne({email}).exec();
       if (!user) {
         console.log(`UserService.authenticateWithPassword: No user found with email: ${email}`);
@@ -79,11 +135,15 @@ class UserService {
       }
 
       console.log(`UserService.authenticateWithPassword: User found with email: ${email}, validating password...`);
+      console.log(`UserService.authenticateWithPassword: Stored password hash length: ${user.password.length}`);
+      console.log(`UserService.authenticateWithPassword: User role: ${user.role}, isActive: ${user.isActive}`);
+      
       const passwordValid = await validatePassword(password, user.password);
       console.log(`UserService.authenticateWithPassword: Password validation result for ${email}: ${passwordValid}`);
-      
+
       if (!passwordValid) {
         console.log(`UserService.authenticateWithPassword: Password validation failed for user: ${email}`);
+        console.log(`UserService.authenticateWithPassword: Expected password for admin should be 'admin123'`);
         return null;
       }
 

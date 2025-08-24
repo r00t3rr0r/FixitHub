@@ -8,8 +8,10 @@ const basicRoutes = require("./routes/index");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const serviceRoutes = require("./routes/serviceRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 const seedRoutes = require("./routes/seedRoutes");
 const { connectDB } = require("./config/database");
+const SeedService = require("./services/seedService");
 const cors = require("cors");
 
 if (!process.env.DATABASE_URL) {
@@ -38,8 +40,36 @@ app.use((req, res, next) => {
   next();
 });
 
-// Database connection
-connectDB();
+// Database connection and auto-seeding
+const initializeDatabase = async () => {
+  try {
+    await connectDB();
+    console.log('Database connected successfully');
+    
+    // Auto-seed admin user if it doesn't exist
+    console.log('Checking if admin user exists...');
+    try {
+      const seedResult = await SeedService.seedAdmin();
+      console.log('Admin seeding result:', seedResult.message);
+    } catch (error) {
+      console.error('Error seeding admin user:', error.message);
+    }
+
+    // Auto-seed services if they don't exist
+    console.log('Checking if services exist...');
+    try {
+      const servicesSeedResult = await SeedService.seedServices();
+      console.log('Services seeding result:', servicesSeedResult.message);
+    } catch (error) {
+      console.error('Error seeding services:', error.message);
+    }
+  } catch (error) {
+    console.error('Database initialization error:', error);
+    process.exit(1);
+  }
+};
+
+initializeDatabase();
 
 app.on("error", (error) => {
   console.error(`Server error: ${error.message}`);
@@ -54,6 +84,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 // Service Routes
 app.use('/api/services', serviceRoutes);
+// Admin Routes
+app.use('/api/admin', adminRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 
