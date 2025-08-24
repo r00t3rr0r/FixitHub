@@ -27,7 +27,7 @@ const exampleLogins = [
   },
   {
     role: "Staff",
-    email: "staff@example.com", 
+    email: "staff@example.com",
     password: "password123",
     icon: Wrench,
     color: "bg-blue-500",
@@ -36,7 +36,7 @@ const exampleLogins = [
   {
     role: "Admin",
     email: "admin@example.com",
-    password: "password123", 
+    password: "admin123",
     icon: Shield,
     color: "bg-red-500",
     description: "Full system access, user management, analytics"
@@ -70,11 +70,11 @@ export function Login() {
   const handleExampleLogin = (email: string, password: string) => {
     setValue("email", email)
     setValue("password", password)
-    
+
     // Store user info based on email for the mock system
     let role = 'customer';
     let name = 'John Doe';
-    
+
     if (email === 'admin@example.com') {
       role = 'admin';
       name = 'Admin User';
@@ -82,12 +82,12 @@ export function Login() {
       role = 'staff';
       name = 'Staff Member';
     }
-    
+
     // Store in localStorage for the mock system
     localStorage.setItem('currentUserRole', role);
     localStorage.setItem('currentUserEmail', email);
     localStorage.setItem('currentUserName', name);
-    
+
     toast({
       title: "Credentials filled",
       description: "Click 'Sign In' to login with these credentials"
@@ -129,7 +129,7 @@ export function Login() {
                     id="email"
                     type="email"
                     placeholder="Enter your email"
-                    {...register("email", { 
+                    {...register("email", {
                       required: "Email is required",
                       pattern: {
                         value: /^\S+@\S+$/i,
@@ -173,8 +173,8 @@ export function Login() {
                   )}
                 </div>
 
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium py-2.5 transition-all duration-200 shadow-lg hover:shadow-xl"
                   disabled={isLoading}
                 >
@@ -185,8 +185,8 @@ export function Login() {
               <div className="mt-6 text-center">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Don't have an account?{" "}
-                  <Link 
-                    to="/register" 
+                  <Link
+                    to="/register"
                     className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
                   >
                     Sign up
@@ -212,7 +212,7 @@ export function Login() {
             {exampleLogins.map((example) => {
               const IconComponent = example.icon
               return (
-                <Card 
+                <Card
                   key={example.role}
                   className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 hover:shadow-lg transition-all duration-200 cursor-pointer group"
                   onClick={() => handleExampleLogin(example.email, example.password)}
@@ -273,9 +273,9 @@ export function Login() {
                       </div>
                     </div>
                     <div className="mt-4 pt-4 border-t border-gray-200/50 dark:border-gray-700/50">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
                         onClick={(e) => {
                           e.stopPropagation()

@@ -29,63 +29,14 @@ export interface DeviceModel {
 // Description: Get all available repair services
 // Endpoint: GET /api/services
 // Request: {}
-// Response: { services: RepairService[] }
-export const getRepairServices = () => {
-  // Mocking the response
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        services: [
-          {
-            _id: 'service1',
-            name: 'Screen Replacement',
-            description: 'Complete screen and digitizer replacement with warranty',
-            price: 199,
-            estimatedTime: '2-3 hours',
-            category: 'Display',
-            deviceTypes: ['iPhone', 'Samsung', 'Google Pixel'],
-            popularity: 95
-          },
-          {
-            _id: 'service2',
-            name: 'Battery Replacement',
-            description: 'High-quality battery replacement with 1-year warranty',
-            price: 89,
-            estimatedTime: '1-2 hours',
-            category: 'Power',
-            deviceTypes: ['iPhone', 'Samsung', 'Google Pixel'],
-            popularity: 88
-          },
-          {
-            _id: 'service3',
-            name: 'Camera Repair',
-            description: 'Camera module replacement and calibration',
-            price: 149,
-            estimatedTime: '2-4 hours',
-            category: 'Camera',
-            deviceTypes: ['iPhone', 'Samsung'],
-            popularity: 72
-          },
-          {
-            _id: 'service4',
-            name: 'Water Damage Repair',
-            description: 'Complete water damage assessment and repair',
-            price: 299,
-            estimatedTime: '1-3 days',
-            category: 'Emergency',
-            deviceTypes: ['iPhone', 'Samsung', 'Google Pixel'],
-            popularity: 65
-          }
-        ]
-      });
-    }, 500);
-  });
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.get('/api/services');
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.message || error.message);
-  // }
+// Response: { success: boolean, services: RepairService[] }
+export const getRepairServices = async () => {
+  try {
+    const response = await api.get('/api/services');
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Get all device brands and models

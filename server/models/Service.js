@@ -1,0 +1,64 @@
+const mongoose = require('mongoose');
+
+const serviceSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  description: {
+    type: String,
+    required: true
+  },
+  price: {
+    type: Number,
+    required: true,
+    min: 0
+  },
+  estimatedTime: {
+    type: String,
+    required: true
+  },
+  category: {
+    type: String,
+    required: true,
+    enum: ['Display', 'Power', 'Camera', 'Emergency', 'Hardware', 'Software']
+  },
+  deviceTypes: [{
+    type: String,
+    required: true
+  }],
+  popularity: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+    immutable: true
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
+}, {
+  versionKey: false
+});
+
+// Update the updatedAt field before saving
+serviceSchema.pre('save', function(next) {
+  if (!this.isNew) {
+    this.updatedAt = Date.now();
+  }
+  next();
+});
+
+const Service = mongoose.model('Service', serviceSchema);
+
+module.exports = Service;

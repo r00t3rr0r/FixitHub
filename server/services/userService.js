@@ -22,8 +22,16 @@ class UserService {
 
   static async getByEmail(email) {
     try {
-      return User.findOne({ email }).exec();
+      console.log(`UserService.getByEmail: Looking for user with email: ${email}`);
+      const user = await User.findOne({ email }).exec();
+      if (user) {
+        console.log(`UserService.getByEmail: Found user with email: ${email}, ID: ${user._id}`);
+      } else {
+        console.log(`UserService.getByEmail: No user found with email: ${email}`);
+      }
+      return user;
     } catch (err) {
+      console.error(`UserService.getByEmail: Database error while getting user by email ${email}:`, err);
       throw new Error(`Database error while getting the user by their email: ${err}`);
     }
   }
@@ -63,16 +71,28 @@ class UserService {
     if (!password) throw new Error('Password is required');
 
     try {
+      console.log(`UserService.authenticateWithPassword: Attempting to authenticate user: ${email}`);
       const user = await User.findOne({email}).exec();
-      if (!user) return null;
+      if (!user) {
+        console.log(`UserService.authenticateWithPassword: No user found with email: ${email}`);
+        return null;
+      }
 
+      console.log(`UserService.authenticateWithPassword: User found with email: ${email}, validating password...`);
       const passwordValid = await validatePassword(password, user.password);
-      if (!passwordValid) return null;
+      console.log(`UserService.authenticateWithPassword: Password validation result for ${email}: ${passwordValid}`);
+      
+      if (!passwordValid) {
+        console.log(`UserService.authenticateWithPassword: Password validation failed for user: ${email}`);
+        return null;
+      }
 
+      console.log(`UserService.authenticateWithPassword: Authentication successful for user: ${email}`);
       user.lastLoginAt = Date.now();
       const updatedUser = await user.save();
       return updatedUser;
     } catch (err) {
+      console.error(`UserService.authenticateWithPassword: Database error while authenticating user ${email}:`, err);
       throw new Error(`Database error while authenticating user ${email} with password: ${err}`);
     }
   }
@@ -81,12 +101,17 @@ class UserService {
     if (!email) throw new Error('Email is required');
     if (!password) throw new Error('Password is required');
 
-    console.log('UserService: Creating user with email:', email);
+    console.log('UserService.create: Creating user with email:', email, 'role:', role);
 
     const existingUser = await UserService.getByEmail(email);
-    if (existingUser) throw new Error('User with this email already exists');
+    if (existingUser) {
+      console.log(`UserService.create: User with email ${email} already exists`);
+      throw new Error('User with this email already exists');
+    }
 
+    console.log(`UserService.create: Generating password hash for user: ${email}`);
     const hash = await generatePasswordHash(password);
+    console.log(`UserService.create: Password hash generated for user: ${email}`);
 
     try {
       // Generate full name from first and last name
@@ -104,11 +129,12 @@ class UserService {
         avatar: `https://via.placeholder.com/150x150/3b82f6/ffffff?text=${firstName.charAt(0)}${lastName.charAt(0)}`,
       });
 
+      console.log(`UserService.create: Saving user to database: ${email}`);
       await user.save();
-      console.log('UserService: User created successfully');
+      console.log(`UserService.create: User created successfully with ID: ${user._id}`);
       return user;
     } catch (err) {
-      console.error('UserService: Error creating user:', err);
+      console.error('UserService.create: Error creating user:', err);
       throw new Error(`Database error while creating new user: ${err}`);
     }
   }

@@ -7,6 +7,8 @@ const MongoStore = require('connect-mongo');
 const basicRoutes = require("./routes/index");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
+const serviceRoutes = require("./routes/serviceRoutes");
+const seedRoutes = require("./routes/seedRoutes");
 const { connectDB } = require("./config/database");
 const cors = require("cors");
 
@@ -50,6 +52,10 @@ app.use(basicRoutes);
 app.use('/api/auth', authRoutes);
 // User Routes
 app.use('/api/users', userRoutes);
+// Service Routes
+app.use('/api/services', serviceRoutes);
+// Seed Routes
+app.use('/api/seed', seedRoutes);
 
 // If no routes handled the request, it's a 404
 app.use((req, res, next) => {
