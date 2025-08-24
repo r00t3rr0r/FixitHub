@@ -93,7 +93,6 @@ export const getRepairServices = () => {
 // Request: {}
 // Response: { brands: DeviceBrand[] }
 export const getDeviceBrands = () => {
-  // Mocking the response
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve({
@@ -101,27 +100,27 @@ export const getDeviceBrands = () => {
           {
             _id: 'brand1',
             name: 'Apple',
-            logo: 'https://via.placeholder.com/100x100/000000/ffffff?text=Apple',
+            logo: 'https://picsum.photos/100/100?random=20',
             models: [
               {
                 _id: 'model1',
                 name: 'iPhone 15 Pro Max',
                 brand: 'Apple',
-                image: 'https://via.placeholder.com/200x300/3b82f6/ffffff?text=iPhone+15+Pro+Max',
+                image: 'https://picsum.photos/200/300?random=21',
                 supportedServices: ['service1', 'service2', 'service3']
               },
               {
                 _id: 'model2',
                 name: 'iPhone 15 Pro',
                 brand: 'Apple',
-                image: 'https://via.placeholder.com/200x300/1e40af/ffffff?text=iPhone+15+Pro',
+                image: 'https://picsum.photos/200/300?random=22',
                 supportedServices: ['service1', 'service2', 'service3']
               },
               {
                 _id: 'model3',
                 name: 'iPhone 14 Pro',
                 brand: 'Apple',
-                image: 'https://via.placeholder.com/200x300/1e3a8a/ffffff?text=iPhone+14+Pro',
+                image: 'https://picsum.photos/200/300?random=23',
                 supportedServices: ['service1', 'service2', 'service3']
               }
             ]
@@ -129,20 +128,20 @@ export const getDeviceBrands = () => {
           {
             _id: 'brand2',
             name: 'Samsung',
-            logo: 'https://via.placeholder.com/100x100/1f2937/ffffff?text=Samsung',
+            logo: 'https://picsum.photos/100/100?random=24',
             models: [
               {
                 _id: 'model4',
                 name: 'Galaxy S24 Ultra',
                 brand: 'Samsung',
-                image: 'https://via.placeholder.com/200x300/10b981/ffffff?text=Galaxy+S24+Ultra',
+                image: 'https://picsum.photos/200/300?random=25',
                 supportedServices: ['service1', 'service2', 'service3']
               },
               {
                 _id: 'model5',
                 name: 'Galaxy S23',
                 brand: 'Samsung',
-                image: 'https://via.placeholder.com/200x300/059669/ffffff?text=Galaxy+S23',
+                image: 'https://picsum.photos/200/300?random=26',
                 supportedServices: ['service1', 'service2', 'service3']
               }
             ]
@@ -150,13 +149,13 @@ export const getDeviceBrands = () => {
           {
             _id: 'brand3',
             name: 'Google',
-            logo: 'https://via.placeholder.com/100x100/dc2626/ffffff?text=Google',
+            logo: 'https://picsum.photos/100/100?random=27',
             models: [
               {
                 _id: 'model6',
                 name: 'Pixel 8 Pro',
                 brand: 'Google',
-                image: 'https://via.placeholder.com/200x300/8b5cf6/ffffff?text=Pixel+8+Pro',
+                image: 'https://picsum.photos/200/300?random=28',
                 supportedServices: ['service1', 'service2', 'service4']
               }
             ]

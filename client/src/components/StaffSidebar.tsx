@@ -21,9 +21,15 @@ const staffNavigation = [
     current: false
   },
   {
-    name: "Assigned Orders",
+    name: "My Orders",
     href: "/staff/orders",
     icon: Package,
+    current: false
+  },
+  {
+    name: "Messages",
+    href: "/messages",
+    icon: MessageSquare,
     current: false
   },
   {

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
 import { getUserProfile, updateUserProfile, uploadAvatar, UserProfile } from "@/api/user"
@@ -16,7 +17,10 @@ import {
   Bell,
   Shield,
   Camera,
-  Save
+  Save,
+  CreditCard,
+  FileText,
+  Copy
 } from "lucide-react"
 
 export function Profile() {
@@ -24,6 +28,7 @@ export function Profile() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [sameAsInvoice, setSameAsInvoice] = useState(true)
   const { toast } = useToast()
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm()
@@ -36,15 +41,27 @@ export function Profile() {
         const profileData = (response as any).user
         setProfile(profileData)
 
-        // Set form values
-        setValue("name", profileData.name)
-        setValue("email", profileData.email)
-        setValue("phone", profileData.phone)
-        setValue("address.street", profileData.address.street)
-        setValue("address.city", profileData.address.city)
-        setValue("address.state", profileData.address.state)
-        setValue("address.zipCode", profileData.address.zipCode)
-        setValue("address.country", profileData.address.country)
+        // Set form values with proper field names
+        setValue("firstName", profileData.firstName || '')
+        setValue("lastName", profileData.lastName || '')
+        setValue("email", profileData.email || '')
+        setValue("phone", profileData.phone || '')
+
+        // Invoice address with proper field structure
+        setValue("invoiceAddress.street", profileData.invoiceAddress?.street || '')
+        setValue("invoiceAddress.city", profileData.invoiceAddress?.city || '')
+        setValue("invoiceAddress.state", profileData.invoiceAddress?.state || '')
+        setValue("invoiceAddress.zipCode", profileData.invoiceAddress?.zipCode || '')
+        setValue("invoiceAddress.country", profileData.invoiceAddress?.country || '')
+
+        // Payment address with proper field structure
+        setValue("paymentAddress.street", profileData.paymentAddress?.street || '')
+        setValue("paymentAddress.city", profileData.paymentAddress?.city || '')
+        setValue("paymentAddress.state", profileData.paymentAddress?.state || '')
+        setValue("paymentAddress.zipCode", profileData.paymentAddress?.zipCode || '')
+        setValue("paymentAddress.country", profileData.paymentAddress?.country || '')
+
+        setSameAsInvoice(profileData.paymentAddress?.sameAsInvoice ?? true)
       } catch (error) {
         console.error("Error fetching profile:", error)
         toast({
@@ -64,7 +81,16 @@ export function Profile() {
     try {
       setSaving(true)
       console.log("Updating profile:", data)
-      const response = await updateUserProfile(data)
+      
+      const profileData = {
+        ...data,
+        paymentAddress: {
+          ...data.paymentAddress,
+          sameAsInvoice
+        }
+      }
+      
+      const response = await updateUserProfile(profileData)
       setProfile((response as any).user)
 
       toast({
@@ -116,6 +142,21 @@ export function Profile() {
     }
   }
 
+  const copyInvoiceToPayment = () => {
+    if (!profile) return
+    
+    setValue("paymentAddress.street", profile.invoiceAddress.street)
+    setValue("paymentAddress.city", profile.invoiceAddress.city)
+    setValue("paymentAddress.state", profile.invoiceAddress.state)
+    setValue("paymentAddress.zipCode", profile.invoiceAddress.zipCode)
+    setValue("paymentAddress.country", profile.invoiceAddress.country)
+    
+    toast({
+      title: "Address copied",
+      description: "Invoice address has been copied to payment address"
+    })
+  }
+
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
@@ -160,7 +201,7 @@ export function Profile() {
               <Avatar className="w-24 h-24">
                 <AvatarImage src={profile.avatar} />
                 <AvatarFallback className="text-lg">
-                  {profile.name.split(' ').map(n => n[0]).join('')}
+                  {profile.firstName?.[0]}{profile.lastName?.[0]}
                 </AvatarFallback>
               </Avatar>
               <div>
@@ -203,13 +244,24 @@ export function Profile() {
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
+                <Label htmlFor="firstName">First Name</Label>
                 <Input
-                  id="name"
-                  {...register("name", { required: "Name is required" })}
+                  id="firstName"
+                  {...register("firstName", { required: "First name is required" })}
                 />
-                {errors.name && (
-                  <p className="text-sm text-destructive">{errors.name.message as string}</p>
+                {errors.firstName && (
+                  <p className="text-sm text-destructive">{errors.firstName.message as string}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  {...register("lastName", { required: "Last name is required" })}
+                />
+                {errors.lastName && (
+                  <p className="text-sm text-destructive">{errors.lastName.message as string}</p>
                 )}
               </div>
 
@@ -238,56 +290,152 @@ export function Profile() {
           </CardContent>
         </Card>
 
-        {/* Address */}
+        {/* Invoice Address */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
-              Address
+              <FileText className="h-5 w-5" />
+              Invoice Address
             </CardTitle>
+            <CardDescription>
+              Address used for billing and invoices
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="street">Street Address</Label>
+              <Label htmlFor="invoiceStreet">Street Address</Label>
               <Input
-                id="street"
-                {...register("address.street")}
+                id="invoiceStreet"
+                {...register("invoiceAddress.street")}
               />
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
+                <Label htmlFor="invoiceCity">City</Label>
                 <Input
-                  id="city"
-                  {...register("address.city")}
+                  id="invoiceCity"
+                  {...register("invoiceAddress.city")}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="state">State</Label>
+                <Label htmlFor="invoiceState">State</Label>
                 <Input
-                  id="state"
-                  {...register("address.state")}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="zipCode">ZIP Code</Label>
-                <Input
-                  id="zipCode"
-                  {...register("address.zipCode")}
+                  id="invoiceState"
+                  {...register("invoiceAddress.state")}
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="country">Country</Label>
-              <Input
-                id="country"
-                {...register("address.country")}
-              />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="invoiceZipCode">ZIP Code</Label>
+                <Input
+                  id="invoiceZipCode"
+                  {...register("invoiceAddress.zipCode")}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="invoiceCountry">Country</Label>
+                <Input
+                  id="invoiceCountry"
+                  {...register("invoiceAddress.country")}
+                />
+              </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Payment Address */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Payment Address
+            </CardTitle>
+            <CardDescription>
+              Address used for payment processing and shipping
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="sameAsInvoice"
+                  checked={sameAsInvoice}
+                  onCheckedChange={(checked) => {
+                    setSameAsInvoice(checked as boolean)
+                    if (checked) {
+                      copyInvoiceToPayment()
+                    }
+                  }}
+                />
+                <Label htmlFor="sameAsInvoice" className="text-sm font-medium">
+                  Same as invoice address
+                </Label>
+              </div>
+              {!sameAsInvoice && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={copyInvoiceToPayment}
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy from invoice
+                </Button>
+              )}
+            </div>
+
+            {!sameAsInvoice && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="paymentStreet">Street Address</Label>
+                  <Input
+                    id="paymentStreet"
+                    {...register("paymentAddress.street")}
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="paymentCity">City</Label>
+                    <Input
+                      id="paymentCity"
+                      {...register("paymentAddress.city")}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="paymentState">State</Label>
+                    <Input
+                      id="paymentState"
+                      {...register("paymentAddress.state")}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="paymentZipCode">ZIP Code</Label>
+                    <Input
+                      id="paymentZipCode"
+                      {...register("paymentAddress.zipCode")}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="paymentCountry">Country</Label>
+                    <Input
+                      id="paymentCountry"
+                      {...register("paymentAddress.country")}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 

@@ -35,89 +35,84 @@ export interface Cart {
   discount?: number;
 }
 
+const mockProducts = [
+  {
+    _id: 'prod1',
+    name: 'Premium Screen Protector',
+    description: 'Ultra-clear tempered glass with 9H hardness rating',
+    price: 29.99,
+    originalPrice: 39.99,
+    images: ['https://picsum.photos/400/400?random=1', 'https://picsum.photos/400/400?random=2'],
+    category: 'Accessories',
+    brand: 'TechGuard',
+    rating: 4.8,
+    reviewCount: 156,
+    inStock: true,
+    stockCount: 45,
+    features: ['9H Hardness', 'Anti-fingerprint', 'Easy installation'],
+    compatibility: ['iPhone 15', 'iPhone 14', 'iPhone 13']
+  },
+  {
+    _id: 'prod2',
+    name: 'Wireless Charging Pad',
+    description: 'Fast wireless charging with LED indicator',
+    price: 49.99,
+    images: ['https://picsum.photos/400/400?random=3'],
+    category: 'Chargers',
+    brand: 'PowerTech',
+    rating: 4.6,
+    reviewCount: 89,
+    inStock: true,
+    stockCount: 23,
+    features: ['15W Fast Charging', 'LED Indicator', 'Non-slip base'],
+    compatibility: ['iPhone', 'Samsung', 'Google Pixel']
+  },
+  {
+    _id: 'prod3',
+    name: 'Rugged Phone Case',
+    description: 'Military-grade protection with shock absorption',
+    price: 39.99,
+    images: ['https://picsum.photos/400/400?random=4'],
+    category: 'Cases',
+    brand: 'ArmorShield',
+    rating: 4.9,
+    reviewCount: 234,
+    inStock: true,
+    stockCount: 67,
+    features: ['Drop protection', 'Shock absorption', 'Raised edges'],
+    compatibility: ['iPhone 15 Pro', 'iPhone 15']
+  },
+  {
+    _id: 'prod4',
+    name: 'USB-C Cable',
+    description: 'High-speed charging and data transfer cable',
+    price: 19.99,
+    images: ['https://picsum.photos/400/400?random=5'],
+    category: 'Cables',
+    brand: 'SpeedLink',
+    rating: 4.5,
+    reviewCount: 78,
+    inStock: false,
+    stockCount: 0,
+    features: ['Fast charging', 'Data sync', 'Durable braided design'],
+    compatibility: ['Samsung', 'Google Pixel', 'iPad Pro']
+  }
+];
+
 // Description: Get all shop products
 // Endpoint: GET /api/shop/products
 // Request: { category?: string, brand?: string, search?: string, page?: number, limit?: number }
 // Response: { products: Product[], totalPages: number, currentPage: number }
 export const getProducts = (filters: any = {}) => {
-  // Mocking the response
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve({
-        products: [
-          {
-            _id: 'prod1',
-            name: 'Premium Screen Protector',
-            description: 'Ultra-clear tempered glass with 9H hardness rating',
-            price: 29.99,
-            originalPrice: 39.99,
-            images: ['https://via.placeholder.com/400x400/3b82f6/ffffff?text=Screen+Protector', 'https://via.placeholder.com/400x400/1e40af/ffffff?text=Protector+2'],
-            category: 'Accessories',
-            brand: 'TechGuard',
-            rating: 4.8,
-            reviewCount: 156,
-            inStock: true,
-            stockCount: 45,
-            features: ['9H Hardness', 'Anti-fingerprint', 'Easy installation'],
-            compatibility: ['iPhone 15', 'iPhone 14', 'iPhone 13']
-          },
-          {
-            _id: 'prod2',
-            name: 'Wireless Charging Pad',
-            description: 'Fast wireless charging with LED indicator',
-            price: 49.99,
-            images: ['https://via.placeholder.com/400x400/10b981/ffffff?text=Wireless+Charger'],
-            category: 'Chargers',
-            brand: 'PowerTech',
-            rating: 4.6,
-            reviewCount: 89,
-            inStock: true,
-            stockCount: 23,
-            features: ['15W Fast Charging', 'LED Indicator', 'Non-slip base'],
-            compatibility: ['iPhone', 'Samsung', 'Google Pixel']
-          },
-          {
-            _id: 'prod3',
-            name: 'Rugged Phone Case',
-            description: 'Military-grade protection with shock absorption',
-            price: 39.99,
-            images: ['https://via.placeholder.com/400x400/8b5cf6/ffffff?text=Phone+Case'],
-            category: 'Cases',
-            brand: 'ArmorShield',
-            rating: 4.9,
-            reviewCount: 234,
-            inStock: true,
-            stockCount: 67,
-            features: ['Drop protection', 'Shock absorption', 'Raised edges'],
-            compatibility: ['iPhone 15 Pro', 'iPhone 15']
-          },
-          {
-            _id: 'prod4',
-            name: 'USB-C Cable',
-            description: 'High-speed charging and data transfer cable',
-            price: 19.99,
-            images: ['https://via.placeholder.com/400x400/f59e0b/ffffff?text=USB-C+Cable'],
-            category: 'Cables',
-            brand: 'SpeedLink',
-            rating: 4.5,
-            reviewCount: 78,
-            inStock: false,
-            stockCount: 0,
-            features: ['Fast charging', 'Data sync', 'Durable braided design'],
-            compatibility: ['Samsung', 'Google Pixel', 'iPad Pro']
-          }
-        ],
+        products: mockProducts,
         totalPages: 3,
         currentPage: 1
       });
     }, 500);
   });
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.get('/api/shop/products', { params: filters });
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.message || error.message);
-  // }
 };
 
 // Description: Get shopping cart contents
@@ -125,7 +120,6 @@ export const getProducts = (filters: any = {}) => {
 // Request: {}
 // Response: { cart: Cart }
 export const getCart = () => {
-  // Mocking the response
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve({
@@ -135,19 +129,8 @@ export const getCart = () => {
             {
               _id: 'item1',
               product: {
-                _id: 'prod1',
-                name: 'Premium Screen Protector',
-                description: 'Ultra-clear tempered glass with 9H hardness rating',
-                price: 29.99,
-                images: ['https://via.placeholder.com/400x400/3b82f6/ffffff?text=Screen+Protector'],
-                category: 'Accessories',
-                brand: 'TechGuard',
-                rating: 4.8,
-                reviewCount: 156,
-                inStock: true,
-                stockCount: 45,
-                features: ['9H Hardness', 'Anti-fingerprint', 'Easy installation'],
-                compatibility: ['iPhone 15', 'iPhone 14', 'iPhone 13']
+                ...mockProducts[0],
+                images: ['https://picsum.photos/400/400?random=1']
               },
               quantity: 2,
               addedAt: '2024-01-10T10:30:00Z'
@@ -155,19 +138,8 @@ export const getCart = () => {
             {
               _id: 'item2',
               product: {
-                _id: 'prod2',
-                name: 'Wireless Charging Pad',
-                description: 'Fast wireless charging with LED indicator',
-                price: 49.99,
-                images: ['https://via.placeholder.com/400x400/10b981/ffffff?text=Wireless+Charger'],
-                category: 'Chargers',
-                brand: 'PowerTech',
-                rating: 4.6,
-                reviewCount: 89,
-                inStock: true,
-                stockCount: 23,
-                features: ['15W Fast Charging', 'LED Indicator', 'Non-slip base'],
-                compatibility: ['iPhone', 'Samsung', 'Google Pixel']
+                ...mockProducts[1],
+                images: ['https://picsum.photos/400/400?random=3']
               },
               quantity: 1,
               addedAt: '2024-01-10T11:15:00Z'
@@ -183,12 +155,6 @@ export const getCart = () => {
       });
     }, 500);
   });
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.get('/api/shop/cart');
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.message || error.message);
-  // }
 };
 
 // Description: Add item to cart

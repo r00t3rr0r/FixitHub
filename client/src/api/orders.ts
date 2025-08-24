@@ -30,7 +30,6 @@ export interface AddOnService {
 // Request: {}
 // Response: { orders: Order[] }
 export const getOrders = () => {
-  // Mocking the response
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve({
@@ -54,7 +53,7 @@ export const getOrders = () => {
             estimatedCompletion: '2024-01-15',
             totalCost: 299,
             createdAt: '2024-01-10',
-            photos: ['https://via.placeholder.com/400x300/3b82f6/ffffff?text=iPhone+14+Pro'],
+            photos: ['https://picsum.photos/400/300?random=10'],
             customerNotes: 'Phone dropped, screen cracked',
             staffNotes: ['Diagnostic completed', 'Parts ordered'],
             progress: 60
@@ -69,7 +68,7 @@ export const getOrders = () => {
             estimatedCompletion: '2024-01-08',
             totalCost: 150,
             createdAt: '2024-01-05',
-            photos: ['https://via.placeholder.com/400x300/10b981/ffffff?text=Galaxy+S23'],
+            photos: ['https://picsum.photos/400/300?random=11'],
             customerNotes: 'Camera not focusing properly',
             staffNotes: ['Camera module replaced', 'Quality check passed'],
             progress: 100
@@ -78,12 +77,6 @@ export const getOrders = () => {
       });
     }, 500);
   });
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.get('/api/orders');
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.message || error.message);
-  // }
 };
 
 // Description: Create a new repair order
@@ -114,7 +107,6 @@ export const createOrder = (orderData: any) => {
 // Request: {}
 // Response: { order: Order }
 export const getOrderById = (orderId: string) => {
-  // Mocking the response
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve({
@@ -137,7 +129,7 @@ export const getOrderById = (orderId: string) => {
           estimatedCompletion: '2024-01-15',
           totalCost: 299,
           createdAt: '2024-01-10',
-          photos: ['https://via.placeholder.com/400x300/3b82f6/ffffff?text=iPhone+14+Pro'],
+          photos: ['https://picsum.photos/400/300?random=10'],
           customerNotes: 'Phone dropped, screen cracked',
           staffNotes: ['Diagnostic completed', 'Parts ordered', 'Screen replacement in progress'],
           progress: 60
@@ -145,10 +137,4 @@ export const getOrderById = (orderId: string) => {
       });
     }, 500);
   });
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.get(`/api/orders/${orderId}`);
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.message || error.message);
-  // }
 };

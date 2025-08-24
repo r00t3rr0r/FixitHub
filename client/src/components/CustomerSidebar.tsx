@@ -6,7 +6,8 @@ import {
   Package,
   ShoppingCart,
   User,
-  BookOpen
+  BookOpen,
+  MessageSquare
 } from "lucide-react"
 
 const customerNavigation = [
@@ -26,6 +27,12 @@ const customerNavigation = [
     name: "My Orders",
     href: "/orders",
     icon: Package,
+    current: false
+  },
+  {
+    name: "Messages",
+    href: "/messages",
+    icon: MessageSquare,
     current: false
   },
   {

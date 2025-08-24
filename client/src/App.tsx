@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
 import { ThemeProvider } from "./components/ui/theme-provider"
 import { Toaster } from "./components/ui/toaster"
 import { AuthProvider } from "./contexts/AuthContext"
+import { Home } from "./pages/Home"
 import { Login } from "./pages/Login"
 import { Register } from "./pages/Register"
 import { ProtectedRoute } from "./components/ProtectedRoute"
@@ -10,12 +11,18 @@ import { BlankPage } from "./pages/BlankPage"
 import { Dashboard } from "./pages/Dashboard"
 import { NewOrder } from "./pages/NewOrder"
 import { OrderTracking } from "./pages/OrderTracking"
+import { OrderDetails } from "./pages/OrderDetails"
+import { Messages } from "./pages/Messages"
 import { WebShop } from "./pages/WebShop"
 import { ShoppingCartPage } from "./pages/ShoppingCart"
 import { Profile } from "./pages/Profile"
 import { Blog } from "./pages/Blog"
 import { BlogPostPage } from "./pages/BlogPost"
 import { StaffDashboard } from "./pages/staff/StaffDashboard"
+import { StaffOrders } from "./pages/staff/StaffOrders"
+import { KnowledgeBase } from "./pages/staff/KnowledgeBase"
+import { TimeTracking } from "./pages/staff/TimeTracking"
+import { Schedule } from "./pages/staff/Schedule"
 import { AdminDashboard } from "./pages/admin/AdminDashboard"
 import { UserManagement } from "./pages/admin/UserManagement"
 import { OrderManagement } from "./pages/admin/OrderManagement"
@@ -40,18 +47,25 @@ function App() {
       <ThemeProvider defaultTheme="light" storageKey="ui-theme">
         <Router>
           <Routes>
+            <Route path="/home" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
               <Route path="new-order" element={<NewOrder />} />
               <Route path="orders" element={<OrderTracking />} />
+              <Route path="orders/:id" element={<OrderDetails />} />
+              <Route path="messages" element={<Messages />} />
               <Route path="shop" element={<WebShop />} />
               <Route path="cart" element={<ShoppingCartPage />} />
               <Route path="profile" element={<Profile />} />
               <Route path="blog" element={<Blog />} />
               <Route path="blog/:id" element={<BlogPostPage />} />
               <Route path="staff" element={<StaffDashboard />} />
+              <Route path="staff/orders" element={<StaffOrders />} />
+              <Route path="staff/knowledge-base" element={<KnowledgeBase />} />
+              <Route path="staff/time-tracking" element={<TimeTracking />} />
+              <Route path="staff/schedule" element={<Schedule />} />
               <Route path="admin" element={<AdminDashboard />} />
               <Route path="admin/users" element={<UserManagement />} />
               <Route path="admin/orders" element={<OrderManagement />} />
