@@ -1,327 +1,243 @@
-import { useState } from "react"
 import { Link, useLocation } from "react-router-dom"
-import { cn } from "@/lib/utils"
 import {
-  Home,
+  LayoutDashboard,
   Users,
   Package,
   ShoppingCart,
-  Settings,
+  Wrench,
   BarChart3,
-  Database,
-  Shield,
   FileText,
   Globe,
-  ChevronDown,
-  ChevronRight,
-  Wrench,
+  Search,
+  Settings,
+  Database,
+  Shield,
+  GitBranch,
   Stethoscope,
-  Cog,
-  CheckSquare,
-  UserCog,
+  Boxes,
+  CheckCircle,
+  UserCheck,
   DollarSign
 } from "lucide-react"
-import { Button } from "./ui/button"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible"
-
-const adminNavigation = [
-  {
-    name: "Admin Dashboard",
-    href: "/admin",
-    icon: Home,
-    current: false
-  },
-  {
-    name: "User Management",
-    href: "/admin/users",
-    icon: Users,
-    current: false
-  },
-  {
-    name: "Staff Management",
-    href: "/admin/staff",
-    icon: UserCog,
-    current: false
-  },
-  {
-    name: "Order Management",
-    href: "/admin/orders",
-    icon: Package,
-    current: false
-  },
-  {
-    name: "Web Shop Management",
-    href: "/admin/shop",
-    icon: ShoppingCart,
-    current: false
-  },
-  {
-    name: "Financial Management",
-    href: "/admin/financial",
-    icon: DollarSign,
-    current: false
-  },
-  {
-    name: "Analytics & Reports",
-    href: "/admin/analytics",
-    icon: BarChart3,
-    current: false
-  }
-]
-
-const repairProcessManagement = [
-  {
-    name: "Workflow Management",
-    href: "/admin/workflow",
-    icon: Wrench,
-    current: false
-  },
-  {
-    name: "Diagnostic Tools",
-    href: "/admin/diagnostics",
-    icon: Stethoscope,
-    current: false
-  },
-  {
-    name: "Parts Management",
-    href: "/admin/parts",
-    icon: Cog,
-    current: false
-  },
-  {
-    name: "Quality Control",
-    href: "/admin/quality",
-    icon: CheckSquare,
-    current: false
-  }
-]
-
-const contentManagement = [
-  {
-    name: "Blog Management",
-    href: "/admin/blog",
-    icon: FileText,
-    current: false
-  },
-  {
-    name: "Homepage Management",
-    href: "/admin/homepage",
-    icon: Globe,
-    current: false
-  },
-  {
-    name: "SEO Management",
-    href: "/admin/seo",
-    icon: Globe,
-    current: false
-  }
-]
-
-const systemSettings = [
-  {
-    name: "System Configuration",
-    href: "/admin/system",
-    icon: Settings,
-    current: false
-  },
-  {
-    name: "Database Management",
-    href: "/admin/database",
-    icon: Database,
-    current: false
-  },
-  {
-    name: "Security Settings",
-    href: "/admin/security",
-    icon: Shield,
-    current: false
-  }
-]
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import { Button } from "@/components/ui/button"
+import { useState } from "react"
 
 export function AdminSidebar() {
   const location = useLocation()
-  const [isRepairOpen, setIsRepairOpen] = useState(false)
-  const [isContentOpen, setIsContentOpen] = useState(false)
+  const [isManagementOpen, setIsManagementOpen] = useState(true)
   const [isSystemOpen, setIsSystemOpen] = useState(false)
 
+  const isActive = (path: string) => location.pathname === path
+
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-        {/* Main Navigation */}
-        <nav className="space-y-1">
-          {adminNavigation.map((item) => {
-            const isActive = location.pathname === item.href
-            return (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={cn(
-                  "group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 hover:bg-accent hover:text-accent-foreground",
-                  isActive
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <item.icon
-                  className={cn(
-                    "mr-3 h-5 w-5 transition-colors",
-                    isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
-                  )}
-                />
-                {item.name}
-              </Link>
-            )
-          })}
-        </nav>
+    <div className="w-64 bg-background border-r h-full overflow-y-auto">
+      <div className="p-4 space-y-2">
+        <Link to="/admin">
+          <Button
+            variant={isActive("/admin") ? "secondary" : "ghost"}
+            className="w-full justify-start"
+          >
+            <LayoutDashboard className="h-4 w-4 mr-2" />
+            Dashboard
+          </Button>
+        </Link>
 
-        {/* Repair Process Management Section */}
-        <div className="pt-4">
-          <Collapsible open={isRepairOpen} onOpenChange={setIsRepairOpen}>
-            <CollapsibleTrigger asChild>
+        <Collapsible open={isManagementOpen} onOpenChange={setIsManagementOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full justify-start">
+              <Package className="h-4 w-4 mr-2" />
+              Management
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-1 ml-4">
+            <Link to="/admin/users">
               <Button
-                variant="ghost"
-                className="w-full justify-between px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent"
+                variant={isActive("/admin/users") ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                size="sm"
               >
-                <div className="flex items-center">
-                  <Wrench className="mr-3 h-5 w-5" />
-                  Repair Process
-                </div>
-                {isRepairOpen ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
+                <Users className="h-4 w-4 mr-2" />
+                Users
               </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-1 mt-2">
-              {repairProcessManagement.map((item) => {
-                const isActive = location.pathname === item.href
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={cn(
-                      "group flex items-center px-6 py-2 text-sm font-medium rounded-lg transition-all duration-200 hover:bg-accent hover:text-accent-foreground",
-                      isActive
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <item.icon
-                      className={cn(
-                        "mr-3 h-4 w-4 transition-colors",
-                        isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
-                      )}
-                    />
-                    {item.name}
-                  </Link>
-                )
-              })}
-            </CollapsibleContent>
-          </Collapsible>
-        </div>
-
-        {/* Content Management Section */}
-        <div className="pt-2">
-          <Collapsible open={isContentOpen} onOpenChange={setIsContentOpen}>
-            <CollapsibleTrigger asChild>
+            </Link>
+            <Link to="/admin/orders">
               <Button
-                variant="ghost"
-                className="w-full justify-between px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent"
+                variant={isActive("/admin/orders") ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                size="sm"
               >
-                <div className="flex items-center">
-                  <FileText className="mr-3 h-5 w-5" />
-                  Content Management
-                </div>
-                {isContentOpen ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
+                <Package className="h-4 w-4 mr-2" />
+                Orders
               </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-1 mt-2">
-              {contentManagement.map((item) => {
-                const isActive = location.pathname === item.href
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={cn(
-                      "group flex items-center px-6 py-2 text-sm font-medium rounded-lg transition-all duration-200 hover:bg-accent hover:text-accent-foreground",
-                      isActive
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <item.icon
-                      className={cn(
-                        "mr-3 h-4 w-4 transition-colors",
-                        isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
-                      )}
-                    />
-                    {item.name}
-                  </Link>
-                )
-              })}
-            </CollapsibleContent>
-          </Collapsible>
-        </div>
-
-        {/* System Settings Section */}
-        <div className="pt-2">
-          <Collapsible open={isSystemOpen} onOpenChange={setIsSystemOpen}>
-            <CollapsibleTrigger asChild>
+            </Link>
+            <Link to="/admin/services">
               <Button
-                variant="ghost"
-                className="w-full justify-between px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent"
+                variant={isActive("/admin/services") ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                size="sm"
               >
-                <div className="flex items-center">
-                  <Settings className="mr-3 h-5 w-5" />
-                  System Settings
-                </div>
-                {isSystemOpen ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
+                <Wrench className="h-4 w-4 mr-2" />
+                Services
               </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-1 mt-2">
-              {systemSettings.map((item) => {
-                const isActive = location.pathname === item.href
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={cn(
-                      "group flex items-center px-6 py-2 text-sm font-medium rounded-lg transition-all duration-200 hover:bg-accent hover:text-accent-foreground",
-                      isActive
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <item.icon
-                      className={cn(
-                        "mr-3 h-4 w-4 transition-colors",
-                        isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
-                      )}
-                    />
-                    {item.name}
-                  </Link>
-                )
-              })}
-            </CollapsibleContent>
-          </Collapsible>
-        </div>
-      </div>
+            </Link>
+            <Link to="/admin/shop">
+              <Button
+                variant={isActive("/admin/shop") ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                size="sm"
+              >
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Web Shop
+              </Button>
+            </Link>
+            <Link to="/admin/staff">
+              <Button
+                variant={isActive("/admin/staff") ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                size="sm"
+              >
+                <UserCheck className="h-4 w-4 mr-2" />
+                Staff
+              </Button>
+            </Link>
+            <Link to="/admin/parts">
+              <Button
+                variant={isActive("/admin/parts") ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                size="sm"
+              >
+                <Boxes className="h-4 w-4 mr-2" />
+                Parts & Inventory
+              </Button>
+            </Link>
+            <Link to="/admin/quality">
+              <Button
+                variant={isActive("/admin/quality") ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                size="sm"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Quality Control
+              </Button>
+            </Link>
+            <Link to="/admin/workflow">
+              <Button
+                variant={isActive("/admin/workflow") ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                size="sm"
+              >
+                <GitBranch className="h-4 w-4 mr-2" />
+                Workflows
+              </Button>
+            </Link>
+          </CollapsibleContent>
+        </Collapsible>
 
-      <div className="p-4 border-t border-border">
-        <div className="text-xs text-muted-foreground text-center">
-          Device Repair Pro
-          <br />
-          Admin Portal
-        </div>
+        <Link to="/admin/analytics">
+          <Button
+            variant={isActive("/admin/analytics") ? "secondary" : "ghost"}
+            className="w-full justify-start"
+          >
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Analytics
+          </Button>
+        </Link>
+
+        <Link to="/admin/financial">
+          <Button
+            variant={isActive("/admin/financial") ? "secondary" : "ghost"}
+            className="w-full justify-start"
+          >
+            <DollarSign className="h-4 w-4 mr-2" />
+            Financial
+          </Button>
+        </Link>
+
+        <Link to="/admin/blog">
+          <Button
+            variant={isActive("/admin/blog") ? "secondary" : "ghost"}
+            className="w-full justify-start"
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Blog
+          </Button>
+        </Link>
+
+        <Link to="/admin/homepage">
+          <Button
+            variant={isActive("/admin/homepage") ? "secondary" : "ghost"}
+            className="w-full justify-start"
+          >
+            <Globe className="h-4 w-4 mr-2" />
+            Homepage
+          </Button>
+        </Link>
+
+        <Link to="/admin/seo">
+          <Button
+            variant={isActive("/admin/seo") ? "secondary" : "ghost"}
+            className="w-full justify-start"
+          >
+            <Search className="h-4 w-4 mr-2" />
+            SEO
+          </Button>
+        </Link>
+
+        <Link to="/admin/diagnostics">
+          <Button
+            variant={isActive("/admin/diagnostics") ? "secondary" : "ghost"}
+            className="w-full justify-start"
+          >
+            <Stethoscope className="h-4 w-4 mr-2" />
+            Diagnostics
+          </Button>
+        </Link>
+
+        <Collapsible open={isSystemOpen} onOpenChange={setIsSystemOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full justify-start">
+              <Settings className="h-4 w-4 mr-2" />
+              System
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-1 ml-4">
+            <Link to="/admin/system">
+              <Button
+                variant={isActive("/admin/system") ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                size="sm"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Configuration
+              </Button>
+            </Link>
+            <Link to="/admin/database">
+              <Button
+                variant={isActive("/admin/database") ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                size="sm"
+              >
+                <Database className="h-4 w-4 mr-2" />
+                Database
+              </Button>
+            </Link>
+            <Link to="/admin/security">
+              <Button
+                variant={isActive("/admin/security") ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                size="sm"
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                Security
+              </Button>
+            </Link>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
     </div>
   )

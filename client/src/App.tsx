@@ -27,6 +27,7 @@ import { AdminDashboard } from "./pages/admin/AdminDashboard"
 import { UserManagement } from "./pages/admin/UserManagement"
 import { OrderManagement } from "./pages/admin/OrderManagement"
 import { WebShopManagement } from "./pages/admin/WebShopManagement"
+import { ServiceManagement } from "./pages/admin/ServiceManagement"
 import { Analytics } from "./pages/admin/Analytics"
 import { BlogManagement } from "./pages/admin/BlogManagement"
 import { HomepageManagement } from "./pages/admin/HomepageManagement"
@@ -70,6 +71,7 @@ function App() {
               <Route path="admin/users" element={<UserManagement />} />
               <Route path="admin/orders" element={<OrderManagement />} />
               <Route path="admin/shop" element={<WebShopManagement />} />
+              <Route path="admin/services" element={<ServiceManagement />} />
               <Route path="admin/analytics" element={<Analytics />} />
               <Route path="admin/blog" element={<BlogManagement />} />
               <Route path="admin/homepage" element={<HomepageManagement />} />

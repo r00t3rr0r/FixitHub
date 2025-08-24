@@ -28,6 +28,38 @@ const serviceSchema = new mongoose.Schema({
     type: String,
     required: true
   }],
+  manufacturer: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  model: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  internalRepairInfo: {
+    type: String,
+    default: ''
+  },
+  externalRepairInfo: {
+    type: String,
+    default: ''
+  },
+  linkedKnowledgeBaseArticles: [{
+    articleId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Article'
+    },
+    title: {
+      type: String,
+      trim: true
+    },
+    url: {
+      type: String,
+      trim: true
+    }
+  }],
   popularity: {
     type: Number,
     default: 0,

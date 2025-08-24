@@ -8,6 +8,15 @@ export interface RepairService {
   estimatedTime: string;
   category: string;
   deviceTypes: string[];
+  manufacturer?: string;
+  model?: string;
+  internalRepairInfo?: string;
+  externalRepairInfo?: string;
+  linkedKnowledgeBaseArticles?: Array<{
+    articleId?: string;
+    title: string;
+    url: string;
+  }>;
   popularity: number;
 }
 
@@ -32,9 +41,102 @@ export interface DeviceModel {
 // Response: { success: boolean, services: RepairService[] }
 export const getRepairServices = async () => {
   try {
+    console.log('API: Fetching repair services from backend...');
     const response = await api.get('/api/services');
+    console.log('API: Successfully fetched repair services:', response.data);
     return response.data;
   } catch (error) {
+    console.error('API: Error fetching repair services:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Get single repair service by ID
+// Endpoint: GET /api/services/:id
+// Request: {}
+// Response: { success: boolean, service: RepairService }
+export const getRepairService = async (id: string) => {
+  try {
+    console.log('API: Fetching repair service with ID:', id);
+    const response = await api.get(`/api/services/${id}`);
+    console.log('API: Successfully fetched repair service:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('API: Error fetching repair service:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Create a new repair service (admin only)
+// Endpoint: POST /api/services
+// Request: { name: string, description: string, price: number, estimatedTime: string, category: string, deviceTypes: string[], manufacturer?: string, model?: string, internalRepairInfo?: string, externalRepairInfo?: string, linkedKnowledgeBaseArticles?: Array<{title: string, url: string}>, popularity?: number }
+// Response: { success: boolean, message: string, service: RepairService }
+export const createRepairService = async (serviceData: {
+  name: string;
+  description: string;
+  price: number;
+  estimatedTime: string;
+  category: string;
+  deviceTypes: string[];
+  manufacturer?: string;
+  model?: string;
+  internalRepairInfo?: string;
+  externalRepairInfo?: string;
+  linkedKnowledgeBaseArticles?: Array<{title: string, url: string}>;
+  popularity?: number;
+}) => {
+  try {
+    console.log('API: Creating repair service:', serviceData);
+    const response = await api.post('/api/services', serviceData);
+    console.log('API: Successfully created repair service:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('API: Error creating repair service:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Update an existing repair service (admin only)
+// Endpoint: PUT /api/services/:id
+// Request: { name?: string, description?: string, price?: number, estimatedTime?: string, category?: string, deviceTypes?: string[], manufacturer?: string, model?: string, internalRepairInfo?: string, externalRepairInfo?: string, linkedKnowledgeBaseArticles?: Array<{title: string, url: string}>, popularity?: number }
+// Response: { success: boolean, message: string, service: RepairService }
+export const updateRepairService = async (id: string, serviceData: {
+  name?: string;
+  description?: string;
+  price?: number;
+  estimatedTime?: string;
+  category?: string;
+  deviceTypes?: string[];
+  manufacturer?: string;
+  model?: string;
+  internalRepairInfo?: string;
+  externalRepairInfo?: string;
+  linkedKnowledgeBaseArticles?: Array<{title: string, url: string}>;
+  popularity?: number;
+}) => {
+  try {
+    console.log('API: Updating repair service with ID:', id, 'Data:', serviceData);
+    const response = await api.put(`/api/services/${id}`, serviceData);
+    console.log('API: Successfully updated repair service:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('API: Error updating repair service:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Delete a repair service (admin only)
+// Endpoint: DELETE /api/services/:id
+// Request: {}
+// Response: { success: boolean, message: string }
+export const deleteRepairService = async (id: string) => {
+  try {
+    console.log('API: Deleting repair service with ID:', id);
+    const response = await api.delete(`/api/services/${id}`);
+    console.log('API: Successfully deleted repair service:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('API: Error deleting repair service:', error);
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
