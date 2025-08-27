@@ -1,5 +1,14 @@
 // Load environment variables
 require("dotenv").config();
+
+// Add startup logging
+console.log('=== FixitHub Server Starting ===');
+console.log('Environment variables check:');
+console.log('- PORT:', process.env.PORT || 3000);
+console.log('- DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'Missing');
+console.log('- JWT_SECRET:', process.env.JWT_SECRET ? 'Set' : 'Missing');
+console.log('- REFRESH_TOKEN_SECRET:', process.env.REFRESH_TOKEN_SECRET ? 'Set' : 'Missing');
+
 const mongoose = require("mongoose");
 const express = require("express");
 const session = require("express-session");
@@ -12,27 +21,35 @@ const addOnServiceRoutes = require("./routes/addOnServiceRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const adminOrderRoutes = require("./routes/adminOrderRoutes");
+const messageRoutes = require("./routes/messageRoutes");
 const seedRoutes = require("./routes/seedRoutes");
 const inventoryRoutes = require("./routes/inventoryRoutes");
 const { connectDB } = require("./config/database");
 const SeedService = require("./services/seedService");
 const cors = require("cors");
+const path = require("path");
 
 if (!process.env.DATABASE_URL) {
   console.error("Error: DATABASE_URL variables in .env missing.");
   process.exit(-1);
 }
 
+console.log('Creating Express app...');
 const app = express();
 const port = process.env.PORT || 3000;
+
 // Pretty-print JSON responses
 app.enable('json spaces');
 // We want to be consistent with URL paths, so we enable strict routing
 app.enable('strict routing');
 
+console.log('Setting up middleware...');
 app.use(cors({}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Add request logging middleware
 app.use((req, res, next) => {
@@ -47,9 +64,10 @@ app.use((req, res, next) => {
 // Database connection and auto-seeding
 const initializeDatabase = async () => {
   try {
+    console.log('Connecting to database...');
     await connectDB();
     console.log('Database connected successfully');
-    
+
     // Auto-seed admin user if it doesn't exist
     console.log('Checking if admin user exists...');
     try {
@@ -85,12 +103,29 @@ const initializeDatabase = async () => {
     } catch (error) {
       console.error('Error seeding inventory:', error.message);
     }
+
+    console.log('Database initialization completed successfully');
   } catch (error) {
     console.error('Database initialization error:', error);
+    console.error('Stack trace:', error.stack);
     process.exit(1);
   }
 };
 
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  console.error('Stack trace:', error.stack);
+  process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
+console.log('Initializing database...');
 initializeDatabase();
 
 app.on("error", (error) => {
@@ -98,6 +133,7 @@ app.on("error", (error) => {
   console.error(error.stack);
 });
 
+console.log('Setting up routes...');
 // Basic Routes
 app.use(basicRoutes);
 // Authentication Routes
@@ -114,10 +150,14 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/orders', orderRoutes);
 // Admin Order Routes
 app.use('/api/admin/orders', adminOrderRoutes);
+// Message Routes
+app.use('/api/messages', messageRoutes);
 // Inventory Routes
 app.use('/api/inventory', inventoryRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
+
+console.log('Routes configured successfully');
 
 // If no routes handled the request, it's a 404
 app.use((req, res, next) => {
@@ -132,6 +172,13 @@ app.use((err, req, res, next) => {
   res.status(500).send("There was an error serving your request.");
 });
 
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:3000`);
+console.log(`Attempting to start server on port ${port}...`);
+app.listen(port, (error) => {
+  if (error) {
+    console.error('Failed to start server:', error);
+    console.error('Stack trace:', error.stack);
+    process.exit(1);
+  }
+  console.log(`✅ Server running successfully at http://localhost:${port}`);
+  console.log('=== FixitHub Server Ready ===');
 });

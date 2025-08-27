@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
 import { getOrderById, Order } from "@/api/orders"
-import { getConversationMessages, sendMessage } from "@/api/messages"
+import { getConversations, getConversationMessages, sendMessage, startConversation } from "@/api/messages"
 import { getAvailableStaff, assignStaffToOrder, StaffMember } from "@/api/adminOrders"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -50,6 +50,7 @@ export function OrderDetails() {
   const { id } = useParams<{ id: string }>()
   const [order, setOrder] = useState<Order | null>(null)
   const [messages, setMessages] = useState<any[]>([])
+  const [conversationId, setConversationId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [newMessage, setNewMessage] = useState("")
   const [sending, setSending] = useState(false)
@@ -65,13 +66,36 @@ export function OrderDetails() {
 
       try {
         console.log("Fetching order details:", id)
-        const [orderResponse, messagesResponse] = await Promise.all([
-          getOrderById(id),
-          getConversationMessages(`conv_${id}`)
-        ])
-
+        const orderResponse = await getOrderById(id)
         setOrder((orderResponse as any).order)
-        setMessages((messagesResponse as any).messages || [])
+
+        // Try to find existing conversation for this order
+        try {
+          const conversationsResponse = await getConversations()
+          const conversations = (conversationsResponse as any).conversations || []
+
+          // Find conversation for this order
+          const orderConversation = conversations.find((conv: any) =>
+            conv.orderId === id || conv.orderId._id === id
+          )
+
+          if (orderConversation) {
+            console.log("Found existing conversation:", orderConversation._id)
+            setConversationId(orderConversation._id)
+
+            // Fetch messages for this conversation
+            const messagesResponse = await getConversationMessages(orderConversation._id)
+            setMessages((messagesResponse as any).messages || [])
+          } else {
+            console.log("No conversation found for order:", id)
+            setMessages([])
+            setConversationId(null)
+          }
+        } catch (error) {
+          console.log("No conversations found or error fetching conversations:", error)
+          setMessages([])
+          setConversationId(null)
+        }
       } catch (error) {
         console.error("Error fetching order details:", error)
         toast({
@@ -105,14 +129,38 @@ export function OrderDetails() {
 
     try {
       setSending(true)
-      const response = await sendMessage(`conv_${id}`, newMessage)
-      setMessages([...messages, (response as any).message])
-      setNewMessage("")
-      toast({
-        title: "Message sent",
-        description: "Your message has been sent to the repair team"
-      })
+
+      let currentConversationId = conversationId
+
+      // If no conversation exists, create one first
+      if (!currentConversationId) {
+        console.log("Creating new conversation for order:", id)
+        const conversationResponse = await startConversation(id, newMessage)
+        currentConversationId = (conversationResponse as any).conversation._id
+        setConversationId(currentConversationId)
+
+        // Fetch the message that was created with the conversation
+        const messagesResponse = await getConversationMessages(currentConversationId)
+        setMessages((messagesResponse as any).messages || [])
+        setNewMessage("")
+
+        toast({
+          title: "Message sent",
+          description: "Your message has been sent to the repair team"
+        })
+      } else {
+        // Send message to existing conversation
+        const response = await sendMessage(currentConversationId, newMessage)
+        setMessages([...messages, (response as any).message])
+        setNewMessage("")
+
+        toast({
+          title: "Message sent",
+          description: "Your message has been sent to the repair team"
+        })
+      }
     } catch (error: any) {
+      console.error("Error sending message:", error)
       toast({
         title: "Error",
         description: error.message || "Failed to send message",

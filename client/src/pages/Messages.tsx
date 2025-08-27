@@ -274,9 +274,6 @@ export function Messages() {
                 {/* Message Input */}
                 <div className="border-t p-4">
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="sm">
-                      <Paperclip className="h-4 w-4" />
-                    </Button>
                     <Textarea
                       placeholder="Type your message..."
                       value={newMessage}
