@@ -77,8 +77,8 @@ export function OrderManagement() {
     if (searchTerm) {
       filtered = filtered.filter(order =>
         order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.customerId.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.customerId.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.deviceBrand.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.deviceModel.toLowerCase().includes(searchTerm.toLowerCase())
       )
@@ -99,7 +99,7 @@ export function OrderManagement() {
     try {
       setUpdating(orderId)
       await updateOrderStatus(orderId, newStatus)
-      
+
       setOrders(orders.map(order =>
         order._id === orderId ? { ...order, status: newStatus as any } : order
       ))
@@ -339,16 +339,16 @@ export function OrderManagement() {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="w-8 h-8">
-                          <AvatarImage src={order.customer.avatar} />
+                          <AvatarImage src={order.customerId.avatar} />
                           <AvatarFallback>
-                            {order.customer.name.split(' ').map(n => n[0]).join('')}
+                            {order.customerId.name.split(' ').map(n => n[0]).join('')}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium">{order.customer.name}</p>
+                          <p className="font-medium">{order.customerId.name}</p>
                           <p className="text-sm text-muted-foreground flex items-center gap-1">
                             <Mail className="h-3 w-3" />
-                            {order.customer.email}
+                            {order.customerId.email}
                           </p>
                         </div>
                       </div>
@@ -449,24 +449,24 @@ export function OrderManagement() {
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="flex items-center gap-3">
                       <Avatar className="w-12 h-12">
-                        <AvatarImage src={order.customer.avatar} />
+                        <AvatarImage src={order.customerId.avatar} />
                         <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white">
-                          {order.customer.name.split(' ').map(n => n[0]).join('')}
+                          {order.customerId.name.split(' ').map(n => n[0]).join('')}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-semibold">{order.customer.name}</p>
-                        <p className="text-sm text-slate-500">{order.customer.email}</p>
+                        <p className="font-semibold">{order.customerId.name}</p>
+                        <p className="text-sm text-slate-500">{order.customerId.email}</p>
                       </div>
                     </div>
                     <div className="space-y-2">
                       <p className="flex items-center gap-2 text-sm">
                         <Phone className="h-4 w-4 text-slate-400" />
-                        {order.customer.phone}
+                        {order.customerId.phone}
                       </p>
                       <p className="flex items-center gap-2 text-sm">
                         <Mail className="h-4 w-4 text-slate-400" />
-                        {order.customer.email}
+                        {order.customerId.email}
                       </p>
                     </div>
                   </div>

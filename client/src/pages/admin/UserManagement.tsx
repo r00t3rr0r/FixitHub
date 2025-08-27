@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react"
-import { useForm } from "react-hook-form"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -86,7 +85,15 @@ export function UserManagement() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const { toast } = useToast()
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateUserData>()
+  // Form state
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+    role: "customer" as "customer" | "staff" | "admin",
+    sendWelcomeEmail: false
+  })
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -136,11 +143,23 @@ export function UserManagement() {
     setFilteredUsers(filtered)
   }, [users, searchTerm, roleFilter, statusFilter])
 
-  const handleCreateUser = async (data: CreateUserData) => {
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault()
+
     try {
       setCreating(true)
-      console.log("Creating user:", data)
-      const response = await createUser(data)
+      console.log("Creating user:", formData)
+
+      const userData: CreateUserData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+        role: formData.role,
+        sendWelcomeEmail: formData.sendWelcomeEmail
+      }
+
+      const response = await createUser(userData)
 
       toast({
         title: "Success!",
@@ -149,9 +168,20 @@ export function UserManagement() {
 
       // Refresh users list
       const usersResponse = await getUsers()
-      setUsers((usersResponse as any).users || [])
+      const usersData = (usersResponse as any).users || []
+      setUsers(usersData)
+      setFilteredUsers(usersData)
+
+      // Reset form and close dialog
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        password: "",
+        role: "customer",
+        sendWelcomeEmail: false
+      })
       setShowCreateDialog(false)
-      reset()
     } catch (error: any) {
       console.error("Error creating user:", error)
       toast({
@@ -361,28 +391,26 @@ export function UserManagement() {
                 Add a new user to the system with role and permissions
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit(handleCreateUser)} className="space-y-4">
+            <form onSubmit={handleCreateUser} className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
                   <Input
                     id="name"
-                    {...register("name", { required: "Name is required" })}
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
                   />
-                  {errors.name && (
-                    <p className="text-sm text-destructive">{errors.name.message}</p>
-                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     type="email"
-                    {...register("email", { required: "Email is required" })}
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    required
                   />
-                  {errors.email && (
-                    <p className="text-sm text-destructive">{errors.email.message}</p>
-                  )}
                 </div>
               </div>
 
@@ -391,12 +419,18 @@ export function UserManagement() {
                   <Label htmlFor="phone">Phone</Label>
                   <Input
                     id="phone"
-                    {...register("phone")}
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
-                  <Select onValueChange={(value) => register("role").onChange({ target: { value } })}>
+                  <Select
+                    value={formData.role}
+                    onValueChange={(value: "customer" | "staff" | "admin") =>
+                      setFormData({ ...formData, role: value })
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
@@ -414,17 +448,19 @@ export function UserManagement() {
                 <Input
                   id="password"
                   type="password"
-                  {...register("password", { required: "Password is required" })}
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  required
                 />
-                {errors.password && (
-                  <p className="text-sm text-destructive">{errors.password.message}</p>
-                )}
               </div>
 
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="sendWelcomeEmail"
-                  {...register("sendWelcomeEmail")}
+                  checked={formData.sendWelcomeEmail}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, sendWelcomeEmail: checked as boolean })
+                  }
                 />
                 <Label htmlFor="sendWelcomeEmail">Send welcome email</Label>
               </div>
@@ -702,7 +738,7 @@ export function UserManagement() {
                           <DropdownMenuSeparator />
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 className="text-destructive"
                                 onSelect={(e) => e.preventDefault()}
                               >

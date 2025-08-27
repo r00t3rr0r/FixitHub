@@ -8,8 +8,12 @@ const basicRoutes = require("./routes/index");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const serviceRoutes = require("./routes/serviceRoutes");
+const addOnServiceRoutes = require("./routes/addOnServiceRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const orderRoutes = require("./routes/orderRoutes");
+const adminOrderRoutes = require("./routes/adminOrderRoutes");
 const seedRoutes = require("./routes/seedRoutes");
+const inventoryRoutes = require("./routes/inventoryRoutes");
 const { connectDB } = require("./config/database");
 const SeedService = require("./services/seedService");
 const cors = require("cors");
@@ -63,6 +67,24 @@ const initializeDatabase = async () => {
     } catch (error) {
       console.error('Error seeding services:', error.message);
     }
+
+    // Auto-seed add-on services if they don't exist
+    console.log('Checking if add-on services exist...');
+    try {
+      const addOnsSeedResult = await SeedService.seedAddOnServices();
+      console.log('Add-on services seeding result:', addOnsSeedResult.message);
+    } catch (error) {
+      console.error('Error seeding add-on services:', error.message);
+    }
+
+    // Auto-seed inventory if it doesn't exist
+    console.log('Checking if inventory exists...');
+    try {
+      const inventorySeedResult = await SeedService.seedInventory();
+      console.log('Inventory seeding result:', inventorySeedResult.message);
+    } catch (error) {
+      console.error('Error seeding inventory:', error.message);
+    }
   } catch (error) {
     console.error('Database initialization error:', error);
     process.exit(1);
@@ -84,8 +106,16 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 // Service Routes
 app.use('/api/services', serviceRoutes);
+// Add-on Service Routes
+app.use('/api/addons', addOnServiceRoutes);
 // Admin Routes
 app.use('/api/admin', adminRoutes);
+// Order Routes
+app.use('/api/orders', orderRoutes);
+// Admin Order Routes
+app.use('/api/admin/orders', adminOrderRoutes);
+// Inventory Routes
+app.use('/api/inventory', inventoryRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 

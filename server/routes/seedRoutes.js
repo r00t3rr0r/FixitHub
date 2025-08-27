@@ -1,40 +1,105 @@
 const express = require('express');
-const SeedService = require('../services/seedService.js');
+const SeedService = require('../services/seedService');
 
 const router = express.Router();
 
-// POST /api/seed/admin - Seed admin user
+// Seed admin user
 router.post('/admin', async (req, res) => {
+  console.log('Seed: Admin user seeding request received');
+
   try {
-    console.log('POST /api/seed/admin - Starting admin user seeding');
-    
     const result = await SeedService.seedAdmin();
-    
-    console.log('POST /api/seed/admin - Admin seeding completed successfully');
-    res.json(result);
+    return res.status(200).json(result);
   } catch (error) {
-    console.error('POST /api/seed/admin - Error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
+    console.error('Seed: Error seeding admin user:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to seed admin user'
     });
   }
 });
 
-// POST /api/seed/services - Seed repair services
+// Seed services
 router.post('/services', async (req, res) => {
+  console.log('Seed: Services seeding request received');
+
   try {
-    console.log('POST /api/seed/services - Starting services seeding');
-    
     const result = await SeedService.seedServices();
-    
-    console.log('POST /api/seed/services - Services seeding completed successfully');
-    res.json(result);
+    return res.status(200).json(result);
   } catch (error) {
-    console.error('POST /api/seed/services - Error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
+    console.error('Seed: Error seeding services:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to seed services'
+    });
+  }
+});
+
+// Seed add-on services
+router.post('/addons', async (req, res) => {
+  console.log('Seed: Add-on services seeding request received');
+
+  try {
+    const result = await SeedService.seedAddOnServices();
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Seed: Error seeding add-on services:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to seed add-on services'
+    });
+  }
+});
+
+// Seed inventory
+router.post('/inventory', async (req, res) => {
+  console.log('Seed: Inventory seeding request received');
+
+  try {
+    const result = await SeedService.seedInventory();
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Seed: Error seeding inventory:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to seed inventory'
+    });
+  }
+});
+
+// Seed all data
+router.post('/all', async (req, res) => {
+  console.log('Seed: All data seeding request received');
+
+  try {
+    const results = [];
+
+    // Seed admin
+    const adminResult = await SeedService.seedAdmin();
+    results.push({ type: 'admin', ...adminResult });
+
+    // Seed services
+    const servicesResult = await SeedService.seedServices();
+    results.push({ type: 'services', ...servicesResult });
+
+    // Seed add-on services
+    const addOnsResult = await SeedService.seedAddOnServices();
+    results.push({ type: 'addons', ...addOnsResult });
+
+    // Seed inventory
+    const inventoryResult = await SeedService.seedInventory();
+    results.push({ type: 'inventory', ...inventoryResult });
+
+    return res.status(200).json({
+      success: true,
+      message: 'All data seeded successfully',
+      results
+    });
+  } catch (error) {
+    console.error('Seed: Error seeding all data:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to seed all data'
     });
   }
 });

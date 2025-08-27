@@ -1,24 +1,51 @@
 import api from './api';
 
 export interface Part {
+  stockQuantity: any;
   _id: string;
-  partNumber: string;
-  name: string;
-  description: string;
+  itemName: string;
+  itemDescription: string;
   category: string;
+  sku: string;
+  barcode: string;
+  manufacturer: string;
   brand: string;
   compatibleDevices: string[];
-  supplier: string;
-  cost: number;
-  sellingPrice: number;
-  stockQuantity: number;
-  minStockLevel: number;
-  location: string;
-  condition: 'new' | 'refurbished' | 'used';
-  warranty: number;
-  images: string[];
+  versions: PartVersion[];
   specifications: { [key: string]: string };
+  dateAdded: string;
   lastUpdated: string;
+  lastOrderDate?: string;
+  isActive: boolean;
+}
+
+export interface PartVersion {
+  _id: string;
+  versionType: 'original' | 'cheap' | 'efficient';
+  versionId: string;
+  quantity: number;
+  minStockLevel: number;
+  reorderLevel: number;
+  quantityOnOrder: number;
+  unitCost: number;
+  sellingPrice: number;
+  discounts: number;
+  storageLocation: string;
+  supplierInfo: SupplierInfo;
+  leadTime: number;
+  expirationDate?: string;
+  status: 'active' | 'discontinued' | 'out-of-stock';
+  lowStockAlert: boolean;
+  notes: string;
+  images: string[];
+}
+
+export interface SupplierInfo {
+  name: string;
+  contactPerson: string;
+  email: string;
+  phone: string;
+  address: string;
 }
 
 export interface PartOrder {
@@ -70,68 +97,45 @@ export interface Supplier {
 }
 
 // Description: Get all parts inventory
-// Endpoint: GET /api/admin/parts
-// Request: { category?: string, brand?: string, lowStock?: boolean, search?: string }
-// Response: { parts: Part[], totalValue: number, lowStockCount: number }
-export const getParts = (filters: any = {}) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        parts: [
-          {
-            _id: 'part1',
-            partNumber: 'IPH15-SCR-001',
-            name: 'iPhone 15 Pro Screen Assembly',
-            description: 'Original quality OLED screen assembly with digitizer',
-            category: 'Display',
-            brand: 'Apple',
-            compatibleDevices: ['iPhone 15 Pro'],
-            supplier: 'TechParts Inc',
-            cost: 180,
-            sellingPrice: 250,
-            stockQuantity: 15,
-            minStockLevel: 5,
-            location: 'A1-B2',
-            condition: 'new',
-            warranty: 90,
-            images: ['https://via.placeholder.com/300x300/3b82f6/ffffff?text=iPhone+Screen'],
-            specifications: {
-              'Screen Size': '6.1 inches',
-              'Resolution': '2556x1179',
-              'Technology': 'OLED'
-            },
-            lastUpdated: '2024-01-15T10:30:00Z'
-          },
-          {
-            _id: 'part2',
-            name: 'Samsung Galaxy S24 Battery',
-            partNumber: 'SAM-S24-BAT-001',
-            description: 'High capacity lithium-ion battery',
-            category: 'Battery',
-            brand: 'Samsung',
-            compatibleDevices: ['Galaxy S24', 'Galaxy S24+'],
-            supplier: 'PowerCell Solutions',
-            cost: 45,
-            sellingPrice: 75,
-            stockQuantity: 3,
-            minStockLevel: 10,
-            location: 'B2-C1',
-            condition: 'new',
-            warranty: 180,
-            images: ['https://via.placeholder.com/300x300/10b981/ffffff?text=Battery'],
-            specifications: {
-              'Capacity': '4000mAh',
-              'Voltage': '3.85V',
-              'Type': 'Li-ion'
-            },
-            lastUpdated: '2024-01-14T15:20:00Z'
-          }
-        ],
-        totalValue: 12450,
-        lowStockCount: 1
-      });
-    }, 500);
-  });
+// Endpoint: GET /api/inventory
+// Request: { category?: string, brand?: string, lowStock?: boolean, search?: string, page?: number, limit?: number }
+// Response: { items: Part[], totalPages: number, currentPage: number, totalItems: number, totalValue: number, lowStockCount: number }
+export const getParts = async (filters: any = {}) => {
+  try {
+    const response = await api.get('/api/inventory', { params: filters });
+
+    // Transform inventory items to match Part interface
+    const transformedParts = response.data.items.map((item: any) => ({
+      _id: item._id,
+      partNumber: item.sku,
+      name: item.itemName,
+      description: item.itemDescription,
+      category: item.category,
+      brand: item.brand,
+      compatibleDevices: item.compatibleDevices,
+      supplier: item.versions[0]?.supplierInfo?.name || 'Unknown',
+      cost: item.versions[0]?.unitCost || 0,
+      sellingPrice: item.versions[0]?.sellingPrice || 0,
+      stockQuantity: item.versions.reduce((sum: number, v: any) => sum + v.quantity, 0),
+      minStockLevel: item.versions[0]?.minStockLevel || 0,
+      location: item.versions[0]?.storageLocation || 'Unknown',
+      condition: 'new',
+      warranty: 90,
+      images: item.versions[0]?.images || [],
+      specifications: item.specifications || {},
+      lastUpdated: item.lastUpdated,
+      // Preserve the original versions data with proper IDs
+      versions: item.versions || []
+    }));
+
+    return {
+      parts: transformedParts,
+      totalValue: response.data.totalValue,
+      lowStockCount: response.data.lowStockCount
+    };
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Get part orders
@@ -218,19 +222,74 @@ export const createPartOrder = (orderData: Partial<PartOrder>) => {
 };
 
 // Description: Update part stock
-// Endpoint: PUT /api/admin/parts/:id/stock
-// Request: { quantity: number, operation: 'add' | 'subtract' | 'set' }
-// Response: { success: boolean, part: Part }
-export const updatePartStock = (partId: string, quantity: number, operation: 'add' | 'subtract' | 'set') => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        part: {
-          _id: partId,
-          stockQuantity: operation === 'set' ? quantity : (operation === 'add' ? quantity : -quantity)
-        }
-      });
-    }, 500);
-  });
+// Endpoint: PUT /api/inventory/:id/quantity
+// Request: { versionId: string, quantity: number, operation: 'add' | 'subtract' | 'set', reason?: string }
+// Response: { success: boolean, item: Part }
+export const updatePartStock = async (partId: string, versionId: string, quantity: number, operation: 'add' | 'subtract' | 'set', reason?: string) => {
+  try {
+    const response = await api.put(`/api/inventory/${partId}/quantity`, {
+      versionId,
+      quantity,
+      operation,
+      reason
+    });
+    
+    return {
+      success: response.data.success,
+      part: response.data.item
+    };
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Create new inventory item
+// Endpoint: POST /api/inventory
+// Request: Partial<Part>
+// Response: { success: boolean, item: Part }
+export const createInventoryItem = async (itemData: any) => {
+  try {
+    const response = await api.post('/api/inventory', itemData);
+    
+    return {
+      success: response.data.success,
+      item: response.data.item
+    };
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Get low stock items
+// Endpoint: GET /api/inventory/alerts/low-stock
+// Request: {}
+// Response: { items: Array, count: number }
+export const getLowStockItems = async () => {
+  try {
+    const response = await api.get('/api/inventory/alerts/low-stock');
+    
+    return {
+      items: response.data.items,
+      count: response.data.count
+    };
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Delete inventory item
+// Endpoint: DELETE /api/inventory/:id
+// Request: {}
+// Response: { success: boolean, message: string }
+export const deletePart = async (partId: string) => {
+  try {
+    const response = await api.delete(`/api/inventory/${partId}`);
+
+    return {
+      success: response.data.success,
+      message: response.data.message
+    };
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };

@@ -17,7 +17,8 @@ import {
   DollarSign,
   Eye,
   Filter,
-  Plus
+  Plus,
+  Smartphone
 } from "lucide-react"
 import {
   Select,
@@ -40,7 +41,9 @@ export function OrderTracking() {
       try {
         console.log("Fetching orders...")
         const response = await getOrders()
+        console.log("Orders API response received:", response)
         const ordersData = (response as any).orders || []
+        console.log("Orders data extracted:", ordersData)
         setOrders(ordersData)
         setFilteredOrders(ordersData)
       } catch (error) {
@@ -114,6 +117,15 @@ export function OrderTracking() {
     return status.split('-').map(word =>
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ')
+  }
+
+  // Helper function to get device image or fallback
+  const getDeviceImage = (order: Order) => {
+    if (order.photos && order.photos.length > 0) {
+      return order.photos[0]
+    }
+    // Return a simple colored div instead of broken image
+    return null
   }
 
   if (loading) {
@@ -223,14 +235,25 @@ export function OrderTracking() {
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
                     <CardTitle className="flex items-center gap-2">
-                      <img
-                        src={order.photos[0] || '/api/placeholder/40/40'}
-                        alt="Device"
-                        className="w-8 h-8 rounded object-cover"
-                      />
-                      {order.deviceBrand} {order.deviceModel}
+                      {getDeviceImage(order) ? (
+                        <img
+                          src={getDeviceImage(order)}
+                          alt="Device"
+                          className="w-8 h-8 rounded object-cover"
+                          onError={(e) => {
+                            // Hide broken image and show fallback
+                            e.currentTarget.style.display = 'none'
+                          }}
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded bg-primary/20 flex items-center justify-center">
+                          <Smartphone className="h-4 w-4 text-primary" />
+                        </div>
+                      )}
+                      Order #{order.orderNumber || order._id.slice(-6)}
                     </CardTitle>
                     <CardDescription className="flex items-center gap-4 mt-2">
+                      <span>Device: {order.deviceBrand} {order.deviceModel}</span>
                       <span className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
                         {new Date(order.createdAt).toLocaleDateString()}
@@ -254,16 +277,20 @@ export function OrderTracking() {
                 <div>
                   <h4 className="font-medium mb-2">Services:</h4>
                   <div className="flex flex-wrap gap-2">
-                    {order.services.map((service, index) => (
-                      <Badge key={index} variant="outline">
-                        {service}
-                      </Badge>
-                    ))}
+                    {order.services && order.services.length > 0 ? (
+                      order.services.map((service, index) => (
+                        <Badge key={index} variant="outline">
+                          Service #{index + 1}
+                        </Badge>
+                      ))
+                    ) : (
+                      <Badge variant="outline">No services selected</Badge>
+                    )}
                   </div>
                 </div>
 
                 {/* Add-ons */}
-                {order.addOns.length > 0 && (
+                {order.addOns && order.addOns.length > 0 && (
                   <div>
                     <h4 className="font-medium mb-2">Add-ons:</h4>
                     <div className="flex flex-wrap gap-2">
