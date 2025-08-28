@@ -66,13 +66,19 @@ export function Blog() {
       filtered = filtered.filter(post =>
         post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         post.excerpt.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        post.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+        post.tags.some(tag => {
+          const tagName = typeof tag === 'string' ? tag : tag.name;
+          return tagName.toLowerCase().includes(searchTerm.toLowerCase());
+        })
       )
     }
 
     // Filter by category
     if (categoryFilter !== "all") {
-      filtered = filtered.filter(post => post.category === categoryFilter)
+      filtered = filtered.filter(post => {
+        const categoryName = typeof post.category === 'string' ? post.category : post.category?.name;
+        return categoryName === categoryFilter;
+      })
     }
 
     setFilteredPosts(filtered)
@@ -154,7 +160,11 @@ export function Blog() {
               />
             </div>
             <div className="md:w-1/2 p-6">
-              <Badge className="mb-3">{filteredPosts[0].category}</Badge>
+              <Badge className="mb-3">
+                {typeof filteredPosts[0].category === 'string' 
+                  ? filteredPosts[0].category 
+                  : filteredPosts[0].category?.name || 'Uncategorized'}
+              </Badge>
               <h2 className="text-2xl font-bold mb-3">
                 <Link
                   to={`/blog/${filteredPosts[0]._id}`}
@@ -181,7 +191,7 @@ export function Blog() {
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Calendar className="h-4 w-4" />
-                    {new Date(filteredPosts[0].publishedAt).toLocaleDateString()}
+                    {new Date(filteredPosts[0].publishedAt || filteredPosts[0].createdAt).toLocaleDateString()}
                   </span>
                   <span className="flex items-center gap-1">
                     <Clock className="h-4 w-4" />
@@ -212,7 +222,11 @@ export function Blog() {
             </div>
             <CardHeader>
               <div className="flex items-center justify-between mb-2">
-                <Badge variant="secondary">{post.category}</Badge>
+                <Badge variant="secondary">
+                  {typeof post.category === 'string' 
+                    ? post.category 
+                    : post.category?.name || 'Uncategorized'}
+                </Badge>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Eye className="h-3 w-3" />
                   {post.views}
@@ -249,7 +263,7 @@ export function Blog() {
               <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
-                  {new Date(post.publishedAt).toLocaleDateString()}
+                  {new Date(post.publishedAt || post.createdAt).toLocaleDateString()}
                 </span>
                 <span className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
@@ -259,8 +273,8 @@ export function Blog() {
 
               <div className="flex flex-wrap gap-1 mb-3">
                 {post.tags.slice(0, 3).map((tag) => (
-                  <Badge key={tag} variant="outline" className="text-xs">
-                    {tag}
+                  <Badge key={typeof tag === 'string' ? tag : tag._id} variant="outline" className="text-xs">
+                    {typeof tag === 'string' ? tag : tag.name}
                   </Badge>
                 ))}
               </div>

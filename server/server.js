@@ -9,24 +9,49 @@ console.log('- DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'Missing');
 console.log('- JWT_SECRET:', process.env.JWT_SECRET ? 'Set' : 'Missing');
 console.log('- REFRESH_TOKEN_SECRET:', process.env.REFRESH_TOKEN_SECRET ? 'Set' : 'Missing');
 
+console.log('Loading mongoose...');
 const mongoose = require("mongoose");
+console.log('Loading express...');
 const express = require("express");
+console.log('Loading session...');
 const session = require("express-session");
+console.log('Loading MongoStore...');
 const MongoStore = require('connect-mongo');
+
+console.log('Loading basic routes...');
 const basicRoutes = require("./routes/index");
+console.log('Loading auth routes...');
 const authRoutes = require("./routes/authRoutes");
+console.log('Loading user routes...');
 const userRoutes = require("./routes/userRoutes");
+console.log('Loading service routes...');
 const serviceRoutes = require("./routes/serviceRoutes");
+console.log('Loading addon service routes...');
 const addOnServiceRoutes = require("./routes/addOnServiceRoutes");
+console.log('Loading admin routes...');
 const adminRoutes = require("./routes/adminRoutes");
+console.log('Loading order routes...');
 const orderRoutes = require("./routes/orderRoutes");
+console.log('Loading admin order routes...');
 const adminOrderRoutes = require("./routes/adminOrderRoutes");
+console.log('Loading message routes...');
 const messageRoutes = require("./routes/messageRoutes");
+console.log('Loading seed routes...');
 const seedRoutes = require("./routes/seedRoutes");
+console.log('Loading inventory routes...');
 const inventoryRoutes = require("./routes/inventoryRoutes");
+console.log('Loading blog routes...');
+const blogRoutes = require("./routes/blogRoutes");
+console.log('Loading FAQ routes...');
+const faqRoutes = require("./routes/faqRoutes");
+
+console.log('Loading database config...');
 const { connectDB } = require("./config/database");
+console.log('Loading SeedService...');
 const SeedService = require("./services/seedService");
+console.log('Loading cors...');
 const cors = require("cors");
+console.log('Loading path...');
 const path = require("path");
 
 if (!process.env.DATABASE_URL) {
@@ -104,6 +129,24 @@ const initializeDatabase = async () => {
       console.error('Error seeding inventory:', error.message);
     }
 
+    // Auto-seed blog data if it doesn't exist
+    console.log('Checking if blog data exists...');
+    try {
+      const blogSeedResult = await SeedService.seedBlogData();
+      console.log('Blog seeding result:', blogSeedResult.message);
+    } catch (error) {
+      console.error('Error seeding blog data:', error.message);
+    }
+
+    // Auto-seed FAQ data if it doesn't exist
+    console.log('Checking if FAQ data exists...');
+    try {
+      const faqSeedResult = await SeedService.seedFAQData();
+      console.log('FAQ seeding result:', faqSeedResult.message);
+    } catch (error) {
+      console.error('Error seeding FAQ data:', error.message);
+    }
+
     console.log('Database initialization completed successfully');
   } catch (error) {
     console.error('Database initialization error:', error);
@@ -154,6 +197,10 @@ app.use('/api/admin/orders', adminOrderRoutes);
 app.use('/api/messages', messageRoutes);
 // Inventory Routes
 app.use('/api/inventory', inventoryRoutes);
+// Blog Routes
+app.use('/api/blog-posts', blogRoutes);
+// FAQ Routes
+app.use('/api/faqs', faqRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 

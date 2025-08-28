@@ -31,6 +31,7 @@ import { ServiceManagement } from "./pages/admin/ServiceManagement"
 import { AddOnServiceManagement } from "./pages/admin/AddOnServiceManagement"
 import { Analytics } from "./pages/admin/Analytics"
 import { BlogManagement } from "./pages/admin/BlogManagement"
+import { FAQManagement } from "./pages/admin/FAQManagement"
 import { HomepageManagement } from "./pages/admin/HomepageManagement"
 import { SEOManagement } from "./pages/admin/SEOManagement"
 import { SystemConfiguration } from "./pages/admin/SystemConfiguration"
@@ -76,6 +77,7 @@ function App() {
               <Route path="admin/addons" element={<AddOnServiceManagement />} />
               <Route path="admin/analytics" element={<Analytics />} />
               <Route path="admin/blog" element={<BlogManagement />} />
+              <Route path="admin/faq" element={<FAQManagement />} />
               <Route path="admin/homepage" element={<HomepageManagement />} />
               <Route path="admin/seo" element={<SEOManagement />} />
               <Route path="admin/system" element={<SystemConfiguration />} />

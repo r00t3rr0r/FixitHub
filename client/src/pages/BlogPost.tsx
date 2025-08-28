@@ -165,7 +165,7 @@ export function BlogPostPage() {
           <CardHeader className="space-y-4">
             {/* Category and Meta */}
             <div className="flex items-center justify-between">
-              <Badge>{post.category}</Badge>
+              <Badge>{post.category?.name || 'Uncategorized'}</Badge>
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Eye className="h-4 w-4" />
@@ -202,7 +202,7 @@ export function BlogPostPage() {
               <div className="text-right text-sm text-muted-foreground">
                 <div className="flex items-center gap-1 mb-1">
                   <Calendar className="h-4 w-4" />
-                  {new Date(post.publishedAt).toLocaleDateString()}
+                  {new Date(post.publishedAt || post.createdAt).toLocaleDateString()}
                 </div>
                 <div className="flex items-center gap-1">
                   <Clock className="h-4 w-4" />
@@ -241,8 +241,8 @@ export function BlogPostPage() {
               <h4 className="font-semibold mb-3">Tags</h4>
               <div className="flex flex-wrap gap-2">
                 {post.tags.map((tag) => (
-                  <Badge key={tag} variant="outline">
-                    {tag}
+                  <Badge key={typeof tag === 'string' ? tag : tag._id} variant="outline">
+                    {typeof tag === 'string' ? tag : tag.name}
                   </Badge>
                 ))}
               </div>

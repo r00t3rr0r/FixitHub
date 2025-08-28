@@ -20,7 +20,8 @@ import {
   UserCheck,
   DollarSign,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  HelpCircle
 } from "lucide-react"
 import {
   Collapsible,
@@ -79,6 +80,11 @@ const adminNavItems = [
         title: "Blog Management",
         href: "/admin/blog",
         icon: FileText,
+      },
+      {
+        title: "FAQ Management",
+        href: "/admin/faq",
+        icon: HelpCircle,
       },
       {
         title: "Homepage",
@@ -155,14 +161,14 @@ export function AdminSidebar() {
   const location = useLocation()
   const [openSections, setOpenSections] = useState<string[]>([
     "Services",
-    "Content Management", 
+    "Content Management",
     "Operations",
     "System"
   ])
 
   const toggleSection = (title: string) => {
-    setOpenSections(prev => 
-      prev.includes(title) 
+    setOpenSections(prev =>
+      prev.includes(title)
         ? prev.filter(section => section !== title)
         : [...prev, title]
     )
@@ -182,7 +188,7 @@ export function AdminSidebar() {
         if (item.items) {
           const isOpen = openSections.includes(item.title)
           const hasActiveChild = isSectionActive(item.items)
-          
+
           return (
             <Collapsible key={item.title} open={isOpen} onOpenChange={() => toggleSection(item.title)}>
               <CollapsibleTrigger className={cn(
