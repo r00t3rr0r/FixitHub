@@ -13,6 +13,7 @@ import { NewOrder } from "./pages/NewOrder"
 import { OrderTracking } from "./pages/OrderTracking"
 import { OrderDetails } from "./pages/OrderDetails"
 import { Messages } from "./pages/Messages"
+import { Notifications } from "./pages/Notifications"
 import { WebShop } from "./pages/WebShop"
 import { ShoppingCartPage } from "./pages/ShoppingCart"
 import { Profile } from "./pages/Profile"
@@ -23,6 +24,8 @@ import { StaffOrders } from "./pages/staff/StaffOrders"
 import { KnowledgeBase } from "./pages/staff/KnowledgeBase"
 import { TimeTracking } from "./pages/staff/TimeTracking"
 import { Schedule } from "./pages/staff/Schedule"
+import { TeamChat } from "./pages/staff/TeamChat"
+import { Performance } from "./pages/staff/Performance"
 import { AdminDashboard } from "./pages/admin/AdminDashboard"
 import { UserManagement } from "./pages/admin/UserManagement"
 import { OrderManagement } from "./pages/admin/OrderManagement"
@@ -60,6 +63,7 @@ function App() {
               <Route path="orders" element={<OrderTracking />} />
               <Route path="orders/:id" element={<OrderDetails />} />
               <Route path="messages" element={<Messages />} />
+              <Route path="notifications" element={<Notifications />} />
               <Route path="shop" element={<WebShop />} />
               <Route path="cart" element={<ShoppingCartPage />} />
               <Route path="profile" element={<Profile />} />
@@ -70,6 +74,8 @@ function App() {
               <Route path="staff/knowledge-base" element={<KnowledgeBase />} />
               <Route path="staff/time-tracking" element={<TimeTracking />} />
               <Route path="staff/schedule" element={<Schedule />} />
+              <Route path="staff/chat" element={<TeamChat />} />
+              <Route path="staff/performance" element={<Performance />} />
               <Route path="admin" element={<AdminDashboard />} />
               <Route path="admin/users" element={<UserManagement />} />
               <Route path="admin/orders" element={<OrderManagement />} />

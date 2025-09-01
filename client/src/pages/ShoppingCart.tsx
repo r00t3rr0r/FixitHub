@@ -183,18 +183,18 @@ export function ShoppingCartPage() {
               <CardContent className="p-6">
                 <div className="flex gap-4">
                   <img
-                    src={item.product.images[0]}
-                    alt={item.product.name}
+                    src={item.productId.images[0]}
+                    alt={item.productId.name}
                     className="w-20 h-20 object-cover rounded-lg"
                   />
                   <div className="flex-1">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <h3 className="font-semibold">{item.product.name}</h3>
+                        <h3 className="font-semibold">{item.productId.name}</h3>
                         <p className="text-sm text-muted-foreground">
-                          {item.product.brand}
+                          {item.productId.brand}
                         </p>
-                        {!item.product.inStock && (
+                        {!item.productId.inStock && (
                           <Badge variant="destructive" className="mt-1">
                             Out of Stock
                           </Badge>
@@ -229,7 +229,7 @@ export function ShoppingCartPage() {
                           size="icon"
                           className="h-8 w-8"
                           onClick={() => handleUpdateQuantity(item._id, item.quantity + 1)}
-                          disabled={updating === item._id || !item.product.inStock}
+                          disabled={updating === item._id || !item.productId.inStock}
                         >
                           <Plus className="h-3 w-3" />
                         </Button>
@@ -237,10 +237,10 @@ export function ShoppingCartPage() {
 
                       <div className="text-right">
                         <p className="font-semibold">
-                          ${(item.product.price * item.quantity).toFixed(2)}
+                          ${(item.productId.price * item.quantity).toFixed(2)}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          ${item.product.price.toFixed(2)} each
+                          ${item.productId.price.toFixed(2)} each
                         </p>
                       </div>
                     </div>
@@ -298,19 +298,19 @@ export function ShoppingCartPage() {
                 <span>Subtotal</span>
                 <span>${cart.subtotal.toFixed(2)}</span>
               </div>
-              
+
               {cart.discount && cart.discount > 0 && (
                 <div className="flex justify-between text-green-600">
                   <span>Discount</span>
                   <span>-${cart.discount.toFixed(2)}</span>
                 </div>
               )}
-              
+
               <div className="flex justify-between">
                 <span>Tax</span>
                 <span>${cart.tax.toFixed(2)}</span>
               </div>
-              
+
               <div className="border-t pt-3 flex justify-between font-semibold text-lg">
                 <span>Total</span>
                 <span>${cart.total.toFixed(2)}</span>

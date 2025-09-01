@@ -12,6 +12,8 @@ console.log('Loading FAQ model...');
 const FAQ = require('../models/FAQ');
 console.log('Loading Device models...');
 const { DeviceBrand, DeviceModel } = require('../models/Device');
+console.log('Loading Product model...');
+const Product = require('../models/Product');
 console.log('Loading password utils...');
 const { hashPassword } = require('../utils/password');
 
@@ -378,6 +380,86 @@ class SeedService {
       return { success: true, message: 'Device brands and models seeded successfully' };
     } catch (error) {
       console.error('SeedService: Error seeding devices:', error);
+      throw error;
+    }
+  }
+
+  static async seedProducts() {
+    try {
+      console.log('SeedService: Checking for products...');
+
+      const existingProducts = await Product.countDocuments();
+      if (existingProducts > 0) {
+        console.log('SeedService: Products already exist');
+        return { success: true, message: 'Products already exist' };
+      }
+
+      const products = [
+        {
+          name: 'Premium Screen Protector',
+          description: 'Ultra-clear tempered glass with 9H hardness rating',
+          price: 29.99,
+          originalPrice: 39.99,
+          images: ['https://picsum.photos/400/400?random=1', 'https://picsum.photos/400/400?random=2'],
+          category: 'Accessories',
+          brand: 'TechGuard',
+          rating: 4.8,
+          reviewCount: 156,
+          inStock: true,
+          stockCount: 45,
+          features: ['9H Hardness', 'Anti-fingerprint', 'Easy installation'],
+          compatibility: ['iPhone 15', 'iPhone 14', 'iPhone 13']
+        },
+        {
+          name: 'Wireless Charging Pad',
+          description: 'Fast wireless charging with LED indicator',
+          price: 49.99,
+          images: ['https://picsum.photos/400/400?random=3'],
+          category: 'Chargers',
+          brand: 'PowerTech',
+          rating: 4.6,
+          reviewCount: 89,
+          inStock: true,
+          stockCount: 23,
+          features: ['15W Fast Charging', 'LED Indicator', 'Non-slip base'],
+          compatibility: ['iPhone', 'Samsung', 'Google Pixel']
+        },
+        {
+          name: 'Rugged Phone Case',
+          description: 'Military-grade protection with shock absorption',
+          price: 39.99,
+          images: ['https://picsum.photos/400/400?random=4'],
+          category: 'Cases',
+          brand: 'ArmorShield',
+          rating: 4.9,
+          reviewCount: 234,
+          inStock: true,
+          stockCount: 67,
+          features: ['Drop protection', 'Shock absorption', 'Raised edges'],
+          compatibility: ['iPhone 15 Pro', 'iPhone 15']
+        },
+        {
+          name: 'USB-C Cable',
+          description: 'High-speed charging and data transfer cable',
+          price: 19.99,
+          images: ['https://picsum.photos/400/400?random=5'],
+          category: 'Cables',
+          brand: 'SpeedLink',
+          rating: 4.5,
+          reviewCount: 78,
+          inStock: false,
+          stockCount: 0,
+          features: ['Fast charging', 'Data sync', 'Durable braided design'],
+          compatibility: ['Samsung', 'Google Pixel', 'iPad Pro']
+        }
+      ];
+
+      await Product.insertMany(products);
+      console.log('SeedService: Products seeded successfully');
+
+      return { success: true, message: 'Products seeded successfully' };
+    } catch (error) {
+      console.error('SeedService: Error seeding products:', error);
       throw error;
     }
   }

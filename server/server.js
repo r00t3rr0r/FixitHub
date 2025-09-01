@@ -48,6 +48,20 @@ console.log('Loading workflow routes...');
 const workflowRoutes = require("./routes/workflowRoutes");
 console.log('Loading device routes...');
 const deviceRoutes = require("./routes/deviceRoutes");
+console.log('Loading notification routes...');
+const notificationRoutes = require("./routes/notificationRoutes");
+console.log('Loading team chat routes...');
+const teamChatRoutes = require("./routes/teamChatRoutes");
+console.log('Loading performance routes...');
+const performanceRoutes = require("./routes/performanceRoutes");
+console.log('Loading schedule routes...');
+const scheduleRoutes = require("./routes/scheduleRoutes");
+console.log('Loading product routes...');
+const productRoutes = require("./routes/productRoutes");
+console.log('Loading SEO routes...');
+const seoRoutes = require("./routes/seoRoutes");
+console.log('Loading cart routes...');
+const cartRoutes = require("./routes/cartRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -142,6 +156,15 @@ const initializeDatabase = async () => {
       console.error('Error seeding inventory:', error.message);
     }
 
+    // Auto-seed products if they don't exist
+    console.log('Checking if products exist...');
+    try {
+      const productsSeedResult = await SeedService.seedProducts();
+      console.log('Products seeding result:', productsSeedResult.message);
+    } catch (error) {
+      console.error('Error seeding products:', error.message);
+    }
+
     // Auto-seed blog data if it doesn't exist
     console.log('Checking if blog data exists...');
     try {
@@ -218,6 +241,20 @@ app.use('/api/faqs', faqRoutes);
 app.use('/api/workflows', workflowRoutes);
 // Device Routes
 app.use('/api/devices', deviceRoutes);
+// Notification Routes
+app.use('/api/notifications', notificationRoutes);
+// Team Chat Routes
+app.use('/api/team-chat', teamChatRoutes);
+// Performance Routes
+app.use('/api/performance', performanceRoutes);
+// Schedule Routes
+app.use('/api/schedule', scheduleRoutes);
+// Product Routes
+app.use('/api/products', productRoutes);
+// SEO Routes
+app.use('/api/seo', seoRoutes);
+// Cart Routes
+app.use('/api/cart', cartRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 

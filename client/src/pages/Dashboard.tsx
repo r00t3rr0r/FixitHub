@@ -56,11 +56,11 @@ export function Dashboard() {
         setCart((cartResponse as any).cart || null)
         setBlogPosts((blogResponse as any).posts || [])
         setNotifications((notificationsResponse as any).notifications || [])
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching dashboard data:", error)
         toast({
           title: "Error",
-          description: "Failed to load dashboard data",
+          description: error.message || "Failed to load dashboard data",
           variant: "destructive"
         })
       } finally {
@@ -489,14 +489,14 @@ export function Dashboard() {
               {cart.items.slice(0, 2).map((item) => (
                 <div key={item._id} className="flex items-center gap-3 p-3 bg-background/50 rounded-lg">
                   <img
-                    src={item.product.images[0]}
-                    alt={item.product.name}
+                    src={item.productId.images[0]}
+                    alt={item.productId.name}
                     className="w-12 h-12 rounded object-cover"
                   />
                   <div className="flex-1">
-                    <p className="font-medium text-sm">{item.product.name}</p>
+                    <p className="font-medium text-sm">{item.productId.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      Qty: {item.quantity} • ${(item.product.price * item.quantity).toFixed(2)}
+                      Qty: {item.quantity} • ${(item.productId.price * item.quantity).toFixed(2)}
                     </p>
                   </div>
                 </div>
