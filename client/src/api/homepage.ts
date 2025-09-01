@@ -2,7 +2,7 @@ import api from './api';
 
 export interface ContentBlock {
   _id: string;
-  type: 'hero' | 'services' | 'testimonials' | 'cta' | 'gallery' | 'banner' | 'features' | 'stats';
+  type: 'hero' | 'services' | 'testimonials' | 'cta' | 'gallery' | 'banner' | 'features' | 'stats' | 'html';
   title: string;
   content: any;
   settings: {
@@ -12,6 +12,7 @@ export interface ContentBlock {
     margin?: string;
     alignment?: 'left' | 'center' | 'right';
     animation?: string;
+    customCSS?: string;
   };
   order: number;
   isVisible: boolean;
@@ -45,6 +46,9 @@ export interface LayoutTemplate {
     fontSize: string;
   };
   isDefault: boolean;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ABTestVariant {
@@ -69,317 +73,137 @@ export interface ABTest {
   endDate?: string;
   goal: string;
   winner?: string;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Description: Get homepage sections and content blocks
 // Endpoint: GET /api/admin/homepage/sections
 // Request: {}
-// Response: { sections: HomepageSection[] }
-export const getHomepageSections = () => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        sections: [
-          {
-            _id: 'section1',
-            name: 'Hero Section',
-            blocks: [
-              {
-                _id: 'block1',
-                type: 'hero',
-                title: 'Hero Banner',
-                content: {
-                  heading: 'Professional Device Repair Services',
-                  subheading: 'Fast, reliable, and affordable repair services for all your devices',
-                  ctaText: 'Get Started',
-                  ctaLink: '/new-order',
-                  backgroundImage: 'https://via.placeholder.com/1920x800/3b82f6/ffffff?text=Hero+Background',
-                  overlayOpacity: 0.5
-                },
-                settings: {
-                  backgroundColor: '#3b82f6',
-                  textColor: '#ffffff',
-                  padding: '80px 0',
-                  alignment: 'center'
-                },
-                order: 1,
-                isVisible: true
-              }
-            ],
-            layout: 'single',
-            order: 1,
-            isActive: true
-          },
-          {
-            _id: 'section2',
-            name: 'Services Section',
-            blocks: [
-              {
-                _id: 'block2',
-                type: 'services',
-                title: 'Our Services',
-                content: {
-                  heading: 'Expert Repair Services',
-                  description: 'We offer comprehensive repair services for all types of devices',
-                  services: [
-                    {
-                      icon: 'smartphone',
-                      title: 'Screen Repair',
-                      description: 'Professional screen replacement with warranty'
-                    },
-                    {
-                      icon: 'battery',
-                      title: 'Battery Replacement',
-                      description: 'High-quality battery replacement service'
-                    },
-                    {
-                      icon: 'camera',
-                      title: 'Camera Repair',
-                      description: 'Camera module replacement and calibration'
-                    }
-                  ]
-                },
-                settings: {
-                  backgroundColor: '#ffffff',
-                  textColor: '#1f2937',
-                  padding: '60px 0',
-                  alignment: 'center'
-                },
-                order: 1,
-                isVisible: true
-              }
-            ],
-            layout: 'three-column',
-            order: 2,
-            isActive: true
-          }
-        ]
-      });
-    }, 500);
-  });
+// Response: { success: boolean, sections: HomepageSection[] }
+export const getHomepageSections = async () => {
+  try {
+    const response = await api.get('/api/admin/homepage/sections');
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Get available content block templates
 // Endpoint: GET /api/admin/homepage/content-blocks
 // Request: {}
-// Response: { blocks: ContentBlock[] }
-export const getContentBlockTemplates = () => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        blocks: [
-          {
-            _id: 'template1',
-            type: 'hero',
-            title: 'Hero Banner',
-            content: {
-              heading: 'Your Heading Here',
-              subheading: 'Your subheading text',
-              ctaText: 'Call to Action',
-              ctaLink: '#'
-            },
-            settings: {
-              backgroundColor: '#3b82f6',
-              textColor: '#ffffff',
-              padding: '80px 0',
-              alignment: 'center'
-            },
-            order: 0,
-            isVisible: true
-          },
-          {
-            _id: 'template2',
-            type: 'services',
-            title: 'Services Grid',
-            content: {
-              heading: 'Our Services',
-              services: []
-            },
-            settings: {
-              backgroundColor: '#ffffff',
-              textColor: '#1f2937',
-              padding: '60px 0',
-              alignment: 'center'
-            },
-            order: 0,
-            isVisible: true
-          },
-          {
-            _id: 'template3',
-            type: 'testimonials',
-            title: 'Customer Testimonials',
-            content: {
-              heading: 'What Our Customers Say',
-              testimonials: []
-            },
-            settings: {
-              backgroundColor: '#f9fafb',
-              textColor: '#1f2937',
-              padding: '60px 0',
-              alignment: 'center'
-            },
-            order: 0,
-            isVisible: true
-          },
-          {
-            _id: 'template4',
-            type: 'cta',
-            title: 'Call to Action',
-            content: {
-              heading: 'Ready to Get Started?',
-              description: 'Contact us today for professional repair services',
-              ctaText: 'Get Quote',
-              ctaLink: '/contact'
-            },
-            settings: {
-              backgroundColor: '#10b981',
-              textColor: '#ffffff',
-              padding: '40px 0',
-              alignment: 'center'
-            },
-            order: 0,
-            isVisible: true
-          }
-        ]
-      });
-    }, 500);
-  });
+// Response: { success: boolean, blocks: ContentBlock[] }
+export const getContentBlockTemplates = async () => {
+  try {
+    const response = await api.get('/api/admin/homepage/content-blocks');
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Get layout templates
 // Endpoint: GET /api/admin/homepage/templates
 // Request: {}
-// Response: { templates: LayoutTemplate[] }
-export const getLayoutTemplates = () => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        templates: [
-          {
-            _id: 'template1',
-            name: 'Modern Business',
-            description: 'Clean and professional layout for business websites',
-            preview: 'https://via.placeholder.com/400x300/3b82f6/ffffff?text=Modern+Business',
-            sections: [],
-            colorScheme: {
-              primary: '#3b82f6',
-              secondary: '#1e40af',
-              accent: '#10b981',
-              background: '#ffffff',
-              text: '#1f2937'
-            },
-            typography: {
-              headingFont: 'Inter',
-              bodyFont: 'Inter',
-              fontSize: '16px'
-            },
-            isDefault: true
-          },
-          {
-            _id: 'template2',
-            name: 'Tech Startup',
-            description: 'Modern and innovative design for tech companies',
-            preview: 'https://via.placeholder.com/400x300/8b5cf6/ffffff?text=Tech+Startup',
-            sections: [],
-            colorScheme: {
-              primary: '#8b5cf6',
-              secondary: '#7c3aed',
-              accent: '#06b6d4',
-              background: '#ffffff',
-              text: '#1f2937'
-            },
-            typography: {
-              headingFont: 'Poppins',
-              bodyFont: 'Inter',
-              fontSize: '16px'
-            },
-            isDefault: false
-          }
-        ]
-      });
-    }, 500);
-  });
+// Response: { success: boolean, templates: LayoutTemplate[] }
+export const getLayoutTemplates = async () => {
+  try {
+    const response = await api.get('/api/admin/homepage/templates');
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Save homepage sections
 // Endpoint: PUT /api/admin/homepage/sections
 // Request: { sections: HomepageSection[] }
 // Response: { success: boolean, message: string }
-export const saveHomepageSections = (sections: HomepageSection[]) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        message: 'Homepage sections saved successfully'
-      });
-    }, 1000);
-  });
+export const saveHomepageSections = async (sections: HomepageSection[]) => {
+  try {
+    const response = await api.put('/api/admin/homepage/sections', { sections });
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Get A/B tests
 // Endpoint: GET /api/admin/homepage/ab-tests
 // Request: {}
-// Response: { tests: ABTest[] }
-export const getABTests = () => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        tests: [
-          {
-            _id: 'test1',
-            name: 'Hero Section Test',
-            description: 'Testing different hero section layouts',
-            variants: [
-              {
-                _id: 'variant1',
-                name: 'Original',
-                description: 'Current hero section design',
-                template: {} as LayoutTemplate,
-                trafficPercentage: 50,
-                conversions: 45,
-                views: 1200,
-                conversionRate: 3.75,
-                isActive: true
-              },
-              {
-                _id: 'variant2',
-                name: 'New Design',
-                description: 'Updated hero section with video background',
-                template: {} as LayoutTemplate,
-                trafficPercentage: 50,
-                conversions: 62,
-                views: 1180,
-                conversionRate: 5.25,
-                isActive: true
-              }
-            ],
-            status: 'running',
-            startDate: '2024-01-15T00:00:00Z',
-            goal: 'Increase conversion rate',
-            winner: 'variant2'
-          }
-        ]
-      });
-    }, 500);
-  });
+// Response: { success: boolean, tests: ABTest[] }
+export const getABTests = async () => {
+  try {
+    const response = await api.get('/api/admin/homepage/ab-tests');
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Create A/B test
 // Endpoint: POST /api/admin/homepage/ab-tests
 // Request: Partial<ABTest>
 // Response: { success: boolean, test: ABTest }
-export const createABTest = (testData: Partial<ABTest>) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        test: {
-          _id: 'test_' + Date.now(),
-          ...testData,
-          status: 'draft',
-          variants: []
-        }
-      });
-    }, 1000);
-  });
+export const createABTest = async (testData: Partial<ABTest>) => {
+  try {
+    const response = await api.post('/api/admin/homepage/ab-tests', testData);
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Create layout template
+// Endpoint: POST /api/admin/homepage/templates
+// Request: Partial<LayoutTemplate>
+// Response: { success: boolean, template: LayoutTemplate }
+export const createLayoutTemplate = async (templateData: Partial<LayoutTemplate>) => {
+  try {
+    const response = await api.post('/api/admin/homepage/templates', templateData);
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Update layout template
+// Endpoint: PUT /api/admin/homepage/templates/:id
+// Request: Partial<LayoutTemplate>
+// Response: { success: boolean, template: LayoutTemplate }
+export const updateLayoutTemplate = async (templateId: string, templateData: Partial<LayoutTemplate>) => {
+  try {
+    const response = await api.put(`/api/admin/homepage/templates/${templateId}`, templateData);
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Delete layout template
+// Endpoint: DELETE /api/admin/homepage/templates/:id
+// Request: {}
+// Response: { success: boolean, message: string }
+export const deleteLayoutTemplate = async (templateId: string) => {
+  try {
+    const response = await api.delete(`/api/admin/homepage/templates/${templateId}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Set default template
+// Endpoint: POST /api/admin/homepage/templates/:id/set-default
+// Request: {}
+// Response: { success: boolean, template: LayoutTemplate }
+export const setDefaultTemplate = async (templateId: string) => {
+  try {
+    const response = await api.post(`/api/admin/homepage/templates/${templateId}/set-default`);
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };

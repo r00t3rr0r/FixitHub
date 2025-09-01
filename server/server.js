@@ -62,6 +62,8 @@ console.log('Loading SEO routes...');
 const seoRoutes = require("./routes/seoRoutes");
 console.log('Loading cart routes...');
 const cartRoutes = require("./routes/cartRoutes");
+console.log('Loading homepage routes...');
+const homepageRoutes = require("./routes/homepageRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -255,6 +257,8 @@ app.use('/api/products', productRoutes);
 app.use('/api/seo', seoRoutes);
 // Cart Routes
 app.use('/api/cart', cartRoutes);
+// Homepage Routes
+app.use('/api/admin/homepage', homepageRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 
