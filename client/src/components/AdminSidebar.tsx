@@ -21,7 +21,8 @@ import {
   DollarSign,
   ChevronDown,
   ChevronRight,
-  HelpCircle
+  HelpCircle,
+  Smartphone
 } from "lucide-react"
 import {
   Collapsible,
@@ -66,6 +67,11 @@ const adminNavItems = [
     title: "Web Shop",
     href: "/admin/shop",
     icon: Package,
+  },
+  {
+    title: "Device Management",
+    href: "/admin/devices",
+    icon: Smartphone,
   },
   {
     title: "Analytics",

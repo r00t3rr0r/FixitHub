@@ -50,6 +50,22 @@ export const getRepairServices = async () => {
   }
 };
 
+// Description: Get all services (alias for getRepairServices for backward compatibility)
+// Endpoint: GET /api/services
+// Request: {}
+// Response: { success: boolean, services: RepairService[] }
+export const getServices = async () => {
+  console.log('getServices called');
+  try {
+    const response = await api.get('/api/services');
+    console.log('getServices API response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('getServices API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
 // Description: Create a new repair service
 // Endpoint: POST /api/services
 // Request: { name: string, description: string, price: number, estimatedTime: string, category: string, deviceTypes: string[] }

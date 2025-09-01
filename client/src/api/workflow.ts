@@ -39,246 +39,150 @@ export interface AddOnWorkflow {
 }
 
 // Description: Get all workflow templates
-// Endpoint: GET /api/admin/workflows
+// Endpoint: GET /api/workflows/templates
 // Request: { deviceType?: string, serviceType?: string }
-// Response: { workflows: WorkflowTemplate[] }
-export const getWorkflowTemplates = (filters: any = {}) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        workflows: [
-          {
-            _id: 'workflow1',
-            name: 'iPhone Screen Replacement',
-            description: 'Complete workflow for iPhone screen replacement with quality checks',
-            deviceTypes: ['iPhone'],
-            serviceTypes: ['Screen Replacement'],
-            steps: [
-              {
-                _id: 'step1',
-                name: 'Initial Diagnostic',
-                description: 'Assess device condition and confirm repair requirements',
-                estimatedTime: 15,
-                isRequired: true,
-                order: 1,
-                category: 'diagnostic',
-                dependencies: [],
-                tools: ['Multimeter', 'Diagnostic Software'],
-                skills: ['Hardware Diagnosis'],
-                checklistItems: [
-                  'Check device powers on',
-                  'Test touch functionality',
-                  'Inspect for water damage',
-                  'Document existing damage'
-                ]
-              },
-              {
-                _id: 'step2',
-                name: 'Disassembly',
-                description: 'Carefully disassemble device to access screen',
-                estimatedTime: 20,
-                isRequired: true,
-                order: 2,
-                category: 'repair',
-                dependencies: ['step1'],
-                tools: ['Pentalobe Screwdriver', 'Suction Cup', 'Spudger'],
-                skills: ['Device Disassembly'],
-                checklistItems: [
-                  'Remove pentalobe screws',
-                  'Lift screen carefully',
-                  'Disconnect display cables',
-                  'Remove old screen assembly'
-                ]
-              },
-              {
-                _id: 'step3',
-                name: 'Screen Installation',
-                description: 'Install new screen and reconnect components',
-                estimatedTime: 25,
-                isRequired: true,
-                order: 3,
-                category: 'repair',
-                dependencies: ['step2'],
-                tools: ['New Screen Assembly', 'Adhesive Strips'],
-                skills: ['Component Installation'],
-                checklistItems: [
-                  'Install new screen assembly',
-                  'Connect display cables',
-                  'Apply adhesive strips',
-                  'Secure with screws'
-                ]
-              },
-              {
-                _id: 'step4',
-                name: 'Quality Testing',
-                description: 'Test all functionality before completion',
-                estimatedTime: 10,
-                isRequired: true,
-                order: 4,
-                category: 'quality',
-                dependencies: ['step3'],
-                tools: ['Testing Software'],
-                skills: ['Quality Testing'],
-                checklistItems: [
-                  'Test touch response',
-                  'Check display quality',
-                  'Verify all buttons work',
-                  'Test cameras and sensors'
-                ]
-              }
-            ],
-            estimatedTotalTime: 70,
-            isActive: true,
-            createdAt: '2024-01-01T00:00:00Z',
-            updatedAt: '2024-01-15T10:30:00Z'
-          },
-          {
-            _id: 'workflow2',
-            name: 'Samsung Battery Replacement',
-            description: 'Standard workflow for Samsung device battery replacement',
-            deviceTypes: ['Samsung'],
-            serviceTypes: ['Battery Replacement'],
-            steps: [
-              {
-                _id: 'step5',
-                name: 'Battery Diagnostic',
-                description: 'Test current battery health and performance',
-                estimatedTime: 10,
-                isRequired: true,
-                order: 1,
-                category: 'diagnostic',
-                dependencies: [],
-                tools: ['Battery Tester', 'Diagnostic App'],
-                skills: ['Battery Testing'],
-                checklistItems: [
-                  'Check battery health percentage',
-                  'Test charging speed',
-                  'Monitor temperature',
-                  'Document current capacity'
-                ]
-              },
-              {
-                _id: 'step6',
-                name: 'Device Opening',
-                description: 'Open Samsung device to access battery',
-                estimatedTime: 15,
-                isRequired: true,
-                order: 2,
-                category: 'repair',
-                dependencies: ['step5'],
-                tools: ['Heat Gun', 'Plastic Tools', 'Suction Cup'],
-                skills: ['Samsung Disassembly'],
-                checklistItems: [
-                  'Heat back panel',
-                  'Remove back cover',
-                  'Disconnect battery connector',
-                  'Remove adhesive strips'
-                ]
-              }
-            ],
-            estimatedTotalTime: 45,
-            isActive: true,
-            createdAt: '2024-01-01T00:00:00Z',
-            updatedAt: '2024-01-10T14:20:00Z'
-          }
-        ]
-      });
-    }, 500);
-  });
+// Response: { success: boolean, workflows: WorkflowTemplate[] }
+export const getWorkflowTemplates = async (filters: any = {}) => {
+  try {
+    console.log("Fetching workflow templates with filters:", filters);
+    const params = new URLSearchParams();
+    if (filters.deviceType) params.append('deviceType', filters.deviceType);
+    if (filters.serviceType) params.append('serviceType', filters.serviceType);
+    if (filters.isActive !== undefined) params.append('isActive', filters.isActive.toString());
+
+    const response = await api.get(`/api/workflows/templates?${params.toString()}`);
+    console.log("Successfully fetched workflow templates:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching workflow templates:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Get add-on service workflows
-// Endpoint: GET /api/admin/workflows/addons
+// Endpoint: GET /api/workflows/addons
 // Request: {}
-// Response: { addOnWorkflows: AddOnWorkflow[] }
-export const getAddOnWorkflows = () => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        addOnWorkflows: [
-          {
-            _id: 'addon_workflow1',
-            addOnServiceId: 'addon1',
-            addOnServiceName: 'Screen Protector Installation',
-            optimalTiming: 'after_repair',
-            dependencies: ['Screen Replacement'],
-            estimatedTime: 5,
-            instructions: 'Clean screen thoroughly, align protector, apply with squeegee',
-            qualityChecks: [
-              'No air bubbles',
-              'Perfect alignment',
-              'Touch sensitivity maintained'
-            ]
-          },
-          {
-            _id: 'addon_workflow2',
-            addOnServiceId: 'addon2',
-            addOnServiceName: 'Data Backup',
-            optimalTiming: 'before_repair',
-            dependencies: [],
-            estimatedTime: 30,
-            instructions: 'Connect to backup system, verify data integrity, create restore point',
-            qualityChecks: [
-              'All data backed up',
-              'Backup verified',
-              'Customer notified'
-            ]
-          },
-          {
-            _id: 'addon_workflow3',
-            addOnServiceId: 'addon3',
-            addOnServiceName: 'Device Cleaning',
-            optimalTiming: 'flexible',
-            dependencies: [],
-            estimatedTime: 10,
-            instructions: 'Use appropriate cleaning solutions, clean all surfaces, sanitize',
-            qualityChecks: [
-              'All surfaces clean',
-              'No cleaning residue',
-              'Ports clear'
-            ]
-          }
-        ]
-      });
-    }, 500);
-  });
+// Response: { success: boolean, addOnWorkflows: AddOnWorkflow[] }
+export const getAddOnWorkflows = async () => {
+  try {
+    console.log("Fetching add-on workflows");
+    const response = await api.get('/api/workflows/addons');
+    console.log("Successfully fetched add-on workflows:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching add-on workflows:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Create new workflow template
-// Endpoint: POST /api/admin/workflows
+// Endpoint: POST /api/workflows/templates
 // Request: WorkflowTemplate
 // Response: { success: boolean, workflow: WorkflowTemplate }
-export const createWorkflowTemplate = (workflowData: Partial<WorkflowTemplate>) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        workflow: {
-          _id: 'workflow_' + Date.now(),
-          ...workflowData,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      });
-    }, 1000);
-  });
+export const createWorkflowTemplate = async (workflowData: Partial<WorkflowTemplate>) => {
+  try {
+    console.log("Creating workflow template:", workflowData);
+    const response = await api.post('/api/workflows/templates', workflowData);
+    console.log("Successfully created workflow template:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error creating workflow template:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Update workflow template
-// Endpoint: PUT /api/admin/workflows/:id
+// Endpoint: PUT /api/workflows/templates/:id
 // Request: Partial<WorkflowTemplate>
 // Response: { success: boolean, workflow: WorkflowTemplate }
-export const updateWorkflowTemplate = (workflowId: string, updates: Partial<WorkflowTemplate>) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        workflow: {
-          _id: workflowId,
-          ...updates,
-          updatedAt: new Date().toISOString()
-        }
-      });
-    }, 800);
-  });
+export const updateWorkflowTemplate = async (workflowId: string, updates: Partial<WorkflowTemplate>) => {
+  try {
+    console.log("Updating workflow template:", workflowId, updates);
+    const response = await api.put(`/api/workflows/templates/${workflowId}`, updates);
+    console.log("Successfully updated workflow template:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error updating workflow template:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Delete workflow template
+// Endpoint: DELETE /api/workflows/templates/:id
+// Request: {}
+// Response: { success: boolean, message: string }
+export const deleteWorkflowTemplate = async (workflowId: string) => {
+  try {
+    console.log("Deleting workflow template:", workflowId);
+    const response = await api.delete(`/api/workflows/templates/${workflowId}`);
+    console.log("Successfully deleted workflow template:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error deleting workflow template:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Get single workflow template by ID
+// Endpoint: GET /api/workflows/templates/:id
+// Request: {}
+// Response: { success: boolean, workflow: WorkflowTemplate }
+export const getWorkflowTemplateById = async (workflowId: string) => {
+  try {
+    console.log("Fetching workflow template by ID:", workflowId);
+    const response = await api.get(`/api/workflows/templates/${workflowId}`);
+    console.log("Successfully fetched workflow template:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching workflow template by ID:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Create new add-on workflow
+// Endpoint: POST /api/workflows/addons
+// Request: Partial<AddOnWorkflow>
+// Response: { success: boolean, addOnWorkflow: AddOnWorkflow }
+export const createAddOnWorkflow = async (workflowData: Partial<AddOnWorkflow>) => {
+  try {
+    console.log("Creating add-on workflow:", workflowData);
+    const response = await api.post('/api/workflows/addons', workflowData);
+    console.log("Successfully created add-on workflow:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error creating add-on workflow:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Update add-on workflow
+// Endpoint: PUT /api/workflows/addons/:id
+// Request: Partial<AddOnWorkflow>
+// Response: { success: boolean, addOnWorkflow: AddOnWorkflow }
+export const updateAddOnWorkflow = async (workflowId: string, updates: Partial<AddOnWorkflow>) => {
+  try {
+    console.log("Updating add-on workflow:", workflowId, updates);
+    const response = await api.put(`/api/workflows/addons/${workflowId}`, updates);
+    console.log("Successfully updated add-on workflow:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error updating add-on workflow:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Get workflow statistics
+// Endpoint: GET /api/workflows/stats
+// Request: {}
+// Response: { success: boolean, stats: object }
+export const getWorkflowStats = async () => {
+  try {
+    console.log("Fetching workflow statistics");
+    const response = await api.get('/api/workflows/stats');
+    console.log("Successfully fetched workflow statistics:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching workflow statistics:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };

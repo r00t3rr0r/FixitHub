@@ -10,6 +10,8 @@ console.log('Loading BlogPost models...');
 const { BlogPost, BlogCategory, BlogTag } = require('../models/BlogPost');
 console.log('Loading FAQ model...');
 const FAQ = require('../models/FAQ');
+console.log('Loading Device models...');
+const { DeviceBrand, DeviceModel } = require('../models/Device');
 console.log('Loading password utils...');
 const { hashPassword } = require('../utils/password');
 
@@ -69,6 +71,7 @@ class SeedService {
           price: 149.99,
           estimatedTime: '2-3 hours',
           category: 'Display',
+          deviceTypes: ['smartphone', 'tablet'],
           isActive: true
         },
         {
@@ -77,6 +80,7 @@ class SeedService {
           price: 89.99,
           estimatedTime: '1-2 hours',
           category: 'Power',
+          deviceTypes: ['smartphone', 'tablet', 'laptop'],
           isActive: true
         },
         {
@@ -84,7 +88,8 @@ class SeedService {
           description: 'Complete water damage assessment and repair',
           price: 199.99,
           estimatedTime: '1-2 days',
-          category: 'Damage',
+          category: 'Emergency',
+          deviceTypes: ['smartphone', 'tablet'],
           isActive: true
         }
       ];
@@ -114,21 +119,36 @@ class SeedService {
           name: 'Screen Protector Installation',
           description: 'Premium tempered glass screen protector installation',
           price: 29.99,
+          estimatedTime: '15 minutes',
           category: 'Protection',
+          compatibility: [
+            { deviceType: 'smartphone', brands: ['Apple', 'Samsung', 'Google'] },
+            { deviceType: 'tablet', brands: ['Apple', 'Samsung'] }
+          ],
           isActive: true
         },
         {
           name: 'Device Cleaning',
           description: 'Professional device cleaning and sanitization',
           price: 19.99,
-          category: 'Maintenance',
+          estimatedTime: '10 minutes',
+          category: 'Service',
+          compatibility: [
+            { deviceType: 'smartphone', brands: ['Apple', 'Samsung', 'Google'] },
+            { deviceType: 'tablet', brands: ['Apple', 'Samsung'] }
+          ],
           isActive: true
         },
         {
           name: 'Data Backup',
           description: 'Complete data backup before repair',
           price: 39.99,
+          estimatedTime: '30 minutes',
           category: 'Data',
+          compatibility: [
+            { deviceType: 'smartphone', brands: ['Apple', 'Samsung', 'Google'] },
+            { deviceType: 'tablet', brands: ['Apple', 'Samsung'] }
+          ],
           isActive: true
         }
       ];
@@ -155,49 +175,75 @@ class SeedService {
 
       const inventoryItems = [
         {
-          itemName: 'iPhone 14 Screen',
-          description: 'Original quality iPhone 14 screen replacement',
-          category: 'Screens',
+          itemName: 'iPhone 14 Screen Assembly',
+          itemDescription: 'Original quality iPhone 14 screen replacement with digitizer',
+          category: 'display',
           manufacturer: 'Apple',
           brand: 'iPhone',
+          compatibleDevices: ['iPhone 14'],
           versions: [
             {
-              versionType: 'Original',
+              versionType: 'original',
+              versionId: 'IPH14-SCR-ORG',
               quantity: 25,
-              minimumStockLevel: 5,
+              minStockLevel: 5,
               reorderLevel: 10,
               unitCost: 89.99,
               sellingPrice: 149.99,
               storageLocation: 'A1-B2',
+              supplierInfo: {
+                name: 'TechParts Inc',
+                contactPerson: 'John Smith',
+                email: 'orders@techparts.com',
+                phone: '+1-555-0123',
+                address: '123 Tech Street, Silicon Valley, CA'
+              },
               status: 'active'
             },
             {
-              versionType: 'Efficient',
+              versionType: 'efficient',
+              versionId: 'IPH14-SCR-EFF',
               quantity: 50,
-              minimumStockLevel: 10,
+              minStockLevel: 10,
               reorderLevel: 20,
               unitCost: 59.99,
               sellingPrice: 99.99,
               storageLocation: 'A1-B3',
+              supplierInfo: {
+                name: 'Quality Parts Co',
+                contactPerson: 'Jane Doe',
+                email: 'sales@qualityparts.com',
+                phone: '+1-555-0456',
+                address: '456 Parts Ave, Tech City, CA'
+              },
               status: 'active'
             }
           ]
         },
         {
           itemName: 'Samsung Galaxy S23 Battery',
-          description: 'High-capacity replacement battery for Samsung Galaxy S23',
-          category: 'Batteries',
+          itemDescription: 'High-capacity replacement battery for Samsung Galaxy S23',
+          category: 'battery',
           manufacturer: 'Samsung',
           brand: 'Galaxy',
+          compatibleDevices: ['Galaxy S23'],
           versions: [
             {
-              versionType: 'Original',
+              versionType: 'original',
+              versionId: 'SAM-S23-BAT-ORG',
               quantity: 30,
-              minimumStockLevel: 8,
+              minStockLevel: 8,
               reorderLevel: 15,
               unitCost: 45.99,
               sellingPrice: 79.99,
               storageLocation: 'B2-C1',
+              supplierInfo: {
+                name: 'Samsung Parts Direct',
+                contactPerson: 'Mike Johnson',
+                email: 'orders@samsungparts.com',
+                phone: '+1-555-0789',
+                address: '789 Samsung Blvd, Mobile City, CA'
+              },
               status: 'active'
             }
           ]
@@ -210,6 +256,128 @@ class SeedService {
       return { success: true, message: 'Inventory seeded successfully' };
     } catch (error) {
       console.error('SeedService: Error seeding inventory:', error);
+      throw error;
+    }
+  }
+
+  static async seedDevices() {
+    try {
+      console.log('SeedService: Checking for device brands and models...');
+
+      const existingBrands = await DeviceBrand.countDocuments();
+      if (existingBrands > 0) {
+        console.log('SeedService: Device brands already exist');
+        return { success: true, message: 'Device brands already exist' };
+      }
+
+      // Create brands
+      const brands = [
+        {
+          name: 'Apple',
+          logo: 'https://via.placeholder.com/100x100/000000/ffffff?text=Apple'
+        },
+        {
+          name: 'Samsung',
+          logo: 'https://via.placeholder.com/100x100/1f4e79/ffffff?text=Samsung'
+        },
+        {
+          name: 'Google',
+          logo: 'https://via.placeholder.com/100x100/4285f4/ffffff?text=Google'
+        },
+        {
+          name: 'OnePlus',
+          logo: 'https://via.placeholder.com/100x100/eb0028/ffffff?text=OnePlus'
+        },
+        {
+          name: 'Microsoft',
+          logo: 'https://via.placeholder.com/100x100/00bcf2/ffffff?text=Microsoft'
+        },
+        {
+          name: 'Dell',
+          logo: 'https://via.placeholder.com/100x100/007db8/ffffff?text=Dell'
+        },
+        {
+          name: 'HP',
+          logo: 'https://via.placeholder.com/100x100/0096d6/ffffff?text=HP'
+        },
+        {
+          name: 'Lenovo',
+          logo: 'https://via.placeholder.com/100x100/e2231a/ffffff?text=Lenovo'
+        }
+      ];
+
+      const createdBrands = await DeviceBrand.insertMany(brands);
+      console.log('SeedService: Device brands created');
+
+      // Create models
+      const models = [
+        // Apple smartphones
+        { name: 'iPhone 15 Pro', brandId: createdBrands[0]._id, deviceType: 'smartphone' },
+        { name: 'iPhone 15', brandId: createdBrands[0]._id, deviceType: 'smartphone' },
+        { name: 'iPhone 14 Pro', brandId: createdBrands[0]._id, deviceType: 'smartphone' },
+        { name: 'iPhone 14', brandId: createdBrands[0]._id, deviceType: 'smartphone' },
+
+        // Apple tablets
+        { name: 'iPad Pro 12.9"', brandId: createdBrands[0]._id, deviceType: 'tablet' },
+        { name: 'iPad Air', brandId: createdBrands[0]._id, deviceType: 'tablet' },
+        { name: 'iPad', brandId: createdBrands[0]._id, deviceType: 'tablet' },
+
+        // Apple laptops
+        { name: 'MacBook Pro 16"', brandId: createdBrands[0]._id, deviceType: 'laptop' },
+        { name: 'MacBook Air', brandId: createdBrands[0]._id, deviceType: 'laptop' },
+
+        // Apple smartwatches
+        { name: 'Apple Watch Series 9', brandId: createdBrands[0]._id, deviceType: 'smartwatch' },
+        { name: 'Apple Watch SE', brandId: createdBrands[0]._id, deviceType: 'smartwatch' },
+
+        // Samsung smartphones
+        { name: 'Galaxy S24 Ultra', brandId: createdBrands[1]._id, deviceType: 'smartphone' },
+        { name: 'Galaxy S24', brandId: createdBrands[1]._id, deviceType: 'smartphone' },
+        { name: 'Galaxy S23 Ultra', brandId: createdBrands[1]._id, deviceType: 'smartphone' },
+        { name: 'Galaxy Note 20', brandId: createdBrands[1]._id, deviceType: 'smartphone' },
+
+        // Samsung tablets
+        { name: 'Galaxy Tab S9 Ultra', brandId: createdBrands[1]._id, deviceType: 'tablet' },
+        { name: 'Galaxy Tab S9', brandId: createdBrands[1]._id, deviceType: 'tablet' },
+        { name: 'Galaxy Tab A8', brandId: createdBrands[1]._id, deviceType: 'tablet' },
+
+        // Samsung smartwatches
+        { name: 'Galaxy Watch 6', brandId: createdBrands[1]._id, deviceType: 'smartwatch' },
+        { name: 'Galaxy Watch 5', brandId: createdBrands[1]._id, deviceType: 'smartwatch' },
+
+        // Google smartphones
+        { name: 'Pixel 8 Pro', brandId: createdBrands[2]._id, deviceType: 'smartphone' },
+        { name: 'Pixel 8', brandId: createdBrands[2]._id, deviceType: 'smartphone' },
+        { name: 'Pixel 7 Pro', brandId: createdBrands[2]._id, deviceType: 'smartphone' },
+
+        // OnePlus smartphones
+        { name: 'OnePlus 12', brandId: createdBrands[3]._id, deviceType: 'smartphone' },
+        { name: 'OnePlus 11', brandId: createdBrands[3]._id, deviceType: 'smartphone' },
+        { name: 'OnePlus 10 Pro', brandId: createdBrands[3]._id, deviceType: 'smartphone' },
+
+        // Microsoft tablets
+        { name: 'Surface Pro 9', brandId: createdBrands[4]._id, deviceType: 'tablet' },
+        { name: 'Surface Go 3', brandId: createdBrands[4]._id, deviceType: 'tablet' },
+
+        // Dell laptops
+        { name: 'XPS 13', brandId: createdBrands[5]._id, deviceType: 'laptop' },
+        { name: 'Inspiron 15', brandId: createdBrands[5]._id, deviceType: 'laptop' },
+
+        // HP laptops
+        { name: 'Spectre x360', brandId: createdBrands[6]._id, deviceType: 'laptop' },
+        { name: 'Pavilion 15', brandId: createdBrands[6]._id, deviceType: 'laptop' },
+
+        // Lenovo laptops
+        { name: 'ThinkPad X1 Carbon', brandId: createdBrands[7]._id, deviceType: 'laptop' },
+        { name: 'IdeaPad 5', brandId: createdBrands[7]._id, deviceType: 'laptop' }
+      ];
+
+      await DeviceModel.insertMany(models);
+      console.log('SeedService: Device models created');
+
+      return { success: true, message: 'Device brands and models seeded successfully' };
+    } catch (error) {
+      console.error('SeedService: Error seeding devices:', error);
       throw error;
     }
   }

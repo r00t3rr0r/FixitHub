@@ -67,6 +67,54 @@ router.post('/inventory', async (req, res) => {
   }
 });
 
+// Seed devices
+router.post('/devices', async (req, res) => {
+  console.log('Seed: Devices seeding request received');
+
+  try {
+    const result = await SeedService.seedDevices();
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Seed: Error seeding devices:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to seed devices'
+    });
+  }
+});
+
+// Seed blog data
+router.post('/blog', async (req, res) => {
+  console.log('Seed: Blog data seeding request received');
+
+  try {
+    const result = await SeedService.seedBlogData();
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Seed: Error seeding blog data:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to seed blog data'
+    });
+  }
+});
+
+// Seed FAQ data
+router.post('/faq', async (req, res) => {
+  console.log('Seed: FAQ data seeding request received');
+
+  try {
+    const result = await SeedService.seedFAQData();
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Seed: Error seeding FAQ data:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to seed FAQ data'
+    });
+  }
+});
+
 // Seed all data
 router.post('/all', async (req, res) => {
   console.log('Seed: All data seeding request received');
@@ -77,6 +125,10 @@ router.post('/all', async (req, res) => {
     // Seed admin
     const adminResult = await SeedService.seedAdmin();
     results.push({ type: 'admin', ...adminResult });
+
+    // Seed devices
+    const devicesResult = await SeedService.seedDevices();
+    results.push({ type: 'devices', ...devicesResult });
 
     // Seed services
     const servicesResult = await SeedService.seedServices();
@@ -89,6 +141,14 @@ router.post('/all', async (req, res) => {
     // Seed inventory
     const inventoryResult = await SeedService.seedInventory();
     results.push({ type: 'inventory', ...inventoryResult });
+
+    // Seed blog data
+    const blogResult = await SeedService.seedBlogData();
+    results.push({ type: 'blog', ...blogResult });
+
+    // Seed FAQ data
+    const faqResult = await SeedService.seedFAQData();
+    results.push({ type: 'faq', ...faqResult });
 
     return res.status(200).json({
       success: true,

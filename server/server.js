@@ -44,6 +44,10 @@ console.log('Loading blog routes...');
 const blogRoutes = require("./routes/blogRoutes");
 console.log('Loading FAQ routes...');
 const faqRoutes = require("./routes/faqRoutes");
+console.log('Loading workflow routes...');
+const workflowRoutes = require("./routes/workflowRoutes");
+console.log('Loading device routes...');
+const deviceRoutes = require("./routes/deviceRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -100,6 +104,15 @@ const initializeDatabase = async () => {
       console.log('Admin seeding result:', seedResult.message);
     } catch (error) {
       console.error('Error seeding admin user:', error.message);
+    }
+
+    // Auto-seed devices if they don't exist
+    console.log('Checking if devices exist...');
+    try {
+      const devicesSeedResult = await SeedService.seedDevices();
+      console.log('Devices seeding result:', devicesSeedResult.message);
+    } catch (error) {
+      console.error('Error seeding devices:', error.message);
     }
 
     // Auto-seed services if they don't exist
@@ -201,6 +214,10 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/blog-posts', blogRoutes);
 // FAQ Routes
 app.use('/api/faqs', faqRoutes);
+// Workflow Routes
+app.use('/api/workflows', workflowRoutes);
+// Device Routes
+app.use('/api/devices', deviceRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 

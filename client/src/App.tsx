@@ -43,6 +43,7 @@ import { PartsManagement } from "./pages/admin/PartsManagement"
 import { QualityControl } from "./pages/admin/QualityControl"
 import { StaffManagement } from "./pages/admin/StaffManagement"
 import { FinancialManagement } from "./pages/admin/FinancialManagement"
+import { DeviceBrandsManagement } from "./pages/admin/DeviceBrandsManagement"
 
 function App() {
   return (
@@ -75,6 +76,7 @@ function App() {
               <Route path="admin/shop" element={<WebShopManagement />} />
               <Route path="admin/services" element={<ServiceManagement />} />
               <Route path="admin/addons" element={<AddOnServiceManagement />} />
+              <Route path="admin/devices" element={<DeviceBrandsManagement />} />
               <Route path="admin/analytics" element={<Analytics />} />
               <Route path="admin/blog" element={<BlogManagement />} />
               <Route path="admin/faq" element={<FAQManagement />} />
