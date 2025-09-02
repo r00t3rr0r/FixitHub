@@ -1,5 +1,40 @@
 import api from './api';
 
+export interface FormField {
+  id: string;
+  name: string;
+  label: string;
+  type: 'text' | 'textarea' | 'number' | 'checkbox' | 'radio' | 'select' | 'multiselect' | 'file' | 'date' | 'time';
+  required: boolean;
+  placeholder?: string;
+  helpText?: string;
+  options?: Array<{ value: string; label: string }>;
+  validation?: {
+    min?: number;
+    max?: number;
+    pattern?: string;
+    minLength?: number;
+    maxLength?: number;
+  };
+  defaultValue?: any;
+  order: number;
+  isConditional: boolean;
+  conditionalLogic?: {
+    dependsOn: string;
+    condition: string;
+    value: any;
+  };
+}
+
+export interface AutomationRule {
+  _id?: string;
+  trigger: 'step_completion' | 'time_delay' | 'condition_met' | 'manual' | 'form_submission';
+  condition?: string;
+  action: 'send_notification' | 'update_status' | 'assign_staff' | 'create_task' | 'move_to_next_step';
+  actionData?: any;
+  isActive: boolean;
+}
+
 export interface WorkflowStep {
   _id: string;
   name: string;
@@ -12,6 +47,20 @@ export interface WorkflowStep {
   tools: string[];
   skills: string[];
   checklistItems: string[];
+  formFields: FormField[];
+  requiresFormCompletion: boolean;
+  automationRules: AutomationRule[];
+  position: {
+    x: number;
+    y: number;
+  };
+  canSkip: boolean;
+  requiresApproval: boolean;
+  notificationSettings: {
+    onStart: boolean;
+    onComplete: boolean;
+    onDelay: boolean;
+  };
 }
 
 export interface WorkflowTemplate {
@@ -23,6 +72,12 @@ export interface WorkflowTemplate {
   steps: WorkflowStep[];
   estimatedTotalTime: number;
   isActive: boolean;
+  globalAutomationRules: AutomationRule[];
+  workflowSettings: {
+    allowParallelSteps: boolean;
+    requireStrictOrder: boolean;
+    autoProgressOnCompletion: boolean;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -36,6 +91,7 @@ export interface AddOnWorkflow {
   estimatedTime: number;
   instructions: string;
   qualityChecks: string[];
+  automationRules: AutomationRule[];
 }
 
 // Description: Get all workflow templates
@@ -44,17 +100,29 @@ export interface AddOnWorkflow {
 // Response: { success: boolean, workflows: WorkflowTemplate[] }
 export const getWorkflowTemplates = async (filters: any = {}) => {
   try {
-    console.log("Fetching workflow templates with filters:", filters);
+    console.log("WorkflowAPI: getWorkflowTemplates called with filters:", filters);
     const params = new URLSearchParams();
     if (filters.deviceType) params.append('deviceType', filters.deviceType);
     if (filters.serviceType) params.append('serviceType', filters.serviceType);
     if (filters.isActive !== undefined) params.append('isActive', filters.isActive.toString());
 
-    const response = await api.get(`/api/workflows/templates?${params.toString()}`);
-    console.log("Successfully fetched workflow templates:", response.data);
+    const url = `/api/workflows/templates?${params.toString()}`;
+    console.log("WorkflowAPI: Making request to:", url);
+    
+    const response = await api.get(url);
+    console.log("WorkflowAPI: getWorkflowTemplates response received:", {
+      success: response.data.success,
+      workflowCount: response.data.workflows?.length || 0,
+      workflows: response.data.workflows?.map(w => ({ id: w._id, name: w.name, stepsCount: w.steps?.length || 0 }))
+    });
     return response.data;
   } catch (error: any) {
-    console.error("Error fetching workflow templates:", error);
+    console.error("WorkflowAPI: getWorkflowTemplates error:", error);
+    console.error("WorkflowAPI: Error details:", {
+      message: error.message,
+      response: error?.response?.data,
+      status: error?.response?.status
+    });
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
@@ -81,12 +149,28 @@ export const getAddOnWorkflows = async () => {
 // Response: { success: boolean, workflow: WorkflowTemplate }
 export const createWorkflowTemplate = async (workflowData: Partial<WorkflowTemplate>) => {
   try {
-    console.log("Creating workflow template:", workflowData);
+    console.log("WorkflowAPI: createWorkflowTemplate called with data:", {
+      name: workflowData.name,
+      deviceTypesCount: workflowData.deviceTypes?.length || 0,
+      serviceTypesCount: workflowData.serviceTypes?.length || 0,
+      stepsCount: workflowData.steps?.length || 0,
+      estimatedTotalTime: workflowData.estimatedTotalTime
+    });
+    
     const response = await api.post('/api/workflows/templates', workflowData);
-    console.log("Successfully created workflow template:", response.data);
+    console.log("WorkflowAPI: createWorkflowTemplate response:", {
+      success: response.data.success,
+      workflowId: response.data.workflow?._id,
+      workflowName: response.data.workflow?.name
+    });
     return response.data;
   } catch (error: any) {
-    console.error("Error creating workflow template:", error);
+    console.error("WorkflowAPI: createWorkflowTemplate error:", error);
+    console.error("WorkflowAPI: Error details:", {
+      message: error.message,
+      response: error?.response?.data,
+      status: error?.response?.status
+    });
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
@@ -97,12 +181,27 @@ export const createWorkflowTemplate = async (workflowData: Partial<WorkflowTempl
 // Response: { success: boolean, workflow: WorkflowTemplate }
 export const updateWorkflowTemplate = async (workflowId: string, updates: Partial<WorkflowTemplate>) => {
   try {
-    console.log("Updating workflow template:", workflowId, updates);
+    console.log("WorkflowAPI: updateWorkflowTemplate called:", {
+      workflowId,
+      updateFields: Object.keys(updates),
+      stepsCount: updates.steps?.length || 0,
+      estimatedTotalTime: updates.estimatedTotalTime
+    });
+    
     const response = await api.put(`/api/workflows/templates/${workflowId}`, updates);
-    console.log("Successfully updated workflow template:", response.data);
+    console.log("WorkflowAPI: updateWorkflowTemplate response:", {
+      success: response.data.success,
+      workflowId: response.data.workflow?._id,
+      workflowName: response.data.workflow?.name
+    });
     return response.data;
   } catch (error: any) {
-    console.error("Error updating workflow template:", error);
+    console.error("WorkflowAPI: updateWorkflowTemplate error:", error);
+    console.error("WorkflowAPI: Error details:", {
+      message: error.message,
+      response: error?.response?.data,
+      status: error?.response?.status
+    });
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
@@ -135,6 +234,134 @@ export const getWorkflowTemplateById = async (workflowId: string) => {
     return response.data;
   } catch (error: any) {
     console.error("Error fetching workflow template by ID:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Reorder workflow steps
+// Endpoint: PUT /api/workflows/templates/:id/reorder-steps
+// Request: { stepOrderData: Array<{ stepId: string, newOrder: number, position?: { x: number, y: number } }> }
+// Response: { success: boolean, workflow: WorkflowTemplate }
+export const reorderWorkflowSteps = async (workflowId: string, stepOrderData: Array<{ stepId: string, newOrder: number, position?: { x: number, y: number } }>) => {
+  try {
+    console.log("Reordering workflow steps:", workflowId, stepOrderData);
+    const response = await api.put(`/api/workflows/templates/${workflowId}/reorder-steps`, { stepOrderData });
+    console.log("Successfully reordered workflow steps:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error reordering workflow steps:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Add form field to workflow step
+// Endpoint: POST /api/workflows/templates/:id/steps/:stepId/form-fields
+// Request: FormField
+// Response: { success: boolean, workflow: WorkflowTemplate }
+export const addFormFieldToStep = async (workflowId: string, stepId: string, formField: FormField) => {
+  try {
+    console.log("Adding form field to step:", stepId, formField);
+    const response = await api.post(`/api/workflows/templates/${workflowId}/steps/${stepId}/form-fields`, formField);
+    console.log("Successfully added form field:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error adding form field:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Update form field in workflow step
+// Endpoint: PUT /api/workflows/templates/:id/steps/:stepId/form-fields/:fieldId
+// Request: Partial<FormField>
+// Response: { success: boolean, workflow: WorkflowTemplate }
+export const updateFormField = async (workflowId: string, stepId: string, fieldId: string, updates: Partial<FormField>) => {
+  try {
+    console.log("Updating form field:", fieldId, updates);
+    const response = await api.put(`/api/workflows/templates/${workflowId}/steps/${stepId}/form-fields/${fieldId}`, updates);
+    console.log("Successfully updated form field:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error updating form field:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Remove form field from workflow step
+// Endpoint: DELETE /api/workflows/templates/:id/steps/:stepId/form-fields/:fieldId
+// Request: {}
+// Response: { success: boolean, workflow: WorkflowTemplate }
+export const removeFormField = async (workflowId: string, stepId: string, fieldId: string) => {
+  try {
+    console.log("Removing form field:", fieldId);
+    const response = await api.delete(`/api/workflows/templates/${workflowId}/steps/${stepId}/form-fields/${fieldId}`);
+    console.log("Successfully removed form field:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error removing form field:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Add automation rule to workflow step
+// Endpoint: POST /api/workflows/templates/:id/steps/:stepId/automation-rules
+// Request: AutomationRule
+// Response: { success: boolean, workflow: WorkflowTemplate }
+export const addAutomationRule = async (workflowId: string, stepId: string, automationRule: AutomationRule) => {
+  try {
+    console.log("Adding automation rule to step:", stepId, automationRule);
+    const response = await api.post(`/api/workflows/templates/${workflowId}/steps/${stepId}/automation-rules`, automationRule);
+    console.log("Successfully added automation rule:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error adding automation rule:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Update automation rule
+// Endpoint: PUT /api/workflows/templates/:id/steps/:stepId/automation-rules/:ruleId
+// Request: Partial<AutomationRule>
+// Response: { success: boolean, workflow: WorkflowTemplate }
+export const updateAutomationRule = async (workflowId: string, stepId: string, ruleId: string, updates: Partial<AutomationRule>) => {
+  try {
+    console.log("Updating automation rule:", ruleId, updates);
+    const response = await api.put(`/api/workflows/templates/${workflowId}/steps/${stepId}/automation-rules/${ruleId}`, updates);
+    console.log("Successfully updated automation rule:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error updating automation rule:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Remove automation rule
+// Endpoint: DELETE /api/workflows/templates/:id/steps/:stepId/automation-rules/:ruleId
+// Request: {}
+// Response: { success: boolean, workflow: WorkflowTemplate }
+export const removeAutomationRule = async (workflowId: string, stepId: string, ruleId: string) => {
+  try {
+    console.log("Removing automation rule:", ruleId);
+    const response = await api.delete(`/api/workflows/templates/${workflowId}/steps/${stepId}/automation-rules/${ruleId}`);
+    console.log("Successfully removed automation rule:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error removing automation rule:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Duplicate workflow template
+// Endpoint: POST /api/workflows/templates/:id/duplicate
+// Request: { newName?: string }
+// Response: { success: boolean, workflow: WorkflowTemplate }
+export const duplicateWorkflowTemplate = async (workflowId: string, newName?: string) => {
+  try {
+    console.log("Duplicating workflow template:", workflowId, newName);
+    const response = await api.post(`/api/workflows/templates/${workflowId}/duplicate`, { newName });
+    console.log("Successfully duplicated workflow template:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error duplicating workflow template:", error);
     throw new Error(error?.response?.data?.error || error.message);
   }
 };

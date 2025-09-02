@@ -1,669 +1,625 @@
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { useToast } from "@/hooks/useToast"
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { useToast } from '@/hooks/useToast';
+import { VisualBuilder } from '@/components/workflow/VisualBuilder';
+import { StepFormDialog } from '@/components/workflow/StepFormDialog';
+import { StepManagementDialog } from '@/components/workflow/StepManagementDialog';
 import {
   getWorkflowTemplates,
-  getAddOnWorkflows,
   createWorkflowTemplate,
   updateWorkflowTemplate,
   deleteWorkflowTemplate,
+  getWorkflowTemplateById,
+  duplicateWorkflowTemplate,
+  getAddOnWorkflows,
   createAddOnWorkflow,
   updateAddOnWorkflow,
-  getWorkflowTemplateById,
+  getWorkflowStats,
+  addFormFieldToStep,
+  updateFormField,
+  removeFormField,
+  addAutomationRule,
+  updateAutomationRule,
+  removeAutomationRule,
   WorkflowTemplate,
+  WorkflowStep,
   AddOnWorkflow,
-  WorkflowStep
-} from "@/api/workflow"
-import { getServices } from "@/api/services"
-import { getAddOnServices } from "@/api/services"
+  FormField,
+  AutomationRule
+} from '@/api/workflow';
+import { getServices } from '@/api/services';
+import { getAddOnServices } from '@/api/services';
 import {
-  Wrench,
-  Search,
   Plus,
   Edit,
-  Eye,
-  Clock,
-  CheckSquare,
-  ArrowRight,
-  Settings,
   Trash2,
-  X
-} from "lucide-react"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Checkbox } from "@/components/ui/checkbox"
+  Eye,
+  Move,
+  Copy,
+  Settings,
+  Zap,
+  Clock,
+  Users,
+  BarChart3,
+  Filter,
+  Search,
+  Download,
+  Upload
+} from 'lucide-react';
 
 export function WorkflowManagement() {
-  const [workflows, setWorkflows] = useState<WorkflowTemplate[]>([])
-  const [addOnWorkflows, setAddOnWorkflows] = useState<AddOnWorkflow[]>([])
-  const [services, setServices] = useState<any[]>([])
-  const [addOnServices, setAddOnServices] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [deviceFilter, setDeviceFilter] = useState("all")
+  console.log('WorkflowManagement: Component initialized');
+
+  const { toast } = useToast();
+  
+  // State management
+  const [workflows, setWorkflows] = useState<WorkflowTemplate[]>([]);
+  const [addOnWorkflows, setAddOnWorkflows] = useState<AddOnWorkflow[]>([]);
+  const [services, setServices] = useState<any[]>([]);
+  const [addOnServices, setAddOnServices] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>({});
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterActive, setFilterActive] = useState<boolean | undefined>(undefined);
 
   // Dialog states
-  const [showCreateWorkflow, setShowCreateWorkflow] = useState(false)
-  const [showCreateAddOn, setShowCreateAddOn] = useState(false)
-  const [showViewWorkflow, setShowViewWorkflow] = useState(false)
-  const [showEditWorkflow, setShowEditWorkflow] = useState(false)
-  const [showDeleteWorkflow, setShowDeleteWorkflow] = useState(false)
-  const [showViewAddOn, setShowViewAddOn] = useState(false)
-  const [showEditAddOn, setShowEditAddOn] = useState(false)
-  const [showDeleteAddOn, setShowDeleteAddOn] = useState(false)
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showViewDialog, setShowViewDialog] = useState(false);
+  const [showVisualBuilder, setShowVisualBuilder] = useState(false);
+  const [showStepDialog, setShowStepDialog] = useState(false);
+  const [showStepManagementDialog, setShowStepManagementDialog] = useState(false);
+  const [showAddOnDialog, setShowAddOnDialog] = useState(false);
 
   // Selected items
-  const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowTemplate | null>(null)
-  const [selectedAddOn, setSelectedAddOn] = useState<AddOnWorkflow | null>(null)
+  const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowTemplate | null>(null);
+  const [selectedStep, setSelectedStep] = useState<WorkflowStep | null>(null);
+  const [selectedAddOnWorkflow, setSelectedAddOnWorkflow] = useState<AddOnWorkflow | null>(null);
 
-  // Form states
+  // Form data
   const [workflowForm, setWorkflowForm] = useState({
     name: '',
     description: '',
     deviceTypes: [] as string[],
     serviceTypes: [] as string[],
+    isActive: true,
     steps: [] as WorkflowStep[],
-    isActive: true
-  })
+    workflowSettings: {
+      allowParallelSteps: false,
+      requireStrictOrder: true,
+      autoProgressOnCompletion: false
+    }
+  });
 
   const [addOnForm, setAddOnForm] = useState({
     addOnServiceId: '',
-    optimalTiming: 'flexible' as 'before_repair' | 'during_repair' | 'after_repair' | 'flexible',
+    optimalTiming: 'during_repair' as 'before_repair' | 'during_repair' | 'after_repair' | 'flexible',
     dependencies: [] as string[],
-    estimatedTime: 0,
+    estimatedTime: 30,
     instructions: '',
     qualityChecks: [] as string[]
-  })
+  });
 
-  const [currentStep, setCurrentStep] = useState<WorkflowStep>({
-    _id: '',
-    name: '',
-    description: '',
-    estimatedTime: 0,
-    isRequired: true,
-    order: 1,
-    category: 'diagnostic',
-    dependencies: [],
-    tools: [],
-    skills: [],
-    checklistItems: []
-  })
-
-  const [newDependency, setNewDependency] = useState('')
-  const [newQualityCheck, setNewQualityCheck] = useState('')
-
-  const { toast } = useToast()
-
+  // Load initial data
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [workflowResponse, addOnResponse, servicesResponse, addOnServicesResponse] = await Promise.all([
-          getWorkflowTemplates(),
-          getAddOnWorkflows(),
-          getServices(),
-          getAddOnServices()
-        ])
-        setWorkflows((workflowResponse as any).workflows || [])
-        setAddOnWorkflows((addOnResponse as any).addOnWorkflows || [])
-        setServices((servicesResponse as any).services || [])
-        setAddOnServices((addOnServicesResponse as any).addOns || [])
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to load workflow data",
-          variant: "destructive"
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
-  }, [toast])
+    console.log('WorkflowManagement: Loading initial data');
+    loadData();
+  }, []);
 
+  const loadData = async () => {
+    console.log('WorkflowManagement: loadData called');
+    setLoading(true);
+    try {
+      console.log('WorkflowManagement: Fetching workflows, services, and stats');
+      const [workflowsRes, addOnWorkflowsRes, servicesRes, addOnServicesRes, statsRes] = await Promise.all([
+        getWorkflowTemplates(),
+        getAddOnWorkflows(),
+        getServices(),
+        getAddOnServices(),
+        getWorkflowStats()
+      ]);
+
+      console.log('WorkflowManagement: Data loaded successfully:', {
+        workflowsCount: workflowsRes.workflows?.length || 0,
+        addOnWorkflowsCount: addOnWorkflowsRes.addOnWorkflows?.length || 0,
+        servicesCount: servicesRes.services?.length || 0,
+        addOnServicesCount: addOnServicesRes.services?.length || 0
+      });
+
+      setWorkflows(workflowsRes.workflows || []);
+      setAddOnWorkflows(addOnWorkflowsRes.addOnWorkflows || []);
+      setServices(servicesRes.services || []);
+      setAddOnServices(addOnServicesRes.services || []);
+      setStats(statsRes.stats || {});
+    } catch (error: any) {
+      console.error('WorkflowManagement: Error loading data:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to load workflow data',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Workflow CRUD operations
+  const handleCreateWorkflow = async () => {
+    console.log('WorkflowManagement: Creating workflow:', workflowForm.name);
+    try {
+      const result = await createWorkflowTemplate(workflowForm);
+      console.log('WorkflowManagement: Workflow created successfully:', result.workflow?._id);
+      
+      setWorkflows(prev => [result.workflow, ...prev]);
+      setShowCreateDialog(false);
+      resetWorkflowForm();
+      
+      toast({
+        title: 'Success',
+        description: 'Workflow created successfully'
+      });
+    } catch (error: any) {
+      console.error('WorkflowManagement: Error creating workflow:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to create workflow',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleUpdateWorkflow = async () => {
+    console.log('WorkflowManagement: Updating workflow:', selectedWorkflow?._id);
+    if (!selectedWorkflow) return;
+
+    try {
+      const result = await updateWorkflowTemplate(selectedWorkflow._id, workflowForm);
+      console.log('WorkflowManagement: Workflow updated successfully');
+      
+      setWorkflows(prev => prev.map(w => w._id === selectedWorkflow._id ? result.workflow : w));
+      setShowEditDialog(false);
+      setSelectedWorkflow(null);
+      resetWorkflowForm();
+      
+      toast({
+        title: 'Success',
+        description: 'Workflow updated successfully'
+      });
+    } catch (error: any) {
+      console.error('WorkflowManagement: Error updating workflow:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update workflow',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleDeleteWorkflow = async (workflowId: string) => {
+    console.log('WorkflowManagement: Deleting workflow:', workflowId);
+    if (!confirm('Are you sure you want to delete this workflow?')) return;
+
+    try {
+      await deleteWorkflowTemplate(workflowId);
+      console.log('WorkflowManagement: Workflow deleted successfully');
+      
+      setWorkflows(prev => prev.filter(w => w._id !== workflowId));
+      
+      toast({
+        title: 'Success',
+        description: 'Workflow deleted successfully'
+      });
+    } catch (error: any) {
+      console.error('WorkflowManagement: Error deleting workflow:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete workflow',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleDuplicateWorkflow = async (workflowId: string) => {
+    console.log('WorkflowManagement: Duplicating workflow:', workflowId);
+    try {
+      const result = await duplicateWorkflowTemplate(workflowId);
+      console.log('WorkflowManagement: Workflow duplicated successfully');
+      
+      setWorkflows(prev => [result.workflow, ...prev]);
+      
+      toast({
+        title: 'Success',
+        description: 'Workflow duplicated successfully'
+      });
+    } catch (error: any) {
+      console.error('WorkflowManagement: Error duplicating workflow:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to duplicate workflow',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // Add-on workflow operations
+  const handleCreateAddOnWorkflow = async () => {
+    console.log('WorkflowManagement: Creating add-on workflow');
+    try {
+      const result = await createAddOnWorkflow(addOnForm);
+      console.log('WorkflowManagement: Add-on workflow created successfully');
+      
+      setAddOnWorkflows(prev => [result.addOnWorkflow, ...prev]);
+      setShowAddOnDialog(false);
+      resetAddOnForm();
+      
+      toast({
+        title: 'Success',
+        description: 'Add-on workflow created successfully'
+      });
+    } catch (error: any) {
+      console.error('WorkflowManagement: Error creating add-on workflow:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to create add-on workflow',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // Step management operations
+  const handleSaveStep = async (stepData: Partial<WorkflowStep>) => {
+    console.log('WorkflowManagement: Saving step:', stepData.name);
+    if (!selectedWorkflow) return;
+
+    try {
+      const updatedWorkflow = { ...selectedWorkflow };
+      
+      if (stepData._id && !stepData._id.startsWith('temp_')) {
+        // Update existing step
+        const stepIndex = updatedWorkflow.steps.findIndex(s => s._id === stepData._id);
+        if (stepIndex >= 0) {
+          updatedWorkflow.steps[stepIndex] = stepData as WorkflowStep;
+        }
+      } else {
+        // Add new step
+        const newStep = {
+          ...stepData,
+          _id: `step_${Date.now()}`,
+          order: updatedWorkflow.steps.length + 1
+        } as WorkflowStep;
+        updatedWorkflow.steps.push(newStep);
+      }
+
+      const result = await updateWorkflowTemplate(selectedWorkflow._id, updatedWorkflow);
+      setSelectedWorkflow(result.workflow);
+      setWorkflows(prev => prev.map(w => w._id === selectedWorkflow._id ? result.workflow : w));
+      
+      console.log('WorkflowManagement: Step saved successfully');
+    } catch (error: any) {
+      console.error('WorkflowManagement: Error saving step:', error);
+      throw error;
+    }
+  };
+
+  const handleAddFormFieldToStep = async (formField: FormField) => {
+    console.log('WorkflowManagement: Adding form field to step');
+    if (!selectedWorkflow || !selectedStep) return;
+
+    try {
+      const result = await addFormFieldToStep(selectedWorkflow._id, selectedStep._id, formField);
+      setSelectedWorkflow(result.workflow);
+      setWorkflows(prev => prev.map(w => w._id === selectedWorkflow._id ? result.workflow : w));
+    } catch (error: any) {
+      console.error('WorkflowManagement: Error adding form field:', error);
+      throw error;
+    }
+  };
+
+  const handleUpdateFormField = async (fieldId: string, updates: Partial<FormField>) => {
+    console.log('WorkflowManagement: Updating form field:', fieldId);
+    if (!selectedWorkflow || !selectedStep) return;
+
+    try {
+      const result = await updateFormField(selectedWorkflow._id, selectedStep._id, fieldId, updates);
+      setSelectedWorkflow(result.workflow);
+      setWorkflows(prev => prev.map(w => w._id === selectedWorkflow._id ? result.workflow : w));
+    } catch (error: any) {
+      console.error('WorkflowManagement: Error updating form field:', error);
+      throw error;
+    }
+  };
+
+  const handleRemoveFormField = async (fieldId: string) => {
+    console.log('WorkflowManagement: Removing form field:', fieldId);
+    if (!selectedWorkflow || !selectedStep) return;
+
+    try {
+      const result = await removeFormField(selectedWorkflow._id, selectedStep._id, fieldId);
+      setSelectedWorkflow(result.workflow);
+      setWorkflows(prev => prev.map(w => w._id === selectedWorkflow._id ? result.workflow : w));
+    } catch (error: any) {
+      console.error('WorkflowManagement: Error removing form field:', error);
+      throw error;
+    }
+  };
+
+  const handleAddAutomationRule = async (rule: AutomationRule) => {
+    console.log('WorkflowManagement: Adding automation rule to step');
+    if (!selectedWorkflow || !selectedStep) return;
+
+    try {
+      const result = await addAutomationRule(selectedWorkflow._id, selectedStep._id, rule);
+      setSelectedWorkflow(result.workflow);
+      setWorkflows(prev => prev.map(w => w._id === selectedWorkflow._id ? result.workflow : w));
+    } catch (error: any) {
+      console.error('WorkflowManagement: Error adding automation rule:', error);
+      throw error;
+    }
+  };
+
+  const handleUpdateAutomationRule = async (ruleId: string, updates: Partial<AutomationRule>) => {
+    console.log('WorkflowManagement: Updating automation rule:', ruleId);
+    if (!selectedWorkflow || !selectedStep) return;
+
+    try {
+      const result = await updateAutomationRule(selectedWorkflow._id, selectedStep._id, ruleId, updates);
+      setSelectedWorkflow(result.workflow);
+      setWorkflows(prev => prev.map(w => w._id === selectedWorkflow._id ? result.workflow : w));
+    } catch (error: any) {
+      console.error('WorkflowManagement: Error updating automation rule:', error);
+      throw error;
+    }
+  };
+
+  const handleRemoveAutomationRule = async (ruleId: string) => {
+    console.log('WorkflowManagement: Removing automation rule:', ruleId);
+    if (!selectedWorkflow || !selectedStep) return;
+
+    try {
+      const result = await removeAutomationRule(selectedWorkflow._id, selectedStep._id, ruleId);
+      setSelectedWorkflow(result.workflow);
+      setWorkflows(prev => prev.map(w => w._id === selectedWorkflow._id ? result.workflow : w));
+    } catch (error: any) {
+      console.error('WorkflowManagement: Error removing automation rule:', error);
+      throw error;
+    }
+  };
+
+  // Helper functions
   const resetWorkflowForm = () => {
+    console.log('WorkflowManagement: Resetting workflow form');
     setWorkflowForm({
       name: '',
       description: '',
       deviceTypes: [],
       serviceTypes: [],
+      isActive: true,
       steps: [],
-      isActive: true
-    })
-  }
+      workflowSettings: {
+        allowParallelSteps: false,
+        requireStrictOrder: true,
+        autoProgressOnCompletion: false
+      }
+    });
+  };
 
   const resetAddOnForm = () => {
+    console.log('WorkflowManagement: Resetting add-on form');
     setAddOnForm({
       addOnServiceId: '',
-      optimalTiming: 'flexible',
+      optimalTiming: 'during_repair',
       dependencies: [],
-      estimatedTime: 0,
+      estimatedTime: 30,
       instructions: '',
       qualityChecks: []
-    })
-  }
+    });
+  };
 
-  const resetCurrentStep = () => {
-    setCurrentStep({
-      _id: '',
-      name: '',
-      description: '',
-      estimatedTime: 0,
-      isRequired: true,
-      order: workflowForm.steps.length + 1,
-      category: 'diagnostic',
-      dependencies: [],
-      tools: [],
-      skills: [],
-      checklistItems: []
-    })
-  }
-
-  const handleCreateWorkflow = () => {
-    resetWorkflowForm()
-    setShowCreateWorkflow(true)
-  }
-
-  const handleCreateAddOn = () => {
-    resetAddOnForm()
-    setShowCreateAddOn(true)
-  }
-
-  const handleViewWorkflow = async (workflow: WorkflowTemplate) => {
-    try {
-      const response = await getWorkflowTemplateById(workflow._id)
-      setSelectedWorkflow((response as any).workflow)
-      setShowViewWorkflow(true)
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to load workflow details",
-        variant: "destructive"
-      })
-    }
-  }
-
-  const handleEditWorkflow = (workflow: WorkflowTemplate) => {
-    setSelectedWorkflow(workflow)
+  const openEditDialog = (workflow: WorkflowTemplate) => {
+    console.log('WorkflowManagement: Opening edit dialog for workflow:', workflow.name);
+    setSelectedWorkflow(workflow);
     setWorkflowForm({
       name: workflow.name,
       description: workflow.description,
       deviceTypes: workflow.deviceTypes,
       serviceTypes: workflow.serviceTypes,
+      isActive: workflow.isActive,
       steps: workflow.steps,
-      isActive: workflow.isActive
-    })
-    setShowEditWorkflow(true)
-  }
-
-  const handleDeleteWorkflow = (workflow: WorkflowTemplate) => {
-    setSelectedWorkflow(workflow)
-    setShowDeleteWorkflow(true)
-  }
-
-  const handleViewAddOn = (addOn: AddOnWorkflow) => {
-    setSelectedAddOn(addOn)
-    setShowViewAddOn(true)
-  }
-
-  const handleEditAddOn = (addOn: AddOnWorkflow) => {
-    setSelectedAddOn(addOn)
-    setAddOnForm({
-      addOnServiceId: addOn.addOnServiceId,
-      optimalTiming: addOn.optimalTiming,
-      dependencies: addOn.dependencies,
-      estimatedTime: addOn.estimatedTime,
-      instructions: addOn.instructions,
-      qualityChecks: addOn.qualityChecks
-    })
-    setShowEditAddOn(true)
-  }
-
-  const handleDeleteAddOn = (addOn: AddOnWorkflow) => {
-    setSelectedAddOn(addOn)
-    setShowDeleteAddOn(true)
-  }
-
-  const handleSaveWorkflow = async () => {
-    try {
-      if (!workflowForm.name || !workflowForm.description) {
-        toast({
-          title: "Error",
-          description: "Name and description are required",
-          variant: "destructive"
-        })
-        return
+      workflowSettings: workflow.workflowSettings || {
+        allowParallelSteps: false,
+        requireStrictOrder: true,
+        autoProgressOnCompletion: false
       }
+    });
+    setShowEditDialog(true);
+  };
 
-      // Calculate estimated total time from all steps
-      const estimatedTotalTime = workflowForm.steps.reduce((total, step) => total + step.estimatedTime, 0)
+  const openVisualBuilder = (workflow: WorkflowTemplate) => {
+    console.log('WorkflowManagement: Opening visual builder for workflow:', workflow.name);
+    setSelectedWorkflow(workflow);
+    setShowVisualBuilder(true);
+  };
 
-      // Prepare the workflow data with calculated total time
-      const workflowData = {
-        ...workflowForm,
-        estimatedTotalTime
-      }
+  const openViewDialog = (workflow: WorkflowTemplate) => {
+    console.log('WorkflowManagement: Opening view dialog for workflow:', workflow.name);
+    setSelectedWorkflow(workflow);
+    setShowViewDialog(true);
+  };
 
-      console.log("Saving workflow with data:", workflowData)
-
-      if (selectedWorkflow) {
-        await updateWorkflowTemplate(selectedWorkflow._id, workflowData)
-        toast({
-          title: "Success",
-          description: "Workflow updated successfully"
-        })
-      } else {
-        await createWorkflowTemplate(workflowData)
-        toast({
-          title: "Success",
-          description: "Workflow created successfully"
-        })
-      }
-
-      const response = await getWorkflowTemplates()
-      setWorkflows((response as any).workflows || [])
-
-      setShowCreateWorkflow(false)
-      setShowEditWorkflow(false)
-      setSelectedWorkflow(null)
-      resetWorkflowForm()
-    } catch (error) {
-      console.error("Error saving workflow:", error)
-      toast({
-        title: "Error",
-        description: error?.response?.data?.error || "Failed to save workflow",
-        variant: "destructive"
-      })
-    }
-  }
-
-  const handleSaveAddOn = async () => {
-    try {
-      if (!addOnForm.addOnServiceId || !addOnForm.instructions) {
-        toast({
-          title: "Error",
-          description: "Add-on service and instructions are required",
-          variant: "destructive"
-        })
-        return
-      }
-      if (selectedAddOn) {
-        await updateAddOnWorkflow(selectedAddOn._id, addOnForm)
-        toast({
-          title: "Success",
-          description: "Add-on workflow updated successfully"
-        })
-      } else {
-        await createAddOnWorkflow(addOnForm)
-        toast({
-          title: "Success",
-          description: "Add-on workflow created successfully"
-        })
-      }
-      const response = await getAddOnWorkflows()
-      setAddOnWorkflows((response as any).addOnWorkflows || [])
-      setShowCreateAddOn(false)
-      setShowEditAddOn(false)
-      setSelectedAddOn(null)
-      resetAddOnForm()
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save add-on workflow",
-        variant: "destructive"
-      })
-    }
-  }
-
-  const handleConfirmDeleteWorkflow = async () => {
-    if (!selectedWorkflow) return
-    try {
-      await deleteWorkflowTemplate(selectedWorkflow._id)
-      toast({
-        title: "Success",
-        description: "Workflow deleted successfully"
-      })
-      const response = await getWorkflowTemplates()
-      setWorkflows((response as any).workflows || [])
-      setShowDeleteWorkflow(false)
-      setSelectedWorkflow(null)
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete workflow",
-        variant: "destructive"
-      })
-    }
-  }
-
-  const handleConfirmDeleteAddOn = async () => {
-    if (!selectedAddOn) return
-    try {
-      // missing delete call? Let's add it:
-      // await deleteAddOnWorkflow(selectedAddOn._id)
-      toast({
-        title: "Success",
-        description: "Add-on workflow deleted successfully"
-      })
-      const response = await getAddOnWorkflows()
-      setAddOnWorkflows((response as any).addOnWorkflows || [])
-      setShowDeleteAddOn(false)
-      setSelectedAddOn(null)
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete add-on workflow",
-        variant: "destructive"
-      })
-    }
-  }
-
-  const handleAddStep = () => {
-    if (!currentStep.name || !currentStep.description) {
-      toast({
-        title: "Error",
-        description: "Step name and description are required",
-        variant: "destructive"
-      })
-      return
-    }
-    const newStep = { ...currentStep, _id: Date.now().toString() }
-    setWorkflowForm(prev => ({
-      ...prev,
-      steps: [...prev.steps, newStep]
-    }))
-    resetCurrentStep()
-  }
-
-  const handleRemoveStep = (stepId: string) => {
-    setWorkflowForm(prev => ({
-      ...prev,
-      steps: prev.steps.filter(step => step._id !== stepId)
-    }))
-  }
-
-  const addDependency = () => {
-    if (newDependency && !addOnForm.dependencies.includes(newDependency)) {
-      setAddOnForm(prev => ({
-        ...prev,
-        dependencies: [...prev.dependencies, newDependency]
-      }))
-      setNewDependency('')
-    }
-  }
-
-  const removeDependency = (dependency: string) => {
-    setAddOnForm(prev => ({
-      ...prev,
-      dependencies: prev.dependencies.filter(dep => dep !== dependency)
-    }))
-  }
-
-  const addQualityCheck = () => {
-    if (newQualityCheck && !addOnForm.qualityChecks.includes(newQualityCheck)) {
-      setAddOnForm(prev => ({
-        ...prev,
-        qualityChecks: [...prev.qualityChecks, newQualityCheck]
-      }))
-      setNewQualityCheck('')
-    }
-  }
-
-  const removeQualityCheck = (check: string) => {
-    setAddOnForm(prev => ({
-      ...prev,
-      qualityChecks: prev.qualityChecks.filter(qc => qc !== check)
-    }))
-  }
-
+  // Filter workflows
   const filteredWorkflows = workflows.filter(workflow => {
     const matchesSearch = workflow.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         workflow.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesDevice = deviceFilter === "all" || workflow.deviceTypes.includes(deviceFilter)
-    return matchesSearch && matchesDevice
-  })
+                         workflow.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filterActive === undefined || workflow.isActive === filterActive;
+    return matchesSearch && matchesFilter;
+  });
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="h-8 bg-muted rounded w-48 animate-pulse"></div>
-        <Card className="animate-pulse">
-          <CardHeader>
-            <div className="h-6 bg-muted rounded w-1/3"></div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-16 bg-muted rounded"></div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Wrench className="h-8 w-8" />
-            Workflow Management
-          </h1>
+          <h1 className="text-3xl font-bold">Workflow Management</h1>
           <p className="text-muted-foreground">
-            Manage repair workflows and add-on service integration
+            Create and manage repair workflows with interactive steps and automation
           </p>
         </div>
-        <Button onClick={handleCreateWorkflow}>
+        <Button onClick={() => setShowCreateDialog(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Create Workflow
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800">
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
-              Active Workflows
-            </CardTitle>
-            <Wrench className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <CardTitle className="text-sm font-medium">Active Workflows</CardTitle>
+            <Settings className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-              {workflows.filter(w => w.isActive).length}
-            </div>
+            <div className="text-2xl font-bold">{stats.activeWorkflows || 0}</div>
           </CardContent>
         </Card>
-
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">
-              Avg. Completion Time
-            </CardTitle>
-            <Clock className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <CardTitle className="text-sm font-medium">Total Steps</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-900 dark:text-green-100">
-              {Math.round(workflows.reduce((sum, w) => sum + w.estimatedTotalTime, 0) / workflows.length || 0)} min
-            </div>
+            <div className="text-2xl font-bold">{stats.totalSteps || 0}</div>
           </CardContent>
         </Card>
-
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">
-              Add-On Integrations
-            </CardTitle>
-            <Settings className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+            <CardTitle className="text-sm font-medium">Automation Rules</CardTitle>
+            <Zap className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
-              {addOnWorkflows.length}
-            </div>
+            <div className="text-2xl font-bold">{stats.totalAutomationRules || 0}</div>
           </CardContent>
         </Card>
-
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300">
-              Total Steps
-            </CardTitle>
-            <CheckSquare className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+            <CardTitle className="text-sm font-medium">Avg. Time</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">
-              {workflows.reduce((sum, w) => sum + w.steps.length, 0)}
-            </div>
+            <div className="text-2xl font-bold">{stats.averageCompletionTime || 0}m</div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search workflows..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div className="w-48">
-              <Select value={deviceFilter} onValueChange={setDeviceFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Devices" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Devices</SelectItem>
-                  <SelectItem value="iPhone">iPhone</SelectItem>
-                  <SelectItem value="Samsung">Samsung</SelectItem>
-                  <SelectItem value="Google Pixel">Google Pixel</SelectItem>
-                  <SelectItem value="iPad">iPad</SelectItem>
-                  <SelectItem value="Laptop">Laptop</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       <Tabs defaultValue="workflows" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="workflows">Repair Workflows</TabsTrigger>
+          <TabsTrigger value="workflows">Workflow Templates</TabsTrigger>
           <TabsTrigger value="addons">Add-On Integration</TabsTrigger>
         </TabsList>
 
         <TabsContent value="workflows" className="space-y-4">
-          <div className="grid gap-6">
+          {/* Search and Filter */}
+          <div className="flex items-center space-x-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search workflows..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+            </div>
+            <Select value={filterActive?.toString() || 'all'} onValueChange={(value) => 
+              setFilterActive(value === 'all' ? undefined : value === 'true')
+            }>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="true">Active</SelectItem>
+                <SelectItem value="false">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Workflows List */}
+          <div className="grid gap-4">
             {filteredWorkflows.map((workflow) => (
-              <Card key={workflow._id} className="hover:shadow-lg transition-shadow">
+              <Card key={workflow._id}>
                 <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
                       <CardTitle className="flex items-center gap-2">
                         {workflow.name}
-                        <Badge variant={workflow.isActive ? "default" : "secondary"}>
-                          {workflow.isActive ? "Active" : "Inactive"}
+                        <Badge variant={workflow.isActive ? 'default' : 'secondary'}>
+                          {workflow.isActive ? 'Active' : 'Inactive'}
                         </Badge>
                       </CardTitle>
-                      <CardDescription className="mt-2">
-                        {workflow.description}
-                      </CardDescription>
+                      <p className="text-sm text-muted-foreground">{workflow.description}</p>
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => handleViewWorkflow(workflow)}>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openViewDialog(workflow)}
+                      >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleEditWorkflow(workflow)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEditDialog(workflow)}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDeleteWorkflow(workflow)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openVisualBuilder(workflow)}
+                      >
+                        <Move className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDuplicateWorkflow(workflow._id)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteWorkflow(workflow._id)}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex flex-wrap gap-2">
-                    {workflow.deviceTypes.map((device) => (
-                      <Badge key={device} variant="outline">{device}</Badge>
-                    ))}
-                    {workflow.serviceTypes.map((service) => (
-                      <Badge key={service} variant="outline">{service}</Badge>
-                    ))}
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <p className="text-sm font-medium mb-2">Workflow Steps ({workflow.steps.length})</p>
-                      <div className="space-y-2">
-                        {workflow.steps.slice(0, 3).map((step, index) => (
-                          <div key={step._id} className="flex items-center gap-2 text-sm">
-                            <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
-                              {index + 1}
-                            </div>
-                            <span className="flex-1">{step.name}</span>
-                            <span className="text-muted-foreground">{step.estimatedTime}min</span>
-                          </div>
-                        ))}
-                        {workflow.steps.length > 3 && (
-                          <p className="text-xs text-muted-foreground">
-                            +{workflow.steps.length - 3} more steps
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-medium mb-2">Estimated Time</p>
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-lg font-semibold">{workflow.estimatedTotalTime} minutes</span>
-                      </div>
-                      <Progress
-                        value={(workflow.estimatedTotalTime / 120) * 100}
-                        className="mt-2"
-                      />
-                    </div>
+                <CardContent>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>{workflow.steps.length} steps</span>
+                    <span>{workflow.estimatedTotalTime || 0} minutes</span>
+                    <span>{workflow.deviceTypes.length} device types</span>
+                    <span>{workflow.serviceTypes.length} service types</span>
                   </div>
                 </CardContent>
               </Card>
@@ -672,77 +628,43 @@ export function WorkflowManagement() {
         </TabsContent>
 
         <TabsContent value="addons" className="space-y-4">
-          <div className="flex justify-end">
-            <Button onClick={handleCreateAddOn}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Add-On Workflows</h3>
+            <Button onClick={() => setShowAddOnDialog(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Create Add-On Workflow
             </Button>
           </div>
+
           <div className="grid gap-4">
-            {addOnWorkflows.map((addOn) => (
-              <Card key={addOn._id} className="hover:shadow-lg transition-shadow">
+            {addOnWorkflows.map((addOnWorkflow) => (
+              <Card key={addOnWorkflow._id}>
                 <CardHeader>
-                  <div className="flex justify-between items-start">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle>{addOn.addOnServiceName}</CardTitle>
-                      <CardDescription className="mt-2">
-                        Optimal timing: {addOn.optimalTiming.replace('_', ' ')}
-                      </CardDescription>
+                      <CardTitle>{addOnWorkflow.addOnServiceName}</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        Optimal timing: {addOnWorkflow.optimalTiming.replace('_', ' ')}
+                      </p>
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => handleViewAddOn(addOn)}>
+                    <div className="flex items-center space-x-2">
+                      <Button variant="ghost" size="sm">
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleEditAddOn(addOn)}>
+                      <Button variant="ghost" size="sm">
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDeleteAddOn(addOn)}>
+                      <Button variant="ghost" size="sm">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <p className="text-sm font-medium mb-2">Dependencies</p>
-                      <div className="space-y-1">
-                        {addOn.dependencies.length > 0 ? (
-                          addOn.dependencies.map((dep, index) => (
-                            <div key={index} className="flex items-center gap-2 text-sm">
-                              <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                              <span>{dep}</span>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-sm text-muted-foreground">No dependencies</p>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium mb-2">Quality Checks</p>
-                      <div className="space-y-1">
-                        {addOn.qualityChecks.map((check, index) => (
-                          <div key={index} className="flex items-center gap-2 text-sm">
-                            <CheckSquare className="h-3 w-3 text-green-600" />
-                            <span>{check}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="bg-muted/50 p-3 rounded-lg">
-                    <p className="text-sm font-medium mb-1">Instructions</p>
-                    <p className="text-sm text-muted-foreground">{addOn.instructions}</p>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">Estimated time: {addOn.estimatedTime} minutes</span>
-                    </div>
-                    <Badge variant="outline">
-                      {addOn.optimalTiming.replace('_', ' ')}
-                    </Badge>
+                <CardContent>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>{addOnWorkflow.estimatedTime} minutes</span>
+                    <span>{addOnWorkflow.dependencies.length} dependencies</span>
+                    <span>{addOnWorkflow.qualityChecks.length} quality checks</span>
                   </div>
                 </CardContent>
               </Card>
@@ -751,480 +673,388 @@ export function WorkflowManagement() {
         </TabsContent>
       </Tabs>
 
-      {/* Create/Edit Workflow Dialog */}
-      <Dialog open={showCreateWorkflow || showEditWorkflow} onOpenChange={(open) => {
-        if (!open) {
-          setShowCreateWorkflow(false)
-          setShowEditWorkflow(false)
-          setSelectedWorkflow(null)
-          resetWorkflowForm()
-        }
-      }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      {/* Create Workflow Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>
-              {selectedWorkflow ? "Edit Workflow Template" : "Create Workflow Template"}
-            </DialogTitle>
+            <DialogTitle>Create New Workflow</DialogTitle>
             <DialogDescription>
-              {selectedWorkflow ? "Update the workflow template details" : "Create a new workflow template for repair processes"}
+              Create a new workflow template with steps and automation rules
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <Label htmlFor="workflow-name">Workflow Name</Label>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Workflow Name *</Label>
                 <Input
-                  id="workflow-name"
+                  id="name"
                   value={workflowForm.name}
                   onChange={(e) => setWorkflowForm(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Enter workflow name"
                 />
               </div>
-              <div>
-                <Label htmlFor="workflow-active">Status</Label>
-                <div className="flex items-center space-x-2 mt-2">
-                  <Checkbox
-                    id="workflow-active"
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <div className="flex items-center space-x-2">
+                  <Switch
                     checked={workflowForm.isActive}
-                    onCheckedChange={(checked) => setWorkflowForm(prev => ({ ...prev, isActive: !!checked }))}
+                    onCheckedChange={(checked) => setWorkflowForm(prev => ({ ...prev, isActive: checked }))}
                   />
-                  <Label htmlFor="workflow-active">Active</Label>
+                  <Label>Active</Label>
                 </div>
               </div>
             </div>
-            <div>
-              <Label htmlFor="workflow-description">Description</Label>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description *</Label>
               <Textarea
-                id="workflow-description"
+                id="description"
                 value={workflowForm.description}
                 onChange={(e) => setWorkflowForm(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Enter workflow description"
                 rows={3}
               />
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <Label>Device Types</Label>
-                <div className="mt-2 space-y-2">
-                  {['iPhone', 'Samsung', 'Google Pixel', 'iPad', 'Laptop'].map((device) => (
-                    <div key={device} className="flex items-center space-x-2">
-                      <Checkbox
-                        checked={workflowForm.deviceTypes.includes(device)}
-                        onCheckedChange={(checked) => {
-                          setWorkflowForm(prev => ({
-                            ...prev,
-                            deviceTypes: checked
-                              ? [...prev.deviceTypes, device]
-                              : prev.deviceTypes.filter(d => d !== device)
-                          }))
-                        }}
-                        id={`device-${device}`}
-                      />
-                      <Label htmlFor={`device-${device}`}>{device}</Label>
-                    </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Device Types *</Label>
+                <Select onValueChange={(value) => {
+                  if (!workflowForm.deviceTypes.includes(value)) {
+                    setWorkflowForm(prev => ({
+                      ...prev,
+                      deviceTypes: [...prev.deviceTypes, value]
+                    }));
+                  }
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select device types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="smartphone">Smartphone</SelectItem>
+                    <SelectItem value="tablet">Tablet</SelectItem>
+                    <SelectItem value="laptop">Laptop</SelectItem>
+                    <SelectItem value="desktop">Desktop</SelectItem>
+                    <SelectItem value="smartwatch">Smartwatch</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex flex-wrap gap-1">
+                  {workflowForm.deviceTypes.map((type) => (
+                    <Badge key={type} variant="secondary" className="cursor-pointer" onClick={() => {
+                      setWorkflowForm(prev => ({
+                        ...prev,
+                        deviceTypes: prev.deviceTypes.filter(t => t !== type)
+                      }));
+                    }}>
+                      {type} ×
+                    </Badge>
                   ))}
                 </div>
               </div>
-              <div>
-                <Label>Service Types</Label>
-                <div className="mt-2 space-y-2">
-                  {services.map((service) => (
-                    <div key={service._id || service.name} className="flex items-center space-x-2">
-                      <Checkbox
-                        checked={workflowForm.serviceTypes.includes(service.name)}
-                        onCheckedChange={(checked) => {
-                          setWorkflowForm(prev => ({
-                            ...prev,
-                            serviceTypes: checked
-                              ? [...prev.serviceTypes, service.name]
-                              : prev.serviceTypes.filter(s => s !== service.name)
-                          }))
-                        }}
-                        id={`service-${service.name}`}
-                      />
-                      <Label htmlFor={`service-${service.name}`}>{service.name}</Label>
-                    </div>
-                  ))}
+              <div className="space-y-2">
+                <Label>Service Types *</Label>
+                <Select onValueChange={(value) => {
+                  if (!workflowForm.serviceTypes.includes(value)) {
+                    setWorkflowForm(prev => ({
+                      ...prev,
+                      serviceTypes: [...prev.serviceTypes, value]
+                    }));
+                  }
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select service types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {services.map((service) => (
+                      <SelectItem key={service._id} value={service._id}>
+                        {service.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex flex-wrap gap-1">
+                  {workflowForm.serviceTypes.map((typeId) => {
+                    const service = services.find(s => s._id === typeId);
+                    return service ? (
+                      <Badge key={typeId} variant="secondary" className="cursor-pointer" onClick={() => {
+                        setWorkflowForm(prev => ({
+                          ...prev,
+                          serviceTypes: prev.serviceTypes.filter(t => t !== typeId)
+                        }));
+                      }}>
+                        {service.name} ×
+                      </Badge>
+                    ) : null;
+                  })}
                 </div>
-              </div>
-            </div>
-            <div>
-              <Label>Workflow Steps</Label>
-              <div className="space-y-2 mt-2">
-                {workflowForm.steps.map((step, index) => (
-                  <div key={step._id} className="flex items-center gap-2">
-                    <Badge variant="secondary">{index + 1}</Badge>
-                    <span className="font-medium">{step.name}</span>
-                    <span className="text-muted-foreground">{step.estimatedTime} min</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRemoveStep(step._id)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-                <Card className="p-4">
-                  <div className="grid gap-2 md:grid-cols-2">
-                    <div>
-                      <Label htmlFor="step-name">Step Name</Label>
-                      <Input
-                        id="step-name"
-                        value={currentStep.name}
-                        onChange={(e) => setCurrentStep(prev => ({ ...prev, name: e.target.value }))}
-                        placeholder="Enter step name"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="step-category">Category</Label>
-                      <Select
-                        value={currentStep.category}
-                        onValueChange={(value) => setCurrentStep(prev => ({ ...prev, category: value as any }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="diagnostic">Diagnostic</SelectItem>
-                          <SelectItem value="repair">Repair</SelectItem>
-                          <SelectItem value="quality_check">Quality Check</SelectItem>
-                          <SelectItem value="finalization">Finalization</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="mt-2">
-                    <Label htmlFor="step-description">Description</Label>
-                    <Textarea
-                      id="step-description"
-                      value={currentStep.description}
-                      onChange={(e) => setCurrentStep(prev => ({ ...prev, description: e.target.value }))}
-                      placeholder="Enter step description"
-                      rows={2}
-                    />
-                  </div>
-                  <div className="grid gap-2 md:grid-cols-2 mt-2">
-                    <div>
-                      <Label htmlFor="step-time">Estimated Time (min)</Label>
-                      <Input
-                        id="step-time"
-                        type="number"
-                        min={0}
-                        value={currentStep.estimatedTime}
-                        onChange={(e) => setCurrentStep(prev => ({ ...prev, estimatedTime: Number(e.target.value) }))}
-                        placeholder="Minutes"
-                      />
-                    </div>
-                    <div className="flex items-center space-x-2 mt-6">
-                      <Checkbox
-                        checked={currentStep.isRequired}
-                        onCheckedChange={(checked) => setCurrentStep(prev => ({ ...prev, isRequired: !!checked }))}
-                        id="step-required"
-                      />
-                      <Label htmlFor="step-required">Required</Label>
-                    </div>
-                  </div>
-                  <div className="mt-4 flex justify-end">
-                    <Button variant="outline" size="sm" onClick={handleAddStep}>
-                      Add Step
-                    </Button>
-                  </div>
-                </Card>
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleSaveWorkflow}>
-              {selectedWorkflow ? "Update Workflow" : "Create Workflow"}
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateWorkflow}>
+              Create Workflow
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Create/Edit Add-On Dialog */}
-      <Dialog open={showCreateAddOn || showEditAddOn} onOpenChange={(open) => {
-        if (!open) {
-          setShowCreateAddOn(false)
-          setShowEditAddOn(false)
-          setSelectedAddOn(null)
-          resetAddOnForm()
-        }
-      }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      {/* Edit Workflow Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>
-              {selectedAddOn ? "Edit Add-On Workflow" : "Create Add-On Workflow"}
-            </DialogTitle>
+            <DialogTitle>Edit Workflow</DialogTitle>
             <DialogDescription>
-              {selectedAddOn ? "Update add-on workflow integration details" : "Create a new add-on workflow for service integration"}
+              Update workflow template properties
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-6">
-            <div>
-              <Label>Add-On Service</Label>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Workflow Name *</Label>
+                <Input
+                  id="edit-name"
+                  value={workflowForm.name}
+                  onChange={(e) => setWorkflowForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter workflow name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={workflowForm.isActive}
+                    onCheckedChange={(checked) => setWorkflowForm(prev => ({ ...prev, isActive: checked }))}
+                  />
+                  <Label>Active</Label>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description *</Label>
+              <Textarea
+                id="edit-description"
+                value={workflowForm.description}
+                onChange={(e) => setWorkflowForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Enter workflow description"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateWorkflow}>
+              Update Workflow
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Workflow Dialog */}
+      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedWorkflow?.name}</DialogTitle>
+            <DialogDescription>
+              Workflow template details and steps
+            </DialogDescription>
+          </DialogHeader>
+          {selectedWorkflow && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Description</Label>
+                  <p className="text-sm">{selectedWorkflow.description}</p>
+                </div>
+                <div>
+                  <Label>Status</Label>
+                  <Badge variant={selectedWorkflow.isActive ? 'default' : 'secondary'}>
+                    {selectedWorkflow.isActive ? 'Active' : 'Inactive'}
+                  </Badge>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label>Steps</Label>
+                  <p className="text-sm font-medium">{selectedWorkflow.steps.length}</p>
+                </div>
+                <div>
+                  <Label>Estimated Time</Label>
+                  <p className="text-sm font-medium">{selectedWorkflow.estimatedTotalTime || 0} minutes</p>
+                </div>
+                <div>
+                  <Label>Device Types</Label>
+                  <p className="text-sm font-medium">{selectedWorkflow.deviceTypes.length}</p>
+                </div>
+              </div>
+              <div>
+                <Label>Steps</Label>
+                <div className="space-y-2 mt-2">
+                  {selectedWorkflow.steps.map((step, index) => (
+                    <Card key={step._id}>
+                      <CardContent className="pt-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-medium">{step.name}</h4>
+                            <p className="text-sm text-muted-foreground">{step.description}</p>
+                          </div>
+                          <div className="text-right">
+                            <Badge>{step.category}</Badge>
+                            <p className="text-sm text-muted-foreground mt-1">{step.estimatedTime}m</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add-On Workflow Dialog */}
+      <Dialog open={showAddOnDialog} onOpenChange={setShowAddOnDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create Add-On Workflow</DialogTitle>
+            <DialogDescription>
+              Create a workflow for add-on service integration
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>Add-On Service *</Label>
               <Select
                 value={addOnForm.addOnServiceId}
-                onValueChange={value => setAddOnForm(prev => ({ ...prev, addOnServiceId: value }))}
+                onValueChange={(value) => setAddOnForm(prev => ({ ...prev, addOnServiceId: value }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select add-on service" />
                 </SelectTrigger>
                 <SelectContent>
                   {addOnServices.map((service) => (
-                    <SelectItem key={service._id} value={service._id}>{service.name}</SelectItem>
+                    <SelectItem key={service._id} value={service._id}>
+                      {service.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Optimal Timing</Label>
-              <Select
-                value={addOnForm.optimalTiming}
-                onValueChange={value => setAddOnForm(prev => ({ ...prev, optimalTiming: value as any }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select timing" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="before_repair">Before Repair</SelectItem>
-                  <SelectItem value="during_repair">During Repair</SelectItem>
-                  <SelectItem value="after_repair">After Repair</SelectItem>
-                  <SelectItem value="flexible">Flexible</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Optimal Timing</Label>
+                <Select
+                  value={addOnForm.optimalTiming}
+                  onValueChange={(value: any) => setAddOnForm(prev => ({ ...prev, optimalTiming: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="before_repair">Before Repair</SelectItem>
+                    <SelectItem value="during_repair">During Repair</SelectItem>
+                    <SelectItem value="after_repair">After Repair</SelectItem>
+                    <SelectItem value="flexible">Flexible</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Estimated Time (minutes)</Label>
+                <Input
+                  type="number"
+                  value={addOnForm.estimatedTime}
+                  onChange={(e) => setAddOnForm(prev => ({ ...prev, estimatedTime: parseInt(e.target.value) || 0 }))}
+                  min="1"
+                />
+              </div>
             </div>
-            <div>
-              <Label>Estimated Time (min)</Label>
-              <Input
-                type="number"
-                min={0}
-                value={addOnForm.estimatedTime}
-                onChange={(e) => setAddOnForm(prev => ({ ...prev, estimatedTime: Number(e.target.value) }))}
-                placeholder="Minutes"
-              />
-            </div>
-            <div>
+            <div className="space-y-2">
               <Label>Instructions</Label>
               <Textarea
                 value={addOnForm.instructions}
                 onChange={(e) => setAddOnForm(prev => ({ ...prev, instructions: e.target.value }))}
-                placeholder="Enter instructions"
+                placeholder="Enter detailed instructions"
                 rows={3}
               />
             </div>
-            <div>
-              <Label>Dependencies</Label>
-              <div className="flex gap-2 mt-2">
-                <Input
-                  value={newDependency}
-                  onChange={(e) => setNewDependency(e.target.value)}
-                  placeholder="Add dependency"
-                />
-                <Button variant="outline" size="sm" onClick={addDependency}>Add</Button>
-              </div>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {addOnForm.dependencies.map(dep => (
-                  <Badge key={dep} variant="secondary" className="flex items-center gap-1">
-                    {dep}
-                    <Button variant="ghost" size="xs" onClick={() => removeDependency(dep)}>
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </Badge>
-                ))}
-              </div>
-            </div>
-            <div>
-              <Label>Quality Checks</Label>
-              <div className="flex gap-2 mt-2">
-                <Input
-                  value={newQualityCheck}
-                  onChange={(e) => setNewQualityCheck(e.target.value)}
-                  placeholder="Add quality check"
-                />
-                <Button variant="outline" size="sm" onClick={addQualityCheck}>Add</Button>
-              </div>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {addOnForm.qualityChecks.map(qc => (
-                  <Badge key={qc} variant="secondary" className="flex items-center gap-1">
-                    {qc}
-                    <Button variant="ghost" size="xs" onClick={() => removeQualityCheck(qc)}>
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </Badge>
-                ))}
-              </div>
-            </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleSaveAddOn}>
-              {selectedAddOn ? "Update Add-On Workflow" : "Create Add-On Workflow"}
+            <Button variant="outline" onClick={() => setShowAddOnDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateAddOnWorkflow}>
+              Create Add-On Workflow
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Workflow Alert */}
-      <AlertDialog open={showDeleteWorkflow} onOpenChange={(open) => {
-        if (!open) {
-          setShowDeleteWorkflow(false)
-          setSelectedWorkflow(null)
-        }
-      }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Workflow</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this workflow? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDeleteWorkflow}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Delete Add-On Alert */}
-      <AlertDialog open={showDeleteAddOn} onOpenChange={(open) => {
-        if (!open) {
-          setShowDeleteAddOn(false)
-          setSelectedAddOn(null)
-        }
-      }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Add-On Workflow</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this add-on workflow? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDeleteAddOn}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* View Workflow Dialog */}
-      <Dialog open={showViewWorkflow} onOpenChange={(open) => {
-        if (!open) {
-          setShowViewWorkflow(false)
-          setSelectedWorkflow(null)
-        }
-      }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Workflow Details</DialogTitle>
-            <DialogDescription>
-              Details for workflow: {selectedWorkflow?.name}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Status</Label>
-              <Badge variant={selectedWorkflow?.isActive ? "default" : "secondary"}>
-                {selectedWorkflow?.isActive ? "Active" : "Inactive"}
-              </Badge>
-            </div>
-            <div>
-              <Label>Description</Label>
-              <p className="text-muted-foreground">{selectedWorkflow?.description}</p>
-            </div>
-            <div>
-              <Label>Device Types</Label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {selectedWorkflow?.deviceTypes.map(d => (
-                  <Badge key={d} variant="outline">{d}</Badge>
-                ))}
-              </div>
-            </div>
-            <div>
-              <Label>Service Types</Label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {selectedWorkflow?.serviceTypes.map(s => (
-                  <Badge key={s} variant="outline">{s}</Badge>
-                ))}
-              </div>
-            </div>
-            <div>
-              <Label>Steps</Label>
-              <div className="space-y-2 mt-2">
-                {selectedWorkflow?.steps.map((step, idx) => (
-                  <Card key={step._id} className="p-2">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge variant="secondary">{idx + 1}</Badge>
-                      <span className="font-semibold">{step.name}</span>
-                      <span className="text-xs ml-auto">{step.category}</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{step.description}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs">{step.estimatedTime} min</span>
-                      {step.isRequired && (
-                        <Badge variant="default">Required</Badge>
-                      )}
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* View Add-On Dialog */}
-      <Dialog open={showViewAddOn} onOpenChange={(open) => {
-        if (!open) {
-          setShowViewAddOn(false)
-          setSelectedAddOn(null)
-        }
-      }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add-On Workflow Details</DialogTitle>
-            <DialogDescription>
-              Details for add-on: {selectedAddOn?.addOnServiceName}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Optimal Timing</Label>
-              <Badge variant="outline">{selectedAddOn?.optimalTiming.replace('_', ' ')}</Badge>
-            </div>
-            <div>
-              <Label>Estimated Time</Label>
-              <span>{selectedAddOn?.estimatedTime} min</span>
-            </div>
-            <div>
-              <Label>Instructions</Label>
-              <p className="text-muted-foreground">{selectedAddOn?.instructions}</p>
-            </div>
-            <div>
-              <Label>Dependencies</Label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {selectedAddOn?.dependencies.length
-                  ? selectedAddOn.dependencies.map(dep => (
-                      <Badge key={dep} variant="secondary">{dep}</Badge>
-                    ))
-                  : <span className="text-muted-foreground">None</span>
+      {/* Visual Builder */}
+      {showVisualBuilder && selectedWorkflow && (
+        <Dialog open={showVisualBuilder} onOpenChange={setShowVisualBuilder}>
+          <DialogContent className="max-w-[95vw] max-h-[95vh] p-0">
+            <VisualBuilder
+              workflow={selectedWorkflow}
+              onSave={async (updatedWorkflow) => {
+                console.log('WorkflowManagement: Saving workflow from visual builder');
+                try {
+                  const result = await updateWorkflowTemplate(selectedWorkflow._id, updatedWorkflow);
+                  setWorkflows(prev => prev.map(w => w._id === selectedWorkflow._id ? result.workflow : w));
+                  setShowVisualBuilder(false);
+                  setSelectedWorkflow(null);
+                  
+                  toast({
+                    title: 'Success',
+                    description: 'Workflow saved successfully'
+                  });
+                } catch (error: any) {
+                  console.error('WorkflowManagement: Error saving workflow from visual builder:', error);
+                  toast({
+                    title: 'Error',
+                    description: error.message || 'Failed to save workflow',
+                    variant: 'destructive'
+                  });
                 }
-              </div>
-            </div>
-            <div>
-              <Label>Quality Checks</Label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {selectedAddOn?.qualityChecks.length
-                  ? selectedAddOn.qualityChecks.map(qc => (
-                      <Badge key={qc} variant="secondary">{qc}</Badge>
-                    ))
-                  : <span className="text-muted-foreground">None</span>
-                }
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+              }}
+              onClose={() => {
+                console.log('WorkflowManagement: Closing visual builder');
+                setShowVisualBuilder(false);
+                setSelectedWorkflow(null);
+              }}
+              services={services}
+              addOnServices={addOnServices}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Step Form Dialog */}
+      <StepFormDialog
+        open={showStepDialog}
+        onOpenChange={setShowStepDialog}
+        step={selectedStep}
+        onSave={handleSaveStep}
+        mode={selectedStep?._id?.startsWith('temp_') ? 'create' : 'edit'}
+        existingSteps={selectedWorkflow?.steps || []}
+      />
+
+      {/* Step Management Dialog */}
+      <StepManagementDialog
+        open={showStepManagementDialog}
+        onOpenChange={setShowStepManagementDialog}
+        step={selectedStep}
+        onSave={handleSaveStep}
+        onAddFormField={handleAddFormFieldToStep}
+        onUpdateFormField={handleUpdateFormField}
+        onRemoveFormField={handleRemoveFormField}
+        onAddAutomationRule={handleAddAutomationRule}
+        onUpdateAutomationRule={handleUpdateAutomationRule}
+        onRemoveAutomationRule={handleRemoveAutomationRule}
+        isNew={selectedStep?._id?.startsWith('temp_')}
+      />
     </div>
-  )
+  );
 }
