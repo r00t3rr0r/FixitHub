@@ -13,6 +13,41 @@ export interface ContentBlock {
     alignment?: 'left' | 'center' | 'right';
     animation?: string;
     customCSS?: string;
+    // Advanced visual settings
+    opacity?: number;
+    borderRadius?: string;
+    borderWidth?: string;
+    borderColor?: string;
+    borderStyle?: 'none' | 'solid' | 'dashed' | 'dotted';
+    boxShadow?: string;
+    transform?: string;
+    transition?: string;
+    zIndex?: number;
+    overflow?: 'visible' | 'hidden' | 'scroll' | 'auto';
+    filter?: string;
+    backdropFilter?: string;
+    gradient?: {
+      enabled: boolean;
+      type: 'linear' | 'radial';
+      direction: string;
+      colors: string[];
+    };
+    visualEffects?: {
+      blur?: number;
+      brightness?: number;
+      contrast?: number;
+      saturate?: number;
+      hueRotate?: number;
+      sepia?: number;
+      grayscale?: number;
+    };
+    hover?: {
+      backgroundColor?: string;
+      textColor?: string;
+      transform?: string;
+      opacity?: number;
+      transition?: string;
+    };
   };
   order: number;
   isVisible: boolean;
@@ -25,6 +60,42 @@ export interface HomepageSection {
   layout: 'single' | 'two-column' | 'three-column' | 'grid';
   order: number;
   isActive: boolean;
+  settings?: {
+    backgroundColor?: string;
+    backgroundImage?: string;
+    padding?: string;
+    margin?: string;
+    minHeight?: string;
+    maxWidth?: string;
+    opacity?: number;
+    borderRadius?: string;
+    borderWidth?: string;
+    borderColor?: string;
+    borderStyle?: 'none' | 'solid' | 'dashed' | 'dotted';
+    boxShadow?: string;
+    transform?: string;
+    transition?: string;
+    zIndex?: number;
+    overflow?: 'visible' | 'hidden' | 'scroll' | 'auto';
+    filter?: string;
+    backdropFilter?: string;
+    gradient?: {
+      enabled: boolean;
+      type: 'linear' | 'radial';
+      direction: string;
+      colors: string[];
+    };
+    visualEffects?: {
+      blur?: number;
+      brightness?: number;
+      contrast?: number;
+      saturate?: number;
+      hueRotate?: number;
+      sepia?: number;
+      grayscale?: number;
+    };
+    customCSS?: string;
+  };
 }
 
 export interface LayoutTemplate {

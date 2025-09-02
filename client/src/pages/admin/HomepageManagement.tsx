@@ -6,31 +6,13 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { Slider } from "@/components/ui/slider"
 import { toast } from "@/hooks/useToast"
 import {
-  Globe,
-  Layout,
-  Image,
-  Type,
-  Save,
-  Eye,
-  Plus,
-  Edit,
-  Trash2,
-  GripVertical,
-  Monitor,
-  Tablet,
-  Smartphone,
-  Palette,
-  Settings,
-  Code,
-  TestTube,
-  Copy,
-  Star,
-  X
+  Save, Eye, Plus, Edit, Trash2, Settings, Code, Wand2, Layers, Sparkles, X, Monitor, Tablet, Smartphone
 } from "lucide-react"
 import {
   getHomepageSections,
@@ -38,192 +20,373 @@ import {
   getLayoutTemplates,
   saveHomepageSections,
   getABTests,
-  createABTest,
-  createLayoutTemplate,
-  updateLayoutTemplate,
-  deleteLayoutTemplate,
-  setDefaultTemplate,
   type HomepageSection,
   type ContentBlock,
   type LayoutTemplate,
   type ABTest
 } from "@/api/homepage"
 
-// Helper function to generate MongoDB-compatible ObjectId
-const generateObjectId = () => {
-  const timestamp = Math.floor(Date.now() / 1000).toString(16).padStart(8, '0')
-  const randomBytes = Array.from({ length: 16 }, () =>
-    Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
-  ).join('').substring(0, 16)
-  return timestamp + randomBytes
-}
-
-// Preview Component
-const HomepagePreview = ({ sections, previewMode, onClose }: {
-  sections: HomepageSection[],
-  previewMode: 'desktop' | 'tablet' | 'mobile',
+const PreviewDialog = ({
+  sections,
+  isOpen,
+  onClose
+}: {
+  sections: HomepageSection[]
+  isOpen: boolean
   onClose: () => void
 }) => {
-  const getPreviewContainerClass = () => {
+  const [previewMode, setPreviewMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
+
+  const getPreviewStyles = () => {
     switch (previewMode) {
-      case 'mobile': return 'max-w-sm mx-auto'
-      case 'tablet': return 'max-w-2xl mx-auto'
-      default: return 'w-full'
+      case 'desktop':
+        return 'w-full max-w-6xl mx-auto'
+      case 'tablet':
+        return 'w-full max-w-2xl mx-auto'
+      case 'mobile':
+        return 'w-full max-w-sm mx-auto'
+      default:
+        return 'w-full max-w-6xl mx-auto'
     }
   }
 
-  const renderContentBlock = (block: ContentBlock) => {
-    const blockStyle = {
-      backgroundColor: block.settings.backgroundColor || '#ffffff',
-      color: block.settings.textColor || '#000000',
-      padding: block.settings.padding || '20px',
-      margin: block.settings.margin || '0px',
-      textAlign: block.settings.alignment || 'left' as any
-    }
+  const renderBlockContent = (block: ContentBlock) => {
+    const blockStyles = {
+      backgroundColor: block.settings?.backgroundColor || '#ffffff',
+      color: block.settings?.textColor || '#000000',
+      padding: block.settings?.padding || '20px',
+      margin: block.settings?.margin || '0px',
+      textAlign: block.settings?.alignment || 'left',
+      opacity: block.settings?.opacity || 1,
+      borderWidth: block.settings?.borderWidth || '0px',
+      borderColor: block.settings?.borderColor || '#000000',
+      borderStyle: block.settings?.borderStyle || 'none',
+      borderRadius: block.settings?.borderRadius || '0px',
+      boxShadow: block.settings?.boxShadow || 'none',
+      transform: block.settings?.transform || 'none',
+      filter: `blur(${block.settings?.visualEffects?.blur || 0}px) brightness(${block.settings?.visualEffects?.brightness || 1})`,
+    } as React.CSSProperties
 
     switch (block.type) {
       case 'hero':
         return (
-          <div style={blockStyle} className="hero-block">
-            <div className="container mx-auto px-4">
-              <h1 className="text-4xl font-bold mb-4">
-                {block.content.heading || 'Your Heading Here'}
-              </h1>
-              <p className="text-xl mb-6">
-                {block.content.subheading || 'Your subheading text'}
-              </p>
-              <button className="bg-blue-600 text-white px-6 py-3 rounded-lg">
-                {block.content.ctaText || 'Call to Action'}
-              </button>
-            </div>
+          <div style={blockStyles} className="text-center py-20">
+            <h1 className="text-4xl font-bold mb-4">
+              {block.content?.heading || 'Hero Heading'}
+            </h1>
+            <p className="text-xl mb-8">
+              {block.content?.subheading || 'Hero subheading text'}
+            </p>
+            <button className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700">
+              {block.content?.ctaText || 'Call to Action'}
+            </button>
           </div>
         )
 
       case 'services':
         return (
-          <div style={blockStyle} className="services-block">
-            <div className="container mx-auto px-4">
+          <div style={blockStyles} className="py-16">
+            <div className="text-center mb-12">
               <h2 className="text-3xl font-bold mb-4">
-                {block.content.heading || 'Our Services'}
+                {block.content?.heading || 'Our Services'}
               </h2>
-              <p className="text-lg mb-8">
-                {block.content.description || 'Professional services for all your needs'}
+              <p className="text-lg">
+                {block.content?.description || 'Professional services for all your needs'}
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="bg-white p-6 rounded-lg shadow-md">
-                    <h3 className="text-xl font-semibold mb-2">Service {i}</h3>
-                    <p className="text-gray-600">Professional service description</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="text-center p-6 border rounded-lg">
+                  <div className="w-16 h-16 bg-blue-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <Code className="h-8 w-8 text-blue-600" />
                   </div>
-                ))}
-              </div>
+                  <h3 className="text-xl font-semibold mb-2">Service {i}</h3>
+                  <p>Service description goes here</p>
+                </div>
+              ))}
             </div>
           </div>
         )
 
       case 'testimonials':
         return (
-          <div style={blockStyle} className="testimonials-block">
-            <div className="container mx-auto px-4">
-              <h2 className="text-3xl font-bold mb-8">
-                {block.content.heading || 'What Our Customers Say'}
+          <div style={blockStyles} className="py-16 bg-gray-50">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold mb-4">
+                {block.content?.heading || 'What Our Customers Say'}
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {[1, 2].map((i) => (
-                  <div key={i} className="bg-white p-6 rounded-lg shadow-md">
-                    <p className="text-gray-600 mb-4">"Great service and professional staff!"</p>
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 bg-gray-300 rounded-full mr-3"></div>
-                      <div>
-                        <h4 className="font-semibold">Customer {i}</h4>
-                        <p className="text-sm text-gray-500">Verified Customer</p>
-                      </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {[1, 2].map((i) => (
+                <div key={i} className="bg-white p-6 rounded-lg shadow">
+                  <p className="mb-4">"Great service and professional team!"</p>
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 bg-gray-300 rounded-full mr-3"></div>
+                    <div>
+                      <p className="font-semibold">Customer {i}</p>
+                      <p className="text-sm text-gray-600">Verified Customer</p>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           </div>
         )
 
       case 'cta':
         return (
-          <div style={blockStyle} className="cta-block">
-            <div className="container mx-auto px-4 text-center">
-              <h2 className="text-3xl font-bold mb-4">
-                {block.content.heading || 'Ready to Get Started?'}
-              </h2>
-              <p className="text-lg mb-6">
-                {block.content.description || 'Contact us today for professional services'}
-              </p>
-              <button className="bg-white text-green-600 px-8 py-3 rounded-lg font-semibold">
-                {block.content.ctaText || 'Get Quote'}
-              </button>
-            </div>
+          <div style={blockStyles} className="text-center py-16 bg-blue-600 text-white">
+            <h2 className="text-3xl font-bold mb-4">
+              {block.content?.heading || 'Ready to Get Started?'}
+            </h2>
+            <p className="text-xl mb-8">
+              {block.content?.description || 'Contact us today for professional services'}
+            </p>
+            <button className="bg-white text-blue-600 px-8 py-3 rounded-lg hover:bg-gray-100">
+              {block.content?.ctaText || 'Get Quote'}
+            </button>
           </div>
         )
 
       case 'html':
         return (
           <div
-            style={blockStyle}
-            className="html-block"
-            dangerouslySetInnerHTML={{ __html: block.content.html || '<div>Custom HTML Content</div>' }}
+            style={blockStyles}
+            dangerouslySetInnerHTML={{ __html: block.content?.html || '<p>Custom HTML content</p>' }}
           />
         )
 
       default:
         return (
-          <div style={blockStyle} className="default-block">
-            <div className="container mx-auto px-4">
-              <h3 className="text-xl font-semibold">{block.title}</h3>
-              <p className="text-gray-600">Content block preview</p>
-            </div>
+          <div style={blockStyles} className="py-8">
+            <h3 className="text-xl font-semibold mb-4">{block.title}</h3>
+            <p>Content block of type: {block.type}</p>
           </div>
         )
     }
   }
 
+  const renderSection = (section: HomepageSection) => {
+    if (!section.isActive) return null
+
+    const sectionStyles = {
+      backgroundColor: section.settings?.backgroundColor || '#ffffff',
+      padding: section.settings?.padding || '60px 0',
+      margin: section.settings?.margin || '0px',
+      opacity: section.settings?.opacity || 1,
+      borderWidth: section.settings?.borderWidth || '0px',
+      borderColor: section.settings?.borderColor || '#000000',
+      borderStyle: section.settings?.borderStyle || 'none',
+      borderRadius: section.settings?.borderRadius || '0px',
+      boxShadow: section.settings?.boxShadow || 'none',
+      filter: `blur(${section.settings?.visualEffects?.blur || 0}px) brightness(${section.settings?.visualEffects?.brightness || 1})`,
+    } as React.CSSProperties
+
+    return (
+      <section key={section._id} style={sectionStyles}>
+        <div className="container mx-auto px-4">
+          {section.blocks
+            .filter(block => block.isVisible)
+            .map(block => (
+              <div key={block._id}>
+                {renderBlockContent(block)}
+              </div>
+            ))}
+        </div>
+      </section>
+    )
+  }
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg w-full h-full max-w-7xl max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-xl font-semibold">Homepage Preview</h2>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline">{previewMode}</Badge>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden">
+        <DialogHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle>Homepage Preview</DialogTitle>
+              <DialogDescription>
+                Preview how your homepage will look on different devices
+              </DialogDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={previewMode === 'desktop' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPreviewMode('desktop')}
+              >
+                <Monitor className="h-4 w-4 mr-1" />
+                Desktop
+              </Button>
+              <Button
+                variant={previewMode === 'tablet' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPreviewMode('tablet')}
+              >
+                <Tablet className="h-4 w-4 mr-1" />
+                Tablet
+              </Button>
+              <Button
+                variant={previewMode === 'mobile' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPreviewMode('mobile')}
+              >
+                <Smartphone className="h-4 w-4 mr-1" />
+                Mobile
+              </Button>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto bg-gray-100 p-4 rounded-lg">
+          <div className={getPreviewStyles()}>
+            <div className="bg-white shadow-lg rounded-lg overflow-hidden">
+              {sections.length === 0 ? (
+                <div className="text-center py-20">
+                  <h2 className="text-2xl font-semibold mb-4">No sections to preview</h2>
+                  <p className="text-gray-600">Add some sections to see the preview</p>
+                </div>
+              ) : (
+                sections
+                  .sort((a, b) => a.order - b.order)
+                  .map(section => renderSection(section))
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto bg-gray-100 p-4">
-          <div className={getPreviewContainerClass()}>
-            <div className="bg-white min-h-full shadow-lg">
-              {sections
-                .filter(section => section.isActive)
-                .sort((a, b) => a.order - b.order)
-                .map((section) => (
-                  <div key={section._id} className="section">
-                    {section.blocks
-                      .filter(block => block.isVisible)
-                      .sort((a, b) => a.order - b.order)
-                      .map((block) => (
-                        <div key={block._id}>
-                          {renderContentBlock(block)}
-                        </div>
-                      ))}
-                  </div>
-                ))}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Close Preview
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
-              {sections.length === 0 && (
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-center text-gray-500">
-                    <Layout className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No sections to preview</p>
-                  </div>
-                </div>
-              )}
+const AdvancedSettings = ({
+  settings,
+  onUpdate,
+  title = "Advanced Settings"
+}: {
+  settings: any,
+  onUpdate: (field: string, value: any) => void,
+  title?: string
+}) => {
+  const updateVisualEffect = (field: string, value: any) => {
+    const visualEffects = settings.visualEffects || {}
+    onUpdate('visualEffects', { ...visualEffects, [field]: value })
+  }
+
+  const updateHover = (field: string, value: any) => {
+    const hover = settings.hover || {}
+    onUpdate('hover', { ...hover, [field]: value })
+  }
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold flex items-center gap-2">
+        <Wand2 className="h-5 w-5" />
+        {title}
+      </h3>
+
+      <div>
+        <Label className="flex items-center justify-between">
+          Opacity
+          <span className="text-sm text-muted-foreground">
+            {Math.round((settings.opacity || 1) * 100)}%
+          </span>
+        </Label>
+        <Slider
+          value={[settings.opacity || 1]}
+          onValueChange={([value]) => onUpdate('opacity', value)}
+          min={0}
+          max={1}
+          step={0.01}
+          className="mt-2"
+        />
+      </div>
+
+      <div className="space-y-3">
+        <Label className="text-sm font-medium">Border</Label>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs">Width</Label>
+            <Input
+              value={settings.borderWidth || '0px'}
+              onChange={(e) => onUpdate('borderWidth', e.target.value)}
+              placeholder="e.g., 2px"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Color</Label>
+            <Input
+              type="color"
+              value={settings.borderColor || '#000000'}
+              onChange={(e) => onUpdate('borderColor', e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <Label className="text-sm font-medium flex items-center gap-2">
+          <Sparkles className="h-4 w-4" />
+          Visual Effects
+        </Label>
+
+        <div className="space-y-3">
+          <div>
+            <Label className="flex items-center justify-between text-xs">
+              Blur
+              <span>{settings.visualEffects?.blur || 0}px</span>
+            </Label>
+            <Slider
+              value={[settings.visualEffects?.blur || 0]}
+              onValueChange={([value]) => updateVisualEffect('blur', value)}
+              min={0}
+              max={20}
+              step={0.1}
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label className="flex items-center justify-between text-xs">
+              Brightness
+              <span>{Math.round((settings.visualEffects?.brightness || 1) * 100)}%</span>
+            </Label>
+            <Slider
+              value={[settings.visualEffects?.brightness || 1]}
+              onValueChange={([value]) => updateVisualEffect('brightness', value)}
+              min={0}
+              max={2}
+              step={0.01}
+              className="mt-1"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <Label className="text-sm font-medium">Hover Effects</Label>
+        <div className="space-y-3 pl-4 border-l-2 border-muted">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Background Color</Label>
+              <Input
+                type="color"
+                value={settings.hover?.backgroundColor || '#ffffff'}
+                onChange={(e) => updateHover('backgroundColor', e.target.value)}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Text Color</Label>
+              <Input
+                type="color"
+                value={settings.hover?.textColor || '#000000'}
+                onChange={(e) => updateHover('textColor', e.target.value)}
+              />
             </div>
           </div>
         </div>
@@ -232,45 +395,366 @@ const HomepagePreview = ({ sections, previewMode, onClose }: {
   )
 }
 
-export function HomepageManagement() {
+const BlockSettingsDialog = ({
+  block,
+  isOpen,
+  onClose,
+  onSave
+}: {
+  block: ContentBlock | null
+  isOpen: boolean
+  onClose: () => void
+  onSave: (blockId: string, updates: Partial<ContentBlock>) => void
+}) => {
+  const [editingBlock, setEditingBlock] = useState<ContentBlock | null>(null)
+
+  useEffect(() => {
+    if (block) {
+      setEditingBlock({ ...block })
+    }
+  }, [block])
+
+  if (!editingBlock) return null
+
+  const handleSave = () => {
+    onSave(editingBlock._id, editingBlock)
+    onClose()
+  }
+
+  const updateBlockContent = (field: string, value: any) => {
+    setEditingBlock(prev => ({
+      ...prev!,
+      content: {
+        ...prev!.content,
+        [field]: value
+      }
+    }))
+  }
+
+  const updateBlockSettings = (field: string, value: any) => {
+    setEditingBlock(prev => ({
+      ...prev!,
+      settings: {
+        ...prev!.settings,
+        [field]: value
+      }
+    }))
+  }
+
+  const updateBlockField = (field: string, value: any) => {
+    setEditingBlock(prev => ({
+      ...prev!,
+      [field]: value
+    }))
+  }
+
+  const renderContentEditor = () => {
+    switch (editingBlock.type) {
+      case 'hero':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label>Heading</Label>
+              <Input
+                value={editingBlock.content.heading || ''}
+                onChange={(e) => updateBlockContent('heading', e.target.value)}
+                placeholder="Enter hero heading"
+              />
+            </div>
+            <div>
+              <Label>Subheading</Label>
+              <Textarea
+                value={editingBlock.content.subheading || ''}
+                onChange={(e) => updateBlockContent('subheading', e.target.value)}
+                placeholder="Enter hero subheading"
+              />
+            </div>
+            <div>
+              <Label>Call to Action Text</Label>
+              <Input
+                value={editingBlock.content.ctaText || ''}
+                onChange={(e) => updateBlockContent('ctaText', e.target.value)}
+                placeholder="Enter CTA button text"
+              />
+            </div>
+          </div>
+        )
+
+      case 'services':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label>Heading</Label>
+              <Input
+                value={editingBlock.content.heading || ''}
+                onChange={(e) => updateBlockContent('heading', e.target.value)}
+                placeholder="Enter services heading"
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                value={editingBlock.content.description || ''}
+                onChange={(e) => updateBlockContent('description', e.target.value)}
+                placeholder="Enter services description"
+              />
+            </div>
+          </div>
+        )
+
+      case 'html':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label>HTML Content</Label>
+              <Textarea
+                value={editingBlock.content.html || ''}
+                onChange={(e) => updateBlockContent('html', e.target.value)}
+                placeholder="Enter your HTML content here..."
+                className="min-h-[300px] font-mono text-sm"
+              />
+            </div>
+          </div>
+        )
+
+      default:
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label>Content (JSON)</Label>
+              <Textarea
+                value={JSON.stringify(editingBlock.content, null, 2)}
+                onChange={(e) => {
+                  try {
+                    const parsed = JSON.parse(e.target.value)
+                    setEditingBlock(prev => ({ ...prev!, content: parsed }))
+                  } catch (error) {
+                    // Invalid JSON, don't update
+                  }
+                }}
+                placeholder="Enter content as JSON"
+                className="min-h-[200px] font-mono text-sm"
+              />
+            </div>
+          </div>
+        )
+    }
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edit Block Content</DialogTitle>
+          <DialogDescription>
+            Customize the content and styling for this block.
+          </DialogDescription>
+        </DialogHeader>
+
+        <Tabs defaultValue="content" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="content">Content</TabsTrigger>
+            <TabsTrigger value="basic">Basic Style</TabsTrigger>
+            <TabsTrigger value="advanced">Advanced</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="content" className="space-y-4">
+            <div>
+              <Label>Block Title</Label>
+              <Input
+                value={editingBlock.title}
+                onChange={(e) => updateBlockField('title', e.target.value)}
+                placeholder="Enter block title"
+              />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={editingBlock.isVisible}
+                onCheckedChange={(checked) => updateBlockField('isVisible', checked)}
+              />
+              <Label>Visible</Label>
+            </div>
+
+            {renderContentEditor()}
+          </TabsContent>
+
+          <TabsContent value="basic" className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Background Color</Label>
+                <Input
+                  type="color"
+                  value={editingBlock.settings?.backgroundColor || '#ffffff'}
+                  onChange={(e) => updateBlockSettings('backgroundColor', e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Text Color</Label>
+                <Input
+                  type="color"
+                  value={editingBlock.settings?.textColor || '#000000'}
+                  onChange={(e) => updateBlockSettings('textColor', e.target.value)}
+                />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="advanced" className="space-y-4">
+            <AdvancedSettings
+              settings={editingBlock.settings || {}}
+              onUpdate={updateBlockSettings}
+              title="Block Advanced Settings"
+            />
+          </TabsContent>
+        </Tabs>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave}>
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+const SectionSettingsDialog = ({
+  section,
+  isOpen,
+  onClose,
+  onSave
+}: {
+  section: HomepageSection | null
+  isOpen: boolean
+  onClose: () => void
+  onSave: (sectionId: string, updates: Partial<HomepageSection>) => void
+}) => {
+  const [editingSection, setEditingSection] = useState<HomepageSection | null>(null)
+
+  useEffect(() => {
+    if (section) {
+      setEditingSection({
+        ...section,
+        settings: section.settings || {}
+      })
+    }
+  }, [section])
+
+  if (!editingSection) return null
+
+  const handleSave = () => {
+    onSave(editingSection._id, editingSection)
+    onClose()
+  }
+
+  const updateSectionSettings = (field: string, value: any) => {
+    setEditingSection(prev => ({
+      ...prev!,
+      settings: {
+        ...prev!.settings,
+        [field]: value
+      }
+    }))
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Section Settings</DialogTitle>
+          <DialogDescription>
+            Customize the settings and styling for this section.
+          </DialogDescription>
+        </DialogHeader>
+
+        <Tabs defaultValue="basic" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="basic">Basic</TabsTrigger>
+            <TabsTrigger value="advanced">Advanced</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="basic" className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Background Color</Label>
+                <Input
+                  type="color"
+                  value={editingSection.settings?.backgroundColor || '#ffffff'}
+                  onChange={(e) => updateSectionSettings('backgroundColor', e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Padding</Label>
+                <Input
+                  value={editingSection.settings?.padding || '60px 0'}
+                  onChange={(e) => updateSectionSettings('padding', e.target.value)}
+                  placeholder="e.g., 60px 0"
+                />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="advanced" className="space-y-4">
+            <AdvancedSettings
+              settings={editingSection.settings || {}}
+              onUpdate={updateSectionSettings}
+              title="Section Advanced Settings"
+            />
+          </TabsContent>
+        </Tabs>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave}>
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export const HomepageManagement = () => {
   const [sections, setSections] = useState<HomepageSection[]>([])
   const [contentBlocks, setContentBlocks] = useState<ContentBlock[]>([])
   const [templates, setTemplates] = useState<LayoutTemplate[]>([])
   const [abTests, setABTests] = useState<ABTest[]>([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [previewMode, setPreviewMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
-  const [showPreview, setShowPreview] = useState(false)
   const [selectedSection, setSelectedSection] = useState<HomepageSection | null>(null)
   const [selectedBlock, setSelectedBlock] = useState<ContentBlock | null>(null)
-  const [showBlockDialog, setShowBlockDialog] = useState(false)
-  const [showTemplateDialog, setShowTemplateDialog] = useState(false)
-  const [showABTestDialog, setShowABTestDialog] = useState(false)
-  const [editingTemplate, setEditingTemplate] = useState<LayoutTemplate | null>(null)
+  const [showSectionSettings, setShowSectionSettings] = useState(false)
+  const [showBlockSettings, setShowBlockSettings] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
 
   useEffect(() => {
-    fetchData()
+    loadData()
   }, [])
 
-  const fetchData = async () => {
+  const loadData = async () => {
     try {
       setLoading(true)
-      const [sectionsResponse, blocksResponse, templatesResponse, testsResponse] = await Promise.all([
+      const [sectionsData, blocksData, templatesData, testsData] = await Promise.all([
         getHomepageSections(),
         getContentBlockTemplates(),
         getLayoutTemplates(),
         getABTests()
       ])
 
-      setSections(sectionsResponse.sections || [])
-      setContentBlocks(blocksResponse.blocks || [])
-      setTemplates(templatesResponse.templates || [])
-      setABTests(testsResponse.tests || [])
+      setSections(sectionsData.sections || [])
+      setContentBlocks(blocksData.blocks || [])
+      setTemplates(templatesData.templates || [])
+      setABTests(testsData.tests || [])
     } catch (error) {
-      console.error('Error fetching homepage data:', error)
+      console.error('Error loading homepage data:', error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load homepage data",
+        description: "Failed to load homepage data",
         variant: "destructive"
       })
     } finally {
@@ -278,38 +762,28 @@ export function HomepageManagement() {
     }
   }
 
-  const handleSave = async () => {
-    try {
-      setSaving(true)
-      await saveHomepageSections(sections)
-      toast({
-        title: "Success",
-        description: "Homepage sections saved successfully"
-      })
-    } catch (error) {
-      console.error('Error saving sections:', error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save sections",
-        variant: "destructive"
-      })
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handlePreview = () => {
-    setShowPreview(true)
+  const generateObjectId = () => {
+    const timestamp = Math.floor(Date.now() / 1000).toString(16).padStart(8, '0')
+    const randomBytes = Array.from({ length: 16 }, () =>
+      Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
+    ).join('').substring(0, 16)
+    return timestamp + randomBytes
   }
 
   const addSection = () => {
+    const sectionNumber = sections.length + 1
     const newSection: HomepageSection = {
       _id: generateObjectId(),
-      name: `New Section ${sections.length + 1}`,
+      name: 'Section ' + sectionNumber,
       blocks: [],
       layout: 'single',
       order: sections.length,
-      isActive: true
+      isActive: true,
+      settings: {
+        backgroundColor: '#ffffff',
+        padding: '60px 0',
+        margin: '0px'
+      }
     }
     setSections([...sections, newSection])
   }
@@ -331,87 +805,36 @@ export function HomepageManagement() {
       order: 0
     }
 
-    setSections(sections.map(section => {
-      if (section._id === sectionId) {
-        return {
-          ...section,
-          blocks: [...section.blocks, newBlock]
-        }
-      }
-      return section
-    }))
-    setShowBlockDialog(false)
+    setSections(sections.map(section =>
+      section._id === sectionId
+        ? { ...section, blocks: [...section.blocks, newBlock] }
+        : section
+    ))
   }
 
-  const updateBlock = (sectionId: string, blockId: string, updates: Partial<ContentBlock>) => {
-    setSections(sections.map(section => {
-      if (section._id === sectionId) {
-        return {
-          ...section,
-          blocks: section.blocks.map(block =>
-            block._id === blockId ? { ...block, ...updates } : block
-          )
-        }
-      }
-      return section
-    }))
+  const updateBlock = (blockId: string, updates: Partial<ContentBlock>) => {
+    setSections(sections.map(section => ({
+      ...section,
+      blocks: section.blocks.map(block =>
+        block._id === blockId ? { ...block, ...updates } : block
+      )
+    })))
   }
 
-  const deleteBlock = (sectionId: string, blockId: string) => {
-    setSections(sections.map(section => {
-      if (section._id === sectionId) {
-        return {
-          ...section,
-          blocks: section.blocks.filter(block => block._id !== blockId)
-        }
-      }
-      return section
-    }))
-  }
-
-  const handleCreateTemplate = async (templateData: Partial<LayoutTemplate>) => {
+  const saveChanges = async () => {
     try {
-      const response = await createLayoutTemplate({
-        ...templateData,
-        sections: sections
-      })
+      await saveHomepageSections(sections)
       toast({
         title: "Success",
-        description: "Template created successfully"
+        description: "Homepage sections saved successfully",
       })
-      fetchData()
-      setShowTemplateDialog(false)
     } catch (error) {
+      console.error('Error saving homepage sections:', error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create template",
+        description: "Failed to save homepage sections",
         variant: "destructive"
       })
-    }
-  }
-
-  const handleSetDefaultTemplate = async (templateId: string) => {
-    try {
-      await setDefaultTemplate(templateId)
-      toast({
-        title: "Success",
-        description: "Default template updated successfully"
-      })
-      fetchData()
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to set default template",
-        variant: "destructive"
-      })
-    }
-  }
-
-  const getPreviewWidth = () => {
-    switch (previewMode) {
-      case 'tablet': return 'max-w-2xl'
-      case 'mobile': return 'max-w-sm'
-      default: return 'max-w-full'
     }
   }
 
@@ -420,7 +843,7 @@ export function HomepageManagement() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">Loading homepage data...</p>
+          <p className="mt-2 text-sm text-muted-foreground">Loading homepage data...</p>
         </div>
       </div>
     )
@@ -428,509 +851,232 @@ export function HomepageManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Globe className="h-8 w-8" />
-            Homepage Management
-          </h1>
+          <h1 className="text-3xl font-bold">Homepage Management</h1>
           <p className="text-muted-foreground">
-            Design and customize your homepage with drag-and-drop sections
+            Design and customize your homepage with advanced styling options.
           </p>
         </div>
-        <div className="flex gap-2">
-          <div className="flex border rounded-lg p-1">
-            <Button
-              variant={previewMode === 'desktop' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setPreviewMode('desktop')}
-            >
-              <Monitor className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={previewMode === 'tablet' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setPreviewMode('tablet')}
-            >
-              <Tablet className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={previewMode === 'mobile' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setPreviewMode('mobile')}
-            >
-              <Smartphone className="h-4 w-4" />
-            </Button>
-          </div>
-          <Button variant="outline" onClick={handlePreview}>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setShowPreview(true)}>
             <Eye className="h-4 w-4 mr-2" />
             Preview
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={saveChanges}>
             <Save className="h-4 w-4 mr-2" />
-            {saving ? 'Saving...' : 'Save Changes'}
+            Save Changes
           </Button>
         </div>
       </div>
 
-      <Tabs defaultValue="sections" className="space-y-6">
+      <Tabs defaultValue="builder" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="sections">Section Builder</TabsTrigger>
+          <TabsTrigger value="builder">Section Builder</TabsTrigger>
           <TabsTrigger value="templates">Templates</TabsTrigger>
-          <TabsTrigger value="ab-tests">A/B Tests</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="sections" className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-4">
-            {/* Content Blocks Library */}
-            <Card className="lg:col-span-1">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Layout className="h-5 w-5" />
-                  Content Blocks
-                </CardTitle>
-                <CardDescription>Drag blocks to add them to sections</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {contentBlocks.map((block) => (
-                  <div
-                    key={block._id}
-                    className="p-3 border rounded-lg cursor-pointer hover:bg-accent transition-colors"
-                    onClick={() => {
-                      setSelectedBlock(block)
-                      setShowBlockDialog(true)
-                    }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <GripVertical className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <div className="font-medium text-sm">{block.title}</div>
-                        <Badge variant="outline" className="text-xs">
-                          {block.type}
-                        </Badge>
-                      </div>
+        <TabsContent value="builder" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-1">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Layers className="h-5 w-5" />
+                    Content Blocks
+                  </CardTitle>
+                  <CardDescription>
+                    Click blocks to add them to sections
+                  </CardDescription>
+                </CardHeader>
+                
+                <CardContent className="space-y-4">
+                  {contentBlocks.map((blockTemplate) => (
+                    <div key={blockTemplate._id} className="flex items-center justify-between p-2 bg-muted rounded hover:bg-muted-foreground cursor-pointer"
+                      onClick={() => {
+                        if (selectedSection) {
+                          addBlockToSection(selectedSection._id, blockTemplate)
+                        }
+                      }}>
+                      <span>{blockTemplate.title || blockTemplate.type}</span>
+                      <Badge variant="secondary">{blockTemplate.type}</Badge>
                     </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Section Builder */}
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
             <div className="lg:col-span-3 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Homepage Sections</h3>
+              <div className="flex justify-between items-center mb-2">
                 <Button onClick={addSection}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add Section
                 </Button>
               </div>
-
-              <div className={`mx-auto transition-all duration-300 ${getPreviewWidth()}`}>
-                {sections.length === 0 ? (
-                  <Card className="p-12 text-center">
-                    <div className="text-muted-foreground">
-                      <Layout className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <h3 className="text-lg font-medium mb-2">No sections yet</h3>
-                      <p className="mb-4">Start building your homepage by adding sections</p>
-                      <Button onClick={addSection}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Section
-                      </Button>
-                    </div>
-                  </Card>
-                ) : (
-                  <div className="space-y-4">
-                    {sections.map((section) => (
-                      <Card key={section._id} className="border-2 border-dashed">
-                        <CardHeader className="pb-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
-                              <Input
-                                value={section.name}
-                                onChange={(e) => updateSection(section._id, { name: e.target.value })}
-                                className="font-medium border-none p-0 h-auto focus-visible:ring-0"
-                              />
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Select
-                                value={section.layout}
-                                onValueChange={(value) => updateSection(section._id, { layout: value as any })}
-                              >
-                                <SelectTrigger className="w-32">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="single">Single</SelectItem>
-                                  <SelectItem value="two-column">Two Column</SelectItem>
-                                  <SelectItem value="three-column">Three Column</SelectItem>
-                                  <SelectItem value="grid">Grid</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <Switch
-                                checked={section.isActive}
-                                onCheckedChange={(checked) => updateSection(section._id, { isActive: checked })}
-                              />
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => deleteSection(section._id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+              {sections.length === 0 ? (
+                <Card>
+                  <CardContent className="text-center py-16">
+                    <h2 className="text-2xl font-semibold mb-4">No sections created</h2>
+                    <p className="text-muted-foreground">Add a new section to start building your homepage.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                sections
+                  .sort((a, b) => a.order - b.order)
+                  .map(section => (
+                    <Card key={section._id} className="mb-4">
+                      <CardHeader className="flex flex-row justify-between items-center">
+                        <div>
+                          <CardTitle>
+                            <span
+                              className="cursor-pointer underline"
+                              onClick={() => {
+                                setSelectedSection(section)
+                                setShowSectionSettings(true)
+                              }}
+                            >
+                              {section.name}
+                            </span>
+                          </CardTitle>
+                          <CardDescription className="text-xs">
+                            Layout: {section.layout}
+                            {section.isActive ? (
+                              <Badge variant="default" className="ml-2">Active</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="ml-2">Inactive</Badge>
+                            )}
+                          </CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => {
+                              setSelectedSection(section)
+                              setShowSectionSettings(true)
+                            }}
+                          >
+                            <Settings className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => deleteSection(section._id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        {section.blocks.length === 0 ? (
+                          <div className="text-muted-foreground text-sm py-8 text-center">
+                            No blocks added to this section.
                           </div>
-                        </CardHeader>
-                        <CardContent>
-                          {section.blocks.length === 0 ? (
-                            <div className="border-2 border-dashed border-muted rounded-lg p-8 text-center">
-                              <Type className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                              <p className="text-muted-foreground mb-4">No content blocks in this section</p>
-                              <Button
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedSection(section)
-                                  setShowBlockDialog(true)
-                                }}
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Add Block
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="space-y-3">
-                              {section.blocks.map((block) => (
-                                <div
-                                  key={block._id}
-                                  className="border rounded-lg p-4 bg-background"
-                                >
-                                  <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                      <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
-                                      <Badge variant="outline">{block.type}</Badge>
-                                      <span className="font-medium">{block.title}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => {
-                                          setSelectedBlock(block)
-                                          setSelectedSection(section)
-                                        }}
-                                      >
-                                        <Edit className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => deleteBlock(section._id, block._id)}
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
+                        ) : (
+                          <div className="space-y-4">
+                            {section.blocks
+                              .sort((a, b) => a.order - b.order)
+                              .map(block => (
+                                <div key={block._id} className="border rounded-lg p-4 flex items-center justify-between bg-muted">
+                                  <div>
+                                    <span className="font-semibold">{block.title || block.type}</span>
+                                    <Badge variant="outline" className="mx-2">{block.type}</Badge>
+                                    {block.isVisible ? (
+                                      <Badge variant="default">Visible</Badge>
+                                    ) : (
+                                      <Badge variant="secondary">Hidden</Badge>
+                                    )}
                                   </div>
-                                  <div className="text-sm text-muted-foreground">
-                                    {block.type === 'hero' && block.content.heading && (
-                                      <div>Hero: {block.content.heading}</div>
-                                    )}
-                                    {block.type === 'services' && block.content.heading && (
-                                      <div>Services: {block.content.heading}</div>
-                                    )}
-                                    {block.type === 'html' && block.content.html && (
-                                      <div>Custom HTML Block</div>
-                                    )}
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setSelectedBlock(block)
+                                        setShowBlockSettings(true)
+                                      }}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        updateSection(section._id, {
+                                          blocks: section.blocks.filter(b => b._id !== block._id)
+                                        })
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
                                   </div>
                                 </div>
                               ))}
-                              <Button
-                                variant="outline"
-                                className="w-full"
-                                onClick={() => {
-                                  setSelectedSection(section)
-                                  setShowBlockDialog(true)
-                                }}
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Add Block
-                              </Button>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))
+              )}
             </div>
           </div>
         </TabsContent>
 
         <TabsContent value="templates" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Layout Templates</h3>
-            <Button onClick={() => setShowTemplateDialog(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Template
-            </Button>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {templates.map((template) => (
-              <Card key={template._id} className="relative">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      {template.name}
-                      {template.isDefault && (
-                        <Badge variant="default">
-                          <Star className="h-3 w-3 mr-1" />
-                          Default
-                        </Badge>
-                      )}
-                    </CardTitle>
-                  </div>
-                  <CardDescription>{template.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
-                      <Layout className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <div className="flex gap-2">
-                      {!template.isDefault && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleSetDefaultTemplate(template._id)}
-                        >
-                          Set Default
-                        </Button>
-                      )}
-                      <Button variant="outline" size="sm">
-                        <Copy className="h-4 w-4 mr-1" />
-                        Clone
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="ab-tests" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">A/B Tests</h3>
-            <Button onClick={() => setShowABTestDialog(true)}>
-              <TestTube className="h-4 w-4 mr-2" />
-              Create A/B Test
-            </Button>
-          </div>
-
-          <div className="grid gap-6">
-            {abTests.map((test) => (
-              <Card key={test._id}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>{test.name}</CardTitle>
-                    <Badge variant={test.status === 'running' ? 'default' : 'secondary'}>
-                      {test.status}
-                    </Badge>
-                  </div>
-                  <CardDescription>{test.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {test.variants.map((variant) => (
-                      <div key={variant._id} className="border rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium">{variant.name}</h4>
-                          <Badge variant="outline">{variant.trafficPercentage}%</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-3">{variant.description}</p>
-                        <div className="grid grid-cols-3 gap-2 text-sm">
-                          <div>
-                            <div className="text-muted-foreground">Views</div>
-                            <div className="font-medium">{variant.views}</div>
-                          </div>
-                          <div>
-                            <div className="text-muted-foreground">Conversions</div>
-                            <div className="font-medium">{variant.conversions}</div>
-                          </div>
-                          <div>
-                            <div className="text-muted-foreground">Rate</div>
-                            <div className="font-medium">{variant.conversionRate}%</div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="settings" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                Global Settings
-              </CardTitle>
-              <CardDescription>Configure global homepage settings</CardDescription>
+              <CardTitle>Layout Templates</CardTitle>
+              <CardDescription>
+                Apply a template to your homepage layout.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Default Color Scheme</Label>
-                <div className="flex gap-2">
-                  <div className="w-8 h-8 rounded bg-blue-500 border-2 border-primary"></div>
-                  <div className="w-8 h-8 rounded bg-purple-500 border"></div>
-                  <div className="w-8 h-8 rounded bg-green-500 border"></div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Typography</Label>
-                <Select defaultValue="inter">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="inter">Inter</SelectItem>
-                    <SelectItem value="roboto">Roboto</SelectItem>
-                    <SelectItem value="lato">Lato</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {templates.map(template => (
+                  <div key={template._id} className="border rounded-lg p-4 flex flex-col">
+                    <div className="font-bold mb-2">{template.name}</div>
+                    <div className="text-sm mb-2">{template.description}</div>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSections(template.sections)
+                        toast({
+                          title: "Template Applied",
+                          description: `Applied template: ${template.name}`,
+                        })
+                      }}
+                    >
+                      Apply Template
+                    </Button>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
+      {/* Section Settings Dialog */}
+      <SectionSettingsDialog
+        section={selectedSection}
+        isOpen={showSectionSettings}
+        onClose={() => setShowSectionSettings(false)}
+        onSave={updateSection}
+      />
+
+      {/* Block Settings Dialog */}
+      <BlockSettingsDialog
+        block={selectedBlock}
+        isOpen={showBlockSettings}
+        onClose={() => setShowBlockSettings(false)}
+        onSave={updateBlock}
+      />
+
       {/* Preview Dialog */}
-      {showPreview && (
-        <HomepagePreview
-          sections={sections}
-          previewMode={previewMode}
-          onClose={() => setShowPreview(false)}
-        />
-      )}
-
-      {/* Block Dialog */}
-      {showBlockDialog && (
-        <Dialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Content Block</DialogTitle>
-              <DialogDescription>Select a block to add to this section.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-2">
-              {contentBlocks.map((block) => (
-                <Button
-                  key={block._id}
-                  className="w-full flex justify-between"
-                  onClick={() => {
-                    if (selectedSection) {
-                      addBlockToSection(selectedSection._id, block)
-                    }
-                  }}
-                >
-                  <span>{block.title}</span>
-                  <Badge variant="outline">{block.type}</Badge>
-                </Button>
-              ))}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowBlockDialog(false)}>
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* Template Dialog */}
-      {showTemplateDialog && (
-        <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create Template</DialogTitle>
-              <DialogDescription>Save the current homepage layout as a template.</DialogDescription>
-            </DialogHeader>
-            <form
-              onSubmit={e => {
-                e.preventDefault()
-                const form = e.target as typeof e.target & {
-                  name: { value: string }
-                  description: { value: string }
-                }
-                handleCreateTemplate({
-                  name: form.name.value,
-                  description: form.description.value
-                })
-              }}
-              className="space-y-4"
-            >
-              <Label>
-                Name
-                <Input name="name" required />
-              </Label>
-              <Label>
-                Description
-                <Textarea name="description" />
-              </Label>
-              <DialogFooter>
-                <Button type="submit">Create</Button>
-                <Button variant="outline" onClick={() => setShowTemplateDialog(false)}>
-                  Cancel
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* AB Test Dialog */}
-      {showABTestDialog && (
-        <Dialog open={showABTestDialog} onOpenChange={setShowABTestDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create A/B Test</DialogTitle>
-              <DialogDescription>
-                Configure variants and start an A/B test for the homepage.
-              </DialogDescription>
-            </DialogHeader>
-            {/* Basic AB Test Form Example */}
-            <form
-              onSubmit={e => {
-                e.preventDefault()
-                // Implement AB test creation logic here.
-                setShowABTestDialog(false)
-              }}
-              className="space-y-4"
-            >
-              <Label>
-                Test Name
-                <Input name="testName" required />
-              </Label>
-              <Label>
-                Description
-                <Textarea name="testDescription" />
-              </Label>
-              {/* Variants and other controls here */}
-              <DialogFooter>
-                <Button type="submit">Create Test</Button>
-                <Button variant="outline" onClick={() => setShowABTestDialog(false)}>
-                  Cancel
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      )}
+      <PreviewDialog
+        sections={sections}
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+      />
     </div>
   )
 }

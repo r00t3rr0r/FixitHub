@@ -1,37 +1,26 @@
-console.log('Loading User model...');
 const User = require('../models/User');
-console.log('Loading Service model...');
 const Service = require('../models/Service');
-console.log('Loading AddOnService model...');
 const AddOnService = require('../models/AddOnService');
-console.log('Loading Inventory model...');
 const Inventory = require('../models/Inventory');
-console.log('Loading BlogPost models...');
-const { BlogPost, BlogCategory, BlogTag } = require('../models/BlogPost');
-console.log('Loading FAQ model...');
-const FAQ = require('../models/FAQ');
-console.log('Loading Device models...');
-const { DeviceBrand, DeviceModel } = require('../models/Device');
-console.log('Loading Product model...');
+const Device = require('../models/Device');
 const Product = require('../models/Product');
-console.log('Loading password utils...');
+const { BlogPost, BlogCategory, BlogTag } = require('../models/BlogPost');
+const FAQ = require('../models/FAQ');
+const { LayoutTemplate } = require('../models/Homepage');
 const { hashPassword } = require('../utils/password');
 
 class SeedService {
+  // Seed admin user
   static async seedAdmin() {
     try {
-      console.log('SeedService: Checking for admin user...');
-
       const existingAdmin = await User.findOne({ role: 'admin' });
       if (existingAdmin) {
-        console.log('SeedService: Admin user already exists');
         return { success: true, message: 'Admin user already exists' };
       }
 
       const hashedPassword = await hashPassword('admin123');
-
-      const adminUser = new User({
-        name: 'Admin User',
+      const admin = new User({
+        name: 'System Admin',
         email: 'admin@fixithub.com',
         password: hashedPassword,
         role: 'admin',
@@ -39,30 +28,24 @@ class SeedService {
         address: {
           street: '123 Admin Street',
           city: 'Admin City',
-          state: 'AC',
+          state: 'Admin State',
           zipCode: '12345',
           country: 'USA'
-        },
-        isActive: true
+        }
       });
 
-      await adminUser.save();
-      console.log('SeedService: Admin user created successfully');
-
+      await admin.save();
       return { success: true, message: 'Admin user created successfully' };
     } catch (error) {
-      console.error('SeedService: Error seeding admin user:', error);
-      throw error;
+      throw new Error(`Failed to seed admin user: ${error.message}`);
     }
   }
 
+  // Seed services
   static async seedServices() {
     try {
-      console.log('SeedService: Checking for services...');
-
       const existingServices = await Service.countDocuments();
       if (existingServices > 0) {
-        console.log('SeedService: Services already exist');
         return { success: true, message: 'Services already exist' };
       }
 
@@ -74,15 +57,17 @@ class SeedService {
           estimatedTime: '2-3 hours',
           category: 'Display',
           deviceTypes: ['smartphone', 'tablet'],
+          popularity: 95,
           isActive: true
         },
         {
           name: 'Battery Replacement',
-          description: 'High-quality battery replacement service',
+          description: 'High-quality battery replacement with warranty',
           price: 89.99,
           estimatedTime: '1-2 hours',
           category: 'Power',
           deviceTypes: ['smartphone', 'tablet', 'laptop'],
+          popularity: 88,
           isActive: true
         },
         {
@@ -90,29 +75,55 @@ class SeedService {
           description: 'Complete water damage assessment and repair',
           price: 199.99,
           estimatedTime: '1-2 days',
-          category: 'Emergency',
+          category: 'Liquid Damage',
           deviceTypes: ['smartphone', 'tablet'],
+          popularity: 75,
+          isActive: true
+        },
+        {
+          name: 'Charging Port Repair',
+          description: 'Fix charging port issues and connectivity problems',
+          price: 79.99,
+          estimatedTime: '2-4 hours',
+          category: 'Connectivity',
+          deviceTypes: ['smartphone', 'tablet'],
+          popularity: 82,
+          isActive: true
+        },
+        {
+          name: 'Camera Repair',
+          description: 'Camera module replacement and repair',
+          price: 129.99,
+          estimatedTime: '2-3 hours',
+          category: 'Camera',
+          deviceTypes: ['smartphone', 'tablet'],
+          popularity: 70,
+          isActive: true
+        },
+        {
+          name: 'Speaker Repair',
+          description: 'Audio system repair and speaker replacement',
+          price: 69.99,
+          estimatedTime: '1-2 hours',
+          category: 'Audio',
+          deviceTypes: ['smartphone', 'tablet'],
+          popularity: 65,
           isActive: true
         }
       ];
 
       await Service.insertMany(services);
-      console.log('SeedService: Services seeded successfully');
-
       return { success: true, message: 'Services seeded successfully' };
     } catch (error) {
-      console.error('SeedService: Error seeding services:', error);
-      throw error;
+      throw new Error(`Failed to seed services: ${error.message}`);
     }
   }
 
+  // Seed add-on services
   static async seedAddOnServices() {
     try {
-      console.log('SeedService: Checking for add-on services...');
-
       const existingAddOns = await AddOnService.countDocuments();
       if (existingAddOns > 0) {
-        console.log('SeedService: Add-on services already exist');
         return { success: true, message: 'Add-on services already exist' };
       }
 
@@ -120,132 +131,125 @@ class SeedService {
         {
           name: 'Screen Protector Installation',
           description: 'Premium tempered glass screen protector installation',
-          price: 29.99,
-          estimatedTime: '15 minutes',
+          price: 24.99,
           category: 'Protection',
-          compatibility: [
-            { deviceType: 'smartphone', brands: ['Apple', 'Samsung', 'Google'] },
-            { deviceType: 'tablet', brands: ['Apple', 'Samsung'] }
-          ],
-          isActive: true
+          estimatedTime: '15 minutes',
+          isActive: true,
+          popularity: 90
+        },
+        {
+          name: 'Phone Case',
+          description: 'Protective case for your device',
+          price: 19.99,
+          category: 'Protection',
+          estimatedTime: '5 minutes',
+          isActive: true,
+          popularity: 85
+        },
+        {
+          name: 'Data Backup Service',
+          description: 'Complete data backup and transfer service',
+          price: 39.99,
+          category: 'Data',
+          estimatedTime: '30 minutes',
+          isActive: true,
+          popularity: 75
+        },
+        {
+          name: 'Express Service',
+          description: 'Priority repair service - completed within 4 hours',
+          price: 49.99,
+          category: 'Service',
+          estimatedTime: '0 minutes',
+          isActive: true,
+          popularity: 60
+        },
+        {
+          name: 'Extended Warranty',
+          description: '6-month extended warranty on repairs',
+          price: 29.99,
+          category: 'Warranty',
+          estimatedTime: '0 minutes',
+          isActive: true,
+          popularity: 55
         },
         {
           name: 'Device Cleaning',
           description: 'Professional device cleaning and sanitization',
-          price: 19.99,
+          price: 14.99,
+          category: 'Maintenance',
           estimatedTime: '10 minutes',
-          category: 'Service',
-          compatibility: [
-            { deviceType: 'smartphone', brands: ['Apple', 'Samsung', 'Google'] },
-            { deviceType: 'tablet', brands: ['Apple', 'Samsung'] }
-          ],
-          isActive: true
-        },
-        {
-          name: 'Data Backup',
-          description: 'Complete data backup before repair',
-          price: 39.99,
-          estimatedTime: '30 minutes',
-          category: 'Data',
-          compatibility: [
-            { deviceType: 'smartphone', brands: ['Apple', 'Samsung', 'Google'] },
-            { deviceType: 'tablet', brands: ['Apple', 'Samsung'] }
-          ],
-          isActive: true
+          isActive: true,
+          popularity: 70
         }
       ];
 
       await AddOnService.insertMany(addOnServices);
-      console.log('SeedService: Add-on services seeded successfully');
-
       return { success: true, message: 'Add-on services seeded successfully' };
     } catch (error) {
-      console.error('SeedService: Error seeding add-on services:', error);
-      throw error;
+      throw new Error(`Failed to seed add-on services: ${error.message}`);
     }
   }
 
+  // Seed inventory
   static async seedInventory() {
     try {
-      console.log('SeedService: Checking for inventory...');
-
       const existingInventory = await Inventory.countDocuments();
       if (existingInventory > 0) {
-        console.log('SeedService: Inventory already exists');
         return { success: true, message: 'Inventory already exists' };
       }
 
       const inventoryItems = [
         {
-          itemName: 'iPhone 14 Screen Assembly',
-          itemDescription: 'Original quality iPhone 14 screen replacement with digitizer',
-          category: 'display',
+          name: 'iPhone 13 Screen Assembly',
+          description: 'Complete LCD screen assembly for iPhone 13',
+          category: 'Screens',
           manufacturer: 'Apple',
           brand: 'iPhone',
-          compatibleDevices: ['iPhone 14'],
           versions: [
             {
-              versionType: 'original',
-              versionId: 'IPH14-SCR-ORG',
+              type: 'Original',
               quantity: 25,
-              minStockLevel: 5,
+              minimumStock: 5,
               reorderLevel: 10,
               unitCost: 89.99,
               sellingPrice: 149.99,
               storageLocation: 'A1-B2',
-              supplierInfo: {
-                name: 'TechParts Inc',
-                contactPerson: 'John Smith',
-                email: 'orders@techparts.com',
-                phone: '+1-555-0123',
-                address: '123 Tech Street, Silicon Valley, CA'
-              },
+              supplierInfo: 'Apple Parts Direct',
+              leadTime: 7,
               status: 'active'
             },
             {
-              versionType: 'efficient',
-              versionId: 'IPH14-SCR-EFF',
+              type: 'Efficient',
               quantity: 50,
-              minStockLevel: 10,
+              minimumStock: 10,
               reorderLevel: 20,
-              unitCost: 59.99,
+              unitCost: 45.99,
               sellingPrice: 99.99,
               storageLocation: 'A1-B3',
-              supplierInfo: {
-                name: 'Quality Parts Co',
-                contactPerson: 'Jane Doe',
-                email: 'sales@qualityparts.com',
-                phone: '+1-555-0456',
-                address: '456 Parts Ave, Tech City, CA'
-              },
+              supplierInfo: 'TechParts Plus',
+              leadTime: 3,
               status: 'active'
             }
           ]
         },
         {
-          itemName: 'Samsung Galaxy S23 Battery',
-          itemDescription: 'High-capacity replacement battery for Samsung Galaxy S23',
-          category: 'battery',
+          name: 'Samsung Galaxy S21 Battery',
+          description: 'Lithium-ion battery for Samsung Galaxy S21',
+          category: 'Batteries',
           manufacturer: 'Samsung',
           brand: 'Galaxy',
-          compatibleDevices: ['Galaxy S23'],
           versions: [
             {
-              versionType: 'original',
-              versionId: 'SAM-S23-BAT-ORG',
+              type: 'Original',
               quantity: 30,
-              minStockLevel: 8,
+              minimumStock: 8,
               reorderLevel: 15,
-              unitCost: 45.99,
-              sellingPrice: 79.99,
+              unitCost: 29.99,
+              sellingPrice: 59.99,
               storageLocation: 'B2-C1',
-              supplierInfo: {
-                name: 'Samsung Parts Direct',
-                contactPerson: 'Mike Johnson',
-                email: 'orders@samsungparts.com',
-                phone: '+1-555-0789',
-                address: '789 Samsung Blvd, Mobile City, CA'
-              },
+              supplierInfo: 'Samsung Parts',
+              leadTime: 5,
               status: 'active'
             }
           ]
@@ -253,395 +257,432 @@ class SeedService {
       ];
 
       await Inventory.insertMany(inventoryItems);
-      console.log('SeedService: Inventory seeded successfully');
-
       return { success: true, message: 'Inventory seeded successfully' };
     } catch (error) {
-      console.error('SeedService: Error seeding inventory:', error);
-      throw error;
+      throw new Error(`Failed to seed inventory: ${error.message}`);
     }
   }
 
+  // Seed devices
   static async seedDevices() {
     try {
-      console.log('SeedService: Checking for device brands and models...');
-
-      const existingBrands = await DeviceBrand.countDocuments();
-      if (existingBrands > 0) {
-        console.log('SeedService: Device brands already exist');
-        return { success: true, message: 'Device brands already exist' };
+      const existingDevices = await Device.countDocuments();
+      if (existingDevices > 0) {
+        return { success: true, message: 'Devices already exist' };
       }
 
-      // Create brands
-      const brands = [
+      const devices = [
         {
-          name: 'Apple',
-          logo: 'https://via.placeholder.com/100x100/000000/ffffff?text=Apple'
+          brand: 'Apple',
+          name: 'iPhone',
+          models: [
+            { name: 'iPhone 14 Pro Max', releaseYear: 2022, isActive: true },
+            { name: 'iPhone 14 Pro', releaseYear: 2022, isActive: true },
+            { name: 'iPhone 14', releaseYear: 2022, isActive: true },
+            { name: 'iPhone 13 Pro Max', releaseYear: 2021, isActive: true },
+            { name: 'iPhone 13 Pro', releaseYear: 2021, isActive: true },
+            { name: 'iPhone 13', releaseYear: 2021, isActive: true },
+            { name: 'iPhone 12 Pro Max', releaseYear: 2020, isActive: true },
+            { name: 'iPhone 12 Pro', releaseYear: 2020, isActive: true },
+            { name: 'iPhone 12', releaseYear: 2020, isActive: true }
+          ]
         },
         {
-          name: 'Samsung',
-          logo: 'https://via.placeholder.com/100x100/1f4e79/ffffff?text=Samsung'
+          brand: 'Samsung',
+          name: 'Galaxy',
+          models: [
+            { name: 'Galaxy S23 Ultra', releaseYear: 2023, isActive: true },
+            { name: 'Galaxy S23+', releaseYear: 2023, isActive: true },
+            { name: 'Galaxy S23', releaseYear: 2023, isActive: true },
+            { name: 'Galaxy S22 Ultra', releaseYear: 2022, isActive: true },
+            { name: 'Galaxy S22+', releaseYear: 2022, isActive: true },
+            { name: 'Galaxy S22', releaseYear: 2022, isActive: true },
+            { name: 'Galaxy Note 20 Ultra', releaseYear: 2020, isActive: true }
+          ]
         },
         {
-          name: 'Google',
-          logo: 'https://via.placeholder.com/100x100/4285f4/ffffff?text=Google'
-        },
-        {
-          name: 'OnePlus',
-          logo: 'https://via.placeholder.com/100x100/eb0028/ffffff?text=OnePlus'
-        },
-        {
-          name: 'Microsoft',
-          logo: 'https://via.placeholder.com/100x100/00bcf2/ffffff?text=Microsoft'
-        },
-        {
-          name: 'Dell',
-          logo: 'https://via.placeholder.com/100x100/007db8/ffffff?text=Dell'
-        },
-        {
-          name: 'HP',
-          logo: 'https://via.placeholder.com/100x100/0096d6/ffffff?text=HP'
-        },
-        {
-          name: 'Lenovo',
-          logo: 'https://via.placeholder.com/100x100/e2231a/ffffff?text=Lenovo'
+          brand: 'Google',
+          name: 'Pixel',
+          models: [
+            { name: 'Pixel 7 Pro', releaseYear: 2022, isActive: true },
+            { name: 'Pixel 7', releaseYear: 2022, isActive: true },
+            { name: 'Pixel 6 Pro', releaseYear: 2021, isActive: true },
+            { name: 'Pixel 6', releaseYear: 2021, isActive: true }
+          ]
         }
       ];
 
-      const createdBrands = await DeviceBrand.insertMany(brands);
-      console.log('SeedService: Device brands created');
-
-      // Create models
-      const models = [
-        // Apple smartphones
-        { name: 'iPhone 15 Pro', brandId: createdBrands[0]._id, deviceType: 'smartphone' },
-        { name: 'iPhone 15', brandId: createdBrands[0]._id, deviceType: 'smartphone' },
-        { name: 'iPhone 14 Pro', brandId: createdBrands[0]._id, deviceType: 'smartphone' },
-        { name: 'iPhone 14', brandId: createdBrands[0]._id, deviceType: 'smartphone' },
-
-        // Apple tablets
-        { name: 'iPad Pro 12.9"', brandId: createdBrands[0]._id, deviceType: 'tablet' },
-        { name: 'iPad Air', brandId: createdBrands[0]._id, deviceType: 'tablet' },
-        { name: 'iPad', brandId: createdBrands[0]._id, deviceType: 'tablet' },
-
-        // Apple laptops
-        { name: 'MacBook Pro 16"', brandId: createdBrands[0]._id, deviceType: 'laptop' },
-        { name: 'MacBook Air', brandId: createdBrands[0]._id, deviceType: 'laptop' },
-
-        // Apple smartwatches
-        { name: 'Apple Watch Series 9', brandId: createdBrands[0]._id, deviceType: 'smartwatch' },
-        { name: 'Apple Watch SE', brandId: createdBrands[0]._id, deviceType: 'smartwatch' },
-
-        // Samsung smartphones
-        { name: 'Galaxy S24 Ultra', brandId: createdBrands[1]._id, deviceType: 'smartphone' },
-        { name: 'Galaxy S24', brandId: createdBrands[1]._id, deviceType: 'smartphone' },
-        { name: 'Galaxy S23 Ultra', brandId: createdBrands[1]._id, deviceType: 'smartphone' },
-        { name: 'Galaxy Note 20', brandId: createdBrands[1]._id, deviceType: 'smartphone' },
-
-        // Samsung tablets
-        { name: 'Galaxy Tab S9 Ultra', brandId: createdBrands[1]._id, deviceType: 'tablet' },
-        { name: 'Galaxy Tab S9', brandId: createdBrands[1]._id, deviceType: 'tablet' },
-        { name: 'Galaxy Tab A8', brandId: createdBrands[1]._id, deviceType: 'tablet' },
-
-        // Samsung smartwatches
-        { name: 'Galaxy Watch 6', brandId: createdBrands[1]._id, deviceType: 'smartwatch' },
-        { name: 'Galaxy Watch 5', brandId: createdBrands[1]._id, deviceType: 'smartwatch' },
-
-        // Google smartphones
-        { name: 'Pixel 8 Pro', brandId: createdBrands[2]._id, deviceType: 'smartphone' },
-        { name: 'Pixel 8', brandId: createdBrands[2]._id, deviceType: 'smartphone' },
-        { name: 'Pixel 7 Pro', brandId: createdBrands[2]._id, deviceType: 'smartphone' },
-
-        // OnePlus smartphones
-        { name: 'OnePlus 12', brandId: createdBrands[3]._id, deviceType: 'smartphone' },
-        { name: 'OnePlus 11', brandId: createdBrands[3]._id, deviceType: 'smartphone' },
-        { name: 'OnePlus 10 Pro', brandId: createdBrands[3]._id, deviceType: 'smartphone' },
-
-        // Microsoft tablets
-        { name: 'Surface Pro 9', brandId: createdBrands[4]._id, deviceType: 'tablet' },
-        { name: 'Surface Go 3', brandId: createdBrands[4]._id, deviceType: 'tablet' },
-
-        // Dell laptops
-        { name: 'XPS 13', brandId: createdBrands[5]._id, deviceType: 'laptop' },
-        { name: 'Inspiron 15', brandId: createdBrands[5]._id, deviceType: 'laptop' },
-
-        // HP laptops
-        { name: 'Spectre x360', brandId: createdBrands[6]._id, deviceType: 'laptop' },
-        { name: 'Pavilion 15', brandId: createdBrands[6]._id, deviceType: 'laptop' },
-
-        // Lenovo laptops
-        { name: 'ThinkPad X1 Carbon', brandId: createdBrands[7]._id, deviceType: 'laptop' },
-        { name: 'IdeaPad 5', brandId: createdBrands[7]._id, deviceType: 'laptop' }
-      ];
-
-      await DeviceModel.insertMany(models);
-      console.log('SeedService: Device models created');
-
-      return { success: true, message: 'Device brands and models seeded successfully' };
+      await Device.insertMany(devices);
+      return { success: true, message: 'Devices seeded successfully' };
     } catch (error) {
-      console.error('SeedService: Error seeding devices:', error);
-      throw error;
+      throw new Error(`Failed to seed devices: ${error.message}`);
     }
   }
 
+  // Seed products
   static async seedProducts() {
     try {
-      console.log('SeedService: Checking for products...');
-
       const existingProducts = await Product.countDocuments();
       if (existingProducts > 0) {
-        console.log('SeedService: Products already exist');
         return { success: true, message: 'Products already exist' };
       }
 
       const products = [
         {
           name: 'Premium Screen Protector',
-          description: 'Ultra-clear tempered glass with 9H hardness rating',
-          price: 29.99,
-          originalPrice: 39.99,
-          images: ['https://picsum.photos/400/400?random=1', 'https://picsum.photos/400/400?random=2'],
+          description: 'Tempered glass screen protector with 9H hardness',
+          price: 24.99,
           category: 'Accessories',
           brand: 'TechGuard',
-          rating: 4.8,
-          reviewCount: 156,
+          images: ['https://via.placeholder.com/300x300/3b82f6/ffffff?text=Screen+Protector'],
+          specifications: {
+            material: 'Tempered Glass',
+            thickness: '0.33mm',
+            hardness: '9H'
+          },
+          compatibility: ['iPhone', 'Samsung Galaxy'],
           inStock: true,
-          stockCount: 45,
-          features: ['9H Hardness', 'Anti-fingerprint', 'Easy installation'],
-          compatibility: ['iPhone 15', 'iPhone 14', 'iPhone 13']
+          stockQuantity: 150,
+          isActive: true
         },
         {
           name: 'Wireless Charging Pad',
-          description: 'Fast wireless charging with LED indicator',
-          price: 49.99,
-          images: ['https://picsum.photos/400/400?random=3'],
+          description: 'Fast wireless charging pad compatible with all Qi devices',
+          price: 39.99,
           category: 'Chargers',
           brand: 'PowerTech',
-          rating: 4.6,
-          reviewCount: 89,
+          images: ['https://via.placeholder.com/300x300/10b981/ffffff?text=Wireless+Charger'],
+          specifications: {
+            power: '15W',
+            compatibility: 'Qi-enabled devices',
+            cable: 'USB-C included'
+          },
+          compatibility: ['iPhone', 'Samsung Galaxy', 'Google Pixel'],
           inStock: true,
-          stockCount: 23,
-          features: ['15W Fast Charging', 'LED Indicator', 'Non-slip base'],
-          compatibility: ['iPhone', 'Samsung', 'Google Pixel']
+          stockQuantity: 75,
+          isActive: true
         },
         {
-          name: 'Rugged Phone Case',
-          description: 'Military-grade protection with shock absorption',
-          price: 39.99,
-          images: ['https://picsum.photos/400/400?random=4'],
-          category: 'Cases',
-          brand: 'ArmorShield',
-          rating: 4.9,
-          reviewCount: 234,
+          name: 'Phone Repair Tool Kit',
+          description: 'Professional repair tool kit with precision screwdrivers',
+          price: 29.99,
+          category: 'Tools',
+          brand: 'RepairPro',
+          images: ['https://via.placeholder.com/300x300/8b5cf6/ffffff?text=Tool+Kit'],
+          specifications: {
+            pieces: '32 pieces',
+            case: 'Magnetic case included',
+            warranty: '1 year'
+          },
+          compatibility: ['All devices'],
           inStock: true,
-          stockCount: 67,
-          features: ['Drop protection', 'Shock absorption', 'Raised edges'],
-          compatibility: ['iPhone 15 Pro', 'iPhone 15']
-        },
-        {
-          name: 'USB-C Cable',
-          description: 'High-speed charging and data transfer cable',
-          price: 19.99,
-          images: ['https://picsum.photos/400/400?random=5'],
-          category: 'Cables',
-          brand: 'SpeedLink',
-          rating: 4.5,
-          reviewCount: 78,
-          inStock: false,
-          stockCount: 0,
-          features: ['Fast charging', 'Data sync', 'Durable braided design'],
-          compatibility: ['Samsung', 'Google Pixel', 'iPad Pro']
+          stockQuantity: 50,
+          isActive: true
         }
       ];
 
       await Product.insertMany(products);
-      console.log('SeedService: Products seeded successfully');
-
       return { success: true, message: 'Products seeded successfully' };
     } catch (error) {
-      console.error('SeedService: Error seeding products:', error);
-      throw error;
+      throw new Error(`Failed to seed products: ${error.message}`);
     }
   }
 
+  // Seed blog data
   static async seedBlogData() {
     try {
-      console.log('SeedService: Checking for blog data...');
-
       const existingPosts = await BlogPost.countDocuments();
       if (existingPosts > 0) {
-        console.log('SeedService: Blog data already exists');
         return { success: true, message: 'Blog data already exists' };
       }
 
-      // Get admin user for author
-      console.log('SeedService: Finding admin user for blog posts...');
-      const adminUser = await User.findOne({ role: 'admin' });
-      if (!adminUser) {
-        throw new Error('Admin user not found. Please seed admin user first.');
-      }
-      console.log('SeedService: Admin user found:', adminUser.email);
-
       // Create categories
-      console.log('SeedService: Creating blog categories...');
-      const categories = [
-        {
-          name: 'Tips & Tricks',
-          slug: 'tips-tricks',
-          description: 'Helpful advice for device maintenance and optimization',
-          order: 1,
-          isActive: true
-        },
-        {
-          name: 'Device Reviews',
-          slug: 'device-reviews',
-          description: 'In-depth reviews of the latest devices',
-          order: 2,
-          isActive: true
-        },
-        {
-          name: 'Repair Guides',
-          slug: 'repair-guides',
-          description: 'Step-by-step repair instructions and guides',
-          order: 3,
-          isActive: true
-        }
-      ];
-
-      const createdCategories = await BlogCategory.insertMany(categories);
-      console.log('SeedService: Blog categories created:', createdCategories.length);
+      const categories = await BlogCategory.insertMany([
+        { name: 'Repair Tips', slug: 'repair-tips', description: 'Tips and tricks for device repairs' },
+        { name: 'Device Care', slug: 'device-care', description: 'How to take care of your devices' },
+        { name: 'News', slug: 'news', description: 'Latest news in tech repair industry' }
+      ]);
 
       // Create tags
-      console.log('SeedService: Creating blog tags...');
-      const tags = [
-        { name: 'Battery', slug: 'battery', color: '#10b981', isActive: true },
-        { name: 'Screen Repair', slug: 'screen-repair', color: '#3b82f6', isActive: true },
-        { name: 'iPhone', slug: 'iphone', color: '#ef4444', isActive: true },
-        { name: 'Samsung', slug: 'samsung', color: '#8b5cf6', isActive: true },
-        { name: 'Water Damage', slug: 'water-damage', color: '#06b6d4', isActive: true }
-      ];
+      const tags = await BlogTag.insertMany([
+        { name: 'iPhone', slug: 'iphone' },
+        { name: 'Android', slug: 'android' },
+        { name: 'Screen Repair', slug: 'screen-repair' },
+        { name: 'Battery', slug: 'battery' },
+        { name: 'Water Damage', slug: 'water-damage' }
+      ]);
 
-      const createdTags = await BlogTag.insertMany(tags);
-      console.log('SeedService: Blog tags created:', createdTags.length);
+      // Get admin user for author
+      const admin = await User.findOne({ role: 'admin' });
 
       // Create blog posts
-      console.log('SeedService: Creating blog posts...');
-      const posts = [
+      const blogPosts = [
         {
-          title: 'How to Extend Your Phone Battery Life: Expert Tips',
-          slug: 'extend-phone-battery-life-expert-tips',
-          excerpt: 'Learn professional techniques to maximize your smartphone battery performance and longevity with these proven strategies.',
-          content: '<h2>Understanding Battery Health</h2><p>Your smartphone battery is one of its most critical components. Over time, all batteries degrade, but with proper care, you can significantly extend their lifespan.</p><h3>Key Tips for Battery Longevity</h3><ul><li>Avoid extreme temperatures</li><li>Don\'t let your battery drain completely</li><li>Use original chargers when possible</li><li>Enable battery optimization features</li></ul><p>Following these simple guidelines can help your battery last much longer and maintain better performance throughout its life.</p>',
-          featuredImage: 'https://via.placeholder.com/800x400/10b981/ffffff?text=Battery+Tips',
-          author: adminUser._id,
-          category: createdCategories[0]._id,
-          tags: [createdTags[0]._id, createdTags[2]._id],
+          title: 'How to Prevent Water Damage to Your Phone',
+          slug: 'prevent-water-damage-phone',
+          excerpt: 'Learn essential tips to protect your smartphone from water damage and what to do if it gets wet.',
+          content: 'Water damage is one of the most common causes of smartphone failure. Here are essential tips to protect your device...',
+          featuredImage: 'https://via.placeholder.com/600x400/3b82f6/ffffff?text=Water+Damage+Prevention',
+          category: categories[1]._id,
+          tags: [tags[4]._id],
+          author: admin._id,
           status: 'published',
           publishedAt: new Date(),
-          isFeatured: true,
-          featuredOrder: 1,
-          seoTitle: 'How to Extend Phone Battery Life - Expert Tips & Tricks',
-          seoDescription: 'Learn professional techniques to maximize smartphone battery performance with our expert guide.',
-          seoKeywords: ['battery life', 'smartphone', 'optimization', 'tips']
+          readTime: 5,
+          views: 1250,
+          likes: 89,
+          isFeatured: true
         },
         {
-          title: 'iPhone vs Samsung: Repair Cost Comparison 2024',
-          slug: 'iphone-vs-samsung-repair-costs-2024',
-          excerpt: 'A comprehensive breakdown of repair costs for iPhone and Samsung devices to help you make informed decisions.',
-          content: '<h2>Repair Cost Analysis</h2><p>When choosing between iPhone and Samsung devices, repair costs are an important consideration.</p><h3>Screen Replacement Costs</h3><ul><li>iPhone 15: $279-$329</li><li>Samsung Galaxy S24: $249-$299</li></ul><h3>Battery Replacement</h3><ul><li>iPhone: $89-$99</li><li>Samsung: $79-$89</li></ul><p>While both brands offer quality devices, Samsung generally has slightly lower repair costs.</p>',
-          featuredImage: 'https://via.placeholder.com/800x400/8b5cf6/ffffff?text=Phone+Comparison',
-          author: adminUser._id,
-          category: createdCategories[1]._id,
-          tags: [createdTags[2]._id, createdTags[3]._id],
+          title: 'Signs Your Phone Battery Needs Replacement',
+          slug: 'phone-battery-replacement-signs',
+          excerpt: 'Discover the warning signs that indicate your phone battery is failing and needs professional replacement.',
+          content: 'Phone batteries degrade over time, but knowing when to replace them can save you from unexpected shutdowns...',
+          featuredImage: 'https://via.placeholder.com/600x400/10b981/ffffff?text=Battery+Replacement',
+          category: categories[0]._id,
+          tags: [tags[3]._id],
+          author: admin._id,
           status: 'published',
-          publishedAt: new Date(Date.now() - 86400000), // 1 day ago
+          publishedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          readTime: 4,
+          views: 980,
+          likes: 67,
+          isFeatured: true
+        },
+        {
+          title: 'Professional Screen Repair vs DIY: Making the Right Choice',
+          slug: 'professional-vs-diy-screen-repair',
+          excerpt: 'Compare the pros and cons of professional screen repair versus DIY solutions to make an informed decision.',
+          content: 'When your phone screen cracks, you face a choice: attempt a DIY repair or seek professional help...',
+          featuredImage: 'https://via.placeholder.com/600x400/8b5cf6/ffffff?text=Screen+Repair',
+          category: categories[0]._id,
+          tags: [tags[2]._id],
+          author: admin._id,
+          status: 'published',
+          publishedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+          readTime: 6,
+          views: 756,
+          likes: 45,
           isFeatured: false
         }
       ];
 
-      const createdPosts = await BlogPost.insertMany(posts);
-      console.log('SeedService: Blog posts created:', createdPosts.length);
-      console.log('SeedService: Blog data seeded successfully');
-
+      await BlogPost.insertMany(blogPosts);
       return { success: true, message: 'Blog data seeded successfully' };
     } catch (error) {
-      console.error('SeedService: Error seeding blog data:', error);
-      console.error('SeedService: Error stack:', error.stack);
-      throw error;
+      throw new Error(`Failed to seed blog data: ${error.message}`);
     }
   }
 
+  // Seed FAQ data
   static async seedFAQData() {
     try {
-      console.log('SeedService: Checking for FAQ data...');
-
       const existingFAQs = await FAQ.countDocuments();
       if (existingFAQs > 0) {
-        console.log('SeedService: FAQ data already exists');
         return { success: true, message: 'FAQ data already exists' };
       }
 
-      // Get admin user for creator
-      console.log('SeedService: Finding admin user for FAQs...');
-      const adminUser = await User.findOne({ role: 'admin' });
-      if (!adminUser) {
-        throw new Error('Admin user not found. Please seed admin user first.');
-      }
-      console.log('SeedService: Admin user found for FAQs:', adminUser.email);
-
-      console.log('SeedService: Creating FAQs...');
       const faqs = [
         {
-          question: 'How long does a typical repair take?',
-          answer: 'Most repairs are completed within 2-4 hours. Complex repairs like water damage may take 1-2 business days. We\'ll provide you with an estimated completion time when you drop off your device.',
+          question: 'How long does a typical phone repair take?',
+          answer: 'Most common repairs like screen replacement or battery replacement take 1-3 hours. More complex issues like water damage can take 1-2 days.',
           category: 'General',
-          order: 1,
-          tags: ['repair time', 'general'],
-          createdBy: adminUser._id
+          isActive: true,
+          helpfulCount: 45
         },
         {
-          question: 'Do you offer a warranty on repairs?',
-          answer: 'Yes! We provide a 90-day warranty on all repairs. This covers any defects in parts or workmanship. The warranty does not cover new damage or normal wear and tear.',
+          question: 'Do you provide warranty on repairs?',
+          answer: 'Yes, we provide a 90-day warranty on all repairs. This covers any issues related to the repair work performed.',
           category: 'Warranty',
-          order: 1,
-          tags: ['warranty', 'guarantee'],
-          createdBy: adminUser._id
+          isActive: true,
+          helpfulCount: 38
         },
         {
-          question: 'What should I do if my phone gets water damaged?',
-          answer: 'Turn off your device immediately and do not try to charge it. Remove the battery if possible. Bring it to us as soon as possible - the sooner we can start the repair process, the better the chances of recovery.',
-          category: 'Repairs',
-          order: 1,
-          tags: ['water damage', 'emergency'],
-          createdBy: adminUser._id
-        },
-        {
-          question: 'How much does a screen replacement cost?',
-          answer: 'Screen replacement costs vary by device model. iPhone screens typically range from $149-$329, while Samsung screens range from $129-$299. Contact us for a specific quote for your device.',
-          category: 'Pricing',
-          order: 1,
-          tags: ['screen replacement', 'pricing'],
-          createdBy: adminUser._id
+          question: 'What should I do if my phone gets water damage?',
+          answer: 'Turn off your device immediately, do not charge it, and bring it to us as soon as possible. The faster we can assess the damage, the better the chances of recovery.',
+          category: 'Emergency',
+          isActive: true,
+          helpfulCount: 52
         },
         {
           question: 'Do I need to backup my data before repair?',
-          answer: 'While we take every precaution to protect your data, we recommend backing up your device before any repair. We also offer a data backup service for an additional fee.',
-          category: 'Technical',
-          order: 1,
-          tags: ['data backup', 'preparation'],
-          createdBy: adminUser._id
+          answer: 'We recommend backing up your data before any repair. While we take care to preserve your data, repairs can sometimes result in data loss.',
+          category: 'Data',
+          isActive: true,
+          helpfulCount: 29
         }
       ];
 
-      const createdFAQs = await FAQ.insertMany(faqs);
-      console.log('SeedService: FAQs created:', createdFAQs.length);
-      console.log('SeedService: FAQ data seeded successfully');
-
+      await FAQ.insertMany(faqs);
       return { success: true, message: 'FAQ data seeded successfully' };
     } catch (error) {
-      console.error('SeedService: Error seeding FAQ data:', error);
-      console.error('SeedService: Error stack:', error.stack);
-      throw error;
+      throw new Error(`Failed to seed FAQ data: ${error.message}`);
+    }
+  }
+
+  // Seed homepage template
+  static async seedHomepageTemplate() {
+    try {
+      const existingTemplate = await LayoutTemplate.findOne({ isDefault: true });
+      if (existingTemplate) {
+        return { success: true, message: 'Default homepage template already exists' };
+      }
+
+      const admin = await User.findOne({ role: 'admin' });
+      if (!admin) {
+        throw new Error('Admin user not found. Please seed admin user first.');
+      }
+
+      const defaultTemplate = new LayoutTemplate({
+        name: 'Default Homepage Template',
+        description: 'Default homepage layout with hero, services, testimonials, and CTA sections',
+        sections: [
+          {
+            name: 'Hero Section',
+            blocks: [
+              {
+                type: 'hero',
+                title: 'Hero Banner',
+                content: {
+                  heading: 'Fix Your Device Like New Again',
+                  subheading: 'Fast, reliable, and affordable repair services for all your devices. Expert technicians, quality parts, and warranty included.',
+                  ctaText: 'Start Repair Order',
+                  ctaLink: '/register',
+                  backgroundImage: '',
+                  overlayOpacity: 0.5
+                },
+                settings: {
+                  backgroundColor: '#3b82f6',
+                  textColor: '#ffffff',
+                  padding: '80px 0',
+                  alignment: 'center'
+                },
+                order: 0,
+                isVisible: true
+              }
+            ],
+            layout: 'single',
+            order: 0,
+            isActive: true
+          },
+          {
+            name: 'Services Section',
+            blocks: [
+              {
+                type: 'services',
+                title: 'Our Services',
+                content: {
+                  heading: 'Expert Repair Services',
+                  description: 'Professional repair services for all major device brands with quality parts and expert technicians',
+                  services: []
+                },
+                settings: {
+                  backgroundColor: '#ffffff',
+                  textColor: '#1f2937',
+                  padding: '60px 0',
+                  alignment: 'center'
+                },
+                order: 0,
+                isVisible: true
+              }
+            ],
+            layout: 'single',
+            order: 1,
+            isActive: true
+          },
+          {
+            name: 'Testimonials Section',
+            blocks: [
+              {
+                type: 'testimonials',
+                title: 'Customer Testimonials',
+                content: {
+                  heading: 'What Our Customers Say',
+                  testimonials: [
+                    {
+                      name: 'Sarah Johnson',
+                      role: 'Business Owner',
+                      avatar: 'https://via.placeholder.com/60x60/3b82f6/ffffff?text=SJ',
+                      rating: 5,
+                      review: 'Incredible service! My iPhone was fixed in just 2 hours and works perfectly. The staff was professional and the price was very reasonable.'
+                    },
+                    {
+                      name: 'Mike Chen',
+                      role: 'Student',
+                      avatar: 'https://via.placeholder.com/60x60/10b981/ffffff?text=MC',
+                      rating: 5,
+                      review: 'Best repair shop in town! They fixed my laptop screen and it looks brand new. Fast service and great warranty coverage.'
+                    },
+                    {
+                      name: 'Emily Davis',
+                      role: 'Teacher',
+                      avatar: 'https://via.placeholder.com/60x60/8b5cf6/ffffff?text=ED',
+                      rating: 5,
+                      review: 'Amazing experience from start to finish. Online booking was easy, updates were frequent, and my device was ready ahead of schedule.'
+                    }
+                  ]
+                },
+                settings: {
+                  backgroundColor: '#f9fafb',
+                  textColor: '#1f2937',
+                  padding: '60px 0',
+                  alignment: 'center'
+                },
+                order: 0,
+                isVisible: true
+              }
+            ],
+            layout: 'single',
+            order: 2,
+            isActive: true
+          },
+          {
+            name: 'Call to Action Section',
+            blocks: [
+              {
+                type: 'cta',
+                title: 'Call to Action',
+                content: {
+                  heading: 'Ready to Fix Your Device?',
+                  description: 'Join thousands of satisfied customers who trust us with their device repairs. Get started today with our free diagnostic service.',
+                  ctaText: 'Start Your Repair',
+                  ctaLink: '/register'
+                },
+                settings: {
+                  backgroundColor: '#10b981',
+                  textColor: '#ffffff',
+                  padding: '60px 0',
+                  alignment: 'center'
+                },
+                order: 0,
+                isVisible: true
+              }
+            ],
+            layout: 'single',
+            order: 3,
+            isActive: true
+          }
+        ],
+        colorScheme: {
+          primary: '#3b82f6',
+          secondary: '#1e40af',
+          accent: '#10b981',
+          background: '#ffffff',
+          text: '#1f2937'
+        },
+        typography: {
+          headingFont: 'Inter',
+          bodyFont: 'Inter',
+          fontSize: '16px'
+        },
+        isDefault: true,
+        createdBy: admin._id
+      });
+
+      await defaultTemplate.save();
+      return { success: true, message: 'Default homepage template created successfully' };
+    } catch (error) {
+      throw new Error(`Failed to seed homepage template: ${error.message}`);
     }
   }
 }

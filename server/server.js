@@ -185,6 +185,15 @@ const initializeDatabase = async () => {
       console.error('Error seeding FAQ data:', error.message);
     }
 
+    // Auto-seed homepage template if it doesn't exist
+    console.log('Checking if homepage template exists...');
+    try {
+      const homepageSeedResult = await SeedService.seedHomepageTemplate();
+      console.log('Homepage template seeding result:', homepageSeedResult.message);
+    } catch (error) {
+      console.error('Error seeding homepage template:', error.message);
+    }
+
     console.log('Database initialization completed successfully');
   } catch (error) {
     console.error('Database initialization error:', error);

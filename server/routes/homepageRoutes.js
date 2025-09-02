@@ -3,10 +3,10 @@ const router = express.Router();
 const { requireUser, requireRole } = require('./middleware/auth');
 const HomepageService = require('../services/homepageService');
 
-// Get homepage sections
+// Get homepage sections (public endpoint for homepage display)
 router.get('/sections', async (req, res) => {
   try {
-    console.log('HomepageRoutes: Getting homepage sections');
+    console.log('HomepageRoutes: Getting homepage sections (public)');
     const result = await HomepageService.getHomepageSections();
 
     res.json({
@@ -22,7 +22,7 @@ router.get('/sections', async (req, res) => {
   }
 });
 
-// Get content block templates
+// Get content block templates (admin only)
 router.get('/content-blocks', requireUser, requireRole(['admin', 'staff']), async (req, res) => {
   try {
     console.log('HomepageRoutes: Getting content block templates');
@@ -41,7 +41,7 @@ router.get('/content-blocks', requireUser, requireRole(['admin', 'staff']), asyn
   }
 });
 
-// Get layout templates
+// Get layout templates (admin only)
 router.get('/templates', requireUser, requireRole(['admin', 'staff']), async (req, res) => {
   try {
     console.log('HomepageRoutes: Getting layout templates');
@@ -60,7 +60,7 @@ router.get('/templates', requireUser, requireRole(['admin', 'staff']), async (re
   }
 });
 
-// Save homepage sections
+// Save homepage sections (admin only)
 router.put('/sections', requireUser, requireRole(['admin']), async (req, res) => {
   try {
     console.log('HomepageRoutes: Saving homepage sections');
@@ -85,7 +85,7 @@ router.put('/sections', requireUser, requireRole(['admin']), async (req, res) =>
   }
 });
 
-// Get A/B tests
+// Get A/B tests (admin only)
 router.get('/ab-tests', requireUser, requireRole(['admin']), async (req, res) => {
   try {
     console.log('HomepageRoutes: Getting A/B tests');
@@ -104,7 +104,7 @@ router.get('/ab-tests', requireUser, requireRole(['admin']), async (req, res) =>
   }
 });
 
-// Create A/B test
+// Create A/B test (admin only)
 router.post('/ab-tests', requireUser, requireRole(['admin']), async (req, res) => {
   try {
     console.log('HomepageRoutes: Creating A/B test');
@@ -120,7 +120,7 @@ router.post('/ab-tests', requireUser, requireRole(['admin']), async (req, res) =
   }
 });
 
-// Create layout template
+// Create layout template (admin only)
 router.post('/templates', requireUser, requireRole(['admin']), async (req, res) => {
   try {
     console.log('HomepageRoutes: Creating layout template');
@@ -136,7 +136,7 @@ router.post('/templates', requireUser, requireRole(['admin']), async (req, res) 
   }
 });
 
-// Update layout template
+// Update layout template (admin only)
 router.put('/templates/:id', requireUser, requireRole(['admin']), async (req, res) => {
   try {
     console.log('HomepageRoutes: Updating layout template:', req.params.id);
@@ -152,7 +152,7 @@ router.put('/templates/:id', requireUser, requireRole(['admin']), async (req, re
   }
 });
 
-// Delete layout template
+// Delete layout template (admin only)
 router.delete('/templates/:id', requireUser, requireRole(['admin']), async (req, res) => {
   try {
     console.log('HomepageRoutes: Deleting layout template:', req.params.id);
@@ -168,7 +168,7 @@ router.delete('/templates/:id', requireUser, requireRole(['admin']), async (req,
   }
 });
 
-// Set default template
+// Set default template (admin only)
 router.post('/templates/:id/set-default', requireUser, requireRole(['admin']), async (req, res) => {
   try {
     console.log('HomepageRoutes: Setting default template:', req.params.id);
