@@ -64,6 +64,8 @@ console.log('Loading cart routes...');
 const cartRoutes = require("./routes/cartRoutes");
 console.log('Loading homepage routes...');
 const homepageRoutes = require("./routes/homepageRoutes");
+console.log('Loading diagnostic routes...');
+const diagnosticRoutes = require("./routes/diagnosticRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -268,6 +270,8 @@ app.use('/api/seo', seoRoutes);
 app.use('/api/cart', cartRoutes);
 // Homepage Routes
 app.use('/api/admin/homepage', homepageRoutes);
+// Diagnostic Routes
+app.use('/api/admin/diagnostics', diagnosticRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 

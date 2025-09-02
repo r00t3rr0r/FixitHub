@@ -76,8 +76,8 @@ class CartService {
   }
 
   // Update cart item quantity
-  static async updateCartItem(userId, itemId, quantity) {
-    console.log('CartService: Updating cart item:', { userId, itemId, quantity });
+  static async updateCartItem(userId, productId, quantity) {
+    console.log('CartService: Updating cart item:', { userId, productId, quantity });
 
     try {
       const cart = await Cart.findOne({ userId }).populate('items.productId');
@@ -85,7 +85,7 @@ class CartService {
         throw new Error('Cart not found');
       }
 
-      const itemIndex = cart.items.findIndex(item => item._id.toString() === itemId);
+      const itemIndex = cart.items.findIndex(item => item.productId._id.toString() === productId);
       if (itemIndex === -1) {
         throw new Error('Item not found in cart');
       }

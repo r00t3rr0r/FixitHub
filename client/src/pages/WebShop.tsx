@@ -97,7 +97,7 @@ export function WebShop() {
     try {
       setAddingToCart(productId)
       console.log("Adding product to cart:", productId)
-      await addToCart(productId, 1)
+      await addToCart({ productId, quantity: 1 })
       toast({
         title: "Success!",
         description: "Product added to cart",

@@ -55,17 +55,17 @@ router.post('/add', requireUser, async (req, res) => {
 router.put('/update', requireUser, async (req, res) => {
   try {
     console.log('CartRoutes: Updating cart item:', req.body);
-    const { itemId, quantity } = req.body;
-    
-    if (!itemId || quantity === undefined) {
+    const { productId, quantity } = req.body;
+
+    if (!productId || quantity === undefined) {
       return res.status(400).json({
         success: false,
-        error: 'Item ID and quantity are required'
+        error: 'Product ID and quantity are required'
       });
     }
-    
-    const cart = await CartService.updateCartItem(req.user._id, itemId, quantity);
-    
+
+    const cart = await CartService.updateCartItem(req.user._id, productId, quantity);
+
     res.json({
       success: true,
       message: 'Cart updated successfully',

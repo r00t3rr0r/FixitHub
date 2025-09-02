@@ -45,21 +45,21 @@ export function ShoppingCartPage() {
     fetchCart()
   }, [toast])
 
-  const handleUpdateQuantity = async (itemId: string, newQuantity: number) => {
+  const handleUpdateQuantity = async (productId: string, newQuantity: number) => {
     if (newQuantity < 0) return
 
     try {
-      setUpdating(itemId)
-      console.log("Updating cart item:", itemId, newQuantity)
+      setUpdating(productId)
+      console.log("Updating cart item:", productId, newQuantity)
 
       if (newQuantity === 0) {
-        await removeFromCart(itemId)
+        await removeFromCart(productId)
         toast({
           title: "Item removed",
           description: "Item has been removed from your cart"
         })
       } else {
-        await updateCartItem(itemId, newQuantity)
+        await updateCartItem(productId, newQuantity)
         toast({
           title: "Cart updated",
           description: "Item quantity has been updated"
@@ -87,7 +87,7 @@ export function ShoppingCartPage() {
     try {
       setApplyingPromo(true)
       console.log("Applying promo code:", promoCode)
-      await applyPromoCode(promoCode)
+      await applyPromoCode({ promoCode })
 
       toast({
         title: "Promo code applied!",
@@ -203,8 +203,8 @@ export function ShoppingCartPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleUpdateQuantity(item._id, 0)}
-                        disabled={updating === item._id}
+                        onClick={() => handleUpdateQuantity(item.productId._id, 0)}
+                        disabled={updating === item.productId._id}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -216,8 +216,8 @@ export function ShoppingCartPage() {
                           variant="outline"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => handleUpdateQuantity(item._id, item.quantity - 1)}
-                          disabled={updating === item._id || item.quantity <= 1}
+                          onClick={() => handleUpdateQuantity(item.productId._id, item.quantity - 1)}
+                          disabled={updating === item.productId._id || item.quantity <= 1}
                         >
                           <Minus className="h-3 w-3" />
                         </Button>
@@ -228,8 +228,8 @@ export function ShoppingCartPage() {
                           variant="outline"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => handleUpdateQuantity(item._id, item.quantity + 1)}
-                          disabled={updating === item._id || !item.productId.inStock}
+                          onClick={() => handleUpdateQuantity(item.productId._id, item.quantity + 1)}
+                          disabled={updating === item.productId._id || !item.productId.inStock}
                         >
                           <Plus className="h-3 w-3" />
                         </Button>

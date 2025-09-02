@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/useToast"
-import { getDiagnosticTests, getDiagnosticForms, DiagnosticTest, DiagnosticForm } from "@/api/diagnostics"
+import { getDiagnosticTests, getDiagnosticForms, createDiagnosticTest, createDiagnosticForm, DiagnosticTest, DiagnosticForm } from "@/api/diagnostics"
 import {
   Stethoscope,
   Search,
@@ -33,6 +33,17 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 
 export function DiagnosticTools() {
   const [tests, setTests] = useState<DiagnosticTest[]>([])
@@ -40,7 +51,51 @@ export function DiagnosticTools() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
+  const [activeTab, setActiveTab] = useState("tests")
+  const [showCreateTestDialog, setShowCreateTestDialog] = useState(false)
+  const [showCreateFormDialog, setShowCreateFormDialog] = useState(false)
+  const [createTestLoading, setCreateTestLoading] = useState(false)
+  const [createFormLoading, setCreateFormLoading] = useState(false)
   const { toast } = useToast()
+
+  // Form state for creating new test
+  const [newTest, setNewTest] = useState({
+    name: "",
+    description: "",
+    deviceTypes: [] as string[],
+    category: "",
+    estimatedTime: 0,
+    tools: [] as string[],
+    steps: [] as any[],
+    passFailCriteria: [] as string[],
+    troubleshootingGuide: [] as any[]
+  })
+
+  // Form state for creating new form
+  const [newForm, setNewForm] = useState({
+    name: "",
+    description: "",
+    deviceTypes: [] as string[],
+    fields: [] as any[]
+  })
+
+  const deviceTypeOptions = ["iPhone", "Samsung", "Google Pixel", "iPad", "Laptop", "Desktop"]
+  const categoryOptions = [
+    { value: "hardware", label: "Hardware" },
+    { value: "software", label: "Software" },
+    { value: "performance", label: "Performance" },
+    { value: "connectivity", label: "Connectivity" }
+  ]
+
+  const fieldTypeOptions = [
+    { value: "text", label: "Text" },
+    { value: "number", label: "Number" },
+    { value: "boolean", label: "Boolean" },
+    { value: "select", label: "Select" },
+    { value: "multiselect", label: "Multi-select" },
+    { value: "textarea", label: "Textarea" },
+    { value: "file", label: "File" }
+  ]
 
   useEffect(() => {
     const fetchData = async () => {
@@ -67,6 +122,115 @@ export function DiagnosticTools() {
 
     fetchData()
   }, [toast])
+
+  const handleCreateTest = async () => {
+    if (!newTest.name || !newTest.description || !newTest.category || newTest.deviceTypes.length === 0 || newTest.estimatedTime <= 0) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setCreateTestLoading(true)
+    try {
+      const response = await createDiagnosticTest(newTest)
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Diagnostic test created successfully"
+        })
+        setTests(prev => [response.test, ...prev])
+        setShowCreateTestDialog(false)
+        setNewTest({
+          name: "",
+          description: "",
+          deviceTypes: [],
+          category: "",
+          estimatedTime: 0,
+          tools: [],
+          steps: [],
+          passFailCriteria: [],
+          troubleshootingGuide: []
+        })
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create diagnostic test",
+        variant: "destructive"
+      })
+    } finally {
+      setCreateTestLoading(false)
+    }
+  }
+
+  const handleCreateForm = async () => {
+    if (!newForm.name || !newForm.description || newForm.deviceTypes.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setCreateFormLoading(true)
+    try {
+      const response = await createDiagnosticForm(newForm)
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Diagnostic form created successfully"
+        })
+        setForms(prev => [response.form, ...prev])
+        setShowCreateFormDialog(false)
+        setNewForm({
+          name: "",
+          description: "",
+          deviceTypes: [],
+          fields: []
+        })
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create diagnostic form",
+        variant: "destructive"
+      })
+    } finally {
+      setCreateFormLoading(false)
+    }
+  }
+
+  const handleDeviceTypeChange = (deviceType: string, checked: boolean, isForm = false) => {
+    if (isForm) {
+      if (checked) {
+        setNewForm(prev => ({
+          ...prev,
+          deviceTypes: [...prev.deviceTypes, deviceType]
+        }))
+      } else {
+        setNewForm(prev => ({
+          ...prev,
+          deviceTypes: prev.deviceTypes.filter(type => type !== deviceType)
+        }))
+      }
+    } else {
+      if (checked) {
+        setNewTest(prev => ({
+          ...prev,
+          deviceTypes: [...prev.deviceTypes, deviceType]
+        }))
+      } else {
+        setNewTest(prev => ({
+          ...prev,
+          deviceTypes: prev.deviceTypes.filter(type => type !== deviceType)
+        }))
+      }
+    }
+  }
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -138,10 +302,17 @@ export function DiagnosticTools() {
             Digital forms, checklists, and troubleshooting guides
           </p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Test
-        </Button>
+        {activeTab === "tests" ? (
+          <Button onClick={() => setShowCreateTestDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Test
+          </Button>
+        ) : (
+          <Button onClick={() => setShowCreateFormDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Form
+          </Button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -236,8 +407,167 @@ export function DiagnosticTools() {
         </CardContent>
       </Card>
 
+      {/* Create Test Dialog */}
+      <Dialog open={showCreateTestDialog} onOpenChange={setShowCreateTestDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create New Diagnostic Test</DialogTitle>
+            <DialogDescription>
+              Create a new diagnostic test for device troubleshooting
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Name *
+              </Label>
+              <Input
+                id="name"
+                value={newTest.name}
+                onChange={(e) => setNewTest(prev => ({ ...prev, name: e.target.value }))}
+                className="col-span-3"
+                placeholder="Enter test name"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="description" className="text-right pt-2">
+                Description *
+              </Label>
+              <Textarea
+                id="description"
+                value={newTest.description}
+                onChange={(e) => setNewTest(prev => ({ ...prev, description: e.target.value }))}
+                className="col-span-3"
+                placeholder="Enter test description"
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="category" className="text-right">
+                Category *
+              </Label>
+              <Select value={newTest.category} onValueChange={(value) => setNewTest(prev => ({ ...prev, category: value }))}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categoryOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="estimatedTime" className="text-right">
+                Time (min) *
+              </Label>
+              <Input
+                id="estimatedTime"
+                type="number"
+                value={newTest.estimatedTime}
+                onChange={(e) => setNewTest(prev => ({ ...prev, estimatedTime: parseInt(e.target.value) || 0 }))}
+                className="col-span-3"
+                placeholder="Estimated time in minutes"
+                min="1"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label className="text-right pt-2">
+                Device Types *
+              </Label>
+              <div className="col-span-3 space-y-2">
+                {deviceTypeOptions.map((deviceType) => (
+                  <div key={deviceType} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={deviceType}
+                      checked={newTest.deviceTypes.includes(deviceType)}
+                      onCheckedChange={(checked) => handleDeviceTypeChange(deviceType, checked as boolean, false)}
+                    />
+                    <Label htmlFor={deviceType}>{deviceType}</Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateTestDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateTest} disabled={createTestLoading}>
+              {createTestLoading ? "Creating..." : "Create Test"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Form Dialog */}
+      <Dialog open={showCreateFormDialog} onOpenChange={setShowCreateFormDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create New Diagnostic Form</DialogTitle>
+            <DialogDescription>
+              Create a new diagnostic form for device assessment
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="form-name" className="text-right">
+                Name *
+              </Label>
+              <Input
+                id="form-name"
+                value={newForm.name}
+                onChange={(e) => setNewForm(prev => ({ ...prev, name: e.target.value }))}
+                className="col-span-3"
+                placeholder="Enter form name"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="form-description" className="text-right pt-2">
+                Description *
+              </Label>
+              <Textarea
+                id="form-description"
+                value={newForm.description}
+                onChange={(e) => setNewForm(prev => ({ ...prev, description: e.target.value }))}
+                className="col-span-3"
+                placeholder="Enter form description"
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label className="text-right pt-2">
+                Device Types *
+              </Label>
+              <div className="col-span-3 space-y-2">
+                {deviceTypeOptions.map((deviceType) => (
+                  <div key={`form-${deviceType}`} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`form-${deviceType}`}
+                      checked={newForm.deviceTypes.includes(deviceType)}
+                      onCheckedChange={(checked) => handleDeviceTypeChange(deviceType, checked as boolean, true)}
+                    />
+                    <Label htmlFor={`form-${deviceType}`}>{deviceType}</Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateFormDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateForm} disabled={createFormLoading}>
+              {createFormLoading ? "Creating..." : "Create Form"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Tabs */}
-      <Tabs defaultValue="tests" className="space-y-4">
+      <Tabs defaultValue="tests" className="space-y-4" onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="tests">Diagnostic Tests</TabsTrigger>
           <TabsTrigger value="forms">Assessment Forms</TabsTrigger>

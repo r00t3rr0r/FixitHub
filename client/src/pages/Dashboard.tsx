@@ -221,7 +221,7 @@ export function Dashboard() {
             </div>
             <p className="text-xs text-purple-600 dark:text-purple-400 flex items-center gap-1 mt-1">
               <TrendingUp className="h-3 w-3" />
-              ${cart?.total.toFixed(2) || '0.00'} total
+              ${cart?.total?.toFixed(2) || '0.00'} total
             </p>
           </CardContent>
         </Card>
@@ -299,7 +299,7 @@ export function Dashboard() {
                 <div className="text-center">
                   <span className="font-semibold text-lg">Shopping Cart</span>
                   <span className="text-sm text-muted-foreground block">
-                    {cart?.totalItems || 0} items • ${cart?.total.toFixed(2) || '0.00'}
+                    {cart?.totalItems || 0} items • ${cart?.total?.toFixed(2) || '0.00'}
                   </span>
                 </div>
                 {cart && cart.totalItems > 0 && (
@@ -349,7 +349,7 @@ export function Dashboard() {
                 <div className="flex items-center gap-4">
                   <div className="relative">
                     <img
-                      src={order.photos[0]}
+                      src={order.photos?.[0] || "https://via.placeholder.com/64x64/3b82f6/ffffff?text=Device"}
                       alt={`${order.deviceBrand} ${order.deviceModel}`}
                       className="w-16 h-16 rounded-lg object-cover border-2 border-primary/20"
                     />
@@ -366,7 +366,7 @@ export function Dashboard() {
                     <p className="text-sm text-muted-foreground mb-2">
                       {order.services.join(', ')}
                     </p>
-                    {order.addOns.length > 0 && (
+                    {order.addOns && order.addOns.length > 0 && (
                       <div className="flex flex-wrap gap-1 mb-2">
                         {order.addOns.map((addOn) => (
                           <Badge key={addOn._id} variant="outline" className="text-xs">
