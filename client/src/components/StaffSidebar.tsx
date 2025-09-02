@@ -1,115 +1,183 @@
+import { useState, useEffect } from "react"
 import { Link, useLocation } from "react-router-dom"
-import { cn } from "@/lib/utils"
-import {
-  Home,
-  Package,
-  Users,
-  Clock,
-  MessageSquare,
+import { 
+  Home, 
+  Package, 
+  MessageSquare, 
+  Bell, 
+  User, 
   BookOpen,
-  User,
-  Wrench,
+  Clock,
   Calendar,
-  BarChart3
+  Users,
+  TrendingUp,
+  ChevronDown,
+  ChevronRight
 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { getNotifications } from "@/api/notifications"
 
-const staffNavigation = [
-  {
-    name: "Staff Dashboard",
-    href: "/staff",
-    icon: Home,
-    current: false
-  },
-  {
-    name: "My Orders",
-    href: "/staff/orders",
-    icon: Package,
-    current: false
-  },
-  {
-    name: "Messages",
-    href: "/messages",
-    icon: MessageSquare,
-    current: false
-  },
-  {
-    name: "Time Tracking",
-    href: "/staff/time-tracking",
-    icon: Clock,
-    current: false
-  },
-  {
-    name: "Schedule",
-    href: "/staff/schedule",
-    icon: Calendar,
-    current: false
-  },
-  {
-    name: "Team Chat",
-    href: "/staff/chat",
-    icon: MessageSquare,
-    current: false
-  },
-  {
-    name: "Knowledge Base",
-    href: "/staff/knowledge-base",
-    icon: BookOpen,
-    current: false
-  },
-  {
-    name: "Performance",
-    href: "/staff/performance",
-    icon: BarChart3,
-    current: false
-  },
-  {
-    name: "Profile",
-    href: "/profile",
-    icon: User,
-    current: false
-  }
-]
+interface StaffSidebarProps {
+  isCollapsed: boolean
+}
 
-export function StaffSidebar() {
+export function StaffSidebar({ isCollapsed }: StaffSidebarProps) {
   const location = useLocation()
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
+  const [ordersOpen, setOrdersOpen] = useState(false)
+  const [toolsOpen, setToolsOpen] = useState(false)
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const response = await getNotifications()
+        const notifications = (response as any).notifications || []
+        setUnreadNotifications(notifications.filter((n: any) => !n.read).length)
+      } catch (error) {
+        console.error("Error fetching notifications:", error)
+      }
+    }
+
+    fetchNotifications()
+  }, [])
+
+  const isActive = (path: string) => location.pathname === path
+
+  const NavItem = ({ 
+    to, 
+    icon: Icon, 
+    children, 
+    badge, 
+    onClick 
+  }: { 
+    to?: string
+    icon: any
+    children: React.ReactNode
+    badge?: number
+    onClick?: () => void
+  }) => {
+    const content = (
+      <div className={`flex items-center justify-between w-full px-3 py-2 rounded-lg transition-colors ${
+        to && isActive(to) 
+          ? 'bg-primary text-primary-foreground' 
+          : 'text-foreground hover:bg-accent hover:text-accent-foreground'
+      }`}>
+        <div className="flex items-center space-x-3">
+          <Icon className="h-5 w-5 flex-shrink-0" />
+          {!isCollapsed && <span className="text-sm font-medium">{children}</span>}
+        </div>
+        {!isCollapsed && badge && badge > 0 && (
+          <Badge variant="secondary" className="ml-auto">
+            {badge > 99 ? '99+' : badge}
+          </Badge>
+        )}
+      </div>
+    )
+
+    if (to) {
+      return (
+        <Link to={to} className="block">
+          {content}
+        </Link>
+      )
+    }
+
+    return (
+      <button onClick={onClick} className="w-full text-left">
+        {content}
+      </button>
+    )
+  }
+
+  const CollapsibleSection = ({ 
+    title, 
+    icon: Icon, 
+    isOpen, 
+    onToggle, 
+    children 
+  }: {
+    title: string
+    icon: any
+    isOpen: boolean
+    onToggle: () => void
+    children: React.ReactNode
+  }) => (
+    <Collapsible open={isOpen} onOpenChange={onToggle}>
+      <CollapsibleTrigger asChild>
+        <Button 
+          variant="ghost" 
+          className={`w-full justify-between px-3 py-2 h-auto font-medium ${
+            isCollapsed ? 'px-2' : ''
+          }`}
+        >
+          <div className="flex items-center space-x-3">
+            <Icon className="h-5 w-5 flex-shrink-0" />
+            {!isCollapsed && <span className="text-sm">{title}</span>}
+          </div>
+          {!isCollapsed && (isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
+        </Button>
+      </CollapsibleTrigger>
+      {!isCollapsed && (
+        <CollapsibleContent className="space-y-1 ml-6">
+          {children}
+        </CollapsibleContent>
+      )}
+    </Collapsible>
+  )
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-        <nav className="space-y-1">
-          {staffNavigation.map((item) => {
-            const isActive = location.pathname === item.href
-            return (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={cn(
-                  "group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 hover:bg-accent hover:text-accent-foreground",
-                  isActive
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <item.icon
-                  className={cn(
-                    "mr-3 h-5 w-5 transition-colors",
-                    isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
-                  )}
-                />
-                {item.name}
-              </Link>
-            )
-          })}
-        </nav>
-      </div>
+    <nav className="flex flex-col h-full p-4 space-y-1">
+      <NavItem to="/staff" icon={Home}>
+        Dashboard
+      </NavItem>
 
-      <div className="p-4 border-t border-border">
-        <div className="text-xs text-muted-foreground text-center">
-          Device Repair Pro
-          <br />
-          Staff Portal
-        </div>
-      </div>
-    </div>
+      <CollapsibleSection
+        title="Orders & Work"
+        icon={Package}
+        isOpen={ordersOpen}
+        onToggle={() => setOrdersOpen(!ordersOpen)}
+      >
+        <NavItem to="/staff/orders" icon={Package}>
+          My Orders
+        </NavItem>
+        <NavItem to="/staff/time-tracking" icon={Clock}>
+          Time Tracking
+        </NavItem>
+        <NavItem to="/staff/schedule" icon={Calendar}>
+          Schedule
+        </NavItem>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Tools & Resources"
+        icon={BookOpen}
+        isOpen={toolsOpen}
+        onToggle={() => setToolsOpen(!toolsOpen)}
+      >
+        <NavItem to="/staff/knowledge-base" icon={BookOpen}>
+          Knowledge Base
+        </NavItem>
+        <NavItem to="/staff/chat" icon={Users}>
+          Team Chat
+        </NavItem>
+        <NavItem to="/staff/performance" icon={TrendingUp}>
+          Performance
+        </NavItem>
+      </CollapsibleSection>
+
+      <NavItem to="/messages" icon={MessageSquare}>
+        Messages
+      </NavItem>
+
+      <NavItem to="/notifications" icon={Bell} badge={unreadNotifications}>
+        Notifications
+      </NavItem>
+
+      <NavItem to="/profile" icon={User}>
+        Profile
+      </NavItem>
+    </nav>
   )
 }

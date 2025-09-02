@@ -37,6 +37,34 @@ const schema = new mongoose.Schema({
     enum: ['customer', 'staff', 'admin'],
     default: 'customer',
   },
+  // Staff-specific fields
+  department: {
+    type: String,
+    default: 'Technical'
+  },
+  specializations: [{
+    type: String,
+    trim: true
+  }],
+  addOnCapabilities: [{
+    type: String,
+    trim: true
+  }],
+  employmentStartDate: {
+    type: Date
+  },
+  employmentEndDate: {
+    type: Date
+  },
+  skills: [{
+    name: String,
+    level: {
+      type: String,
+      enum: ['beginner', 'intermediate', 'advanced', 'expert'],
+      default: 'intermediate'
+    }
+  }],
+  // Address fields
   invoiceAddress: {
     street: { type: String, default: '' },
     city: { type: String, default: '' },
@@ -98,6 +126,11 @@ const schema = new mongoose.Schema({
 }, {
   versionKey: false,
 });
+
+// Index for staff-specific queries
+schema.index({ role: 1, isActive: 1 });
+schema.index({ department: 1 });
+schema.index({ specializations: 1 });
 
 schema.set('toJSON', {
   /* eslint-disable */

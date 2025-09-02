@@ -1,106 +1,194 @@
+import { useState, useEffect } from "react"
 import { Link, useLocation } from "react-router-dom"
-import { cn } from "@/lib/utils"
-import {
-  Home,
-  Plus,
-  Package,
-  ShoppingCart,
-  User,
+import { 
+  Home, 
+  Plus, 
+  Package, 
+  MessageSquare, 
+  Bell, 
+  ShoppingCart, 
+  User, 
   BookOpen,
-  MessageSquare
+  ChevronDown,
+  ChevronRight
 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { getNotifications } from "@/api/notifications"
+import { getCart } from "@/api/shop"
 
-const customerNavigation = [
-  {
-    name: "Dashboard",
-    href: "/",
-    icon: Home,
-    current: false
-  },
-  {
-    name: "New Order",
-    href: "/new-order",
-    icon: Plus,
-    current: false
-  },
-  {
-    name: "My Orders",
-    href: "/orders",
-    icon: Package,
-    current: false
-  },
-  {
-    name: "Messages",
-    href: "/messages",
-    icon: MessageSquare,
-    current: false
-  },
-  {
-    name: "Web Shop",
-    href: "/shop",
-    icon: ShoppingCart,
-    current: false
-  },
-  {
-    name: "Shopping Cart",
-    href: "/cart",
-    icon: ShoppingCart,
-    current: false
-  },
-  {
-    name: "Blog",
-    href: "/blog",
-    icon: BookOpen,
-    current: false
-  },
-  {
-    name: "Profile",
-    href: "/profile",
-    icon: User,
-    current: false
-  }
-]
+interface CustomerSidebarProps {
+  isCollapsed: boolean
+}
 
-export function CustomerSidebar() {
+export function CustomerSidebar({ isCollapsed }: CustomerSidebarProps) {
   const location = useLocation()
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
+  const [cartItemCount, setCartItemCount] = useState(0)
+  const [ordersOpen, setOrdersOpen] = useState(false)
+  const [shopOpen, setShopOpen] = useState(false)
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const response = await getNotifications()
+        const notifications = (response as any).notifications || []
+        setUnreadNotifications(notifications.filter((n: any) => !n.read).length)
+      } catch (error) {
+        console.error("Error fetching notifications:", error)
+      }
+    }
+
+    const fetchCart = async () => {
+      try {
+        const response = await getCart()
+        const cart = (response as any).cart
+        if (cart && cart.items) {
+          setCartItemCount(cart.items.reduce((total: number, item: any) => total + item.quantity, 0))
+        }
+      } catch (error) {
+        console.error("Error fetching cart:", error)
+      }
+    }
+
+    fetchNotifications()
+    fetchCart()
+  }, [])
+
+  const isActive = (path: string) => location.pathname === path
+
+  const NavItem = ({ 
+    to, 
+    icon: Icon, 
+    children, 
+    badge, 
+    onClick 
+  }: { 
+    to?: string
+    icon: any
+    children: React.ReactNode
+    badge?: number
+    onClick?: () => void
+  }) => {
+    const content = (
+      <div className={`flex items-center justify-between w-full px-3 py-2 rounded-lg transition-colors ${
+        to && isActive(to) 
+          ? 'bg-primary text-primary-foreground' 
+          : 'text-foreground hover:bg-accent hover:text-accent-foreground'
+      }`}>
+        <div className="flex items-center space-x-3">
+          <Icon className="h-5 w-5 flex-shrink-0" />
+          {!isCollapsed && <span className="text-sm font-medium">{children}</span>}
+        </div>
+        {!isCollapsed && badge && badge > 0 && (
+          <Badge variant="secondary" className="ml-auto">
+            {badge > 99 ? '99+' : badge}
+          </Badge>
+        )}
+      </div>
+    )
+
+    if (to) {
+      return (
+        <Link to={to} className="block">
+          {content}
+        </Link>
+      )
+    }
+
+    return (
+      <button onClick={onClick} className="w-full text-left">
+        {content}
+      </button>
+    )
+  }
+
+  const CollapsibleSection = ({ 
+    title, 
+    icon: Icon, 
+    isOpen, 
+    onToggle, 
+    children 
+  }: {
+    title: string
+    icon: any
+    isOpen: boolean
+    onToggle: () => void
+    children: React.ReactNode
+  }) => (
+    <Collapsible open={isOpen} onOpenChange={onToggle}>
+      <CollapsibleTrigger asChild>
+        <Button 
+          variant="ghost" 
+          className={`w-full justify-between px-3 py-2 h-auto font-medium ${
+            isCollapsed ? 'px-2' : ''
+          }`}
+        >
+          <div className="flex items-center space-x-3">
+            <Icon className="h-5 w-5 flex-shrink-0" />
+            {!isCollapsed && <span className="text-sm">{title}</span>}
+          </div>
+          {!isCollapsed && (isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
+        </Button>
+      </CollapsibleTrigger>
+      {!isCollapsed && (
+        <CollapsibleContent className="space-y-1 ml-6">
+          {children}
+        </CollapsibleContent>
+      )}
+    </Collapsible>
+  )
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-        <nav className="space-y-1">
-          {customerNavigation.map((item) => {
-            const isActive = location.pathname === item.href
-            return (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={cn(
-                  "group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 hover:bg-accent hover:text-accent-foreground",
-                  isActive
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <item.icon
-                  className={cn(
-                    "mr-3 h-5 w-5 transition-colors",
-                    isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
-                  )}
-                />
-                {item.name}
-              </Link>
-            )
-          })}
-        </nav>
-      </div>
+    <nav className="flex flex-col h-full p-4 space-y-1">
+      <NavItem to="/" icon={Home}>
+        Dashboard
+      </NavItem>
 
-      <div className="p-4 border-t border-border">
-        <div className="text-xs text-muted-foreground text-center">
-          Device Repair Pro
-          <br />
-          Customer Portal
-        </div>
-      </div>
-    </div>
+      <CollapsibleSection
+        title="Orders"
+        icon={Package}
+        isOpen={ordersOpen}
+        onToggle={() => setOrdersOpen(!ordersOpen)}
+      >
+        <NavItem to="/new-order" icon={Plus}>
+          New Order
+        </NavItem>
+        <NavItem to="/orders" icon={Package}>
+          Track Orders
+        </NavItem>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Shop"
+        icon={ShoppingCart}
+        isOpen={shopOpen}
+        onToggle={() => setShopOpen(!shopOpen)}
+      >
+        <NavItem to="/shop" icon={ShoppingCart}>
+          Browse Products
+        </NavItem>
+        <NavItem to="/cart" icon={ShoppingCart} badge={cartItemCount}>
+          Shopping Cart
+        </NavItem>
+      </CollapsibleSection>
+
+      <NavItem to="/messages" icon={MessageSquare}>
+        Messages
+      </NavItem>
+
+      <NavItem to="/notifications" icon={Bell} badge={unreadNotifications}>
+        Notifications
+      </NavItem>
+
+      <NavItem to="/blog" icon={BookOpen}>
+        Blog
+      </NavItem>
+
+      <NavItem to="/profile" icon={User}>
+        Profile
+      </NavItem>
+    </nav>
   )
 }
