@@ -312,4 +312,31 @@ router.delete('/users/:id', requireUser, requireAdmin, async (req, res) => {
   }
 });
 
+// Get detailed user information
+router.get('/users/:id/details', requireUser, requireAdmin, async (req, res) => {
+  console.log('Admin: Get user details request from:', req.user.email, 'for user:', req.params.id);
+
+  try {
+    const { id } = req.params;
+
+    const userDetails = await UserService.getDetailedUserInfo(id);
+
+    if (!userDetails) {
+      console.log('Admin: User not found for details:', id);
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    console.log('Admin: User details retrieved successfully');
+
+    return res.status(200).json({
+      success: true,
+      user: userDetails
+    });
+
+  } catch (error) {
+    console.error('Admin: Error getting user details:', error);
+    return res.status(500).json({ message: error.message || 'Failed to get user details' });
+  }
+});
+
 module.exports = router;

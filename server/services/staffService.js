@@ -262,6 +262,169 @@ class StaffService {
       sunday: { start: '', end: '', available: false }
     };
   }
+
+  // Get detailed staff member information
+  static async getStaffMemberDetails(staffId) {
+    console.log('StaffService: Getting detailed information for staff member:', staffId);
+
+    try {
+      // Get basic staff information
+      const staff = await User.findById(staffId)
+        .select('-password -refreshToken')
+        .lean();
+
+      if (!staff || !['staff', 'admin'].includes(staff.role)) {
+        throw new Error('Staff member not found');
+      }
+
+      console.log('StaffService: Found staff member:', staff.name);
+
+      // Get team memberships
+      const teams = await Team.find({ 'members.userId': staffId })
+        .select('name members')
+        .lean();
+
+      const teamMemberships = teams.map(team => {
+        const membership = team.members.find(m => m.userId.toString() === staffId);
+        return {
+          _id: team._id,
+          name: team.name,
+          role: membership?.role || 'member',
+          joinedAt: membership?.joinedAt || new Date()
+        };
+      });
+
+      console.log('StaffService: Found team memberships:', teamMemberships.length);
+
+      // Get assigned orders
+      const assignedOrders = await Order.find({
+        'assignedStaff.staffId': staffId,
+        status: { $in: ['pending', 'in-progress', 'quality-check', 'awaiting_parts'] }
+      })
+      .select('orderNumber deviceBrand deviceModel status priority createdAt estimatedCompletion progress')
+      .lean();
+
+      console.log('StaffService: Found assigned orders:', assignedOrders.length);
+
+      // Get assigned tasks
+      const assignedTasks = await Task.find({
+        assignedTo: staffId,
+        status: { $in: ['pending', 'in_progress'] }
+      })
+      .select('title description priority status dueDate estimatedHours actualHours')
+      .lean();
+
+      console.log('StaffService: Found assigned tasks:', assignedTasks.length);
+
+      // Calculate time tracking data (mock data for now - in real app this would come from time tracking system)
+      const timeTracking = {
+        totalHoursThisWeek: Math.floor(Math.random() * 40) + 20,
+        totalHoursThisMonth: Math.floor(Math.random() * 160) + 80,
+        averageHoursPerDay: Math.floor(Math.random() * 4) + 6,
+        lastClockIn: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000),
+        lastClockOut: new Date(Date.now() - Math.random() * 12 * 60 * 60 * 1000),
+        currentStatus: ['clocked_in', 'clocked_out', 'on_break'][Math.floor(Math.random() * 3)]
+      };
+
+      // Generate activity log (mock data - in real app this would come from audit logs)
+      const activityLog = [
+        {
+          _id: 'activity1',
+          action: 'Clock In',
+          description: 'Clocked in for work',
+          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
+          details: { location: 'Main Office' }
+        },
+        {
+          _id: 'activity2',
+          action: 'Order Assignment',
+          description: 'Assigned to new repair order',
+          timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
+          details: { orderId: assignedOrders[0]?._id }
+        },
+        {
+          _id: 'activity3',
+          action: 'Task Completion',
+          description: 'Completed quality check task',
+          timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000),
+          details: { taskType: 'Quality Check' }
+        },
+        {
+          _id: 'activity4',
+          action: 'Profile Update',
+          description: 'Updated profile information',
+          timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          details: { field: 'specializations' }
+        }
+      ];
+
+      // Get performance history (mock data - in real app this would come from performance metrics)
+      const performanceHistory = [];
+      for (let i = 0; i < 6; i++) {
+        const date = new Date();
+        date.setMonth(date.getMonth() - i);
+        const period = date.toISOString().slice(0, 7); // YYYY-MM format
+
+        performanceHistory.push({
+          period,
+          ordersCompleted: Math.floor(Math.random() * 30) + 10,
+          averageCompletionTime: Math.round((Math.random() * 2 + 1.5) * 10) / 10,
+          customerSatisfaction: Math.round((4 + Math.random() * 1) * 10) / 10,
+          efficiency: Math.floor(Math.random() * 20) + 80,
+          qualityScore: Math.floor(Math.random() * 15) + 85
+        });
+      }
+
+      // Calculate current workload
+      const assignedOrdersCount = assignedOrders.length;
+      const assignedTasksCount = assignedTasks.length;
+      const capacity = 10;
+      const utilizationRate = Math.min(((assignedOrdersCount + assignedTasksCount) / capacity) * 100, 100);
+
+      // Calculate current performance metrics
+      const completedOrders = await Order.countDocuments({
+        'assignedStaff.staffId': staffId,
+        status: 'completed'
+      });
+
+      const performance = {
+        ordersCompleted: completedOrders,
+        averageCompletionTime: 2.5,
+        customerSatisfaction: 4.2 + Math.random() * 0.6,
+        efficiency: 85 + Math.random() * 10,
+        qualityScore: 90 + Math.random() * 8
+      };
+
+      // Compile detailed staff information
+      const staffDetails = {
+        ...staff,
+        specializations: staff.specializations || ['General Repair'],
+        addOnCapabilities: staff.addOnCapabilities || ['Basic Services'],
+        status: staff.isActive ? 'active' : 'inactive',
+        hireDate: staff.createdAt,
+        schedule: this.generateDefaultSchedule(),
+        performance,
+        currentWorkload: {
+          assignedOrders: assignedOrdersCount,
+          assignedTasks: assignedTasksCount,
+          capacity,
+          utilizationRate: Math.round(utilizationRate)
+        },
+        teams: teamMemberships,
+        assignedOrders,
+        assignedTasks,
+        timeTracking,
+        activityLog,
+        performanceHistory
+      };
+
+      console.log('StaffService: Compiled detailed staff information successfully');
+      return staffDetails;
+    } catch (error) {
+      console.error('StaffService: Error getting staff member details:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = StaffService;

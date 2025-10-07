@@ -68,6 +68,14 @@ console.log('Loading diagnostic routes...');
 const diagnosticRoutes = require("./routes/diagnosticRoutes");
 console.log('Loading staff management routes...');
 const staffManagementRoutes = require("./routes/staffManagementRoutes");
+console.log('Loading system config routes...');
+const systemConfigRoutes = require("./routes/systemConfigRoutes");
+console.log('Loading financial routes...');
+const financialRoutes = require("./routes/financialRoutes");
+console.log('Loading database routes...');
+const databaseRoutes = require("./routes/databaseRoutes");
+console.log('Loading security routes...');
+const securityRoutes = require("./routes/securityRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -198,6 +206,15 @@ const initializeDatabase = async () => {
       console.error('Error seeding homepage template:', error.message);
     }
 
+    // Auto-seed financial data if it doesn't exist
+    console.log('Checking if financial data exists...');
+    try {
+      const financialSeedResult = await SeedService.seedFinancialData();
+      console.log('Financial data seeding result:', financialSeedResult.message);
+    } catch (error) {
+      console.error('Error seeding financial data:', error.message);
+    }
+
     console.log('Database initialization completed successfully');
   } catch (error) {
     console.error('Database initialization error:', error);
@@ -270,12 +287,21 @@ app.use('/api/products', productRoutes);
 app.use('/api/seo', seoRoutes);
 // Cart Routes
 app.use('/api/cart', cartRoutes);
-// Homepage Routes
+// Homepage Routes (Public and Admin)
+app.use('/api/homepage', homepageRoutes);
 app.use('/api/admin/homepage', homepageRoutes);
 // Diagnostic Routes
 app.use('/api/admin/diagnostics', diagnosticRoutes);
 // Staff Management Routes
 app.use('/api/admin/staff-management', staffManagementRoutes);
+// System Configuration Routes
+app.use('/api/system-config', systemConfigRoutes);
+// Financial Management Routes
+app.use('/api/admin/financial', financialRoutes);
+// Database Management Routes
+app.use('/api/database', databaseRoutes);
+// Security Routes
+app.use('/api/security', securityRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 

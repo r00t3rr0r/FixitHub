@@ -15,7 +15,20 @@ router.get('/templates', requireUser, requireRole(['admin', 'staff']), async (re
       isActive: req.query.isActive !== undefined ? req.query.isActive === 'true' : undefined
     };
 
+    console.log('Fetching workflow templates with filters:', filters);
     const workflows = await WorkflowService.getWorkflowTemplates(filters);
+    
+    console.log('Workflow templates retrieved:', {
+      count: workflows.length,
+      workflows: workflows.map(w => ({
+        id: w._id,
+        name: w.name,
+        stepsCount: w.steps?.length || 0,
+        hasSteps: !!w.steps,
+        hasDeviceTypes: !!w.deviceTypes,
+        hasServiceTypes: !!w.serviceTypes
+      }))
+    });
 
     return res.status(200).json({
       success: true,

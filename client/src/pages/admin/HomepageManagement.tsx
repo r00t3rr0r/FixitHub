@@ -70,16 +70,46 @@ const PreviewDialog = ({
     switch (block.type) {
       case 'hero':
         return (
-          <div style={blockStyles} className="text-center py-20">
+          <div style={blockStyles} className="text-center py-20 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
             <h1 className="text-4xl font-bold mb-4">
               {block.content?.heading || 'Hero Heading'}
             </h1>
             <p className="text-xl mb-8">
               {block.content?.subheading || 'Hero subheading text'}
             </p>
-            <button className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700">
+            <button className="bg-white text-blue-600 px-8 py-3 rounded-lg hover:bg-gray-100 mr-4">
               {block.content?.ctaText || 'Call to Action'}
             </button>
+            {block.content?.secondaryCtaText && (
+              <button className="border border-white text-white px-8 py-3 rounded-lg hover:bg-white/10">
+                {block.content.secondaryCtaText}
+              </button>
+            )}
+          </div>
+        )
+
+      case 'about':
+        return (
+          <div style={blockStyles} className="py-16">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold mb-4">
+                {block.content?.heading || 'About Us'}
+              </h2>
+              <p className="text-lg">
+                {block.content?.description || 'Learn more about our company and services'}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {(block.content?.services || []).slice(0, 6).map((service: any, i: number) => (
+                <div key={i} className="text-center p-6 border rounded-lg">
+                  <div className="w-16 h-16 bg-blue-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <Code className="h-8 w-8 text-blue-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">{service.title}</h3>
+                  <p>{service.description}</p>
+                </div>
+              ))}
+            </div>
           </div>
         )
 
@@ -102,8 +132,115 @@ const PreviewDialog = ({
                   </div>
                   <h3 className="text-xl font-semibold mb-2">Service {i}</h3>
                   <p>Service description goes here</p>
+                  <div className="mt-4">
+                    <span className="text-2xl font-bold text-green-600">$99</span>
+                    <button className="w-full mt-2 bg-blue-600 text-white px-4 py-2 rounded">
+                      {block.content?.ctaText || 'Get Quote'}
+                    </button>
+                  </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )
+
+      case 'blog':
+        return (
+          <div style={blockStyles} className="py-16">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold mb-4">
+                {block.content?.heading || 'Latest Articles'}
+              </h2>
+              <p className="text-lg">
+                {block.content?.description || 'Read our latest blog posts'}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="border rounded-lg overflow-hidden">
+                  <div className="h-48 bg-gray-200"></div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-semibold mb-2">Blog Post {i}</h3>
+                    <p className="text-gray-600 mb-4">Blog post excerpt goes here...</p>
+                    <button className="text-blue-600 hover:underline">Read More</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+
+      case 'shop':
+        return (
+          <div style={blockStyles} className="py-16 bg-gray-50">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold mb-4">
+                {block.content?.heading || 'Featured Products'}
+              </h2>
+              <p className="text-lg">
+                {block.content?.description || 'Shop our featured products'}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-white border rounded-lg overflow-hidden">
+                  <div className="h-48 bg-gray-200"></div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-semibold mb-2">Product {i}</h3>
+                    <p className="text-gray-600 mb-4">Product description goes here...</p>
+                    <div className="flex justify-between items-center">
+                      <span className="text-2xl font-bold text-green-600">$29.99</span>
+                      <button className="bg-blue-600 text-white px-4 py-2 rounded">
+                        {block.content?.ctaText || 'Add to Cart'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+
+      case 'contact':
+        return (
+          <div style={blockStyles} className="py-16">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold mb-4">
+                {block.content?.heading || 'Contact Us'}
+              </h2>
+              <p className="text-lg">
+                {block.content?.description || 'Get in touch with us'}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <input className="w-full p-3 border rounded" placeholder="Full Name" />
+                <input className="w-full p-3 border rounded" placeholder="Email Address" />
+                <textarea className="w-full p-3 border rounded h-32" placeholder="Message"></textarea>
+                <button className="w-full bg-blue-600 text-white p-3 rounded">
+                  {block.content?.ctaText || 'Send Message'}
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Code className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Phone</h3>
+                    <p>+1 (555) 123-4567</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <Code className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Email</h3>
+                    <p>info@repairservice.com</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )
@@ -142,9 +279,53 @@ const PreviewDialog = ({
             <p className="text-xl mb-8">
               {block.content?.description || 'Contact us today for professional services'}
             </p>
-            <button className="bg-white text-blue-600 px-8 py-3 rounded-lg hover:bg-gray-100">
+            <button className="bg-white text-blue-600 px-8 py-3 rounded-lg hover:bg-gray-100 mr-4">
               {block.content?.ctaText || 'Get Quote'}
             </button>
+            {block.content?.secondaryCtaText && (
+              <button className="border border-white text-white px-8 py-3 rounded-lg hover:bg-white/10">
+                {block.content.secondaryCtaText}
+              </button>
+            )}
+          </div>
+        )
+
+      case 'footer':
+        return (
+          <div style={blockStyles} className="py-12 bg-gray-900 text-white">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+              <div>
+                <h3 className="text-xl font-bold mb-4">{block.content?.companyName || 'RepairService'}</h3>
+                <p className="text-gray-300">{block.content?.tagline || 'Professional repair services'}</p>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-4">Quick Links</h4>
+                <ul className="space-y-2 text-gray-300">
+                  <li>Home</li>
+                  <li>Services</li>
+                  <li>About</li>
+                  <li>Contact</li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-4">Services</h4>
+                <ul className="space-y-2 text-gray-300">
+                  <li>Phone Repair</li>
+                  <li>Computer Repair</li>
+                  <li>Tablet Repair</li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-4">Newsletter</h4>
+                <div className="flex gap-2">
+                  <input className="flex-1 p-2 rounded bg-gray-800 text-white" placeholder="Email" />
+                  <button className="bg-blue-600 text-white px-4 py-2 rounded">Subscribe</button>
+                </div>
+              </div>
+            </div>
+            <div className="border-t border-gray-700 mt-8 pt-8 text-center text-gray-300">
+              {block.content?.copyright || '© 2024 RepairService. All rights reserved.'}
+            </div>
           </div>
         )
 
@@ -199,8 +380,8 @@ const PreviewDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden">
-        <DialogHeader>
+      <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle>Homepage Preview</DialogTitle>
@@ -237,24 +418,28 @@ const PreviewDialog = ({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto bg-gray-100 p-4 rounded-lg">
-          <div className={getPreviewStyles()}>
-            <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-              {sections.length === 0 ? (
-                <div className="text-center py-20">
-                  <h2 className="text-2xl font-semibold mb-4">No sections to preview</h2>
-                  <p className="text-gray-600">Add some sections to see the preview</p>
-                </div>
-              ) : (
-                sections
-                  .sort((a, b) => a.order - b.order)
-                  .map(section => renderSection(section))
-              )}
+        <div className="flex-1 overflow-hidden bg-gray-100 p-4 rounded-lg">
+          <div className="h-full overflow-y-auto">
+            <div className={getPreviewStyles()}>
+              <div className="bg-white shadow-lg rounded-lg overflow-hidden min-h-full">
+                {sections.length === 0 ? (
+                  <div className="text-center py-20">
+                    <h2 className="text-2xl font-semibold mb-4">No sections to preview</h2>
+                    <p className="text-gray-600">Add some sections to see the preview</p>
+                  </div>
+                ) : (
+                  <div className="space-y-0">
+                    {sections
+                      .sort((a, b) => a.order - b.order)
+                      .map(section => renderSection(section))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0">
           <Button variant="outline" onClick={onClose}>
             Close Preview
           </Button>
@@ -477,6 +662,52 @@ const BlockSettingsDialog = ({
                 placeholder="Enter CTA button text"
               />
             </div>
+            <div>
+              <Label>CTA Link</Label>
+              <Input
+                value={editingBlock.content.ctaLink || ''}
+                onChange={(e) => updateBlockContent('ctaLink', e.target.value)}
+                placeholder="Enter CTA link (e.g., /register)"
+              />
+            </div>
+            <div>
+              <Label>Secondary CTA Text</Label>
+              <Input
+                value={editingBlock.content.secondaryCtaText || ''}
+                onChange={(e) => updateBlockContent('secondaryCtaText', e.target.value)}
+                placeholder="Enter secondary CTA text"
+              />
+            </div>
+            <div>
+              <Label>Secondary CTA Link</Label>
+              <Input
+                value={editingBlock.content.secondaryCtaLink || ''}
+                onChange={(e) => updateBlockContent('secondaryCtaLink', e.target.value)}
+                placeholder="Enter secondary CTA link"
+              />
+            </div>
+          </div>
+        )
+
+      case 'about':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label>Heading</Label>
+              <Input
+                value={editingBlock.content.heading || ''}
+                onChange={(e) => updateBlockContent('heading', e.target.value)}
+                placeholder="Enter about heading"
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                value={editingBlock.content.description || ''}
+                onChange={(e) => updateBlockContent('description', e.target.value)}
+                placeholder="Enter about description"
+              />
+            </div>
           </div>
         )
 
@@ -497,6 +728,202 @@ const BlockSettingsDialog = ({
                 value={editingBlock.content.description || ''}
                 onChange={(e) => updateBlockContent('description', e.target.value)}
                 placeholder="Enter services description"
+              />
+            </div>
+            <div>
+              <Label>Display Type</Label>
+              <Select
+                value={editingBlock.content.displayType || 'dynamic'}
+                onValueChange={(value) => updateBlockContent('displayType', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dynamic">Dynamic (from API)</SelectItem>
+                  <SelectItem value="static">Static (predefined)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Max Items to Display</Label>
+              <Input
+                type="number"
+                value={editingBlock.content.maxItems || 6}
+                onChange={(e) => updateBlockContent('maxItems', parseInt(e.target.value))}
+                placeholder="6"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={editingBlock.content.showPricing || false}
+                onCheckedChange={(checked) => updateBlockContent('showPricing', checked)}
+              />
+              <Label>Show Pricing</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={editingBlock.content.showRating || false}
+                onCheckedChange={(checked) => updateBlockContent('showRating', checked)}
+              />
+              <Label>Show Rating</Label>
+            </div>
+          </div>
+        )
+
+      case 'blog':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label>Heading</Label>
+              <Input
+                value={editingBlock.content.heading || ''}
+                onChange={(e) => updateBlockContent('heading', e.target.value)}
+                placeholder="Enter blog section heading"
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                value={editingBlock.content.description || ''}
+                onChange={(e) => updateBlockContent('description', e.target.value)}
+                placeholder="Enter blog section description"
+              />
+            </div>
+            <div>
+              <Label>Display Type</Label>
+              <Select
+                value={editingBlock.content.displayType || 'dynamic'}
+                onValueChange={(value) => updateBlockContent('displayType', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dynamic">Dynamic (from API)</SelectItem>
+                  <SelectItem value="static">Static (predefined)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Max Items to Display</Label>
+              <Input
+                type="number"
+                value={editingBlock.content.maxItems || 3}
+                onChange={(e) => updateBlockContent('maxItems', parseInt(e.target.value))}
+                placeholder="3"
+              />
+            </div>
+          </div>
+        )
+
+      case 'shop':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label>Heading</Label>
+              <Input
+                value={editingBlock.content.heading || ''}
+                onChange={(e) => updateBlockContent('heading', e.target.value)}
+                placeholder="Enter shop section heading"
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                value={editingBlock.content.description || ''}
+                onChange={(e) => updateBlockContent('description', e.target.value)}
+                placeholder="Enter shop section description"
+              />
+            </div>
+            <div>
+              <Label>Display Type</Label>
+              <Select
+                value={editingBlock.content.displayType || 'dynamic'}
+                onValueChange={(value) => updateBlockContent('displayType', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dynamic">Dynamic (from API)</SelectItem>
+                  <SelectItem value="static">Static (predefined)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Max Items to Display</Label>
+              <Input
+                type="number"
+                value={editingBlock.content.maxItems || 6}
+                onChange={(e) => updateBlockContent('maxItems', parseInt(e.target.value))}
+                placeholder="6"
+              />
+            </div>
+          </div>
+        )
+
+      case 'contact':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label>Heading</Label>
+              <Input
+                value={editingBlock.content.heading || ''}
+                onChange={(e) => updateBlockContent('heading', e.target.value)}
+                placeholder="Enter contact heading"
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                value={editingBlock.content.description || ''}
+                onChange={(e) => updateBlockContent('description', e.target.value)}
+                placeholder="Enter contact description"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={editingBlock.content.showContactForm || false}
+                onCheckedChange={(checked) => updateBlockContent('showContactForm', checked)}
+              />
+              <Label>Show Contact Form</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={editingBlock.content.showContactInfo || false}
+                onCheckedChange={(checked) => updateBlockContent('showContactInfo', checked)}
+              />
+              <Label>Show Contact Information</Label>
+            </div>
+          </div>
+        )
+
+      case 'footer':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label>Company Name</Label>
+              <Input
+                value={editingBlock.content.companyName || ''}
+                onChange={(e) => updateBlockContent('companyName', e.target.value)}
+                placeholder="Enter company name"
+              />
+            </div>
+            <div>
+              <Label>Tagline</Label>
+              <Input
+                value={editingBlock.content.tagline || ''}
+                onChange={(e) => updateBlockContent('tagline', e.target.value)}
+                placeholder="Enter company tagline"
+              />
+            </div>
+            <div>
+              <Label>Copyright Text</Label>
+              <Input
+                value={editingBlock.content.copyright || ''}
+                onChange={(e) => updateBlockContent('copyright', e.target.value)}
+                placeholder="© 2024 RepairService. All rights reserved."
               />
             </div>
           </div>
@@ -585,7 +1012,7 @@ const BlockSettingsDialog = ({
                 <Label>Background Color</Label>
                 <Input
                   type="color"
-                  value={editingBlock.settings?.backgroundColor || '#ffffff'}
+                  value={editingBlock.settings.backgroundColor || '#ffffff'}
                   onChange={(e) => updateBlockSettings('backgroundColor', e.target.value)}
                 />
               </div>
@@ -593,116 +1020,53 @@ const BlockSettingsDialog = ({
                 <Label>Text Color</Label>
                 <Input
                   type="color"
-                  value={editingBlock.settings?.textColor || '#000000'}
+                  value={editingBlock.settings.textColor || '#000000'}
                   onChange={(e) => updateBlockSettings('textColor', e.target.value)}
                 />
               </div>
             </div>
-          </TabsContent>
 
-          <TabsContent value="advanced" className="space-y-4">
-            <AdvancedSettings
-              settings={editingBlock.settings || {}}
-              onUpdate={updateBlockSettings}
-              title="Block Advanced Settings"
-            />
-          </TabsContent>
-        </Tabs>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave}>
-            Save Changes
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-const SectionSettingsDialog = ({
-  section,
-  isOpen,
-  onClose,
-  onSave
-}: {
-  section: HomepageSection | null
-  isOpen: boolean
-  onClose: () => void
-  onSave: (sectionId: string, updates: Partial<HomepageSection>) => void
-}) => {
-  const [editingSection, setEditingSection] = useState<HomepageSection | null>(null)
-
-  useEffect(() => {
-    if (section) {
-      setEditingSection({
-        ...section,
-        settings: section.settings || {}
-      })
-    }
-  }, [section])
-
-  if (!editingSection) return null
-
-  const handleSave = () => {
-    onSave(editingSection._id, editingSection)
-    onClose()
-  }
-
-  const updateSectionSettings = (field: string, value: any) => {
-    setEditingSection(prev => ({
-      ...prev!,
-      settings: {
-        ...prev!.settings,
-        [field]: value
-      }
-    }))
-  }
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Section Settings</DialogTitle>
-          <DialogDescription>
-            Customize the settings and styling for this section.
-          </DialogDescription>
-        </DialogHeader>
-
-        <Tabs defaultValue="basic" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="basic">Basic</TabsTrigger>
-            <TabsTrigger value="advanced">Advanced</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="basic" className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Background Color</Label>
-                <Input
-                  type="color"
-                  value={editingSection.settings?.backgroundColor || '#ffffff'}
-                  onChange={(e) => updateSectionSettings('backgroundColor', e.target.value)}
-                />
-              </div>
               <div>
                 <Label>Padding</Label>
                 <Input
-                  value={editingSection.settings?.padding || '60px 0'}
-                  onChange={(e) => updateSectionSettings('padding', e.target.value)}
-                  placeholder="e.g., 60px 0"
+                  value={editingBlock.settings.padding || '20px 0'}
+                  onChange={(e) => updateBlockSettings('padding', e.target.value)}
+                  placeholder="e.g., 20px 0"
                 />
               </div>
+              <div>
+                <Label>Margin</Label>
+                <Input
+                  value={editingBlock.settings.margin || '0px'}
+                  onChange={(e) => updateBlockSettings('margin', e.target.value)}
+                  placeholder="e.g., 10px 0"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label>Text Alignment</Label>
+              <Select
+                value={editingBlock.settings.alignment || 'left'}
+                onValueChange={(value) => updateBlockSettings('alignment', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="left">Left</SelectItem>
+                  <SelectItem value="center">Center</SelectItem>
+                  <SelectItem value="right">Right</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </TabsContent>
 
           <TabsContent value="advanced" className="space-y-4">
             <AdvancedSettings
-              settings={editingSection.settings || {}}
-              onUpdate={updateSectionSettings}
-              title="Section Advanced Settings"
+              settings={editingBlock.settings}
+              onUpdate={updateBlockSettings}
             />
           </TabsContent>
         </Tabs>
@@ -720,38 +1084,36 @@ const SectionSettingsDialog = ({
   )
 }
 
-export const HomepageManagement = () => {
+export function HomepageManagement() {
   const [sections, setSections] = useState<HomepageSection[]>([])
   const [contentBlocks, setContentBlocks] = useState<ContentBlock[]>([])
-  const [templates, setTemplates] = useState<LayoutTemplate[]>([])
-  const [abTests, setABTests] = useState<ABTest[]>([])
+  const [layoutTemplates, setLayoutTemplates] = useState<LayoutTemplate[]>([])
+  const [abTests, setAbTests] = useState<ABTest[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedSection, setSelectedSection] = useState<HomepageSection | null>(null)
   const [selectedBlock, setSelectedBlock] = useState<ContentBlock | null>(null)
-  const [showSectionSettings, setShowSectionSettings] = useState(false)
-  const [showBlockSettings, setShowBlockSettings] = useState(false)
-  const [showPreview, setShowPreview] = useState(false)
+  const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
 
   useEffect(() => {
-    loadData()
+    fetchData()
   }, [])
 
-  const loadData = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true)
-      const [sectionsData, blocksData, templatesData, testsData] = await Promise.all([
+      const [sectionsRes, blocksRes, templatesRes, testsRes] = await Promise.all([
         getHomepageSections(),
         getContentBlockTemplates(),
         getLayoutTemplates(),
         getABTests()
       ])
 
-      setSections(sectionsData.sections || [])
-      setContentBlocks(blocksData.blocks || [])
-      setTemplates(templatesData.templates || [])
-      setABTests(testsData.tests || [])
+      setSections(sectionsRes.sections || [])
+      setContentBlocks(blocksRes.blocks || [])
+      setLayoutTemplates(templatesRes.templates || [])
+      setAbTests(testsRes.tests || [])
     } catch (error) {
-      console.error('Error loading homepage data:', error)
+      console.error('Error fetching homepage data:', error)
       toast({
         title: "Error",
         description: "Failed to load homepage data",
@@ -762,19 +1124,54 @@ export const HomepageManagement = () => {
     }
   }
 
-  const generateObjectId = () => {
-    const timestamp = Math.floor(Date.now() / 1000).toString(16).padStart(8, '0')
-    const randomBytes = Array.from({ length: 16 }, () =>
-      Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
-    ).join('').substring(0, 16)
-    return timestamp + randomBytes
+  const handleSaveChanges = async () => {
+    try {
+      // Clean up sections before saving - remove temporary IDs and let MongoDB generate them
+      const cleanedSections = sections.map(section => {
+        const cleanedSection = { ...section }
+        
+        // Remove temporary section IDs that start with "section_"
+        if (typeof cleanedSection._id === 'string' && cleanedSection._id.startsWith('section_')) {
+          delete cleanedSection._id
+        }
+        
+        // Clean up blocks in the section
+        cleanedSection.blocks = section.blocks.map(block => {
+          const cleanedBlock = { ...block }
+          
+          // Remove temporary block IDs that start with "block_"
+          if (typeof cleanedBlock._id === 'string' && cleanedBlock._id.startsWith('block_')) {
+            delete cleanedBlock._id
+          }
+          
+          return cleanedBlock
+        })
+        
+        return cleanedSection
+      })
+
+      await saveHomepageSections(cleanedSections)
+      toast({
+        title: "Success",
+        description: "Homepage sections saved successfully"
+      })
+      
+      // Refresh data to get the proper MongoDB IDs
+      await fetchData()
+    } catch (error) {
+      console.error('Error saving homepage sections:', error)
+      toast({
+        title: "Error",
+        description: "Failed to save homepage sections",
+        variant: "destructive"
+      })
+    }
   }
 
   const addSection = () => {
-    const sectionNumber = sections.length + 1
     const newSection: HomepageSection = {
-      _id: generateObjectId(),
-      name: 'Section ' + sectionNumber,
+      _id: `section_${Date.now()}`,
+      name: `Section ${sections.length + 1}`,
       blocks: [],
       layout: 'single',
       order: sections.length,
@@ -788,28 +1185,25 @@ export const HomepageManagement = () => {
     setSections([...sections, newSection])
   }
 
-  const updateSection = (sectionId: string, updates: Partial<HomepageSection>) => {
-    setSections(sections.map(section =>
-      section._id === sectionId ? { ...section, ...updates } : section
-    ))
-  }
+  const addBlockToSection = (sectionId: string, blockTemplateId: string) => {
+    const template = contentBlocks.find(b => b._id === blockTemplateId)
+    if (!template) return
 
-  const deleteSection = (sectionId: string) => {
-    setSections(sections.filter(section => section._id !== sectionId))
-  }
-
-  const addBlockToSection = (sectionId: string, blockTemplate: ContentBlock) => {
     const newBlock: ContentBlock = {
-      ...blockTemplate,
-      _id: generateObjectId(),
+      ...template,
+      _id: `block_${Date.now()}`,
       order: 0
     }
 
-    setSections(sections.map(section =>
-      section._id === sectionId
-        ? { ...section, blocks: [...section.blocks, newBlock] }
-        : section
-    ))
+    setSections(sections.map(section => {
+      if (section._id === sectionId) {
+        return {
+          ...section,
+          blocks: [...section.blocks, newBlock]
+        }
+      }
+      return section
+    }))
   }
 
   const updateBlock = (blockId: string, updates: Partial<ContentBlock>) => {
@@ -821,29 +1215,33 @@ export const HomepageManagement = () => {
     })))
   }
 
-  const saveChanges = async () => {
-    try {
-      await saveHomepageSections(sections)
-      toast({
-        title: "Success",
-        description: "Homepage sections saved successfully",
-      })
-    } catch (error) {
-      console.error('Error saving homepage sections:', error)
-      toast({
-        title: "Error",
-        description: "Failed to save homepage sections",
-        variant: "destructive"
-      })
-    }
+  const removeBlock = (sectionId: string, blockId: string) => {
+    setSections(sections.map(section => {
+      if (section._id === sectionId) {
+        return {
+          ...section,
+          blocks: section.blocks.filter(block => block._id !== blockId)
+        }
+      }
+      return section
+    }))
+  }
+
+  const removeSection = (sectionId: string) => {
+    setSections(sections.filter(section => section._id !== sectionId))
+  }
+
+  const editBlock = (block: ContentBlock) => {
+    setSelectedBlock(block)
+    setIsBlockDialogOpen(true)
   }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-2 text-sm text-muted-foreground">Loading homepage data...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading homepage management...</p>
         </div>
       </div>
     )
@@ -855,167 +1253,177 @@ export const HomepageManagement = () => {
         <div>
           <h1 className="text-3xl font-bold">Homepage Management</h1>
           <p className="text-muted-foreground">
-            Design and customize your homepage with advanced styling options.
+            Design and customize your homepage with drag-and-drop sections
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setShowPreview(true)}>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setIsPreviewOpen(true)}>
             <Eye className="h-4 w-4 mr-2" />
             Preview
           </Button>
-          <Button onClick={saveChanges}>
+          <Button onClick={handleSaveChanges}>
             <Save className="h-4 w-4 mr-2" />
             Save Changes
           </Button>
         </div>
       </div>
 
-      <Tabs defaultValue="builder" className="space-y-6">
+      <Tabs defaultValue="sections" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="builder">Section Builder</TabsTrigger>
-          <TabsTrigger value="templates">Templates</TabsTrigger>
+          <TabsTrigger value="sections">Page Sections</TabsTrigger>
+          <TabsTrigger value="templates">Layout Templates</TabsTrigger>
+          <TabsTrigger value="tests">A/B Tests</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="builder" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-1">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Layers className="h-5 w-5" />
-                    Content Blocks
-                  </CardTitle>
-                  <CardDescription>
-                    Click blocks to add them to sections
-                  </CardDescription>
-                </CardHeader>
-                
-                <CardContent className="space-y-4">
-                  {contentBlocks.map((blockTemplate) => (
-                    <div key={blockTemplate._id} className="flex items-center justify-between p-2 bg-muted rounded hover:bg-muted-foreground cursor-pointer"
-                      onClick={() => {
-                        if (selectedSection) {
-                          addBlockToSection(selectedSection._id, blockTemplate)
-                        }
-                      }}>
-                      <span>{blockTemplate.title || blockTemplate.type}</span>
-                      <Badge variant="secondary">{blockTemplate.type}</Badge>
+        <TabsContent value="sections" className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Content Blocks Library */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Layers className="h-5 w-5" />
+                  Content Blocks
+                </CardTitle>
+                <CardDescription>
+                  Drag and drop these blocks into your sections
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {contentBlocks.map((block) => (
+                  <div
+                    key={block._id}
+                    className="p-3 border rounded-lg cursor-pointer hover:bg-muted transition-colors"
+                    onClick={() => {
+                      // For now, we'll add to the first section or create one
+                      if (sections.length === 0) {
+                        addSection()
+                      }
+                      const firstSection = sections[0] || { _id: `section_${Date.now()}` }
+                      addBlockToSection(firstSection._id, block._id)
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-primary/10 rounded flex items-center justify-center">
+                        <Code className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <div className="font-medium text-sm">{block.title}</div>
+                        <div className="text-xs text-muted-foreground capitalize">
+                          {block.type}
+                        </div>
+                      </div>
                     </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
-            <div className="lg:col-span-3 space-y-4">
-              <div className="flex justify-between items-center mb-2">
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Homepage Sections */}
+            <div className="lg:col-span-2 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold">Homepage Sections</h2>
                 <Button onClick={addSection}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add Section
                 </Button>
               </div>
+
               {sections.length === 0 ? (
                 <Card>
-                  <CardContent className="text-center py-16">
-                    <h2 className="text-2xl font-semibold mb-4">No sections created</h2>
-                    <p className="text-muted-foreground">Add a new section to start building your homepage.</p>
+                  <CardContent className="py-12 text-center">
+                    <Layers className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No sections yet</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Create your first section to start building your homepage
+                    </p>
+                    <Button onClick={addSection}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Section
+                    </Button>
                   </CardContent>
                 </Card>
               ) : (
-                sections
-                  .sort((a, b) => a.order - b.order)
-                  .map(section => (
-                    <Card key={section._id} className="mb-4">
-                      <CardHeader className="flex flex-row justify-between items-center">
-                        <div>
-                          <CardTitle>
-                            <span
-                              className="cursor-pointer underline"
-                              onClick={() => {
-                                setSelectedSection(section)
-                                setShowSectionSettings(true)
-                              }}
-                            >
-                              {section.name}
-                            </span>
-                          </CardTitle>
-                          <CardDescription className="text-xs">
-                            Layout: {section.layout}
-                            {section.isActive ? (
-                              <Badge variant="default" className="ml-2">Active</Badge>
-                            ) : (
-                              <Badge variant="secondary" className="ml-2">Inactive</Badge>
-                            )}
-                          </CardDescription>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => {
-                              setSelectedSection(section)
-                              setShowSectionSettings(true)
-                            }}
-                          >
-                            <Settings className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => deleteSection(section._id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        {section.blocks.length === 0 ? (
-                          <div className="text-muted-foreground text-sm py-8 text-center">
-                            No blocks added to this section.
+                <div className="space-y-4">
+                  {sections
+                    .sort((a, b) => a.order - b.order)
+                    .map((section) => (
+                      <Card key={section._id}>
+                        <CardHeader>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <CardTitle className="text-lg">{section.name}</CardTitle>
+                              <CardDescription>
+                                {section.blocks.length} blocks • {section.layout} layout
+                              </CardDescription>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant={section.isActive ? "default" : "secondary"}>
+                                {section.isActive ? "Active" : "Inactive"}
+                              </Badge>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => removeSection(section._id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
-                        ) : (
-                          <div className="space-y-4">
-                            {section.blocks
-                              .sort((a, b) => a.order - b.order)
-                              .map(block => (
-                                <div key={block._id} className="border rounded-lg p-4 flex items-center justify-between bg-muted">
-                                  <div>
-                                    <span className="font-semibold">{block.title || block.type}</span>
-                                    <Badge variant="outline" className="mx-2">{block.type}</Badge>
-                                    {block.isVisible ? (
-                                      <Badge variant="default">Visible</Badge>
-                                    ) : (
-                                      <Badge variant="secondary">Hidden</Badge>
-                                    )}
+                        </CardHeader>
+                        <CardContent>
+                          {section.blocks.length === 0 ? (
+                            <div className="text-center py-8 border-2 border-dashed border-muted-foreground/25 rounded-lg">
+                              <p className="text-muted-foreground">
+                                No blocks in this section. Add blocks from the library.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {section.blocks
+                                .sort((a, b) => a.order - b.order)
+                                .map((block) => (
+                                  <div
+                                    key={block._id}
+                                    className="flex items-center justify-between p-3 border rounded-lg"
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 bg-primary/10 rounded flex items-center justify-center">
+                                        <Code className="h-4 w-4 text-primary" />
+                                      </div>
+                                      <div>
+                                        <div className="font-medium">{block.title}</div>
+                                        <div className="text-sm text-muted-foreground capitalize">
+                                          {block.type}
+                                        </div>
+                                      </div>
+                                      <Badge variant={block.isVisible ? "default" : "secondary"}>
+                                        {block.isVisible ? "Visible" : "Hidden"}
+                                      </Badge>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => editBlock(block)}
+                                      >
+                                        <Settings className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => removeBlock(section._id, block._id)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      onClick={() => {
-                                        setSelectedBlock(block)
-                                        setShowBlockSettings(true)
-                                      }}
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      onClick={() => {
-                                        updateSection(section._id, {
-                                          blocks: section.blocks.filter(b => b._id !== block._id)
-                                        })
-                                      }}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))
+                                ))}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                </div>
               )}
             </div>
           </div>
@@ -1026,56 +1434,103 @@ export const HomepageManagement = () => {
             <CardHeader>
               <CardTitle>Layout Templates</CardTitle>
               <CardDescription>
-                Apply a template to your homepage layout.
+                Pre-designed homepage layouts you can use as starting points
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {templates.map(template => (
-                  <div key={template._id} className="border rounded-lg p-4 flex flex-col">
-                    <div className="font-bold mb-2">{template.name}</div>
-                    <div className="text-sm mb-2">{template.description}</div>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setSections(template.sections)
-                        toast({
-                          title: "Template Applied",
-                          description: `Applied template: ${template.name}`,
-                        })
-                      }}
-                    >
-                      Apply Template
-                    </Button>
-                  </div>
-                ))}
-              </div>
+            <CardContent>
+              {layoutTemplates.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No layout templates available</p>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {layoutTemplates.map((template) => (
+                    <Card key={template._id} className="cursor-pointer hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="aspect-video bg-muted rounded mb-3 flex items-center justify-center">
+                          <Layers className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                        <h3 className="font-semibold mb-1">{template.name}</h3>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          {template.description}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <Badge variant={template.isDefault ? "default" : "outline"}>
+                            {template.isDefault ? "Default" : "Template"}
+                          </Badge>
+                          <Button size="sm" variant="outline">
+                            Use Template
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="tests" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>A/B Tests</CardTitle>
+              <CardDescription>
+                Test different homepage variations to optimize conversions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {abTests.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No A/B tests configured</p>
+                  <Button className="mt-4">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create A/B Test
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {abTests.map((test) => (
+                    <Card key={test._id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-semibold">{test.name}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {test.description}
+                            </p>
+                          </div>
+                          <Badge variant={
+                            test.status === 'running' ? 'default' :
+                            test.status === 'completed' ? 'secondary' : 'outline'
+                          }>
+                            {test.status}
+                          </Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Section Settings Dialog */}
-      <SectionSettingsDialog
-        section={selectedSection}
-        isOpen={showSectionSettings}
-        onClose={() => setShowSectionSettings(false)}
-        onSave={updateSection}
-      />
-
-      {/* Block Settings Dialog */}
-      <BlockSettingsDialog
-        block={selectedBlock}
-        isOpen={showBlockSettings}
-        onClose={() => setShowBlockSettings(false)}
-        onSave={updateBlock}
-      />
-
-      {/* Preview Dialog */}
       <PreviewDialog
         sections={sections}
-        isOpen={showPreview}
-        onClose={() => setShowPreview(false)}
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+      />
+
+      <BlockSettingsDialog
+        block={selectedBlock}
+        isOpen={isBlockDialogOpen}
+        onClose={() => {
+          setIsBlockDialogOpen(false)
+          setSelectedBlock(null)
+        }}
+        onSave={updateBlock}
       />
     </div>
   )

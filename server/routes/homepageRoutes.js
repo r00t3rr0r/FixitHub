@@ -22,6 +22,25 @@ router.get('/sections', async (req, res) => {
   }
 });
 
+// Admin routes - Get homepage sections for management
+router.get('/admin/sections', requireUser, requireRole(['admin', 'staff']), async (req, res) => {
+  try {
+    console.log('HomepageRoutes: Getting homepage sections for admin');
+    const result = await HomepageService.getHomepageSections();
+
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    console.error('HomepageRoutes: Error getting homepage sections:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Get content block templates (admin only)
 router.get('/content-blocks', requireUser, requireRole(['admin', 'staff']), async (req, res) => {
   try {

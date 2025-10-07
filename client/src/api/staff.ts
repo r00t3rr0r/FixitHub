@@ -405,3 +405,69 @@ export const getTaskStatistics = async (filters: any = {}) => {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// Description: Get detailed staff member information
+// Endpoint: GET /api/admin/staff-management/staff/:id/details
+// Request: {}
+// Response: { staffDetails: StaffMemberDetails }
+export const getStaffMemberDetails = async (staffId: string) => {
+  try {
+    const response = await api.get(`/api/admin/staff-management/staff/${staffId}/details`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export interface StaffMemberDetails extends StaffMember {
+  teams: Array<{
+    _id: string;
+    name: string;
+    role: string;
+    joinedAt: string;
+  }>;
+  assignedOrders: Array<{
+    _id: string;
+    orderNumber: string;
+    deviceBrand: string;
+    deviceModel: string;
+    status: string;
+    priority: string;
+    createdAt: string;
+    estimatedCompletion: string;
+    progress: number;
+  }>;
+  assignedTasks: Array<{
+    _id: string;
+    title: string;
+    description: string;
+    priority: string;
+    status: string;
+    dueDate: string;
+    estimatedHours: number;
+    actualHours: number;
+  }>;
+  timeTracking: {
+    totalHoursThisWeek: number;
+    totalHoursThisMonth: number;
+    averageHoursPerDay: number;
+    lastClockIn: string;
+    lastClockOut: string;
+    currentStatus: 'clocked_in' | 'clocked_out' | 'on_break';
+  };
+  activityLog: Array<{
+    _id: string;
+    action: string;
+    description: string;
+    timestamp: string;
+    details?: any;
+  }>;
+  performanceHistory: Array<{
+    period: string;
+    ordersCompleted: number;
+    averageCompletionTime: number;
+    customerSatisfaction: number;
+    efficiency: number;
+    qualityScore: number;
+  }>;
+}

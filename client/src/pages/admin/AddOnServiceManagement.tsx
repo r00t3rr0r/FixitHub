@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/useToast"
 import {
   getAddOnServices,
+  getAddOnServiceById,
   createAddOnService,
   updateAddOnService,
   deleteAddOnService,
@@ -26,7 +27,12 @@ import {
   X,
   Shield,
   Package,
-  Percent
+  Percent,
+  Eye,
+  Info,
+  Calendar,
+  Tag,
+  Smartphone
 } from "lucide-react"
 import {
   Select,
@@ -77,7 +83,10 @@ export function AddOnServiceManagement() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [selectedService, setSelectedService] = useState<AddOnService | null>(null)
+  const [detailService, setDetailService] = useState<AddOnService | null>(null)
+  const [loadingDetail, setLoadingDetail] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -134,6 +143,30 @@ export function AddOnServiceManagement() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchAddOnServiceDetail = async (id: string) => {
+    try {
+      setLoadingDetail(true)
+      console.log("Fetching add-on service detail for ID:", id)
+      const response = await getAddOnServiceById(id)
+      setDetailService(response.addOn)
+      setIsDetailDialogOpen(true)
+    } catch (error: any) {
+      console.error("Error fetching add-on service detail:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load add-on service details",
+        variant: "destructive"
+      })
+    } finally {
+      setLoadingDetail(false)
+    }
+  }
+
+  const handleRowClick = (service: AddOnService) => {
+    console.log("Row clicked for service:", service.name)
+    fetchAddOnServiceDetail(service._id)
   }
 
   const handleCreateService = async () => {
@@ -292,6 +325,16 @@ export function AddOnServiceManagement() {
     updateCompatibility(compatIndex, 'brands', brands)
   }
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -430,7 +473,7 @@ export function AddOnServiceManagement() {
         <CardHeader>
           <CardTitle>Add-On Services</CardTitle>
           <CardDescription>
-            Manage your add-on service catalog and compatibility settings
+            Manage your add-on service catalog and compatibility settings. Click on a row to view detailed information.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -457,7 +500,11 @@ export function AddOnServiceManagement() {
                 </TableRow>
               ) : (
                 filteredServices.map((service) => (
-                  <TableRow key={service._id}>
+                  <TableRow 
+                    key={service._id} 
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleRowClick(service)}
+                  >
                     <TableCell>
                       <div>
                         <p className="font-medium">{service.name}</p>
@@ -512,14 +559,20 @@ export function AddOnServiceManagement() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => openEditDialog(service)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openEditDialog(service)
+                          }}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => openDeleteDialog(service)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openDeleteDialog(service)
+                          }}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -532,6 +585,198 @@ export function AddOnServiceManagement() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Service Detail Dialog */}
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5" />
+              Add-On Service Details
+            </DialogTitle>
+            <DialogDescription>
+              Comprehensive information about the selected add-on service
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingDetail ? (
+            <div className="space-y-4">
+              <div className="h-6 bg-muted rounded w-1/2 animate-pulse"></div>
+              <div className="h-4 bg-muted rounded w-3/4 animate-pulse"></div>
+              <div className="h-4 bg-muted rounded w-1/2 animate-pulse"></div>
+              <div className="h-32 bg-muted rounded animate-pulse"></div>
+            </div>
+          ) : detailService ? (
+            <div className="space-y-6">
+              {/* Basic Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    {detailService.name}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium text-muted-foreground">Category</Label>
+                      <Badge variant="outline" className="w-fit">
+                        <Tag className="h-3 w-3 mr-1" />
+                        {detailService.category}
+                      </Badge>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium text-muted-foreground">Price</Label>
+                      <div className="flex items-center gap-1 text-lg font-semibold">
+                        <DollarSign className="h-4 w-4 text-green-600" />
+                        {detailService.price}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium text-muted-foreground">Estimated Time</Label>
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-4 w-4 text-blue-600" />
+                        <span>{detailService.estimatedTime}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium text-muted-foreground">Bundle Discount</Label>
+                      <div className="flex items-center gap-1">
+                        <Percent className="h-4 w-4 text-orange-600" />
+                        <span>{detailService.bundleDiscount || 0}%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-muted-foreground">Description</Label>
+                    <p className="text-sm leading-relaxed bg-muted/50 p-3 rounded-lg">
+                      {detailService.description}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Performance Metrics */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Star className="h-5 w-5" />
+                    Performance Metrics
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950 dark:to-yellow-900 rounded-lg">
+                      <Star className="h-8 w-8 mx-auto mb-2 text-yellow-600" />
+                      <div className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">
+                        {detailService.popularity || 0}%
+                      </div>
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300">Popularity</p>
+                    </div>
+                    <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 rounded-lg">
+                      <Shield className="h-8 w-8 mx-auto mb-2 text-green-600" />
+                      <div className="text-2xl font-bold text-green-900 dark:text-green-100">
+                        {detailService.isActive ? 'Active' : 'Inactive'}
+                      </div>
+                      <p className="text-sm text-green-700 dark:text-green-300">Status</p>
+                    </div>
+                    <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 rounded-lg">
+                      <Smartphone className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                      <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                        {detailService.compatibility?.length || 0}
+                      </div>
+                      <p className="text-sm text-blue-700 dark:text-blue-300">Compatibility Rules</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Device Compatibility */}
+              {detailService.compatibility && detailService.compatibility.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Smartphone className="h-5 w-5" />
+                      Device Compatibility
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {detailService.compatibility.map((comp, index) => (
+                        <div key={index} className="p-4 border rounded-lg bg-muted/25">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Smartphone className="h-4 w-4 text-blue-600" />
+                            <span className="font-medium">{comp.deviceType}</span>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm text-muted-foreground">Compatible Brands:</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {comp.brands.map((brand, brandIndex) => (
+                                <Badge key={brandIndex} variant="secondary">
+                                  {brand}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Timestamps */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Timeline Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium text-muted-foreground">Created At</Label>
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{formatDate(detailService.createdAt)}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium text-muted-foreground">Last Updated</Label>
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{formatDate(detailService.updatedAt)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Info className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <p className="text-muted-foreground">No service details available</p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDetailDialogOpen(false)}>
+              Close
+            </Button>
+            {detailService && (
+              <Button onClick={() => {
+                setIsDetailDialogOpen(false)
+                openEditDialog(detailService)
+              }}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Service
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Create/Edit Dialog */}
       <Dialog open={isCreateDialogOpen || isEditDialogOpen} onOpenChange={(open) => {

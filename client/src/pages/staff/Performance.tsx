@@ -1,350 +1,503 @@
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { useToast } from "@/hooks/useToast"
-import {
-  BarChart3,
-  TrendingUp,
-  Award,
-  Target,
-  Clock,
-  Star,
-  CheckCircle,
-  Calendar,
-  Trophy,
-  Zap
-} from "lucide-react"
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { TrendingUp, Target, Award, Clock, Users, DollarSign, Star, Calendar, RefreshCw } from 'lucide-react';
+import { useToast } from '@/hooks/useToast';
+import { useAuth } from '@/contexts/AuthContext';
+
+interface PerformanceMetrics {
+  ordersCompleted: number;
+  averageCompletionTime: number;
+  customerSatisfaction: number;
+  efficiency: number;
+  qualityScore: number;
+  revenue: number;
+  hoursWorked: number;
+}
+
+interface PerformanceGoals {
+  ordersTarget: number;
+  revenueTarget: number;
+  satisfactionTarget: number;
+}
+
+interface Achievement {
+  title: string;
+  description: string;
+  earnedAt: string;
+  icon: string;
+}
 
 interface PerformanceData {
-  ordersCompleted: number
-  averageCompletionTime: number
-  customerSatisfaction: number
-  efficiency: number
-  qualityScore: number
-  goals: {
-    ordersTarget: number
-    ordersAchieved: number
-    satisfactionTarget: number
-    satisfactionAchieved: number
-    efficiencyTarget: number
-    efficiencyAchieved: number
-  }
-  achievements: {
-    _id: string
-    title: string
-    description: string
-    earnedAt: string
-    icon: string
-  }[]
-  monthlyStats: {
-    month: string
-    orders: number
-    satisfaction: number
-    efficiency: number
-  }[]
+  _id: string;
+  period: string;
+  metrics: PerformanceMetrics;
+  goals: PerformanceGoals;
+  achievements: Achievement[];
 }
 
 export function Performance() {
-  const [performance, setPerformance] = useState<PerformanceData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const { toast } = useToast()
+  const [performance, setPerformance] = useState<PerformanceData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [goalsDialogOpen, setGoalsDialogOpen] = useState(false);
+  const [newGoals, setNewGoals] = useState<PerformanceGoals>({
+    ordersTarget: 0,
+    revenueTarget: 0,
+    satisfactionTarget: 4.5
+  });
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
-    const fetchPerformance = async () => {
-      try {
-        // Mock performance data
-        const mockPerformance: PerformanceData = {
-          ordersCompleted: 156,
-          averageCompletionTime: 2.3,
-          customerSatisfaction: 4.8,
-          efficiency: 94,
+    fetchPerformanceData();
+  }, []);
+
+  const fetchPerformanceData = async () => {
+    try {
+      setLoading(true);
+      
+      // Mock data - replace with actual API call
+      const mockPerformance: PerformanceData = {
+        _id: '1',
+        period: new Date().toISOString().slice(0, 7), // Current month
+        metrics: {
+          ordersCompleted: 45,
+          averageCompletionTime: 2.5,
+          customerSatisfaction: 4.7,
+          efficiency: 92,
           qualityScore: 96,
-          goals: {
-            ordersTarget: 160,
-            ordersAchieved: 156,
-            satisfactionTarget: 4.5,
-            satisfactionAchieved: 4.8,
-            efficiencyTarget: 90,
-            efficiencyAchieved: 94
+          revenue: 12500,
+          hoursWorked: 160
+        },
+        goals: {
+          ordersTarget: 50,
+          revenueTarget: 15000,
+          satisfactionTarget: 4.5
+        },
+        achievements: [
+          {
+            title: 'Speed Demon',
+            description: 'Completed 10 orders in a single day',
+            earnedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
+            icon: '⚡'
           },
-          achievements: [
-            {
-              _id: 'ach1',
-              title: 'Quality Master',
-              description: 'Maintained 95%+ quality score for 3 months',
-              earnedAt: '2024-01-10T00:00:00Z',
-              icon: 'trophy'
-            },
-            {
-              _id: 'ach2',
-              title: 'Speed Demon',
-              description: 'Completed 50 orders in record time',
-              earnedAt: '2024-01-05T00:00:00Z',
-              icon: 'zap'
-            },
-            {
-              _id: 'ach3',
-              title: 'Customer Favorite',
-              description: 'Received 4.8+ rating from customers',
-              earnedAt: '2023-12-20T00:00:00Z',
-              icon: 'star'
-            }
-          ],
-          monthlyStats: [
-            { month: 'Oct 2023', orders: 42, satisfaction: 4.6, efficiency: 91 },
-            { month: 'Nov 2023', orders: 48, satisfaction: 4.7, efficiency: 93 },
-            { month: 'Dec 2023', orders: 52, satisfaction: 4.8, efficiency: 94 },
-            { month: 'Jan 2024', orders: 14, satisfaction: 4.9, efficiency: 96 }
-          ]
-        }
+          {
+            title: 'Customer Favorite',
+            description: 'Achieved 5-star rating from 20 customers',
+            earnedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10).toISOString(),
+            icon: '⭐'
+          },
+          {
+            title: 'Quality Master',
+            description: 'Maintained 95%+ quality score for 30 days',
+            earnedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 15).toISOString(),
+            icon: '🏆'
+          }
+        ]
+      };
 
-        setPerformance(mockPerformance)
-      } catch (error) {
-        console.error("Error fetching performance data:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load performance data",
-          variant: "destructive"
-        })
-      } finally {
-        setLoading(false)
-      }
+      setPerformance(mockPerformance);
+      setNewGoals(mockPerformance.goals);
+    } catch (error) {
+      console.error('Error fetching performance data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load performance data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
+  };
 
-    fetchPerformance()
-  }, [toast])
+  const handleUpdateGoals = async () => {
+    try {
+      // Mock API call - replace with actual implementation
+      console.log('Updating goals:', newGoals);
+      
+      if (performance) {
+        setPerformance({
+          ...performance,
+          goals: newGoals
+        });
+      }
+
+      toast({
+        title: "Success",
+        description: "Performance goals updated successfully",
+      });
+      
+      setGoalsDialogOpen(false);
+    } catch (error) {
+      console.error('Error updating goals:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update goals",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getProgressColor = (current: number, target: number) => {
+    const percentage = (current / target) * 100;
+    if (percentage >= 100) return 'bg-green-500';
+    if (percentage >= 80) return 'bg-yellow-500';
+    return 'bg-blue-500';
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
+  };
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="h-8 bg-muted rounded w-48 animate-pulse"></div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader>
-                <div className="h-4 bg-muted rounded w-3/4"></div>
-                <div className="h-8 bg-muted rounded w-1/2 mt-2"></div>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
+      <div className="flex items-center justify-center h-64">
+        <RefreshCw className="h-8 w-8 animate-spin" />
       </div>
-    )
+    );
   }
 
-  if (!performance) return null
+  if (!performance) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">No performance data available</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <BarChart3 className="h-8 w-8" />
-          Performance Dashboard
-        </h1>
-        <p className="text-muted-foreground">
-          Track your performance metrics and achievements
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Performance Dashboard</h1>
+          <p className="text-muted-foreground">
+            Track your performance metrics and achievements
+          </p>
+        </div>
+        <Dialog open={goalsDialogOpen} onOpenChange={setGoalsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Target className="h-4 w-4 mr-2" />
+              Update Goals
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Update Performance Goals</DialogTitle>
+              <DialogDescription>
+                Set your targets for the current period
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="ordersTarget">Orders Target</Label>
+                <Input
+                  id="ordersTarget"
+                  type="number"
+                  value={newGoals.ordersTarget}
+                  onChange={(e) => setNewGoals({
+                    ...newGoals,
+                    ordersTarget: parseInt(e.target.value)
+                  })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="revenueTarget">Revenue Target ($)</Label>
+                <Input
+                  id="revenueTarget"
+                  type="number"
+                  value={newGoals.revenueTarget}
+                  onChange={(e) => setNewGoals({
+                    ...newGoals,
+                    revenueTarget: parseInt(e.target.value)
+                  })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="satisfactionTarget">Satisfaction Target</Label>
+                <Input
+                  id="satisfactionTarget"
+                  type="number"
+                  step="0.1"
+                  min="1"
+                  max="5"
+                  value={newGoals.satisfactionTarget}
+                  onChange={(e) => setNewGoals({
+                    ...newGoals,
+                    satisfactionTarget: parseFloat(e.target.value)
+                  })}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setGoalsDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateGoals}>
+                Update Goals
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Performance Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
-              Orders Completed
-            </CardTitle>
-            <CheckCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-              {performance.ordersCompleted}
-            </div>
-            <p className="text-xs text-blue-600 dark:text-blue-400">
-              This month
-            </p>
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="metrics">Detailed Metrics</TabsTrigger>
+          <TabsTrigger value="achievements">Achievements</TabsTrigger>
+        </TabsList>
 
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">
-              Customer Satisfaction
-            </CardTitle>
-            <Star className="h-4 w-4 text-green-600 dark:text-green-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-900 dark:text-green-100">
-              {performance.customerSatisfaction}/5
-            </div>
-            <p className="text-xs text-green-600 dark:text-green-400">
-              Average rating
-            </p>
-          </CardContent>
-        </Card>
+        <TabsContent value="overview" className="space-y-4">
+          {/* Key Performance Indicators */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Orders Completed</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{performance.metrics.ordersCompleted}</div>
+                <div className="flex items-center gap-2 mt-2">
+                  <Progress 
+                    value={(performance.metrics.ordersCompleted / performance.goals.ordersTarget) * 100} 
+                    className="flex-1"
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {performance.goals.ordersTarget}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300">
-              Efficiency Score
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">
-              {performance.efficiency}%
-            </div>
-            <p className="text-xs text-orange-600 dark:text-orange-400">
-              Above target
-            </p>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Revenue Generated</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(performance.metrics.revenue)}</div>
+                <div className="flex items-center gap-2 mt-2">
+                  <Progress 
+                    value={(performance.metrics.revenue / performance.goals.revenueTarget) * 100} 
+                    className="flex-1"
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {formatCurrency(performance.goals.revenueTarget)}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">
-              Quality Score
-            </CardTitle>
-            <Award className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
-              {performance.qualityScore}%
-            </div>
-            <p className="text-xs text-purple-600 dark:text-purple-400">
-              Excellent quality
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Customer Satisfaction</CardTitle>
+                <Star className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{performance.metrics.customerSatisfaction.toFixed(1)}</div>
+                <div className="flex items-center gap-2 mt-2">
+                  <Progress 
+                    value={(performance.metrics.customerSatisfaction / 5) * 100} 
+                    className="flex-1"
+                  />
+                  <span className="text-sm text-muted-foreground">5.0</span>
+                </div>
+              </CardContent>
+            </Card>
 
-      {/* Goals Progress */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
-            Monthly Goals
-          </CardTitle>
-          <CardDescription>
-            Track your progress towards monthly targets
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium">Orders Completed</span>
-                <span className="text-sm text-muted-foreground">
-                  {performance.goals.ordersAchieved} / {performance.goals.ordersTarget}
-                </span>
-              </div>
-              <Progress 
-                value={(performance.goals.ordersAchieved / performance.goals.ordersTarget) * 100} 
-                className="h-2"
-              />
-            </div>
-
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium">Customer Satisfaction</span>
-                <span className="text-sm text-muted-foreground">
-                  {performance.goals.satisfactionAchieved} / {performance.goals.satisfactionTarget}
-                </span>
-              </div>
-              <Progress 
-                value={(performance.goals.satisfactionAchieved / performance.goals.satisfactionTarget) * 100} 
-                className="h-2"
-              />
-            </div>
-
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium">Efficiency Score</span>
-                <span className="text-sm text-muted-foreground">
-                  {performance.goals.efficiencyAchieved}% / {performance.goals.efficiencyTarget}%
-                </span>
-              </div>
-              <Progress 
-                value={(performance.goals.efficiencyAchieved / performance.goals.efficiencyTarget) * 100} 
-                className="h-2"
-              />
-            </div>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Efficiency Score</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{performance.metrics.efficiency}%</div>
+                <div className="flex items-center gap-2 mt-2">
+                  <Progress value={performance.metrics.efficiency} className="flex-1" />
+                  <span className="text-sm text-muted-foreground">100%</span>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Achievements */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Trophy className="h-5 w-5" />
-            Recent Achievements
-          </CardTitle>
-          <CardDescription>
-            Your latest accomplishments and milestones
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            {performance.achievements.map((achievement) => (
-              <div key={achievement._id} className="p-4 border rounded-lg bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950 dark:to-orange-950">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-full">
-                    {achievement.icon === 'trophy' && <Trophy className="h-5 w-5 text-yellow-600" />}
-                    {achievement.icon === 'zap' && <Zap className="h-5 w-5 text-yellow-600" />}
-                    {achievement.icon === 'star' && <Star className="h-5 w-5 text-yellow-600" />}
+          {/* Performance Summary */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Time Metrics
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Average Completion Time</span>
+                  <span className="text-2xl font-bold">{performance.metrics.averageCompletionTime}h</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Hours Worked</span>
+                  <span className="text-2xl font-bold">{performance.metrics.hoursWorked}h</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Productivity Rate</span>
+                  <span className="text-2xl font-bold">
+                    {(performance.metrics.ordersCompleted / performance.metrics.hoursWorked * 8).toFixed(1)}/day
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Award className="h-5 w-5" />
+                  Quality Metrics
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Quality Score</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl font-bold">{performance.metrics.qualityScore}%</span>
+                    <Badge variant={performance.metrics.qualityScore >= 95 ? 'default' : 'secondary'}>
+                      {performance.metrics.qualityScore >= 95 ? 'Excellent' : 'Good'}
+                    </Badge>
                   </div>
-                  <div>
-                    <h4 className="font-semibold">{achievement.title}</h4>
-                    <p className="text-xs text-muted-foreground">
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Customer Rating</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-2xl font-bold">{performance.metrics.customerSatisfaction.toFixed(1)}</span>
+                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Revenue per Order</span>
+                  <span className="text-2xl font-bold">
+                    {formatCurrency(performance.metrics.revenue / performance.metrics.ordersCompleted)}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="metrics" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Goal Progress</CardTitle>
+                <CardDescription>Your progress towards monthly goals</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Orders Completed</span>
+                    <span>{performance.metrics.ordersCompleted} / {performance.goals.ordersTarget}</span>
+                  </div>
+                  <Progress 
+                    value={(performance.metrics.ordersCompleted / performance.goals.ordersTarget) * 100}
+                    className="h-2"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Revenue Target</span>
+                    <span>{formatCurrency(performance.metrics.revenue)} / {formatCurrency(performance.goals.revenueTarget)}</span>
+                  </div>
+                  <Progress 
+                    value={(performance.metrics.revenue / performance.goals.revenueTarget) * 100}
+                    className="h-2"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Customer Satisfaction</span>
+                    <span>{performance.metrics.customerSatisfaction.toFixed(1)} / {performance.goals.satisfactionTarget}</span>
+                  </div>
+                  <Progress 
+                    value={(performance.metrics.customerSatisfaction / performance.goals.satisfactionTarget) * 100}
+                    className="h-2"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Performance Breakdown</CardTitle>
+                <CardDescription>Detailed performance metrics</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-center">
+                  <div className="space-y-1">
+                    <p className="text-2xl font-bold text-blue-600">{performance.metrics.efficiency}%</p>
+                    <p className="text-sm text-muted-foreground">Efficiency</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-2xl font-bold text-green-600">{performance.metrics.qualityScore}%</p>
+                    <p className="text-sm text-muted-foreground">Quality</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-2xl font-bold text-purple-600">{performance.metrics.averageCompletionTime}h</p>
+                    <p className="text-sm text-muted-foreground">Avg Time</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-2xl font-bold text-orange-600">{performance.metrics.hoursWorked}h</p>
+                    <p className="text-sm text-muted-foreground">Hours Worked</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="achievements" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Award className="h-5 w-5" />
+                Recent Achievements
+              </CardTitle>
+              <CardDescription>
+                Your latest accomplishments and milestones
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {performance.achievements.map((achievement, index) => (
+                  <div key={index} className="flex items-center gap-4 p-4 border rounded-lg">
+                    <div className="text-2xl">{achievement.icon}</div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold">{achievement.title}</h3>
+                      <p className="text-sm text-muted-foreground">{achievement.description}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Earned on {new Date(achievement.earnedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Badge variant="secondary">
+                      <Calendar className="h-3 w-3 mr-1" />
                       {new Date(achievement.earnedAt).toLocaleDateString()}
-                    </p>
+                    </Badge>
                   </div>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {achievement.description}
-                </p>
+                ))}
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Monthly Trends */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Monthly Performance Trends
-          </CardTitle>
-          <CardDescription>
-            Your performance over the last few months
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {performance.monthlyStats.map((stat, index) => (
-              <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <p className="font-medium">{stat.month}</p>
-                  <p className="text-sm text-muted-foreground">{stat.orders} orders completed</p>
-                </div>
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="text-center">
-                    <p className="font-medium">{stat.satisfaction}</p>
-                    <p className="text-xs text-muted-foreground">Satisfaction</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="font-medium">{stat.efficiency}%</p>
-                    <p className="text-xs text-muted-foreground">Efficiency</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
-  )
+  );
 }

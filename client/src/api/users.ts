@@ -97,16 +97,14 @@ export const updateUserRole = async (userId: string, role: string) => {
 };
 
 // Description: Update user status (admin only)
-// Endpoint: PUT /api/admin/users/:id
-// Request: { isActive: boolean }
+// Endpoint: PUT /api/admin/users/:id/status
+// Request: { status: string }
 // Response: { success: boolean, user: User, message: string }
 export const updateUserStatus = async (userId: string, status: string) => {
   console.log('updateUserStatus called with ID:', userId, 'and status:', status);
 
-  const isActive = status === 'active';
-
   try {
-    const response = await api.put(`/api/admin/users/${userId}`, { isActive });
+    const response = await api.put(`/api/admin/users/${userId}/status`, { status });
     console.log('updateUserStatus API response:', response.data);
     return response.data;
   } catch (error) {
@@ -148,5 +146,99 @@ export const deleteUser = async (userId: string) => {
   } catch (error) {
     console.error('deleteUser API error:', error);
     throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export interface DetailedUser extends User {
+  firstName: string;
+  lastName: string;
+  invoiceAddress: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+  };
+  paymentAddress: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+    sameAsInvoice: boolean;
+  };
+  preferences: {
+    notifications: {
+      email: boolean;
+      sms: boolean;
+      push: boolean;
+    };
+    communication: {
+      orderUpdates: boolean;
+      promotions: boolean;
+      newsletter: boolean;
+    };
+  };
+  department?: string;
+  specializations?: string[];
+  addOnCapabilities?: string[];
+  employmentStartDate?: string;
+  employmentEndDate?: string;
+  skills?: Array<{
+    name: string;
+    level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  }>;
+  orders: Array<{
+    _id: string;
+    orderNumber: string;
+    status: string;
+    totalCost: number;
+    createdAt: string;
+    deviceBrand: string;
+    deviceModel: string;
+  }>;
+  orderStats: {
+    totalOrders: number;
+    totalSpent: number;
+    avgOrderValue: number;
+    completedOrders: number;
+    pendingOrders: number;
+    inProgressOrders: number;
+  };
+  paymentHistory: Array<{
+    _id: string;
+    orderId: string;
+    amount: number;
+    status: string;
+    method: string;
+    createdAt: string;
+    transactionId: string;
+  }>;
+  customerGroup: string;
+  activityLog: Array<{
+    _id: string;
+    action: string;
+    description: string;
+    ipAddress: string;
+    userAgent: string;
+    timestamp: string;
+  }>;
+  lastActivity: string;
+}
+
+// Description: Get detailed user information (admin only)
+// Endpoint: GET /api/admin/users/:id/details
+// Request: {}
+// Response: { success: boolean, user: DetailedUser }
+export const getUserDetails = async (userId: string) => {
+  console.log('getUserDetails called with ID:', userId);
+
+  try {
+    const response = await api.get(`/api/admin/users/${userId}/details`);
+    console.log('getUserDetails API response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('getUserDetails API error:', error);
+    throw new Error(error?.response?.data?.message || error.message);
   }
 };

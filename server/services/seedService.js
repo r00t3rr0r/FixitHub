@@ -6,683 +6,884 @@ const Device = require('../models/Device');
 const Product = require('../models/Product');
 const { BlogPost, BlogCategory, BlogTag } = require('../models/BlogPost');
 const FAQ = require('../models/FAQ');
-const { LayoutTemplate } = require('../models/Homepage');
-const { hashPassword } = require('../utils/password');
+const { HomepageSection, ContentBlock, LayoutTemplate } = require('../models/Homepage');
+const Invoice = require('../models/Invoice');
+const { generatePasswordHash } = require('../utils/password');
 
 class SeedService {
-  // Seed admin user
-  static async seedAdmin() {
+  static async seedAdminUser() {
     try {
-      const existingAdmin = await User.findOne({ role: 'admin' });
+      console.log('SeedService.seedAdminUser: Starting admin user seeding...');
+      
+      // Check if admin user already exists
+      const existingAdmin = await User.findOne({ email: 'admin@example.com' });
       if (existingAdmin) {
-        return { success: true, message: 'Admin user already exists' };
+        console.log('SeedService.seedAdminUser: Admin user already exists, updating password...');
+        // Update the password to ensure it's correct
+        existingAdmin.password = await generatePasswordHash('admin123');
+        await existingAdmin.save();
+        console.log('SeedService.seedAdminUser: Admin password updated successfully');
+        return existingAdmin;
       }
 
-      const hashedPassword = await hashPassword('admin123');
-      const admin = new User({
-        name: 'System Admin',
-        email: 'admin@fixithub.com',
-        password: hashedPassword,
+      console.log('SeedService.seedAdminUser: Creating new admin user...');
+      const adminPassword = await generatePasswordHash('admin123');
+      
+      const adminUser = new User({
+        email: 'admin@example.com',
+        password: adminPassword,
+        firstName: 'Admin',
+        lastName: 'User',
+        name: 'Admin User',
+        phone: '+1-555-0001',
         role: 'admin',
-        phone: '+1234567890',
-        address: {
-          street: '123 Admin Street',
-          city: 'Admin City',
-          state: 'Admin State',
-          zipCode: '12345',
-          country: 'USA'
-        }
+        department: 'Administration',
+        specializations: ['System Management', 'User Management'],
+        addOnCapabilities: ['All Services'],
+        employmentStartDate: new Date('2023-01-01'),
+        skills: [
+          { name: 'System Administration', level: 'expert' },
+          { name: 'User Management', level: 'expert' },
+          { name: 'Analytics', level: 'advanced' }
+        ],
+        isActive: true,
+        avatar: 'https://via.placeholder.com/150x150/dc2626/ffffff?text=AU'
       });
 
-      await admin.save();
-      return { success: true, message: 'Admin user created successfully' };
+      await adminUser.save();
+      console.log('SeedService.seedAdminUser: Admin user created successfully with ID:', adminUser._id);
+      return adminUser;
     } catch (error) {
-      throw new Error(`Failed to seed admin user: ${error.message}`);
+      console.error('SeedService.seedAdminUser: Error creating admin user:', error);
+      throw error;
     }
   }
 
-  // Seed services
+  static async seedTestUsers() {
+    try {
+      console.log('SeedService.seedTestUsers: Starting test users seeding...');
+      
+      const testUsers = [
+        {
+          email: 'customer@example.com',
+          password: 'password123',
+          firstName: 'John',
+          lastName: 'Doe',
+          name: 'John Doe',
+          phone: '+1-555-0002',
+          role: 'customer',
+          avatar: 'https://via.placeholder.com/150x150/3b82f6/ffffff?text=JD'
+        },
+        {
+          email: 'staff@example.com',
+          password: 'password123',
+          firstName: 'Jane',
+          lastName: 'Smith',
+          name: 'Jane Smith',
+          phone: '+1-555-0003',
+          role: 'staff',
+          department: 'Technical',
+          specializations: ['iPhone Repair', 'Samsung Repair', 'Screen Replacement'],
+          addOnCapabilities: ['Screen Protector Installation', 'Data Transfer', 'Cleaning'],
+          employmentStartDate: new Date('2023-02-01'),
+          skills: [
+            { name: 'Mobile Repair', level: 'expert' },
+            { name: 'Screen Replacement', level: 'advanced' },
+            { name: 'Data Recovery', level: 'intermediate' }
+          ],
+          isActive: true,
+          avatar: 'https://via.placeholder.com/150x150/10b981/ffffff?text=JS'
+        }
+      ];
+
+      const createdUsers = [];
+
+      for (const userData of testUsers) {
+        console.log(`SeedService.seedTestUsers: Processing user ${userData.email}...`);
+        
+        // Check if user already exists
+        const existingUser = await User.findOne({ email: userData.email });
+        if (existingUser) {
+          console.log(`SeedService.seedTestUsers: User ${userData.email} already exists, updating password...`);
+          // Update the password to ensure it's correct
+          existingUser.password = await generatePasswordHash(userData.password);
+          await existingUser.save();
+          console.log(`SeedService.seedTestUsers: User ${userData.email} password updated successfully`);
+          createdUsers.push(existingUser);
+          continue;
+        }
+
+        console.log(`SeedService.seedTestUsers: Creating new user ${userData.email}...`);
+        const hashedPassword = await generatePasswordHash(userData.password);
+        
+        const user = new User({
+          ...userData,
+          password: hashedPassword
+        });
+
+        await user.save();
+        console.log(`SeedService.seedTestUsers: User ${userData.email} created successfully with ID:`, user._id);
+        createdUsers.push(user);
+      }
+
+      console.log('SeedService.seedTestUsers: All test users processed successfully');
+      return createdUsers;
+    } catch (error) {
+      console.error('SeedService.seedTestUsers: Error creating test users:', error);
+      throw error;
+    }
+  }
+
   static async seedServices() {
     try {
+      console.log('SeedService.seedServices: Starting services seeding...');
+      
       const existingServices = await Service.countDocuments();
       if (existingServices > 0) {
-        return { success: true, message: 'Services already exist' };
+        console.log('SeedService.seedServices: Services already exist, skipping...');
+        return await Service.find();
       }
 
       const services = [
         {
           name: 'Screen Replacement',
-          description: 'Professional screen replacement for smartphones and tablets',
+          description: 'Professional screen replacement for cracked or damaged displays',
+          category: 'Repair',
           price: 149.99,
-          estimatedTime: '2-3 hours',
-          category: 'Display',
-          deviceTypes: ['smartphone', 'tablet'],
-          popularity: 95,
-          isActive: true
+          estimatedTime: 60,
+          deviceTypes: ['iPhone', 'Samsung', 'iPad'],
+          isActive: true,
+          knowledgeBaseArticles: []
         },
         {
           name: 'Battery Replacement',
-          description: 'High-quality battery replacement with warranty',
+          description: 'Replace old or degraded batteries to restore device performance',
+          category: 'Repair',
           price: 89.99,
-          estimatedTime: '1-2 hours',
-          category: 'Power',
-          deviceTypes: ['smartphone', 'tablet', 'laptop'],
-          popularity: 88,
-          isActive: true
+          estimatedTime: 45,
+          deviceTypes: ['iPhone', 'Samsung', 'MacBook'],
+          isActive: true,
+          knowledgeBaseArticles: []
         },
         {
           name: 'Water Damage Repair',
-          description: 'Complete water damage assessment and repair',
+          description: 'Comprehensive water damage assessment and repair service',
+          category: 'Repair',
           price: 199.99,
-          estimatedTime: '1-2 days',
-          category: 'Liquid Damage',
-          deviceTypes: ['smartphone', 'tablet'],
-          popularity: 75,
-          isActive: true
+          estimatedTime: 120,
+          deviceTypes: ['iPhone', 'Samsung', 'iPad'],
+          isActive: true,
+          knowledgeBaseArticles: []
+        },
+        {
+          name: 'Data Recovery',
+          description: 'Professional data recovery from damaged or corrupted devices',
+          category: 'Data',
+          price: 299.99,
+          estimatedTime: 180,
+          deviceTypes: ['iPhone', 'Samsung', 'MacBook', 'iPad'],
+          isActive: true,
+          knowledgeBaseArticles: []
         },
         {
           name: 'Charging Port Repair',
-          description: 'Fix charging port issues and connectivity problems',
+          description: 'Fix charging port issues and connection problems',
+          category: 'Repair',
           price: 79.99,
-          estimatedTime: '2-4 hours',
-          category: 'Connectivity',
-          deviceTypes: ['smartphone', 'tablet'],
-          popularity: 82,
-          isActive: true
-        },
-        {
-          name: 'Camera Repair',
-          description: 'Camera module replacement and repair',
-          price: 129.99,
-          estimatedTime: '2-3 hours',
-          category: 'Camera',
-          deviceTypes: ['smartphone', 'tablet'],
-          popularity: 70,
-          isActive: true
-        },
-        {
-          name: 'Speaker Repair',
-          description: 'Audio system repair and speaker replacement',
-          price: 69.99,
-          estimatedTime: '1-2 hours',
-          category: 'Audio',
-          deviceTypes: ['smartphone', 'tablet'],
-          popularity: 65,
-          isActive: true
+          estimatedTime: 30,
+          deviceTypes: ['iPhone', 'Samsung'],
+          isActive: true,
+          knowledgeBaseArticles: []
         }
       ];
 
-      await Service.insertMany(services);
-      return { success: true, message: 'Services seeded successfully' };
+      const createdServices = await Service.insertMany(services);
+      console.log('SeedService.seedServices: Services created successfully, count:', createdServices.length);
+      return createdServices;
     } catch (error) {
-      throw new Error(`Failed to seed services: ${error.message}`);
+      console.error('SeedService.seedServices: Error creating services:', error);
+      throw error;
     }
   }
 
-  // Seed add-on services
   static async seedAddOnServices() {
     try {
+      console.log('SeedService.seedAddOnServices: Starting add-on services seeding...');
+      
       const existingAddOns = await AddOnService.countDocuments();
       if (existingAddOns > 0) {
-        return { success: true, message: 'Add-on services already exist' };
+        console.log('SeedService.seedAddOnServices: Add-on services already exist, skipping...');
+        return await AddOnService.find();
       }
 
       const addOnServices = [
         {
           name: 'Screen Protector Installation',
-          description: 'Premium tempered glass screen protector installation',
-          price: 24.99,
+          description: 'Professional installation of tempered glass screen protector',
           category: 'Protection',
-          estimatedTime: '15 minutes',
-          isActive: true,
-          popularity: 90
-        },
-        {
-          name: 'Phone Case',
-          description: 'Protective case for your device',
-          price: 19.99,
-          category: 'Protection',
-          estimatedTime: '5 minutes',
-          isActive: true,
-          popularity: 85
-        },
-        {
-          name: 'Data Backup Service',
-          description: 'Complete data backup and transfer service',
-          price: 39.99,
-          category: 'Data',
-          estimatedTime: '30 minutes',
-          isActive: true,
-          popularity: 75
-        },
-        {
-          name: 'Express Service',
-          description: 'Priority repair service - completed within 4 hours',
-          price: 49.99,
-          category: 'Service',
-          estimatedTime: '0 minutes',
-          isActive: true,
-          popularity: 60
-        },
-        {
-          name: 'Extended Warranty',
-          description: '6-month extended warranty on repairs',
           price: 29.99,
-          category: 'Warranty',
-          estimatedTime: '0 minutes',
+          estimatedTime: 10,
+          deviceTypes: ['iPhone', 'Samsung', 'iPad'],
           isActive: true,
-          popularity: 55
+          compatibleServices: [],
+          inventoryRequired: true
         },
         {
           name: 'Device Cleaning',
-          description: 'Professional device cleaning and sanitization',
-          price: 14.99,
+          description: 'Thorough cleaning and sanitization of your device',
           category: 'Maintenance',
-          estimatedTime: '10 minutes',
+          price: 19.99,
+          estimatedTime: 15,
+          deviceTypes: ['iPhone', 'Samsung', 'iPad', 'MacBook'],
           isActive: true,
-          popularity: 70
+          compatibleServices: [],
+          inventoryRequired: false
+        },
+        {
+          name: 'Data Transfer',
+          description: 'Transfer data from old device to repaired device',
+          category: 'Data',
+          price: 49.99,
+          estimatedTime: 30,
+          deviceTypes: ['iPhone', 'Samsung', 'iPad'],
+          isActive: true,
+          compatibleServices: [],
+          inventoryRequired: false
+        },
+        {
+          name: 'Express Service',
+          description: 'Priority repair service with faster turnaround time',
+          category: 'Service',
+          price: 99.99,
+          estimatedTime: 0,
+          deviceTypes: ['iPhone', 'Samsung', 'iPad', 'MacBook'],
+          isActive: true,
+          compatibleServices: [],
+          inventoryRequired: false
+        },
+        {
+          name: 'Extended Warranty',
+          description: '6-month extended warranty on repair work',
+          category: 'Warranty',
+          price: 79.99,
+          estimatedTime: 0,
+          deviceTypes: ['iPhone', 'Samsung', 'iPad', 'MacBook'],
+          isActive: true,
+          compatibleServices: [],
+          inventoryRequired: false
         }
       ];
 
-      await AddOnService.insertMany(addOnServices);
-      return { success: true, message: 'Add-on services seeded successfully' };
+      const createdAddOns = await AddOnService.insertMany(addOnServices);
+      console.log('SeedService.seedAddOnServices: Add-on services created successfully, count:', createdAddOns.length);
+      return createdAddOns;
     } catch (error) {
-      throw new Error(`Failed to seed add-on services: ${error.message}`);
+      console.error('SeedService.seedAddOnServices: Error creating add-on services:', error);
+      throw error;
     }
   }
 
-  // Seed inventory
   static async seedInventory() {
     try {
+      console.log('SeedService.seedInventory: Starting inventory seeding...');
+      
       const existingInventory = await Inventory.countDocuments();
       if (existingInventory > 0) {
-        return { success: true, message: 'Inventory already exists' };
+        console.log('SeedService.seedInventory: Inventory already exists, skipping...');
+        return await Inventory.find();
       }
 
       const inventoryItems = [
         {
           name: 'iPhone 13 Screen Assembly',
-          description: 'Complete LCD screen assembly for iPhone 13',
+          description: 'Original quality screen assembly for iPhone 13',
           category: 'Screens',
           manufacturer: 'Apple',
-          brand: 'iPhone',
+          brand: 'Apple',
           versions: [
             {
               type: 'Original',
               quantity: 25,
-              minimumStock: 5,
+              minStockLevel: 5,
               reorderLevel: 10,
-              unitCost: 89.99,
-              sellingPrice: 149.99,
-              storageLocation: 'A1-B2',
-              supplierInfo: 'Apple Parts Direct',
+              unitCost: 120.00,
+              sellingPrice: 180.00,
+              storageLocation: 'A1-01',
+              supplierInfo: 'Apple Authorized Distributor',
               leadTime: 7,
               status: 'active'
             },
             {
               type: 'Efficient',
               quantity: 50,
-              minimumStock: 10,
+              minStockLevel: 10,
               reorderLevel: 20,
-              unitCost: 45.99,
-              sellingPrice: 99.99,
-              storageLocation: 'A1-B3',
-              supplierInfo: 'TechParts Plus',
-              leadTime: 3,
+              unitCost: 80.00,
+              sellingPrice: 120.00,
+              storageLocation: 'A1-02',
+              supplierInfo: 'Certified Parts Supplier',
+              leadTime: 5,
               status: 'active'
             }
           ]
         },
         {
           name: 'Samsung Galaxy S21 Battery',
-          description: 'Lithium-ion battery for Samsung Galaxy S21',
+          description: 'High-capacity battery for Samsung Galaxy S21',
           category: 'Batteries',
           manufacturer: 'Samsung',
-          brand: 'Galaxy',
+          brand: 'Samsung',
           versions: [
             {
               type: 'Original',
               quantity: 30,
-              minimumStock: 8,
+              minStockLevel: 8,
               reorderLevel: 15,
-              unitCost: 29.99,
-              sellingPrice: 59.99,
-              storageLocation: 'B2-C1',
-              supplierInfo: 'Samsung Parts',
-              leadTime: 5,
+              unitCost: 45.00,
+              sellingPrice: 70.00,
+              storageLocation: 'B2-01',
+              supplierInfo: 'Samsung Parts Division',
+              leadTime: 10,
+              status: 'active'
+            }
+          ]
+        },
+        {
+          name: 'Tempered Glass Screen Protector',
+          description: 'Universal tempered glass screen protector',
+          category: 'Accessories',
+          manufacturer: 'Generic',
+          brand: 'FixitHub',
+          versions: [
+            {
+              type: 'Standard',
+              quantity: 100,
+              minStockLevel: 20,
+              reorderLevel: 40,
+              unitCost: 2.50,
+              sellingPrice: 15.99,
+              storageLocation: 'C3-01',
+              supplierInfo: 'Bulk Accessories Supplier',
+              leadTime: 3,
               status: 'active'
             }
           ]
         }
       ];
 
-      await Inventory.insertMany(inventoryItems);
-      return { success: true, message: 'Inventory seeded successfully' };
+      const createdInventory = await Inventory.insertMany(inventoryItems);
+      console.log('SeedService.seedInventory: Inventory created successfully, count:', createdInventory.length);
+      return createdInventory;
     } catch (error) {
-      throw new Error(`Failed to seed inventory: ${error.message}`);
+      console.error('SeedService.seedInventory: Error creating inventory:', error);
+      throw error;
     }
   }
 
-  // Seed devices
   static async seedDevices() {
     try {
+      console.log('SeedService.seedDevices: Starting devices seeding...');
+      
       const existingDevices = await Device.countDocuments();
       if (existingDevices > 0) {
-        return { success: true, message: 'Devices already exist' };
+        console.log('SeedService.seedDevices: Devices already exist, skipping...');
+        return await Device.find();
       }
 
       const devices = [
         {
           brand: 'Apple',
-          name: 'iPhone',
           models: [
-            { name: 'iPhone 14 Pro Max', releaseYear: 2022, isActive: true },
-            { name: 'iPhone 14 Pro', releaseYear: 2022, isActive: true },
-            { name: 'iPhone 14', releaseYear: 2022, isActive: true },
-            { name: 'iPhone 13 Pro Max', releaseYear: 2021, isActive: true },
-            { name: 'iPhone 13 Pro', releaseYear: 2021, isActive: true },
-            { name: 'iPhone 13', releaseYear: 2021, isActive: true },
-            { name: 'iPhone 12 Pro Max', releaseYear: 2020, isActive: true },
-            { name: 'iPhone 12 Pro', releaseYear: 2020, isActive: true },
-            { name: 'iPhone 12', releaseYear: 2020, isActive: true }
+            { name: 'iPhone 14 Pro Max', type: 'Smartphone', releaseYear: 2022 },
+            { name: 'iPhone 14 Pro', type: 'Smartphone', releaseYear: 2022 },
+            { name: 'iPhone 14', type: 'Smartphone', releaseYear: 2022 },
+            { name: 'iPhone 13 Pro Max', type: 'Smartphone', releaseYear: 2021 },
+            { name: 'iPhone 13 Pro', type: 'Smartphone', releaseYear: 2021 },
+            { name: 'iPhone 13', type: 'Smartphone', releaseYear: 2021 },
+            { name: 'iPad Pro 12.9"', type: 'Tablet', releaseYear: 2022 },
+            { name: 'MacBook Pro 16"', type: 'Laptop', releaseYear: 2023 }
           ]
         },
         {
           brand: 'Samsung',
-          name: 'Galaxy',
           models: [
-            { name: 'Galaxy S23 Ultra', releaseYear: 2023, isActive: true },
-            { name: 'Galaxy S23+', releaseYear: 2023, isActive: true },
-            { name: 'Galaxy S23', releaseYear: 2023, isActive: true },
-            { name: 'Galaxy S22 Ultra', releaseYear: 2022, isActive: true },
-            { name: 'Galaxy S22+', releaseYear: 2022, isActive: true },
-            { name: 'Galaxy S22', releaseYear: 2022, isActive: true },
-            { name: 'Galaxy Note 20 Ultra', releaseYear: 2020, isActive: true }
+            { name: 'Galaxy S23 Ultra', type: 'Smartphone', releaseYear: 2023 },
+            { name: 'Galaxy S23+', type: 'Smartphone', releaseYear: 2023 },
+            { name: 'Galaxy S23', type: 'Smartphone', releaseYear: 2023 },
+            { name: 'Galaxy S22 Ultra', type: 'Smartphone', releaseYear: 2022 },
+            { name: 'Galaxy Tab S8', type: 'Tablet', releaseYear: 2022 }
           ]
         },
         {
           brand: 'Google',
-          name: 'Pixel',
           models: [
-            { name: 'Pixel 7 Pro', releaseYear: 2022, isActive: true },
-            { name: 'Pixel 7', releaseYear: 2022, isActive: true },
-            { name: 'Pixel 6 Pro', releaseYear: 2021, isActive: true },
-            { name: 'Pixel 6', releaseYear: 2021, isActive: true }
+            { name: 'Pixel 7 Pro', type: 'Smartphone', releaseYear: 2022 },
+            { name: 'Pixel 7', type: 'Smartphone', releaseYear: 2022 },
+            { name: 'Pixel 6 Pro', type: 'Smartphone', releaseYear: 2021 }
           ]
         }
       ];
 
-      await Device.insertMany(devices);
-      return { success: true, message: 'Devices seeded successfully' };
+      const createdDevices = await Device.insertMany(devices);
+      console.log('SeedService.seedDevices: Devices created successfully, count:', createdDevices.length);
+      return createdDevices;
     } catch (error) {
-      throw new Error(`Failed to seed devices: ${error.message}`);
+      console.error('SeedService.seedDevices: Error creating devices:', error);
+      throw error;
     }
   }
 
-  // Seed products
   static async seedProducts() {
     try {
+      console.log('SeedService.seedProducts: Starting products seeding...');
+      
       const existingProducts = await Product.countDocuments();
       if (existingProducts > 0) {
-        return { success: true, message: 'Products already exist' };
+        console.log('SeedService.seedProducts: Products already exist, skipping...');
+        return await Product.find();
       }
 
       const products = [
         {
-          name: 'Premium Screen Protector',
-          description: 'Tempered glass screen protector with 9H hardness',
-          price: 24.99,
-          category: 'Accessories',
-          brand: 'TechGuard',
-          images: ['https://via.placeholder.com/300x300/3b82f6/ffffff?text=Screen+Protector'],
+          name: 'iPhone 13 Pro Case',
+          description: 'Premium protective case for iPhone 13 Pro',
+          category: 'Cases',
+          brand: 'FixitHub',
+          price: 39.99,
+          costPrice: 15.00,
+          stock: 75,
+          minStock: 10,
+          images: ['https://via.placeholder.com/300x300/3b82f6/ffffff?text=Case'],
           specifications: {
-            material: 'Tempered Glass',
-            thickness: '0.33mm',
-            hardness: '9H'
+            material: 'TPU + PC',
+            color: 'Black',
+            weight: '50g'
           },
-          compatibility: ['iPhone', 'Samsung Galaxy'],
-          inStock: true,
-          stockQuantity: 150,
-          isActive: true
+          tags: ['iPhone', 'Case', 'Protection'],
+          isActive: true,
+          isFeatured: true
         },
         {
           name: 'Wireless Charging Pad',
           description: 'Fast wireless charging pad compatible with all Qi devices',
-          price: 39.99,
           category: 'Chargers',
-          brand: 'PowerTech',
-          images: ['https://via.placeholder.com/300x300/10b981/ffffff?text=Wireless+Charger'],
+          brand: 'FixitHub',
+          price: 49.99,
+          costPrice: 20.00,
+          stock: 50,
+          minStock: 8,
+          images: ['https://via.placeholder.com/300x300/10b981/ffffff?text=Charger'],
           specifications: {
             power: '15W',
             compatibility: 'Qi-enabled devices',
             cable: 'USB-C included'
           },
-          compatibility: ['iPhone', 'Samsung Galaxy', 'Google Pixel'],
-          inStock: true,
-          stockQuantity: 75,
-          isActive: true
+          tags: ['Wireless', 'Charging', 'Fast'],
+          isActive: true,
+          isFeatured: true
         },
         {
-          name: 'Phone Repair Tool Kit',
-          description: 'Professional repair tool kit with precision screwdrivers',
-          price: 29.99,
-          category: 'Tools',
-          brand: 'RepairPro',
-          images: ['https://via.placeholder.com/300x300/8b5cf6/ffffff?text=Tool+Kit'],
+          name: 'Screen Cleaning Kit',
+          description: 'Professional screen cleaning kit with microfiber cloth',
+          category: 'Accessories',
+          brand: 'FixitHub',
+          price: 19.99,
+          costPrice: 5.00,
+          stock: 100,
+          minStock: 15,
+          images: ['https://via.placeholder.com/300x300/f59e0b/ffffff?text=Kit'],
           specifications: {
-            pieces: '32 pieces',
-            case: 'Magnetic case included',
-            warranty: '1 year'
+            includes: 'Cleaning solution, microfiber cloth, brush',
+            size: 'Compact travel size'
           },
-          compatibility: ['All devices'],
-          inStock: true,
-          stockQuantity: 50,
-          isActive: true
-        }
-      ];
-
-      await Product.insertMany(products);
-      return { success: true, message: 'Products seeded successfully' };
-    } catch (error) {
-      throw new Error(`Failed to seed products: ${error.message}`);
-    }
-  }
-
-  // Seed blog data
-  static async seedBlogData() {
-    try {
-      const existingPosts = await BlogPost.countDocuments();
-      if (existingPosts > 0) {
-        return { success: true, message: 'Blog data already exists' };
-      }
-
-      // Create categories
-      const categories = await BlogCategory.insertMany([
-        { name: 'Repair Tips', slug: 'repair-tips', description: 'Tips and tricks for device repairs' },
-        { name: 'Device Care', slug: 'device-care', description: 'How to take care of your devices' },
-        { name: 'News', slug: 'news', description: 'Latest news in tech repair industry' }
-      ]);
-
-      // Create tags
-      const tags = await BlogTag.insertMany([
-        { name: 'iPhone', slug: 'iphone' },
-        { name: 'Android', slug: 'android' },
-        { name: 'Screen Repair', slug: 'screen-repair' },
-        { name: 'Battery', slug: 'battery' },
-        { name: 'Water Damage', slug: 'water-damage' }
-      ]);
-
-      // Get admin user for author
-      const admin = await User.findOne({ role: 'admin' });
-
-      // Create blog posts
-      const blogPosts = [
-        {
-          title: 'How to Prevent Water Damage to Your Phone',
-          slug: 'prevent-water-damage-phone',
-          excerpt: 'Learn essential tips to protect your smartphone from water damage and what to do if it gets wet.',
-          content: 'Water damage is one of the most common causes of smartphone failure. Here are essential tips to protect your device...',
-          featuredImage: 'https://via.placeholder.com/600x400/3b82f6/ffffff?text=Water+Damage+Prevention',
-          category: categories[1]._id,
-          tags: [tags[4]._id],
-          author: admin._id,
-          status: 'published',
-          publishedAt: new Date(),
-          readTime: 5,
-          views: 1250,
-          likes: 89,
-          isFeatured: true
-        },
-        {
-          title: 'Signs Your Phone Battery Needs Replacement',
-          slug: 'phone-battery-replacement-signs',
-          excerpt: 'Discover the warning signs that indicate your phone battery is failing and needs professional replacement.',
-          content: 'Phone batteries degrade over time, but knowing when to replace them can save you from unexpected shutdowns...',
-          featuredImage: 'https://via.placeholder.com/600x400/10b981/ffffff?text=Battery+Replacement',
-          category: categories[0]._id,
-          tags: [tags[3]._id],
-          author: admin._id,
-          status: 'published',
-          publishedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-          readTime: 4,
-          views: 980,
-          likes: 67,
-          isFeatured: true
-        },
-        {
-          title: 'Professional Screen Repair vs DIY: Making the Right Choice',
-          slug: 'professional-vs-diy-screen-repair',
-          excerpt: 'Compare the pros and cons of professional screen repair versus DIY solutions to make an informed decision.',
-          content: 'When your phone screen cracks, you face a choice: attempt a DIY repair or seek professional help...',
-          featuredImage: 'https://via.placeholder.com/600x400/8b5cf6/ffffff?text=Screen+Repair',
-          category: categories[0]._id,
-          tags: [tags[2]._id],
-          author: admin._id,
-          status: 'published',
-          publishedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
-          readTime: 6,
-          views: 756,
-          likes: 45,
+          tags: ['Cleaning', 'Maintenance', 'Kit'],
+          isActive: true,
           isFeatured: false
         }
       ];
 
-      await BlogPost.insertMany(blogPosts);
-      return { success: true, message: 'Blog data seeded successfully' };
+      const createdProducts = await Product.insertMany(products);
+      console.log('SeedService.seedProducts: Products created successfully, count:', createdProducts.length);
+      return createdProducts;
     } catch (error) {
-      throw new Error(`Failed to seed blog data: ${error.message}`);
+      console.error('SeedService.seedProducts: Error creating products:', error);
+      throw error;
     }
   }
 
-  // Seed FAQ data
-  static async seedFAQData() {
+  static async seedBlogData() {
     try {
+      console.log('SeedService.seedBlogData: Starting blog data seeding...');
+      
+      const existingPosts = await BlogPost.countDocuments();
+      if (existingPosts > 0) {
+        console.log('SeedService.seedBlogData: Blog posts already exist, skipping...');
+        return await BlogPost.find();
+      }
+
+      const blogPosts = [
+        {
+          title: 'How to Extend Your Phone Battery Life',
+          slug: 'extend-phone-battery-life',
+          content: 'Learn practical tips to maximize your smartphone battery life and avoid frequent replacements...',
+          excerpt: 'Discover proven methods to extend your phone battery life and reduce the need for repairs.',
+          author: 'FixitHub Team',
+          status: 'published',
+          categories: ['Tips', 'Battery'],
+          tags: ['battery', 'maintenance', 'tips'],
+          featuredImage: 'https://via.placeholder.com/800x400/3b82f6/ffffff?text=Battery+Tips',
+          readTime: 5,
+          views: 1250,
+          publishedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+        },
+        {
+          title: 'Signs Your Phone Screen Needs Replacement',
+          slug: 'phone-screen-replacement-signs',
+          content: 'Identify the warning signs that indicate your phone screen needs professional replacement...',
+          excerpt: 'Learn to recognize when your phone screen damage requires professional attention.',
+          author: 'Tech Expert',
+          status: 'published',
+          categories: ['Repair', 'Screen'],
+          tags: ['screen', 'repair', 'damage'],
+          featuredImage: 'https://via.placeholder.com/800x400/ef4444/ffffff?text=Screen+Repair',
+          readTime: 3,
+          views: 890,
+          publishedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
+        },
+        {
+          title: 'Water Damage: What to Do Immediately',
+          slug: 'water-damage-immediate-steps',
+          content: 'Quick action steps to take when your device gets water damaged to minimize repair costs...',
+          excerpt: 'Essential first aid steps for water-damaged devices to prevent further damage.',
+          author: 'Repair Specialist',
+          status: 'published',
+          categories: ['Emergency', 'Water Damage'],
+          tags: ['water damage', 'emergency', 'first aid'],
+          featuredImage: 'https://via.placeholder.com/800x400/06b6d4/ffffff?text=Water+Damage',
+          readTime: 4,
+          views: 2100,
+          publishedAt: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000)
+        }
+      ];
+
+      const createdPosts = await BlogPost.insertMany(blogPosts);
+      console.log('SeedService.seedBlogData: Blog posts created successfully, count:', createdPosts.length);
+      return createdPosts;
+    } catch (error) {
+      console.error('SeedService.seedBlogData: Error creating blog posts:', error);
+      throw error;
+    }
+  }
+
+  static async seedFAQs() {
+    try {
+      console.log('SeedService.seedFAQs: Starting FAQs seeding...');
+      
       const existingFAQs = await FAQ.countDocuments();
       if (existingFAQs > 0) {
-        return { success: true, message: 'FAQ data already exists' };
+        console.log('SeedService.seedFAQs: FAQs already exist, skipping...');
+        return await FAQ.find();
       }
 
       const faqs = [
         {
-          question: 'How long does a typical phone repair take?',
-          answer: 'Most common repairs like screen replacement or battery replacement take 1-3 hours. More complex issues like water damage can take 1-2 days.',
-          category: 'General',
-          isActive: true,
-          helpfulCount: 45
+          question: 'How long does a typical screen repair take?',
+          answer: 'Most screen repairs are completed within 1-2 hours. However, the exact time depends on the device model and availability of parts.',
+          category: 'Repair Time',
+          tags: ['screen repair', 'timing', 'duration'],
+          isPublished: true,
+          helpfulCount: 45,
+          order: 1
         },
         {
-          question: 'Do you provide warranty on repairs?',
-          answer: 'Yes, we provide a 90-day warranty on all repairs. This covers any issues related to the repair work performed.',
+          question: 'Do you offer warranty on repairs?',
+          answer: 'Yes, we provide a 90-day warranty on all repair work. This covers any defects in parts or workmanship.',
           category: 'Warranty',
-          isActive: true,
-          helpfulCount: 38
+          tags: ['warranty', 'guarantee', 'coverage'],
+          isPublished: true,
+          helpfulCount: 38,
+          order: 2
         },
         {
-          question: 'What should I do if my phone gets water damage?',
-          answer: 'Turn off your device immediately, do not charge it, and bring it to us as soon as possible. The faster we can assess the damage, the better the chances of recovery.',
-          category: 'Emergency',
-          isActive: true,
-          helpfulCount: 52
+          question: 'Can you recover data from a water-damaged phone?',
+          answer: 'In many cases, yes. Our data recovery success rate for water-damaged devices is approximately 85%. We recommend bringing your device in as soon as possible.',
+          category: 'Data Recovery',
+          tags: ['water damage', 'data recovery', 'success rate'],
+          isPublished: true,
+          helpfulCount: 62,
+          order: 3
         },
         {
-          question: 'Do I need to backup my data before repair?',
-          answer: 'We recommend backing up your data before any repair. While we take care to preserve your data, repairs can sometimes result in data loss.',
-          category: 'Data',
-          isActive: true,
-          helpfulCount: 29
+          question: 'What payment methods do you accept?',
+          answer: 'We accept cash, credit cards (Visa, MasterCard, American Express), debit cards, and PayPal. Payment is due upon completion of the repair.',
+          category: 'Payment',
+          tags: ['payment', 'methods', 'billing'],
+          isPublished: true,
+          helpfulCount: 29,
+          order: 4
+        },
+        {
+          question: 'Do I need an appointment for a repair?',
+          answer: 'While appointments are not required, we recommend scheduling one to ensure faster service. Walk-ins are welcome but may experience longer wait times.',
+          category: 'Scheduling',
+          tags: ['appointment', 'scheduling', 'walk-in'],
+          isPublished: true,
+          helpfulCount: 33,
+          order: 5
         }
       ];
 
-      await FAQ.insertMany(faqs);
-      return { success: true, message: 'FAQ data seeded successfully' };
+      const createdFAQs = await FAQ.insertMany(faqs);
+      console.log('SeedService.seedFAQs: FAQs created successfully, count:', createdFAQs.length);
+      return createdFAQs;
     } catch (error) {
-      throw new Error(`Failed to seed FAQ data: ${error.message}`);
+      console.error('SeedService.seedFAQs: Error creating FAQs:', error);
+      throw error;
     }
   }
 
-  // Seed homepage template
+  static async seedFAQData() {
+    return await this.seedFAQs();
+  }
+
   static async seedHomepageTemplate() {
     try {
-      const existingTemplate = await LayoutTemplate.findOne({ isDefault: true });
-      if (existingTemplate) {
-        return { success: true, message: 'Default homepage template already exists' };
+      console.log('SeedService.seedHomepageTemplate: Starting homepage template seeding...');
+      
+      const existingHomepage = await HomepageSection.countDocuments();
+      if (existingHomepage > 0) {
+        console.log('SeedService.seedHomepageTemplate: Homepage template already exists, skipping...');
+        return await HomepageSection.find();
       }
 
-      const admin = await User.findOne({ role: 'admin' });
-      if (!admin) {
-        throw new Error('Admin user not found. Please seed admin user first.');
-      }
-
-      const defaultTemplate = new LayoutTemplate({
-        name: 'Default Homepage Template',
-        description: 'Default homepage layout with hero, services, testimonials, and CTA sections',
-        sections: [
-          {
-            name: 'Hero Section',
-            blocks: [
-              {
-                type: 'hero',
-                title: 'Hero Banner',
-                content: {
-                  heading: 'Fix Your Device Like New Again',
-                  subheading: 'Fast, reliable, and affordable repair services for all your devices. Expert technicians, quality parts, and warranty included.',
-                  ctaText: 'Start Repair Order',
-                  ctaLink: '/register',
-                  backgroundImage: '',
-                  overlayOpacity: 0.5
-                },
-                settings: {
-                  backgroundColor: '#3b82f6',
-                  textColor: '#ffffff',
-                  padding: '80px 0',
-                  alignment: 'center'
-                },
-                order: 0,
-                isVisible: true
-              }
-            ],
-            layout: 'single',
-            order: 0,
-            isActive: true
+      const homepageData = [
+        {
+          name: 'Hero Section',
+          type: 'hero',
+          title: 'Professional Device Repair Services',
+          content: 'Get your devices fixed by certified technicians with genuine parts and warranty coverage.',
+          settings: {
+            backgroundColor: '#3b82f6',
+            textColor: '#ffffff',
+            buttonText: 'Get Started',
+            buttonLink: '/new-order',
+            backgroundImage: 'https://via.placeholder.com/1920x800/3b82f6/ffffff?text=Hero+Section'
           },
-          {
-            name: 'Services Section',
-            blocks: [
-              {
-                type: 'services',
-                title: 'Our Services',
-                content: {
-                  heading: 'Expert Repair Services',
-                  description: 'Professional repair services for all major device brands with quality parts and expert technicians',
-                  services: []
-                },
-                settings: {
-                  backgroundColor: '#ffffff',
-                  textColor: '#1f2937',
-                  padding: '60px 0',
-                  alignment: 'center'
-                },
-                order: 0,
-                isVisible: true
-              }
-            ],
-            layout: 'single',
-            order: 1,
-            isActive: true
-          },
-          {
-            name: 'Testimonials Section',
-            blocks: [
-              {
-                type: 'testimonials',
-                title: 'Customer Testimonials',
-                content: {
-                  heading: 'What Our Customers Say',
-                  testimonials: [
-                    {
-                      name: 'Sarah Johnson',
-                      role: 'Business Owner',
-                      avatar: 'https://via.placeholder.com/60x60/3b82f6/ffffff?text=SJ',
-                      rating: 5,
-                      review: 'Incredible service! My iPhone was fixed in just 2 hours and works perfectly. The staff was professional and the price was very reasonable.'
-                    },
-                    {
-                      name: 'Mike Chen',
-                      role: 'Student',
-                      avatar: 'https://via.placeholder.com/60x60/10b981/ffffff?text=MC',
-                      rating: 5,
-                      review: 'Best repair shop in town! They fixed my laptop screen and it looks brand new. Fast service and great warranty coverage.'
-                    },
-                    {
-                      name: 'Emily Davis',
-                      role: 'Teacher',
-                      avatar: 'https://via.placeholder.com/60x60/8b5cf6/ffffff?text=ED',
-                      rating: 5,
-                      review: 'Amazing experience from start to finish. Online booking was easy, updates were frequent, and my device was ready ahead of schedule.'
-                    }
-                  ]
-                },
-                settings: {
-                  backgroundColor: '#f9fafb',
-                  textColor: '#1f2937',
-                  padding: '60px 0',
-                  alignment: 'center'
-                },
-                order: 0,
-                isVisible: true
-              }
-            ],
-            layout: 'single',
-            order: 2,
-            isActive: true
-          },
-          {
-            name: 'Call to Action Section',
-            blocks: [
-              {
-                type: 'cta',
-                title: 'Call to Action',
-                content: {
-                  heading: 'Ready to Fix Your Device?',
-                  description: 'Join thousands of satisfied customers who trust us with their device repairs. Get started today with our free diagnostic service.',
-                  ctaText: 'Start Your Repair',
-                  ctaLink: '/register'
-                },
-                settings: {
-                  backgroundColor: '#10b981',
-                  textColor: '#ffffff',
-                  padding: '60px 0',
-                  alignment: 'center'
-                },
-                order: 0,
-                isVisible: true
-              }
-            ],
-            layout: 'single',
-            order: 3,
-            isActive: true
-          }
-        ],
-        colorScheme: {
-          primary: '#3b82f6',
-          secondary: '#1e40af',
-          accent: '#10b981',
-          background: '#ffffff',
-          text: '#1f2937'
+          isActive: true,
+          order: 1
         },
-        typography: {
-          headingFont: 'Inter',
-          bodyFont: 'Inter',
-          fontSize: '16px'
+        {
+          name: 'Services Overview',
+          type: 'services',
+          title: 'Our Repair Services',
+          content: 'We specialize in repairing all major device brands with quick turnaround times.',
+          settings: {
+            backgroundColor: '#ffffff',
+            textColor: '#1f2937',
+            showPricing: true,
+            layout: 'grid'
+          },
+          isActive: true,
+          order: 2
         },
-        isDefault: true,
-        createdBy: admin._id
-      });
+        {
+          name: 'Why Choose Us',
+          type: 'features',
+          title: 'Why Choose FixitHub?',
+          content: 'Professional service, genuine parts, and customer satisfaction guaranteed.',
+          settings: {
+            backgroundColor: '#f9fafb',
+            textColor: '#1f2937',
+            features: [
+              'Certified Technicians',
+              'Genuine Parts',
+              '90-Day Warranty',
+              'Quick Turnaround'
+            ]
+          },
+          isActive: true,
+          order: 3
+        },
+        {
+          name: 'Customer Testimonials',
+          type: 'testimonials',
+          title: 'What Our Customers Say',
+          content: 'Read reviews from satisfied customers who trust us with their device repairs.',
+          settings: {
+            backgroundColor: '#ffffff',
+            textColor: '#1f2937',
+            showRatings: true,
+            autoplay: true
+          },
+          isActive: true,
+          order: 4
+        },
+        {
+          name: 'Call to Action',
+          type: 'cta',
+          title: 'Ready to Fix Your Device?',
+          content: 'Get a free quote today and experience our professional repair services.',
+          settings: {
+            backgroundColor: '#10b981',
+            textColor: '#ffffff',
+            buttonText: 'Get Free Quote',
+            buttonLink: '/new-order',
+            centered: true
+          },
+          isActive: true,
+          order: 5
+        }
+      ];
 
-      await defaultTemplate.save();
-      return { success: true, message: 'Default homepage template created successfully' };
+      const createdHomepage = await HomepageSection.insertMany(homepageData);
+      console.log('SeedService.seedHomepageTemplate: Homepage template created successfully, count:', createdHomepage.length);
+      return createdHomepage;
     } catch (error) {
-      throw new Error(`Failed to seed homepage template: ${error.message}`);
+      console.error('SeedService.seedHomepageTemplate: Error creating homepage template:', error);
+      throw error;
+    }
+  }
+
+  static async seedFinancialData() {
+    try {
+      console.log('SeedService.seedFinancialData: Starting financial data seeding...');
+      
+      const existingInvoices = await Invoice.countDocuments();
+      if (existingInvoices > 0) {
+        console.log('SeedService.seedFinancialData: Financial data already exists, skipping...');
+        return await Invoice.find();
+      }
+
+      // Get test users for invoice creation
+      const customers = await User.find({ role: 'customer' }).limit(2);
+      if (customers.length === 0) {
+        console.log('SeedService.seedFinancialData: No customers found, skipping financial data seeding');
+        return [];
+      }
+
+      const invoices = [
+        {
+          customerId: customers[0]._id,
+          orderId: null, // Will be set when orders are created
+          invoiceNumber: 'INV-2024-001',
+          items: [
+            {
+              description: 'iPhone 13 Screen Replacement',
+              quantity: 1,
+              unitPrice: 149.99,
+              total: 149.99
+            },
+            {
+              description: 'Screen Protector Installation',
+              quantity: 1,
+              unitPrice: 29.99,
+              total: 29.99
+            }
+          ],
+          subtotal: 179.98,
+          taxRate: 0.08,
+          taxAmount: 14.40,
+          total: 194.38,
+          status: 'paid',
+          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          paidAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000)
+        },
+        {
+          customerId: customers.length > 1 ? customers[1]._id : customers[0]._id,
+          orderId: null,
+          invoiceNumber: 'INV-2024-002',
+          items: [
+            {
+              description: 'Samsung Galaxy S21 Battery Replacement',
+              quantity: 1,
+              unitPrice: 89.99,
+              total: 89.99
+            }
+          ],
+          subtotal: 89.99,
+          taxRate: 0.08,
+          taxAmount: 7.20,
+          total: 97.19,
+          status: 'pending',
+          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        }
+      ];
+
+      const createdInvoices = await Invoice.insertMany(invoices);
+      console.log('SeedService.seedFinancialData: Financial data created successfully, count:', createdInvoices.length);
+      return createdInvoices;
+    } catch (error) {
+      console.error('SeedService.seedFinancialData: Error creating financial data:', error);
+      throw error;
+    }
+  }
+
+  static async seedAll() {
+    try {
+      console.log('SeedService.seedAll: Starting complete database seeding...');
+      
+      const results = {};
+      
+      // Seed in order of dependencies
+      results.adminUser = await this.seedAdminUser();
+      results.testUsers = await this.seedTestUsers();
+      results.services = await this.seedServices();
+      results.addOnServices = await this.seedAddOnServices();
+      results.inventory = await this.seedInventory();
+      results.devices = await this.seedDevices();
+      results.products = await this.seedProducts();
+      results.blogData = await this.seedBlogData();
+      results.faqs = await this.seedFAQs();
+      results.homepageTemplate = await this.seedHomepageTemplate();
+      results.financialData = await this.seedFinancialData();
+      
+      console.log('SeedService.seedAll: Complete database seeding finished successfully');
+      return results;
+    } catch (error) {
+      console.error('SeedService.seedAll: Error during complete seeding:', error);
+      throw error;
+    }
+  }
+
+  static async seedAdmin() {
+    return await this.seedAdminUser();
+  }
+
+  static async verifyTestUsers() {
+    try {
+      console.log('SeedService.verifyTestUsers: Verifying test user credentials...');
+      
+      const testCredentials = [
+        { email: 'admin@example.com', password: 'admin123' },
+        { email: 'customer@example.com', password: 'password123' },
+        { email: 'staff@example.com', password: 'password123' }
+      ];
+
+      const UserService = require('./userService');
+      const results = [];
+
+      for (const creds of testCredentials) {
+        try {
+          console.log(`SeedService.verifyTestUsers: Testing login for ${creds.email}...`);
+          const user = await UserService.authenticateWithPassword(creds.email, creds.password);
+          if (user) {
+            console.log(`SeedService.verifyTestUsers: ✓ Login successful for ${creds.email}`);
+            results.push({ email: creds.email, status: 'success', role: user.role });
+          } else {
+            console.log(`SeedService.verifyTestUsers: ✗ Login failed for ${creds.email}`);
+            results.push({ email: creds.email, status: 'failed', error: 'Authentication failed' });
+          }
+        } catch (error) {
+          console.error(`SeedService.verifyTestUsers: ✗ Error testing ${creds.email}:`, error.message);
+          results.push({ email: creds.email, status: 'error', error: error.message });
+        }
+      }
+
+      console.log('SeedService.verifyTestUsers: Verification complete');
+      return results;
+    } catch (error) {
+      console.error('SeedService.verifyTestUsers: Error during verification:', error);
+      throw error;
     }
   }
 }

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/useToast"
 import {
   getRepairServices,
+  getRepairServiceById,
   createRepairService,
   updateRepairService,
   deleteRepairService,
@@ -27,7 +28,13 @@ import {
   Save,
   X,
   BookOpen,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Info,
+  Calendar,
+  Tag,
+  Smartphone,
+  User,
+  FileText
 } from "lucide-react"
 import {
   Select,
@@ -68,6 +75,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
+import { Separator } from "@/components/ui/separator"
 
 export function ServiceManagement() {
   const [services, setServices] = useState<RepairService[]>([])
@@ -78,7 +86,10 @@ export function ServiceManagement() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [selectedService, setSelectedService] = useState<RepairService | null>(null)
+  const [detailService, setDetailService] = useState<RepairService | null>(null)
+  const [loadingDetail, setLoadingDetail] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -140,6 +151,33 @@ export function ServiceManagement() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchServiceDetails = async (serviceId: string) => {
+    try {
+      setLoadingDetail(true)
+      console.log("Fetching service details for ID:", serviceId)
+      
+      const response = await getRepairServiceById(serviceId)
+      setDetailService(response.service)
+      setIsDetailDialogOpen(true)
+      
+      console.log("Service details fetched successfully:", response.service.name)
+    } catch (error: any) {
+      console.error("Error fetching service details:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load service details",
+        variant: "destructive"
+      })
+    } finally {
+      setLoadingDetail(false)
+    }
+  }
+
+  const handleRowClick = (service: RepairService) => {
+    console.log("Service row clicked:", service.name)
+    fetchServiceDetails(service._id)
   }
 
   const handleCreateService = async () => {
@@ -336,7 +374,7 @@ export function ServiceManagement() {
             Service Management
           </h1>
           <p className="text-muted-foreground">
-            Manage repair services and pricing
+            Manage repair services and pricing. Click on a service row to view detailed information.
           </p>
         </div>
         <Button onClick={openCreateDialog}>
@@ -444,7 +482,7 @@ export function ServiceManagement() {
         <CardHeader>
           <CardTitle>Repair Services</CardTitle>
           <CardDescription>
-            Manage your repair service catalog and pricing
+            Manage your repair service catalog and pricing. Click on any row to view detailed information.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -472,7 +510,11 @@ export function ServiceManagement() {
                 </TableRow>
               ) : (
                 filteredServices.map((service) => (
-                  <TableRow key={service._id}>
+                  <TableRow 
+                    key={service._id} 
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleRowClick(service)}
+                  >
                     <TableCell>
                       <div>
                         <p className="font-medium">{service.name}</p>
@@ -542,14 +584,20 @@ export function ServiceManagement() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => openEditDialog(service)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openEditDialog(service)
+                          }}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => openDeleteDialog(service)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openDeleteDialog(service)
+                          }}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -562,6 +610,265 @@ export function ServiceManagement() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Service Detail Dialog */}
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5" />
+              Service Details
+            </DialogTitle>
+            <DialogDescription>
+              Comprehensive information about the selected repair service
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingDetail ? (
+            <div className="space-y-4 p-6">
+              <div className="animate-pulse space-y-4">
+                <div className="h-6 bg-muted rounded w-1/2"></div>
+                <div className="h-4 bg-muted rounded w-full"></div>
+                <div className="h-4 bg-muted rounded w-3/4"></div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="h-20 bg-muted rounded"></div>
+                  <div className="h-20 bg-muted rounded"></div>
+                </div>
+              </div>
+            </div>
+          ) : detailService ? (
+            <Tabs defaultValue="overview" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="device">Device Info</TabsTrigger>
+                <TabsTrigger value="repair">Repair Details</TabsTrigger>
+                <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview" className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Wrench className="h-5 w-5" />
+                        Basic Information
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Service Name</Label>
+                        <p className="text-lg font-semibold">{detailService.name}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Category</Label>
+                        <div className="mt-1">
+                          <Badge variant="outline" className="text-sm">
+                            <Tag className="h-3 w-3 mr-1" />
+                            {detailService.category}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Description</Label>
+                        <p className="text-sm mt-1 leading-relaxed">{detailService.description}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                        <div className="mt-1">
+                          <Badge variant={detailService.isActive ? "default" : "secondary"}>
+                            {detailService.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <DollarSign className="h-5 w-5" />
+                        Pricing & Performance
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Price</Label>
+                          <p className="text-2xl font-bold text-green-600">${detailService.price}</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Popularity</Label>
+                          <div className="flex items-center gap-1">
+                            <Star className="h-4 w-4 text-yellow-400" />
+                            <p className="text-xl font-semibold">{detailService.popularity}%</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Estimated Time</Label>
+                        <div className="flex items-center gap-1 mt-1">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <p className="font-medium">{detailService.estimatedTime}</p>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Created</Label>
+                        <div className="flex items-center gap-1 mt-1">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <p className="text-sm">{new Date(detailService.createdAt).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="device" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Smartphone className="h-5 w-5" />
+                      Device Compatibility
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Manufacturer</Label>
+                        <p className="font-medium mt-1">
+                          {detailService.manufacturer || <span className="text-muted-foreground">Not specified</span>}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Model</Label>
+                        <p className="font-medium mt-1">
+                          {detailService.model || <span className="text-muted-foreground">Not specified</span>}
+                        </p>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Compatible Device Types</Label>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {detailService.deviceTypes.map(type => (
+                          <Badge key={type} variant="secondary">
+                            <Smartphone className="h-3 w-3 mr-1" />
+                            {type}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="repair" className="space-y-6">
+                <div className="grid grid-cols-1 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <User className="h-5 w-5" />
+                        Customer Information
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">External Repair Information</Label>
+                        <div className="mt-2 p-3 bg-muted/50 rounded-lg">
+                          {detailService.externalRepairInfo ? (
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{detailService.externalRepairInfo}</p>
+                          ) : (
+                            <p className="text-sm text-muted-foreground italic">No customer-facing repair information provided</p>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        Internal Technical Information
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Internal Repair Information</Label>
+                        <div className="mt-2 p-3 bg-muted/50 rounded-lg">
+                          {detailService.internalRepairInfo ? (
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{detailService.internalRepairInfo}</p>
+                          ) : (
+                            <p className="text-sm text-muted-foreground italic">No internal repair information provided</p>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="knowledge" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BookOpen className="h-5 w-5" />
+                      Linked Knowledge Base Articles
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {detailService.linkedKnowledgeBaseArticles && detailService.linkedKnowledgeBaseArticles.length > 0 ? (
+                      <div className="space-y-3">
+                        {detailService.linkedKnowledgeBaseArticles.map((article, index) => (
+                          <div key={index} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                            <LinkIcon className="h-4 w-4 mt-1 text-muted-foreground flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm">{article.title || 'Untitled Article'}</p>
+                              {article.url && (
+                                <a 
+                                  href={article.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-600 hover:text-blue-800 break-all"
+                                >
+                                  {article.url}
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                        <p className="text-muted-foreground">No knowledge base articles linked to this service</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">Failed to load service details</p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDetailDialogOpen(false)}>
+              Close
+            </Button>
+            {detailService && (
+              <Button onClick={() => {
+                setIsDetailDialogOpen(false)
+                openEditDialog(detailService)
+              }}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Service
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Create/Edit Dialog */}
       <Dialog open={isCreateDialogOpen || isEditDialogOpen} onOpenChange={(open) => {

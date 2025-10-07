@@ -241,13 +241,15 @@ export function StepManagementDialog({
 
       console.log("StepManagementDialog: Form field data prepared:", formFieldData)
 
-      if (isNew) {
-        console.log("StepManagementDialog: Adding form field to local state for new step")
-        setStepData(prev => ({
-          ...prev,
-          formFields: [...(prev.formFields || []), formFieldData]
-        }))
-      } else {
+      // Always update local state first
+      console.log("StepManagementDialog: Adding form field to local state")
+      setStepData(prev => ({
+        ...prev,
+        formFields: [...(prev.formFields || []), formFieldData]
+      }))
+
+      // For existing steps, also call the API
+      if (!isNew) {
         console.log("StepManagementDialog: Adding form field via API for existing step")
         await onAddFormField(formFieldData)
       }
@@ -294,18 +296,21 @@ export function StepManagementDialog({
 
     try {
       const ruleData = {
-        ...newAutomationRule
+        ...newAutomationRule,
+        _id: `rule_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       } as AutomationRule
 
       console.log("StepManagementDialog: Automation rule data prepared:", ruleData)
 
-      if (isNew) {
-        console.log("StepManagementDialog: Adding automation rule to local state for new step")
-        setStepData(prev => ({
-          ...prev,
-          automationRules: [...(prev.automationRules || []), ruleData]
-        }))
-      } else {
+      // Always update local state first
+      console.log("StepManagementDialog: Adding automation rule to local state")
+      setStepData(prev => ({
+        ...prev,
+        automationRules: [...(prev.automationRules || []), ruleData]
+      }))
+
+      // For existing steps, also call the API
+      if (!isNew) {
         console.log("StepManagementDialog: Adding automation rule via API for existing step")
         await onAddAutomationRule(ruleData)
       }
@@ -335,15 +340,17 @@ export function StepManagementDialog({
   const handleUpdateFormField = async (fieldId: string, updates: Partial<FormField>) => {
     console.log("StepManagementDialog: Updating form field:", fieldId, updates)
     try {
-      if (isNew) {
-        console.log("StepManagementDialog: Updating form field in local state for new step")
-        setStepData(prev => ({
-          ...prev,
-          formFields: prev.formFields?.map(field =>
-            field.id === fieldId ? { ...field, ...updates } : field
-          ) || []
-        }))
-      } else {
+      // Always update local state first
+      console.log("StepManagementDialog: Updating form field in local state")
+      setStepData(prev => ({
+        ...prev,
+        formFields: prev.formFields?.map(field =>
+          field.id === fieldId ? { ...field, ...updates } : field
+        ) || []
+      }))
+
+      // For existing steps, also call the API
+      if (!isNew) {
         console.log("StepManagementDialog: Updating form field via API for existing step")
         await onUpdateFormField(fieldId, updates)
       }
@@ -367,13 +374,15 @@ export function StepManagementDialog({
   const handleRemoveFormField = async (fieldId: string) => {
     console.log("StepManagementDialog: Removing form field:", fieldId)
     try {
-      if (isNew) {
-        console.log("StepManagementDialog: Removing form field from local state for new step")
-        setStepData(prev => ({
-          ...prev,
-          formFields: prev.formFields?.filter(field => field.id !== fieldId) || []
-        }))
-      } else {
+      // Always update local state first
+      console.log("StepManagementDialog: Removing form field from local state")
+      setStepData(prev => ({
+        ...prev,
+        formFields: prev.formFields?.filter(field => field.id !== fieldId) || []
+      }))
+
+      // For existing steps, also call the API
+      if (!isNew) {
         console.log("StepManagementDialog: Removing form field via API for existing step")
         await onRemoveFormField(fieldId)
       }
@@ -396,13 +405,15 @@ export function StepManagementDialog({
   const handleRemoveAutomationRule = async (ruleId: string) => {
     console.log("StepManagementDialog: Removing automation rule:", ruleId)
     try {
-      if (isNew) {
-        console.log("StepManagementDialog: Removing automation rule from local state for new step")
-        setStepData(prev => ({
-          ...prev,
-          automationRules: prev.automationRules?.filter(rule => rule._id !== ruleId) || []
-        }))
-      } else {
+      // Always update local state first
+      console.log("StepManagementDialog: Removing automation rule from local state")
+      setStepData(prev => ({
+        ...prev,
+        automationRules: prev.automationRules?.filter(rule => rule._id !== ruleId) || []
+      }))
+
+      // For existing steps, also call the API
+      if (!isNew) {
         console.log("StepManagementDialog: Removing automation rule via API for existing step")
         await onRemoveAutomationRule(ruleId)
       }

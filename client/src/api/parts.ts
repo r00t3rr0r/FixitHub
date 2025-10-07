@@ -293,3 +293,20 @@ export const deletePart = async (partId: string) => {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// Description: Update inventory item
+// Endpoint: PUT /api/inventory/:id
+// Request: Partial<Part>
+// Response: { success: boolean, item: Part }
+export const updatePart = async (partId: string, updateData: any) => {
+  try {
+    const response = await api.put(`/api/inventory/${partId}`, updateData);
+
+    return {
+      success: response.data.success,
+      item: response.data.item
+    };
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};

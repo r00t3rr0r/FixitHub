@@ -32,12 +32,24 @@ class HomepageService {
           type: 'hero',
           title: 'Hero Banner',
           content: {
-            heading: 'Your Heading Here',
-            subheading: 'Your subheading text',
-            ctaText: 'Call to Action',
-            ctaLink: '#',
+            heading: 'Fix Your Device Like New Again',
+            subheading: 'Fast, reliable, and affordable repair services for all your devices. Expert technicians, quality parts, and warranty included.',
+            ctaText: 'Start Repair Order',
+            ctaLink: '/register',
+            secondaryCtaText: 'Watch Demo',
+            secondaryCtaLink: '/login',
             backgroundImage: '',
-            overlayOpacity: 0.5
+            overlayOpacity: 0.5,
+            stats: [
+              { value: '10K+', label: 'Devices Repaired' },
+              { value: '4.9★', label: 'Customer Rating' },
+              { value: '24h', label: 'Average Turnaround' }
+            ],
+            features: [
+              { icon: 'CheckCircle', title: 'Free Diagnostics', description: 'Complete device assessment' },
+              { icon: 'Shield', title: 'Warranty Included', description: '90-day repair guarantee' },
+              { icon: 'Clock', title: 'Quick Turnaround', description: 'Most repairs in 24 hours' }
+            ]
           },
           settings: {
             backgroundColor: '#3b82f6',
@@ -49,16 +61,104 @@ class HomepageService {
           isVisible: true
         },
         {
+          _id: 'template_about',
+          type: 'about',
+          title: 'About Section',
+          content: {
+            heading: 'About RepairService',
+            description: 'We are a leading repair service company dedicated to bringing your devices back to life with professional expertise and quality parts.',
+            services: [
+              { icon: 'Smartphone', title: 'Phone Repair', description: 'Screen replacement, battery repair, water damage recovery' },
+              { icon: 'Laptop', title: 'Computer Repair', description: 'Hardware diagnostics, software troubleshooting, data recovery' },
+              { icon: 'Tablet', title: 'Tablet Repair', description: 'Screen repair, charging port fix, performance optimization' },
+              { icon: 'Headphones', title: 'Audio Devices', description: 'Headphone repair, speaker fix, microphone replacement' },
+              { icon: 'Watch', title: 'Wearables', description: 'Smartwatch repair, fitness tracker fix, band replacement' },
+              { icon: 'GameController', title: 'Gaming Devices', description: 'Console repair, controller fix, gaming accessories' }
+            ],
+            companyInfo: {
+              founded: '2020',
+              experience: '5+ Years',
+              technicians: '50+ Experts',
+              locations: '10+ Cities'
+            }
+          },
+          settings: {
+            backgroundColor: '#ffffff',
+            textColor: '#1f2937',
+            padding: '60px 0',
+            alignment: 'center'
+          },
+          order: 0,
+          isVisible: true
+        },
+        {
           _id: 'template_services',
           type: 'services',
           title: 'Services Grid',
           content: {
-            heading: 'Our Services',
-            description: 'Professional services for all your needs',
-            services: []
+            heading: 'Our Repair Services',
+            description: 'Professional repair services for all major device brands with quality parts and expert technicians',
+            displayType: 'dynamic', // 'dynamic' fetches from API, 'static' uses predefined list
+            maxItems: 6,
+            showPricing: true,
+            showRating: true,
+            showEstimatedTime: true,
+            ctaText: 'Get Quote',
+            ctaLink: '/register'
           },
           settings: {
             backgroundColor: '#ffffff',
+            textColor: '#1f2937',
+            padding: '60px 0',
+            alignment: 'center'
+          },
+          order: 0,
+          isVisible: true
+        },
+        {
+          _id: 'template_blog',
+          type: 'blog',
+          title: 'Blog Section',
+          content: {
+            heading: 'Repair Tips & Guides',
+            description: 'Expert advice to help you maintain and care for your devices',
+            displayType: 'dynamic', // 'dynamic' fetches from API, 'static' uses predefined list
+            maxItems: 3,
+            showFeatured: true,
+            showAuthor: true,
+            showDate: true,
+            showExcerpt: true,
+            ctaText: 'View All Articles',
+            ctaLink: '/blog'
+          },
+          settings: {
+            backgroundColor: '#ffffff',
+            textColor: '#1f2937',
+            padding: '60px 0',
+            alignment: 'center'
+          },
+          order: 0,
+          isVisible: true
+        },
+        {
+          _id: 'template_shop',
+          type: 'shop',
+          title: 'Shop Section',
+          content: {
+            heading: 'Featured Products',
+            description: 'Quality repair parts, accessories, and kits for all your device needs',
+            displayType: 'dynamic', // 'dynamic' fetches from API, 'static' uses predefined list
+            maxItems: 6,
+            showFeatured: true,
+            showPrice: true,
+            showRating: true,
+            showStock: true,
+            ctaText: 'Add to Cart',
+            shopCtaText: 'View All Products',
+            shopCtaLink: '/shop'
+          },
+          settings: {
+            backgroundColor: '#f9fafb',
             textColor: '#1f2937',
             padding: '60px 0',
             alignment: 'center'
@@ -72,10 +172,72 @@ class HomepageService {
           title: 'Customer Testimonials',
           content: {
             heading: 'What Our Customers Say',
-            testimonials: []
+            description: 'Thousands of satisfied customers trust us with their devices',
+            testimonials: [
+              {
+                name: "Sarah Johnson",
+                role: "Business Owner",
+                avatar: "https://via.placeholder.com/60x60/3b82f6/ffffff?text=SJ",
+                rating: 5,
+                review: "Incredible service! My iPhone was fixed in just 2 hours and works perfectly. The staff was professional and the price was very reasonable."
+              },
+              {
+                name: "Mike Chen",
+                role: "Student",
+                avatar: "https://via.placeholder.com/60x60/10b981/ffffff?text=MC",
+                rating: 5,
+                review: "Best repair shop in town! They fixed my laptop screen and it looks brand new. Fast service and great warranty coverage."
+              },
+              {
+                name: "Emily Davis",
+                role: "Teacher",
+                avatar: "https://via.placeholder.com/60x60/8b5cf6/ffffff?text=ED",
+                rating: 5,
+                review: "Amazing experience from start to finish. Online booking was easy, updates were frequent, and my device was ready ahead of schedule."
+              }
+            ]
           },
           settings: {
             backgroundColor: '#f9fafb',
+            textColor: '#1f2937',
+            padding: '60px 0',
+            alignment: 'center'
+          },
+          order: 0,
+          isVisible: true
+        },
+        {
+          _id: 'template_contact',
+          type: 'contact',
+          title: 'Contact & Booking',
+          content: {
+            heading: 'Get Your Device Repaired Today',
+            description: 'Contact us for a free quote or book your repair service online',
+            showContactForm: true,
+            showBookingWidget: true,
+            showContactInfo: true,
+            showMap: true,
+            contactInfo: {
+              phone: '+1 (555) 123-4567',
+              email: 'info@repairservice.com',
+              address: '123 Repair Street, Tech City, TC 12345',
+              hours: {
+                weekdays: '9:00 AM - 7:00 PM',
+                weekends: '10:00 AM - 5:00 PM'
+              }
+            },
+            formFields: [
+              { name: 'name', label: 'Full Name', type: 'text', required: true },
+              { name: 'email', label: 'Email Address', type: 'email', required: true },
+              { name: 'phone', label: 'Phone Number', type: 'tel', required: true },
+              { name: 'device', label: 'Device Type', type: 'select', required: true, options: ['iPhone', 'Android', 'Laptop', 'Tablet', 'Other'] },
+              { name: 'issue', label: 'Issue Description', type: 'textarea', required: true }
+            ],
+            ctaText: 'Book Repair',
+            ctaLink: '/register'
+          },
+          settings: {
+            backgroundColor: '#ffffff',
             textColor: '#1f2937',
             padding: '60px 0',
             alignment: 'center'
@@ -88,16 +250,86 @@ class HomepageService {
           type: 'cta',
           title: 'Call to Action',
           content: {
-            heading: 'Ready to Get Started?',
-            description: 'Contact us today for professional services',
-            ctaText: 'Get Quote',
-            ctaLink: '/contact'
+            heading: 'Ready to Fix Your Device?',
+            description: 'Join thousands of satisfied customers who trust us with their device repairs. Get started today with our free diagnostic service.',
+            ctaText: 'Start Your Repair',
+            ctaLink: '/register',
+            secondaryCtaText: 'Login to Account',
+            secondaryCtaLink: '/login',
+            features: [
+              'Free diagnostic service',
+              '90-day warranty included',
+              'Expert certified technicians',
+              'Same-day service available'
+            ]
           },
           settings: {
             backgroundColor: '#10b981',
             textColor: '#ffffff',
-            padding: '40px 0',
+            padding: '60px 0',
             alignment: 'center'
+          },
+          order: 0,
+          isVisible: true
+        },
+        {
+          _id: 'template_footer',
+          type: 'footer',
+          title: 'Footer',
+          content: {
+            companyName: 'RepairService',
+            tagline: 'Professional device repair services you can trust',
+            logo: '/logo.png',
+            navigation: {
+              main: [
+                { label: 'Home', link: '/' },
+                { label: 'Services', link: '/services' },
+                { label: 'Blog', link: '/blog' },
+                { label: 'Shop', link: '/shop' },
+                { label: 'Contact', link: '/contact' }
+              ],
+              services: [
+                { label: 'Phone Repair', link: '/services/phone' },
+                { label: 'Computer Repair', link: '/services/computer' },
+                { label: 'Tablet Repair', link: '/services/tablet' },
+                { label: 'Data Recovery', link: '/services/data-recovery' }
+              ],
+              support: [
+                { label: 'FAQ', link: '/faq' },
+                { label: 'Warranty', link: '/warranty' },
+                { label: 'Track Repair', link: '/track' },
+                { label: 'Support', link: '/support' }
+              ]
+            },
+            socialMedia: [
+              { platform: 'facebook', url: 'https://facebook.com/repairservice', icon: 'Facebook' },
+              { platform: 'twitter', url: 'https://twitter.com/repairservice', icon: 'Twitter' },
+              { platform: 'instagram', url: 'https://instagram.com/repairservice', icon: 'Instagram' },
+              { platform: 'linkedin', url: 'https://linkedin.com/company/repairservice', icon: 'Linkedin' }
+            ],
+            newsletter: {
+              enabled: true,
+              title: 'Stay Updated',
+              description: 'Get repair tips and special offers delivered to your inbox',
+              placeholder: 'Enter your email address'
+            },
+            contactInfo: {
+              phone: '+1 (555) 123-4567',
+              email: 'info@repairservice.com',
+              address: '123 Repair Street, Tech City, TC 12345'
+            },
+            copyright: '© 2024 RepairService. All rights reserved.',
+            legalLinks: [
+              { label: 'Privacy Policy', link: '/privacy' },
+              { label: 'Terms of Service', link: '/terms' },
+              { label: 'Cookie Policy', link: '/cookies' }
+            ]
+          },
+          settings: {
+            backgroundColor: '#1f2937',
+            textColor: '#ffffff',
+            padding: '40px 0 20px 0',
+            alignment: 'left'
           },
           order: 0,
           isVisible: true

@@ -92,6 +92,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { CreateStaffDialog } from "@/components/admin/CreateStaffDialog"
 import { CreateTeamDialog } from "@/components/admin/CreateTeamDialog"
+import { StaffDetailsDialog } from "@/components/admin/StaffDetailsDialog"
 
 export function StaffManagement() {
   const [activeTab, setActiveTab] = useState("staff")
@@ -108,6 +109,8 @@ export function StaffManagement() {
   const [showCreateTask, setShowCreateTask] = useState(false)
   const [editingTeam, setEditingTeam] = useState<Team | null>(null)
   const [showEditTeam, setShowEditTeam] = useState(false)
+  const [showStaffDetails, setShowStaffDetails] = useState(false)
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null)
   const { toast } = useToast()
 
   // Task form state
@@ -306,6 +309,12 @@ export function StaffManagement() {
     }
   }
 
+  const handleStaffRowClick = (staffMember: StaffMember) => {
+    console.log("Opening staff details for:", staffMember.name)
+    setSelectedStaffId(staffMember._id)
+    setShowStaffDetails(true)
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
@@ -472,7 +481,11 @@ export function StaffManagement() {
                     (roleFilter === "all" || member.role === roleFilter) &&
                     (searchTerm === "" || member.name.toLowerCase().includes(searchTerm.toLowerCase()) || member.email.toLowerCase().includes(searchTerm.toLowerCase()))
                   ).map((member) => (
-                    <TableRow key={member._id}>
+                    <TableRow 
+                      key={member._id} 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleStaffRowClick(member)}
+                    >
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="w-8 h-8">
@@ -1119,6 +1132,13 @@ export function StaffManagement() {
         open={showCreateTeam}
         onOpenChange={setShowCreateTeam}
         onTeamCreated={fetchStaffManagementData}
+      />
+
+      {/* Staff Details Dialog */}
+      <StaffDetailsDialog
+        open={showStaffDetails}
+        onOpenChange={setShowStaffDetails}
+        staffId={selectedStaffId}
       />
     </div>
   )

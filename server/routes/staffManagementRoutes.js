@@ -81,6 +81,22 @@ router.delete('/staff/:id', requireUser, requireAdmin, async (req, res) => {
   }
 });
 
+// Get detailed staff member information
+router.get('/staff/:id/details', requireUser, requireAdmin, async (req, res) => {
+  console.log('Staff Management: Get staff member details request:', req.params.id);
+
+  try {
+    const staffDetails = await StaffService.getStaffMemberDetails(req.params.id);
+    return res.status(200).json({ staffDetails });
+  } catch (error) {
+    console.error('Staff Management: Error getting staff member details:', error);
+    if (error.message === 'Staff member not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(500).json({ error: error.message || 'Failed to get staff member details' });
+  }
+});
+
 // Get workload distribution
 router.get('/workload', requireUser, requireAdmin, async (req, res) => {
   console.log('Staff Management: Get workload distribution request from:', req.user.email);

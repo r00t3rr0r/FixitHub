@@ -1,11 +1,11 @@
 const mongoose = require('mongoose');
 
-// Content Block Schema
+// Content Block Schema with enhanced settings
 const contentBlockSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['hero', 'services', 'testimonials', 'cta', 'gallery', 'banner', 'features', 'stats', 'html']
+    enum: ['hero', 'about', 'services', 'blog', 'shop', 'testimonials', 'contact', 'cta', 'gallery', 'banner', 'features', 'stats', 'footer', 'html']
   },
   title: {
     type: String,
@@ -45,6 +45,124 @@ const contentBlockSchema = new mongoose.Schema({
     customCSS: {
       type: String,
       default: ''
+    },
+    // Advanced visual settings
+    opacity: {
+      type: Number,
+      default: 1,
+      min: 0,
+      max: 1
+    },
+    borderRadius: {
+      type: String,
+      default: '0px'
+    },
+    borderWidth: {
+      type: String,
+      default: '0px'
+    },
+    borderColor: {
+      type: String,
+      default: '#000000'
+    },
+    borderStyle: {
+      type: String,
+      enum: ['none', 'solid', 'dashed', 'dotted'],
+      default: 'none'
+    },
+    boxShadow: {
+      type: String,
+      default: 'none'
+    },
+    transform: {
+      type: String,
+      default: 'none'
+    },
+    transition: {
+      type: String,
+      default: 'none'
+    },
+    zIndex: {
+      type: Number,
+      default: 0
+    },
+    overflow: {
+      type: String,
+      enum: ['visible', 'hidden', 'scroll', 'auto'],
+      default: 'visible'
+    },
+    filter: {
+      type: String,
+      default: 'none'
+    },
+    backdropFilter: {
+      type: String,
+      default: 'none'
+    },
+    gradient: {
+      enabled: {
+        type: Boolean,
+        default: false
+      },
+      type: {
+        type: String,
+        enum: ['linear', 'radial'],
+        default: 'linear'
+      },
+      direction: {
+        type: String,
+        default: 'to right'
+      },
+      colors: [{
+        type: String
+      }]
+    },
+    visualEffects: {
+      blur: {
+        type: Number,
+        default: 0
+      },
+      brightness: {
+        type: Number,
+        default: 1
+      },
+      contrast: {
+        type: Number,
+        default: 1
+      },
+      saturate: {
+        type: Number,
+        default: 1
+      },
+      hueRotate: {
+        type: Number,
+        default: 0
+      },
+      sepia: {
+        type: Number,
+        default: 0
+      },
+      grayscale: {
+        type: Number,
+        default: 0
+      }
+    },
+    hover: {
+      backgroundColor: {
+        type: String
+      },
+      textColor: {
+        type: String
+      },
+      transform: {
+        type: String
+      },
+      opacity: {
+        type: Number
+      },
+      transition: {
+        type: String
+      }
     }
   },
   order: {
@@ -61,7 +179,7 @@ const contentBlockSchema = new mongoose.Schema({
   versionKey: false
 });
 
-// Homepage Section Schema
+// Homepage Section Schema with enhanced settings
 const homepageSectionSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -82,6 +200,136 @@ const homepageSectionSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  settings: {
+    backgroundColor: {
+      type: String,
+      default: '#ffffff'
+    },
+    backgroundImage: {
+      type: String,
+      default: ''
+    },
+    padding: {
+      type: String,
+      default: '60px 0'
+    },
+    margin: {
+      type: String,
+      default: '0px'
+    },
+    minHeight: {
+      type: String,
+      default: 'auto'
+    },
+    maxWidth: {
+      type: String,
+      default: '100%'
+    },
+    opacity: {
+      type: Number,
+      default: 1,
+      min: 0,
+      max: 1
+    },
+    borderRadius: {
+      type: String,
+      default: '0px'
+    },
+    borderWidth: {
+      type: String,
+      default: '0px'
+    },
+    borderColor: {
+      type: String,
+      default: '#000000'
+    },
+    borderStyle: {
+      type: String,
+      enum: ['none', 'solid', 'dashed', 'dotted'],
+      default: 'none'
+    },
+    boxShadow: {
+      type: String,
+      default: 'none'
+    },
+    transform: {
+      type: String,
+      default: 'none'
+    },
+    transition: {
+      type: String,
+      default: 'none'
+    },
+    zIndex: {
+      type: Number,
+      default: 0
+    },
+    overflow: {
+      type: String,
+      enum: ['visible', 'hidden', 'scroll', 'auto'],
+      default: 'visible'
+    },
+    filter: {
+      type: String,
+      default: 'none'
+    },
+    backdropFilter: {
+      type: String,
+      default: 'none'
+    },
+    gradient: {
+      enabled: {
+        type: Boolean,
+        default: false
+      },
+      type: {
+        type: String,
+        enum: ['linear', 'radial'],
+        default: 'linear'
+      },
+      direction: {
+        type: String,
+        default: 'to right'
+      },
+      colors: [{
+        type: String
+      }]
+    },
+    visualEffects: {
+      blur: {
+        type: Number,
+        default: 0
+      },
+      brightness: {
+        type: Number,
+        default: 1
+      },
+      contrast: {
+        type: Number,
+        default: 1
+      },
+      saturate: {
+        type: Number,
+        default: 1
+      },
+      hueRotate: {
+        type: Number,
+        default: 0
+      },
+      sepia: {
+        type: Number,
+        default: 0
+      },
+      grayscale: {
+        type: Number,
+        default: 0
+      }
+    },
+    customCSS: {
+      type: String,
+      default: ''
+    }
   }
 }, {
   _id: true,

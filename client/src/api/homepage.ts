@@ -149,20 +149,20 @@ export interface ABTest {
   updatedAt?: string;
 }
 
-// Description: Get homepage sections and content blocks
-// Endpoint: GET /api/admin/homepage/sections
+// Description: Get homepage sections and content blocks (public endpoint)
+// Endpoint: GET /api/homepage/sections
 // Request: {}
 // Response: { success: boolean, sections: HomepageSection[] }
 export const getHomepageSections = async () => {
   try {
-    const response = await api.get('/api/admin/homepage/sections');
+    const response = await api.get('/api/homepage/sections');
     return response.data;
   } catch (error) {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
 
-// Description: Get available content block templates
+// Description: Get available content block templates (admin only)
 // Endpoint: GET /api/admin/homepage/content-blocks
 // Request: {}
 // Response: { success: boolean, blocks: ContentBlock[] }
@@ -175,7 +175,7 @@ export const getContentBlockTemplates = async () => {
   }
 };
 
-// Description: Get layout templates
+// Description: Get layout templates (admin only)
 // Endpoint: GET /api/admin/homepage/templates
 // Request: {}
 // Response: { success: boolean, templates: LayoutTemplate[] }
@@ -188,7 +188,7 @@ export const getLayoutTemplates = async () => {
   }
 };
 
-// Description: Save homepage sections
+// Description: Save homepage sections (admin only)
 // Endpoint: PUT /api/admin/homepage/sections
 // Request: { sections: HomepageSection[] }
 // Response: { success: boolean, message: string }
@@ -201,7 +201,7 @@ export const saveHomepageSections = async (sections: HomepageSection[]) => {
   }
 };
 
-// Description: Get A/B tests
+// Description: Get A/B tests (admin only)
 // Endpoint: GET /api/admin/homepage/ab-tests
 // Request: {}
 // Response: { success: boolean, tests: ABTest[] }
@@ -214,7 +214,7 @@ export const getABTests = async () => {
   }
 };
 
-// Description: Create A/B test
+// Description: Create A/B test (admin only)
 // Endpoint: POST /api/admin/homepage/ab-tests
 // Request: Partial<ABTest>
 // Response: { success: boolean, test: ABTest }
@@ -227,7 +227,7 @@ export const createABTest = async (testData: Partial<ABTest>) => {
   }
 };
 
-// Description: Create layout template
+// Description: Create layout template (admin only)
 // Endpoint: POST /api/admin/homepage/templates
 // Request: Partial<LayoutTemplate>
 // Response: { success: boolean, template: LayoutTemplate }
@@ -240,7 +240,7 @@ export const createLayoutTemplate = async (templateData: Partial<LayoutTemplate>
   }
 };
 
-// Description: Update layout template
+// Description: Update layout template (admin only)
 // Endpoint: PUT /api/admin/homepage/templates/:id
 // Request: Partial<LayoutTemplate>
 // Response: { success: boolean, template: LayoutTemplate }
@@ -253,7 +253,7 @@ export const updateLayoutTemplate = async (templateId: string, templateData: Par
   }
 };
 
-// Description: Delete layout template
+// Description: Delete layout template (admin only)
 // Endpoint: DELETE /api/admin/homepage/templates/:id
 // Request: {}
 // Response: { success: boolean, message: string }
@@ -266,7 +266,7 @@ export const deleteLayoutTemplate = async (templateId: string) => {
   }
 };
 
-// Description: Set default template
+// Description: Set default template (admin only)
 // Endpoint: POST /api/admin/homepage/templates/:id/set-default
 // Request: {}
 // Response: { success: boolean, template: LayoutTemplate }

@@ -1,246 +1,534 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
-import { Badge } from "@/components/ui/badge"
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Shield, Users, Activity, AlertTriangle, Lock, UserX, Ban, Download, RefreshCw, Eye } from 'lucide-react';
+import { useToast } from '@/hooks/useToast';
 import {
-  Shield,
-  Lock,
-  Eye,
-  AlertTriangle,
-  Key,
-  UserCheck,
-  Activity,
-  Save
-} from "lucide-react"
+  getSecuritySettings,
+  updateSecuritySettings,
+  getLoginAttempts,
+  getActiveSessions,
+  forceLogoutUser,
+  blockIpAddress,
+  getSecurityAuditLog,
+  type SecuritySettings as SecuritySettingsType,
+  type LoginAttempt,
+  type ActiveSession,
+  type SecurityEvent,
+  type AuditLogEntry
+} from '@/api/security';
 
 export function SecuritySettings() {
+  const [settings, setSettings] = useState<SecuritySettingsType | null>(null);
+  const [loginAttempts, setLoginAttempts] = useState<LoginAttempt[]>([]);
+  const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
+  const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([]);
+  const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [blockIpDialog, setBlockIpDialog] = useState(false);
+  const [selectedIp, setSelectedIp] = useState('');
+  const [blockReason, setBlockReason] = useState('');
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchSecurityData();
+  }, []);
+
+  const fetchSecurityData = async () => {
+    try {
+      setLoading(true);
+      const [settingsResponse, auditResponse] = await Promise.all([
+        getSecuritySettings(),
+        getSecurityAuditLog()
+      ]);
+
+      console.log('Security settings response:', settingsResponse);
+      console.log('Audit response:', auditResponse);
+
+      // Fix the data extraction - the response structure is nested
+      const securityData = settingsResponse.data.settings;
+      
+      setSettings(securityData.settings);
+      setLoginAttempts(securityData.loginAttempts);
+      setActiveSessions(securityData.activeSessions);
+      setSecurityEvents(securityData.securityEvents);
+      setAuditLog(auditResponse.data.logs);
+    } catch (error) {
+      console.error('Error fetching security data:', error);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    if (!settings) return;
+
+    try {
+      setSaving(true);
+      await updateSecuritySettings(settings);
+
+      toast({
+        title: "Success",
+        description: "Security settings updated successfully",
+      });
+    } catch (error) {
+      console.error('Error updating security settings:', error);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleForceLogout = async (userId: string) => {
+    try {
+      await forceLogoutUser(userId);
+      toast({
+        title: "Success",
+        description: "User logged out successfully",
+      });
+      fetchSecurityData();
+    } catch (error) {
+      console.error('Error forcing logout:', error);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBlockIp = async () => {
+    if (!selectedIp) return;
+
+    try {
+      await blockIpAddress(selectedIp, blockReason);
+      toast({
+        title: "Success",
+        description: `IP address ${selectedIp} blocked successfully`,
+      });
+      setBlockIpDialog(false);
+      setSelectedIp('');
+      setBlockReason('');
+      fetchSecurityData();
+    } catch (error) {
+      console.error('Error blocking IP:', error);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'high': return 'destructive';
+      case 'medium': return 'default';
+      case 'low': return 'secondary';
+      default: return 'default';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <RefreshCw className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  // Add null check for settings
+  if (!settings) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p>Failed to load security settings</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Shield className="h-8 w-8" />
-            Security Settings
-          </h1>
-          <p className="text-muted-foreground">
-            Configure security policies and access controls
-          </p>
-        </div>
-        <Button>
-          <Save className="h-4 w-4 mr-2" />
-          Save Changes
-        </Button>
+      <div>
+        <h1 className="text-3xl font-bold">Security Settings</h1>
+        <p className="text-muted-foreground">
+          Manage security policies, monitor access, and review security events
+        </p>
       </div>
 
-      {/* Security Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Security Status
-          </CardTitle>
-          <CardDescription>Current security health overview</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <span>SSL Certificate</span>
-              <Badge className="bg-green-500">Valid</Badge>
-            </div>
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <span>Firewall Status</span>
-              <Badge className="bg-green-500">Active</Badge>
-            </div>
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <span>Security Score</span>
-              <Badge className="bg-green-500">95/100</Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="settings" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
+          <TabsTrigger value="events">Security Events</TabsTrigger>
+          <TabsTrigger value="audit">Audit Log</TabsTrigger>
+        </TabsList>
 
-      {/* Authentication Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Lock className="h-5 w-5" />
-            Authentication Settings
-          </CardTitle>
-          <CardDescription>Configure user authentication policies</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="two-factor">Two-Factor Authentication</Label>
-              <p className="text-sm text-muted-foreground">Require 2FA for admin accounts</p>
-            </div>
-            <Switch id="two-factor" defaultChecked />
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="password-complexity">Strong Password Policy</Label>
-              <p className="text-sm text-muted-foreground">Enforce complex passwords</p>
-            </div>
-            <Switch id="password-complexity" defaultChecked />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="session-timeout">Session Timeout (minutes)</Label>
-            <Input
-              id="session-timeout"
-              type="number"
-              defaultValue="30"
-              placeholder="Enter timeout in minutes"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="max-login-attempts">Max Login Attempts</Label>
-            <Input
-              id="max-login-attempts"
-              type="number"
-              defaultValue="5"
-              placeholder="Enter max attempts"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Access Control */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UserCheck className="h-5 w-5" />
-            Access Control
-          </CardTitle>
-          <CardDescription>Manage user permissions and access levels</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="ip-whitelist">IP Whitelist</Label>
-              <p className="text-sm text-muted-foreground">Restrict admin access by IP</p>
-            </div>
-            <Switch id="ip-whitelist" />
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="role-based-access">Role-Based Access Control</Label>
-              <p className="text-sm text-muted-foreground">Enable granular permissions</p>
-            </div>
-            <Switch id="role-based-access" defaultChecked />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="allowed-ips">Allowed IP Addresses</Label>
-            <Input
-              id="allowed-ips"
-              placeholder="Enter IP addresses (comma separated)"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Security Monitoring */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Security Monitoring
-          </CardTitle>
-          <CardDescription>Monitor security events and threats</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="login-monitoring">Login Monitoring</Label>
-              <p className="text-sm text-muted-foreground">Track login attempts and failures</p>
-            </div>
-            <Switch id="login-monitoring" defaultChecked />
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="suspicious-activity">Suspicious Activity Detection</Label>
-              <p className="text-sm text-muted-foreground">Alert on unusual behavior</p>
-            </div>
-            <Switch id="suspicious-activity" defaultChecked />
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="audit-logging">Audit Logging</Label>
-              <p className="text-sm text-muted-foreground">Log all admin actions</p>
-            </div>
-            <Switch id="audit-logging" defaultChecked />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent Security Events */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Eye className="h-5 w-5" />
-            Recent Security Events
-          </CardTitle>
-          <CardDescription>Latest security-related activities</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {[
-              { event: 'Failed login attempt', user: 'unknown@example.com', time: '2 minutes ago', severity: 'medium' },
-              { event: 'Admin login', user: 'admin@fixithub.com', time: '15 minutes ago', severity: 'low' },
-              { event: 'Password changed', user: 'staff@fixithub.com', time: '1 hour ago', severity: 'low' },
-              { event: 'Multiple failed attempts', user: '192.168.1.100', time: '2 hours ago', severity: 'high' }
-            ].map((event, index) => (
-              <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-4">
-                  <div className={`w-2 h-2 rounded-full ${
-                    event.severity === 'high' ? 'bg-red-500' :
-                    event.severity === 'medium' ? 'bg-orange-500' :
-                    'bg-green-500'
-                  }`} />
-                  <div>
-                    <p className="font-medium">{event.event}</p>
-                    <p className="text-sm text-muted-foreground">{event.user}</p>
-                  </div>
+        <TabsContent value="settings" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Password Policy
+              </CardTitle>
+              <CardDescription>
+                Configure password requirements for user accounts
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="minLength">Minimum Length</Label>
+                  <Input
+                    id="minLength"
+                    type="number"
+                    value={settings?.passwordPolicy?.minLength || 8}
+                    onChange={(e) => setSettings(prev => prev ? {
+                      ...prev,
+                      passwordPolicy: {
+                        ...prev.passwordPolicy,
+                        minLength: parseInt(e.target.value)
+                      }
+                    } : null)}
+                  />
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{event.time}</span>
-                  <Badge variant={
-                    event.severity === 'high' ? 'destructive' :
-                    event.severity === 'medium' ? 'default' :
-                    'secondary'
-                  }>
-                    {event.severity}
-                  </Badge>
+                <div className="space-y-2">
+                  <Label htmlFor="sessionTimeout">Session Timeout (seconds)</Label>
+                  <Input
+                    id="sessionTimeout"
+                    type="number"
+                    value={settings?.sessionTimeout || 3600}
+                    onChange={(e) => setSettings(prev => prev ? {
+                      ...prev,
+                      sessionTimeout: parseInt(e.target.value)
+                    } : null)}
+                  />
                 </div>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Security Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Security Actions</CardTitle>
-          <CardDescription>Perform security-related tasks</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Button variant="outline" className="h-auto p-4 flex-col gap-2">
-              <Key className="h-6 w-6" />
-              <span className="font-medium">Generate API Keys</span>
-              <span className="text-xs text-muted-foreground">Create new API keys</span>
-            </Button>
-            <Button variant="outline" className="h-auto p-4 flex-col gap-2">
-              <AlertTriangle className="h-6 w-6" />
-              <span className="font-medium">Security Scan</span>
-              <span className="text-xs text-muted-foreground">Run vulnerability check</span>
-            </Button>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="requireUppercase">Require Uppercase Letters</Label>
+                  <Switch
+                    id="requireUppercase"
+                    checked={settings?.passwordPolicy?.requireUppercase || false}
+                    onCheckedChange={(checked) => setSettings(prev => prev ? {
+                      ...prev,
+                      passwordPolicy: {
+                        ...prev.passwordPolicy,
+                        requireUppercase: checked
+                      }
+                    } : null)}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="requireLowercase">Require Lowercase Letters</Label>
+                  <Switch
+                    id="requireLowercase"
+                    checked={settings?.passwordPolicy?.requireLowercase || false}
+                    onCheckedChange={(checked) => setSettings(prev => prev ? {
+                      ...prev,
+                      passwordPolicy: {
+                        ...prev.passwordPolicy,
+                        requireLowercase: checked
+                      }
+                    } : null)}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="requireNumbers">Require Numbers</Label>
+                  <Switch
+                    id="requireNumbers"
+                    checked={settings?.passwordPolicy?.requireNumbers || false}
+                    onCheckedChange={(checked) => setSettings(prev => prev ? {
+                      ...prev,
+                      passwordPolicy: {
+                        ...prev.passwordPolicy,
+                        requireNumbers: checked
+                      }
+                    } : null)}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="requireSpecialChars">Require Special Characters</Label>
+                  <Switch
+                    id="requireSpecialChars"
+                    checked={settings?.passwordPolicy?.requireSpecialChars || false}
+                    onCheckedChange={(checked) => setSettings(prev => prev ? {
+                      ...prev,
+                      passwordPolicy: {
+                        ...prev.passwordPolicy,
+                        requireSpecialChars: checked
+                      }
+                    } : null)}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="enableTwoFactor">Enable Two-Factor Authentication</Label>
+                  <Switch
+                    id="enableTwoFactor"
+                    checked={settings?.enableTwoFactor || false}
+                    onCheckedChange={(checked) => setSettings(prev => prev ? {
+                      ...prev,
+                      enableTwoFactor: checked
+                    } : null)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="maxLoginAttempts">Max Login Attempts</Label>
+                  <Input
+                    id="maxLoginAttempts"
+                    type="number"
+                    value={settings?.maxLoginAttempts || 5}
+                    onChange={(e) => setSettings(prev => prev ? {
+                      ...prev,
+                      maxLoginAttempts: parseInt(e.target.value)
+                    } : null)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lockoutDuration">Lockout Duration (seconds)</Label>
+                  <Input
+                    id="lockoutDuration"
+                    type="number"
+                    value={settings?.lockoutDuration || 900}
+                    onChange={(e) => setSettings(prev => prev ? {
+                      ...prev,
+                      lockoutDuration: parseInt(e.target.value)
+                    } : null)}
+                  />
+                </div>
+              </div>
+
+              <Button onClick={handleSaveSettings} disabled={saving}>
+                {saving ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : null}
+                Save Settings
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="monitoring" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Active Sessions ({activeSessions.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {activeSessions.map((session) => (
+                    <div key={session._id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <p className="font-medium">{session.email}</p>
+                        <p className="text-sm text-muted-foreground">{session.ipAddress}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Last activity: {new Date(session.lastActivity).toLocaleString()}
+                        </p>
+                      </div>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <UserX className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Force Logout</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to force logout {session.email}?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleForceLogout(session._id)}>
+                              Logout
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Recent Login Attempts
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {loginAttempts.map((attempt) => (
+                    <div key={attempt._id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <p className="font-medium">{attempt.email}</p>
+                        <p className="text-sm text-muted-foreground">{attempt.ipAddress}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(attempt.timestamp).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={attempt.success ? 'default' : 'destructive'}>
+                          {attempt.success ? 'Success' : 'Failed'}
+                        </Badge>
+                        {!attempt.success && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedIp(attempt.ipAddress);
+                              setBlockIpDialog(true);
+                            }}
+                          >
+                            <Ban className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
+        </TabsContent>
+
+        <TabsContent value="events" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" />
+                Security Events
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>IP Address</TableHead>
+                    <TableHead>Severity</TableHead>
+                    <TableHead>Timestamp</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {securityEvents.map((event) => (
+                    <TableRow key={event._id}>
+                      <TableCell className="font-medium">{event.type}</TableCell>
+                      <TableCell>{event.description}</TableCell>
+                      <TableCell>{event.ipAddress}</TableCell>
+                      <TableCell>
+                        <Badge variant={getSeverityColor(event.severity)}>
+                          {event.severity}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{new Date(event.timestamp).toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="audit" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                Security Audit Log
+              </CardTitle>
+              <CardDescription>
+                Track all security-related actions and changes
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Action</TableHead>
+                    <TableHead>Performed By</TableHead>
+                    <TableHead>Target</TableHead>
+                    <TableHead>IP Address</TableHead>
+                    <TableHead>Details</TableHead>
+                    <TableHead>Timestamp</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {auditLog.map((entry) => (
+                    <TableRow key={entry._id}>
+                      <TableCell className="font-medium">{entry.action}</TableCell>
+                      <TableCell>{entry.performedBy}</TableCell>
+                      <TableCell>{entry.targetUser || '-'}</TableCell>
+                      <TableCell>{entry.ipAddress}</TableCell>
+                      <TableCell>{entry.details}</TableCell>
+                      <TableCell>{new Date(entry.timestamp).toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Block IP Dialog */}
+      <Dialog open={blockIpDialog} onOpenChange={setBlockIpDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Block IP Address</DialogTitle>
+            <DialogDescription>
+              Block IP address: {selectedIp}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="blockReason">Reason for blocking</Label>
+              <Textarea
+                id="blockReason"
+                placeholder="Enter reason for blocking this IP address..."
+                value={blockReason}
+                onChange={(e) => setBlockReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBlockIpDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleBlockIp} variant="destructive">
+              Block IP
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
-  )
+  );
 }

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { Link, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
@@ -47,16 +47,44 @@ export function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<LoginForm>()
-  const { login } = useAuth()
+  const { login, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
+
+  // Check if user is already authenticated and redirect to dashboard
+  useEffect(() => {
+    console.log('Login page: Checking authentication status:', isAuthenticated)
+    if (isAuthenticated) {
+      console.log('Login page: User already authenticated, redirecting to dashboard')
+      navigate("/")
+    }
+  }, [isAuthenticated, navigate])
+
+  // If user is authenticated, don't render the login form
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-2xl">
+          <CardContent className="p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-300">
+              You are already logged in. Redirecting to dashboard...
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   const onSubmit = async (data: LoginForm) => {
     try {
       setIsLoading(true)
+      console.log('Login form: Attempting login with email:', data.email)
       await login(data.email, data.password)
+      console.log('Login form: Login successful, navigating to dashboard')
       navigate("/")
     } catch (error: any) {
+      console.error('Login form: Login failed with error:', error.message)
       toast({
         title: "Login Failed",
         description: error.message || "Invalid email or password",
@@ -68,6 +96,7 @@ export function Login() {
   }
 
   const handleExampleLogin = (email: string, password: string) => {
+    console.log('Login form: Using example credentials for:', email)
     setValue("email", email)
     setValue("password", password)
 

@@ -8,13 +8,23 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 
 router.post('/login', async (req, res) => {
-  console.log('Login request received:', { body: { email: req.body.email, password: '[HIDDEN]' }, headers: req.headers });
-  
-  const sendError = msg => {
-    console.log('Sending login error:', msg);
-    return res.status(400).json({ message: msg });
+  console.log('Login request received:', { 
+    body: { email: req.body.email, password: '[HIDDEN]' }, 
+    headers: { 
+      'user-agent': req.headers['user-agent'],
+      'x-forwarded-for': req.headers['x-forwarded-for'],
+      'host': req.headers.host
+    }
+  });
+
+  const sendError = (msg, details = null) => {
+    console.log('Sending login error:', msg, details ? `Details: ${JSON.stringify(details)}` : '');
+    return res.status(400).json({ 
+      message: msg,
+      ...(process.env.NODE_ENV === 'development' && details ? { debug: details } : {})
+    });
   };
-  
+
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -25,7 +35,20 @@ router.post('/login', async (req, res) => {
   try {
     console.log('Attempting to authenticate user:', email);
     console.log('Password provided length:', password.length);
-    
+    console.log('Environment:', process.env.NODE_ENV);
+
+    // Check if user exists first
+    const userExists = await User.findOne({ email }).exec();
+    if (!userExists) {
+      console.log(`User not found in database: ${email}`);
+      return sendError('Email or password is incorrect', {
+        issue: 'user_not_found',
+        suggestion: 'User may need to be created. Try running seed data endpoint.'
+      });
+    }
+
+    console.log(`User found: ${email}, role: ${userExists.role}, isActive: ${userExists.isActive}`);
+
     const user = await UserService.authenticateWithPassword(email, password);
 
     if (user) {
@@ -39,26 +62,45 @@ router.post('/login', async (req, res) => {
       return res.json({...user.toObject(), accessToken, refreshToken});
     } else {
       console.log('Authentication failed for user:', email);
-      console.log('This usually means either user not found or password mismatch');
-      return sendError('Email or password is incorrect');
+      console.log('This usually means password mismatch or inactive account');
+      
+      // Provide debugging info in development
+      const debugInfo = process.env.NODE_ENV === 'development' ? {
+        issue: 'authentication_failed',
+        userExists: true,
+        userActive: userExists.isActive,
+        suggestion: email.includes('@example.com') 
+          ? 'Try running the seed endpoint to ensure test users have correct passwords'
+          : 'Check if password is correct'
+      } : null;
+      
+      return sendError('Email or password is incorrect', debugInfo);
     }
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(500).json({ 
+      message: 'Internal server error',
+      ...(process.env.NODE_ENV === 'development' ? { 
+        debug: {
+          error: error.message,
+          suggestion: 'Check database connection and server logs'
+        }
+      } : {})
+    });
   }
 });
 
 router.post('/register', async (req, res, next) => {
   console.log('Register request received:', { body: req.body });
-  
+
   if (req.user) {
     console.log('User already logged in, returning user');
     return res.json({ user: req.user });
   }
-  
+
   try {
     const { email, password, firstName, lastName, phone, role } = req.body;
-    
+
     console.log('Creating new user with email:', email);
     const user = await UserService.create({
       email,
@@ -68,12 +110,12 @@ router.post('/register', async (req, res, next) => {
       phone: phone || '',
       role: role || 'customer'
     });
-    
+
     console.log('User created successfully:', user.email);
-    return res.status(200).json({ 
+    return res.status(200).json({
       success: true,
       message: 'User registered successfully',
-      user: user 
+      user: user
     });
   } catch (error) {
     console.error(`Error while registering user: ${error.message}`);
@@ -83,7 +125,7 @@ router.post('/register', async (req, res, next) => {
 
 router.post('/logout', async (req, res) => {
   console.log('Logout request received:', req.body);
-  
+
   const { email } = req.body;
 
   const user = await User.findOne({ email });
@@ -98,7 +140,7 @@ router.post('/logout', async (req, res) => {
 
 router.post('/refresh', async (req, res) => {
   console.log('Token refresh request received');
-  
+
   const { refreshToken } = req.body;
 
   if (!refreshToken) {

@@ -26,6 +26,19 @@ class WorkflowService {
         .sort({ createdAt: -1 });
 
       console.log('WorkflowService: Found', workflows.length, 'workflow templates');
+      console.log('WorkflowService: Sample workflow structure:', workflows[0] ? {
+        id: workflows[0]._id,
+        name: workflows[0].name,
+        hasSteps: !!workflows[0].steps,
+        stepsLength: workflows[0].steps?.length || 0,
+        hasDeviceTypes: !!workflows[0].deviceTypes,
+        deviceTypesLength: workflows[0].deviceTypes?.length || 0,
+        hasServiceTypes: !!workflows[0].serviceTypes,
+        serviceTypesLength: workflows[0].serviceTypes?.length || 0,
+        hasWorkflowSettings: !!workflows[0].workflowSettings,
+        estimatedTotalTime: workflows[0].estimatedTotalTime
+      } : 'No workflows found');
+      
       return workflows;
     } catch (error) {
       console.error('WorkflowService: Error getting workflow templates:', error);
@@ -78,6 +91,12 @@ class WorkflowService {
       if (!workflowData.serviceTypes || workflowData.serviceTypes.length === 0) {
         console.error('WorkflowService: Validation failed - no service types specified');
         throw new Error('At least one service type must be specified');
+      }
+
+      // Set default estimatedTotalTime if not provided
+      if (!workflowData.estimatedTotalTime) {
+        workflowData.estimatedTotalTime = 0;
+        console.log('WorkflowService: Setting default estimatedTotalTime to 0');
       }
 
       console.log('WorkflowService: Validation passed, creating workflow');
