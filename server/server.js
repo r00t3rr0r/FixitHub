@@ -1,5 +1,6 @@
-// Load environment variables
-require("dotenv").config();
+// Load environment variables from the root directory
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, "../.env") });
 
 // Add startup logging
 console.log('=== FixitHub Server Starting ===');
@@ -83,8 +84,6 @@ console.log('Loading SeedService...');
 const SeedService = require("./services/seedService");
 console.log('Loading cors...');
 const cors = require("cors");
-console.log('Loading path...');
-const path = require("path");
 
 if (!process.env.DATABASE_URL) {
   console.error("Error: DATABASE_URL variables in .env missing.");
