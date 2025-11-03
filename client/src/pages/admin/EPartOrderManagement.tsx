@@ -61,8 +61,10 @@ import {
   Truck,
   AlertCircle,
   Trash2,
+  ClipboardList,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import NeedListManagement from '@/components/admin/NeedListManagement';
 
 export default function EPartOrderManagement() {
   const { toast } = useToast();
@@ -393,19 +395,35 @@ export default function EPartOrderManagement() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">EPart Order Management</h1>
-          <p className="text-muted-foreground">Manage supplier orders and inventory replenishment</p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setShowCreateSupplierDialog(true)} variant="outline">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Supplier
-          </Button>
-          <Button onClick={() => setShowCreateOrderDialog(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Order
-          </Button>
+          <p className="text-muted-foreground">Manage supplier orders, need lists, and inventory replenishment</p>
         </div>
       </div>
+
+      {/* Main Tabs */}
+      <Tabs defaultValue="orders" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="orders">
+            <ShoppingCart className="mr-2 h-4 w-4" />
+            Orders
+          </TabsTrigger>
+          <TabsTrigger value="need-lists">
+            <ClipboardList className="mr-2 h-4 w-4" />
+            Need Lists
+          </TabsTrigger>
+          <TabsTrigger value="suppliers">
+            <Package className="mr-2 h-4 w-4" />
+            Suppliers
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="orders" className="space-y-6">
+          {/* Orders Content */}
+          <div className="flex justify-end gap-2">
+            <Button onClick={() => setShowCreateOrderDialog(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Order
+            </Button>
+          </div>
 
       {/* Statistics Cards */}
       {statistics && (
@@ -587,6 +605,20 @@ export default function EPartOrderManagement() {
           </Table>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="need-lists">
+          <NeedListManagement />
+        </TabsContent>
+
+        <TabsContent value="suppliers" className="space-y-6">
+          {/* Suppliers Content */}
+          <div className="flex justify-end gap-2">
+            <Button onClick={() => setShowCreateSupplierDialog(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Supplier
+            </Button>
+          </div>
 
       {/* Suppliers Table */}
       <Card>
@@ -660,6 +692,8 @@ export default function EPartOrderManagement() {
           </Table>
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Create Order Dialog */}
       <Dialog open={showCreateOrderDialog} onOpenChange={setShowCreateOrderDialog}>
