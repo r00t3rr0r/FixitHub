@@ -48,6 +48,7 @@ import { QualityControl } from "./pages/admin/QualityControl"
 import { StaffManagement } from "./pages/admin/StaffManagement"
 import { FinancialManagement } from "./pages/admin/FinancialManagement"
 import { DeviceBrandsManagement } from "./pages/admin/DeviceBrandsManagement"
+import EPartOrderManagement from "./pages/admin/EPartOrderManagement"
 
 function App() {
   return (
@@ -99,6 +100,7 @@ function App() {
               <Route path="admin/quality" element={<QualityControl />} />
               <Route path="admin/staff" element={<StaffManagement />} />
               <Route path="admin/financial" element={<FinancialManagement />} />
+              <Route path="admin/epart-orders" element={<EPartOrderManagement />} />
             </Route>
             <Route path="*" element={<BlankPage />} />
           </Routes>

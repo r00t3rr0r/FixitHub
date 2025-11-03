@@ -77,6 +77,8 @@ console.log('Loading database routes...');
 const databaseRoutes = require("./routes/databaseRoutes");
 console.log('Loading security routes...');
 const securityRoutes = require("./routes/securityRoutes");
+console.log('Loading epart order routes...');
+const epartOrderRoutes = require("./routes/epartOrderRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -301,6 +303,8 @@ app.use('/api/admin/financial', financialRoutes);
 app.use('/api/database', databaseRoutes);
 // Security Routes
 app.use('/api/security', securityRoutes);
+// EPart Order Routes
+app.use('/api/epart-orders', epartOrderRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 

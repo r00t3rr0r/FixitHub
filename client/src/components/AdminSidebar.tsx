@@ -26,7 +26,8 @@ import {
   Bell,
   User,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Boxes
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -184,6 +185,9 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
         </NavItem>
         <NavItem to="/admin/parts" icon={Package2}>
           Parts Management
+        </NavItem>
+        <NavItem to="/admin/epart-orders" icon={Boxes}>
+          EPart Orders
         </NavItem>
         <NavItem to="/admin/quality" icon={Award}>
           Quality Control
