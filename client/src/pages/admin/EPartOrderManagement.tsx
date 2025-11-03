@@ -608,7 +608,7 @@ export default function EPartOrderManagement() {
         </TabsContent>
 
         <TabsContent value="need-lists">
-          <NeedListManagement />
+          <NeedListManagement onOrderCreated={loadData} />
         </TabsContent>
 
         <TabsContent value="suppliers" className="space-y-6">

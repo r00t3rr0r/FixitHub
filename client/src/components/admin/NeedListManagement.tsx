@@ -59,7 +59,11 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-export default function NeedListManagement() {
+interface NeedListManagementProps {
+  onOrderCreated?: () => void;
+}
+
+export default function NeedListManagement({ onOrderCreated }: NeedListManagementProps = {}) {
   const { toast } = useToast();
 
   // State
@@ -295,6 +299,11 @@ export default function NeedListManagement() {
       setConvertData({ supplier: '', notes: '' });
       setSelectedNeedList(null);
       loadData();
+
+      // Notify parent component to refresh orders
+      if (onOrderCreated) {
+        onOrderCreated();
+      }
     } catch (error: any) {
       console.error('Error converting to order:', error);
       toast({
