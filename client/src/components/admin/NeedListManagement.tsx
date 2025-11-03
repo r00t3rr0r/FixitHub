@@ -729,6 +729,7 @@ export default function NeedListManagement() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Need List</DialogTitle>
+            <DialogDescription>Update the details of this need list</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -923,6 +924,7 @@ export default function NeedListManagement() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Item to Need List</DialogTitle>
+            <DialogDescription>Select a part and specify quantity to add to the list</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">

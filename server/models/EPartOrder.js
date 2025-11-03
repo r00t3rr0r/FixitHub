@@ -138,8 +138,8 @@ const timelineEntrySchema = new mongoose.Schema({
 const ePartOrderSchema = new mongoose.Schema({
   orderNumber: {
     type: String,
-    unique: true,
-    required: true
+    unique: true
+    // Note: Auto-generated in pre-save hook, so not marked as required
   },
   supplierId: {
     type: mongoose.Schema.Types.ObjectId,
