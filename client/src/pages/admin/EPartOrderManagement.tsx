@@ -10,6 +10,10 @@ import {
   getOrderStatistics,
   createSupplier,
   updateSupplier,
+  uploadInvoice,
+  downloadInvoice,
+  requestReturnExchange,
+  updateReturnExchange,
   type EPartOrder,
   type Supplier,
   type OrderItem,
@@ -62,6 +66,11 @@ import {
   AlertCircle,
   Trash2,
   ClipboardList,
+  Upload,
+  Download,
+  FileText,
+  RefreshCw,
+  RotateCcw,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import NeedListManagement from '@/components/admin/NeedListManagement';
@@ -87,8 +96,25 @@ export default function EPartOrderManagement() {
   const [showEditSupplierDialog, setShowEditSupplierDialog] = useState(false);
   const [showOrderDetailsDialog, setShowOrderDetailsDialog] = useState(false);
   const [showReceiveDialog, setShowReceiveDialog] = useState(false);
+  const [showInvoiceUploadDialog, setShowInvoiceUploadDialog] = useState(false);
+  const [showReturnExchangeDialog, setShowReturnExchangeDialog] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<EPartOrder | null>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+  const [uploadingInvoice, setUploadingInvoice] = useState(false);
+
+  // Return/Exchange form
+  const [returnExchangeForm, setReturnExchangeForm] = useState<{
+    type: 'return' | 'exchange';
+    reason: string;
+    description: string;
+    affectedItems: Array<{ itemId: string; quantity: number; issueDescription: string }>;
+  }>({
+    type: 'return',
+    reason: '',
+    description: '',
+    affectedItems: [],
+  });
 
   // Form data
   const [newOrder, setNewOrder] = useState<{
@@ -327,6 +353,141 @@ export default function EPartOrderManagement() {
         variant: 'destructive',
       });
     }
+  };
+
+  const handleUploadInvoice = async () => {
+    if (!selectedOrder || !invoiceFile) return;
+
+    setUploadingInvoice(true);
+    try {
+      await uploadInvoice(selectedOrder._id, invoiceFile);
+      toast({
+        title: 'Success',
+        description: 'Invoice uploaded successfully',
+      });
+      setShowInvoiceUploadDialog(false);
+      setInvoiceFile(null);
+      const { order } = await getEPartOrderById(selectedOrder._id);
+      setSelectedOrder(order);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingInvoice(false);
+    }
+  };
+
+  const handleDownloadInvoice = async (orderId: string) => {
+    try {
+      const blob = await downloadInvoice(orderId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `invoice-${orderId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleRequestReturnExchange = async () => {
+    if (!selectedOrder || returnExchangeForm.affectedItems.length === 0) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please select at least one item',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!returnExchangeForm.reason || !returnExchangeForm.description) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please provide reason and description',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      await requestReturnExchange(selectedOrder._id, returnExchangeForm);
+      toast({
+        title: 'Success',
+        description: `${returnExchangeForm.type === 'return' ? 'Return' : 'Exchange'} request submitted`,
+      });
+      setShowReturnExchangeDialog(false);
+      setReturnExchangeForm({
+        type: 'return',
+        reason: '',
+        description: '',
+        affectedItems: [],
+      });
+      const { order } = await getEPartOrderById(selectedOrder._id);
+      setSelectedOrder(order);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleUpdateReturnExchange = async (status: 'approved' | 'in_transit' | 'completed' | 'rejected', notes?: string) => {
+    if (!selectedOrder) return;
+
+    try {
+      await updateReturnExchange(selectedOrder._id, { status, notes });
+      toast({
+        title: 'Success',
+        description: `Return/Exchange ${status}`,
+      });
+      const { order } = await getEPartOrderById(selectedOrder._id);
+      setSelectedOrder(order);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const addAffectedItem = () => {
+    if (!selectedOrder) return;
+    const firstItem = selectedOrder.items.find(item => item.receivedQuantity > 0);
+    if (firstItem) {
+      setReturnExchangeForm({
+        ...returnExchangeForm,
+        affectedItems: [
+          ...returnExchangeForm.affectedItems,
+          { itemId: firstItem._id!, quantity: 1, issueDescription: '' },
+        ],
+      });
+    }
+  };
+
+  const removeAffectedItem = (index: number) => {
+    setReturnExchangeForm({
+      ...returnExchangeForm,
+      affectedItems: returnExchangeForm.affectedItems.filter((_, i) => i !== index),
+    });
+  };
+
+  const updateAffectedItem = (index: number, field: string, value: any) => {
+    const updated = [...returnExchangeForm.affectedItems];
+    updated[index] = { ...updated[index], [field]: value };
+    setReturnExchangeForm({ ...returnExchangeForm, affectedItems: updated });
   };
 
   const addItemToOrder = () => {
@@ -1510,18 +1671,139 @@ export default function EPartOrderManagement() {
 
                   <div>
                     <Label>Payment Status</Label>
-                    <p className="text-sm">
+                    <div className="mt-1">
                       <Badge
                         variant={selectedOrder.paymentStatus === 'paid' ? 'default' : 'outline'}
                       >
                         {selectedOrder.paymentStatus}
                       </Badge>
-                    </p>
+                      {selectedOrder.status !== 'cancelled' && (
+                        <Select
+                          value={selectedOrder.paymentStatus}
+                          onValueChange={(value) =>
+                            updateEPartOrder(selectedOrder._id, { paymentStatus: value }).then(() => {
+                              toast({ title: 'Success', description: 'Payment status updated' });
+                              getEPartOrderById(selectedOrder._id).then(({ order }) => setSelectedOrder(order));
+                            })
+                          }
+                        >
+                          <SelectTrigger className="mt-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unpaid">Unpaid</SelectItem>
+                            <SelectItem value="partial">Partial</SelectItem>
+                            <SelectItem value="paid">Paid</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
                   </div>
 
                   <div>
                     <Label>Tracking Number</Label>
                     <p className="text-sm">{selectedOrder.trackingNumber || '-'}</p>
+                  </div>
+
+                  <div>
+                    <Label>Invoice</Label>
+                    <div className="flex gap-2 mt-1">
+                      {selectedOrder.invoiceFile ? (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownloadInvoice(selectedOrder._id)}
+                          >
+                            <Download className="mr-2 h-4 w-4" />
+                            Download
+                          </Button>
+                          <p className="text-xs text-muted-foreground self-center">
+                            {selectedOrder.invoiceFile.originalName}
+                          </p>
+                        </>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowInvoiceUploadDialog(true)}
+                        >
+                          <Upload className="mr-2 h-4 w-4" />
+                          Upload Invoice
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Return/Exchange</Label>
+                    <div className="mt-1">
+                      {selectedOrder.returnExchange && selectedOrder.returnExchange.status !== 'none' ? (
+                        <div className="space-y-2">
+                          <Badge variant={
+                            selectedOrder.returnExchange.status === 'completed' ? 'default' :
+                            selectedOrder.returnExchange.status === 'rejected' ? 'destructive' : 'secondary'
+                          }>
+                            {selectedOrder.returnExchange.status.toUpperCase()}
+                          </Badge>
+                          <p className="text-xs">Type: {selectedOrder.returnExchange.type}</p>
+                          <p className="text-xs">Reason: {selectedOrder.returnExchange.reason}</p>
+                          {selectedOrder.returnExchange.status === 'requested' && (
+                            <div className="flex gap-2 mt-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleUpdateReturnExchange('approved')}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleUpdateReturnExchange('rejected', 'Rejected by admin')}
+                              >
+                                Reject
+                              </Button>
+                            </div>
+                          )}
+                          {selectedOrder.returnExchange.status === 'approved' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleUpdateReturnExchange('in_transit')}
+                            >
+                              Mark In Transit
+                            </Button>
+                          )}
+                          {selectedOrder.returnExchange.status === 'in_transit' && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleUpdateReturnExchange('completed')}
+                            >
+                              Mark Completed
+                            </Button>
+                          )}
+                        </div>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setReturnExchangeForm({
+                              type: 'return',
+                              reason: '',
+                              description: '',
+                              affectedItems: [],
+                            });
+                            setShowReturnExchangeDialog(true);
+                          }}
+                          disabled={!selectedOrder.items.some(item => item.receivedQuantity > 0)}
+                        >
+                          <RotateCcw className="mr-2 h-4 w-4" />
+                          Request Return/Exchange
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1610,6 +1892,168 @@ export default function EPartOrderManagement() {
                 </div>
               </TabsContent>
             </Tabs>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Invoice Upload Dialog */}
+      <Dialog open={showInvoiceUploadDialog} onOpenChange={setShowInvoiceUploadDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload Invoice</DialogTitle>
+            <DialogDescription>
+              Upload an invoice file for this order (PDF, images, or office documents)
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label>Invoice File</Label>
+              <Input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                onChange={(e) => setInvoiceFile(e.target.files?.[0] || null)}
+              />
+              {invoiceFile && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Selected: {invoiceFile.name} ({(invoiceFile.size / 1024).toFixed(2)} KB)
+                </p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowInvoiceUploadDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUploadInvoice} disabled={!invoiceFile || uploadingInvoice}>
+              {uploadingInvoice ? 'Uploading...' : 'Upload'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Return/Exchange Dialog */}
+      {selectedOrder && (
+        <Dialog open={showReturnExchangeDialog} onOpenChange={setShowReturnExchangeDialog}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Request Return/Exchange</DialogTitle>
+              <DialogDescription>
+                Submit a return or exchange request for broken or defective parts
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div>
+                <Label>Type *</Label>
+                <Select
+                  value={returnExchangeForm.type}
+                  onValueChange={(value: 'return' | 'exchange') =>
+                    setReturnExchangeForm({ ...returnExchangeForm, type: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="return">Return</SelectItem>
+                    <SelectItem value="exchange">Exchange</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Reason *</Label>
+                <Input
+                  value={returnExchangeForm.reason}
+                  onChange={(e) =>
+                    setReturnExchangeForm({ ...returnExchangeForm, reason: e.target.value })
+                  }
+                  placeholder="e.g., Broken parts, Wrong items, Quality issues"
+                />
+              </div>
+
+              <div>
+                <Label>Description *</Label>
+                <Textarea
+                  value={returnExchangeForm.description}
+                  onChange={(e) =>
+                    setReturnExchangeForm({ ...returnExchangeForm, description: e.target.value })
+                  }
+                  placeholder="Provide detailed description of the issue..."
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <Label>Affected Items *</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addAffectedItem}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Item
+                  </Button>
+                </div>
+
+                {returnExchangeForm.affectedItems.map((item, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <Select
+                      value={item.itemId}
+                      onValueChange={(value) => updateAffectedItem(index, 'itemId', value)}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select item" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {selectedOrder.items
+                          .filter((orderItem) => orderItem.receivedQuantity > 0)
+                          .map((orderItem) => (
+                            <SelectItem key={orderItem._id} value={orderItem._id!}>
+                              {orderItem.partName} (Received: {orderItem.receivedQuantity})
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="number"
+                      placeholder="Qty"
+                      value={item.quantity}
+                      onChange={(e) =>
+                        updateAffectedItem(index, 'quantity', parseInt(e.target.value) || 0)
+                      }
+                      className="w-24"
+                      min="1"
+                      max={
+                        selectedOrder.items.find((i) => i._id === item.itemId)?.receivedQuantity || 1
+                      }
+                    />
+                    <Input
+                      placeholder="Issue description"
+                      value={item.issueDescription}
+                      onChange={(e) =>
+                        updateAffectedItem(index, 'issueDescription', e.target.value)
+                      }
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeAffectedItem(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowReturnExchangeDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleRequestReturnExchange}>Submit Request</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}

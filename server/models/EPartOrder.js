@@ -194,6 +194,48 @@ const ePartOrderSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  invoiceFile: {
+    filename: String,
+    originalName: String,
+    mimetype: String,
+    size: Number,
+    uploadedAt: Date,
+    uploadedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }
+  },
+  returnExchange: {
+    status: {
+      type: String,
+      enum: ['none', 'requested', 'approved', 'in_transit', 'completed', 'rejected'],
+      default: 'none'
+    },
+    type: {
+      type: String,
+      enum: ['return', 'exchange']
+    },
+    reason: String,
+    description: String,
+    requestedAt: Date,
+    requestedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    resolvedAt: Date,
+    resolvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    affectedItems: [{
+      itemId: {
+        type: mongoose.Schema.Types.ObjectId
+      },
+      quantity: Number,
+      issueDescription: String
+    }],
+    notes: String
+  },
   notes: {
     type: String
   },

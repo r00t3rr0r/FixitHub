@@ -380,6 +380,130 @@ class EPartOrderService {
   }
 
   /**
+   * Upload invoice file for order
+   */
+  static async uploadInvoice(orderId, fileInfo, userId) {
+    const order = await EPartOrder.findById(orderId);
+    if (!order) {
+      throw new Error('Order not found');
+    }
+
+    order.invoiceFile = {
+      filename: fileInfo.filename,
+      originalName: fileInfo.originalName,
+      mimetype: fileInfo.mimetype,
+      size: fileInfo.size,
+      uploadedAt: new Date(),
+      uploadedBy: userId
+    };
+
+    order.timeline.push({
+      status: 'invoice_uploaded',
+      description: `Invoice file "${fileInfo.originalName}" uploaded`,
+      completedAt: new Date(),
+      userId: userId
+    });
+
+    await order.save();
+    return await this.getEPartOrderById(orderId);
+  }
+
+  /**
+   * Request return or exchange for broken parts
+   */
+  static async requestReturnExchange(orderId, returnData, userId) {
+    const order = await EPartOrder.findById(orderId);
+    if (!order) {
+      throw new Error('Order not found');
+    }
+
+    if (order.status === 'cancelled') {
+      throw new Error('Cannot request return/exchange for a cancelled order');
+    }
+
+    // Validate affected items exist in the order
+    for (const affectedItem of returnData.affectedItems) {
+      const orderItem = order.items.id(affectedItem.itemId);
+      if (!orderItem) {
+        throw new Error(`Item not found in order: ${affectedItem.itemId}`);
+      }
+      if (affectedItem.quantity > orderItem.receivedQuantity) {
+        throw new Error(`Cannot return/exchange more than received quantity for item ${orderItem.partName}`);
+      }
+    }
+
+    order.returnExchange = {
+      status: 'requested',
+      type: returnData.type,
+      reason: returnData.reason,
+      description: returnData.description,
+      requestedAt: new Date(),
+      requestedBy: userId,
+      affectedItems: returnData.affectedItems
+    };
+
+    order.timeline.push({
+      status: 'return_exchange_requested',
+      description: `${returnData.type === 'return' ? 'Return' : 'Exchange'} requested: ${returnData.reason}`,
+      completedAt: new Date(),
+      userId: userId,
+      notes: returnData.description
+    });
+
+    await order.save();
+    return await this.getEPartOrderById(orderId);
+  }
+
+  /**
+   * Update return/exchange status
+   */
+  static async updateReturnExchange(orderId, status, notes, userId) {
+    const order = await EPartOrder.findById(orderId);
+    if (!order) {
+      throw new Error('Order not found');
+    }
+
+    if (!order.returnExchange || order.returnExchange.status === 'none') {
+      throw new Error('No return/exchange request found for this order');
+    }
+
+    order.returnExchange.status = status;
+
+    if (status === 'completed' || status === 'rejected') {
+      order.returnExchange.resolvedAt = new Date();
+      order.returnExchange.resolvedBy = userId;
+    }
+
+    if (notes) {
+      order.returnExchange.notes = notes;
+    }
+
+    // If completed and it was a return, adjust inventory
+    if (status === 'completed' && order.returnExchange.type === 'return') {
+      for (const affectedItem of order.returnExchange.affectedItems) {
+        const orderItem = order.items.id(affectedItem.itemId);
+        if (orderItem) {
+          // Decrease inventory stock
+          await Inventory.findByIdAndUpdate(orderItem.partId, {
+            $inc: { quantityInStock: -affectedItem.quantity }
+          });
+        }
+      }
+    }
+
+    order.timeline.push({
+      status: `return_exchange_${status}`,
+      description: `Return/Exchange ${status}`,
+      completedAt: new Date(),
+      userId: userId,
+      notes: notes
+    });
+
+    await order.save();
+    return await this.getEPartOrderById(orderId);
+  }
+
+  /**
    * Get order statistics
    */
   static async getOrderStatistics(filters = {}) {
