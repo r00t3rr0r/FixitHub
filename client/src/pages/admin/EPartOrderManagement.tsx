@@ -82,9 +82,11 @@ export default function EPartOrderManagement() {
   // Dialogs
   const [showCreateOrderDialog, setShowCreateOrderDialog] = useState(false);
   const [showCreateSupplierDialog, setShowCreateSupplierDialog] = useState(false);
+  const [showEditSupplierDialog, setShowEditSupplierDialog] = useState(false);
   const [showOrderDetailsDialog, setShowOrderDetailsDialog] = useState(false);
   const [showReceiveDialog, setShowReceiveDialog] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<EPartOrder | null>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
 
   // Form data
   const [newOrder, setNewOrder] = useState<{
@@ -204,6 +206,39 @@ export default function EPartOrderManagement() {
         paymentTerms: 'Net 30',
         leadTime: 7,
       });
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleEditSupplier = (supplier: Supplier) => {
+    setSelectedSupplier(supplier);
+    setShowEditSupplierDialog(true);
+  };
+
+  const handleUpdateSupplier = async () => {
+    if (!selectedSupplier || !selectedSupplier.name || !selectedSupplier.email) {
+      toast({
+        title: 'Validation Error',
+        description: 'Name and email are required',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      await updateSupplier(selectedSupplier._id, selectedSupplier);
+      toast({
+        title: 'Success',
+        description: 'Supplier updated successfully',
+      });
+      setShowEditSupplierDialog(false);
+      setSelectedSupplier(null);
       loadData();
     } catch (error: any) {
       toast({
@@ -553,6 +588,79 @@ export default function EPartOrderManagement() {
         </CardContent>
       </Card>
 
+      {/* Suppliers Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Suppliers</CardTitle>
+          <CardDescription>View and manage all suppliers</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Contact Person</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Website</TableHead>
+                <TableHead>Ust.ID</TableHead>
+                <TableHead>Payment Terms</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {suppliers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center text-muted-foreground">
+                    No suppliers found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                suppliers.map((supplier) => (
+                  <TableRow key={supplier._id}>
+                    <TableCell className="font-medium">{supplier.name}</TableCell>
+                    <TableCell>{supplier.email}</TableCell>
+                    <TableCell>{supplier.contactPerson || '-'}</TableCell>
+                    <TableCell>{supplier.phone || '-'}</TableCell>
+                    <TableCell>
+                      {supplier.website ? (
+                        <a
+                          href={supplier.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline"
+                        >
+                          Link
+                        </a>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                    <TableCell>{supplier.ustId || '-'}</TableCell>
+                    <TableCell>{supplier.paymentTerms || '-'}</TableCell>
+                    <TableCell>
+                      <Badge variant={supplier.isActive ? 'default' : 'secondary'}>
+                        {supplier.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditSupplier(supplier)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
       {/* Create Order Dialog */}
       <Dialog open={showCreateOrderDialog} onOpenChange={setShowCreateOrderDialog}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -758,6 +866,160 @@ export default function EPartOrderManagement() {
               />
             </div>
 
+            <div>
+              <Label>Website</Label>
+              <Input
+                type="url"
+                placeholder="https://example.com"
+                value={newSupplier.website}
+                onChange={(e) => setNewSupplier({ ...newSupplier, website: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <Label>Ust.ID</Label>
+              <Input
+                placeholder="DE123456789"
+                value={newSupplier.ustId}
+                onChange={(e) => setNewSupplier({ ...newSupplier, ustId: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="font-semibold">Address</Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Street</Label>
+                  <Input
+                    value={newSupplier.address?.street}
+                    onChange={(e) =>
+                      setNewSupplier({
+                        ...newSupplier,
+                        address: { ...newSupplier.address, street: e.target.value },
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">City</Label>
+                  <Input
+                    value={newSupplier.address?.city}
+                    onChange={(e) =>
+                      setNewSupplier({
+                        ...newSupplier,
+                        address: { ...newSupplier.address, city: e.target.value },
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">State</Label>
+                  <Input
+                    value={newSupplier.address?.state}
+                    onChange={(e) =>
+                      setNewSupplier({
+                        ...newSupplier,
+                        address: { ...newSupplier.address, state: e.target.value },
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Zip Code</Label>
+                  <Input
+                    value={newSupplier.address?.zipCode}
+                    onChange={(e) =>
+                      setNewSupplier({
+                        ...newSupplier,
+                        address: { ...newSupplier.address, zipCode: e.target.value },
+                      })
+                    }
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs text-muted-foreground">Country</Label>
+                  <Input
+                    value={newSupplier.address?.country}
+                    onChange={(e) =>
+                      setNewSupplier({
+                        ...newSupplier,
+                        address: { ...newSupplier.address, country: e.target.value },
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="font-semibold">Payment Information</Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground">IBAN</Label>
+                  <Input
+                    placeholder="DE89 3704 0044 0532 0130 00"
+                    value={newSupplier.paymentInformation?.iban}
+                    onChange={(e) =>
+                      setNewSupplier({
+                        ...newSupplier,
+                        paymentInformation: {
+                          ...newSupplier.paymentInformation,
+                          iban: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">BIC</Label>
+                  <Input
+                    placeholder="COBADEFFXXX"
+                    value={newSupplier.paymentInformation?.bic}
+                    onChange={(e) =>
+                      setNewSupplier({
+                        ...newSupplier,
+                        paymentInformation: {
+                          ...newSupplier.paymentInformation,
+                          bic: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Bank Name</Label>
+                  <Input
+                    placeholder="Commerzbank"
+                    value={newSupplier.paymentInformation?.bankName}
+                    onChange={(e) =>
+                      setNewSupplier({
+                        ...newSupplier,
+                        paymentInformation: {
+                          ...newSupplier.paymentInformation,
+                          bankName: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Account Holder</Label>
+                  <Input
+                    value={newSupplier.paymentInformation?.accountHolder}
+                    onChange={(e) =>
+                      setNewSupplier({
+                        ...newSupplier,
+                        paymentInformation: {
+                          ...newSupplier.paymentInformation,
+                          accountHolder: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Payment Terms</Label>
@@ -790,6 +1052,276 @@ export default function EPartOrderManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Supplier Dialog */}
+      {selectedSupplier && (
+        <Dialog open={showEditSupplierDialog} onOpenChange={setShowEditSupplierDialog}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Supplier</DialogTitle>
+              <DialogDescription>Update supplier information</DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div>
+                <Label>Name *</Label>
+                <Input
+                  value={selectedSupplier.name}
+                  onChange={(e) =>
+                    setSelectedSupplier({ ...selectedSupplier, name: e.target.value })
+                  }
+                />
+              </div>
+
+              <div>
+                <Label>Email *</Label>
+                <Input
+                  type="email"
+                  value={selectedSupplier.email}
+                  onChange={(e) =>
+                    setSelectedSupplier({ ...selectedSupplier, email: e.target.value })
+                  }
+                />
+              </div>
+
+              <div>
+                <Label>Contact Person</Label>
+                <Input
+                  value={selectedSupplier.contactPerson}
+                  onChange={(e) =>
+                    setSelectedSupplier({ ...selectedSupplier, contactPerson: e.target.value })
+                  }
+                />
+              </div>
+
+              <div>
+                <Label>Phone</Label>
+                <Input
+                  value={selectedSupplier.phone}
+                  onChange={(e) =>
+                    setSelectedSupplier({ ...selectedSupplier, phone: e.target.value })
+                  }
+                />
+              </div>
+
+              <div>
+                <Label>Website</Label>
+                <Input
+                  type="url"
+                  placeholder="https://example.com"
+                  value={selectedSupplier.website}
+                  onChange={(e) =>
+                    setSelectedSupplier({ ...selectedSupplier, website: e.target.value })
+                  }
+                />
+              </div>
+
+              <div>
+                <Label>Ust.ID</Label>
+                <Input
+                  placeholder="DE123456789"
+                  value={selectedSupplier.ustId}
+                  onChange={(e) =>
+                    setSelectedSupplier({ ...selectedSupplier, ustId: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="font-semibold">Address</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Street</Label>
+                    <Input
+                      value={selectedSupplier.address?.street}
+                      onChange={(e) =>
+                        setSelectedSupplier({
+                          ...selectedSupplier,
+                          address: { ...selectedSupplier.address, street: e.target.value },
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">City</Label>
+                    <Input
+                      value={selectedSupplier.address?.city}
+                      onChange={(e) =>
+                        setSelectedSupplier({
+                          ...selectedSupplier,
+                          address: { ...selectedSupplier.address, city: e.target.value },
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">State</Label>
+                    <Input
+                      value={selectedSupplier.address?.state}
+                      onChange={(e) =>
+                        setSelectedSupplier({
+                          ...selectedSupplier,
+                          address: { ...selectedSupplier.address, state: e.target.value },
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Zip Code</Label>
+                    <Input
+                      value={selectedSupplier.address?.zipCode}
+                      onChange={(e) =>
+                        setSelectedSupplier({
+                          ...selectedSupplier,
+                          address: { ...selectedSupplier.address, zipCode: e.target.value },
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs text-muted-foreground">Country</Label>
+                    <Input
+                      value={selectedSupplier.address?.country}
+                      onChange={(e) =>
+                        setSelectedSupplier({
+                          ...selectedSupplier,
+                          address: { ...selectedSupplier.address, country: e.target.value },
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="font-semibold">Payment Information</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">IBAN</Label>
+                    <Input
+                      placeholder="DE89 3704 0044 0532 0130 00"
+                      value={selectedSupplier.paymentInformation?.iban}
+                      onChange={(e) =>
+                        setSelectedSupplier({
+                          ...selectedSupplier,
+                          paymentInformation: {
+                            ...selectedSupplier.paymentInformation,
+                            iban: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">BIC</Label>
+                    <Input
+                      placeholder="COBADEFFXXX"
+                      value={selectedSupplier.paymentInformation?.bic}
+                      onChange={(e) =>
+                        setSelectedSupplier({
+                          ...selectedSupplier,
+                          paymentInformation: {
+                            ...selectedSupplier.paymentInformation,
+                            bic: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Bank Name</Label>
+                    <Input
+                      placeholder="Commerzbank"
+                      value={selectedSupplier.paymentInformation?.bankName}
+                      onChange={(e) =>
+                        setSelectedSupplier({
+                          ...selectedSupplier,
+                          paymentInformation: {
+                            ...selectedSupplier.paymentInformation,
+                            bankName: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Account Holder</Label>
+                    <Input
+                      value={selectedSupplier.paymentInformation?.accountHolder}
+                      onChange={(e) =>
+                        setSelectedSupplier({
+                          ...selectedSupplier,
+                          paymentInformation: {
+                            ...selectedSupplier.paymentInformation,
+                            accountHolder: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Payment Terms</Label>
+                  <Input
+                    value={selectedSupplier.paymentTerms}
+                    onChange={(e) =>
+                      setSelectedSupplier({ ...selectedSupplier, paymentTerms: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div>
+                  <Label>Lead Time (days)</Label>
+                  <Input
+                    type="number"
+                    value={selectedSupplier.leadTime}
+                    onChange={(e) =>
+                      setSelectedSupplier({
+                        ...selectedSupplier,
+                        leadTime: parseInt(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label>Status</Label>
+                <Select
+                  value={selectedSupplier.isActive ? 'active' : 'inactive'}
+                  onValueChange={(value) =>
+                    setSelectedSupplier({ ...selectedSupplier, isActive: value === 'active' })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowEditSupplierDialog(false);
+                  setSelectedSupplier(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateSupplier}>Update Supplier</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Order Details Dialog */}
       {selectedOrder && (

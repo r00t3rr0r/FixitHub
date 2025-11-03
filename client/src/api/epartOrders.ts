@@ -16,6 +16,13 @@ export interface Supplier {
     country?: string;
   };
   website?: string;
+  ustId?: string;
+  paymentInformation?: {
+    iban?: string;
+    bic?: string;
+    bankName?: string;
+    accountHolder?: string;
+  };
   paymentTerms?: string;
   leadTime?: number;
   rating?: number;

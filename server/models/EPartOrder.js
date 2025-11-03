@@ -32,6 +32,16 @@ const supplierSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  ustId: {
+    type: String,
+    trim: true
+  },
+  paymentInformation: {
+    iban: String,
+    bic: String,
+    bankName: String,
+    accountHolder: String
+  },
   paymentTerms: {
     type: String,
     trim: true
