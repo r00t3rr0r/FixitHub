@@ -293,6 +293,6 @@
 	"server/routes/needListRoutes.js": "Express router for need list management endpoints, providing CRUD operations, filtering, statistics, item management, and conversion to EPart orders with role-based access control.",
 	"server/services/needListService.js": "Service class providing CRUD operations and business logic for need lists, including filtering, item management, conversion to EPart orders, and statistics aggregation with inventory enrichment.",
 	"test-need-list-api.sh": "Bash script for testing Need List API endpoints, including authentication, retrieving statistics and inventory, and creating test need lists with curl requests.",
-	"test-need-list-simple.sh": "Bash script for testing need list API endpoints, performing authentication, creating a need list with inventory parts, and retrieving statistics and all need lists.",
+	"test-need-list-simple.sh": "Bash script for testing need list API endpoints, performing sequential authentication, part retrieval, need list creation, and statistics queries with formatted JSON output.",
 	"test-need-list.py": "Integration test script for Need List API endpoints, validating authentication, CRUD operations, item management, and statistics retrieval against a local backend server."
 }

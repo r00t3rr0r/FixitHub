@@ -446,12 +446,12 @@ export default function NeedListManagement() {
 
             <div>
               <Label>Status</Label>
-              <Select value={statusFilter || ''} onValueChange={setStatusFilter}>
+              <Select value={statusFilter || 'all'} onValueChange={(value) => setStatusFilter(value === 'all' ? '' : value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Statuses" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Statuses</SelectItem>
+                  <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="draft">Draft</SelectItem>
                   <SelectItem value="ready">Ready</SelectItem>
                   <SelectItem value="ordered">Ordered</SelectItem>
@@ -462,12 +462,12 @@ export default function NeedListManagement() {
 
             <div>
               <Label>Priority</Label>
-              <Select value={priorityFilter || ''} onValueChange={setPriorityFilter}>
+              <Select value={priorityFilter || 'all'} onValueChange={(value) => setPriorityFilter(value === 'all' ? '' : value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Priorities" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Priorities</SelectItem>
+                  <SelectItem value="all">All Priorities</SelectItem>
                   <SelectItem value="low">Low</SelectItem>
                   <SelectItem value="medium">Medium</SelectItem>
                   <SelectItem value="high">High</SelectItem>

@@ -19,7 +19,7 @@ echo "✅ Token obtained"
 echo ""
 echo "Step 2: Getting part ID..."
 PART_RESP=$(curl -s -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/inventory)
-PART_ID=$(echo "$PART_RESP" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data['parts'][0]['_id'] if data.get('parts') else '')" 2>/dev/null)
+PART_ID=$(echo "$PART_RESP" | python3 -c "import sys, json; data=json.load(sys.stdin); items=data.get('items', data.get('parts', [])); print(items[0]['_id'] if items else '')" 2>/dev/null)
 
 if [ -z "$PART_ID" ]; then
   echo "❌ No parts found"
