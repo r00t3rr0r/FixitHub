@@ -6,7 +6,7 @@ const Device = require('../models/Device');
 const Product = require('../models/Product');
 const { BlogPost, BlogCategory, BlogTag } = require('../models/BlogPost');
 const FAQ = require('../models/FAQ');
-const { HomepageSection, ContentBlock, LayoutTemplate } = require('../models/Homepage');
+const { HomepageSection, LayoutTemplate } = require('../models/Homepage');
 const Invoice = require('../models/Invoice');
 const { generatePasswordHash } = require('../utils/password');
 
