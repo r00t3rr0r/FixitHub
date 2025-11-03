@@ -824,72 +824,87 @@ export default function EPartOrderManagement() {
 
       {/* Create Supplier Dialog */}
       <Dialog open={showCreateSupplierDialog} onOpenChange={setShowCreateSupplierDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New Supplier</DialogTitle>
             <DialogDescription>Create a new supplier for epart orders</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div>
-              <Label>Name *</Label>
-              <Input
-                value={newSupplier.name}
-                onChange={(e) => setNewSupplier({ ...newSupplier, name: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <Label>Email *</Label>
-              <Input
-                type="email"
-                value={newSupplier.email}
-                onChange={(e) => setNewSupplier({ ...newSupplier, email: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <Label>Contact Person</Label>
-              <Input
-                value={newSupplier.contactPerson}
-                onChange={(e) =>
-                  setNewSupplier({ ...newSupplier, contactPerson: e.target.value })
-                }
-              />
-            </div>
-
-            <div>
-              <Label>Phone</Label>
-              <Input
-                value={newSupplier.phone}
-                onChange={(e) => setNewSupplier({ ...newSupplier, phone: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <Label>Website</Label>
-              <Input
-                type="url"
-                placeholder="https://example.com"
-                value={newSupplier.website}
-                onChange={(e) => setNewSupplier({ ...newSupplier, website: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <Label>Ust.ID</Label>
-              <Input
-                placeholder="DE123456789"
-                value={newSupplier.ustId}
-                onChange={(e) => setNewSupplier({ ...newSupplier, ustId: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="font-semibold">Address</Label>
+          <div className="space-y-6">
+            {/* Basic Information Section */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+                Basic Information
+              </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Street</Label>
+                  <Label>Name *</Label>
+                  <Input
+                    value={newSupplier.name}
+                    onChange={(e) => setNewSupplier({ ...newSupplier, name: e.target.value })}
+                    placeholder="Supplier name"
+                  />
+                </div>
+
+                <div>
+                  <Label>Email *</Label>
+                  <Input
+                    type="email"
+                    value={newSupplier.email}
+                    onChange={(e) => setNewSupplier({ ...newSupplier, email: e.target.value })}
+                    placeholder="supplier@example.com"
+                  />
+                </div>
+
+                <div>
+                  <Label>Contact Person</Label>
+                  <Input
+                    value={newSupplier.contactPerson}
+                    onChange={(e) =>
+                      setNewSupplier({ ...newSupplier, contactPerson: e.target.value })
+                    }
+                    placeholder="John Doe"
+                  />
+                </div>
+
+                <div>
+                  <Label>Phone</Label>
+                  <Input
+                    value={newSupplier.phone}
+                    onChange={(e) => setNewSupplier({ ...newSupplier, phone: e.target.value })}
+                    placeholder="+49 123 456789"
+                  />
+                </div>
+
+                <div>
+                  <Label>Website</Label>
+                  <Input
+                    type="url"
+                    placeholder="https://example.com"
+                    value={newSupplier.website}
+                    onChange={(e) => setNewSupplier({ ...newSupplier, website: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <Label>Ust.ID (VAT ID)</Label>
+                  <Input
+                    placeholder="DE123456789"
+                    value={newSupplier.ustId}
+                    onChange={(e) => setNewSupplier({ ...newSupplier, ustId: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Address Section */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+                Address
+              </h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-3">
+                  <Label>Street</Label>
                   <Input
                     value={newSupplier.address?.street}
                     onChange={(e) =>
@@ -898,10 +913,11 @@ export default function EPartOrderManagement() {
                         address: { ...newSupplier.address, street: e.target.value },
                       })
                     }
+                    placeholder="123 Main Street"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">City</Label>
+                  <Label>City</Label>
                   <Input
                     value={newSupplier.address?.city}
                     onChange={(e) =>
@@ -910,10 +926,11 @@ export default function EPartOrderManagement() {
                         address: { ...newSupplier.address, city: e.target.value },
                       })
                     }
+                    placeholder="Berlin"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">State</Label>
+                  <Label>State/Region</Label>
                   <Input
                     value={newSupplier.address?.state}
                     onChange={(e) =>
@@ -922,10 +939,11 @@ export default function EPartOrderManagement() {
                         address: { ...newSupplier.address, state: e.target.value },
                       })
                     }
+                    placeholder="Berlin"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Zip Code</Label>
+                  <Label>Zip Code</Label>
                   <Input
                     value={newSupplier.address?.zipCode}
                     onChange={(e) =>
@@ -934,10 +952,11 @@ export default function EPartOrderManagement() {
                         address: { ...newSupplier.address, zipCode: e.target.value },
                       })
                     }
+                    placeholder="10115"
                   />
                 </div>
-                <div className="col-span-2">
-                  <Label className="text-xs text-muted-foreground">Country</Label>
+                <div className="col-span-3">
+                  <Label>Country</Label>
                   <Input
                     value={newSupplier.address?.country}
                     onChange={(e) =>
@@ -946,16 +965,20 @@ export default function EPartOrderManagement() {
                         address: { ...newSupplier.address, country: e.target.value },
                       })
                     }
+                    placeholder="Germany"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="font-semibold">Payment Information</Label>
+            {/* Payment Information Section */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+                Payment Information
+              </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs text-muted-foreground">IBAN</Label>
+                  <Label>IBAN</Label>
                   <Input
                     placeholder="DE89 3704 0044 0532 0130 00"
                     value={newSupplier.paymentInformation?.iban}
@@ -971,7 +994,7 @@ export default function EPartOrderManagement() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">BIC</Label>
+                  <Label>BIC/SWIFT</Label>
                   <Input
                     placeholder="COBADEFFXXX"
                     value={newSupplier.paymentInformation?.bic}
@@ -987,7 +1010,7 @@ export default function EPartOrderManagement() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Bank Name</Label>
+                  <Label>Bank Name</Label>
                   <Input
                     placeholder="Commerzbank"
                     value={newSupplier.paymentInformation?.bankName}
@@ -1003,7 +1026,7 @@ export default function EPartOrderManagement() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Account Holder</Label>
+                  <Label>Account Holder</Label>
                   <Input
                     value={newSupplier.paymentInformation?.accountHolder}
                     onChange={(e) =>
@@ -1015,36 +1038,45 @@ export default function EPartOrderManagement() {
                         },
                       })
                     }
+                    placeholder="Account holder name"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Payment Terms</Label>
-                <Input
-                  value={newSupplier.paymentTerms}
-                  onChange={(e) =>
-                    setNewSupplier({ ...newSupplier, paymentTerms: e.target.value })
-                  }
-                />
-              </div>
+            {/* Terms Section */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+                Terms & Conditions
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Payment Terms</Label>
+                  <Input
+                    value={newSupplier.paymentTerms}
+                    onChange={(e) =>
+                      setNewSupplier({ ...newSupplier, paymentTerms: e.target.value })
+                    }
+                    placeholder="Net 30"
+                  />
+                </div>
 
-              <div>
-                <Label>Lead Time (days)</Label>
-                <Input
-                  type="number"
-                  value={newSupplier.leadTime}
-                  onChange={(e) =>
-                    setNewSupplier({ ...newSupplier, leadTime: parseInt(e.target.value) || 0 })
-                  }
-                />
+                <div>
+                  <Label>Lead Time (days)</Label>
+                  <Input
+                    type="number"
+                    value={newSupplier.leadTime}
+                    onChange={(e) =>
+                      setNewSupplier({ ...newSupplier, leadTime: parseInt(e.target.value) || 0 })
+                    }
+                    placeholder="7"
+                  />
+                </div>
               </div>
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="mt-6">
             <Button variant="outline" onClick={() => setShowCreateSupplierDialog(false)}>
               Cancel
             </Button>
@@ -1056,82 +1088,97 @@ export default function EPartOrderManagement() {
       {/* Edit Supplier Dialog */}
       {selectedSupplier && (
         <Dialog open={showEditSupplierDialog} onOpenChange={setShowEditSupplierDialog}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Supplier</DialogTitle>
               <DialogDescription>Update supplier information</DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
-              <div>
-                <Label>Name *</Label>
-                <Input
-                  value={selectedSupplier.name}
-                  onChange={(e) =>
-                    setSelectedSupplier({ ...selectedSupplier, name: e.target.value })
-                  }
-                />
-              </div>
-
-              <div>
-                <Label>Email *</Label>
-                <Input
-                  type="email"
-                  value={selectedSupplier.email}
-                  onChange={(e) =>
-                    setSelectedSupplier({ ...selectedSupplier, email: e.target.value })
-                  }
-                />
-              </div>
-
-              <div>
-                <Label>Contact Person</Label>
-                <Input
-                  value={selectedSupplier.contactPerson}
-                  onChange={(e) =>
-                    setSelectedSupplier({ ...selectedSupplier, contactPerson: e.target.value })
-                  }
-                />
-              </div>
-
-              <div>
-                <Label>Phone</Label>
-                <Input
-                  value={selectedSupplier.phone}
-                  onChange={(e) =>
-                    setSelectedSupplier({ ...selectedSupplier, phone: e.target.value })
-                  }
-                />
-              </div>
-
-              <div>
-                <Label>Website</Label>
-                <Input
-                  type="url"
-                  placeholder="https://example.com"
-                  value={selectedSupplier.website}
-                  onChange={(e) =>
-                    setSelectedSupplier({ ...selectedSupplier, website: e.target.value })
-                  }
-                />
-              </div>
-
-              <div>
-                <Label>Ust.ID</Label>
-                <Input
-                  placeholder="DE123456789"
-                  value={selectedSupplier.ustId}
-                  onChange={(e) =>
-                    setSelectedSupplier({ ...selectedSupplier, ustId: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="font-semibold">Address</Label>
+            <div className="space-y-6">
+              {/* Basic Information Section */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+                  Basic Information
+                </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-xs text-muted-foreground">Street</Label>
+                    <Label>Name *</Label>
+                    <Input
+                      value={selectedSupplier.name}
+                      onChange={(e) =>
+                        setSelectedSupplier({ ...selectedSupplier, name: e.target.value })
+                      }
+                      placeholder="Supplier name"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Email *</Label>
+                    <Input
+                      type="email"
+                      value={selectedSupplier.email}
+                      onChange={(e) =>
+                        setSelectedSupplier({ ...selectedSupplier, email: e.target.value })
+                      }
+                      placeholder="supplier@example.com"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Contact Person</Label>
+                    <Input
+                      value={selectedSupplier.contactPerson}
+                      onChange={(e) =>
+                        setSelectedSupplier({ ...selectedSupplier, contactPerson: e.target.value })
+                      }
+                      placeholder="John Doe"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Phone</Label>
+                    <Input
+                      value={selectedSupplier.phone}
+                      onChange={(e) =>
+                        setSelectedSupplier({ ...selectedSupplier, phone: e.target.value })
+                      }
+                      placeholder="+49 123 456789"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Website</Label>
+                    <Input
+                      type="url"
+                      placeholder="https://example.com"
+                      value={selectedSupplier.website}
+                      onChange={(e) =>
+                        setSelectedSupplier({ ...selectedSupplier, website: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Ust.ID (VAT ID)</Label>
+                    <Input
+                      placeholder="DE123456789"
+                      value={selectedSupplier.ustId}
+                      onChange={(e) =>
+                        setSelectedSupplier({ ...selectedSupplier, ustId: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Address Section */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+                  Address
+                </h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-3">
+                    <Label>Street</Label>
                     <Input
                       value={selectedSupplier.address?.street}
                       onChange={(e) =>
@@ -1140,10 +1187,11 @@ export default function EPartOrderManagement() {
                           address: { ...selectedSupplier.address, street: e.target.value },
                         })
                       }
+                      placeholder="123 Main Street"
                     />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">City</Label>
+                    <Label>City</Label>
                     <Input
                       value={selectedSupplier.address?.city}
                       onChange={(e) =>
@@ -1152,10 +1200,11 @@ export default function EPartOrderManagement() {
                           address: { ...selectedSupplier.address, city: e.target.value },
                         })
                       }
+                      placeholder="Berlin"
                     />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">State</Label>
+                    <Label>State/Region</Label>
                     <Input
                       value={selectedSupplier.address?.state}
                       onChange={(e) =>
@@ -1164,10 +1213,11 @@ export default function EPartOrderManagement() {
                           address: { ...selectedSupplier.address, state: e.target.value },
                         })
                       }
+                      placeholder="Berlin"
                     />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Zip Code</Label>
+                    <Label>Zip Code</Label>
                     <Input
                       value={selectedSupplier.address?.zipCode}
                       onChange={(e) =>
@@ -1176,10 +1226,11 @@ export default function EPartOrderManagement() {
                           address: { ...selectedSupplier.address, zipCode: e.target.value },
                         })
                       }
+                      placeholder="10115"
                     />
                   </div>
-                  <div className="col-span-2">
-                    <Label className="text-xs text-muted-foreground">Country</Label>
+                  <div className="col-span-3">
+                    <Label>Country</Label>
                     <Input
                       value={selectedSupplier.address?.country}
                       onChange={(e) =>
@@ -1188,16 +1239,20 @@ export default function EPartOrderManagement() {
                           address: { ...selectedSupplier.address, country: e.target.value },
                         })
                       }
+                      placeholder="Germany"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label className="font-semibold">Payment Information</Label>
+              {/* Payment Information Section */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+                  Payment Information
+                </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-xs text-muted-foreground">IBAN</Label>
+                    <Label>IBAN</Label>
                     <Input
                       placeholder="DE89 3704 0044 0532 0130 00"
                       value={selectedSupplier.paymentInformation?.iban}
@@ -1213,7 +1268,7 @@ export default function EPartOrderManagement() {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">BIC</Label>
+                    <Label>BIC/SWIFT</Label>
                     <Input
                       placeholder="COBADEFFXXX"
                       value={selectedSupplier.paymentInformation?.bic}
@@ -1229,7 +1284,7 @@ export default function EPartOrderManagement() {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Bank Name</Label>
+                    <Label>Bank Name</Label>
                     <Input
                       placeholder="Commerzbank"
                       value={selectedSupplier.paymentInformation?.bankName}
@@ -1245,7 +1300,7 @@ export default function EPartOrderManagement() {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Account Holder</Label>
+                    <Label>Account Holder</Label>
                     <Input
                       value={selectedSupplier.paymentInformation?.accountHolder}
                       onChange={(e) =>
@@ -1257,57 +1312,66 @@ export default function EPartOrderManagement() {
                           },
                         })
                       }
+                      placeholder="Account holder name"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Payment Terms</Label>
-                  <Input
-                    value={selectedSupplier.paymentTerms}
-                    onChange={(e) =>
-                      setSelectedSupplier({ ...selectedSupplier, paymentTerms: e.target.value })
-                    }
-                  />
-                </div>
+              {/* Terms & Status Section */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+                  Terms & Status
+                </h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label>Payment Terms</Label>
+                    <Input
+                      value={selectedSupplier.paymentTerms}
+                      onChange={(e) =>
+                        setSelectedSupplier({ ...selectedSupplier, paymentTerms: e.target.value })
+                      }
+                      placeholder="Net 30"
+                    />
+                  </div>
 
-                <div>
-                  <Label>Lead Time (days)</Label>
-                  <Input
-                    type="number"
-                    value={selectedSupplier.leadTime}
-                    onChange={(e) =>
-                      setSelectedSupplier({
-                        ...selectedSupplier,
-                        leadTime: parseInt(e.target.value) || 0,
-                      })
-                    }
-                  />
-                </div>
-              </div>
+                  <div>
+                    <Label>Lead Time (days)</Label>
+                    <Input
+                      type="number"
+                      value={selectedSupplier.leadTime}
+                      onChange={(e) =>
+                        setSelectedSupplier({
+                          ...selectedSupplier,
+                          leadTime: parseInt(e.target.value) || 0,
+                        })
+                      }
+                      placeholder="7"
+                    />
+                  </div>
 
-              <div>
-                <Label>Status</Label>
-                <Select
-                  value={selectedSupplier.isActive ? 'active' : 'inactive'}
-                  onValueChange={(value) =>
-                    setSelectedSupplier({ ...selectedSupplier, isActive: value === 'active' })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <div>
+                    <Label>Status</Label>
+                    <Select
+                      value={selectedSupplier.isActive ? 'active' : 'inactive'}
+                      onValueChange={(value) =>
+                        setSelectedSupplier({ ...selectedSupplier, isActive: value === 'active' })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="mt-6">
               <Button
                 variant="outline"
                 onClick={() => {
