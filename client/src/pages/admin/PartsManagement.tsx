@@ -11,8 +11,10 @@ import { Textarea } from '../../components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Separator } from '../../components/ui/separator';
 import { ScrollArea } from '../../components/ui/scroll-area';
-import { Plus, Search, Edit, Trash2, Package, AlertTriangle, Eye, DollarSign, MapPin, Calendar, Info } from 'lucide-react';
+import { Checkbox } from '../../components/ui/checkbox';
+import { Plus, Search, Edit, Trash2, Package, AlertTriangle, Eye, DollarSign, MapPin, Calendar, Info, ListPlus } from 'lucide-react';
 import { getParts, createInventoryItem, updatePart, deletePart, Part, PartVersion } from '../../api/parts';
+import { getNeedLists, createNeedList, addItemToNeedList, NeedList } from '../../api/needLists';
 import { useToast } from '../../hooks/useToast';
 
 export function PartsManagement() {
@@ -28,6 +30,15 @@ export function PartsManagement() {
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [totalValue, setTotalValue] = useState(0);
   const [lowStockCount, setLowStockCount] = useState(0);
+  const [selectedParts, setSelectedParts] = useState<Set<string>>(new Set());
+  const [showAddToNeedListDialog, setShowAddToNeedListDialog] = useState(false);
+  const [needLists, setNeedLists] = useState<NeedList[]>([]);
+  const [selectedNeedList, setSelectedNeedList] = useState<string>('');
+  const [createNewNeedList, setCreateNewNeedList] = useState(false);
+  const [newNeedListName, setNewNeedListName] = useState('');
+  const [newNeedListDescription, setNewNeedListDescription] = useState('');
+  const [newNeedListPriority, setNewNeedListPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
+  const [addingToNeedList, setAddingToNeedList] = useState(false);
   const { toast } = useToast();
 
   // Form state for add/edit
@@ -192,6 +203,128 @@ export function PartsManagement() {
       versions: []
     });
     setSelectedPart(null);
+  };
+
+  const handleSelectPart = (partId: string, checked: boolean) => {
+    const newSelection = new Set(selectedParts);
+    if (checked) {
+      newSelection.add(partId);
+    } else {
+      newSelection.delete(partId);
+    }
+    setSelectedParts(newSelection);
+  };
+
+  const handleSelectAllParts = (checked: boolean) => {
+    if (checked) {
+      setSelectedParts(new Set(filteredParts.map(p => p._id)));
+    } else {
+      setSelectedParts(new Set());
+    }
+  };
+
+  const fetchNeedLists = async () => {
+    try {
+      console.log('Fetching need lists...');
+      const lists = await getNeedLists({ status: 'draft' });
+      setNeedLists(lists);
+    } catch (error) {
+      console.error('Error fetching need lists:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch need lists",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleOpenAddToNeedList = async () => {
+    if (selectedParts.size === 0) {
+      toast({
+        title: "No parts selected",
+        description: "Please select at least one part to add to a need list",
+        variant: "destructive",
+      });
+      return;
+    }
+    await fetchNeedLists();
+    setShowAddToNeedListDialog(true);
+  };
+
+  const handleAddToNeedList = async () => {
+    try {
+      setAddingToNeedList(true);
+
+      // Get selected part objects
+      const partsToAdd = parts.filter(p => selectedParts.has(p._id));
+
+      let targetNeedListId = selectedNeedList;
+
+      // Create new need list if requested
+      if (createNewNeedList) {
+        if (!newNeedListName.trim()) {
+          toast({
+            title: "Error",
+            description: "Please enter a name for the new need list",
+            variant: "destructive",
+          });
+          setAddingToNeedList(false);
+          return;
+        }
+
+        console.log('Creating new need list:', newNeedListName);
+        const newList = await createNeedList({
+          name: newNeedListName,
+          description: newNeedListDescription,
+          priority: newNeedListPriority,
+          items: [] // Will add items next
+        });
+        targetNeedListId = newList._id;
+      }
+
+      if (!targetNeedListId) {
+        toast({
+          title: "Error",
+          description: "Please select a need list or create a new one",
+          variant: "destructive",
+        });
+        setAddingToNeedList(false);
+        return;
+      }
+
+      // Add each selected part to the need list
+      console.log(`Adding ${partsToAdd.length} parts to need list ${targetNeedListId}`);
+      for (const part of partsToAdd) {
+        await addItemToNeedList(targetNeedListId, {
+          part: part._id,
+          quantity: 1, // Default quantity
+          notes: `Added from Parts Management`
+        });
+      }
+
+      toast({
+        title: "Success",
+        description: `Added ${partsToAdd.length} part(s) to need list successfully`,
+      });
+
+      // Reset state
+      setSelectedParts(new Set());
+      setShowAddToNeedListDialog(false);
+      setCreateNewNeedList(false);
+      setNewNeedListName('');
+      setNewNeedListDescription('');
+      setNewNeedListPriority('medium');
+      setSelectedNeedList('');
+    } catch (error: any) {
+      console.error('Error adding to need list:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add parts to need list",
+        variant: "destructive",
+      });
+    } finally {
+      setAddingToNeedList(false);
+    }
   };
 
   const addVersion = () => {
@@ -384,11 +517,30 @@ export function PartsManagement() {
             </Select>
           </div>
 
+          {/* Add to Need List button */}
+          {selectedParts.size > 0 && (
+            <div className="mb-4">
+              <Button
+                onClick={handleOpenAddToNeedList}
+                variant="outline"
+              >
+                <ListPlus className="mr-2 h-4 w-4" />
+                Add {selectedParts.size} Part{selectedParts.size > 1 ? 's' : ''} to Need List
+              </Button>
+            </div>
+          )}
+
           {/* Parts Table */}
           <div className="border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={selectedParts.size === filteredParts.length && filteredParts.length > 0}
+                      onCheckedChange={handleSelectAllParts}
+                    />
+                  </TableHead>
                   <TableHead>Part Number</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Category</TableHead>
@@ -401,22 +553,27 @@ export function PartsManagement() {
               </TableHeader>
               <TableBody>
                 {filteredParts.map((part) => (
-                  <TableRow 
-                    key={part._id} 
+                  <TableRow
+                    key={part._id}
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleRowClick(part)}
                   >
-                    <TableCell className="font-medium">{part.partNumber}</TableCell>
-                    <TableCell>{part.name}</TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedParts.has(part._id)}
+                        onCheckedChange={(checked) => handleSelectPart(part._id, checked as boolean)}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium" onClick={() => handleRowClick(part)}>{part.partNumber}</TableCell>
+                    <TableCell onClick={() => handleRowClick(part)}>{part.name}</TableCell>
+                    <TableCell onClick={() => handleRowClick(part)}>
                       <Badge variant="outline">
                         {part.category?.charAt(0).toUpperCase() + part.category?.slice(1)}
                       </Badge>
                     </TableCell>
-                    <TableCell>{part.brand}</TableCell>
-                    <TableCell>{part.stockQuantity}</TableCell>
-                    <TableCell>{getStockStatus(part)}</TableCell>
-                    <TableCell>{part.location}</TableCell>
+                    <TableCell onClick={() => handleRowClick(part)}>{part.brand}</TableCell>
+                    <TableCell onClick={() => handleRowClick(part)}>{part.stockQuantity}</TableCell>
+                    <TableCell onClick={() => handleRowClick(part)}>{getStockStatus(part)}</TableCell>
+                    <TableCell onClick={() => handleRowClick(part)}>{part.location}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Button
@@ -474,6 +631,131 @@ export function PartsManagement() {
             </DialogTitle>
           </DialogHeader>
           {selectedPart && <PartDetailView part={selectedPart} />}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add to Need List Dialog */}
+      <Dialog open={showAddToNeedListDialog} onOpenChange={setShowAddToNeedListDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ListPlus className="h-5 w-5" />
+              Add Parts to Need List
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground">
+                You are adding {selectedParts.size} part{selectedParts.size > 1 ? 's' : ''} to a need list.
+              </p>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="createNew"
+                  checked={createNewNeedList}
+                  onCheckedChange={(checked) => setCreateNewNeedList(checked as boolean)}
+                />
+                <Label htmlFor="createNew" className="text-sm font-medium">
+                  Create new need list
+                </Label>
+              </div>
+
+              {createNewNeedList ? (
+                <div className="space-y-3 pl-6">
+                  <div>
+                    <Label htmlFor="newListName">Need List Name *</Label>
+                    <Input
+                      id="newListName"
+                      value={newNeedListName}
+                      onChange={(e) => setNewNeedListName(e.target.value)}
+                      placeholder="Enter need list name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="newListDescription">Description</Label>
+                    <Textarea
+                      id="newListDescription"
+                      value={newNeedListDescription}
+                      onChange={(e) => setNewNeedListDescription(e.target.value)}
+                      placeholder="Enter description (optional)"
+                      rows={2}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="newListPriority">Priority</Label>
+                    <Select
+                      value={newNeedListPriority}
+                      onValueChange={(value) => setNewNeedListPriority(value as 'low' | 'medium' | 'high' | 'urgent')}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="urgent">Urgent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <Label htmlFor="existingList">Select Existing Need List *</Label>
+                  <Select
+                    value={selectedNeedList}
+                    onValueChange={setSelectedNeedList}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a need list" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {needLists.length === 0 ? (
+                        <SelectItem value="none" disabled>
+                          No draft need lists available
+                        </SelectItem>
+                      ) : (
+                        needLists.map(list => (
+                          <SelectItem key={list._id} value={list._id}>
+                            {list.name} ({list.items.length} items)
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowAddToNeedListDialog(false);
+                  setCreateNewNeedList(false);
+                  setNewNeedListName('');
+                  setNewNeedListDescription('');
+                  setNewNeedListPriority('medium');
+                  setSelectedNeedList('');
+                }}
+                disabled={addingToNeedList}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAddToNeedList}
+                disabled={addingToNeedList}
+              >
+                {addingToNeedList ? 'Adding...' : 'Add to Need List'}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
