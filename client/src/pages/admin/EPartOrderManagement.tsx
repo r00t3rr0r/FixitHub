@@ -441,12 +441,11 @@ export default function EPartOrderManagement() {
 
             <div>
               <Label>Status</Label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter || undefined} onValueChange={(value) => setStatusFilter(value || '')}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Statuses" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Statuses</SelectItem>
                   <SelectItem value="draft">Draft</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="confirmed">Confirmed</SelectItem>
@@ -460,12 +459,11 @@ export default function EPartOrderManagement() {
 
             <div>
               <Label>Supplier</Label>
-              <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+              <Select value={supplierFilter || undefined} onValueChange={(value) => setSupplierFilter(value || '')}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Suppliers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Suppliers</SelectItem>
                   {suppliers.map((supplier) => (
                     <SelectItem key={supplier._id} value={supplier._id}>
                       {supplier.name}
