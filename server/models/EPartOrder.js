@@ -223,7 +223,7 @@ ePartOrderSchema.pre('save', async function(next) {
 // Create indexes for faster queries
 supplierSchema.index({ name: 1, isActive: 1 });
 supplierSchema.index({ email: 1 });
-ePartOrderSchema.index({ orderNumber: 1 });
+// orderNumber already has unique: true index, no need for duplicate
 ePartOrderSchema.index({ supplierId: 1, status: 1 });
 ePartOrderSchema.index({ createdBy: 1 });
 ePartOrderSchema.index({ orderDate: 1 });

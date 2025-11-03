@@ -108,7 +108,7 @@ paymentSchema.pre(/^find/, function(next) {
 // Index for efficient queries
 paymentSchema.index({ customerId: 1, createdAt: -1 });
 paymentSchema.index({ status: 1 });
-paymentSchema.index({ transactionId: 1 });
+// transactionId already has unique: true index, no need for duplicate
 paymentSchema.index({ orderNumber: 1 });
 
 const Payment = mongoose.model('Payment', paymentSchema);

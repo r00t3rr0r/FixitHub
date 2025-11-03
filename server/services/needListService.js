@@ -264,50 +264,54 @@ class NeedListService {
       throw new Error('Cannot convert an empty need list to an order');
     }
 
-    // Group items by supplier if multiple suppliers
-    const itemsBySupplierId = {};
+    // Validate supplier is provided
+    if (!orderData.supplier) {
+      throw new Error('Supplier is required to create an order');
+    }
+
+    // Create order items from need list items
+    const orderItems = [];
     for (const item of needList.items) {
       const part = item.part;
-      const supplierId = part.supplier?.toString() || 'unknown';
 
-      if (!itemsBySupplierId[supplierId]) {
-        itemsBySupplierId[supplierId] = [];
+      // Get price from the first version if available
+      let unitPrice = 0;
+      if (part.versions && part.versions.length > 0) {
+        unitPrice = part.versions[0].unitCost || 0;
       }
 
-      itemsBySupplierId[supplierId].push({
-        part: item.part._id,
-        partNumber: item.partNumber,
+      const totalPrice = item.quantity * unitPrice;
+
+      orderItems.push({
+        partId: item.part._id,
         partName: item.partName,
+        sku: item.partNumber,
         quantity: item.quantity,
-        unitPrice: part.currentVersion?.price || 0,
-        notes: item.notes
+        unitPrice: unitPrice,
+        totalPrice: totalPrice,
+        status: 'pending'
       });
     }
 
-    // Create order with the primary supplier or first supplier found
-    const supplierIds = Object.keys(itemsBySupplierId);
-    const primarySupplierId = orderData.supplier || (supplierIds[0] !== 'unknown' ? supplierIds[0] : null);
-
-    if (!primarySupplierId) {
-      throw new Error('No supplier found for the parts in this need list');
+    if (orderItems.length === 0) {
+      throw new Error('No items to add to the order');
     }
 
-    const orderItems = itemsBySupplierId[primarySupplierId];
-    const totalAmount = orderItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    const subtotal = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    const tax = 0; // Can be calculated based on business rules
+    const shippingCost = 0; // Can be set based on supplier or order size
+    const totalCost = subtotal + tax + shippingCost;
 
     const order = new EPartOrder({
-      supplier: primarySupplierId,
-      orderItems: orderItems,
-      totalAmount: totalAmount,
+      supplierId: orderData.supplier,
+      items: orderItems,
+      subtotal: subtotal,
+      tax: tax,
+      shippingCost: shippingCost,
+      totalCost: totalCost,
       status: 'pending',
-      priority: needList.priority,
       notes: orderData.notes || `Created from Need List: ${needList.name}`,
-      orderedBy: userId,
-      timeline: [{
-        status: 'pending',
-        date: new Date(),
-        notes: `Order created from Need List: ${needList.name}`
-      }]
+      createdBy: userId
     });
 
     await order.save();
