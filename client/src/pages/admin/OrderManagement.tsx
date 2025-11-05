@@ -329,7 +329,14 @@ export function OrderManagement() {
                 </TableRow>
               ) : (
                 filteredOrders.map((order) => (
-                  <TableRow key={order._id}>
+                  <TableRow
+                    key={order._id}
+                    onClick={() => {
+                      console.log('Table row clicked, navigating to order details:', order._id);
+                      navigate(`/orders/${order._id}`);
+                    }}
+                    className="cursor-pointer hover:bg-muted/50"
+                  >
                     <TableCell>
                       <div>
                         <p className="font-medium">{order.orderNumber}</p>
@@ -363,7 +370,7 @@ export function OrderManagement() {
                         </p>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <Select
                         value={order.status}
                         onValueChange={(value) => handleStatusUpdate(order._id, value)}
@@ -415,20 +422,26 @@ export function OrderManagement() {
                         {new Date(order.createdAt).toLocaleDateString()}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-1">
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => {
-                            console.log('Navigating to order details:', order._id);
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            console.log('Eye button clicked, navigating to order details:', order._id);
                             navigate(`/orders/${order._id}`);
                           }}
                           title="View order details"
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" title="Edit order">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Edit order"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
                       </div>
