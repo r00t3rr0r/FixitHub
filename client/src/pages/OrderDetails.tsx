@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { getOrderById, Order } from "@/api/orders"
 import { getConversations, getConversationMessages, sendMessage, startConversation } from "@/api/messages"
 import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder } from "@/api/adminOrders"
+import { getUserProfile, UserProfile } from "@/api/user"
 import EPartSelectionDialog from "@/components/admin/EPartSelectionDialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -53,7 +54,8 @@ import {
 
 export function OrderDetails() {
   const { id } = useParams<{ id: string }>()
-  const { user } = useAuth()
+  const { isAuthenticated } = useAuth()
+  const [user, setUser] = useState<UserProfile | null>(null)
   const [order, setOrder] = useState<Order | null>(null)
   const [messages, setMessages] = useState<any[]>([])
   const [conversationId, setConversationId] = useState<string | null>(null)
@@ -66,6 +68,24 @@ export function OrderDetails() {
   const [staffDialogOpen, setStaffDialogOpen] = useState(false)
   const [ePartDialogOpen, setEPartDialogOpen] = useState(false)
   const { toast } = useToast()
+
+  // Fetch user profile
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!isAuthenticated) return
+
+      try {
+        console.log("Fetching user profile...")
+        const response = await getUserProfile()
+        setUser((response as any).user)
+        console.log("User profile loaded:", (response as any).user?.email, "Role:", (response as any).user?.role)
+      } catch (error) {
+        console.error("Error fetching user profile:", error)
+      }
+    }
+
+    fetchUserProfile()
+  }, [isAuthenticated])
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
