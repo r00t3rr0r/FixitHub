@@ -410,4 +410,158 @@ router.put('/:id/addons/:addonId/assign', requireUser, requireAdminOrStaff, asyn
   }
 });
 
+// ===== Workflow Execution Routes =====
+
+// Description: Get suggested workflows for an order based on device type and services
+// Endpoint: GET /api/admin/orders/:id/workflows/suggested
+// Request: {}
+// Response: { success: boolean, workflows: WorkflowTemplate[] }
+router.get('/:id/workflows/suggested', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Get suggested workflows for order request received:', req.params.id);
+
+  try {
+    const workflows = await OrderService.getSuggestedWorkflows(req.params.id);
+
+    return res.status(200).json({
+      success: true,
+      workflows
+    });
+  } catch (error) {
+    console.error('Error getting suggested workflows:', error);
+    if (error.message === 'Order not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(500).json({
+      error: error.message || 'Failed to get suggested workflows'
+    });
+  }
+});
+
+// Description: Get workflows assigned to an order
+// Endpoint: GET /api/admin/orders/:id/workflows
+// Request: {}
+// Response: { success: boolean, workflows: OrderWorkflow[] }
+router.get('/:id/workflows', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Get order workflows request received:', req.params.id);
+
+  try {
+    const workflows = await OrderService.getOrderWorkflows(req.params.id);
+
+    return res.status(200).json({
+      success: true,
+      workflows
+    });
+  } catch (error) {
+    console.error('Error getting order workflows:', error);
+    if (error.message === 'Order not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(500).json({
+      error: error.message || 'Failed to get order workflows'
+    });
+  }
+});
+
+// Description: Assign workflow template to an order
+// Endpoint: POST /api/admin/orders/:id/workflows
+// Request: { workflowTemplateId: string }
+// Response: { success: boolean, message: string, order: Order }
+router.post('/:id/workflows', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Assign workflow to order request received:', req.params.id, req.body);
+
+  try {
+    const { workflowTemplateId } = req.body;
+
+    if (!workflowTemplateId) {
+      return res.status(400).json({ error: 'Workflow template ID is required' });
+    }
+
+    const order = await OrderService.assignWorkflowToOrder(
+      req.params.id,
+      workflowTemplateId,
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Workflow assigned to order successfully',
+      order
+    });
+  } catch (error) {
+    console.error('Error assigning workflow to order:', error);
+    if (error.message === 'Order not found' || error.message === 'Workflow template not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(400).json({
+      error: error.message || 'Failed to assign workflow to order'
+    });
+  }
+});
+
+// Description: Start workflow execution
+// Endpoint: POST /api/admin/orders/:id/workflows/:workflowId/start
+// Request: {}
+// Response: { success: boolean, message: string, order: Order }
+router.post('/:id/workflows/:workflowId/start', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Start workflow request received:', req.params.id, req.params.workflowId);
+
+  try {
+    const order = await OrderService.startWorkflow(
+      req.params.id,
+      req.params.workflowId,
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Workflow started successfully',
+      order
+    });
+  } catch (error) {
+    console.error('Error starting workflow:', error);
+    if (error.message === 'Order not found' || error.message === 'Workflow not found in order') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(400).json({
+      error: error.message || 'Failed to start workflow'
+    });
+  }
+});
+
+// Description: Complete workflow step
+// Endpoint: POST /api/admin/orders/:id/workflows/:workflowId/steps/:stepId/complete
+// Request: { formData?: object, checklistData?: object, notes?: string, photos?: string[] }
+// Response: { success: boolean, message: string, order: Order }
+router.post('/:id/workflows/:workflowId/steps/:stepId/complete', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Complete workflow step request received:', req.params.id, req.params.workflowId, req.params.stepId, req.body);
+
+  try {
+    const { formData, checklistData, notes, photos } = req.body;
+
+    const order = await OrderService.completeWorkflowStep(
+      req.params.id,
+      req.params.workflowId,
+      req.params.stepId,
+      { formData, checklistData, notes, photos },
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Workflow step completed successfully',
+      order
+    });
+  } catch (error) {
+    console.error('Error completing workflow step:', error);
+    if (error.message === 'Order not found' ||
+        error.message === 'Workflow not found in order' ||
+        error.message === 'Step not found in workflow') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(400).json({
+      error: error.message || 'Failed to complete workflow step'
+    });
+  }
+});
+
 module.exports = router;

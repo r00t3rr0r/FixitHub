@@ -12,7 +12,9 @@ import { getConversations, getConversationMessages, sendMessage, startConversati
 import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon } from "@/api/adminOrders"
 import { getUserProfile, UserProfile } from "@/api/user"
 import { getAddOnServices, AddOnService as AddOnServiceType } from "@/api/services"
+import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder } from "@/api/workflow"
 import EPartSelectionDialog from "@/components/admin/EPartSelectionDialog"
+import { WorkflowExecutionView } from "@/components/workflow/WorkflowExecutionView"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -90,6 +92,10 @@ export function OrderDetails() {
   const [editingAddon, setEditingAddon] = useState<any>(null)
   const [selectedAddonForStaff, setSelectedAddonForStaff] = useState<any>(null)
   const [addonStaffId, setAddonStaffId] = useState("")
+  const [workflows, setWorkflows] = useState<any[]>([])
+  const [suggestedWorkflows, setSuggestedWorkflows] = useState<any[]>([])
+  const [workflowDialogOpen, setWorkflowDialogOpen] = useState(false)
+  const [assigningWorkflow, setAssigningWorkflow] = useState(false)
   const { toast } = useToast()
 
   // Fetch user profile
@@ -204,6 +210,32 @@ export function OrderDetails() {
 
     fetchAvailableAddons()
   }, [user])
+
+  // Fetch workflows for order
+  useEffect(() => {
+    const fetchWorkflows = async () => {
+      if (!id || !user || (user.role !== 'admin' && user.role !== 'staff')) return
+
+      try {
+        console.log("OrderDetails: Fetching workflows for order:", id)
+        const [workflowsResponse, suggestedResponse] = await Promise.all([
+          getOrderWorkflows(id),
+          getSuggestedWorkflowsForOrder(id)
+        ])
+
+        console.log("OrderDetails: Workflows received:", workflowsResponse)
+        console.log("OrderDetails: Suggested workflows received:", suggestedResponse)
+
+        setWorkflows((workflowsResponse as any).workflows || [])
+        setSuggestedWorkflows((suggestedResponse as any).workflows || [])
+      } catch (error: any) {
+        console.error("OrderDetails: Error fetching workflows:", error)
+        // Don't show error toast as workflows might not be critical
+      }
+    }
+
+    fetchWorkflows()
+  }, [id, user])
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !id) return
@@ -512,6 +544,55 @@ export function OrderDetails() {
   const openAssignAddonStaffDialog = (addon: any) => {
     setSelectedAddonForStaff(addon)
     setAssignAddonStaffDialogOpen(true)
+  }
+
+  const handleAssignWorkflow = async (workflowTemplateId: string) => {
+    if (!id) return
+
+    try {
+      setAssigningWorkflow(true)
+      console.log("OrderDetails: Assigning workflow:", workflowTemplateId)
+
+      await assignWorkflowToOrder(id, workflowTemplateId)
+
+      toast({
+        title: "Success",
+        description: "Workflow assigned to order successfully"
+      })
+
+      setWorkflowDialogOpen(false)
+
+      // Refresh workflows
+      const workflowsResponse = await getOrderWorkflows(id)
+      setWorkflows((workflowsResponse as any).workflows || [])
+
+      // Refresh order
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("OrderDetails: Error assigning workflow:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to assign workflow",
+        variant: "destructive"
+      })
+    } finally {
+      setAssigningWorkflow(false)
+    }
+  }
+
+  const handleWorkflowUpdate = async () => {
+    if (!id) return
+
+    try {
+      console.log("OrderDetails: Refreshing workflows after update")
+      const workflowsResponse = await getOrderWorkflows(id)
+      setWorkflows((workflowsResponse as any).workflows || [])
+
+      // Refresh order to get updated progress
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("OrderDetails: Error refreshing workflows:", error)
+    }
   }
 
   const getVersionTypeColor = (versionType: string) => {
@@ -1071,6 +1152,48 @@ export function OrderDetails() {
             </Card>
           )}
 
+          {/* Workflows - Only visible to admin/staff */}
+          {(user?.role === 'admin' || user?.role === 'staff') && (
+            <div className="space-y-4">
+              {workflows.length > 0 ? (
+                workflows.map((workflow: any) => (
+                  <WorkflowExecutionView
+                    key={workflow._id}
+                    orderId={id!}
+                    workflow={workflow}
+                    onWorkflowUpdate={handleWorkflowUpdate}
+                  />
+                ))
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-5 w-5" />
+                        Workflows
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setWorkflowDialogOpen(true)}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Assign Workflow
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center text-muted-foreground py-8">
+                      <CheckCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>No workflows assigned</p>
+                      <p className="text-sm">Click "Assign Workflow" to add guided steps for this order</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
           {/* Progress Timeline */}
           <Card>
             <CardHeader>
@@ -1488,6 +1611,71 @@ export function OrderDetails() {
             </Button>
             <Button onClick={handleAssignStaffToAddon} disabled={!addonStaffId}>
               Assign Staff
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Workflow Assignment Dialog */}
+      <Dialog open={workflowDialogOpen} onOpenChange={setWorkflowDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Assign Workflow to Order</DialogTitle>
+            <DialogDescription>
+              Select a workflow template that matches this order's device type and services
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 max-h-[400px] overflow-y-auto">
+            {suggestedWorkflows.length > 0 ? (
+              suggestedWorkflows.map((workflow: any) => (
+                <Card key={workflow._id} className="cursor-pointer hover:bg-accent/50 transition-colors">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-base">{workflow.name}</CardTitle>
+                        <CardDescription className="mt-1">
+                          {workflow.description}
+                        </CardDescription>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleAssignWorkflow(workflow._id)}
+                        disabled={assigningWorkflow}
+                      >
+                        Assign
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <CheckCircle className="h-4 w-4" />
+                        {workflow.steps?.length || 0} steps
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        {workflow.estimatedTotalTime || 0} min
+                      </span>
+                      {workflow.deviceTypes && workflow.deviceTypes.length > 0 && (
+                        <span>
+                          Devices: {workflow.deviceTypes.join(', ')}
+                        </span>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                <CheckCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>No suggested workflows available</p>
+                <p className="text-sm">Create workflows in the admin panel that match this order's device type and services</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWorkflowDialogOpen(false)}>
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>

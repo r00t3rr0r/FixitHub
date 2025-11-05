@@ -1,6 +1,7 @@
 const Order = require('../models/Order');
 const User = require('../models/User');
 const Inventory = require('../models/Inventory');
+const { WorkflowTemplate, AddOnWorkflow } = require('../models/Workflow');
 
 class OrderService {
   // Create a new order
@@ -687,6 +688,246 @@ class OrderService {
       return updatedOrder;
     } catch (error) {
       console.error('OrderService: Error assigning staff to add-on:', error);
+      throw error;
+    }
+  }
+
+  // Assign workflow to order
+  static async assignWorkflowToOrder(orderId, workflowTemplateId, staffId) {
+    console.log('OrderService: Assigning workflow to order:', { orderId, workflowTemplateId, staffId });
+
+    try {
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      const workflowTemplate = await WorkflowTemplate.findById(workflowTemplateId);
+      if (!workflowTemplate) {
+        throw new Error('Workflow template not found');
+      }
+
+      // Check if workflow is already assigned
+      const existingWorkflow = order.workflows.find(
+        w => w.workflowTemplateId.toString() === workflowTemplateId
+      );
+      if (existingWorkflow) {
+        throw new Error('This workflow is already assigned to this order');
+      }
+
+      // Create workflow execution steps from template
+      const workflowSteps = workflowTemplate.steps.map(step => ({
+        stepId: step._id.toString(),
+        stepName: step.name,
+        status: 'pending',
+        formData: {},
+        checklistData: new Map(),
+        photos: []
+      }));
+
+      // Add workflow to order
+      order.workflows.push({
+        workflowTemplateId,
+        workflowName: workflowTemplate.name,
+        steps: workflowSteps,
+        currentStepIndex: 0,
+        status: 'not-started',
+        estimatedCompletionTime: workflowTemplate.estimatedTotalTime
+      });
+
+      // Add timeline entry
+      const staff = await User.findById(staffId);
+      order.timeline.push({
+        status: 'Workflow Assigned',
+        description: `Workflow "${workflowTemplate.name}" assigned to order`,
+        completedAt: new Date(),
+        staffId: staffId || 'system',
+        staffName: staff ? staff.name : 'System'
+      });
+
+      const updatedOrder = await order.save();
+
+      console.log('OrderService: Workflow assigned successfully');
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error assigning workflow:', error);
+      throw error;
+    }
+  }
+
+  // Start workflow execution
+  static async startWorkflow(orderId, workflowId, staffId) {
+    console.log('OrderService: Starting workflow:', { orderId, workflowId, staffId });
+
+    try {
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      const workflow = order.workflows.id(workflowId);
+      if (!workflow) {
+        throw new Error('Workflow not found in order');
+      }
+
+      if (workflow.status !== 'not-started') {
+        throw new Error('Workflow has already been started');
+      }
+
+      workflow.status = 'in-progress';
+      workflow.startedAt = new Date();
+
+      // Set first step to in-progress
+      if (workflow.steps.length > 0) {
+        workflow.steps[0].status = 'in-progress';
+        workflow.steps[0].startedAt = new Date();
+        workflow.steps[0].assignedStaffId = staffId;
+      }
+
+      // Add timeline entry
+      const staff = await User.findById(staffId);
+      order.timeline.push({
+        status: 'Workflow Started',
+        description: `Workflow "${workflow.workflowName}" started by ${staff ? staff.name : 'Staff'}`,
+        completedAt: new Date(),
+        staffId: staffId || 'system',
+        staffName: staff ? staff.name : 'Staff Member'
+      });
+
+      const updatedOrder = await order.save();
+
+      console.log('OrderService: Workflow started successfully');
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error starting workflow:', error);
+      throw error;
+    }
+  }
+
+  // Complete workflow step
+  static async completeWorkflowStep(orderId, workflowId, stepId, stepData, staffId) {
+    console.log('OrderService: Completing workflow step:', { orderId, workflowId, stepId, staffId });
+
+    try {
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      const workflow = order.workflows.id(workflowId);
+      if (!workflow) {
+        throw new Error('Workflow not found in order');
+      }
+
+      const step = workflow.steps.id(stepId);
+      if (!step) {
+        throw new Error('Step not found in workflow');
+      }
+
+      if (step.status === 'completed') {
+        throw new Error('Step has already been completed');
+      }
+
+      // Update step data
+      step.status = 'completed';
+      step.completedAt = new Date();
+      if (stepData.formData) step.formData = stepData.formData;
+      if (stepData.checklistData) step.checklistData = stepData.checklistData;
+      if (stepData.notes) step.notes = stepData.notes;
+      if (stepData.photos) step.photos = stepData.photos;
+
+      // Move to next step
+      const currentIndex = workflow.steps.findIndex(s => s._id.toString() === stepId);
+      const nextIndex = currentIndex + 1;
+
+      if (nextIndex < workflow.steps.length) {
+        workflow.currentStepIndex = nextIndex;
+        workflow.steps[nextIndex].status = 'in-progress';
+        workflow.steps[nextIndex].startedAt = new Date();
+        workflow.steps[nextIndex].assignedStaffId = staffId;
+      } else {
+        // All steps completed
+        workflow.status = 'completed';
+        workflow.completedAt = new Date();
+      }
+
+      // Add timeline entry
+      const staff = await User.findById(staffId);
+      order.timeline.push({
+        status: 'Workflow Step Completed',
+        description: `Step "${step.stepName}" completed in workflow "${workflow.workflowName}"`,
+        completedAt: new Date(),
+        staffId: staffId || 'system',
+        staffName: staff ? staff.name : 'Staff Member',
+        photos: stepData.photos || []
+      });
+
+      // Update order progress based on workflow completion
+      const totalSteps = workflow.steps.length;
+      const completedSteps = workflow.steps.filter(s => s.status === 'completed').length;
+      const workflowProgress = Math.round((completedSteps / totalSteps) * 100);
+
+      // Calculate overall order progress (weighted average of all workflows)
+      if (order.workflows.length > 0) {
+        const totalProgress = order.workflows.reduce((sum, wf) => {
+          const wfCompletedSteps = wf.steps.filter(s => s.status === 'completed').length;
+          return sum + (wfCompletedSteps / wf.steps.length) * 100;
+        }, 0);
+        order.progress = Math.round(totalProgress / order.workflows.length);
+      }
+
+      const updatedOrder = await order.save();
+
+      console.log('OrderService: Workflow step completed successfully');
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error completing workflow step:', error);
+      throw error;
+    }
+  }
+
+  // Get workflow for order
+  static async getOrderWorkflows(orderId) {
+    console.log('OrderService: Getting workflows for order:', orderId);
+
+    try {
+      const order = await Order.findById(orderId)
+        .populate('workflows.workflowTemplateId')
+        .populate('workflows.steps.assignedStaffId', 'name avatar');
+
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      console.log('OrderService: Found', order.workflows.length, 'workflows for order');
+      return order.workflows;
+    } catch (error) {
+      console.error('OrderService: Error getting order workflows:', error);
+      throw error;
+    }
+  }
+
+  // Get suggested workflows for order based on device type and services
+  static async getSuggestedWorkflows(orderId) {
+    console.log('OrderService: Getting suggested workflows for order:', orderId);
+
+    try {
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      // Find workflows matching device type and services
+      const workflows = await WorkflowTemplate.find({
+        isActive: true,
+        deviceTypes: { $in: [order.deviceType] },
+        serviceTypes: { $in: order.services }
+      }).sort({ createdAt: -1 });
+
+      console.log('OrderService: Found', workflows.length, 'suggested workflows');
+      return workflows;
+    } catch (error) {
+      console.error('OrderService: Error getting suggested workflows:', error);
       throw error;
     }
   }

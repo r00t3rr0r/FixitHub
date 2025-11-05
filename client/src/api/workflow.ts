@@ -413,3 +413,98 @@ export const getWorkflowStats = async () => {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// ===== Order Workflow Execution APIs =====
+
+// Description: Get suggested workflows for an order based on device type and services
+// Endpoint: GET /api/admin/orders/:orderId/workflows/suggested
+// Request: {}
+// Response: { success: boolean, workflows: WorkflowTemplate[] }
+export const getSuggestedWorkflowsForOrder = async (orderId: string) => {
+  try {
+    console.log("OrderWorkflowAPI: Getting suggested workflows for order:", orderId);
+    const response = await api.get(`/api/admin/orders/${orderId}/workflows/suggested`);
+    console.log("OrderWorkflowAPI: Received suggested workflows:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("OrderWorkflowAPI: Error getting suggested workflows:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Get workflows assigned to an order
+// Endpoint: GET /api/admin/orders/:orderId/workflows
+// Request: {}
+// Response: { success: boolean, workflows: OrderWorkflow[] }
+export const getOrderWorkflows = async (orderId: string) => {
+  try {
+    console.log("OrderWorkflowAPI: Getting workflows for order:", orderId);
+    const response = await api.get(`/api/admin/orders/${orderId}/workflows`);
+    console.log("OrderWorkflowAPI: Received order workflows:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("OrderWorkflowAPI: Error getting order workflows:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Assign workflow template to an order
+// Endpoint: POST /api/admin/orders/:orderId/workflows
+// Request: { workflowTemplateId: string }
+// Response: { success: boolean, message: string, order: Order }
+export const assignWorkflowToOrder = async (orderId: string, workflowTemplateId: string) => {
+  try {
+    console.log("OrderWorkflowAPI: Assigning workflow to order:", { orderId, workflowTemplateId });
+    const response = await api.post(`/api/admin/orders/${orderId}/workflows`, { workflowTemplateId });
+    console.log("OrderWorkflowAPI: Workflow assigned successfully:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("OrderWorkflowAPI: Error assigning workflow:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Start workflow execution
+// Endpoint: POST /api/admin/orders/:orderId/workflows/:workflowId/start
+// Request: {}
+// Response: { success: boolean, message: string, order: Order }
+export const startWorkflow = async (orderId: string, workflowId: string) => {
+  try {
+    console.log("OrderWorkflowAPI: Starting workflow:", { orderId, workflowId });
+    const response = await api.post(`/api/admin/orders/${orderId}/workflows/${workflowId}/start`);
+    console.log("OrderWorkflowAPI: Workflow started successfully:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("OrderWorkflowAPI: Error starting workflow:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Complete workflow step
+// Endpoint: POST /api/admin/orders/:orderId/workflows/:workflowId/steps/:stepId/complete
+// Request: { formData?: object, checklistData?: object, notes?: string, photos?: string[] }
+// Response: { success: boolean, message: string, order: Order }
+export const completeWorkflowStep = async (
+  orderId: string,
+  workflowId: string,
+  stepId: string,
+  stepData: {
+    formData?: any;
+    checklistData?: any;
+    notes?: string;
+    photos?: string[];
+  }
+) => {
+  try {
+    console.log("OrderWorkflowAPI: Completing workflow step:", { orderId, workflowId, stepId, stepData });
+    const response = await api.post(
+      `/api/admin/orders/${orderId}/workflows/${workflowId}/steps/${stepId}/complete`,
+      stepData
+    );
+    console.log("OrderWorkflowAPI: Workflow step completed successfully:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("OrderWorkflowAPI: Error completing workflow step:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};

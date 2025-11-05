@@ -88,6 +88,76 @@ const orderTimelineSchema = new mongoose.Schema({
   }],
 }, { _id: true });
 
+const workflowStepExecutionSchema = new mongoose.Schema({
+  stepId: {
+    type: String,
+    required: true,
+  },
+  stepName: {
+    type: String,
+    required: true,
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'in-progress', 'completed', 'skipped'],
+    default: 'pending',
+  },
+  assignedStaffId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  startedAt: {
+    type: Date,
+  },
+  completedAt: {
+    type: Date,
+  },
+  formData: {
+    type: mongoose.Schema.Types.Mixed,
+  },
+  checklistData: {
+    type: Map,
+    of: Boolean,
+  },
+  notes: {
+    type: String,
+  },
+  photos: [{
+    type: String,
+  }],
+}, { _id: true });
+
+const orderWorkflowSchema = new mongoose.Schema({
+  workflowTemplateId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'WorkflowTemplate',
+    required: true,
+  },
+  workflowName: {
+    type: String,
+    required: true,
+  },
+  steps: [workflowStepExecutionSchema],
+  currentStepIndex: {
+    type: Number,
+    default: 0,
+  },
+  status: {
+    type: String,
+    enum: ['not-started', 'in-progress', 'completed', 'on-hold'],
+    default: 'not-started',
+  },
+  startedAt: {
+    type: Date,
+  },
+  completedAt: {
+    type: Date,
+  },
+  estimatedCompletionTime: {
+    type: Number, // in minutes
+  },
+}, { _id: true });
+
 const orderEPartSchema = new mongoose.Schema({
   partId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -184,6 +254,7 @@ const orderSchema = new mongoose.Schema({
   },
   staffNotes: [staffNoteSchema],
   eParts: [orderEPartSchema],
+  workflows: [orderWorkflowSchema],
   progress: {
     type: Number,
     default: 0,
@@ -245,7 +316,9 @@ orderSchema.pre(/^find/, function(next) {
   this.populate('customerId', 'name email phone avatar address paymentMethods isActive role createdAt')
       .populate('assignedStaff.staffId', 'name avatar')
       .populate('eParts.partId')
-      .populate('eParts.assignedBy', 'name email');
+      .populate('eParts.assignedBy', 'name email')
+      .populate('workflows.workflowTemplateId')
+      .populate('workflows.steps.assignedStaffId', 'name avatar');
   next();
 });
 
