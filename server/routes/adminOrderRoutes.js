@@ -564,4 +564,110 @@ router.post('/:id/workflows/:workflowId/steps/:stepId/complete', requireUser, re
   }
 });
 
+// Description: Skip workflow step
+// Endpoint: POST /api/admin/orders/:id/workflows/:workflowId/steps/:stepId/skip
+// Request: { reason?: string }
+// Response: { success: boolean, message: string, order: Order }
+router.post('/:id/workflows/:workflowId/steps/:stepId/skip', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Skip workflow step request received:', req.params.id, req.params.workflowId, req.params.stepId, req.body);
+
+  try {
+    const { reason } = req.body;
+
+    const order = await OrderService.skipWorkflowStep(
+      req.params.id,
+      req.params.workflowId,
+      req.params.stepId,
+      reason,
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Workflow step skipped successfully',
+      order
+    });
+  } catch (error) {
+    console.error('Error skipping workflow step:', error);
+    if (error.message === 'Order not found' ||
+        error.message === 'Workflow not found in order' ||
+        error.message === 'Step not found in workflow') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(400).json({
+      error: error.message || 'Failed to skip workflow step'
+    });
+  }
+});
+
+// Description: Update workflow status (pause/resume)
+// Endpoint: PUT /api/admin/orders/:id/workflows/:workflowId/status
+// Request: { status: 'in-progress' | 'on-hold' }
+// Response: { success: boolean, message: string, order: Order }
+router.put('/:id/workflows/:workflowId/status', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Update workflow status request received:', req.params.id, req.params.workflowId, req.body);
+
+  try {
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ error: 'Status is required' });
+    }
+
+    const order = await OrderService.updateWorkflowStatus(
+      req.params.id,
+      req.params.workflowId,
+      status,
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Workflow status updated successfully',
+      order
+    });
+  } catch (error) {
+    console.error('Error updating workflow status:', error);
+    if (error.message === 'Order not found' || error.message === 'Workflow not found in order') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(400).json({
+      error: error.message || 'Failed to update workflow status'
+    });
+  }
+});
+
+// Description: Navigate back to previous step
+// Endpoint: POST /api/admin/orders/:id/workflows/:workflowId/steps/:stepId/goto
+// Request: {}
+// Response: { success: boolean, message: string, order: Order }
+router.post('/:id/workflows/:workflowId/steps/:stepId/goto', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Go back to workflow step request received:', req.params.id, req.params.workflowId, req.params.stepId);
+
+  try {
+    const order = await OrderService.goBackToStep(
+      req.params.id,
+      req.params.workflowId,
+      req.params.stepId,
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Successfully navigated to step',
+      order
+    });
+  } catch (error) {
+    console.error('Error navigating to step:', error);
+    if (error.message === 'Order not found' ||
+        error.message === 'Workflow not found in order' ||
+        error.message === 'Step not found in workflow') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(400).json({
+      error: error.message || 'Failed to navigate to step'
+    });
+  }
+});
+
 module.exports = router;

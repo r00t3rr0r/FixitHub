@@ -886,6 +886,200 @@ class OrderService {
     }
   }
 
+  // Skip workflow step
+  static async skipWorkflowStep(orderId, workflowId, stepId, reason, staffId) {
+    console.log('OrderService: Skipping workflow step:', { orderId, workflowId, stepId, reason, staffId });
+
+    try {
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      const workflow = order.workflows.id(workflowId);
+      if (!workflow) {
+        throw new Error('Workflow not found in order');
+      }
+
+      const step = workflow.steps.id(stepId);
+      if (!step) {
+        throw new Error('Step not found in workflow');
+      }
+
+      if (step.status === 'completed' || step.status === 'skipped') {
+        throw new Error('Step has already been completed or skipped');
+      }
+
+      // Update step status
+      step.status = 'skipped';
+      step.completedAt = new Date();
+      step.notes = reason || 'Step skipped';
+
+      // Move to next step
+      const currentIndex = workflow.steps.findIndex(s => s._id.toString() === stepId);
+      const nextIndex = currentIndex + 1;
+
+      if (nextIndex < workflow.steps.length) {
+        workflow.currentStepIndex = nextIndex;
+        workflow.steps[nextIndex].status = 'in-progress';
+        workflow.steps[nextIndex].startedAt = new Date();
+        workflow.steps[nextIndex].assignedStaffId = staffId;
+      } else {
+        // All steps completed or skipped
+        workflow.status = 'completed';
+        workflow.completedAt = new Date();
+      }
+
+      // Add timeline entry
+      const staff = await User.findById(staffId);
+      order.timeline.push({
+        status: 'Workflow Step Skipped',
+        description: `Step "${step.stepName}" skipped in workflow "${workflow.workflowName}". Reason: ${reason || 'Not provided'}`,
+        completedAt: new Date(),
+        staffId: staffId || 'system',
+        staffName: staff ? staff.name : 'Staff Member'
+      });
+
+      // Update order progress
+      const totalSteps = workflow.steps.length;
+      const completedOrSkippedSteps = workflow.steps.filter(s => s.status === 'completed' || s.status === 'skipped').length;
+
+      if (order.workflows.length > 0) {
+        const totalProgress = order.workflows.reduce((sum, wf) => {
+          const wfCompletedSteps = wf.steps.filter(s => s.status === 'completed' || s.status === 'skipped').length;
+          return sum + (wfCompletedSteps / wf.steps.length) * 100;
+        }, 0);
+        order.progress = Math.round(totalProgress / order.workflows.length);
+      }
+
+      const updatedOrder = await order.save();
+
+      console.log('OrderService: Workflow step skipped successfully');
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error skipping workflow step:', error);
+      throw error;
+    }
+  }
+
+  // Pause/Resume workflow
+  static async updateWorkflowStatus(orderId, workflowId, status, staffId) {
+    console.log('OrderService: Updating workflow status:', { orderId, workflowId, status, staffId });
+
+    try {
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      const workflow = order.workflows.id(workflowId);
+      if (!workflow) {
+        throw new Error('Workflow not found in order');
+      }
+
+      const validStatuses = ['not-started', 'in-progress', 'on-hold', 'completed'];
+      if (!validStatuses.includes(status)) {
+        throw new Error('Invalid workflow status');
+      }
+
+      const oldStatus = workflow.status;
+      workflow.status = status;
+
+      // Add timeline entry
+      const staff = await User.findById(staffId);
+      order.timeline.push({
+        status: 'Workflow Status Updated',
+        description: `Workflow "${workflow.workflowName}" status changed from ${oldStatus} to ${status}`,
+        completedAt: new Date(),
+        staffId: staffId || 'system',
+        staffName: staff ? staff.name : 'Staff Member'
+      });
+
+      const updatedOrder = await order.save();
+
+      console.log('OrderService: Workflow status updated successfully');
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error updating workflow status:', error);
+      throw error;
+    }
+  }
+
+  // Navigate to previous step
+  static async goBackToStep(orderId, workflowId, stepId, staffId) {
+    console.log('OrderService: Going back to workflow step:', { orderId, workflowId, stepId, staffId });
+
+    try {
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      const workflow = order.workflows.id(workflowId);
+      if (!workflow) {
+        throw new Error('Workflow not found in order');
+      }
+
+      const stepIndex = workflow.steps.findIndex(s => s._id.toString() === stepId);
+      if (stepIndex === -1) {
+        throw new Error('Step not found in workflow');
+      }
+
+      const step = workflow.steps[stepIndex];
+
+      // Can only go back to completed or skipped steps
+      if (step.status !== 'completed' && step.status !== 'skipped') {
+        throw new Error('Can only navigate back to completed or skipped steps');
+      }
+
+      // Reset the target step to in-progress
+      step.status = 'in-progress';
+      step.startedAt = new Date();
+      step.assignedStaffId = staffId;
+      step.completedAt = undefined;
+
+      // Reset all steps after the target step to pending
+      for (let i = stepIndex + 1; i < workflow.steps.length; i++) {
+        workflow.steps[i].status = 'pending';
+        workflow.steps[i].startedAt = undefined;
+        workflow.steps[i].completedAt = undefined;
+        workflow.steps[i].assignedStaffId = undefined;
+      }
+
+      // Update workflow
+      workflow.currentStepIndex = stepIndex;
+      workflow.status = 'in-progress';
+      workflow.completedAt = undefined;
+
+      // Add timeline entry
+      const staff = await User.findById(staffId);
+      order.timeline.push({
+        status: 'Workflow Navigation',
+        description: `Navigated back to step "${step.stepName}" in workflow "${workflow.workflowName}"`,
+        completedAt: new Date(),
+        staffId: staffId || 'system',
+        staffName: staff ? staff.name : 'Staff Member'
+      });
+
+      // Update order progress
+      if (order.workflows.length > 0) {
+        const totalProgress = order.workflows.reduce((sum, wf) => {
+          const wfCompletedSteps = wf.steps.filter(s => s.status === 'completed' || s.status === 'skipped').length;
+          return sum + (wfCompletedSteps / wf.steps.length) * 100;
+        }, 0);
+        order.progress = Math.round(totalProgress / order.workflows.length);
+      }
+
+      const updatedOrder = await order.save();
+
+      console.log('OrderService: Successfully navigated back to step');
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error navigating back to step:', error);
+      throw error;
+    }
+  }
+
   // Get workflow for order
   static async getOrderWorkflows(orderId) {
     console.log('OrderService: Getting workflows for order:', orderId);

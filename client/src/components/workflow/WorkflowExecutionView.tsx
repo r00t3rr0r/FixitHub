@@ -19,14 +19,26 @@ import {
   FileText,
   Camera,
   Wrench,
-  User
+  User,
+  SkipForward,
+  Pause,
+  Play,
+  ArrowLeft
 } from "lucide-react"
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { completeWorkflowStep, startWorkflow } from "@/api/workflow"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { completeWorkflowStep, startWorkflow, skipWorkflowStep, updateWorkflowStatus, goBackToStep } from "@/api/workflow"
 
 interface WorkflowStep {
   _id: string
@@ -86,6 +98,12 @@ export function WorkflowExecutionView({ orderId, workflow, onWorkflowUpdate }: W
   const [stepNotes, setStepNotes] = useState<Record<string, string>>({})
   const [completing, setCompleting] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
+  const [skipping, setSkipping] = useState<string | null>(null)
+  const [skipDialogOpen, setSkipDialogOpen] = useState(false)
+  const [skipReason, setSkipReason] = useState("")
+  const [stepToSkip, setStepToSkip] = useState<WorkflowStep | null>(null)
+  const [pausingResuming, setPausingResuming] = useState(false)
+  const [navigating, setNavigating] = useState<string | null>(null)
   const { toast } = useToast()
 
   const toggleStep = (stepId: string) => {
@@ -158,6 +176,25 @@ export function WorkflowExecutionView({ orderId, workflow, onWorkflowUpdate }: W
         }
       }
 
+      // Validate required form fields
+      if (templateStep?.formFields && templateStep.formFields.length > 0) {
+        const requiredFields = templateStep.formFields.filter(f => f.required)
+        const missingFields = requiredFields.filter(field => {
+          const value = stepFormData[step._id]?.[field.id]
+          return value === undefined || value === null || value === ''
+        })
+
+        if (missingFields.length > 0) {
+          toast({
+            title: "Required Fields Missing",
+            description: `Please fill in all required fields: ${missingFields.map(f => f.label).join(', ')}`,
+            variant: "destructive"
+          })
+          setCompleting(null)
+          return
+        }
+      }
+
       await completeWorkflowStep(orderId, workflow._id, step._id, stepData)
 
       toast({
@@ -201,6 +238,243 @@ export function WorkflowExecutionView({ orderId, workflow, onWorkflowUpdate }: W
         [item]: checked
       }
     }))
+  }
+
+  const handleSkipStep = (step: WorkflowStep) => {
+    setStepToSkip(step)
+    setSkipReason("")
+    setSkipDialogOpen(true)
+  }
+
+  const confirmSkipStep = async () => {
+    if (!stepToSkip) return
+
+    try {
+      setSkipping(stepToSkip._id)
+      console.log("WorkflowExecutionView: Skipping step:", stepToSkip._id)
+
+      await skipWorkflowStep(orderId, workflow._id, stepToSkip._id, skipReason)
+
+      toast({
+        title: "Step Skipped",
+        description: `${stepToSkip.stepName} has been skipped.`
+      })
+
+      setSkipDialogOpen(false)
+      setStepToSkip(null)
+      setSkipReason("")
+
+      if (onWorkflowUpdate) {
+        onWorkflowUpdate()
+      }
+    } catch (error: any) {
+      console.error("WorkflowExecutionView: Error skipping step:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to skip step",
+        variant: "destructive"
+      })
+    } finally {
+      setSkipping(null)
+    }
+  }
+
+  const handlePauseResume = async () => {
+    try {
+      setPausingResuming(true)
+      const newStatus = workflow.status === 'on-hold' ? 'in-progress' : 'on-hold'
+      console.log("WorkflowExecutionView: Updating workflow status to:", newStatus)
+
+      await updateWorkflowStatus(orderId, workflow._id, newStatus)
+
+      toast({
+        title: newStatus === 'on-hold' ? "Workflow Paused" : "Workflow Resumed",
+        description: `${workflow.workflowName} has been ${newStatus === 'on-hold' ? 'paused' : 'resumed'}.`
+      })
+
+      if (onWorkflowUpdate) {
+        onWorkflowUpdate()
+      }
+    } catch (error: any) {
+      console.error("WorkflowExecutionView: Error updating workflow status:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update workflow status",
+        variant: "destructive"
+      })
+    } finally {
+      setPausingResuming(false)
+    }
+  }
+
+  const handleGoBackToStep = async (step: WorkflowStep) => {
+    if (step.status !== 'completed' && step.status !== 'skipped') {
+      toast({
+        title: "Cannot Navigate",
+        description: "Can only navigate back to completed or skipped steps",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      setNavigating(step._id)
+      console.log("WorkflowExecutionView: Navigating back to step:", step._id)
+
+      await goBackToStep(orderId, workflow._id, step._id)
+
+      toast({
+        title: "Navigation Successful",
+        description: `Navigated back to ${step.stepName}`
+      })
+
+      if (onWorkflowUpdate) {
+        onWorkflowUpdate()
+      }
+    } catch (error: any) {
+      console.error("WorkflowExecutionView: Error navigating to step:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to navigate to step",
+        variant: "destructive"
+      })
+    } finally {
+      setNavigating(null)
+    }
+  }
+
+  const handleFormFieldChange = (stepId: string, fieldId: string, value: any) => {
+    setStepFormData(prev => ({
+      ...prev,
+      [stepId]: {
+        ...(prev[stepId] || {}),
+        [fieldId]: value
+      }
+    }))
+  }
+
+  const renderFormField = (stepId: string, field: any, disabled: boolean) => {
+    const value = stepFormData[stepId]?.[field.id] ?? field.defaultValue ?? ''
+
+    switch (field.type) {
+      case 'text':
+      case 'number':
+        return (
+          <div key={field.id} className="space-y-2">
+            <Label htmlFor={`${stepId}-${field.id}`}>
+              {field.label} {field.required && <span className="text-red-500">*</span>}
+            </Label>
+            <Input
+              id={`${stepId}-${field.id}`}
+              type={field.type}
+              placeholder={field.placeholder}
+              value={value}
+              onChange={(e) => handleFormFieldChange(stepId, field.id, field.type === 'number' ? parseFloat(e.target.value) : e.target.value)}
+              disabled={disabled}
+              required={field.required}
+            />
+            {field.helpText && <p className="text-sm text-muted-foreground">{field.helpText}</p>}
+          </div>
+        )
+
+      case 'textarea':
+        return (
+          <div key={field.id} className="space-y-2">
+            <Label htmlFor={`${stepId}-${field.id}`}>
+              {field.label} {field.required && <span className="text-red-500">*</span>}
+            </Label>
+            <Textarea
+              id={`${stepId}-${field.id}`}
+              placeholder={field.placeholder}
+              value={value}
+              onChange={(e) => handleFormFieldChange(stepId, field.id, e.target.value)}
+              disabled={disabled}
+              required={field.required}
+              rows={4}
+            />
+            {field.helpText && <p className="text-sm text-muted-foreground">{field.helpText}</p>}
+          </div>
+        )
+
+      case 'checkbox':
+        return (
+          <div key={field.id} className="flex items-center space-x-2">
+            <Checkbox
+              id={`${stepId}-${field.id}`}
+              checked={value === true}
+              onCheckedChange={(checked) => handleFormFieldChange(stepId, field.id, checked)}
+              disabled={disabled}
+            />
+            <Label htmlFor={`${stepId}-${field.id}`} className="cursor-pointer">
+              {field.label} {field.required && <span className="text-red-500">*</span>}
+            </Label>
+          </div>
+        )
+
+      case 'select':
+        return (
+          <div key={field.id} className="space-y-2">
+            <Label htmlFor={`${stepId}-${field.id}`}>
+              {field.label} {field.required && <span className="text-red-500">*</span>}
+            </Label>
+            <select
+              id={`${stepId}-${field.id}`}
+              value={value}
+              onChange={(e) => handleFormFieldChange(stepId, field.id, e.target.value)}
+              disabled={disabled}
+              required={field.required}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">Select an option...</option>
+              {field.options?.map((option: any) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {field.helpText && <p className="text-sm text-muted-foreground">{field.helpText}</p>}
+          </div>
+        )
+
+      case 'date':
+        return (
+          <div key={field.id} className="space-y-2">
+            <Label htmlFor={`${stepId}-${field.id}`}>
+              {field.label} {field.required && <span className="text-red-500">*</span>}
+            </Label>
+            <Input
+              id={`${stepId}-${field.id}`}
+              type="date"
+              value={value}
+              onChange={(e) => handleFormFieldChange(stepId, field.id, e.target.value)}
+              disabled={disabled}
+              required={field.required}
+            />
+            {field.helpText && <p className="text-sm text-muted-foreground">{field.helpText}</p>}
+          </div>
+        )
+
+      case 'time':
+        return (
+          <div key={field.id} className="space-y-2">
+            <Label htmlFor={`${stepId}-${field.id}`}>
+              {field.label} {field.required && <span className="text-red-500">*</span>}
+            </Label>
+            <Input
+              id={`${stepId}-${field.id}`}
+              type="time"
+              value={value}
+              onChange={(e) => handleFormFieldChange(stepId, field.id, e.target.value)}
+              disabled={disabled}
+              required={field.required}
+            />
+            {field.helpText && <p className="text-sm text-muted-foreground">{field.helpText}</p>}
+          </div>
+        )
+
+      default:
+        return null
+    }
   }
 
   const getStepIcon = (status: string) => {
@@ -255,6 +529,26 @@ export function WorkflowExecutionView({ orderId, workflow, onWorkflowUpdate }: W
               >
                 <PlayCircle className="h-4 w-4 mr-2" />
                 Start Workflow
+              </Button>
+            )}
+            {(workflow.status === 'in-progress' || workflow.status === 'on-hold') && (
+              <Button
+                onClick={handlePauseResume}
+                disabled={pausingResuming}
+                size="sm"
+                variant="outline"
+              >
+                {workflow.status === 'on-hold' ? (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    Resume
+                  </>
+                ) : (
+                  <>
+                    <Pause className="h-4 w-4 mr-2" />
+                    Pause
+                  </>
+                )}
               </Button>
             )}
           </div>
@@ -358,6 +652,18 @@ export function WorkflowExecutionView({ orderId, workflow, onWorkflowUpdate }: W
                       </div>
                     )}
 
+                    {/* Form Fields */}
+                    {templateStep?.formFields && templateStep.formFields.length > 0 && step.status === 'in-progress' && (
+                      <div className="space-y-3">
+                        <Label className="text-sm font-medium">Required Information:</Label>
+                        <div className="space-y-3 pl-2">
+                          {templateStep.formFields.map((field) =>
+                            renderFormField(step._id, field, false)
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Checklist Items */}
                     {templateStep?.checklistItems && templateStep.checklistItems.length > 0 && (
                       <div className="space-y-2">
@@ -413,15 +719,51 @@ export function WorkflowExecutionView({ orderId, workflow, onWorkflowUpdate }: W
                       </div>
                     )}
 
-                    {/* Complete Step Button */}
+                    {/* Skipped Info */}
+                    {step.status === 'skipped' && step.completedAt && (
+                      <div className="text-sm text-muted-foreground bg-yellow-50 p-3 rounded-md">
+                        <AlertCircle className="h-4 w-4 inline mr-2 text-yellow-500" />
+                        Skipped on {new Date(step.completedAt).toLocaleString()}
+                        {step.notes && (
+                          <p className="mt-2 text-sm"><strong>Reason:</strong> {step.notes}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
                     {step.status === 'in-progress' && (
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleCompleteStep(step)}
+                          disabled={completing === step._id}
+                          className="flex-1"
+                        >
+                          <CheckCircle2 className="h-4 w-4 mr-2" />
+                          {completing === step._id ? 'Completing...' : 'Complete Step'}
+                        </Button>
+                        {templateStep?.canSkip && (
+                          <Button
+                            onClick={() => handleSkipStep(step)}
+                            disabled={skipping === step._id}
+                            variant="outline"
+                          >
+                            <SkipForward className="h-4 w-4 mr-2" />
+                            Skip
+                          </Button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Go Back Button for Completed/Skipped Steps */}
+                    {(step.status === 'completed' || step.status === 'skipped') && (
                       <Button
-                        onClick={() => handleCompleteStep(step)}
-                        disabled={completing === step._id}
+                        onClick={() => handleGoBackToStep(step)}
+                        disabled={navigating === step._id}
+                        variant="outline"
                         className="w-full"
                       >
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
-                        {completing === step._id ? 'Completing...' : 'Complete Step'}
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        {navigating === step._id ? 'Going back...' : 'Go Back to This Step'}
                       </Button>
                     )}
                   </CardContent>
@@ -431,6 +773,48 @@ export function WorkflowExecutionView({ orderId, workflow, onWorkflowUpdate }: W
           )
         })}
       </CardContent>
+
+      {/* Skip Confirmation Dialog */}
+      <Dialog open={skipDialogOpen} onOpenChange={setSkipDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Skip Step</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to skip "{stepToSkip?.stepName}"? This step will be marked as skipped and you'll move to the next step.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="skip-reason">Reason for skipping (optional)</Label>
+              <Textarea
+                id="skip-reason"
+                placeholder="Explain why this step is being skipped..."
+                value={skipReason}
+                onChange={(e) => setSkipReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSkipDialogOpen(false)
+                setStepToSkip(null)
+                setSkipReason("")
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmSkipStep}
+              disabled={skipping !== null}
+            >
+              {skipping ? 'Skipping...' : 'Skip Step'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
