@@ -6,9 +6,10 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
+import { useAuth } from "@/contexts/AuthContext"
 import { getOrderById, Order } from "@/api/orders"
 import { getConversations, getConversationMessages, sendMessage, startConversation } from "@/api/messages"
-import { getAvailableStaff, assignStaffToOrder, StaffMember } from "@/api/adminOrders"
+import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById } from "@/api/adminOrders"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -48,6 +49,7 @@ import {
 
 export function OrderDetails() {
   const { id } = useParams<{ id: string }>()
+  const { user } = useAuth()
   const [order, setOrder] = useState<Order | null>(null)
   const [messages, setMessages] = useState<any[]>([])
   const [conversationId, setConversationId] = useState<string | null>(null)
@@ -66,7 +68,17 @@ export function OrderDetails() {
 
       try {
         console.log("Fetching order details:", id)
-        const orderResponse = await getOrderById(id)
+
+        // Use admin API if user is admin or staff, otherwise use customer API
+        let orderResponse;
+        if (user?.role === 'admin' || user?.role === 'staff') {
+          console.log("Using admin API to fetch order details")
+          orderResponse = await getAdminOrderById(id)
+        } else {
+          console.log("Using customer API to fetch order details")
+          orderResponse = await getOrderById(id)
+        }
+
         setOrder((orderResponse as any).order)
 
         // Try to find existing conversation for this order
@@ -109,7 +121,7 @@ export function OrderDetails() {
     }
 
     fetchOrderDetails()
-  }, [id, toast])
+  }, [id, user, toast])
 
   useEffect(() => {
     const fetchAvailableStaff = async () => {

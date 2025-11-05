@@ -84,8 +84,34 @@ export interface AdminOrder {
 // Endpoint: GET /api/admin/orders
 // Request: { search?: string, status?: string, priority?: string }
 // Response: { orders: AdminOrder[], totalPages: number, currentPage: number, totalOrders: number }
-export const getAdminOrders = (filters: any = {}) => {
-  return new Promise((resolve) => {
+export const getAdminOrders = async (filters: any = {}) => {
+  console.log('getAdminOrders called with filters:', filters);
+  try {
+    const params = new URLSearchParams();
+
+    if (filters.search) params.append('search', filters.search);
+    if (filters.status) params.append('status', filters.status);
+    if (filters.priority) params.append('priority', filters.priority);
+    if (filters.deviceType) params.append('deviceType', filters.deviceType);
+    if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
+    if (filters.dateTo) params.append('dateTo', filters.dateTo);
+    if (filters.assignedStaff) params.append('assignedStaff', filters.assignedStaff);
+    if (filters.page) params.append('page', filters.page.toString());
+    if (filters.limit) params.append('limit', filters.limit.toString());
+
+    const queryString = params.toString();
+    const url = queryString ? `/api/admin/orders?${queryString}` : '/api/admin/orders';
+
+    const response = await api.get(url);
+    console.log('getAdminOrders API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('getAdminOrders API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+
+  // OLD MOCKED DATA - REMOVED
+  /* return new Promise((resolve) => {
     setTimeout(() => {
       resolve({
         orders: [
@@ -213,7 +239,7 @@ export const getAdminOrders = (filters: any = {}) => {
         totalOrders: 2
       });
     }, 500);
-  });
+  }); */
 };
 
 // Description: Update order status
@@ -221,26 +247,15 @@ export const getAdminOrders = (filters: any = {}) => {
 // Request: { status: string, note?: string }
 // Response: { success: boolean, message: string, order: AdminOrder }
 export const updateOrderStatus = async (orderId: string, status: string, note?: string) => {
-  // Mocking the response
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        message: 'Order status updated successfully',
-        order: {
-          _id: orderId,
-          status
-        }
-      });
-    }, 800);
-  });
-  
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.put(`/api/admin/orders/${orderId}/status`, { status, note });
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.error || error.message);
-  // }
+  console.log('updateOrderStatus called:', { orderId, status, note });
+  try {
+    const response = await api.put(`/api/admin/orders/${orderId}/status`, { status, note });
+    console.log('updateOrderStatus API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('updateOrderStatus API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Get available staff members for assignment
@@ -335,11 +350,27 @@ export const addNoteToOrder = async (orderId: string, note: string, type: string
       });
     }, 500);
   });
-  
+
   // Uncomment the below lines to make an actual API call
   // try {
   //   return await api.post(`/api/admin/orders/${orderId}/notes`, { note, type });
   // } catch (error) {
   //   throw new Error(error?.response?.data?.error || error.message);
   // }
+};
+
+// Description: Get order by ID for admin/staff
+// Endpoint: GET /api/admin/orders/:id
+// Request: {}
+// Response: { order: AdminOrder }
+export const getAdminOrderById = async (orderId: string) => {
+  console.log('getAdminOrderById called with ID:', orderId);
+  try {
+    const response = await api.get(`/api/admin/orders/${orderId}`);
+    console.log('getAdminOrderById API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('getAdminOrderById API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };

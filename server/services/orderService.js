@@ -51,27 +51,27 @@ class OrderService {
   // Get all orders (admin view)
   static async getAll(filters = {}) {
     console.log('OrderService: Getting all orders with filters:', filters);
-    
+
     try {
       const query = {};
-      
+
       // Apply filters
       if (filters.status) {
         query.status = filters.status;
       }
-      
+
       if (filters.priority) {
         query.priority = filters.priority;
       }
-      
+
       if (filters.deviceType) {
         query.deviceType = filters.deviceType;
       }
-      
+
       if (filters.assignedStaff) {
         query['assignedStaff.staffId'] = filters.assignedStaff;
       }
-      
+
       if (filters.search) {
         query.$or = [
           { orderNumber: { $regex: filters.search, $options: 'i' } },
@@ -79,7 +79,7 @@ class OrderService {
           { deviceModel: { $regex: filters.search, $options: 'i' } }
         ];
       }
-      
+
       if (filters.dateFrom || filters.dateTo) {
         query.createdAt = {};
         if (filters.dateFrom) {
@@ -96,6 +96,7 @@ class OrderService {
       const skip = (page - 1) * limit;
 
       const orders = await Order.find(query)
+        .populate('customerId', 'name email phone avatar role isActive createdAt')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
@@ -124,14 +125,15 @@ class OrderService {
   // Get order by ID
   static async getById(orderId) {
     console.log('OrderService: Getting order by ID:', orderId);
-    
+
     try {
-      const order = await Order.findById(orderId);
-      
+      const order = await Order.findById(orderId)
+        .populate('customerId', 'name email phone avatar role isActive createdAt');
+
       if (!order) {
         throw new Error('Order not found');
       }
-      
+
       console.log('OrderService: Order found:', order.orderNumber);
       return order;
     } catch (error) {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -39,6 +40,7 @@ import {
 } from "@/components/ui/table"
 
 export function OrderManagement() {
+  const navigate = useNavigate()
   const [orders, setOrders] = useState<AdminOrder[]>([])
   const [filteredOrders, setFilteredOrders] = useState<AdminOrder[]>([])
   const [loading, setLoading] = useState(true)
@@ -415,10 +417,18 @@ export function OrderManagement() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="sm">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            console.log('Navigating to order details:', order._id);
+                            navigate(`/orders/${order._id}`);
+                          }}
+                          title="View order details"
+                        >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" title="Edit order">
                           <Edit className="h-4 w-4" />
                         </Button>
                       </div>
