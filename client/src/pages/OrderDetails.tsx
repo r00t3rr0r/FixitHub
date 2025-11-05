@@ -71,8 +71,14 @@ export function OrderDetails() {
     const fetchOrderDetails = async () => {
       if (!id) return
 
+      // Wait for user to be loaded from auth context
+      if (!user) {
+        console.log("Waiting for user to be loaded...")
+        return
+      }
+
       try {
-        console.log("Fetching order details:", id)
+        console.log("Fetching order details:", id, "User role:", user.role)
 
         // Use admin API if user is admin or staff, otherwise use customer API
         let orderResponse;
