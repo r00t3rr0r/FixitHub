@@ -9,7 +9,8 @@ import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
 import { getOrderById, Order } from "@/api/orders"
 import { getConversations, getConversationMessages, sendMessage, startConversation } from "@/api/messages"
-import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById } from "@/api/adminOrders"
+import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder } from "@/api/adminOrders"
+import EPartSelectionDialog from "@/components/admin/EPartSelectionDialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -44,7 +45,10 @@ import {
   CreditCard,
   Home,
   Users,
-  UserPlus
+  UserPlus,
+  Wrench,
+  Trash2,
+  Plus
 } from "lucide-react"
 
 export function OrderDetails() {
@@ -60,6 +64,7 @@ export function OrderDetails() {
   const [selectedStaff, setSelectedStaff] = useState<string[]>([])
   const [assigningStaff, setAssigningStaff] = useState(false)
   const [staffDialogOpen, setStaffDialogOpen] = useState(false)
+  const [ePartDialogOpen, setEPartDialogOpen] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -231,6 +236,58 @@ export function OrderDetails() {
         ? [...prev, staffId]
         : prev.filter(id => id !== staffId)
     )
+  }
+
+  const refreshOrder = async () => {
+    if (!id) return
+
+    try {
+      let orderResponse
+      if (user?.role === 'admin' || user?.role === 'staff') {
+        orderResponse = await getAdminOrderById(id)
+      } else {
+        orderResponse = await getOrderById(id)
+      }
+      setOrder((orderResponse as any).order)
+    } catch (error) {
+      console.error("Error refreshing order:", error)
+    }
+  }
+
+  const handleRemoveEPart = async (ePartId: string) => {
+    if (!id) return
+
+    try {
+      await removeEPartFromOrder(id, ePartId)
+
+      toast({
+        title: "Success",
+        description: "EPart removed successfully"
+      })
+
+      // Refresh order data
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("Error removing EPart:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to remove EPart",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const getVersionTypeColor = (versionType: string) => {
+    switch (versionType) {
+      case 'original':
+        return 'bg-blue-500'
+      case 'cheap':
+        return 'bg-green-500'
+      case 'efficient':
+        return 'bg-purple-500'
+      default:
+        return 'bg-gray-500'
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -633,6 +690,94 @@ export function OrderDetails() {
             </Card>
           )}
 
+          {/* EParts - Only visible to admin/staff */}
+          {(user?.role === 'admin' || user?.role === 'staff') && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Wrench className="h-5 w-5" />
+                    Electronic Parts
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEPartDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add EPart
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {(order as any).eParts && (order as any).eParts.length > 0 ? (
+                  <div className="space-y-4">
+                    {(order as any).eParts.map((ePart: any) => {
+                      const version = ePart.partId?.versions?.find((v: any) => v._id === ePart.versionId);
+
+                      return (
+                        <div key={ePart._id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h4 className="font-medium">{ePart.partId?.itemName || 'Unknown Part'}</h4>
+                              {version && (
+                                <Badge className={getVersionTypeColor(version.versionType)}>
+                                  {version.versionType.toUpperCase()}
+                                </Badge>
+                              )}
+                              <Badge variant="outline" className={
+                                ePart.status === 'used' ? 'bg-green-50 text-green-700' :
+                                ePart.status === 'allocated' ? 'bg-blue-50 text-blue-700' :
+                                'bg-gray-50 text-gray-700'
+                              }>
+                                {ePart.status}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {ePart.partId?.itemDescription || 'No description available'}
+                            </p>
+                            <div className="flex gap-4 mt-2 text-sm">
+                              <span className="text-muted-foreground">
+                                SKU: <span className="font-medium text-foreground">{ePart.partId?.sku || 'N/A'}</span>
+                              </span>
+                              <span className="text-muted-foreground">
+                                Quantity: <span className="font-medium text-foreground">{ePart.quantity}</span>
+                              </span>
+                              {version && (
+                                <span className="text-muted-foreground">
+                                  Price: <span className="font-medium text-foreground">${version.sellingPrice?.toFixed(2) || '0.00'}</span>
+                                </span>
+                              )}
+                              <span className="text-muted-foreground">
+                                Assigned: <span className="font-medium text-foreground">
+                                  {new Date(ePart.assignedAt).toLocaleDateString()}
+                                </span>
+                              </span>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveEPart(ePart._id)}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    <Wrench className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No electronic parts assigned</p>
+                    <p className="text-sm">Click "Add EPart" to assign parts to this order</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Progress Timeline */}
           <Card>
             <CardHeader>
@@ -803,6 +948,16 @@ export function OrderDetails() {
           </Card>
         </div>
       </div>
+
+      {/* EPart Selection Dialog */}
+      {id && (user?.role === 'admin' || user?.role === 'staff') && (
+        <EPartSelectionDialog
+          open={ePartDialogOpen}
+          onOpenChange={setEPartDialogOpen}
+          orderId={id}
+          onSuccess={refreshOrder}
+        />
+      )}
     </div>
   )
 }

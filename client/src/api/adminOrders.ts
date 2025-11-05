@@ -9,6 +9,37 @@ export interface StaffMember {
   specializations: string[];
 }
 
+export interface OrderEPart {
+  _id: string;
+  partId: {
+    _id: string;
+    itemName: string;
+    itemDescription: string;
+    category: string;
+    sku: string;
+    brand: string;
+    versions: {
+      _id: string;
+      versionType: 'original' | 'cheap' | 'efficient';
+      versionId: string;
+      quantity: number;
+      unitCost: number;
+      sellingPrice: number;
+      status: string;
+      storageLocation: string;
+    }[];
+  };
+  versionId: string;
+  quantity: number;
+  status: 'pending' | 'allocated' | 'used';
+  assignedAt: string;
+  assignedBy: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+}
+
 export interface AdminOrder {
   _id: string;
   orderNumber: string;
@@ -67,6 +98,7 @@ export interface AdminOrder {
     type: string;
     createdAt: string;
   }[];
+  eParts: OrderEPart[];
   progress: number;
   timeline: {
     _id: string;
@@ -371,6 +403,60 @@ export const getAdminOrderById = async (orderId: string) => {
     return response.data;
   } catch (error: any) {
     console.error('getAdminOrderById API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Assign EPart to order
+// Endpoint: POST /api/admin/orders/:id/eparts
+// Request: { partId: string, versionId: string, quantity: number }
+// Response: { success: boolean, message: string, order: AdminOrder }
+export const assignEPartToOrder = async (orderId: string, partId: string, versionId: string, quantity: number) => {
+  console.log('assignEPartToOrder called:', { orderId, partId, versionId, quantity });
+  try {
+    const response = await api.post(`/api/admin/orders/${orderId}/eparts`, {
+      partId,
+      versionId,
+      quantity
+    });
+    console.log('assignEPartToOrder API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('assignEPartToOrder API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Remove EPart from order
+// Endpoint: DELETE /api/admin/orders/:id/eparts/:ePartId
+// Request: {}
+// Response: { success: boolean, message: string, order: AdminOrder }
+export const removeEPartFromOrder = async (orderId: string, ePartId: string) => {
+  console.log('removeEPartFromOrder called:', { orderId, ePartId });
+  try {
+    const response = await api.delete(`/api/admin/orders/${orderId}/eparts/${ePartId}`);
+    console.log('removeEPartFromOrder API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('removeEPartFromOrder API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Update EPart status
+// Endpoint: PUT /api/admin/orders/:id/eparts/:ePartId/status
+// Request: { status: string }
+// Response: { success: boolean, message: string, order: AdminOrder }
+export const updateEPartStatus = async (orderId: string, ePartId: string, status: string) => {
+  console.log('updateEPartStatus called:', { orderId, ePartId, status });
+  try {
+    const response = await api.put(`/api/admin/orders/${orderId}/eparts/${ePartId}/status`, {
+      status
+    });
+    console.log('updateEPartStatus API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('updateEPartStatus API error:', error);
     throw new Error(error?.response?.data?.error || error.message);
   }
 };

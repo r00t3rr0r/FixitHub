@@ -1,5 +1,6 @@
 const Order = require('../models/Order');
 const User = require('../models/User');
+const Inventory = require('../models/Inventory');
 
 class OrderService {
   // Create a new order
@@ -322,6 +323,170 @@ class OrderService {
       return result;
     } catch (error) {
       console.error('OrderService: Error getting order stats:', error);
+      throw error;
+    }
+  }
+
+  // Assign EPart to order
+  static async assignEPart(orderId, partId, versionId, quantity, staffId) {
+    console.log('OrderService: Assigning EPart to order:', { orderId, partId, versionId, quantity, staffId });
+
+    try {
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      const part = await Inventory.findById(partId);
+      if (!part) {
+        throw new Error('Part not found');
+      }
+
+      // Find the specific version
+      const version = part.versions.id(versionId);
+      if (!version) {
+        throw new Error('Part version not found');
+      }
+
+      // Check if enough stock is available
+      if (version.quantity < quantity) {
+        throw new Error(`Insufficient stock. Available: ${version.quantity}, Requested: ${quantity}`);
+      }
+
+      // Check if this part version is already assigned to the order
+      const existingEPart = order.eParts.find(
+        ep => ep.partId.toString() === partId && ep.versionId === versionId
+      );
+
+      if (existingEPart) {
+        throw new Error('This part version is already assigned to this order');
+      }
+
+      // Reduce inventory stock
+      version.quantity -= quantity;
+      await part.save();
+
+      // Add EPart to order
+      order.eParts.push({
+        partId,
+        versionId,
+        quantity,
+        status: 'allocated',
+        assignedAt: new Date(),
+        assignedBy: staffId
+      });
+
+      // Add timeline entry
+      const staff = await User.findById(staffId);
+      order.timeline.push({
+        status: 'EPart Assigned',
+        description: `${part.itemName} (${version.versionType}) x${quantity} assigned to order`,
+        completedAt: new Date(),
+        staffId: staffId || 'system',
+        staffName: staff ? staff.name : 'Staff Member'
+      });
+
+      const updatedOrder = await order.save();
+
+      console.log('OrderService: EPart assigned successfully');
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error assigning EPart:', error);
+      throw error;
+    }
+  }
+
+  // Remove EPart from order
+  static async removeEPart(orderId, ePartId, staffId) {
+    console.log('OrderService: Removing EPart from order:', { orderId, ePartId, staffId });
+
+    try {
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      const ePart = order.eParts.id(ePartId);
+      if (!ePart) {
+        throw new Error('EPart not found in order');
+      }
+
+      // Restore inventory stock
+      const part = await Inventory.findById(ePart.partId);
+      if (part) {
+        const version = part.versions.id(ePart.versionId);
+        if (version) {
+          version.quantity += ePart.quantity;
+          await part.save();
+        }
+      }
+
+      // Get part info for timeline before removing
+      const partName = part ? part.itemName : 'Unknown Part';
+      const versionType = part && part.versions.id(ePart.versionId)
+        ? part.versions.id(ePart.versionId).versionType
+        : 'Unknown';
+
+      // Remove EPart from order
+      order.eParts.pull(ePartId);
+
+      // Add timeline entry
+      const staff = await User.findById(staffId);
+      order.timeline.push({
+        status: 'EPart Removed',
+        description: `${partName} (${versionType}) x${ePart.quantity} removed from order`,
+        completedAt: new Date(),
+        staffId: staffId || 'system',
+        staffName: staff ? staff.name : 'Staff Member'
+      });
+
+      const updatedOrder = await order.save();
+
+      console.log('OrderService: EPart removed successfully');
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error removing EPart:', error);
+      throw error;
+    }
+  }
+
+  // Update EPart status (pending -> allocated -> used)
+  static async updateEPartStatus(orderId, ePartId, status, staffId) {
+    console.log('OrderService: Updating EPart status:', { orderId, ePartId, status, staffId });
+
+    try {
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      const ePart = order.eParts.id(ePartId);
+      if (!ePart) {
+        throw new Error('EPart not found in order');
+      }
+
+      const oldStatus = ePart.status;
+      ePart.status = status;
+
+      // Add timeline entry
+      const staff = await User.findById(staffId);
+      const part = await Inventory.findById(ePart.partId);
+      const partName = part ? part.itemName : 'Unknown Part';
+
+      order.timeline.push({
+        status: 'EPart Status Updated',
+        description: `${partName} status changed from ${oldStatus} to ${status}`,
+        completedAt: new Date(),
+        staffId: staffId || 'system',
+        staffName: staff ? staff.name : 'Staff Member'
+      });
+
+      const updatedOrder = await order.save();
+
+      console.log('OrderService: EPart status updated successfully');
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error updating EPart status:', error);
       throw error;
     }
   }

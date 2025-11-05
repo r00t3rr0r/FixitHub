@@ -88,6 +88,37 @@ const orderTimelineSchema = new mongoose.Schema({
   }],
 }, { _id: true });
 
+const orderEPartSchema = new mongoose.Schema({
+  partId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Inventory',
+    required: true,
+  },
+  versionId: {
+    type: String,
+    required: true,
+  },
+  quantity: {
+    type: Number,
+    required: true,
+    min: 1,
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'allocated', 'used'],
+    default: 'pending',
+  },
+  assignedAt: {
+    type: Date,
+    default: Date.now,
+  },
+  assignedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+}, { _id: true });
+
 const orderSchema = new mongoose.Schema({
   orderNumber: {
     type: String,
@@ -152,6 +183,7 @@ const orderSchema = new mongoose.Schema({
     default: '',
   },
   staffNotes: [staffNoteSchema],
+  eParts: [orderEPartSchema],
   progress: {
     type: Number,
     default: 0,
@@ -211,7 +243,9 @@ orderSchema.pre('save', function(next) {
 // Populate customer and assigned staff when querying - include complete customer information
 orderSchema.pre(/^find/, function(next) {
   this.populate('customerId', 'name email phone avatar address paymentMethods isActive role createdAt')
-      .populate('assignedStaff.staffId', 'name avatar');
+      .populate('assignedStaff.staffId', 'name avatar')
+      .populate('eParts.partId')
+      .populate('eParts.assignedBy', 'name email');
   next();
 });
 

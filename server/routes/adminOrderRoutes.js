@@ -147,8 +147,113 @@ router.post('/:id/notes', requireUser, requireAdminOrStaff, async (req, res) => 
     if (error.message === 'Order not found') {
       return res.status(404).json({ error: error.message });
     }
-    return res.status(500).json({ 
-      error: error.message || 'Failed to add note' 
+    return res.status(500).json({
+      error: error.message || 'Failed to add note'
+    });
+  }
+});
+
+// Assign EPart to order (admin/staff)
+router.post('/:id/eparts', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Assign EPart to order request received:', req.params.id, req.body);
+
+  try {
+    const { partId, versionId, quantity } = req.body;
+
+    if (!partId || !versionId || !quantity) {
+      return res.status(400).json({ error: 'Part ID, version ID, and quantity are required' });
+    }
+
+    if (quantity <= 0) {
+      return res.status(400).json({ error: 'Quantity must be greater than 0' });
+    }
+
+    const order = await OrderService.assignEPart(
+      req.params.id,
+      partId,
+      versionId,
+      quantity,
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'EPart assigned successfully',
+      order
+    });
+  } catch (error) {
+    console.error('Error assigning EPart to order:', error);
+    if (error.message === 'Order not found' || error.message === 'Part not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(400).json({
+      error: error.message || 'Failed to assign EPart'
+    });
+  }
+});
+
+// Remove EPart from order (admin/staff)
+router.delete('/:id/eparts/:ePartId', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Remove EPart from order request received:', req.params.id, req.params.ePartId);
+
+  try {
+    const order = await OrderService.removeEPart(
+      req.params.id,
+      req.params.ePartId,
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'EPart removed successfully',
+      order
+    });
+  } catch (error) {
+    console.error('Error removing EPart from order:', error);
+    if (error.message === 'Order not found' || error.message === 'EPart not found in order') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(500).json({
+      error: error.message || 'Failed to remove EPart'
+    });
+  }
+});
+
+// Update EPart status (admin/staff)
+router.put('/:id/eparts/:ePartId/status', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Update EPart status request received:', req.params.id, req.params.ePartId, req.body);
+
+  try {
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ error: 'Status is required' });
+    }
+
+    const validStatuses = ['pending', 'allocated', 'used'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    const order = await OrderService.updateEPartStatus(
+      req.params.id,
+      req.params.ePartId,
+      status,
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'EPart status updated successfully',
+      order
+    });
+  } catch (error) {
+    console.error('Error updating EPart status:', error);
+    if (error.message === 'Order not found' || error.message === 'EPart not found in order') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(500).json({
+      error: error.message || 'Failed to update EPart status'
     });
   }
 });
