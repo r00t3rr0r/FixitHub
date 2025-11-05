@@ -9,12 +9,21 @@ import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
 import { getOrderById, Order } from "@/api/orders"
 import { getConversations, getConversationMessages, sendMessage, startConversation } from "@/api/messages"
-import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder } from "@/api/adminOrders"
+import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon } from "@/api/adminOrders"
 import { getUserProfile, UserProfile } from "@/api/user"
+import { getAddOnServices, AddOnService as AddOnServiceType } from "@/api/services"
 import EPartSelectionDialog from "@/components/admin/EPartSelectionDialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -49,7 +58,9 @@ import {
   UserPlus,
   Wrench,
   Trash2,
-  Plus
+  Plus,
+  Edit,
+  X
 } from "lucide-react"
 
 export function OrderDetails() {
@@ -67,6 +78,18 @@ export function OrderDetails() {
   const [assigningStaff, setAssigningStaff] = useState(false)
   const [staffDialogOpen, setStaffDialogOpen] = useState(false)
   const [ePartDialogOpen, setEPartDialogOpen] = useState(false)
+  const [addAddonDialogOpen, setAddAddonDialogOpen] = useState(false)
+  const [editAddonDialogOpen, setEditAddonDialogOpen] = useState(false)
+  const [assignAddonStaffDialogOpen, setAssignAddonStaffDialogOpen] = useState(false)
+  const [availableAddons, setAvailableAddons] = useState<AddOnServiceType[]>([])
+  const [selectedAddonService, setSelectedAddonService] = useState<AddOnServiceType | null>(null)
+  const [customAddonName, setCustomAddonName] = useState("")
+  const [customAddonPrice, setCustomAddonPrice] = useState("")
+  const [customAddonDescription, setCustomAddonDescription] = useState("")
+  const [customAddonTime, setCustomAddonTime] = useState("")
+  const [editingAddon, setEditingAddon] = useState<any>(null)
+  const [selectedAddonForStaff, setSelectedAddonForStaff] = useState<any>(null)
+  const [addonStaffId, setAddonStaffId] = useState("")
   const { toast } = useToast()
 
   // Fetch user profile
@@ -166,6 +189,21 @@ export function OrderDetails() {
 
     fetchAvailableStaff()
   }, [])
+
+  useEffect(() => {
+    const fetchAvailableAddons = async () => {
+      if (user?.role === 'admin' || user?.role === 'staff') {
+        try {
+          const response = await getAddOnServices()
+          setAvailableAddons((response as any).addOns || [])
+        } catch (error) {
+          console.error("Error fetching available add-ons:", error)
+        }
+      }
+    }
+
+    fetchAvailableAddons()
+  }, [user])
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !id) return
@@ -301,6 +339,179 @@ export function OrderDetails() {
         variant: "destructive"
       })
     }
+  }
+
+  const handleAddAddon = async () => {
+    if (!id) return
+
+    try {
+      let addonData;
+
+      if (selectedAddonService) {
+        // Use selected add-on service
+        addonData = {
+          name: selectedAddonService.name,
+          description: selectedAddonService.description,
+          price: selectedAddonService.price,
+          estimatedTime: selectedAddonService.estimatedTime,
+          status: 'pending'
+        }
+      } else {
+        // Use custom add-on data
+        if (!customAddonName || !customAddonPrice) {
+          toast({
+            title: "Error",
+            description: "Please provide add-on name and price",
+            variant: "destructive"
+          })
+          return
+        }
+
+        addonData = {
+          name: customAddonName,
+          description: customAddonDescription,
+          price: parseFloat(customAddonPrice),
+          estimatedTime: customAddonTime,
+          status: 'pending'
+        }
+      }
+
+      await addAddonToOrder(id, addonData)
+
+      toast({
+        title: "Success",
+        description: "Add-on service added successfully"
+      })
+
+      // Reset form
+      setSelectedAddonService(null)
+      setCustomAddonName("")
+      setCustomAddonPrice("")
+      setCustomAddonDescription("")
+      setCustomAddonTime("")
+      setAddAddonDialogOpen(false)
+
+      // Refresh order data
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("Error adding add-on:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add add-on service",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleEditAddon = async () => {
+    if (!id || !editingAddon) return
+
+    try {
+      const updateData: any = {}
+
+      if (customAddonName && customAddonName !== editingAddon.name) {
+        updateData.name = customAddonName
+      }
+      if (customAddonDescription !== editingAddon.description) {
+        updateData.description = customAddonDescription
+      }
+      if (customAddonPrice && parseFloat(customAddonPrice) !== editingAddon.price) {
+        updateData.price = parseFloat(customAddonPrice)
+      }
+      if (customAddonTime && customAddonTime !== editingAddon.estimatedTime) {
+        updateData.estimatedTime = customAddonTime
+      }
+
+      await updateOrderAddon(id, editingAddon._id, updateData)
+
+      toast({
+        title: "Success",
+        description: "Add-on service updated successfully"
+      })
+
+      // Reset form
+      setEditingAddon(null)
+      setCustomAddonName("")
+      setCustomAddonPrice("")
+      setCustomAddonDescription("")
+      setCustomAddonTime("")
+      setEditAddonDialogOpen(false)
+
+      // Refresh order data
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("Error updating add-on:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update add-on service",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleRemoveAddon = async (addonId: string) => {
+    if (!id) return
+
+    try {
+      await removeAddonFromOrder(id, addonId)
+
+      toast({
+        title: "Success",
+        description: "Add-on service removed successfully"
+      })
+
+      // Refresh order data
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("Error removing add-on:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to remove add-on service",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleAssignStaffToAddon = async () => {
+    if (!id || !selectedAddonForStaff || !addonStaffId) return
+
+    try {
+      await assignStaffToAddon(id, selectedAddonForStaff._id, addonStaffId)
+
+      toast({
+        title: "Success",
+        description: "Staff assigned to add-on service successfully"
+      })
+
+      // Reset form
+      setSelectedAddonForStaff(null)
+      setAddonStaffId("")
+      setAssignAddonStaffDialogOpen(false)
+
+      // Refresh order data
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("Error assigning staff to add-on:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to assign staff to add-on service",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const openEditAddonDialog = (addon: any) => {
+    setEditingAddon(addon)
+    setCustomAddonName(addon.name)
+    setCustomAddonPrice(addon.price.toString())
+    setCustomAddonDescription(addon.description || "")
+    setCustomAddonTime(addon.estimatedTime || "")
+    setEditAddonDialogOpen(true)
+  }
+
+  const openAssignAddonStaffDialog = (addon: any) => {
+    setSelectedAddonForStaff(addon)
+    setAssignAddonStaffDialogOpen(true)
   }
 
   const getVersionTypeColor = (versionType: string) => {
@@ -680,41 +891,97 @@ export function OrderDetails() {
           </Card>
 
           {/* Add-On Services */}
-          {order.addOns && order.addOns.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
                   <Shield className="h-5 w-5" />
                   Add-On Services
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+                </div>
+                {(user?.role === 'admin' || user?.role === 'staff') && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAddAddonDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Add-On
+                  </Button>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {order.addOns && order.addOns.length > 0 ? (
                 <div className="space-y-4">
                   {order.addOns.map((addOn) => (
                     <div key={addOn._id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-1">
                         <div className={`w-3 h-3 rounded-full ${
                           addOn.status === 'completed' ? 'bg-green-500' :
                           addOn.status === 'in-progress' ? 'bg-blue-500' :
                           'bg-gray-500'
                         }`} />
-                        <div>
+                        <div className="flex-1">
                           <h4 className="font-medium">{addOn.name}</h4>
                           <p className="text-sm text-muted-foreground">{addOn.description}</p>
+                          {addOn.estimatedTime && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              <Clock className="h-3 w-3 inline mr-1" />
+                              {addOn.estimatedTime}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <Badge className={getStatusColor(addOn.status)}>
-                          {addOn.status}
-                        </Badge>
-                        <p className="text-sm text-muted-foreground mt-1">+${addOn.price}</p>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <Badge className={getStatusColor(addOn.status)}>
+                            {addOn.status}
+                          </Badge>
+                          <p className="text-sm text-muted-foreground mt-1">+${addOn.price}</p>
+                        </div>
+                        {(user?.role === 'admin' || user?.role === 'staff') && (
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEditAddonDialog(addOn)}
+                              className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openAssignAddonStaffDialog(addOn)}
+                              className="text-green-500 hover:text-green-700 hover:bg-green-50"
+                            >
+                              <UserPlus className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRemoveAddon(addOn._id)}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              ) : (
+                <div className="text-center text-muted-foreground py-8">
+                  <Shield className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>No add-on services</p>
+                  {(user?.role === 'admin' || user?.role === 'staff') && (
+                    <p className="text-sm">Click "Add Add-On" to add services to this order</p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* EParts - Only visible to admin/staff */}
           {(user?.role === 'admin' || user?.role === 'staff') && (
@@ -984,6 +1251,247 @@ export function OrderDetails() {
           onSuccess={refreshOrder}
         />
       )}
+
+      {/* Add Add-On Dialog */}
+      <Dialog open={addAddonDialogOpen} onOpenChange={setAddAddonDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Add Add-On Service</DialogTitle>
+            <DialogDescription>
+              Select an existing add-on service or create a custom one
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="addon-service">Select Add-On Service (Optional)</Label>
+              <Select
+                value={selectedAddonService?._id || ""}
+                onValueChange={(value) => {
+                  const addon = availableAddons.find(a => a._id === value)
+                  setSelectedAddonService(addon || null)
+                  if (addon) {
+                    setCustomAddonName("")
+                    setCustomAddonPrice("")
+                    setCustomAddonDescription("")
+                    setCustomAddonTime("")
+                  }
+                }}
+              >
+                <SelectTrigger id="addon-service">
+                  <SelectValue placeholder="Choose an add-on service..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableAddons.map((addon) => (
+                    <SelectItem key={addon._id} value={addon._id}>
+                      {addon.name} - ${addon.price}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="text-center text-sm text-muted-foreground">
+              OR
+            </div>
+
+            <div>
+              <Label htmlFor="custom-name">Custom Add-On Name</Label>
+              <Input
+                id="custom-name"
+                value={customAddonName}
+                onChange={(e) => {
+                  setCustomAddonName(e.target.value)
+                  setSelectedAddonService(null)
+                }}
+                placeholder="Enter add-on name"
+                disabled={!!selectedAddonService}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="custom-description">Description (Optional)</Label>
+              <Textarea
+                id="custom-description"
+                value={customAddonDescription}
+                onChange={(e) => setCustomAddonDescription(e.target.value)}
+                placeholder="Enter description"
+                disabled={!!selectedAddonService}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="custom-price">Price ($)</Label>
+                <Input
+                  id="custom-price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={customAddonPrice}
+                  onChange={(e) => {
+                    setCustomAddonPrice(e.target.value)
+                    setSelectedAddonService(null)
+                  }}
+                  placeholder="0.00"
+                  disabled={!!selectedAddonService}
+                />
+              </div>
+              <div>
+                <Label htmlFor="custom-time">Estimated Time (Optional)</Label>
+                <Input
+                  id="custom-time"
+                  value={customAddonTime}
+                  onChange={(e) => setCustomAddonTime(e.target.value)}
+                  placeholder="e.g., 30 minutes"
+                  disabled={!!selectedAddonService}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setAddAddonDialogOpen(false)
+              setSelectedAddonService(null)
+              setCustomAddonName("")
+              setCustomAddonPrice("")
+              setCustomAddonDescription("")
+              setCustomAddonTime("")
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddAddon} disabled={!selectedAddonService && (!customAddonName || !customAddonPrice)}>
+              Add Add-On
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Add-On Dialog */}
+      <Dialog open={editAddonDialogOpen} onOpenChange={setEditAddonDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Add-On Service</DialogTitle>
+            <DialogDescription>
+              Update the add-on service details
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-name">Name</Label>
+              <Input
+                id="edit-name"
+                value={customAddonName}
+                onChange={(e) => setCustomAddonName(e.target.value)}
+                placeholder="Enter add-on name"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={customAddonDescription}
+                onChange={(e) => setCustomAddonDescription(e.target.value)}
+                placeholder="Enter description"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-price">Price ($)</Label>
+                <Input
+                  id="edit-price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={customAddonPrice}
+                  onChange={(e) => setCustomAddonPrice(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-time">Estimated Time</Label>
+                <Input
+                  id="edit-time"
+                  value={customAddonTime}
+                  onChange={(e) => setCustomAddonTime(e.target.value)}
+                  placeholder="e.g., 30 minutes"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setEditAddonDialogOpen(false)
+              setEditingAddon(null)
+              setCustomAddonName("")
+              setCustomAddonPrice("")
+              setCustomAddonDescription("")
+              setCustomAddonTime("")
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditAddon}>
+              Update Add-On
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign Staff to Add-On Dialog */}
+      <Dialog open={assignAddonStaffDialogOpen} onOpenChange={setAssignAddonStaffDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Assign Staff to Add-On</DialogTitle>
+            <DialogDescription>
+              Select a staff member to handle this add-on service
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedAddonForStaff && (
+              <div className="bg-muted p-3 rounded-lg">
+                <p className="font-medium">{selectedAddonForStaff.name}</p>
+                <p className="text-sm text-muted-foreground">{selectedAddonForStaff.description}</p>
+              </div>
+            )}
+
+            <div>
+              <Label htmlFor="staff-select">Staff Member</Label>
+              <Select value={addonStaffId} onValueChange={setAddonStaffId}>
+                <SelectTrigger id="staff-select">
+                  <SelectValue placeholder="Select a staff member..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableStaff.map((staff) => (
+                    <SelectItem key={staff._id} value={staff._id}>
+                      <div className="flex items-center gap-2">
+                        <span>{staff.name}</span>
+                        {staff.specializations.length > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            ({staff.specializations.slice(0, 2).join(', ')})
+                          </span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setAssignAddonStaffDialogOpen(false)
+              setSelectedAddonForStaff(null)
+              setAddonStaffId("")
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleAssignStaffToAddon} disabled={!addonStaffId}>
+              Assign Staff
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

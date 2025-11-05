@@ -258,4 +258,156 @@ router.put('/:id/eparts/:ePartId/status', requireUser, requireAdminOrStaff, asyn
   }
 });
 
+// Description: Add add-on service to order
+// Endpoint: POST /api/admin/orders/:id/addons
+// Request: { name: string, description?: string, price: number, estimatedTime?: string, status?: string }
+// Response: { success: boolean, message: string, order: Order }
+router.post('/:id/addons', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Add add-on to order request received:', req.params.id, req.body);
+
+  try {
+    const { name, description, price, estimatedTime, status } = req.body;
+
+    if (!name || price === undefined) {
+      return res.status(400).json({ error: 'Name and price are required' });
+    }
+
+    if (typeof price !== 'number' || price < 0) {
+      return res.status(400).json({ error: 'Price must be a positive number' });
+    }
+
+    const order = await OrderService.addAddonToOrder(
+      req.params.id,
+      { name, description, price, estimatedTime, status },
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Add-on service added successfully',
+      order
+    });
+  } catch (error) {
+    console.error('Error adding add-on to order:', error);
+    if (error.message === 'Order not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(500).json({
+      error: error.message || 'Failed to add add-on service'
+    });
+  }
+});
+
+// Description: Update add-on service in order
+// Endpoint: PUT /api/admin/orders/:id/addons/:addonId
+// Request: { name?: string, description?: string, price?: number, estimatedTime?: string, status?: string, progress?: number }
+// Response: { success: boolean, message: string, order: Order }
+router.put('/:id/addons/:addonId', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Update add-on in order request received:', req.params.id, req.params.addonId, req.body);
+
+  try {
+    const { name, description, price, estimatedTime, status, progress } = req.body;
+
+    if (price !== undefined && (typeof price !== 'number' || price < 0)) {
+      return res.status(400).json({ error: 'Price must be a positive number' });
+    }
+
+    if (status && !['pending', 'in-progress', 'completed'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    if (progress !== undefined && (typeof progress !== 'number' || progress < 0 || progress > 100)) {
+      return res.status(400).json({ error: 'Progress must be between 0 and 100' });
+    }
+
+    const order = await OrderService.updateOrderAddon(
+      req.params.id,
+      req.params.addonId,
+      { name, description, price, estimatedTime, status, progress },
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Add-on service updated successfully',
+      order
+    });
+  } catch (error) {
+    console.error('Error updating add-on in order:', error);
+    if (error.message === 'Order not found' || error.message === 'Add-on not found in order') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(500).json({
+      error: error.message || 'Failed to update add-on service'
+    });
+  }
+});
+
+// Description: Remove add-on service from order
+// Endpoint: DELETE /api/admin/orders/:id/addons/:addonId
+// Request: {}
+// Response: { success: boolean, message: string, order: Order }
+router.delete('/:id/addons/:addonId', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Remove add-on from order request received:', req.params.id, req.params.addonId);
+
+  try {
+    const order = await OrderService.removeAddonFromOrder(
+      req.params.id,
+      req.params.addonId,
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Add-on service removed successfully',
+      order
+    });
+  } catch (error) {
+    console.error('Error removing add-on from order:', error);
+    if (error.message === 'Order not found' || error.message === 'Add-on not found in order') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(500).json({
+      error: error.message || 'Failed to remove add-on service'
+    });
+  }
+});
+
+// Description: Assign staff to add-on service
+// Endpoint: PUT /api/admin/orders/:id/addons/:addonId/assign
+// Request: { staffId: string }
+// Response: { success: boolean, message: string, order: Order }
+router.put('/:id/addons/:addonId/assign', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Assign staff to add-on request received:', req.params.id, req.params.addonId, req.body);
+
+  try {
+    const { staffId } = req.body;
+
+    if (!staffId) {
+      return res.status(400).json({ error: 'Staff ID is required' });
+    }
+
+    const order = await OrderService.assignStaffToAddon(
+      req.params.id,
+      req.params.addonId,
+      staffId,
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Staff assigned to add-on service successfully',
+      order
+    });
+  } catch (error) {
+    console.error('Error assigning staff to add-on:', error);
+    if (error.message === 'Order not found' || error.message === 'Add-on not found in order') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(500).json({
+      error: error.message || 'Failed to assign staff to add-on service'
+    });
+  }
+});
+
 module.exports = router;

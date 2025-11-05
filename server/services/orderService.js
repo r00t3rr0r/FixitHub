@@ -490,6 +490,206 @@ class OrderService {
       throw error;
     }
   }
+
+  // Add add-on service to order
+  static async addAddonToOrder(orderId, addonData, staffId) {
+    console.log('OrderService: Adding add-on to order:', { orderId, addonData, staffId });
+
+    try {
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      // Create new add-on with the provided data
+      const newAddon = {
+        name: addonData.name,
+        description: addonData.description || '',
+        price: addonData.price,
+        status: addonData.status || 'pending',
+        estimatedTime: addonData.estimatedTime || '',
+        progress: 0
+      };
+
+      order.addOns.push(newAddon);
+
+      // Update total cost
+      order.totalCost += addonData.price;
+
+      // Add timeline entry
+      const staff = await User.findById(staffId);
+      order.timeline.push({
+        status: 'Add-on Service Added',
+        description: `${addonData.name} added to order (+$${addonData.price})`,
+        completedAt: new Date(),
+        staffId: staffId || 'system',
+        staffName: staff ? staff.name : 'Staff Member'
+      });
+
+      const updatedOrder = await order.save();
+
+      console.log('OrderService: Add-on added successfully');
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error adding add-on:', error);
+      throw error;
+    }
+  }
+
+  // Update add-on service in order
+  static async updateOrderAddon(orderId, addonId, updateData, staffId) {
+    console.log('OrderService: Updating add-on in order:', { orderId, addonId, updateData, staffId });
+
+    try {
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      const addon = order.addOns.id(addonId);
+      if (!addon) {
+        throw new Error('Add-on not found in order');
+      }
+
+      // Store old price for total cost adjustment
+      const oldPrice = addon.price;
+
+      // Update add-on fields
+      if (updateData.name !== undefined) addon.name = updateData.name;
+      if (updateData.description !== undefined) addon.description = updateData.description;
+      if (updateData.price !== undefined) addon.price = updateData.price;
+      if (updateData.status !== undefined) addon.status = updateData.status;
+      if (updateData.estimatedTime !== undefined) addon.estimatedTime = updateData.estimatedTime;
+      if (updateData.progress !== undefined) addon.progress = updateData.progress;
+
+      // Update total cost if price changed
+      if (updateData.price !== undefined && updateData.price !== oldPrice) {
+        order.totalCost = order.totalCost - oldPrice + updateData.price;
+      }
+
+      // Add timeline entry
+      const staff = await User.findById(staffId);
+      order.timeline.push({
+        status: 'Add-on Service Updated',
+        description: `${addon.name} updated`,
+        completedAt: new Date(),
+        staffId: staffId || 'system',
+        staffName: staff ? staff.name : 'Staff Member'
+      });
+
+      const updatedOrder = await order.save();
+
+      console.log('OrderService: Add-on updated successfully');
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error updating add-on:', error);
+      throw error;
+    }
+  }
+
+  // Remove add-on service from order
+  static async removeAddonFromOrder(orderId, addonId, staffId) {
+    console.log('OrderService: Removing add-on from order:', { orderId, addonId, staffId });
+
+    try {
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      const addon = order.addOns.id(addonId);
+      if (!addon) {
+        throw new Error('Add-on not found in order');
+      }
+
+      // Store add-on details before removing
+      const addonName = addon.name;
+      const addonPrice = addon.price;
+
+      // Remove add-on from order
+      order.addOns.pull(addonId);
+
+      // Update total cost
+      order.totalCost -= addonPrice;
+
+      // Add timeline entry
+      const staff = await User.findById(staffId);
+      order.timeline.push({
+        status: 'Add-on Service Removed',
+        description: `${addonName} removed from order (-$${addonPrice})`,
+        completedAt: new Date(),
+        staffId: staffId || 'system',
+        staffName: staff ? staff.name : 'Staff Member'
+      });
+
+      const updatedOrder = await order.save();
+
+      console.log('OrderService: Add-on removed successfully');
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error removing add-on:', error);
+      throw error;
+    }
+  }
+
+  // Assign staff to add-on service
+  static async assignStaffToAddon(orderId, addonId, staffId, assigningStaffId) {
+    console.log('OrderService: Assigning staff to add-on:', { orderId, addonId, staffId, assigningStaffId });
+
+    try {
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      const addon = order.addOns.id(addonId);
+      if (!addon) {
+        throw new Error('Add-on not found in order');
+      }
+
+      // Get staff details
+      const staff = await User.findById(staffId);
+      if (!staff || !['staff', 'admin'].includes(staff.role)) {
+        throw new Error('Staff member not found or invalid role');
+      }
+
+      // Add assignedStaff field to add-on if it doesn't exist
+      if (!addon.assignedStaff) {
+        addon.assignedStaff = [];
+      }
+
+      // Check if staff is already assigned
+      const isAlreadyAssigned = addon.assignedStaff.some(
+        s => s.staffId.toString() === staffId
+      );
+
+      if (!isAlreadyAssigned) {
+        addon.assignedStaff.push({
+          staffId: staff._id,
+          name: staff.name,
+          avatar: staff.avatar || ''
+        });
+      }
+
+      // Add timeline entry
+      const assigningStaff = await User.findById(assigningStaffId);
+      order.timeline.push({
+        status: 'Add-on Staff Assigned',
+        description: `${staff.name} assigned to ${addon.name}`,
+        completedAt: new Date(),
+        staffId: assigningStaffId || 'system',
+        staffName: assigningStaff ? assigningStaff.name : 'System'
+      });
+
+      const updatedOrder = await order.save();
+
+      console.log('OrderService: Staff assigned to add-on successfully');
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error assigning staff to add-on:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = OrderService;

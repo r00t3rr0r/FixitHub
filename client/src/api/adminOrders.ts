@@ -460,3 +460,80 @@ export const updateEPartStatus = async (orderId: string, ePartId: string, status
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// Description: Add add-on service to order
+// Endpoint: POST /api/admin/orders/:orderId/addons
+// Request: { name: string, description?: string, price: number, estimatedTime?: string, status?: string }
+// Response: { success: boolean, message: string, order: AdminOrder }
+export const addAddonToOrder = async (orderId: string, addonData: {
+  name: string;
+  description?: string;
+  price: number;
+  estimatedTime?: string;
+  status?: string;
+}) => {
+  console.log('addAddonToOrder called with orderId:', orderId, 'addonData:', addonData);
+  try {
+    const response = await api.post(`/api/admin/orders/${orderId}/addons`, addonData);
+    console.log('addAddonToOrder API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('addAddonToOrder API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Update add-on service in order
+// Endpoint: PUT /api/admin/orders/:orderId/addons/:addonId
+// Request: { name?: string, description?: string, price?: number, estimatedTime?: string, status?: string, progress?: number }
+// Response: { success: boolean, message: string, order: AdminOrder }
+export const updateOrderAddon = async (orderId: string, addonId: string, updateData: {
+  name?: string;
+  description?: string;
+  price?: number;
+  estimatedTime?: string;
+  status?: string;
+  progress?: number;
+}) => {
+  console.log('updateOrderAddon called with orderId:', orderId, 'addonId:', addonId, 'updateData:', updateData);
+  try {
+    const response = await api.put(`/api/admin/orders/${orderId}/addons/${addonId}`, updateData);
+    console.log('updateOrderAddon API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('updateOrderAddon API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Remove add-on service from order
+// Endpoint: DELETE /api/admin/orders/:orderId/addons/:addonId
+// Request: {}
+// Response: { success: boolean, message: string, order: AdminOrder }
+export const removeAddonFromOrder = async (orderId: string, addonId: string) => {
+  console.log('removeAddonFromOrder called with orderId:', orderId, 'addonId:', addonId);
+  try {
+    const response = await api.delete(`/api/admin/orders/${orderId}/addons/${addonId}`);
+    console.log('removeAddonFromOrder API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('removeAddonFromOrder API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Assign staff to add-on service
+// Endpoint: PUT /api/admin/orders/:orderId/addons/:addonId/assign
+// Request: { staffId: string }
+// Response: { success: boolean, message: string, order: AdminOrder }
+export const assignStaffToAddon = async (orderId: string, addonId: string, staffId: string) => {
+  console.log('assignStaffToAddon called with orderId:', orderId, 'addonId:', addonId, 'staffId:', staffId);
+  try {
+    const response = await api.put(`/api/admin/orders/${orderId}/addons/${addonId}/assign`, { staffId });
+    console.log('assignStaffToAddon API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('assignStaffToAddon API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
