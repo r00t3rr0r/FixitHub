@@ -49,6 +49,7 @@ import { StaffManagement } from "./pages/admin/StaffManagement"
 import { FinancialManagement } from "./pages/admin/FinancialManagement"
 import { DeviceBrandsManagement } from "./pages/admin/DeviceBrandsManagement"
 import EPartOrderManagement from "./pages/admin/EPartOrderManagement"
+import { InspectionWorkflow } from "./pages/inspection/InspectionWorkflow"
 
 function App() {
   return (
@@ -101,6 +102,7 @@ function App() {
               <Route path="admin/staff" element={<StaffManagement />} />
               <Route path="admin/financial" element={<FinancialManagement />} />
               <Route path="admin/epart-orders" element={<EPartOrderManagement />} />
+              <Route path="inspection/:orderId" element={<InspectionWorkflow />} />
             </Route>
             <Route path="*" element={<BlankPage />} />
           </Routes>
