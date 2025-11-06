@@ -9,6 +9,7 @@ import { getOrderById } from '@/api/orders';
 import { getAdminOrderById } from '@/api/adminOrders';
 import { generateInspectionReport } from '@/api/deviceInspection';
 import { DeviceInspectionForm } from '@/components/inspection/DeviceInspectionForm';
+import { CommunicationPanel } from '@/components/inspection/CommunicationPanel';
 import { ArrowLeft, Download, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export function InspectionWorkflow() {
@@ -149,13 +150,34 @@ export function InspectionWorkflow() {
           </CardContent>
         </Card>
 
-        {/* Inspection Form */}
-        <DeviceInspectionForm
-          orderId={orderId!}
-          customerId={order.customerId?._id || order.customerId}
-          deviceType={order.deviceType}
-          onComplete={handleInspectionComplete}
-        />
+        {/* Inspection Form and Communication Panel - Two Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Inspection Form - Left Column (2/3 width) */}
+          <div className="lg:col-span-2">
+            <DeviceInspectionForm
+              orderId={orderId!}
+              customerId={order.customerId?._id || order.customerId}
+              deviceType={order.deviceType}
+              onComplete={handleInspectionComplete}
+            />
+          </div>
+
+          {/* Communication Panel - Right Column (1/3 width) */}
+          <div className="lg:col-span-1">
+            <Card className="sticky top-4 h-fit">
+              <CardHeader>
+                <CardTitle className="text-lg">Customer Communication</CardTitle>
+                <CardDescription>Feedback & Updates</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CommunicationPanel
+                  orderId={orderId!}
+                  inspectionId={order._id}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
 
         {/* Important Notes */}
         <Card className="mt-6 border-blue-200 bg-blue-50">

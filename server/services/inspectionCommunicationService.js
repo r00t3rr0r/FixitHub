@@ -1,6 +1,7 @@
 const InspectionCommunication = require('../models/InspectionCommunication');
 const Order = require('../models/Order');
 const DeviceInspection = require('../models/DeviceInspection');
+const NotificationService = require('./notificationService');
 
 class InspectionCommunicationService {
   // Get or create communication thread for an order
@@ -95,6 +96,24 @@ class InspectionCommunicationService {
       communication.pendingFeedbackCount = (communication.pendingFeedbackCount || 0) + 1;
       await communication.save();
 
+      // Create notification for customer
+      try {
+        const order = await Order.findById(orderId);
+        if (order && order.customerId) {
+          await NotificationService.createNotification(
+            order.customerId,
+            'inspection_feedback_required',
+            'Feedback Required on Your Repair Inspection',
+            question,
+            { orderId, messageId: message._id },
+            'inspection'
+          );
+        }
+      } catch (notificationError) {
+        console.error(`InspectionCommunicationService: Error creating notification: ${notificationError}`);
+        // Don't throw, as the main operation succeeded
+      }
+
       console.log(`InspectionCommunicationService: Feedback request sent successfully`);
       return communication;
     } catch (error) {
@@ -185,6 +204,24 @@ class InspectionCommunicationService {
       communication.lastMessageAt = new Date();
       communication.pendingActionsCount = (communication.pendingActionsCount || 0) + 1;
       await communication.save();
+
+      // Create notification for customer
+      try {
+        const order = await Order.findById(orderId);
+        if (order && order.customerId) {
+          await NotificationService.createNotification(
+            order.customerId,
+            'inspection_quick_action',
+            `${actionLabels[actionType] || actionType}`,
+            description || actionLabels[actionType] || actionType,
+            { orderId, messageId: message._id, actionType },
+            'inspection'
+          );
+        }
+      } catch (notificationError) {
+        console.error(`InspectionCommunicationService: Error creating notification: ${notificationError}`);
+        // Don't throw, as the main operation succeeded
+      }
 
       console.log(`InspectionCommunicationService: Quick action created successfully`);
       return communication;

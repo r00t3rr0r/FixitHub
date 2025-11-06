@@ -6,7 +6,6 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/useToast';
 import { useNavigate } from 'react-router-dom';
 import { getInspection, generateInspectionReport } from '@/api/deviceInspection';
-import { CommunicationPanel } from './CommunicationPanel';
 import {
   CheckCircle2,
   AlertCircle,
@@ -362,9 +361,6 @@ export function InspectionResultsDisplay({ orderId, onStartInspection }: Inspect
               )}
             </div>
           )}
-
-          {/* Communication Panel - Feedback & Questions */}
-          <CommunicationPanel orderId={orderId} inspectionId={inspection?._id} />
 
           {/* Generate Report Button - Compact */}
           {inspection.status === 'completed' && (
