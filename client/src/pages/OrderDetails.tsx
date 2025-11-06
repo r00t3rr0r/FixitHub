@@ -823,6 +823,11 @@ export function OrderDetails() {
             </CardContent>
           </Card>
 
+          {/* Device Inspection Section */}
+          {(user?.role === 'admin' || user?.role === 'staff') && (
+            <InspectionResultsDisplay orderId={id!} />
+          )}
+
           {/* Assigned Staff */}
           <Card>
             <CardHeader>
@@ -1251,11 +1256,6 @@ export function OrderDetails() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Device Inspection Section */}
-          {(user?.role === 'admin' || user?.role === 'staff') && (
-            <InspectionResultsDisplay orderId={id!} />
-          )}
         </div>
 
         {/* Sidebar */}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/useToast';
 import { useNavigate } from 'react-router-dom';
 import { getInspection, generateInspectionReport } from '@/api/deviceInspection';
@@ -18,6 +19,7 @@ import {
   FileText,
   Loader,
   ArrowRight,
+  Play,
 } from 'lucide-react';
 
 interface InspectionResultsDisplayProps {
@@ -113,6 +115,42 @@ export function InspectionResultsDisplay({ orderId, onStartInspection }: Inspect
     );
   }
 
+  const calculateProgress = (): number => {
+    if (!inspection) return 0;
+
+    const steps = [
+      inspection.modelVerification,
+      inspection.identification,
+      inspection.accessories,
+      inspection.externalInspection,
+      inspection.deviceTest,
+      inspection.appleSpecific,
+    ];
+
+    const completedSteps = steps.filter(step => step !== null && step !== undefined).length;
+    return Math.round((completedSteps / 6) * 100);
+  };
+
+  const getCurrentStep = (): number => {
+    if (!inspection) return 0;
+
+    const steps = [
+      inspection.modelVerification,
+      inspection.identification,
+      inspection.accessories,
+      inspection.externalInspection,
+      inspection.deviceTest,
+      inspection.appleSpecific,
+    ];
+
+    for (let i = 0; i < steps.length; i++) {
+      if (!steps[i]) {
+        return i + 1;
+      }
+    }
+    return 6;
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
@@ -133,6 +171,61 @@ export function InspectionResultsDisplay({ orderId, onStartInspection }: Inspect
       <AlertCircle className="h-4 w-4 text-red-500" />
     );
   };
+
+  // Show special UI for in-progress inspections
+  if (inspection && inspection.status === 'in-progress') {
+    const progress = calculateProgress();
+    const currentStep = getCurrentStep();
+
+    return (
+      <div className="space-y-4">
+        {/* In-Progress Card */}
+        <Card className="border-blue-200 bg-blue-50">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-blue-600" />
+                <CardTitle className="text-blue-900">Device Inspection</CardTitle>
+              </div>
+              <Badge className="bg-blue-500">In Progress</Badge>
+            </div>
+            <CardDescription className="text-blue-800">
+              Continue where you left off
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Progress Bar */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Step {currentStep} of 6</span>
+                <span className="text-sm font-medium">{progress}% Complete</span>
+              </div>
+              <Progress value={progress} className="h-2" />
+            </div>
+
+            {/* Step Information */}
+            <div className="bg-white p-3 rounded border border-blue-200">
+              <p className="text-sm text-muted-foreground">
+                {currentStep === 1 && '📱 Model Verification'}
+                {currentStep === 2 && '📱 Device Identification'}
+                {currentStep === 3 && '📦 Accessories & Packaging'}
+                {currentStep === 4 && '👁️ External Inspection'}
+                {currentStep === 5 && '⚡ Device Testing'}
+                {currentStep === 6 && '🍎 Apple-Specific Checks'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">Click "Continue" to resume inspection</p>
+            </div>
+
+            {/* Continue Button */}
+            <Button onClick={handleStartInspection} className="w-full bg-blue-600 hover:bg-blue-700">
+              <Play className="h-4 w-4 mr-2" />
+              Continue Inspection
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
