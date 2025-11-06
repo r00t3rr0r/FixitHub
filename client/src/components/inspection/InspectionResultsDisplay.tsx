@@ -248,299 +248,131 @@ export function InspectionResultsDisplay({ orderId, onStartInspection }: Inspect
             Completed on {inspection.completedAt ? new Date(inspection.completedAt).toLocaleDateString() : 'Pending'}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Model Verification */}
-          {inspection.modelVerification && (
-            <div className="border-l-4 border-blue-500 pl-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Smartphone className="h-4 w-4" />
-                <h4 className="font-semibold">Model Verification</h4>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Reported Model:</span>
-                  <span className="font-medium">{inspection.modelVerification.reportedModel}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Actual Model:</span>
-                  <span className="font-medium">{inspection.modelVerification.actualModel}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Status:</span>
-                  <div className="flex items-center gap-2">
-                    {inspection.modelVerification.verified ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <AlertCircle className="h-4 w-4 text-red-500" />
-                    )}
-                    <span className="capitalize">
-                      {inspection.modelVerification.verificationStatus.replace(/-/g, ' ')}
-                    </span>
-                  </div>
+        <CardContent className="space-y-3">
+          {/* Compact Summary Grid */}
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            {/* Model Verification */}
+            {inspection.modelVerification && (
+              <div className="border-l-2 border-blue-500 pl-2">
+                <p className="text-muted-foreground">Model</p>
+                <p className="font-medium">{inspection.modelVerification.actualModel}</p>
+                <div className="flex items-center gap-1 mt-0.5">
+                  {inspection.modelVerification.verified ? (
+                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                  ) : (
+                    <AlertCircle className="h-3 w-3 text-red-500" />
+                  )}
+                  <span className="text-xs capitalize">
+                    {inspection.modelVerification.verificationStatus.replace(/-/g, ' ')}
+                  </span>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Device Identification */}
-          {inspection.identification && (
-            <div className="border-l-4 border-purple-500 pl-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Smartphone className="h-4 w-4" />
-                <h4 className="font-semibold">Device Identification</h4>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Device Type:</span>
-                  <span className="font-medium">{inspection.identification.deviceType}</span>
-                </div>
+            {/* Device Identification */}
+            {inspection.identification && (
+              <div className="border-l-2 border-purple-500 pl-2">
+                <p className="text-muted-foreground">Device Type</p>
+                <p className="font-medium">{inspection.identification.deviceType}</p>
                 {inspection.identification.imei && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">IMEI:</span>
-                    <span className="font-medium">{inspection.identification.imei}</span>
-                  </div>
-                )}
-                {inspection.identification.serialNumber && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Serial Number:</span>
-                    <span className="font-medium">{inspection.identification.serialNumber}</span>
-                  </div>
+                  <p className="text-xs text-muted-foreground truncate">IMEI: {inspection.identification.imei}</p>
                 )}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Accessories */}
-          {inspection.accessories && (
-            <div className="border-l-4 border-cyan-500 pl-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Package className="h-4 w-4" />
-                <h4 className="font-semibold">Accessories & Packaging</h4>
+            {/* Device Tests Summary */}
+            {inspection.deviceTest && (
+              <div className="border-l-2 border-green-500 pl-2">
+                <p className="text-muted-foreground">Device Tests</p>
+                <p className="font-medium">
+                  {inspection.hasFailedTests ? (
+                    <span className="text-red-600 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" /> Failed
+                    </span>
+                  ) : (
+                    <span className="text-green-600 flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> OK
+                    </span>
+                  )}
+                </p>
               </div>
-              <div className="space-y-2 text-sm">
+            )}
+
+            {/* Repair Assessment */}
+            {inspection.isRepairable !== undefined && (
+              <div className={`border-l-2 pl-2 ${inspection.isRepairable ? 'border-green-500' : 'border-red-500'}`}>
+                <p className="text-muted-foreground">Repairable</p>
+                <p className="font-medium">
+                  {inspection.isRepairable ? (
+                    <span className="text-green-600">Yes</span>
+                  ) : (
+                    <span className="text-red-600">No</span>
+                  )}
+                </p>
+                {inspection.repairOffer?.cost && (
+                  <p className="text-xs text-muted-foreground">${inspection.repairOffer.cost}</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Accessories Quick Check */}
+          {inspection.accessories && (
+            <div className="border-t pt-2 text-xs">
+              <p className="text-muted-foreground font-medium mb-1">Accessories</p>
+              <div className="flex gap-2 flex-wrap">
                 {inspection.accessories.originalPackaging?.present !== undefined && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Original Packaging:</span>
-                    <div className="flex items-center gap-2">
-                      {inspection.accessories.originalPackaging.present ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <AlertCircle className="h-4 w-4 text-gray-400" />
-                      )}
-                      <span>{inspection.accessories.originalPackaging.present ? 'Present' : 'Not Present'}</span>
-                    </div>
-                  </div>
+                  <Badge variant={inspection.accessories.originalPackaging.present ? 'secondary' : 'outline'} className="text-xs">
+                    {inspection.accessories.originalPackaging.present ? '✓' : '✗'} Packaging
+                  </Badge>
                 )}
                 {inspection.accessories.caseCover?.present !== undefined && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Case/Cover:</span>
-                    <div className="flex items-center gap-2">
-                      {inspection.accessories.caseCover.present ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <AlertCircle className="h-4 w-4 text-gray-400" />
-                      )}
-                      <span>{inspection.accessories.caseCover.present ? 'Present' : 'Not Present'}</span>
-                    </div>
-                  </div>
+                  <Badge variant={inspection.accessories.caseCover.present ? 'secondary' : 'outline'} className="text-xs">
+                    {inspection.accessories.caseCover.present ? '✓' : '✗'} Case
+                  </Badge>
                 )}
                 {inspection.accessories.powerAdapter?.present !== undefined && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Power Adapter:</span>
-                    <div className="flex items-center gap-2">
-                      {inspection.accessories.powerAdapter.present ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <AlertCircle className="h-4 w-4 text-gray-400" />
-                      )}
-                      <span>{inspection.accessories.powerAdapter.present ? 'Present' : 'Not Present'}</span>
-                    </div>
-                  </div>
+                  <Badge variant={inspection.accessories.powerAdapter.present ? 'secondary' : 'outline'} className="text-xs">
+                    {inspection.accessories.powerAdapter.present ? '✓' : '✗'} Adapter
+                  </Badge>
                 )}
               </div>
             </div>
           )}
 
-          {/* External Inspection */}
+          {/* External Inspection Quick Check */}
           {inspection.externalInspection && (
-            <div className="border-l-4 border-orange-500 pl-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Eye className="h-4 w-4" />
-                <h4 className="font-semibold">External Inspection</h4>
-              </div>
-              <div className="space-y-2 text-sm">
+            <div className="text-xs">
+              <p className="text-muted-foreground font-medium mb-1">External Condition</p>
+              <div className="flex gap-2 flex-wrap">
                 {[
                   { label: 'Display', data: inspection.externalInspection.display },
                   { label: 'Frame', data: inspection.externalInspection.frame },
                   { label: 'Back Cover', data: inspection.externalInspection.backCover },
                   { label: 'Buttons', data: inspection.externalInspection.buttons },
                 ].map(({ label, data }) => (
-                  <div key={label} className="flex justify-between">
-                    <span className="text-muted-foreground">{label}:</span>
-                    <div className="flex items-center gap-2">
-                      {testStatusIcon(data.status)}
-                      <span>{data.status}</span>
-                    </div>
-                  </div>
-                ))}
-                {inspection.externalInspection.visibleDamages?.hasDamage && (
-                  <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-red-700">
-                    <strong>Visible Damage:</strong> {inspection.externalInspection.visibleDamages.description}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Device Testing */}
-          {inspection.deviceTest && (
-            <div className="border-l-4 border-green-500 pl-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Zap className="h-4 w-4" />
-                <h4 className="font-semibold">Device Testing</h4>
-              </div>
-              <div className="space-y-2 text-sm">
-                {[
-                  { label: 'Charging', data: inspection.deviceTest.charging },
-                  { label: 'Power', data: inspection.deviceTest.power },
-                  { label: 'Wi-Fi', data: inspection.deviceTest.wifi },
-                  { label: 'Front Camera', data: inspection.deviceTest.frontCamera },
-                  { label: 'Main Camera', data: inspection.deviceTest.mainCamera },
-                ].map(({ label, data }) => (
-                  <div key={label} className="flex justify-between">
-                    <span className="text-muted-foreground">{label}:</span>
-                    <div className="flex items-center gap-2">
-                      {testStatusIcon(data.status)}
-                      <span>{data.status}</span>
-                    </div>
-                  </div>
+                  <Badge key={label} variant={data.status === 'OK' ? 'secondary' : 'destructive'} className="text-xs">
+                    {data.status === 'OK' ? '✓' : '✗'} {label}
+                  </Badge>
                 ))}
               </div>
-              {inspection.hasFailedTests && (
-                <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded">
-                  <strong className="text-red-700">Failed Tests:</strong>
-                  <ul className="text-red-600 text-xs mt-1">
-                    {inspection.failedTestDetails?.map((test: any, idx: number) => (
-                      <li key={idx}>• {test.testName}: {test.reason}</li>
-                    ))}
-                  </ul>
-                </div>
+              {inspection.externalInspection.visibleDamages?.hasDamage && (
+                <p className="text-red-600 mt-1 text-xs">⚠️ Visible damage: {inspection.externalInspection.visibleDamages.description}</p>
               )}
             </div>
           )}
 
-          {/* Apple-Specific */}
-          {inspection.appleSpecific && (
-            <div className="border-l-4 border-gray-500 pl-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Apple className="h-4 w-4" />
-                <h4 className="font-semibold">Apple-Specific Checks</h4>
-              </div>
-              <div className="space-y-2 text-sm">
-                {inspection.appleSpecific.modemFirmware && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Modem Firmware:</span>
-                    <div className="flex items-center gap-2">
-                      {inspection.appleSpecific.modemFirmware.present ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <AlertCircle className="h-4 w-4 text-red-500" />
-                      )}
-                      <span>{inspection.appleSpecific.modemFirmware.present ? 'Present' : 'Not Present'}</span>
-                    </div>
-                  </div>
-                )}
-                {inspection.appleSpecific.touchIdFaceId?.applicable && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Touch ID / Face ID:</span>
-                    <div className="flex items-center gap-2">
-                      {inspection.appleSpecific.touchIdFaceId.working ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <AlertCircle className="h-4 w-4 text-red-500" />
-                      )}
-                      <span>{inspection.appleSpecific.touchIdFaceId.working ? 'Working' : 'Not Working'}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Repair Assessment */}
-          {inspection.isRepairable !== undefined && (
-            <div className={`border-l-4 pl-4 ${inspection.isRepairable ? 'border-green-500' : 'border-red-500'}`}>
-              <h4 className="font-semibold mb-2">Repair Assessment</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Repairable:</span>
-                  <div className="flex items-center gap-2">
-                    {inspection.isRepairable ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <AlertCircle className="h-4 w-4 text-red-500" />
-                    )}
-                    <span>{inspection.isRepairable ? 'Yes' : 'No'}</span>
-                  </div>
-                </div>
-                {inspection.repairOffer && (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Estimated Cost:</span>
-                      <span className="font-medium">${inspection.repairOffer.cost}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Timeframe:</span>
-                      <span className="font-medium">{inspection.repairOffer.timeframe}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Description:</span>
-                      <span className="font-medium">{inspection.repairOffer.description}</span>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Action Logs */}
-          {inspection.actionLogs && inspection.actionLogs.length > 0 && (
-            <div className="border-t pt-4">
-              <h4 className="font-semibold mb-3 flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Action Timeline
-              </h4>
-              <div className="space-y-2 text-sm">
-                {inspection.actionLogs.slice(-5).reverse().map((log: any, idx: number) => (
-                  <div key={idx} className="flex justify-between items-start p-2 bg-muted/50 rounded">
-                    <div>
-                      <p className="font-medium">{log.action}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(log.timestamp).toLocaleString()}
-                      </p>
-                    </div>
-                    <Badge variant={
-                      log.resultStatus === 'success' ? 'secondary' :
-                      log.resultStatus === 'error' ? 'destructive' : 'outline'
-                    }>
-                      {log.resultStatus}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Generate Report Button */}
+          {/* Generate Report Button - Compact */}
           {inspection.status === 'completed' && (
             <Button
               onClick={handleGenerateReport}
               disabled={generatingReport}
-              className="w-full mt-4"
+              className="w-full mt-2 h-8 text-xs"
               variant="default"
+              size="sm"
             >
-              <Download className="h-4 w-4 mr-2" />
-              {generatingReport ? 'Generating...' : 'Download Inspection Report (PDF)'}
+              <Download className="h-3 w-3 mr-1" />
+              {generatingReport ? 'Generating...' : 'Download PDF'}
             </Button>
           )}
         </CardContent>
