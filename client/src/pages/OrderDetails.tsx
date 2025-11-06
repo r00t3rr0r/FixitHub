@@ -15,6 +15,7 @@ import { getAddOnServices, AddOnService as AddOnServiceType } from "@/api/servic
 import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder } from "@/api/workflow"
 import EPartSelectionDialog from "@/components/admin/EPartSelectionDialog"
 import { WorkflowExecutionView } from "@/components/workflow/WorkflowExecutionView"
+import { InspectionResultsDisplay } from "@/components/inspection/InspectionResultsDisplay"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -1250,6 +1251,11 @@ export function OrderDetails() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Device Inspection Section */}
+          {(user?.role === 'admin' || user?.role === 'staff') && (
+            <InspectionResultsDisplay orderId={id!} />
+          )}
         </div>
 
         {/* Sidebar */}
