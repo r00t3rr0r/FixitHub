@@ -97,13 +97,27 @@ export function DeviceInspectionForm({
     const init = async () => {
       try {
         setLoading(true);
-        const result = await initializeInspection(orderId, customerId);
-        setInspection(result.inspection);
+
+        // First, try to get existing inspection
+        let existingInspection = null;
+        try {
+          const result = await getInspection(orderId);
+          existingInspection = result.inspection;
+        } catch (error) {
+          console.log('No existing inspection found, will create new one');
+        }
+
+        // If no existing inspection, initialize a new one
+        if (!existingInspection) {
+          const result = await initializeInspection(orderId, customerId);
+          existingInspection = result.inspection;
+        }
+
+        setInspection(existingInspection);
 
         // Load existing data if available
-        const existingInspection = await getInspection(orderId);
-        if (existingInspection.inspection) {
-          const insp = existingInspection.inspection;
+        if (existingInspection) {
+          const insp = existingInspection;
 
           if (insp.modelVerification) {
             setReportedModel(insp.modelVerification.reportedModel);

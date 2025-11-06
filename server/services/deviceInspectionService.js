@@ -23,8 +23,21 @@ class DeviceInspectionService {
           startedAt: new Date(),
         });
 
-        await inspection.save();
-        console.log(`[DeviceInspection] New inspection created: ${inspection._id}`);
+        try {
+          await inspection.save();
+          console.log(`[DeviceInspection] New inspection created: ${inspection._id}`);
+        } catch (saveError) {
+          // If duplicate key error, try to fetch the existing inspection
+          if (saveError.code === 11000) {
+            console.log(`[DeviceInspection] Duplicate inspection found, retrieving existing one`);
+            inspection = await DeviceInspection.findOne({ orderId });
+            if (!inspection) {
+              throw new Error('Failed to retrieve existing inspection after duplicate key error');
+            }
+          } else {
+            throw saveError;
+          }
+        }
       }
 
       return inspection;
@@ -44,7 +57,8 @@ class DeviceInspectionService {
         .populate('customerId', 'name email');
 
       if (!inspection) {
-        throw new Error('Inspection not found');
+        console.log(`[DeviceInspection] No inspection found for order: ${orderId}`);
+        return null;
       }
 
       return inspection;

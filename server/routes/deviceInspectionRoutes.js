@@ -42,19 +42,17 @@ router.post('/init', requireUser, requireAdminOrStaff, async (req, res) => {
 // Description: Get inspection by order ID
 // Endpoint: GET /api/device-inspections/:orderId
 // Request: {}
-// Response: { inspection: DeviceInspection }
+// Response: { inspection: DeviceInspection | null }
 router.get('/:orderId', requireUser, requireAdminOrStaff, async (req, res) => {
   console.log('[DeviceInspectionRoutes] GET /:orderId - Fetching inspection');
 
   try {
     const inspection = await DeviceInspectionService.getByOrderId(req.params.orderId);
 
+    // Return null if inspection not found (this is normal, not an error)
     return res.status(200).json({ inspection });
   } catch (error) {
     console.error('[DeviceInspectionRoutes] Error fetching inspection:', error);
-    if (error.message === 'Inspection not found') {
-      return res.status(404).json({ error: error.message });
-    }
     return res.status(500).json({ error: error.message || 'Failed to fetch inspection' });
   }
 });

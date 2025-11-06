@@ -16,12 +16,16 @@ export const initializeInspection = async (orderId: string, customerId: string) 
 // Description: Get inspection by order ID
 // Endpoint: GET /api/device-inspections/:orderId
 // Request: {}
-// Response: { inspection: DeviceInspection }
+// Response: { inspection: DeviceInspection | null }
 export const getInspection = async (orderId: string) => {
   try {
     const response = await api.get(`/api/device-inspections/${orderId}`);
     return response.data;
   } catch (error: any) {
+    // If 404, inspection doesn't exist yet (return null instead of error)
+    if (error?.response?.status === 404) {
+      return { inspection: null };
+    }
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
