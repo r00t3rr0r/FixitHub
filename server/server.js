@@ -83,6 +83,8 @@ console.log('Loading need list routes...');
 const needListRoutes = require("./routes/needListRoutes");
 console.log('Loading device inspection routes...');
 const deviceInspectionRoutes = require("./routes/deviceInspectionRoutes");
+console.log('Loading inspection communication routes...');
+const inspectionCommunicationRoutes = require("./routes/inspectionCommunicationRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -313,6 +315,8 @@ app.use('/api/epart-orders', epartOrderRoutes);
 app.use('/api/need-lists', needListRoutes);
 // Device Inspection Routes
 app.use('/api/device-inspections', deviceInspectionRoutes);
+// Inspection Communication Routes
+app.use('/api/inspection-communication', inspectionCommunicationRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 
