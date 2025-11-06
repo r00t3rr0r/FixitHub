@@ -853,12 +853,11 @@ export function OrderDetails() {
             </CardContent>
           </Card>
 
-          {/* Device Inspection Section */}
-          {(user?.role === 'admin' || user?.role === 'staff') && (
-            <InspectionResultsDisplay orderId={id!} />
-          )}
+          {/* Device Inspection Section - visible to all roles when inspection is completed */}
+          <InspectionResultsDisplay orderId={id!} />
 
-          {/* Assigned Staff */}
+          {/* Assigned Staff - Only visible to admin/staff */}
+          {(user?.role === 'admin' || user?.role === 'staff') && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -954,6 +953,7 @@ export function OrderDetails() {
               )}
             </CardContent>
           </Card>
+          )}
 
           {/* Device Information */}
           <Card>

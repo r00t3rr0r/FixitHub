@@ -43,11 +43,27 @@ router.post('/init', requireUser, requireAdminOrStaff, async (req, res) => {
 // Endpoint: GET /api/device-inspections/:orderId
 // Request: {}
 // Response: { inspection: DeviceInspection | null }
-router.get('/:orderId', requireUser, requireAdminOrStaff, async (req, res) => {
+// Note: Customers can view their own order's completed inspection, admin/staff can view any inspection
+router.get('/:orderId', requireUser, async (req, res) => {
   console.log('[DeviceInspectionRoutes] GET /:orderId - Fetching inspection');
 
   try {
     const inspection = await DeviceInspectionService.getByOrderId(req.params.orderId);
+
+    // If inspection exists, check permissions
+    if (inspection) {
+      const OrderService = require('../services/orderService');
+      const order = await OrderService.getById(req.params.orderId);
+
+      // Check if user owns this order or is admin/staff
+      const orderCustomerId = order.customerId._id ? order.customerId._id.toString() : order.customerId.toString();
+      const currentUserId = req.user._id.toString();
+
+      if (orderCustomerId !== currentUserId && !['admin', 'staff'].includes(req.user.role)) {
+        console.log('[DeviceInspectionRoutes] Access denied - User does not own order');
+        return res.status(403).json({ error: 'Access denied' });
+      }
+    }
 
     // Return null if inspection not found (this is normal, not an error)
     return res.status(200).json({ inspection });
