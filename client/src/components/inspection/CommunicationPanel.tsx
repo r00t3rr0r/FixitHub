@@ -3,7 +3,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
-import { useAuth } from "@/contexts/AuthContext"
 import {
   getCommunicationThread,
   respondToFeedback,
@@ -11,6 +10,7 @@ import {
   sendFeedbackRequest,
   createQuickAction,
 } from "@/api/inspectionCommunication"
+import { getUserProfile, UserProfile } from "@/api/user"
 import { CheckCircle2, MessageCircle, AlertCircle, Plus, Send } from "lucide-react"
 import {
   Dialog,
@@ -68,7 +68,7 @@ export function CommunicationPanel({
   inspectionId,
 }: CommunicationPanelProps) {
   const { toast } = useToast()
-  const { user } = useAuth()
+  const [user, setUser] = useState<UserProfile | null>(null)
   const [communication, setCommunication] = useState<Communication | null>(null)
   const [loading, setLoading] = useState(true)
   const [responding, setResponding] = useState(false)
@@ -83,6 +83,21 @@ export function CommunicationPanel({
   const [feedbackOption2Value, setFeedbackOption2Value] = useState("")
   const [quickActionType, setQuickActionType] = useState<'part_replacement' | 'incorrect_device' | 'incorrect_unlock_code' | 'additional_costs'>('part_replacement')
   const [quickActionDescription, setQuickActionDescription] = useState("")
+
+  // Load user profile
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const userResponse = await getUserProfile()
+        setUser(userResponse.user || userResponse)
+        console.log("User profile loaded:", userResponse)
+      } catch (error) {
+        console.error("Error loading user profile:", error)
+      }
+    }
+
+    loadUserProfile()
+  }, [])
 
   // Load communication thread
   useEffect(() => {
