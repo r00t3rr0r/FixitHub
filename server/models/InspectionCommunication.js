@@ -69,15 +69,6 @@ const quickActionSchema = new mongoose.Schema({
 
 // Schema for communication message
 const communicationMessageSchema = new mongoose.Schema({
-  orderId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Order',
-    required: true,
-  },
-  inspectionId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'DeviceInspection',
-  },
   senderId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

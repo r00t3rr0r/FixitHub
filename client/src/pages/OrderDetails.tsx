@@ -16,7 +16,6 @@ import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder
 import EPartSelectionDialog from "@/components/admin/EPartSelectionDialog"
 import { WorkflowExecutionView } from "@/components/workflow/WorkflowExecutionView"
 import { InspectionResultsDisplay } from "@/components/inspection/InspectionResultsDisplay"
-import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import { OrderProgressTimeline } from "@/components/OrderProgressTimeline"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -856,12 +855,6 @@ export function OrderDetails() {
 
           {/* Device Inspection Section - visible to all roles when inspection is completed */}
           <InspectionResultsDisplay orderId={id!} />
-
-          {/* Communication Panel - for inspection updates and feedback */}
-          <CommunicationPanel
-            orderId={id!}
-            staffOnly={user?.role === 'admin' || user?.role === 'staff'}
-          />
 
           {/* Assigned Staff - Only visible to admin/staff */}
           {(user?.role === 'admin' || user?.role === 'staff') && (
