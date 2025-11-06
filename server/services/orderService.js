@@ -1125,6 +1125,95 @@ class OrderService {
       throw error;
     }
   }
+
+  // Description: Get order progress timeline with milestone data
+  // Returns structured stages with completion status and dates
+  static async getProgressTimeline(orderId) {
+    console.log('OrderService: Getting progress timeline for order:', orderId);
+
+    try {
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      // Map timeline entries by status
+      const timelineMap = {};
+      if (order.timeline && order.timeline.length > 0) {
+        order.timeline.forEach(entry => {
+          timelineMap[entry.status] = entry;
+        });
+      }
+
+      // Helper function to format date
+      const formatDate = (date) => {
+        if (!date) return null;
+        return new Date(date).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+      };
+
+      // Define timeline stages
+      const stages = [
+        {
+          id: 'order-received',
+          label: 'Order Received',
+          status: 'completed', // Always completed when order exists
+          date: formatDate(order.createdAt)
+        },
+        {
+          id: 'diagnostic',
+          label: 'Diagnostic Assessment',
+          status: timelineMap['Diagnostic Assessment'] ? 'completed' : (order.status !== 'pending' ? 'completed' : 'pending'),
+          date: timelineMap['Diagnostic Assessment'] ? formatDate(timelineMap['Diagnostic Assessment'].completedAt) : null
+        },
+        {
+          id: 'repair',
+          label: 'Repair in Progress',
+          status: order.status === 'in-progress' ? 'in-progress' : (order.status === 'in-progress' || order.status === 'quality-check' || order.status === 'completed' || order.status === 'ready-for-pickup' ? 'completed' : 'pending'),
+          date: timelineMap['Repair in Progress'] ? formatDate(timelineMap['Repair in Progress'].completedAt) : null
+        },
+        {
+          id: 'quality-check',
+          label: 'Quality Check',
+          status: order.status === 'quality-check' ? 'in-progress' : (order.status === 'completed' || order.status === 'ready-for-pickup' ? 'completed' : 'pending'),
+          date: timelineMap['Quality Check'] ? formatDate(timelineMap['Quality Check'].completedAt) : null
+        },
+        {
+          id: 'pickup',
+          label: order.status === 'ready-for-pickup' ? 'Ready for Pickup' : 'Completed',
+          status: order.status === 'completed' || order.status === 'ready-for-pickup' ? 'completed' : 'pending',
+          date: order.actualCompletion ? formatDate(order.actualCompletion) : null
+        }
+      ];
+
+      // Determine current stage based on order status
+      let currentStage = 'order-received';
+      if (order.status === 'in-progress') {
+        currentStage = 'repair';
+      } else if (order.status === 'quality-check') {
+        currentStage = 'quality-check';
+      } else if (order.status === 'completed' || order.status === 'ready-for-pickup') {
+        currentStage = 'pickup';
+      } else if (order.status !== 'pending') {
+        currentStage = 'diagnostic';
+      }
+
+      console.log('OrderService: Progress timeline calculated for order:', orderId, 'Current stage:', currentStage);
+
+      return {
+        stages,
+        currentStage,
+        orderStatus: order.status,
+        progress: order.progress
+      };
+    } catch (error) {
+      console.error('OrderService: Error getting progress timeline:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = OrderService;

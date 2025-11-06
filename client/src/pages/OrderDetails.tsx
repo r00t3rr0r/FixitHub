@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
-import { getOrderById, Order } from "@/api/orders"
+import { getOrderById, Order, getOrderProgressTimeline } from "@/api/orders"
 import { getConversations, getConversationMessages, sendMessage, startConversation } from "@/api/messages"
 import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon } from "@/api/adminOrders"
 import { getUserProfile, UserProfile } from "@/api/user"
@@ -16,6 +16,7 @@ import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder
 import EPartSelectionDialog from "@/components/admin/EPartSelectionDialog"
 import { WorkflowExecutionView } from "@/components/workflow/WorkflowExecutionView"
 import { InspectionResultsDisplay } from "@/components/inspection/InspectionResultsDisplay"
+import { OrderProgressTimeline } from "@/components/OrderProgressTimeline"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -97,6 +98,7 @@ export function OrderDetails() {
   const [suggestedWorkflows, setSuggestedWorkflows] = useState<any[]>([])
   const [workflowDialogOpen, setWorkflowDialogOpen] = useState(false)
   const [assigningWorkflow, setAssigningWorkflow] = useState(false)
+  const [progressTimeline, setProgressTimeline] = useState<any>(null)
   const { toast } = useToast()
 
   // Fetch user profile
@@ -237,6 +239,26 @@ export function OrderDetails() {
 
     fetchWorkflows()
   }, [id, user])
+
+  // Fetch progress timeline for order
+  useEffect(() => {
+    const fetchProgressTimeline = async () => {
+      if (!id) return
+
+      try {
+        console.log("OrderDetails: Fetching progress timeline for order:", id)
+        const timelineResponse = await getOrderProgressTimeline(id)
+        console.log("OrderDetails: Progress timeline received:", timelineResponse)
+
+        setProgressTimeline(timelineResponse)
+      } catch (error: any) {
+        console.error("OrderDetails: Error fetching progress timeline:", error)
+        // Don't show error toast as timeline is not critical
+      }
+    }
+
+    fetchProgressTimeline()
+  }, [id])
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !id) return
@@ -745,6 +767,14 @@ export function OrderDetails() {
           </div>
         </CardHeader>
       </Card>
+
+      {/* Overall Progress Timeline */}
+      {progressTimeline && (
+        <OrderProgressTimeline
+          stages={progressTimeline.stages}
+          currentStage={progressTimeline.currentStage}
+        />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Content */}

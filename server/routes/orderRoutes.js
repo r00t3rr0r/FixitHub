@@ -63,11 +63,11 @@ router.get('/:id', requireUser, async (req, res) => {
     // Check if user owns this order - fix the access control check
     const orderCustomerId = order.customerId._id ? order.customerId._id.toString() : order.customerId.toString();
     const currentUserId = req.user._id.toString();
-    
+
     console.log('Access control check - Order customer ID:', orderCustomerId);
     console.log('Access control check - Current user ID:', currentUserId);
     console.log('Access control check - User role:', req.user.role);
-    
+
     // Allow access if user owns the order OR if user is admin/staff
     if (orderCustomerId !== currentUserId && !['admin', 'staff'].includes(req.user.role)) {
       console.log('Access denied - User does not own order and is not admin/staff');
@@ -85,6 +85,42 @@ router.get('/:id', requireUser, async (req, res) => {
     }
     return res.status(500).json({
       error: error.message || 'Failed to get order'
+    });
+  }
+});
+
+// Description: Get order progress timeline with milestone data
+// Endpoint: GET /api/orders/:id/progress-timeline
+// Request: {}
+// Response: { stages: Array<{ id: string, label: string, status: string, date?: string }>, currentStage: string }
+router.get('/:id/progress-timeline', requireUser, async (req, res) => {
+  console.log('Get order progress timeline request received for order:', req.params.id);
+
+  try {
+    const order = await OrderService.getById(req.params.id);
+
+    // Check if user owns this order or is admin/staff
+    const orderCustomerId = order.customerId._id ? order.customerId._id.toString() : order.customerId.toString();
+    const currentUserId = req.user._id.toString();
+
+    if (orderCustomerId !== currentUserId && !['admin', 'staff'].includes(req.user.role)) {
+      console.log('Access denied - User does not own order and is not admin/staff');
+      return res.status(403).json({
+        error: 'Access denied'
+      });
+    }
+
+    const timeline = await OrderService.getProgressTimeline(req.params.id);
+    console.log('Progress timeline retrieved successfully for order:', req.params.id);
+
+    return res.status(200).json(timeline);
+  } catch (error) {
+    console.error('Error getting order progress timeline:', error);
+    if (error.message === 'Order not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(500).json({
+      error: error.message || 'Failed to get order progress timeline'
     });
   }
 });

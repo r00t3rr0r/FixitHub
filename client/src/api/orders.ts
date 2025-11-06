@@ -93,13 +93,30 @@ export const createOrder = async (orderData: any) => {
 // Response: { order: Order }
 export const getOrderById = async (orderId: string) => {
   console.log('getOrderById called with ID:', orderId);
-  
+
   try {
     const response = await api.get(`/api/orders/${orderId}`);
     console.log('getOrderById API response:', response.data);
     return response.data;
   } catch (error) {
     console.error('getOrderById API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Get order progress timeline with milestone data
+// Endpoint: GET /api/orders/:id/progress-timeline
+// Request: {}
+// Response: { stages: Array<{ id: string, label: string, status: string, date?: string }>, currentStage: string }
+export const getOrderProgressTimeline = async (orderId: string) => {
+  console.log('getOrderProgressTimeline called with ID:', orderId);
+
+  try {
+    const response = await api.get(`/api/orders/${orderId}/progress-timeline`);
+    console.log('getOrderProgressTimeline API response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('getOrderProgressTimeline API error:', error);
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
