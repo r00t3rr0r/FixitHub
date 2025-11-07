@@ -494,7 +494,7 @@ export function NewOrder() {
                 Select Your Device
               </CardTitle>
               <CardDescription>
-                Search for your device or choose from the dropdowns
+                Search for your device to get started
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
