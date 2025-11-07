@@ -1,7 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
-import Backend from 'i18next-http-backend';
 
 import enTranslation from './locales/en/translation.json';
 import deTranslation from './locales/de/translation.json';
@@ -16,8 +15,6 @@ const resources = {
 };
 
 i18n
-  // Load translation using http backend
-  .use(Backend)
   // Detect user language
   .use(LanguageDetector)
   // Pass the i18n instance to react-i18next
@@ -26,7 +23,7 @@ i18n
   .init({
     resources,
     fallbackLng: 'en',
-    debug: false,
+    debug: true, // Enable debug to see translation issues
 
     interpolation: {
       escapeValue: false // React already escapes values
@@ -38,13 +35,11 @@ i18n
       // Cache user language selection
       caches: ['localStorage'],
       lookupLocalStorage: 'i18nextLng'
-    },
-
-    backend: {
-      loadPath: '/locales/{{lng}}/{{ns}}.json'
     }
   });
 
 console.log('i18n initialized with languages:', Object.keys(resources));
+console.log('i18n English keys sample:', Object.keys(enTranslation).slice(0, 10));
+console.log('i18n has dashboardStats:', 'dashboardStats' in enTranslation);
 
 export default i18n;
