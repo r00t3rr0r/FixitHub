@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { NotificationBell } from "@/components/NotificationBell"
+import { LanguageSelector } from "@/components/LanguageSelector"
 import { useAuth } from "@/contexts/AuthContext"
 import { getUserProfile, UserProfile } from "@/api/user"
 import { useToast } from "@/hooks/useToast"
@@ -75,8 +76,9 @@ export function Header({ onToggleSidebar, sidebarOpen }: HeaderProps) {
 
         <div className="flex items-center space-x-4">
           <NotificationBell />
+          <LanguageSelector />
           <ThemeToggle />
-          
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">

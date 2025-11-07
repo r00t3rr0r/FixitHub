@@ -1,0 +1,243 @@
+{
+  "common": {
+    "welcome": "Willkommen",
+    "loading": "Lädt...",
+    "error": "Fehler",
+    "success": "Erfolgreich",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "create": "Erstellen",
+    "update": "Aktualisieren",
+    "search": "Suchen",
+    "filter": "Filtern",
+    "reset": "Zurücksetzen",
+    "close": "Schließen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "previous": "Vorherige",
+    "submit": "Absenden",
+    "confirm": "Bestätigen",
+    "yes": "Ja",
+    "no": "Nein",
+    "add": "Hinzufügen",
+    "remove": "Entfernen",
+    "view": "Ansehen",
+    "download": "Herunterladen",
+    "upload": "Hochladen",
+    "export": "Exportieren",
+    "import": "Importieren",
+    "refresh": "Aktualisieren",
+    "actions": "Aktionen"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "orders": "Aufträge",
+    "newOrder": "Neuer Auftrag",
+    "orderTracking": "Auftragsverfolgung",
+    "messages": "Nachrichten",
+    "notifications": "Benachrichtigungen",
+    "profile": "Profil",
+    "webShop": "Webshop",
+    "cart": "Warenkorb",
+    "blog": "Blog",
+    "logout": "Abmelden",
+    "login": "Anmelden",
+    "register": "Registrieren"
+  },
+  "admin": {
+    "menu": {
+      "userManagement": "Benutzerverwaltung",
+      "orderManagement": "Auftragsverwaltung",
+      "serviceManagement": "Dienstverwaltung",
+      "addOnServices": "Zusatzdienste",
+      "staffManagement": "Personalverwaltung",
+      "partsManagement": "Teileverwaltung",
+      "needLists": "Bedarfslisten",
+      "epartOrders": "EPart-Bestellungen",
+      "webShopManagement": "Webshop-Verwaltung",
+      "blogManagement": "Blog-Verwaltung",
+      "faqManagement": "FAQ-Verwaltung",
+      "homepageManagement": "Homepage-Verwaltung",
+      "workflowManagement": "Workflow-Verwaltung",
+      "diagnosticTools": "Diagnose-Tools",
+      "deviceBrands": "Gerätemarken",
+      "qualityControl": "Qualitätskontrolle",
+      "analytics": "Analysen",
+      "systemConfiguration": "Systemkonfiguration",
+      "databaseManagement": "Datenbankverwaltung",
+      "securitySettings": "Sicherheitseinstellungen",
+      "seoManagement": "SEO-Verwaltung",
+      "financialManagement": "Finanzverwaltung"
+    },
+    "systemConfig": {
+      "title": "Systemkonfiguration",
+      "general": "Allgemeine Einstellungen",
+      "notifications": "Benachrichtigungsvorlagen",
+      "integrations": "Integrationen",
+      "workflows": "Workflows",
+      "security": "Sicherheit",
+      "content": "Inhaltsverwaltung",
+      "languages": "Sprachverwaltung"
+    },
+    "languageManagement": {
+      "title": "Sprachverwaltung",
+      "addLanguage": "Sprache hinzufügen",
+      "editLanguage": "Sprache bearbeiten",
+      "deleteLanguage": "Sprache löschen",
+      "setDefault": "Als Standard festlegen",
+      "languageCode": "Sprachcode",
+      "languageName": "Sprachname",
+      "nativeName": "Muttersprachlicher Name",
+      "isActive": "Aktiv",
+      "isDefault": "Standardsprache",
+      "direction": "Textrichtung",
+      "ltr": "Links nach Rechts",
+      "rtl": "Rechts nach Links",
+      "translationKeys": "Übersetzungsschlüssel",
+      "manageTranslations": "Übersetzungen verwalten",
+      "previewLanguage": "Sprache vorschauen",
+      "exportTranslations": "Übersetzungen exportieren",
+      "importTranslations": "Übersetzungen importieren",
+      "translationProgress": "Übersetzungsfortschritt",
+      "totalKeys": "Gesamte Schlüssel",
+      "translatedKeys": "Übersetzte Schlüssel",
+      "missingKeys": "Fehlende Schlüssel"
+    }
+  },
+  "staff": {
+    "menu": {
+      "myOrders": "Meine Aufträge",
+      "teamChat": "Team-Chat",
+      "schedule": "Zeitplan",
+      "knowledgeBase": "Wissensdatenbank",
+      "performance": "Leistung",
+      "timeTracking": "Zeiterfassung"
+    }
+  },
+  "header": {
+    "languageSelector": "Sprache",
+    "themeToggle": "Design wechseln",
+    "notifications": "Benachrichtigungen",
+    "profile": "Profil",
+    "settings": "Einstellungen"
+  },
+  "footer": {
+    "madeWith": "Erstellt mit",
+    "by": "von"
+  },
+  "login": {
+    "title": "Bei FixitHub anmelden",
+    "email": "E-Mail-Adresse",
+    "password": "Passwort",
+    "submit": "Anmelden",
+    "noAccount": "Noch kein Konto?",
+    "register": "Hier registrieren",
+    "demoAccounts": "Demo-Konten",
+    "customer": "Kunde",
+    "staff": "Personal",
+    "admin": "Administrator"
+  },
+  "register": {
+    "title": "Konto erstellen",
+    "firstName": "Vorname",
+    "lastName": "Nachname",
+    "email": "E-Mail-Adresse",
+    "phone": "Telefonnummer",
+    "password": "Passwort",
+    "submit": "Registrieren",
+    "hasAccount": "Bereits ein Konto?",
+    "login": "Hier anmelden"
+  },
+  "dashboard": {
+    "welcome": "Willkommen zurück",
+    "overview": "Übersicht",
+    "activeOrders": "Aktive Aufträge",
+    "completedOrders": "Abgeschlossene Aufträge",
+    "recentActivity": "Letzte Aktivitäten",
+    "quickActions": "Schnellaktionen",
+    "viewAll": "Alle anzeigen"
+  },
+  "orders": {
+    "title": "Aufträge",
+    "newOrder": "Neuen Auftrag erstellen",
+    "orderNumber": "Auftragsnummer",
+    "status": "Status",
+    "priority": "Priorität",
+    "device": "Gerät",
+    "customer": "Kunde",
+    "assignedStaff": "Zugewiesenes Personal",
+    "createdAt": "Erstellt am",
+    "updatedAt": "Aktualisiert am",
+    "totalCost": "Gesamtkosten",
+    "paymentStatus": "Zahlungsstatus",
+    "statuses": {
+      "pending": "Ausstehend",
+      "in_progress": "In Bearbeitung",
+      "completed": "Abgeschlossen",
+      "cancelled": "Storniert",
+      "on_hold": "Wartend"
+    },
+    "priorities": {
+      "low": "Niedrig",
+      "normal": "Normal",
+      "high": "Hoch",
+      "urgent": "Dringend"
+    }
+  },
+  "messages": {
+    "title": "Nachrichten",
+    "newMessage": "Neue Nachricht",
+    "conversation": "Konversation",
+    "typeMessage": "Nachricht eingeben...",
+    "send": "Senden",
+    "noMessages": "Noch keine Nachrichten"
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "markAsRead": "Als gelesen markieren",
+    "markAllAsRead": "Alle als gelesen markieren",
+    "noNotifications": "Keine Benachrichtigungen",
+    "types": {
+      "order_update": "Auftragsaktualisierung",
+      "payment": "Zahlung",
+      "message": "Nachricht",
+      "system": "System",
+      "assignment": "Zuweisung",
+      "reminder": "Erinnerung"
+    }
+  },
+  "profile": {
+    "title": "Profileinstellungen",
+    "personalInfo": "Persönliche Informationen",
+    "firstName": "Vorname",
+    "lastName": "Nachname",
+    "email": "E-Mail",
+    "phone": "Telefonnummer",
+    "avatar": "Profilbild",
+    "addresses": "Adressen",
+    "invoiceAddress": "Rechnungsadresse",
+    "paymentAddress": "Zahlungsadresse",
+    "preferences": "Einstellungen",
+    "language": "Sprache",
+    "notifications": "Benachrichtigungseinstellungen",
+    "emailNotifications": "E-Mail-Benachrichtigungen",
+    "smsNotifications": "SMS-Benachrichtigungen",
+    "pushNotifications": "Push-Benachrichtigungen"
+  },
+  "toast": {
+    "success": {
+      "saved": "Erfolgreich gespeichert",
+      "updated": "Erfolgreich aktualisiert",
+      "deleted": "Erfolgreich gelöscht",
+      "created": "Erfolgreich erstellt"
+    },
+    "error": {
+      "generic": "Ein Fehler ist aufgetreten",
+      "notFound": "Nicht gefunden",
+      "unauthorized": "Nicht autorisiert",
+      "validation": "Validierungsfehler"
+    }
+  }
+}

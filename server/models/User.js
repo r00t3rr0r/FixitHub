@@ -95,6 +95,10 @@ const schema = new mongoose.Schema({
       promotions: { type: Boolean, default: false },
       newsletter: { type: Boolean, default: true },
     },
+    language: {
+      type: String,
+      default: 'en'
+    },
   },
   totalOrders: {
     type: Number,

@@ -85,6 +85,8 @@ console.log('Loading device inspection routes...');
 const deviceInspectionRoutes = require("./routes/deviceInspectionRoutes");
 console.log('Loading inspection communication routes...');
 const inspectionCommunicationRoutes = require("./routes/inspectionCommunicationRoutes");
+console.log('Loading language routes...');
+const languageRoutes = require("./routes/languageRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -204,6 +206,15 @@ const initializeDatabase = async () => {
       console.error('Error seeding FAQ data:', error.message);
     }
 
+    // Auto-seed languages if they don't exist
+    console.log('Checking if languages exist...');
+    try {
+      const languageSeedResult = await SeedService.seedLanguages();
+      console.log('Language seeding result:', languageSeedResult.message);
+    } catch (error) {
+      console.error('Error seeding languages:', error.message);
+    }
+
     // Auto-seed homepage template if it doesn't exist
     console.log('Checking if homepage template exists...');
     try {
@@ -317,6 +328,8 @@ app.use('/api/need-lists', needListRoutes);
 app.use('/api/device-inspections', deviceInspectionRoutes);
 // Inspection Communication Routes
 app.use('/api/inspection-communication', inspectionCommunicationRoutes);
+// Language Routes
+app.use('/api/languages', languageRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 

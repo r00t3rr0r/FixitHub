@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { Link, useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -44,6 +45,7 @@ const exampleLogins = [
 ]
 
 export function Login() {
+  const { t } = useTranslation()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<LoginForm>()

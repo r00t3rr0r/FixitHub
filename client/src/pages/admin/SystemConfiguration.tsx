@@ -26,6 +26,7 @@ import {
 } from "@/api/systemConfig"
 import { NotificationTemplateDialog } from "@/components/admin/NotificationTemplateDialog"
 import { IntegrationDialog } from "@/components/admin/IntegrationDialog"
+import { LanguageManagementTab } from "@/components/admin/LanguageManagementTab"
 import {
   Settings,
   Bell,
@@ -405,6 +406,7 @@ export function SystemConfiguration() {
           <TabsTrigger value="workflow">Workflow</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="content">Content</TabsTrigger>
+          <TabsTrigger value="languages">Languages</TabsTrigger>
         </TabsList>
 
         {/* General Tab */}
@@ -1965,6 +1967,24 @@ export function SystemConfiguration() {
                   </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Languages Tab */}
+        <TabsContent value="languages" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="h-5 w-5" />
+                Language Management
+              </CardTitle>
+              <CardDescription>
+                Manage system languages and translations
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LanguageManagementTab />
             </CardContent>
           </Card>
         </TabsContent>

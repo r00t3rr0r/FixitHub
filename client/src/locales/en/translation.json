@@ -1,0 +1,243 @@
+{
+  "common": {
+    "welcome": "Welcome",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "update": "Update",
+    "search": "Search",
+    "filter": "Filter",
+    "reset": "Reset",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "submit": "Submit",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No",
+    "add": "Add",
+    "remove": "Remove",
+    "view": "View",
+    "download": "Download",
+    "upload": "Upload",
+    "export": "Export",
+    "import": "Import",
+    "refresh": "Refresh",
+    "actions": "Actions"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "orders": "Orders",
+    "newOrder": "New Order",
+    "orderTracking": "Order Tracking",
+    "messages": "Messages",
+    "notifications": "Notifications",
+    "profile": "Profile",
+    "webShop": "Web Shop",
+    "cart": "Shopping Cart",
+    "blog": "Blog",
+    "logout": "Logout",
+    "login": "Login",
+    "register": "Register"
+  },
+  "admin": {
+    "menu": {
+      "userManagement": "User Management",
+      "orderManagement": "Order Management",
+      "serviceManagement": "Service Management",
+      "addOnServices": "Add-On Services",
+      "staffManagement": "Staff Management",
+      "partsManagement": "Parts Management",
+      "needLists": "Need Lists",
+      "epartOrders": "EPart Orders",
+      "webShopManagement": "Web Shop Management",
+      "blogManagement": "Blog Management",
+      "faqManagement": "FAQ Management",
+      "homepageManagement": "Homepage Management",
+      "workflowManagement": "Workflow Management",
+      "diagnosticTools": "Diagnostic Tools",
+      "deviceBrands": "Device Brands",
+      "qualityControl": "Quality Control",
+      "analytics": "Analytics",
+      "systemConfiguration": "System Configuration",
+      "databaseManagement": "Database Management",
+      "securitySettings": "Security Settings",
+      "seoManagement": "SEO Management",
+      "financialManagement": "Financial Management"
+    },
+    "systemConfig": {
+      "title": "System Configuration",
+      "general": "General Settings",
+      "notifications": "Notification Templates",
+      "integrations": "Integrations",
+      "workflows": "Workflows",
+      "security": "Security",
+      "content": "Content Management",
+      "languages": "Language Management"
+    },
+    "languageManagement": {
+      "title": "Language Management",
+      "addLanguage": "Add Language",
+      "editLanguage": "Edit Language",
+      "deleteLanguage": "Delete Language",
+      "setDefault": "Set as Default",
+      "languageCode": "Language Code",
+      "languageName": "Language Name",
+      "nativeName": "Native Name",
+      "isActive": "Active",
+      "isDefault": "Default Language",
+      "direction": "Text Direction",
+      "ltr": "Left to Right",
+      "rtl": "Right to Left",
+      "translationKeys": "Translation Keys",
+      "manageTranslations": "Manage Translations",
+      "previewLanguage": "Preview Language",
+      "exportTranslations": "Export Translations",
+      "importTranslations": "Import Translations",
+      "translationProgress": "Translation Progress",
+      "totalKeys": "Total Keys",
+      "translatedKeys": "Translated Keys",
+      "missingKeys": "Missing Keys"
+    }
+  },
+  "staff": {
+    "menu": {
+      "myOrders": "My Orders",
+      "teamChat": "Team Chat",
+      "schedule": "Schedule",
+      "knowledgeBase": "Knowledge Base",
+      "performance": "Performance",
+      "timeTracking": "Time Tracking"
+    }
+  },
+  "header": {
+    "languageSelector": "Language",
+    "themeToggle": "Toggle Theme",
+    "notifications": "Notifications",
+    "profile": "Profile",
+    "settings": "Settings"
+  },
+  "footer": {
+    "madeWith": "Made with",
+    "by": "by"
+  },
+  "login": {
+    "title": "Login to FixitHub",
+    "email": "Email Address",
+    "password": "Password",
+    "submit": "Sign In",
+    "noAccount": "Don't have an account?",
+    "register": "Register here",
+    "demoAccounts": "Demo Accounts",
+    "customer": "Customer",
+    "staff": "Staff",
+    "admin": "Admin"
+  },
+  "register": {
+    "title": "Create Account",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "email": "Email Address",
+    "phone": "Phone Number",
+    "password": "Password",
+    "submit": "Register",
+    "hasAccount": "Already have an account?",
+    "login": "Login here"
+  },
+  "dashboard": {
+    "welcome": "Welcome back",
+    "overview": "Overview",
+    "activeOrders": "Active Orders",
+    "completedOrders": "Completed Orders",
+    "recentActivity": "Recent Activity",
+    "quickActions": "Quick Actions",
+    "viewAll": "View All"
+  },
+  "orders": {
+    "title": "Orders",
+    "newOrder": "Create New Order",
+    "orderNumber": "Order Number",
+    "status": "Status",
+    "priority": "Priority",
+    "device": "Device",
+    "customer": "Customer",
+    "assignedStaff": "Assigned Staff",
+    "createdAt": "Created At",
+    "updatedAt": "Updated At",
+    "totalCost": "Total Cost",
+    "paymentStatus": "Payment Status",
+    "statuses": {
+      "pending": "Pending",
+      "in_progress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "on_hold": "On Hold"
+    },
+    "priorities": {
+      "low": "Low",
+      "normal": "Normal",
+      "high": "High",
+      "urgent": "Urgent"
+    }
+  },
+  "messages": {
+    "title": "Messages",
+    "newMessage": "New Message",
+    "conversation": "Conversation",
+    "typeMessage": "Type a message...",
+    "send": "Send",
+    "noMessages": "No messages yet"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAsRead": "Mark as Read",
+    "markAllAsRead": "Mark All as Read",
+    "noNotifications": "No notifications",
+    "types": {
+      "order_update": "Order Update",
+      "payment": "Payment",
+      "message": "Message",
+      "system": "System",
+      "assignment": "Assignment",
+      "reminder": "Reminder"
+    }
+  },
+  "profile": {
+    "title": "Profile Settings",
+    "personalInfo": "Personal Information",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "email": "Email",
+    "phone": "Phone Number",
+    "avatar": "Avatar",
+    "addresses": "Addresses",
+    "invoiceAddress": "Invoice Address",
+    "paymentAddress": "Payment Address",
+    "preferences": "Preferences",
+    "language": "Language",
+    "notifications": "Notification Settings",
+    "emailNotifications": "Email Notifications",
+    "smsNotifications": "SMS Notifications",
+    "pushNotifications": "Push Notifications"
+  },
+  "toast": {
+    "success": {
+      "saved": "Successfully saved",
+      "updated": "Successfully updated",
+      "deleted": "Successfully deleted",
+      "created": "Successfully created"
+    },
+    "error": {
+      "generic": "An error occurred",
+      "notFound": "Not found",
+      "unauthorized": "Unauthorized",
+      "validation": "Validation error"
+    }
+  }
+}

@@ -9,6 +9,7 @@ const { BlogPost, BlogCategory, BlogTag } = require('../models/BlogPost');
 const FAQ = require('../models/FAQ');
 const { HomepageSection, LayoutTemplate } = require('../models/Homepage');
 const Invoice = require('../models/Invoice');
+const Language = require('../models/Language');
 const { generatePasswordHash } = require('../utils/password');
 
 class SeedService {
@@ -679,6 +680,49 @@ class SeedService {
 
   static async seedFAQData() {
     return await this.seedFAQs();
+  }
+
+  static async seedLanguages() {
+    try {
+      console.log('SeedService.seedLanguages: Starting language seeding...');
+
+      const existingLanguages = await Language.countDocuments();
+      if (existingLanguages > 0) {
+        console.log('SeedService.seedLanguages: Languages already exist, skipping...');
+        return { message: 'Languages already seeded' };
+      }
+
+      console.log('SeedService.seedLanguages: Creating default languages (English and German)...');
+
+      const languages = [
+        {
+          code: 'en',
+          name: 'English',
+          nativeName: 'English',
+          isActive: true,
+          isDefault: true,
+          direction: 'ltr',
+          translations: []
+        },
+        {
+          code: 'de',
+          name: 'German',
+          nativeName: 'Deutsch',
+          isActive: true,
+          isDefault: false,
+          direction: 'ltr',
+          translations: []
+        }
+      ];
+
+      const createdLanguages = await Language.insertMany(languages);
+      console.log(`SeedService.seedLanguages: Created ${createdLanguages.length} languages successfully`);
+
+      return { message: `Created ${createdLanguages.length} languages successfully` };
+    } catch (error) {
+      console.error('SeedService.seedLanguages: Error seeding languages:', error);
+      throw error;
+    }
   }
 
   static async seedHomepageTemplate() {
