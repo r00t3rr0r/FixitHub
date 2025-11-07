@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -17,6 +18,7 @@ interface HeaderProps {
 }
 
 export function Header({ onToggleSidebar, sidebarOpen }: HeaderProps) {
+  const { t } = useTranslation()
   const { logout } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -103,10 +105,10 @@ export function Header({ onToggleSidebar, sidebarOpen }: HeaderProps) {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link to="/profile">Profile</Link>
+                <Link to="/profile">{t('navigation.profile')}</Link>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleLogout}>
-                Log out
+                {t('navigation.logout')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

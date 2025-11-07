@@ -1,21 +1,22 @@
 import { useState, useEffect } from "react"
 import { Link, useLocation } from "react-router-dom"
-import { 
-  Home, 
-  Users, 
-  Package, 
-  ShoppingBag, 
-  Wrench, 
+import { useTranslation } from "react-i18next"
+import {
+  Home,
+  Users,
+  Package,
+  ShoppingBag,
+  Wrench,
   Plus,
   Smartphone,
-  BarChart3, 
-  FileText, 
-  HelpCircle, 
-  Layout, 
-  Search, 
-  Settings, 
-  Database, 
-  Shield, 
+  BarChart3,
+  FileText,
+  HelpCircle,
+  Layout,
+  Search,
+  Settings,
+  Database,
+  Shield,
   GitBranch,
   Stethoscope,
   Package2,
@@ -39,6 +40,7 @@ interface AdminSidebarProps {
 }
 
 export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
+  const { t } = useTranslation()
   const location = useLocation()
   const [unreadNotifications, setUnreadNotifications] = useState(0)
   const [userManagementOpen, setUserManagementOpen] = useState(false)
@@ -148,74 +150,74 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
   return (
     <nav className="flex flex-col h-full p-4 space-y-1">
       <NavItem to="/admin" icon={Home}>
-        Dashboard
+        {t('navigation.dashboard')}
       </NavItem>
 
       <CollapsibleSection
-        title="User Management"
+        title={t('admin.menu.userManagement')}
         icon={Users}
         isOpen={userManagementOpen}
         onToggle={() => setUserManagementOpen(!userManagementOpen)}
       >
         <NavItem to="/admin/users" icon={Users}>
-          Users
+          {t('admin.menu.userManagement')}
         </NavItem>
         <NavItem to="/admin/staff" icon={UserCheck}>
-          Staff Management
+          {t('admin.menu.staffManagement')}
         </NavItem>
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Order Management"
+        title={t('admin.menu.orderManagement')}
         icon={Package}
         isOpen={orderManagementOpen}
         onToggle={() => setOrderManagementOpen(!orderManagementOpen)}
       >
         <NavItem to="/admin/orders" icon={Package}>
-          Orders
+          {t('navigation.orders')}
         </NavItem>
         <NavItem to="/admin/services" icon={Wrench}>
-          Services
+          {t('admin.menu.serviceManagement')}
         </NavItem>
         <NavItem to="/admin/addons" icon={Plus}>
-          Add-on Services
+          {t('admin.menu.addOnServices')}
         </NavItem>
         <NavItem to="/admin/devices" icon={Smartphone}>
-          Device Brands
+          {t('admin.menu.deviceBrands')}
         </NavItem>
         <NavItem to="/admin/parts" icon={Package2}>
-          Parts Management
+          {t('admin.menu.partsManagement')}
         </NavItem>
         <NavItem to="/admin/epart-orders" icon={Boxes}>
-          EPart Orders
+          {t('admin.menu.epartOrders')}
         </NavItem>
         <NavItem to="/admin/quality" icon={Award}>
-          Quality Control
+          {t('admin.menu.qualityControl')}
         </NavItem>
         <NavItem to="/admin/workflow" icon={GitBranch}>
-          Workflow Management
+          {t('admin.menu.workflowManagement')}
         </NavItem>
         <NavItem to="/admin/diagnostics" icon={Stethoscope}>
-          Diagnostic Tools
+          {t('admin.menu.diagnosticTools')}
         </NavItem>
       </CollapsibleSection>
 
       <NavItem to="/admin/shop" icon={ShoppingBag}>
-        Web Shop Management
+        {t('admin.menu.webShopManagement')}
       </NavItem>
 
       <NavItem to="/admin/financial" icon={DollarSign}>
-        Financial Management
+        {t('admin.menu.financialManagement')}
       </NavItem>
 
       <CollapsibleSection
-        title="Analytics & Reports"
+        title={t('admin.menu.analytics')}
         icon={BarChart3}
         isOpen={analyticsOpen}
         onToggle={() => setAnalyticsOpen(!analyticsOpen)}
       >
         <NavItem to="/admin/analytics" icon={BarChart3}>
-          Analytics
+          {t('admin.menu.analytics')}
         </NavItem>
       </CollapsibleSection>
 
@@ -226,16 +228,16 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
         onToggle={() => setContentManagementOpen(!contentManagementOpen)}
       >
         <NavItem to="/admin/blog" icon={FileText}>
-          Blog Management
+          {t('admin.menu.blogManagement')}
         </NavItem>
         <NavItem to="/admin/faq" icon={HelpCircle}>
-          FAQ Management
+          {t('admin.menu.faqManagement')}
         </NavItem>
         <NavItem to="/admin/homepage" icon={Layout}>
-          Homepage Management
+          {t('admin.menu.homepageManagement')}
         </NavItem>
         <NavItem to="/admin/seo" icon={Search}>
-          SEO Management
+          {t('admin.menu.seoManagement')}
         </NavItem>
       </CollapsibleSection>
 
@@ -246,26 +248,26 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
         onToggle={() => setSystemManagementOpen(!systemManagementOpen)}
       >
         <NavItem to="/admin/system" icon={Settings}>
-          System Configuration
+          {t('admin.menu.systemConfiguration')}
         </NavItem>
         <NavItem to="/admin/database" icon={Database}>
-          Database Management
+          {t('admin.menu.databaseManagement')}
         </NavItem>
         <NavItem to="/admin/security" icon={Shield}>
-          Security Settings
+          {t('admin.menu.securitySettings')}
         </NavItem>
       </CollapsibleSection>
 
       <NavItem to="/messages" icon={MessageSquare}>
-        Messages
+        {t('navigation.messages')}
       </NavItem>
 
       <NavItem to="/notifications" icon={Bell} badge={unreadNotifications}>
-        Notifications
+        {t('navigation.notifications')}
       </NavItem>
 
       <NavItem to="/profile" icon={User}>
-        Profile
+        {t('navigation.profile')}
       </NavItem>
     </nav>
   )
