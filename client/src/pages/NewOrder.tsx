@@ -42,7 +42,8 @@ import {
   BookOpen,
   User,
   Mail,
-  Phone
+  Phone,
+  ShoppingCart as ShoppingCartIcon
 } from "lucide-react"
 
 interface OrderForm {
@@ -408,7 +409,7 @@ export function NewOrder() {
   }
 
   const nextStep = () => {
-    if (step < 4) setStep(step + 1)
+    if (step < 5) setStep(step + 1)
   }
 
   const prevStep = () => {
@@ -456,7 +457,7 @@ export function NewOrder() {
         <CardContent>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
-              {[1, 2, 3, 4].map((stepNumber) => (
+              {[1, 2, 3, 4, 5].map((stepNumber) => (
                 <div key={stepNumber} className="flex items-center gap-2">
                   <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
                     stepNumber <= step
@@ -470,7 +471,7 @@ export function NewOrder() {
                   }`}>
                     Step {stepNumber}
                   </span>
-                  {stepNumber < 4 && (
+                  {stepNumber < 5 && (
                     <div className={`w-8 h-0.5 ${
                       stepNumber < step ? 'bg-primary' : 'bg-muted'
                     }`} />
@@ -479,7 +480,7 @@ export function NewOrder() {
               ))}
             </div>
           </div>
-          <Progress value={(step / 4) * 100} className="h-2" />
+          <Progress value={(step / 5) * 100} className="h-2" />
         </CardContent>
       </Card>
 
@@ -1096,16 +1097,215 @@ export function NewOrder() {
                 <Button type="button" variant="outline" onClick={prevStep}>
                   Previous
                 </Button>
-                <Button type="submit" disabled={submitting} size="lg" className="min-w-[200px]">
-                  {submitting ? (
-                    <span className="flex items-center gap-2">
-                      <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                      Creating Order...
-                    </span>
-                  ) : (
-                    "Create Order & Submit"
-                  )}
+                <Button type="button" onClick={nextStep} size="lg" className="min-w-[200px]">
+                  Review Order in Cart
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 5: Add to Cart Confirmation */}
+        {step === 5 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShoppingCartIcon className="h-5 w-5" />
+                Add to Cart
+              </CardTitle>
+              <CardDescription>
+                Review and add your repair order to your shopping cart
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Order Summary */}
+              <div className="bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg p-4 space-y-4 border-2 border-primary/20">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Order Details
+                </h3>
+
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Device:</span>
+                    <span className="font-medium">
+                      {selectedDevice
+                        ? `${selectedDevice.deviceType} • ${selectedDevice.manufacturer} • ${selectedDevice.name}`
+                        : "Not selected"
+                      }
+                    </span>
+                  </div>
+
+                  {selectedServices.length > 0 && (
+                    <div className="pt-2 border-t space-y-1">
+                      <span className="text-muted-foreground block font-medium">Services:</span>
+                      {services.filter(s => selectedServices.includes(s._id)).map(service => (
+                        <div key={service._id} className="flex justify-between ml-2">
+                          <span>• {service.name}</span>
+                          <span>${service.price}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {selectedAddOns.length > 0 && (
+                    <div className="pt-2 border-t space-y-1">
+                      <span className="text-muted-foreground block font-medium">Add-ons:</span>
+                      {addOns.filter(a => selectedAddOns.includes(a._id)).map(addOn => (
+                        <div key={addOn._id} className="flex justify-between ml-2">
+                          <span>• {addOn.name}</span>
+                          <span>${addOn.price}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="border-t pt-3 mt-3 flex justify-between font-bold text-base">
+                    <span>Total Cost:</span>
+                    <span className="text-primary">${calculateTotal()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Information Message */}
+              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <h4 className="font-semibold text-sm mb-2 flex items-center gap-2 text-blue-900 dark:text-blue-100">
+                  <ShoppingCartIcon className="h-4 w-4" />
+                  Add to Cart
+                </h4>
+                <p className="text-sm text-blue-900 dark:text-blue-100 leading-relaxed">
+                  Your repair order will be added to your shopping cart. You can review, modify, apply discount codes, and manage your orders before proceeding to checkout. This gives you flexibility to add multiple services, compare pricing, and manage your repairs all in one place.
+                </p>
+              </div>
+
+              {/* Benefits */}
+              <div className="grid md:grid-cols-2 gap-3">
+                <div className="flex gap-3">
+                  <Check className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-sm">Review & Modify</p>
+                    <p className="text-xs text-muted-foreground">Make changes before checkout</p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <Check className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-sm">Apply Discount Codes</p>
+                    <p className="text-xs text-muted-foreground">Save with promo codes</p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <Check className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-sm">Multiple Orders</p>
+                    <p className="text-xs text-muted-foreground">Add multiple repairs to cart</p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <Check className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-sm">Secure Checkout</p>
+                    <p className="text-xs text-muted-foreground">Safe payment processing</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-between gap-3 pt-4">
+                <Button type="button" variant="outline" onClick={prevStep}>
+                  Previous
+                </Button>
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      navigate("/shop")
+                      toast({
+                        title: "Order ready!",
+                        description: "Add your repair order to the cart and continue shopping"
+                      })
+                    }}
+                  >
+                    Continue Shopping
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={submitting}
+                    size="lg"
+                    className="min-w-[250px]"
+                    onClick={async () => {
+                      try {
+                        setSubmitting(true)
+                        console.log("Adding order to cart and redirecting...")
+
+                        // Create order data
+                        const selectedDeviceTypeObj = deviceTypes.find(dt => dt._id === selectedDeviceType)
+                        const selectedManufacturerObj = manufacturers.find(m => m._id === selectedManufacturer)
+                        const selectedModelObj = models.find(m => m._id === selectedModel)
+
+                        const selectedAddOnObjects = addOns
+                          .filter(addOn => selectedAddOns.includes(addOn._id))
+                          .map(addOn => ({
+                            name: addOn.name,
+                            description: addOn.description,
+                            price: addOn.price,
+                            status: 'pending',
+                            estimatedTime: addOn.estimatedTime || '30 minutes'
+                          }))
+
+                        const photoUrls: string[] = []
+                        // Note: Photos would be handled separately in a real implementation
+
+                        const orderData = {
+                          deviceType: selectedDeviceTypeObj?.name || selectedDeviceType,
+                          deviceBrand: selectedManufacturerObj?.name || selectedManufacturer,
+                          deviceModel: selectedModelObj?.name || selectedModel,
+                          services: selectedServices,
+                          addOns: selectedAddOnObjects,
+                          customerNotes: watch("customerNotes") || '',
+                          photos: photoUrls,
+                          totalCost: calculateTotal()
+                        }
+
+                        console.log("Order data prepared:", orderData)
+
+                        // Redirect to cart with a flag or message
+                        navigate("/cart", {
+                          state: {
+                            newOrder: orderData,
+                            message: "Your repair order has been added to your cart!"
+                          }
+                        })
+
+                        toast({
+                          title: "Success!",
+                          description: "Your repair order has been added to your cart. You can now review it in your shopping cart.",
+                        })
+                      } catch (error: any) {
+                        console.error("Error adding to cart:", error)
+                        toast({
+                          title: "Error",
+                          description: error.message || "Failed to add order to cart",
+                          variant: "destructive"
+                        })
+                      } finally {
+                        setSubmitting(false)
+                      }
+                    }}
+                  >
+                    {submitting ? (
+                      <span className="flex items-center gap-2">
+                        <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                        Adding to Cart...
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <ShoppingCartIcon className="h-4 w-4" />
+                        Add to Cart & Review
+                      </span>
+                    )}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
