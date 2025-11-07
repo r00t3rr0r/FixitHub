@@ -404,6 +404,5 @@
 	"TESTING_ADMIN_TRANSLATIONS.md": "Comprehensive testing guide for verifying the admin translation system implementation across all admin pages, components, and user interactions in English and German.",
 	"QUICK_TRANSLATION_TEST.md": "Quick reference guide for testing i18n implementation across English and German locales on the Order Details page, including language switcher functionality, translation verification, and console error checking.",
 	"TRANSLATION_IMPLEMENTATION_SUMMARY.md": "Documentation file summarizing the completion of multi-language support (English and German) implementation for the Order Details page using react-i18next, including updated components, translation files, testing guidelines, and maintenance procedures.",
-	"TRANSLATION_TESTING_GUIDE.md": "Comprehensive testing guide for verifying translation implementation across English and German languages for the OrderDetails page, Device Inspection section, and Communication Panel components, including step-by-step verification procedures, troubleshooting tips, and success criteria.",
-	"client/dist/index.html": "Entry point HTML file for the FixitHub application, linking bundled JavaScript and CSS assets with a root DOM element for React mounting."
+	"TRANSLATION_TESTING_GUIDE.md": "Comprehensive testing guide for verifying translation implementation across English and German languages for the OrderDetails page, Device Inspection section, and Communication Panel components, including step-by-step verification procedures, troubleshooting tips, and success criteria."
 }
