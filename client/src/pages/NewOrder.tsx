@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/useToast"
 import { getRepairServices, getAddOnServices, RepairService } from "@/api/services"
-import { getDeviceTypes, getManufacturersByDeviceType, getModelsByTypeAndManufacturer, DeviceType, Manufacturer, DeviceModel } from "@/api/devices"
+import { getDeviceTypes, getManufacturersByDeviceType, getModelsByTypeAndManufacturer, DeviceType, Manufacturer, DeviceModel, searchDevices, SearchResult } from "@/api/devices"
 import { createOrder } from "@/api/orders"
 import {
   Select,
@@ -34,7 +34,9 @@ import {
   Monitor,
   Tablet,
   Watch,
-  Gamepad2
+  Gamepad2,
+  Search,
+  X
 } from "lucide-react"
 
 interface OrderForm {
@@ -45,6 +47,14 @@ interface OrderForm {
   addOns: string[]
   customerNotes: string
   photos: FileList
+}
+
+interface SelectedDevice {
+  _id: string
+  name: string
+  deviceType: string
+  manufacturer: string
+  manufacturerId: string
 }
 
 const getDeviceTypeIcon = (deviceType: string) => {
@@ -76,10 +86,18 @@ export function NewOrder() {
   const [selectedModel, setSelectedModel] = useState<string>("")
   const [selectedServices, setSelectedServices] = useState<string[]>([])
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>([])
+  const [selectedServiceCategory, setSelectedServiceCategory] = useState<string>("all")
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [loadingManufacturers, setLoadingManufacturers] = useState(false)
   const [loadingModels, setLoadingModels] = useState(false)
+
+  // Device search autocomplete state
+  const [deviceSearchQuery, setDeviceSearchQuery] = useState<string>("")
+  const [deviceSearchResults, setDeviceSearchResults] = useState<SearchResult[]>([])
+  const [searchingDevices, setSearchingDevices] = useState(false)
+  const [showSearchResults, setShowSearchResults] = useState(false)
+  const [selectedDevice, setSelectedDevice] = useState<SelectedDevice | null>(null)
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<OrderForm>()
   const { toast } = useToast()
@@ -119,9 +137,65 @@ export function NewOrder() {
     fetchInitialData()
   }, [])
 
-  // Handle device type selection
+  // Handle device search
+  const handleDeviceSearch = useCallback(async (query: string) => {
+    setDeviceSearchQuery(query)
+
+    if (query.length < 2) {
+      setDeviceSearchResults([])
+      setShowSearchResults(false)
+      return
+    }
+
+    try {
+      setSearchingDevices(true)
+      setShowSearchResults(true)
+      console.log("Searching devices with query:", query)
+
+      const response = await searchDevices(query)
+      setDeviceSearchResults((response as any).devices || [])
+    } catch (error) {
+      console.error("Error searching devices:", error)
+      toast({
+        title: "Error",
+        description: "Failed to search devices",
+        variant: "destructive"
+      })
+      setDeviceSearchResults([])
+    } finally {
+      setSearchingDevices(false)
+    }
+  }, [toast])
+
+  // Handle device selection from search
+  const handleSelectDevice = useCallback((device: SearchResult) => {
+    console.log("Device selected from search:", device)
+
+    setSelectedDevice({
+      _id: device._id,
+      name: device.name,
+      deviceType: device.deviceType,
+      manufacturer: device.manufacturer,
+      manufacturerId: device.manufacturerId
+    })
+
+    setDeviceSearchQuery(device.displayName)
+    setShowSearchResults(false)
+    setDeviceSearchResults([])
+
+    // Update form values
+    setValue("deviceType", device.deviceType)
+    setValue("deviceManufacturer", device.manufacturerId)
+    setValue("deviceModel", device._id)
+
+    setSelectedDeviceType(device.deviceType)
+    setSelectedManufacturer(device.manufacturerId)
+    setSelectedModel(device._id)
+  }, [setValue])
+
+  // Handle device type selection (skip if device was selected from search)
   useEffect(() => {
-    if (watchedDeviceType && watchedDeviceType !== selectedDeviceType) {
+    if (watchedDeviceType && watchedDeviceType !== selectedDeviceType && !selectedDevice) {
       console.log("Device type changed to:", watchedDeviceType)
       setSelectedDeviceType(watchedDeviceType)
       setSelectedManufacturer("")
@@ -152,7 +226,7 @@ export function NewOrder() {
 
       fetchManufacturers()
     }
-  }, [watchedDeviceType, selectedDeviceType, setValue, toast])
+  }, [watchedDeviceType, selectedDeviceType, selectedDevice, setValue, toast])
 
   // Handle manufacturer selection
   useEffect(() => {
@@ -244,6 +318,20 @@ export function NewOrder() {
 
     return serviceTotal + addOnTotal
   }, [services, selectedServices, addOns, selectedAddOns])
+
+  // Get unique service categories
+  const getServiceCategories = useCallback(() => {
+    const categories = new Set(services.map(service => service.category))
+    return Array.from(categories).sort()
+  }, [services])
+
+  // Filter services by category
+  const getFilteredServices = useCallback(() => {
+    if (selectedServiceCategory === "all") {
+      return services
+    }
+    return services.filter(service => service.category === selectedServiceCategory)
+  }, [services, selectedServiceCategory])
 
   const onSubmit = async (data: OrderForm) => {
     try {
@@ -393,109 +481,100 @@ export function NewOrder() {
                 Select Your Device
               </CardTitle>
               <CardDescription>
-                Choose your device type, manufacturer, and model
+                Search for your device or choose from the dropdowns
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Device Type Selection */}
+              {/* Device Search with Autocomplete */}
               <div className="space-y-2">
-                <Label htmlFor="deviceType">Device Type</Label>
-                <Select onValueChange={(value) => setValue("deviceType", value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select device type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {deviceTypes.map((deviceType) => (
-                      <SelectItem key={deviceType._id} value={deviceType._id}>
-                        <div className="flex items-center gap-2">
-                          {getDeviceTypeIcon(deviceType.name)}
-                          <span>{deviceType.name}</span>
-                          <Badge variant="secondary" className="ml-auto">
-                            {deviceType.count} services
-                          </Badge>
+                <Label htmlFor="deviceSearch">Search Device</Label>
+                <div className="relative">
+                  <div className="flex items-center gap-2 relative">
+                    <div className="absolute left-3 text-muted-foreground">
+                      <Search className="h-4 w-4" />
+                    </div>
+                    <Input
+                      id="deviceSearch"
+                      type="text"
+                      placeholder="Search by device name, brand, or model (e.g., iPhone 13, Samsung Galaxy)"
+                      value={deviceSearchQuery}
+                      onChange={(e) => handleDeviceSearch(e.target.value)}
+                      onFocus={() => deviceSearchResults.length > 0 && setShowSearchResults(true)}
+                      className="pl-10"
+                      autoComplete="off"
+                    />
+                    {selectedDevice && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedDevice(null)
+                          setDeviceSearchQuery("")
+                          setValue("deviceType", "")
+                          setValue("deviceManufacturer", "")
+                          setValue("deviceModel", "")
+                          setSelectedDeviceType("")
+                          setSelectedManufacturer("")
+                          setSelectedModel("")
+                        }}
+                        className="absolute right-3 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Search Results Dropdown */}
+                  {showSearchResults && deviceSearchQuery.length >= 2 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-popover border rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+                      {searchingDevices ? (
+                        <div className="p-4 text-center text-muted-foreground">
+                          <div className="animate-pulse">Searching devices...</div>
                         </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.deviceType && (
-                  <p className="text-sm text-destructive">Please select a device type</p>
-                )}
+                      ) : deviceSearchResults.length > 0 ? (
+                        <div className="py-1">
+                          {deviceSearchResults.map((device) => (
+                            <button
+                              key={device._id}
+                              type="button"
+                              onClick={() => handleSelectDevice(device)}
+                              className="w-full text-left px-4 py-2 hover:bg-accent transition-colors flex items-center justify-between"
+                            >
+                              <div>
+                                <div className="font-medium text-sm">{device.name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {device.displayName}
+                                </div>
+                              </div>
+                              {getDeviceTypeIcon(device.deviceType)}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-4 text-center text-muted-foreground text-sm">
+                          No devices found
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Type at least 2 characters to search
+                </p>
               </div>
 
-              {/* Manufacturer Selection */}
-              {selectedDeviceType && (
-                <div className="space-y-2">
-                  <Label htmlFor="deviceManufacturer">Manufacturer/Brand</Label>
-                  {loadingManufacturers ? (
-                    <div className="h-10 bg-muted rounded animate-pulse"></div>
-                  ) : (
-                    <Select onValueChange={(value) => setValue("deviceManufacturer", value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select manufacturer" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {manufacturers.map((manufacturer) => (
-                          <SelectItem key={manufacturer._id} value={manufacturer._id}>
-                            <div className="flex items-center gap-2">
-                              <span>{manufacturer.name}</span>
-                              <Badge variant="secondary" className="ml-auto">
-                                {manufacturer.count} models
-                              </Badge>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  {errors.deviceManufacturer && (
-                    <p className="text-sm text-destructive">Please select a manufacturer</p>
-                  )}
-                </div>
-              )}
-
-              {/* Model Selection */}
-              {selectedManufacturer && (
-                <div className="space-y-2">
-                  <Label htmlFor="deviceModel">Device Model</Label>
-                  {loadingModels ? (
-                    <div className="h-10 bg-muted rounded animate-pulse"></div>
-                  ) : (
-                    <Select onValueChange={(value) => setValue("deviceModel", value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select model" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {models.map((model) => (
-                          <SelectItem key={model._id} value={model._id}>
-                            <div className="flex items-center gap-2">
-                              <span>{model.name}</span>
-                              <Badge variant="secondary" className="ml-auto">
-                                {model.count} services
-                              </Badge>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  {errors.deviceModel && (
-                    <p className="text-sm text-destructive">Please select a device model</p>
-                  )}
-                </div>
-              )}
-
-              {/* Selection Summary */}
-              {selectedDeviceType && (
-                <div className="bg-muted/50 rounded-lg p-4">
-                  <h4 className="font-medium mb-2">Selected Device:</h4>
-                  <div className="flex items-center gap-2 text-sm">
-                    {getDeviceTypeIcon(deviceTypes.find(dt => dt._id === selectedDeviceType)?.name || "")}
-                    <span>
-                      {deviceTypes.find(dt => dt._id === selectedDeviceType)?.name}
-                      {selectedManufacturer && ` • ${manufacturers.find(m => m._id === selectedManufacturer)?.name}`}
-                      {selectedModel && ` • ${models.find(m => m._id === selectedModel)?.name}`}
-                    </span>
+              {/* Display selected device */}
+              {selectedDevice && (
+                <div className="bg-muted/50 rounded-lg p-4 border border-primary/20">
+                  <div className="flex items-center gap-3">
+                    <div className="text-primary">
+                      {getDeviceTypeIcon(selectedDevice.deviceType)}
+                    </div>
+                    <div>
+                      <h4 className="font-medium">{selectedDevice.name}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedDevice.deviceType} • {selectedDevice.manufacturer}
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -504,7 +583,7 @@ export function NewOrder() {
                 <Button
                   type="button"
                   onClick={nextStep}
-                  disabled={!watchedDeviceType || !watchedManufacturer || !watchedModel}
+                  disabled={!selectedDevice}
                 >
                   Next Step
                 </Button>
@@ -513,7 +592,7 @@ export function NewOrder() {
           </Card>
         )}
 
-        {/* Step 2: Service Selection */}
+        {/* Step 2: Service Selection with Category Filtering */}
         {step === 2 && (
           <Card>
             <CardHeader>
@@ -522,12 +601,39 @@ export function NewOrder() {
                 Select Repair Services
               </CardTitle>
               <CardDescription>
-                Choose the services you need for your device
+                Choose the services you need for your device. Filter by category to find services faster.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Category Filter Buttons */}
+              <div className="space-y-2">
+                <Label>Filter by Category</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant={selectedServiceCategory === "all" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedServiceCategory("all")}
+                  >
+                    All Services
+                  </Button>
+                  {getServiceCategories().map((category) => (
+                    <Button
+                      key={category}
+                      type="button"
+                      variant={selectedServiceCategory === category ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedServiceCategory(category)}
+                    >
+                      {category}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Services Grid */}
               <div className="grid gap-4 md:grid-cols-2">
-                {services.map((service) => (
+                {getFilteredServices().map((service) => (
                   <div
                     key={service._id}
                     className={`p-4 rounded-lg border-2 transition-all ${
@@ -551,6 +657,11 @@ export function NewOrder() {
                             </Badge>
                           )}
                         </div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="secondary" className="text-xs">
+                            {service.category}
+                          </Badge>
+                        </div>
                         <p className="text-sm text-muted-foreground mb-2">
                           {service.description}
                         </p>
@@ -569,6 +680,12 @@ export function NewOrder() {
                   </div>
                 ))}
               </div>
+
+              {getFilteredServices().length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  No services available in this category
+                </div>
+              )}
 
               <div className="flex justify-between">
                 <Button type="button" variant="outline" onClick={prevStep}>

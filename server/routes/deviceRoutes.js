@@ -159,24 +159,56 @@ router.get('/manufacturers', async (req, res) => {
 router.get('/models', async (req, res) => {
   try {
     console.log('DeviceRoutes: GET /models - query:', req.query);
-    
+
     const { deviceType, manufacturer } = req.query;
-    
+
     if (!deviceType || !manufacturer) {
       return res.status(400).json({
         success: false,
         error: 'Device type and manufacturer are required'
       });
     }
-    
+
     const models = await DeviceService.getModelsByTypeAndManufacturer(deviceType, manufacturer);
-    
+
     res.json({
       success: true,
       models
     });
   } catch (error) {
     console.error('DeviceRoutes: Error getting models:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Description: Search devices by query string (autocomplete)
+// Endpoint: GET /api/devices/search?q=iphone
+// Request: { q: string }
+// Response: { success: boolean, devices: Array<{ _id, name, deviceType, manufacturer, manufacturerId, displayName }> }
+router.get('/search', async (req, res) => {
+  try {
+    const { q } = req.query;
+
+    if (!q) {
+      return res.status(400).json({
+        success: false,
+        error: 'Search query is required'
+      });
+    }
+
+    console.log('DeviceRoutes: GET /search - query:', q);
+
+    const devices = await DeviceService.searchDevices(q);
+
+    res.json({
+      success: true,
+      devices
+    });
+  } catch (error) {
+    console.error('DeviceRoutes: Error searching devices:', error);
     res.status(500).json({
       success: false,
       error: error.message

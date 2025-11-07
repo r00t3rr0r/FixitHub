@@ -21,6 +21,15 @@ export interface DeviceModel {
   count: number;
 }
 
+export interface SearchResult {
+  _id: string;
+  name: string;
+  deviceType: string;
+  manufacturer: string;
+  manufacturerId: string;
+  displayName: string;
+}
+
 // Description: Get all device types from repair services
 // Endpoint: GET /api/devices/types
 // Request: {}
@@ -62,6 +71,22 @@ export const getModelsByTypeAndManufacturer = async (deviceType: string, manufac
     console.log('=== FINAL RESULT ===');
     console.log('Returning models:', response.data.models);
     console.log('Models count:', response.data.models.length);
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Search devices by query string (autocomplete)
+// Endpoint: GET /api/devices/search?q=iphone
+// Request: { q: string }
+// Response: { success: boolean, devices: SearchResult[] }
+export const searchDevices = async (query: string) => {
+  console.log('API: Searching devices with query:', query);
+
+  try {
+    const response = await api.get(`/api/devices/search?q=${encodeURIComponent(query)}`);
+    console.log('API: Search results:', response.data.devices);
     return response.data;
   } catch (error) {
     throw new Error(error?.response?.data?.error || error.message);
