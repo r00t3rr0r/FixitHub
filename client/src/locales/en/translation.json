@@ -36,11 +36,15 @@
     "orders": "Orders",
     "newOrder": "New Order",
     "orderTracking": "Order Tracking",
+    "trackOrders": "Track Orders",
     "messages": "Messages",
     "notifications": "Notifications",
     "profile": "Profile",
     "webShop": "Web Shop",
+    "shop": "Shop",
+    "browseProducts": "Browse Products",
     "cart": "Shopping Cart",
+    "shoppingCart": "Shopping Cart",
     "blog": "Blog",
     "logout": "Logout",
     "login": "Login",
@@ -108,12 +112,14 @@
   },
   "staff": {
     "menu": {
+      "ordersAndWork": "Orders & Work",
       "myOrders": "My Orders",
       "teamChat": "Team Chat",
       "schedule": "Schedule",
       "knowledgeBase": "Knowledge Base",
       "performance": "Performance",
-      "timeTracking": "Time Tracking"
+      "timeTracking": "Time Tracking",
+      "toolsAndResources": "Tools & Resources"
     }
   },
   "header": {

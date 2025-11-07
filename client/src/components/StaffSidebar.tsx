@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react"
 import { Link, useLocation } from "react-router-dom"
-import { 
-  Home, 
-  Package, 
-  MessageSquare, 
-  Bell, 
-  User, 
+import { useTranslation } from "react-i18next"
+import {
+  Home,
+  Package,
+  MessageSquare,
+  Bell,
+  User,
   BookOpen,
   Clock,
   Calendar,
@@ -24,6 +25,7 @@ interface StaffSidebarProps {
 }
 
 export function StaffSidebar({ isCollapsed }: StaffSidebarProps) {
+  const { t } = useTranslation()
   const location = useLocation()
   const [unreadNotifications, setUnreadNotifications] = useState(0)
   const [ordersOpen, setOrdersOpen] = useState(false)
@@ -130,53 +132,53 @@ export function StaffSidebar({ isCollapsed }: StaffSidebarProps) {
   return (
     <nav className="flex flex-col h-full p-4 space-y-1">
       <NavItem to="/staff" icon={Home}>
-        Dashboard
+        {t('navigation.dashboard')}
       </NavItem>
 
       <CollapsibleSection
-        title="Orders & Work"
+        title={t('staff.menu.ordersAndWork')}
         icon={Package}
         isOpen={ordersOpen}
         onToggle={() => setOrdersOpen(!ordersOpen)}
       >
         <NavItem to="/staff/orders" icon={Package}>
-          My Orders
+          {t('staff.menu.myOrders')}
         </NavItem>
         <NavItem to="/staff/time-tracking" icon={Clock}>
-          Time Tracking
+          {t('staff.menu.timeTracking')}
         </NavItem>
         <NavItem to="/staff/schedule" icon={Calendar}>
-          Schedule
+          {t('staff.menu.schedule')}
         </NavItem>
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Tools & Resources"
+        title={t('staff.menu.toolsAndResources')}
         icon={BookOpen}
         isOpen={toolsOpen}
         onToggle={() => setToolsOpen(!toolsOpen)}
       >
         <NavItem to="/staff/knowledge-base" icon={BookOpen}>
-          Knowledge Base
+          {t('staff.menu.knowledgeBase')}
         </NavItem>
         <NavItem to="/staff/chat" icon={Users}>
-          Team Chat
+          {t('staff.menu.teamChat')}
         </NavItem>
         <NavItem to="/staff/performance" icon={TrendingUp}>
-          Performance
+          {t('staff.menu.performance')}
         </NavItem>
       </CollapsibleSection>
 
       <NavItem to="/messages" icon={MessageSquare}>
-        Messages
+        {t('navigation.messages')}
       </NavItem>
 
       <NavItem to="/notifications" icon={Bell} badge={unreadNotifications}>
-        Notifications
+        {t('navigation.notifications')}
       </NavItem>
 
       <NavItem to="/profile" icon={User}>
-        Profile
+        {t('navigation.profile')}
       </NavItem>
     </nav>
   )

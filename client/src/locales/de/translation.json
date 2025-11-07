@@ -36,11 +36,15 @@
     "orders": "Aufträge",
     "newOrder": "Neuer Auftrag",
     "orderTracking": "Auftragsverfolgung",
+    "trackOrders": "Aufträge verfolgen",
     "messages": "Nachrichten",
     "notifications": "Benachrichtigungen",
     "profile": "Profil",
     "webShop": "Webshop",
+    "shop": "Shop",
+    "browseProducts": "Produkte durchsuchen",
     "cart": "Warenkorb",
+    "shoppingCart": "Warenkorb",
     "blog": "Blog",
     "logout": "Abmelden",
     "login": "Anmelden",
@@ -108,12 +112,14 @@
   },
   "staff": {
     "menu": {
+      "ordersAndWork": "Aufträge & Arbeit",
       "myOrders": "Meine Aufträge",
       "teamChat": "Team-Chat",
       "schedule": "Zeitplan",
       "knowledgeBase": "Wissensdatenbank",
       "performance": "Leistung",
-      "timeTracking": "Zeiterfassung"
+      "timeTracking": "Zeiterfassung",
+      "toolsAndResources": "Werkzeuge & Ressourcen"
     }
   },
   "header": {
