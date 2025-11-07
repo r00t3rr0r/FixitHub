@@ -1011,5 +1011,135 @@
     "systemBackup": "Systemsicherung abgeschlossen",
     "minutesAgo": "vor {count} Minuten",
     "hoursAgo": "vor {count} Stunde"
+  },
+  "home": {
+    "hero": {
+      "title": "Professionelle Gerätereparatur",
+      "titleHighlight": "Der Sie Vertrauen Können",
+      "subtitle": "Experten-Reparaturservice für Smartphones, Tablets, Laptops und mehr. Schnelle Bearbeitung, Qualitätsgarantie und transparente Preise.",
+      "bookRepair": "Reparatur Buchen",
+      "getQuote": "Angebot Erhalten"
+    },
+    "nav": {
+      "services": "Dienstleistungen",
+      "about": "Über Uns",
+      "contact": "Kontakt",
+      "getStarted": "Loslegen"
+    },
+    "devices": {
+      "title": "Wir Reparieren Alle Geräte",
+      "smartphones": "Smartphones",
+      "smartphonesDesc": "iPhone, Samsung, Google Pixel",
+      "tablets": "Tablets",
+      "tabletsDesc": "iPad, Android-Tablets",
+      "laptops": "Laptops",
+      "laptopsDesc": "MacBook, Windows-Laptops",
+      "desktops": "Desktops",
+      "desktopsDesc": "iMac, PC-Reparaturen"
+    },
+    "services": {
+      "title": "Unsere Dienstleistungen",
+      "screenRepair": "Bildschirmreparatur",
+      "batteryReplacement": "Akkuwechsel",
+      "waterDamage": "Wasserschaden",
+      "dataRecovery": "Datenrettung",
+      "from": "Ab",
+      "popular": "Beliebt",
+      "learnMore": "Mehr Erfahren"
+    },
+    "features": {
+      "title": "Warum FixitHub Wählen?",
+      "qualityGuarantee": "Qualitätsgarantie",
+      "qualityDesc": "90 Tage Garantie auf alle Reparaturen",
+      "fastTurnaround": "Schnelle Bearbeitung",
+      "fastDesc": "Die meisten Reparaturen am selben Tag fertig",
+      "certifiedTechs": "Zertifizierte Techniker",
+      "certifiedDesc": "Expertentechniker mit jahrelanger Erfahrung",
+      "support247": "24/7 Support",
+      "supportDesc": "Kundensupport wann immer Sie ihn brauchen"
+    },
+    "testimonials": {
+      "title": "Was Unsere Kunden Sagen"
+    },
+    "cta": {
+      "title": "Bereit, Ihr Gerät Reparieren Zu Lassen?",
+      "subtitle": "Schließen Sie sich Tausenden zufriedener Kunden an, die FixitHub mit ihren Gerätereparaturen vertrauen.",
+      "emailPlaceholder": "E-Mail eingeben",
+      "getStarted": "Loslegen"
+    },
+    "footer": {
+      "tagline": "Professionelle Gerätereparatur-Services, denen Sie vertrauen können.",
+      "servicesTitle": "Dienstleistungen",
+      "companyTitle": "Unternehmen",
+      "supportTitle": "Support",
+      "aboutUs": "Über Uns",
+      "contact": "Kontakt",
+      "careers": "Karriere",
+      "helpCenter": "Hilfezentrum",
+      "warranty": "Garantie",
+      "privacyPolicy": "Datenschutzerklärung",
+      "termsOfService": "Nutzungsbedingungen",
+      "copyright": "© 2024 FixitHub. Alle Rechte vorbehalten."
+    }
+  },
+  "blogPage": {
+    "title": "Gerätereparatur Blog",
+    "subtitle": "Experten-Tipps, Anleitungen und Einblicke, um Ihnen bei der Wartung und Reparatur Ihrer Geräte zu helfen",
+    "searchPlaceholder": "Artikel durchsuchen...",
+    "allCategories": "Alle Kategorien",
+    "readMore": "Weiterlesen",
+    "readArticle": "Artikel Lesen",
+    "minRead": "Min. Lesezeit",
+    "noArticles": "Keine Artikel gefunden",
+    "noArticlesDesc": "Versuchen Sie, Ihre Such- oder Filterkriterien anzupassen"
+  },
+  "cart": {
+    "title": "Warenkorb",
+    "emptyCart": "Ihr Warenkorb ist leer",
+    "emptyCartDesc": "Fügen Sie einige Artikel hinzu, um zu beginnen",
+    "continueShopping": "Weiter Einkaufen",
+    "product": "Produkt",
+    "quantity": "Menge",
+    "price": "Preis",
+    "total": "Gesamt",
+    "repairOrders": "Reparaturaufträge",
+    "orderSummary": "Bestellübersicht",
+    "subtotal": "Zwischensumme",
+    "tax": "Steuer",
+    "discount": "Rabatt",
+    "shipping": "Versand",
+    "grandTotal": "Gesamtsumme",
+    "promoCode": "Aktionscode",
+    "promoPlaceholder": "Aktionscode eingeben",
+    "apply": "Anwenden",
+    "proceedToCheckout": "Zur Kasse Gehen",
+    "itemRemoved": "Artikel entfernt",
+    "itemRemovedDesc": "Artikel wurde aus Ihrem Warenkorb entfernt",
+    "cartUpdated": "Warenkorb aktualisiert",
+    "cartUpdatedDesc": "Artikelmenge wurde aktualisiert",
+    "promoApplied": "Aktionscode angewendet!",
+    "promoAppliedDesc": "Ihr Rabatt wurde auf den Warenkorb angewendet",
+    "failedToLoad": "Fehler beim Laden des Warenkorbs",
+    "failedToUpdate": "Fehler beim Aktualisieren des Warenkorbs",
+    "failedToApplyPromo": "Fehler beim Anwenden des Aktionscodes"
+  },
+  "shop": {
+    "title": "Produkte Durchsuchen",
+    "searchPlaceholder": "Produkte durchsuchen...",
+    "sortBy": "Sortieren nach",
+    "sortNewest": "Neueste",
+    "sortPriceLowHigh": "Preis: Niedrig bis Hoch",
+    "sortPriceHighLow": "Preis: Hoch bis Niedrig",
+    "sortPopular": "Am Beliebtesten",
+    "viewGrid": "Rasteransicht",
+    "viewList": "Listenansicht",
+    "allCategories": "Alle Kategorien",
+    "allBrands": "Alle Marken",
+    "inStock": "Auf Lager",
+    "outOfStock": "Nicht verfügbar",
+    "addToCart": "In Den Warenkorb",
+    "viewDetails": "Details Anzeigen",
+    "noProducts": "Keine Produkte gefunden",
+    "noProductsDesc": "Versuchen Sie, Ihre Such- oder Filterkriterien anzupassen"
   }
 }

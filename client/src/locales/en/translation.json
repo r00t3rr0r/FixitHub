@@ -1011,5 +1011,135 @@
     "systemBackup": "System backup completed",
     "minutesAgo": "{count} minutes ago",
     "hoursAgo": "{count} hour ago"
+  },
+  "home": {
+    "hero": {
+      "title": "Professional Device Repair",
+      "titleHighlight": "You Can Trust",
+      "subtitle": "Expert repair services for smartphones, tablets, laptops, and more. Fast turnaround, quality guarantee, and transparent pricing.",
+      "bookRepair": "Book Repair Now",
+      "getQuote": "Get Quote"
+    },
+    "nav": {
+      "services": "Services",
+      "about": "About",
+      "contact": "Contact",
+      "getStarted": "Get Started"
+    },
+    "devices": {
+      "title": "We Repair All Devices",
+      "smartphones": "Smartphones",
+      "smartphonesDesc": "iPhone, Samsung, Google Pixel",
+      "tablets": "Tablets",
+      "tabletsDesc": "iPad, Android tablets",
+      "laptops": "Laptops",
+      "laptopsDesc": "MacBook, Windows laptops",
+      "desktops": "Desktops",
+      "desktopsDesc": "iMac, PC repairs"
+    },
+    "services": {
+      "title": "Our Services",
+      "screenRepair": "Screen Repair",
+      "batteryReplacement": "Battery Replacement",
+      "waterDamage": "Water Damage",
+      "dataRecovery": "Data Recovery",
+      "from": "From",
+      "popular": "Popular",
+      "learnMore": "Learn More"
+    },
+    "features": {
+      "title": "Why Choose FixitHub?",
+      "qualityGuarantee": "Quality Guarantee",
+      "qualityDesc": "90-day warranty on all repairs",
+      "fastTurnaround": "Fast Turnaround",
+      "fastDesc": "Most repairs completed same day",
+      "certifiedTechs": "Certified Technicians",
+      "certifiedDesc": "Expert technicians with years of experience",
+      "support247": "24/7 Support",
+      "supportDesc": "Customer support whenever you need it"
+    },
+    "testimonials": {
+      "title": "What Our Customers Say"
+    },
+    "cta": {
+      "title": "Ready to Get Your Device Fixed?",
+      "subtitle": "Join thousands of satisfied customers who trust FixitHub with their device repairs.",
+      "emailPlaceholder": "Enter your email",
+      "getStarted": "Get Started"
+    },
+    "footer": {
+      "tagline": "Professional device repair services you can trust.",
+      "servicesTitle": "Services",
+      "companyTitle": "Company",
+      "supportTitle": "Support",
+      "aboutUs": "About Us",
+      "contact": "Contact",
+      "careers": "Careers",
+      "helpCenter": "Help Center",
+      "warranty": "Warranty",
+      "privacyPolicy": "Privacy Policy",
+      "termsOfService": "Terms of Service",
+      "copyright": "© 2024 FixitHub. All rights reserved."
+    }
+  },
+  "blogPage": {
+    "title": "Device Repair Blog",
+    "subtitle": "Expert tips, guides, and insights to help you maintain and repair your devices",
+    "searchPlaceholder": "Search articles...",
+    "allCategories": "All Categories",
+    "readMore": "Read More",
+    "readArticle": "Read Article",
+    "minRead": "min read",
+    "noArticles": "No articles found",
+    "noArticlesDesc": "Try adjusting your search or filter criteria"
+  },
+  "cart": {
+    "title": "Shopping Cart",
+    "emptyCart": "Your cart is empty",
+    "emptyCartDesc": "Add some items to get started",
+    "continueShopping": "Continue Shopping",
+    "product": "Product",
+    "quantity": "Quantity",
+    "price": "Price",
+    "total": "Total",
+    "repairOrders": "Repair Orders",
+    "orderSummary": "Order Summary",
+    "subtotal": "Subtotal",
+    "tax": "Tax",
+    "discount": "Discount",
+    "shipping": "Shipping",
+    "grandTotal": "Grand Total",
+    "promoCode": "Promo Code",
+    "promoPlaceholder": "Enter promo code",
+    "apply": "Apply",
+    "proceedToCheckout": "Proceed to Checkout",
+    "itemRemoved": "Item removed",
+    "itemRemovedDesc": "Item has been removed from your cart",
+    "cartUpdated": "Cart updated",
+    "cartUpdatedDesc": "Item quantity has been updated",
+    "promoApplied": "Promo code applied!",
+    "promoAppliedDesc": "Your discount has been applied to the cart",
+    "failedToLoad": "Failed to load cart",
+    "failedToUpdate": "Failed to update cart",
+    "failedToApplyPromo": "Failed to apply promo code"
+  },
+  "shop": {
+    "title": "Browse Products",
+    "searchPlaceholder": "Search products...",
+    "sortBy": "Sort by",
+    "sortNewest": "Newest",
+    "sortPriceLowHigh": "Price: Low to High",
+    "sortPriceHighLow": "Price: High to Low",
+    "sortPopular": "Most Popular",
+    "viewGrid": "Grid View",
+    "viewList": "List View",
+    "allCategories": "All Categories",
+    "allBrands": "All Brands",
+    "inStock": "In Stock",
+    "outOfStock": "Out of Stock",
+    "addToCart": "Add to Cart",
+    "viewDetails": "View Details",
+    "noProducts": "No products found",
+    "noProductsDesc": "Try adjusting your search or filter criteria"
   }
 }

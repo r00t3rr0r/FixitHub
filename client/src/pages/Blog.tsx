@@ -24,8 +24,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { useTranslation } from 'react-i18next'
 
 export function Blog() {
+  const { t } = useTranslation()
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [categories, setCategories] = useState<BlogCategory[]>([])
   const [filteredPosts, setFilteredPosts] = useState<BlogPost[]>([])
@@ -46,8 +48,8 @@ export function Blog() {
       } catch (error) {
         console.error("Error fetching blog posts:", error)
         toast({
-          title: "Error",
-          description: "Failed to load blog posts",
+          title: t('common.error'),
+          description: t('blogManagement.failedToLoadPosts'),
           variant: "destructive"
         })
       } finally {
@@ -56,7 +58,7 @@ export function Blog() {
     }
 
     fetchBlogData()
-  }, [toast])
+  }, [toast, t])
 
   useEffect(() => {
     let filtered = posts
@@ -107,9 +109,9 @@ export function Blog() {
     <div className="space-y-6">
       {/* Header */}
       <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold">Device Repair Blog</h1>
+        <h1 className="text-4xl font-bold">{t('blogPage.title')}</h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Expert tips, guides, and insights to help you maintain and repair your devices
+          {t('blogPage.subtitle')}
         </p>
       </div>
 
@@ -121,7 +123,7 @@ export function Blog() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search articles..."
+                  placeholder={t('blogPage.searchPlaceholder')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -132,10 +134,10 @@ export function Blog() {
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                 <SelectTrigger>
                   <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="All Categories" />
+                  <SelectValue placeholder={t('blogPage.allCategories')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="all">{t('blogPage.allCategories')}</SelectItem>
                   {categories.map(category => (
                     <SelectItem key={category._id} value={category.name}>
                       {category.name} ({category.postCount})
@@ -201,7 +203,7 @@ export function Blog() {
               </div>
               <Button asChild>
                 <Link to={`/blog/${filteredPosts[0]._id}`}>
-                  Read More
+                  {t('blogPage.readMore')}
                 </Link>
               </Button>
             </div>
@@ -267,7 +269,7 @@ export function Blog() {
                 </span>
                 <span className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  {post.readTime} min read
+                  {post.readTime} {t('blogPage.minRead')}
                 </span>
               </div>
 
@@ -281,7 +283,7 @@ export function Blog() {
 
               <Button variant="outline" size="sm" asChild className="w-full">
                 <Link to={`/blog/${post._id}`}>
-                  Read Article
+                  {t('blogPage.readArticle')}
                 </Link>
               </Button>
             </CardContent>
@@ -293,9 +295,9 @@ export function Blog() {
         <Card>
           <CardContent className="text-center py-12">
             <BookOpen className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <h3 className="text-lg font-semibold mb-2">No articles found</h3>
+            <h3 className="text-lg font-semibold mb-2">{t('blogPage.noArticles')}</h3>
             <p className="text-muted-foreground">
-              Try adjusting your search or filter criteria
+              {t('blogPage.noArticlesDesc')}
             </p>
           </CardContent>
         </Card>

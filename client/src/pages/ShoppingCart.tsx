@@ -17,8 +17,10 @@ import {
   Wrench,
   Smartphone
 } from "lucide-react"
+import { useTranslation } from 'react-i18next'
 
 export function ShoppingCartPage() {
+  const { t } = useTranslation()
   const [cart, setCart] = useState<Cart | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null)
@@ -35,8 +37,8 @@ export function ShoppingCartPage() {
       } catch (error) {
         console.error("Error fetching cart:", error)
         toast({
-          title: "Error",
-          description: "Failed to load cart",
+          title: t('common.error'),
+          description: t('cart.failedToLoad'),
           variant: "destructive"
         })
       } finally {
@@ -45,7 +47,7 @@ export function ShoppingCartPage() {
     }
 
     fetchCart()
-  }, [toast])
+  }, [toast, t])
 
   const handleUpdateQuantity = async (productId: string, newQuantity: number) => {
     if (newQuantity < 0) return
@@ -57,14 +59,14 @@ export function ShoppingCartPage() {
       if (newQuantity === 0) {
         await removeFromCart(productId)
         toast({
-          title: "Item removed",
-          description: "Item has been removed from your cart"
+          title: t('cart.itemRemoved'),
+          description: t('cart.itemRemovedDesc')
         })
       } else {
         await updateCartItem(productId, newQuantity)
         toast({
-          title: "Cart updated",
-          description: "Item quantity has been updated"
+          title: t('cart.cartUpdated'),
+          description: t('cart.cartUpdatedDesc')
         })
       }
 
@@ -74,8 +76,8 @@ export function ShoppingCartPage() {
     } catch (error: any) {
       console.error("Error updating cart:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to update cart",
+        title: t('common.error'),
+        description: error.message || t('cart.failedToUpdate'),
         variant: "destructive"
       })
     } finally {
@@ -92,8 +94,8 @@ export function ShoppingCartPage() {
       await applyPromoCode({ promoCode })
 
       toast({
-        title: "Promo code applied!",
-        description: "Your discount has been applied to the cart"
+        title: t('cart.promoApplied'),
+        description: t('cart.promoAppliedDesc')
       })
 
       // Refresh cart
@@ -103,8 +105,8 @@ export function ShoppingCartPage() {
     } catch (error: any) {
       console.error("Error applying promo code:", error)
       toast({
-        title: "Invalid promo code",
-        description: error.message || "The promo code you entered is not valid",
+        title: t('cart.failedToApplyPromo'),
+        description: error.message || t('cart.failedToApplyPromo'),
         variant: "destructive"
       })
     } finally {
@@ -119,8 +121,8 @@ export function ShoppingCartPage() {
 
       await removeRepairOrderFromCart(repairOrderId)
       toast({
-        title: "Repair order removed",
-        description: "Repair order has been removed from your cart"
+        title: t('cart.itemRemoved'),
+        description: t('cart.itemRemovedDesc')
       })
 
       // Refresh cart
@@ -129,8 +131,8 @@ export function ShoppingCartPage() {
     } catch (error: any) {
       console.error("Error removing repair order:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to remove repair order",
+        title: t('common.error'),
+        description: error.message || t('cart.failedToUpdate'),
         variant: "destructive"
       })
     } finally {
@@ -171,21 +173,21 @@ export function ShoppingCartPage() {
         <Card>
           <CardContent className="text-center py-12">
             <ShoppingCartIcon className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <h3 className="text-lg font-semibold mb-2">Your cart is empty</h3>
+            <h3 className="text-lg font-semibold mb-2">{t('cart.emptyCart')}</h3>
             <p className="text-muted-foreground mb-4">
-              Add some products or create a repair order to get started
+              {t('cart.emptyCartDesc')}
             </p>
             <div className="flex gap-3 justify-center">
               <Button asChild variant="outline">
                 <Link to="/shop">
                   <ArrowLeft className="h-4 w-4 mr-2" />
-                  Shop Products
+                  {t('cart.continueShopping')}
                 </Link>
               </Button>
               <Button asChild>
                 <Link to="/new-order">
                   <Wrench className="h-4 w-4 mr-2" />
-                  Create Repair Order
+                  {t('orders.newOrder')}
                 </Link>
               </Button>
             </div>
@@ -200,7 +202,7 @@ export function ShoppingCartPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Shopping Cart</h1>
+          <h1 className="text-3xl font-bold">{t('cart.title')}</h1>
           <p className="text-muted-foreground">
             {cart.totalItems} {cart.totalItems === 1 ? 'item' : 'items'} in your cart
           </p>
@@ -208,7 +210,7 @@ export function ShoppingCartPage() {
         <Button variant="outline" asChild>
           <Link to="/shop">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Continue Shopping
+            {t('cart.continueShopping')}
           </Link>
         </Button>
       </div>
@@ -235,7 +237,7 @@ export function ShoppingCartPage() {
                         </p>
                         {!item.productId.inStock && (
                           <Badge variant="destructive" className="mt-1">
-                            Out of Stock
+                            {t('shop.outOfStock')}
                           </Badge>
                         )}
                       </div>
@@ -351,13 +353,13 @@ export function ShoppingCartPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Tag className="h-5 w-5" />
-                Promo Code
+                {t('cart.promoCode')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex gap-2">
                 <Input
-                  placeholder="Enter promo code"
+                  placeholder={t('cart.promoPlaceholder')}
                   value={promoCode}
                   onChange={(e) => setPromoCode(e.target.value)}
                 />
@@ -365,7 +367,7 @@ export function ShoppingCartPage() {
                   onClick={handleApplyPromoCode}
                   disabled={!promoCode.trim() || applyingPromo}
                 >
-                  {applyingPromo ? "Applying..." : "Apply"}
+                  {applyingPromo ? t('common.loading') : t('cart.apply')}
                 </Button>
               </div>
               {cart.promoCode && (
@@ -384,34 +386,34 @@ export function ShoppingCartPage() {
           {/* Order Summary */}
           <Card>
             <CardHeader>
-              <CardTitle>Order Summary</CardTitle>
+              <CardTitle>{t('cart.orderSummary')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between">
-                <span>Subtotal</span>
+                <span>{t('cart.subtotal')}</span>
                 <span>${cart.subtotal.toFixed(2)}</span>
               </div>
 
               {cart.discount && cart.discount > 0 && (
                 <div className="flex justify-between text-green-600">
-                  <span>Discount</span>
+                  <span>{t('cart.discount')}</span>
                   <span>-${cart.discount.toFixed(2)}</span>
                 </div>
               )}
 
               <div className="flex justify-between">
-                <span>Tax</span>
+                <span>{t('cart.tax')}</span>
                 <span>${cart.tax.toFixed(2)}</span>
               </div>
 
               <div className="border-t pt-3 flex justify-between font-semibold text-lg">
-                <span>Total</span>
+                <span>{t('cart.grandTotal')}</span>
                 <span>${cart.total.toFixed(2)}</span>
               </div>
 
               <Button className="w-full" size="lg">
                 <CreditCard className="h-4 w-4 mr-2" />
-                Proceed to Checkout
+                {t('cart.proceedToCheckout')}
               </Button>
 
               <p className="text-xs text-muted-foreground text-center">

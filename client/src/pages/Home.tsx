@@ -5,29 +5,31 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Smartphone, Tablet, Laptop, Monitor, Star, ArrowRight, CheckCircle, Users, Award, Clock, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export function Home() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
 
   const deviceTypes = [
-    { icon: Smartphone, name: 'Smartphones', description: 'iPhone, Samsung, Google Pixel' },
-    { icon: Tablet, name: 'Tablets', description: 'iPad, Android tablets' },
-    { icon: Laptop, name: 'Laptops', description: 'MacBook, Windows laptops' },
-    { icon: Monitor, name: 'Desktops', description: 'iMac, PC repairs' }
+    { icon: Smartphone, name: t('home.devices.smartphones'), description: t('home.devices.smartphonesDesc') },
+    { icon: Tablet, name: t('home.devices.tablets'), description: t('home.devices.tabletsDesc') },
+    { icon: Laptop, name: t('home.devices.laptops'), description: t('home.devices.laptopsDesc') },
+    { icon: Monitor, name: t('home.devices.desktops'), description: t('home.devices.desktopsDesc') }
   ];
 
   const services = [
-    { name: 'Screen Repair', price: 'From $89', popular: true },
-    { name: 'Battery Replacement', price: 'From $59', popular: false },
-    { name: 'Water Damage', price: 'From $129', popular: false },
-    { name: 'Data Recovery', price: 'From $99', popular: true }
+    { name: t('home.services.screenRepair'), price: `${t('home.services.from')} $89`, popular: true },
+    { name: t('home.services.batteryReplacement'), price: `${t('home.services.from')} $59`, popular: false },
+    { name: t('home.services.waterDamage'), price: `${t('home.services.from')} $129`, popular: false },
+    { name: t('home.services.dataRecovery'), price: `${t('home.services.from')} $99`, popular: true }
   ];
 
   const features = [
-    { icon: CheckCircle, title: 'Quality Guarantee', description: '90-day warranty on all repairs' },
-    { icon: Clock, title: 'Fast Turnaround', description: 'Most repairs completed same day' },
-    { icon: Shield, title: 'Certified Technicians', description: 'Expert technicians with years of experience' },
-    { icon: Users, title: '24/7 Support', description: 'Customer support whenever you need it' }
+    { icon: CheckCircle, title: t('home.features.qualityGuarantee'), description: t('home.features.qualityDesc') },
+    { icon: Clock, title: t('home.features.fastTurnaround'), description: t('home.features.fastDesc') },
+    { icon: Shield, title: t('home.features.certifiedTechs'), description: t('home.features.certifiedDesc') },
+    { icon: Users, title: t('home.features.support247'), description: t('home.features.supportDesc') }
   ];
 
   const testimonials = [
@@ -63,16 +65,16 @@ export function Home() {
             <span className="text-xl font-bold">FixitHub</span>
           </div>
           <nav className="hidden md:flex items-center gap-6">
-            <a href="#services" className="text-muted-foreground hover:text-foreground">Services</a>
-            <a href="#about" className="text-muted-foreground hover:text-foreground">About</a>
-            <a href="#contact" className="text-muted-foreground hover:text-foreground">Contact</a>
+            <a href="#services" className="text-muted-foreground hover:text-foreground">{t('home.nav.services')}</a>
+            <a href="#about" className="text-muted-foreground hover:text-foreground">{t('home.nav.about')}</a>
+            <a href="#contact" className="text-muted-foreground hover:text-foreground">{t('home.nav.contact')}</a>
           </nav>
           <div className="flex items-center gap-2">
             <Button variant="outline" asChild>
-              <Link to="/login">Login</Link>
+              <Link to="/login">{t('navigation.login')}</Link>
             </Button>
             <Button asChild>
-              <Link to="/register">Get Started</Link>
+              <Link to="/register">{t('home.nav.getStarted')}</Link>
             </Button>
           </div>
         </div>
@@ -82,19 +84,18 @@ export function Home() {
       <section className="py-20 bg-gradient-to-br from-primary/10 to-secondary/10">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
-            Professional Device Repair
-            <span className="text-primary block">You Can Trust</span>
+            {t('home.hero.title')}
+            <span className="text-primary block">{t('home.hero.titleHighlight')}</span>
           </h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Expert repair services for smartphones, tablets, laptops, and more. 
-            Fast turnaround, quality guarantee, and transparent pricing.
+            {t('home.hero.subtitle')}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" asChild>
-              <Link to="/register">Book Repair Now</Link>
+              <Link to="/register">{t('home.hero.bookRepair')}</Link>
             </Button>
             <Button size="lg" variant="outline">
-              Get Quote
+              {t('home.hero.getQuote')}
             </Button>
           </div>
         </div>
@@ -103,7 +104,7 @@ export function Home() {
       {/* Device Types */}
       <section className="py-16">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">We Repair All Devices</h2>
+          <h2 className="text-3xl font-bold text-center mb-12">{t('home.devices.title')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {deviceTypes.map((device, index) => (
               <Card key={index} className="text-center hover:shadow-lg transition-shadow">
@@ -121,12 +122,12 @@ export function Home() {
       {/* Services */}
       <section id="services" className="py-16 bg-muted/50">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">Our Services</h2>
+          <h2 className="text-3xl font-bold text-center mb-12">{t('home.services.title')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {services.map((service, index) => (
               <Card key={index} className="relative">
                 {service.popular && (
-                  <Badge className="absolute -top-2 -right-2 bg-primary">Popular</Badge>
+                  <Badge className="absolute -top-2 -right-2 bg-primary">{t('home.services.popular')}</Badge>
                 )}
                 <CardHeader>
                   <CardTitle>{service.name}</CardTitle>
@@ -136,7 +137,7 @@ export function Home() {
                 </CardHeader>
                 <CardContent>
                   <Button className="w-full">
-                    Learn More <ArrowRight className="h-4 w-4 ml-2" />
+                    {t('home.services.learnMore')} <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 </CardContent>
               </Card>
@@ -148,7 +149,7 @@ export function Home() {
       {/* Features */}
       <section className="py-16">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">Why Choose FixitHub?</h2>
+          <h2 className="text-3xl font-bold text-center mb-12">{t('home.features.title')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {features.map((feature, index) => (
               <div key={index} className="text-center">
@@ -164,7 +165,7 @@ export function Home() {
       {/* Testimonials */}
       <section className="py-16 bg-muted/50">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">What Our Customers Say</h2>
+          <h2 className="text-3xl font-bold text-center mb-12">{t('home.testimonials.title')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {testimonials.map((testimonial, index) => (
               <Card key={index}>
@@ -189,19 +190,19 @@ export function Home() {
       {/* CTA Section */}
       <section className="py-16 bg-primary text-primary-foreground">
         <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-4">Ready to Get Your Device Fixed?</h2>
+          <h2 className="text-3xl font-bold mb-4">{t('home.cta.title')}</h2>
           <p className="text-xl mb-8 opacity-90">
-            Join thousands of satisfied customers who trust FixitHub with their device repairs.
+            {t('home.cta.subtitle')}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
             <Input
-              placeholder="Enter your email"
+              placeholder={t('home.cta.emailPlaceholder')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="bg-background text-foreground"
             />
             <Button variant="secondary">
-              Get Started
+              {t('home.cta.getStarted')}
             </Button>
           </div>
         </div>
@@ -219,39 +220,39 @@ export function Home() {
                 <span className="text-xl font-bold">FixitHub</span>
               </div>
               <p className="text-muted-foreground">
-                Professional device repair services you can trust.
+                {t('home.footer.tagline')}
               </p>
             </div>
             <div>
-              <h3 className="font-semibold mb-4">Services</h3>
+              <h3 className="font-semibold mb-4">{t('home.footer.servicesTitle')}</h3>
               <ul className="space-y-2 text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground">Screen Repair</a></li>
-                <li><a href="#" className="hover:text-foreground">Battery Replacement</a></li>
-                <li><a href="#" className="hover:text-foreground">Water Damage</a></li>
-                <li><a href="#" className="hover:text-foreground">Data Recovery</a></li>
+                <li><a href="#" className="hover:text-foreground">{t('home.services.screenRepair')}</a></li>
+                <li><a href="#" className="hover:text-foreground">{t('home.services.batteryReplacement')}</a></li>
+                <li><a href="#" className="hover:text-foreground">{t('home.services.waterDamage')}</a></li>
+                <li><a href="#" className="hover:text-foreground">{t('home.services.dataRecovery')}</a></li>
               </ul>
             </div>
             <div>
-              <h3 className="font-semibold mb-4">Company</h3>
+              <h3 className="font-semibold mb-4">{t('home.footer.companyTitle')}</h3>
               <ul className="space-y-2 text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground">About Us</a></li>
-                <li><a href="#" className="hover:text-foreground">Contact</a></li>
-                <li><a href="#" className="hover:text-foreground">Careers</a></li>
-                <li><a href="#" className="hover:text-foreground">Blog</a></li>
+                <li><a href="#" className="hover:text-foreground">{t('home.footer.aboutUs')}</a></li>
+                <li><a href="#" className="hover:text-foreground">{t('home.footer.contact')}</a></li>
+                <li><a href="#" className="hover:text-foreground">{t('home.footer.careers')}</a></li>
+                <li><a href="#" className="hover:text-foreground">{t('navigation.blog')}</a></li>
               </ul>
             </div>
             <div>
-              <h3 className="font-semibold mb-4">Support</h3>
+              <h3 className="font-semibold mb-4">{t('home.footer.supportTitle')}</h3>
               <ul className="space-y-2 text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground">Help Center</a></li>
-                <li><a href="#" className="hover:text-foreground">Warranty</a></li>
-                <li><a href="#" className="hover:text-foreground">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-foreground">Terms of Service</a></li>
+                <li><a href="#" className="hover:text-foreground">{t('home.footer.helpCenter')}</a></li>
+                <li><a href="#" className="hover:text-foreground">{t('home.footer.warranty')}</a></li>
+                <li><a href="#" className="hover:text-foreground">{t('home.footer.privacyPolicy')}</a></li>
+                <li><a href="#" className="hover:text-foreground">{t('home.footer.termsOfService')}</a></li>
               </ul>
             </div>
           </div>
           <div className="mt-8 pt-8 border-t text-center text-muted-foreground">
-            <p>&copy; 2024 FixitHub. All rights reserved.</p>
+            <p>{t('home.footer.copyright')}</p>
           </div>
         </div>
       </footer>
