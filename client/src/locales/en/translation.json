@@ -29,7 +29,8 @@
     "export": "Export",
     "import": "Import",
     "refresh": "Refresh",
-    "actions": "Actions"
+    "actions": "Actions",
+    "select": "Select"
   },
   "navigation": {
     "dashboard": "Dashboard",

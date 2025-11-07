@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -89,6 +90,7 @@ type SortField = 'name' | 'email' | 'role' | 'status' | 'createdAt' | 'lastActiv
 type SortDirection = 'asc' | 'desc'
 
 export function UserManagement() {
+  const { t } = useTranslation()
   const [users, setUsers] = useState<User[]>([])
   const [filteredUsers, setFilteredUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
@@ -129,8 +131,8 @@ export function UserManagement() {
       } catch (error) {
         console.error("Error fetching users:", error)
         toast({
-          title: "Error",
-          description: "Failed to load users",
+          title: t('common.error'),
+          description: t('userManagement.failedToLoadUsers'),
           variant: "destructive"
         })
       } finally {
@@ -225,8 +227,8 @@ export function UserManagement() {
       const response = await createUser(userData)
 
       toast({
-        title: "Success!",
-        description: "User created successfully"
+        title: t('common.success'),
+        description: t('userManagement.userCreatedSuccess')
       })
 
       // Refresh users list
@@ -248,8 +250,8 @@ export function UserManagement() {
     } catch (error: any) {
       console.error("Error creating user:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to create user",
+        title: t('common.error'),
+        description: error.message || t('userManagement.failedToCreateUser'),
         variant: "destructive"
       })
     } finally {
@@ -269,14 +271,14 @@ export function UserManagement() {
       ))
 
       toast({
-        title: "Success!",
-        description: "User role updated successfully"
+        title: t('common.success'),
+        description: t('userManagement.userRoleUpdated')
       })
     } catch (error: any) {
       console.error("Error updating user role:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to update user role",
+        title: t('common.error'),
+        description: error.message || t('userManagement.failedToUpdateRole'),
         variant: "destructive"
       })
     } finally {
@@ -298,14 +300,14 @@ export function UserManagement() {
       ))
 
       toast({
-        title: "Success!",
-        description: `User ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`
+        title: t('common.success'),
+        description: t('userManagement.userStatusUpdated')
       })
     } catch (error: any) {
       console.error("Error updating user status:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to update user status",
+        title: t('common.error'),
+        description: error.message || t('userManagement.failedToUpdateStatus'),
         variant: "destructive"
       })
     } finally {
@@ -327,14 +329,14 @@ export function UserManagement() {
       setSelectedUsers([])
 
       toast({
-        title: "Success!",
+        title: t('common.success'),
         description: `${selectedUsers.length} users updated successfully`
       })
     } catch (error: any) {
       console.error("Error bulk updating users:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to update users",
+        title: t('common.error'),
+        description: error.message || t('common.error'),
         variant: "destructive"
       })
     }
@@ -350,14 +352,14 @@ export function UserManagement() {
       setUsers(users.filter(user => user._id !== userId))
 
       toast({
-        title: "Success!",
-        description: "User deleted successfully"
+        title: t('common.success'),
+        description: t('toast.success.deleted')
       })
     } catch (error: any) {
       console.error("Error deleting user:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to delete user",
+        title: t('common.error'),
+        description: error.message || t('userManagement.failedToDeleteUser'),
         variant: "destructive"
       })
     } finally {
@@ -483,30 +485,30 @@ export function UserManagement() {
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-2">
               <Users className="h-8 w-8" />
-              User Management
+              {t('userManagement.title')}
             </h1>
             <p className="text-muted-foreground">
-              Manage users, roles, and permissions across the platform
+              {t('userManagement.description')}
             </p>
           </div>
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
               <Button>
                 <UserPlus className="h-4 w-4 mr-2" />
-                Create User
+                {t('userManagement.createNewUser')}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md bg-background">
               <DialogHeader>
-                <DialogTitle>Create New User</DialogTitle>
+                <DialogTitle>{t('userManagement.createNewUser')}</DialogTitle>
                 <DialogDescription>
-                  Add a new user to the system with role and permissions
+                  {t('userManagement.description')}
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateUser} className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
+                    <Label htmlFor="name">{t('userManagement.name')}</Label>
                     <Input
                       id="name"
                       value={formData.name}
@@ -515,7 +517,7 @@ export function UserManagement() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">{t('userManagement.email')}</Label>
                     <Input
                       id="email"
                       type="email"
@@ -528,7 +530,7 @@ export function UserManagement() {
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
+                    <Label htmlFor="phone">{t('userManagement.phone')}</Label>
                     <Input
                       id="phone"
                       value={formData.phone}
@@ -536,7 +538,7 @@ export function UserManagement() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="role">Role</Label>
+                    <Label htmlFor="role">{t('userManagement.role')}</Label>
                     <Select
                       value={formData.role}
                       onValueChange={(value: "customer" | "staff" | "admin") =>
@@ -544,19 +546,19 @@ export function UserManagement() {
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select role" />
+                        <SelectValue placeholder={t('common.select')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="customer">Customer</SelectItem>
-                        <SelectItem value="staff">Staff</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="customer">{t('userManagement.customer')}</SelectItem>
+                        <SelectItem value="staff">{t('userManagement.staff')}</SelectItem>
+                        <SelectItem value="admin">{t('userManagement.admin')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">{t('login.password')}</Label>
                   <Input
                     id="password"
                     type="password"
@@ -574,15 +576,15 @@ export function UserManagement() {
                       setFormData({ ...formData, sendWelcomeEmail: checked as boolean })
                     }
                   />
-                  <Label htmlFor="sendWelcomeEmail">Send welcome email</Label>
+                  <Label htmlFor="sendWelcomeEmail">{t('userManagement.sendWelcomeEmail')}</Label>
                 </div>
 
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
-                    Cancel
+                    {t('common.cancel')}
                   </Button>
                   <Button type="submit" disabled={creating}>
-                    {creating ? "Creating..." : "Create User"}
+                    {creating ? t('common.create') + "..." : t('common.create')}
                   </Button>
                 </DialogFooter>
               </form>
@@ -594,7 +596,7 @@ export function UserManagement() {
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('userManagement.users')}</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -606,7 +608,7 @@ export function UserManagement() {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('userManagement.active')}</CardTitle>
               <Users className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
@@ -620,7 +622,7 @@ export function UserManagement() {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Staff Members</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('staffManagement.staff')}</CardTitle>
               <Shield className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
@@ -634,7 +636,7 @@ export function UserManagement() {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('orders.totalCost')}</CardTitle>
               <DollarSign className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
@@ -656,7 +658,7 @@ export function UserManagement() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search users by name, email, or phone..."
+                    placeholder={t('userManagement.name') + ", " + t('userManagement.email') + ", " + t('userManagement.phone')}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -667,24 +669,24 @@ export function UserManagement() {
                 <Select value={roleFilter} onValueChange={setRoleFilter}>
                   <SelectTrigger className="w-40">
                     <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="All Roles" />
+                    <SelectValue placeholder={t('userManagement.allRoles')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Roles</SelectItem>
-                    <SelectItem value="customer">Customer</SelectItem>
-                    <SelectItem value="staff">Staff</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="all">{t('userManagement.allRoles')}</SelectItem>
+                    <SelectItem value="customer">{t('userManagement.customer')}</SelectItem>
+                    <SelectItem value="staff">{t('userManagement.staff')}</SelectItem>
+                    <SelectItem value="admin">{t('userManagement.admin')}</SelectItem>
                   </SelectContent>
                 </Select>
 
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-40">
-                    <SelectValue placeholder="All Status" />
+                    <SelectValue placeholder={t('userManagement.allStatuses')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="all">{t('userManagement.allStatuses')}</SelectItem>
+                    <SelectItem value="active">{t('userManagement.active')}</SelectItem>
+                    <SelectItem value="inactive">{t('userManagement.inactive')}</SelectItem>
                     <SelectItem value="suspended">Suspended</SelectItem>
                   </SelectContent>
                 </Select>
@@ -695,7 +697,7 @@ export function UserManagement() {
             {selectedUsers.length > 0 && (
               <div className="flex items-center gap-2 mt-4 p-3 bg-muted/50 rounded-lg">
                 <span className="text-sm font-medium">
-                  {selectedUsers.length} user{selectedUsers.length > 1 ? 's' : ''} selected
+                  {selectedUsers.length} {t('userManagement.selectedCount')}
                 </span>
                 <div className="flex gap-2 ml-auto">
                   <Button
@@ -703,21 +705,21 @@ export function UserManagement() {
                     variant="outline"
                     onClick={() => handleBulkStatusUpdate('active')}
                   >
-                    Activate
+                    {t('userManagement.active')}
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => handleBulkStatusUpdate('inactive')}
                   >
-                    Deactivate
+                    {t('userManagement.inactive')}
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setSelectedUsers([])}
                   >
-                    Clear Selection
+                    {t('common.close')}
                   </Button>
                 </div>
               </div>
@@ -728,9 +730,9 @@ export function UserManagement() {
         {/* Enhanced Users Table */}
         <Card>
           <CardHeader>
-            <CardTitle>User Directory</CardTitle>
+            <CardTitle>{t('userManagement.users')}</CardTitle>
             <CardDescription>
-              Comprehensive list of all users with management capabilities. Click on any row to view detailed information.
+              {t('userManagement.description')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -746,35 +748,35 @@ export function UserManagement() {
                     </TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
                       <div className="flex items-center gap-2">
-                        User Information
+                        {t('userManagement.name')}
                         {getSortIcon('name')}
                       </div>
                     </TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('role')}>
                       <div className="flex items-center gap-2">
-                        Role & Status
+                        {t('userManagement.role')} & {t('userManagement.status')}
                         {getSortIcon('role')}
                       </div>
                     </TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('createdAt')}>
                       <div className="flex items-center gap-2">
-                        Member Since
+                        {t('userManagement.createdAt')}
                         {getSortIcon('createdAt')}
                       </div>
                     </TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('lastActivity')}>
                       <div className="flex items-center gap-2">
-                        Last Activity
+                        {t('userManagement.lastActivity')}
                         {getSortIcon('lastActivity')}
                       </div>
                     </TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('totalOrders')}>
                       <div className="flex items-center gap-2">
-                        Orders & Spending
+                        {t('userManagement.totalOrders')} & {t('userManagement.totalSpent')}
                         {getSortIcon('totalOrders')}
                       </div>
                     </TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="text-right">{t('common.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -782,10 +784,10 @@ export function UserManagement() {
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-8">
                         <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                        <p className="text-muted-foreground">No users found</p>
+                        <p className="text-muted-foreground">{t('userManagement.noUsersFound')}</p>
                         {searchTerm && (
                           <p className="text-sm text-muted-foreground mt-2">
-                            Try adjusting your search or filters
+                            {t('common.search')}
                           </p>
                         )}
                       </TableCell>
@@ -904,17 +906,17 @@ export function UserManagement() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuLabel>{t('common.actions')}</DropdownMenuLabel>
                               <DropdownMenuItem onClick={() => {
                                 setSelectedUserId(user._id)
                                 setShowDetailsDialog(true)
                               }}>
                                 <Eye className="mr-2 h-4 w-4" />
-                                View Details
+                                {t('userManagement.viewDetails')}
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleEditUser(user)}>
                                 <Edit className="mr-2 h-4 w-4" />
-                                Edit User
+                                {t('userManagement.editUser')}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <AlertDialog>
@@ -924,25 +926,24 @@ export function UserManagement() {
                                     onSelect={(e) => e.preventDefault()}
                                   >
                                     <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete User
+                                    {t('userManagement.deleteUser')}
                                   </DropdownMenuItem>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                   <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogTitle>{t('common.confirm')}</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      This action cannot be undone. This will permanently delete the user
-                                      "{user.name}" and remove all their data from the system.
+                                      {t('userManagement.confirmDelete')} "{user.name}"
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                                     <AlertDialogAction
                                       onClick={() => handleDeleteUser(user._id)}
                                       disabled={deleting === user._id}
                                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                     >
-                                      {deleting === user._id ? "Deleting..." : "Delete"}
+                                      {deleting === user._id ? t('common.delete') + "..." : t('common.delete')}
                                     </AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
