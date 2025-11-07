@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,7 @@ import {
 export function WorkflowManagement() {
   console.log('WorkflowManagement: Component initialized');
 
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [workflows, setWorkflows] = useState<WorkflowTemplate[]>([]);
@@ -123,8 +125,8 @@ export function WorkflowManagement() {
     } catch (error: any) {
       console.error('WorkflowManagement: Error loading data:', error);
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to load workflow data',
+        title: t('common.error'),
+        description: error.message || t('workflowManagement.failedToLoadWorkflows'),
         variant: 'destructive'
       });
     } finally {
@@ -149,14 +151,14 @@ export function WorkflowManagement() {
       setShowCreateDialog(false);
       resetForm();
       toast({
-        title: 'Success',
-        description: 'Workflow created successfully'
+        title: t('common.success'),
+        description: t('workflowManagement.workflowCreatedSuccess')
       });
     } catch (error: any) {
       console.error('WorkflowManagement: Error creating workflow:', error);
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to create workflow',
+        title: t('common.error'),
+        description: error.message || t('workflowManagement.failedToCreateWorkflow'),
         variant: 'destructive'
       });
     }
@@ -173,14 +175,14 @@ export function WorkflowManagement() {
       setSelectedWorkflow(null);
       resetForm();
       toast({
-        title: 'Success',
-        description: 'Workflow updated successfully'
+        title: t('common.success'),
+        description: t('workflowManagement.workflowUpdated')
       });
     } catch (error: any) {
       console.error('WorkflowManagement: Error updating workflow:', error);
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to update workflow',
+        title: t('common.error'),
+        description: error.message || t('workflowManagement.failedToUpdateWorkflow'),
         variant: 'destructive'
       });
     }
@@ -188,20 +190,20 @@ export function WorkflowManagement() {
 
   const handleDeleteWorkflow = async (workflowId: string) => {
     console.log('WorkflowManagement: Deleting workflow:', workflowId);
-    if (!confirm('Are you sure you want to delete this workflow?')) return;
+    if (!confirm(t('workflowManagement.confirmDelete'))) return;
 
     try {
       await deleteWorkflowTemplate(workflowId);
       setWorkflows(prev => prev.filter(w => w._id !== workflowId));
       toast({
-        title: 'Success',
-        description: 'Workflow deleted successfully'
+        title: t('common.success'),
+        description: t('workflowManagement.workflowDeleted')
       });
     } catch (error: any) {
       console.error('WorkflowManagement: Error deleting workflow:', error);
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to delete workflow',
+        title: t('common.error'),
+        description: error.message || t('workflowManagement.failedToDeleteWorkflow'),
         variant: 'destructive'
       });
     }
@@ -213,14 +215,14 @@ export function WorkflowManagement() {
       const result = await duplicateWorkflowTemplate(workflowId);
       setWorkflows(prev => [result.workflow, ...prev]);
       toast({
-        title: 'Success',
-        description: 'Workflow duplicated successfully'
+        title: t('common.success'),
+        description: t('workflowManagement.workflowDuplicated')
       });
     } catch (error: any) {
       console.error('WorkflowManagement: Error duplicating workflow:', error);
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to duplicate workflow',
+        title: t('common.error'),
+        description: error.message || t('workflowManagement.failedToDuplicateWorkflow'),
         variant: 'destructive'
       });
     }
@@ -297,14 +299,14 @@ export function WorkflowManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Workflow Management</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('workflowManagement.pageHeading')}</h1>
           <p className="text-muted-foreground">
-            Create and manage workflow templates with interactive elements and automation
+            {t('workflowManagement.description')}
           </p>
         </div>
         <Button onClick={openCreateDialog}>
           <Plus className="h-4 w-4 mr-2" />
-          Create Workflow
+          {t('workflowManagement.createNewWorkflow')}
         </Button>
       </div>
 
@@ -312,49 +314,49 @@ export function WorkflowManagement() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Workflows</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('workflowManagement.stats.activeWorkflows')}</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.activeWorkflows || 0}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.inactiveWorkflows || 0} inactive
+              {stats.inactiveWorkflows || 0} {t('workflowManagement.inactiveStatus')}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Steps</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('workflowManagement.stats.totalSteps')}</CardTitle>
             <Settings className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalSteps || 0}</div>
             <p className="text-xs text-muted-foreground">
-              Across all workflows
+              {t('workflowManagement.stats.acrossAllWorkflows')}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Automation Rules</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('workflowManagement.stats.automationRules')}</CardTitle>
             <Zap className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalAutomationRules || 0}</div>
             <p className="text-xs text-muted-foreground">
-              Active automations
+              {t('workflowManagement.stats.activeAutomations')}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Completion Time</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('workflowManagement.stats.averageCompletionTime')}</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.averageCompletionTime || 0}m</div>
             <p className="text-xs text-muted-foreground">
-              Estimated time
+              {t('workflowManagement.stats.estimatedTime')}
             </p>
           </CardContent>
         </Card>
@@ -366,7 +368,7 @@ export function WorkflowManagement() {
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search workflows..."
+              placeholder={t('workflowManagement.searchWorkflows')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-8"
@@ -375,12 +377,12 @@ export function WorkflowManagement() {
         </div>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by status" />
+            <SelectValue placeholder={t('workflowManagement.filterByStatus')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Workflows</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
+            <SelectItem value="all">{t('workflowManagement.allWorkflows')}</SelectItem>
+            <SelectItem value="active">{t('workflowManagement.activeStatus')}</SelectItem>
+            <SelectItem value="inactive">{t('workflowManagement.inactiveStatus')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -407,7 +409,7 @@ export function WorkflowManagement() {
                     <CardTitle className="flex items-center gap-2">
                       {workflow.name}
                       <Badge variant={workflow.isActive ? 'default' : 'secondary'}>
-                        {workflow.isActive ? 'Active' : 'Inactive'}
+                        {workflow.isActive ? t('workflowManagement.activeStatus') : t('workflowManagement.inactiveStatus')}
                       </Badge>
                     </CardTitle>
                     <p className="text-sm text-muted-foreground">{workflow.description}</p>
@@ -459,26 +461,26 @@ export function WorkflowManagement() {
                     <div className="flex items-center gap-2">
                       <Settings className="h-4 w-4 text-muted-foreground" />
                       <span className="font-medium">{workflow.steps?.length || 0}</span>
-                      <span className="text-muted-foreground">steps</span>
+                      <span className="text-muted-foreground">{t('workflowManagement.labels.steps')}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-muted-foreground" />
                       <span className="font-medium">{workflow.estimatedTotalTime || 0}</span>
-                      <span className="text-muted-foreground">minutes</span>
+                      <span className="text-muted-foreground">{t('workflowManagement.labels.minutes')}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <FormInput className="h-4 w-4 text-muted-foreground" />
                       <span className="font-medium">
                         {workflow.steps?.reduce((total, step) => total + (step.formFields?.length || 0), 0) || 0}
                       </span>
-                      <span className="text-muted-foreground">form fields</span>
+                      <span className="text-muted-foreground">{t('workflowManagement.labels.formFields')}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Zap className="h-4 w-4 text-muted-foreground" />
                       <span className="font-medium">
                         {workflow.steps?.reduce((total, step) => total + (step.automationRules?.length || 0), 0) || 0}
                       </span>
-                      <span className="text-muted-foreground">automation rules</span>
+                      <span className="text-muted-foreground">{t('workflowManagement.labels.automationRules')}</span>
                     </div>
                   </div>
 
@@ -487,7 +489,7 @@ export function WorkflowManagement() {
                     <div className="space-y-2">
                       {workflow.deviceTypes && workflow.deviceTypes.length > 0 && (
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">Device Types:</span>
+                          <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.deviceTypes')}:</span>
                           <div className="flex flex-wrap gap-1">
                             {workflow.deviceTypes.map((type) => (
                               <Badge key={type} variant="outline" className="text-xs">
@@ -499,7 +501,7 @@ export function WorkflowManagement() {
                       )}
                       {workflow.serviceTypes && workflow.serviceTypes.length > 0 && (
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">Service Types:</span>
+                          <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.serviceTypes')}:</span>
                           <div className="flex flex-wrap gap-1">
                             {workflow.serviceTypes.map((typeId) => {
                               const service = services.find(s => s._id === typeId);
@@ -518,7 +520,7 @@ export function WorkflowManagement() {
                   {/* Step Categories Breakdown */}
                   {workflow.steps && workflow.steps.length > 0 && (
                     <div className="space-y-2">
-                      <span className="text-sm font-medium">Step Categories:</span>
+                      <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.stepCategories')}:</span>
                       <div className="flex flex-wrap gap-1">
                         {Object.entries(
                           workflow.steps.reduce((acc, step) => {
@@ -539,13 +541,13 @@ export function WorkflowManagement() {
                     <div className="bg-muted/50 rounded-lg p-3 space-y-2">
                       <h4 className="text-sm font-medium flex items-center gap-2">
                         <FormInput className="h-4 w-4" />
-                        Interactive Elements
+                        {t('workflowManagement.workflowDetails.interactiveElements')}
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                         {/* Form Fields Summary */}
                         {workflow.steps.some(step => step.formFields?.length > 0) && (
                           <div>
-                            <span className="font-medium">Form Field Types:</span>
+                            <span className="font-medium">{t('workflowManagement.workflowDetails.formFieldTypes')}:</span>
                             <div className="flex flex-wrap gap-1 mt-1">
                               {Object.entries(
                                 workflow.steps.reduce((acc, step) => {
@@ -566,7 +568,7 @@ export function WorkflowManagement() {
                         {/* Automation Rules Summary */}
                         {workflow.steps.some(step => step.automationRules?.length > 0) && (
                           <div>
-                            <span className="font-medium">Automation Triggers:</span>
+                            <span className="font-medium">{t('workflowManagement.workflowDetails.automationTriggers')}:</span>
                             <div className="flex flex-wrap gap-1 mt-1">
                               {Object.entries(
                                 workflow.steps.reduce((acc, step) => {
@@ -590,7 +592,7 @@ export function WorkflowManagement() {
                   {/* Step Details Preview */}
                   {workflow.steps && workflow.steps.length > 0 && (
                     <div className="space-y-2">
-                      <span className="text-sm font-medium">Step Overview:</span>
+                      <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.stepOverview')}:</span>
                       <div className="space-y-1 max-h-32 overflow-y-auto">
                         {workflow.steps.slice(0, 3).map((step, index) => (
                           <div key={step._id} className="flex items-center justify-between p-2 bg-muted/30 rounded text-xs">
@@ -622,7 +624,7 @@ export function WorkflowManagement() {
                         ))}
                         {workflow.steps.length > 3 && (
                           <div className="text-xs text-muted-foreground text-center py-1">
-                            ... and {workflow.steps.length - 3} more steps
+                            {t('workflowManagement.workflowDetails.moreSteps', { count: workflow.steps.length - 3 })}
                           </div>
                         )}
                       </div>
@@ -634,17 +636,17 @@ export function WorkflowManagement() {
                     <div className="flex flex-wrap gap-2 pt-2 border-t">
                       {workflow.workflowSettings.allowParallelSteps && (
                         <Badge variant="secondary" className="text-xs">
-                          Parallel Steps Allowed
+                          {t('workflowManagement.workflowDetails.parallelStepsAllowed')}
                         </Badge>
                       )}
                       {workflow.workflowSettings.requireStrictOrder && (
                         <Badge variant="secondary" className="text-xs">
-                          Strict Order Required
+                          {t('workflowManagement.workflowDetails.strictOrderRequired')}
                         </Badge>
                       )}
                       {workflow.workflowSettings.autoProgressOnCompletion && (
                         <Badge variant="secondary" className="text-xs">
-                          Auto Progress
+                          {t('workflowManagement.workflowDetails.autoProgress')}
                         </Badge>
                       )}
                     </div>
@@ -653,8 +655,8 @@ export function WorkflowManagement() {
                   {/* Fallback for workflows without detailed data */}
                   {(!workflow.steps || workflow.steps.length === 0) && (!workflow.deviceTypes || workflow.deviceTypes.length === 0) && (
                     <div className="text-center py-4 text-muted-foreground">
-                      <p className="text-sm">No detailed workflow data available</p>
-                      <p className="text-xs">Use Visual Builder to add steps and configure this workflow</p>
+                      <p className="text-sm">{t('workflowManagement.workflowDetails.noDetailedData')}</p>
+                      <p className="text-xs">{t('workflowManagement.workflowDetails.useVisualBuilder')}</p>
                     </div>
                   )}
                 </div>
@@ -668,46 +670,46 @@ export function WorkflowManagement() {
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Create New Workflow</DialogTitle>
+            <DialogTitle>{t('workflowManagement.dialogs.createWorkflowTitle')}</DialogTitle>
             <DialogDescription>
-              Create a new workflow template with basic configuration
+              {t('workflowManagement.dialogs.createWorkflowDesc')}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Workflow Name</Label>
+                <Label htmlFor="name">{t('workflowManagement.labels.workflowName')}</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Enter workflow name"
+                  placeholder={t('workflowManagement.labels.workflowName')}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="active">Status</Label>
+                <Label htmlFor="active">{t('workflowManagement.labels.workflowStatus')}</Label>
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="active"
                     checked={formData.isActive}
                     onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
                   />
-                  <Label htmlFor="active">{formData.isActive ? 'Active' : 'Inactive'}</Label>
+                  <Label htmlFor="active">{formData.isActive ? t('workflowManagement.activeStatus') : t('workflowManagement.inactiveStatus')}</Label>
                 </div>
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">{t('workflowManagement.labels.description')}</Label>
               <Textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Enter workflow description"
+                placeholder={t('workflowManagement.labels.description')}
                 rows={3}
               />
             </div>
             <div className="space-y-2">
-              <Label>Device Types</Label>
+              <Label>{t('workflowManagement.workflowDetails.deviceTypes')}</Label>
               <div className="grid grid-cols-2 gap-2">
                 {deviceTypeOptions.map((type) => (
                   <div key={type} className="flex items-center space-x-2">
@@ -729,7 +731,7 @@ export function WorkflowManagement() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Service Types</Label>
+              <Label>{t('workflowManagement.workflowDetails.serviceTypes')}</Label>
               <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
                 {services.map((service) => (
                   <div key={service._id} className="flex items-center space-x-2">
@@ -753,10 +755,10 @@ export function WorkflowManagement() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleCreateWorkflow}>
-              Create Workflow
+              {t('workflowManagement.createNewWorkflow')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -766,36 +768,34 @@ export function WorkflowManagement() {
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Edit Workflow</DialogTitle>
-            <DialogDescription>
-              Update workflow template configuration
-            </DialogDescription>
+            <DialogTitle>{t("workflowManagement.dialogs.editWorkflowTitle")}</DialogTitle>
+            <DialogDescription>{t("workflowManagement.dialogs.editWorkflowDesc")}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-name">Workflow Name</Label>
+                <Label htmlFor="edit-name">{t('workflowManagement.labels.workflowName')}</Label>
                 <Input
                   id="edit-name"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Enter workflow name"
+                  placeholder={t('workflowManagement.labels.workflowName')}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-active">Status</Label>
+                <Label htmlFor="edit-active">{t('workflowManagement.labels.workflowStatus')}</Label>
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="edit-active"
                     checked={formData.isActive}
                     onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
                   />
-                  <Label htmlFor="edit-active">{formData.isActive ? 'Active' : 'Inactive'}</Label>
+                  <Label htmlFor="edit-active">{formData.isActive ? t('workflowManagement.activeStatus') : t('workflowManagement.inactiveStatus')}</Label>
                 </div>
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-description">Description</Label>
+              <Label htmlFor="edit-description">{t('workflowManagement.labels.description')}</Label>
               <Textarea
                 id="edit-description"
                 value={formData.description}
@@ -805,7 +805,7 @@ export function WorkflowManagement() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Device Types</Label>
+              <Label>{t('workflowManagement.workflowDetails.deviceTypes')}</Label>
               <div className="grid grid-cols-2 gap-2">
                 {deviceTypeOptions.map((type) => (
                   <div key={type} className="flex items-center space-x-2">
@@ -827,7 +827,7 @@ export function WorkflowManagement() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Service Types</Label>
+              <Label>{t('workflowManagement.workflowDetails.serviceTypes')}</Label>
               <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
                 {services.map((service) => (
                   <div key={service._id} className="flex items-center space-x-2">
@@ -851,10 +851,10 @@ export function WorkflowManagement() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEditDialog(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleUpdateWorkflow}>
-              Update Workflow
+              {t('workflowManagement.buttons.update')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -870,20 +870,18 @@ export function WorkflowManagement() {
                 {selectedWorkflow?.isActive ? 'Active' : 'Inactive'}
               </Badge>
             </DialogTitle>
-            <DialogDescription>
-              Detailed view of workflow template configuration and steps
-            </DialogDescription>
+            <DialogDescription>{t("workflowManagement.dialogs.viewWorkflowDesc")}</DialogDescription>
           </DialogHeader>
           {selectedWorkflow && (
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-semibold mb-2">Description</h3>
+                <h3 className="text-lg font-semibold mb-2">{t('workflowManagement.labels.description')}</h3>
                 <p className="text-muted-foreground">{selectedWorkflow.description}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Device Types</h3>
+                  <h3 className="text-lg font-semibold mb-2">{t('workflowManagement.workflowDetails.deviceTypes')}</h3>
                   <div className="flex flex-wrap gap-2">
                     {selectedWorkflow.deviceTypes?.map((type) => (
                       <Badge key={type} variant="outline">{type}</Badge>
@@ -891,7 +889,7 @@ export function WorkflowManagement() {
                   </div>
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Service Types</h3>
+                  <h3 className="text-lg font-semibold mb-2">{t('workflowManagement.workflowDetails.serviceTypes')}</h3>
                   <div className="flex flex-wrap gap-2">
                     {selectedWorkflow.serviceTypes?.map((typeId) => {
                       const service = services.find(s => s._id === typeId);
@@ -905,7 +903,7 @@ export function WorkflowManagement() {
 
               {selectedWorkflow.steps && selectedWorkflow.steps.length > 0 && (
                 <div>
-                  <h3 className="text-lg font-semibold mb-4">Workflow Steps ({selectedWorkflow.steps.length})</h3>
+                  <h3 className="text-lg font-semibold mb-4">{t('workflowManagement.dialogs.workflowStepsCount', { count: selectedWorkflow.steps.length })}</h3>
                   <div className="space-y-3">
                     {selectedWorkflow.steps.map((step, index) => (
                       <Card key={step._id}>
@@ -983,12 +981,12 @@ export function WorkflowManagement() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowViewDialog(false)}>
-              Close
+              {t('common.close')}
             </Button>
             {selectedWorkflow && (
               <Button onClick={() => openVisualBuilder(selectedWorkflow)}>
                 <Move className="h-4 w-4 mr-2" />
-                Open Visual Builder
+                {t('workflowManagement.buttons.openVisualBuilder')}
               </Button>
             )}
           </DialogFooter>

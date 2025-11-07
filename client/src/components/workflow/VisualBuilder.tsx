@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,7 @@ interface VisualBuilderProps {
 export function VisualBuilder({ workflow, onSave, onClose, services, addOnServices }: VisualBuilderProps) {
   console.log('VisualBuilder: Component initialized with workflow:', workflow.name);
 
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [workflowData, setWorkflowData] = useState<WorkflowTemplate>(workflow);
   const [selectedStep, setSelectedStep] = useState<WorkflowStep | null>(null);
@@ -54,14 +56,14 @@ export function VisualBuilder({ workflow, onSave, onClose, services, addOnServic
       await onSave(workflowData);
       console.log('VisualBuilder: Workflow saved successfully');
       toast({
-        title: "Success",
-        description: "Workflow saved successfully"
+        title: t('common.success'),
+        description: t('workflowManagement.visualBuilder.workflowSavedSuccess')
       });
     } catch (error: any) {
       console.error('VisualBuilder: Error saving workflow:', error);
       toast({
-        title: "Error",
-        description: error.message || "Failed to save workflow",
+        title: t('common.error'),
+        description: error.message || t('workflowManagement.visualBuilder.errorSavingWorkflow'),
         variant: "destructive"
       });
     } finally {
@@ -110,7 +112,7 @@ export function VisualBuilder({ workflow, onSave, onClose, services, addOnServic
 
   const handleDeleteStep = (stepId: string) => {
     console.log('VisualBuilder: Deleting step:', stepId);
-    if (!confirm('Are you sure you want to delete this step?')) return;
+    if (!confirm(t('workflowManagement.confirmDeleteStep'))) return;
 
     setWorkflowData(prev => ({
       ...prev,
@@ -121,8 +123,8 @@ export function VisualBuilder({ workflow, onSave, onClose, services, addOnServic
     }));
 
     toast({
-      title: "Success",
-      description: "Step deleted successfully"
+      title: t('common.success'),
+      description: t('workflowManagement.visualBuilder.stepDeletedSuccess')
     });
   };
 
