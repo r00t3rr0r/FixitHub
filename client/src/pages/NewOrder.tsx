@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/useToast"
 import { getRepairServices, getAddOnServices, RepairService } from "@/api/services"
 import { getDeviceTypes, getManufacturersByDeviceType, getModelsByTypeAndManufacturer, DeviceType, Manufacturer, DeviceModel, searchDevices, SearchResult } from "@/api/devices"
 import { createOrder } from "@/api/orders"
+import { UnlockPatternInput } from "@/components/inspection/UnlockPatternInput"
 import {
   Select,
   SelectContent,
@@ -36,7 +37,12 @@ import {
   Watch,
   Gamepad2,
   Search,
-  X
+  X,
+  Lock,
+  BookOpen,
+  User,
+  Mail,
+  Phone
 } from "lucide-react"
 
 interface OrderForm {
@@ -98,6 +104,12 @@ export function NewOrder() {
   const [searchingDevices, setSearchingDevices] = useState(false)
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [selectedDevice, setSelectedDevice] = useState<SelectedDevice | null>(null)
+
+  // Unlock code/pattern state
+  const [unlockPattern, setUnlockPattern] = useState<string[]>([])
+  const [unlockCode, setUnlockCode] = useState<string>("")
+  const [noDeviceLock, setNoDeviceLock] = useState<boolean>(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<OrderForm>()
   const { toast } = useToast()
@@ -703,73 +715,242 @@ export function NewOrder() {
           </Card>
         )}
 
-        {/* Step 3: Add-On Services */}
+        {/* Step 3: Summary, Unlock Code, and Add-On Services */}
         {step === 3 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                Add-On Services
-              </CardTitle>
-              <CardDescription>
-                Enhance your repair with additional services (optional)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                {addOns.map((addOn) => (
-                  <div
-                    key={addOn._id}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      selectedAddOns.includes(addOn._id)
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Checkbox
-                            checked={selectedAddOns.includes(addOn._id)}
-                            onCheckedChange={(checked) => handleAddOnToggle(addOn._id, checked as boolean)}
-                          />
-                          <h3 className="font-semibold">{addOn.name}</h3>
-                          {addOn.category === 'Service' && (
-                            <Badge variant="secondary" className="text-xs">
-                              <Zap className="h-3 w-3 mr-1" />
-                              Express
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          {addOn.description}
-                        </p>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {addOn.estimatedTime}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <DollarSign className="h-3 w-3" />
-                            ${addOn.price}
-                          </div>
-                        </div>
+          <div className="space-y-6">
+            {/* Order Summary Card */}
+            <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Order Summary
+                </CardTitle>
+                <CardDescription>
+                  Review your device and service details
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Customer Information */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-sm flex items-center gap-2">
+                      <User className="h-4 w-4 text-primary" />
+                      Customer Information
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <User className="h-3 w-3" />
+                        <span>Admin User</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Mail className="h-3 w-3" />
+                        <span>admin@example.com</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Phone className="h-3 w-3" />
+                        <span>+1 (555) 000-0000</span>
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
 
-              <div className="flex justify-between">
-                <Button type="button" variant="outline" onClick={prevStep}>
-                  Previous
-                </Button>
-                <Button type="button" onClick={nextStep}>
-                  Next Step
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                  {/* Selected Device Summary */}
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-sm flex items-center gap-2">
+                      <Smartphone className="h-4 w-4 text-primary" />
+                      Device Details
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      {selectedDevice ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground w-20">Device:</span>
+                            <Badge variant="secondary" className="gap-1">
+                              {getDeviceTypeIcon(selectedDevice.deviceType)}
+                              {selectedDevice.deviceType}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground w-20">Brand:</span>
+                            <span className="font-medium">{selectedDevice.manufacturer}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground w-20">Model:</span>
+                            <span className="font-medium">{selectedDevice.name}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-muted-foreground text-xs">No device selected</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Selected Services */}
+                {selectedServices.length > 0 && (
+                  <div className="space-y-3 pt-4 border-t">
+                    <h4 className="font-semibold text-sm">Selected Services</h4>
+                    <div className="space-y-2">
+                      {services.filter(s => selectedServices.includes(s._id)).map(service => (
+                        <div key={service._id} className="flex items-start justify-between p-2 rounded hover:bg-muted/50">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{service.name}</p>
+                            <p className="text-xs text-muted-foreground">{service.description}</p>
+                          </div>
+                          <Badge variant="outline">${service.price}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Knowledge Base Articles */}
+                {selectedServices.length > 0 && (
+                  <div className="space-y-3 pt-4 border-t bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg">
+                    <h4 className="font-semibold text-sm flex items-center gap-2">
+                      <BookOpen className="h-4 w-4 text-primary" />
+                      Related Information
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      {services.filter(s => selectedServices.includes(s._id)).map(service => (
+                        <div key={service._id} className="flex items-start gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <p className="font-medium text-blue-900 dark:text-blue-100">
+                              {service.name} Guide
+                            </p>
+                            {service.knowledgeBaseArticles && service.knowledgeBaseArticles.length > 0 && (
+                              <p className="text-xs text-blue-700 dark:text-blue-200 mt-1">
+                                📚 {service.knowledgeBaseArticles.length} article{service.knowledgeBaseArticles.length !== 1 ? "s" : ""} available
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Unlock Code/Pattern Input Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Lock className="h-5 w-5" />
+                  Device Lock Information
+                </CardTitle>
+                <CardDescription>
+                  Tell us about your device lock (pattern, PIN, or no lock)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <UnlockPatternInput
+                  onPatternChange={setUnlockPattern}
+                  onUnlockCodeChange={setUnlockCode}
+                  onNoLockChange={setNoDeviceLock}
+                  pattern={unlockPattern}
+                  unlockCode={unlockCode}
+                  noLock={noDeviceLock}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Add-On Services Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  Add-On Services
+                </CardTitle>
+                <CardDescription>
+                  Enhance your repair with additional services (optional)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {addOns.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No add-on services available
+                  </p>
+                ) : (
+                  <>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {addOns.map((addOn) => (
+                        <div
+                          key={addOn._id}
+                          className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
+                            selectedAddOns.includes(addOn._id)
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:border-primary/50'
+                          }`}
+                          onClick={() => handleAddOnToggle(addOn._id, !selectedAddOns.includes(addOn._id))}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Checkbox
+                                  checked={selectedAddOns.includes(addOn._id)}
+                                  onCheckedChange={(checked) => handleAddOnToggle(addOn._id, checked as boolean)}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <h3 className="font-semibold text-sm">{addOn.name}</h3>
+                                {addOn.category === 'Service' && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    <Zap className="h-3 w-3 mr-1" />
+                                    Express
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground mb-3">
+                                {addOn.description}
+                              </p>
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {addOn.estimatedTime || 'N/A'}
+                                </div>
+                                <div className="flex items-center gap-1 font-semibold text-foreground">
+                                  <DollarSign className="h-3 w-3" />
+                                  {addOn.price}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Selected Add-ons Summary */}
+                    {selectedAddOns.length > 0 && (
+                      <div className="mt-4 p-3 rounded-lg bg-muted/50 space-y-2">
+                        <p className="text-sm font-medium">Selected Add-ons:</p>
+                        {addOns.filter(a => selectedAddOns.includes(a._id)).map(addOn => (
+                          <div key={addOn._id} className="flex justify-between text-xs text-muted-foreground">
+                            <span>• {addOn.name}</span>
+                            <span>${addOn.price}</span>
+                          </div>
+                        ))}
+                        <div className="pt-2 border-t flex justify-between text-sm font-semibold">
+                          <span>Add-ons Total:</span>
+                          <span>
+                            ${addOns.filter(a => selectedAddOns.includes(a._id)).reduce((sum, a) => sum + a.price, 0)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <div className="flex justify-between pt-4">
+                  <Button type="button" variant="outline" onClick={prevStep}>
+                    Previous
+                  </Button>
+                  <Button type="button" onClick={nextStep}>
+                    Review & Submit
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* Step 4: Details & Submit */}
@@ -778,10 +959,10 @@ export function NewOrder() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Upload className="h-5 w-5" />
-                Order Details
+                Final Details & Submit
               </CardTitle>
               <CardDescription>
-                Add photos and notes for your repair order
+                Add photos and notes, then review and submit your repair order
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -810,33 +991,86 @@ export function NewOrder() {
                 />
               </div>
 
-              {/* Order Summary */}
-              <div className="bg-muted/50 rounded-lg p-4 space-y-4">
-                <h3 className="font-semibold">Order Summary</h3>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Device:</span>
-                    <span className="font-medium">
-                      {deviceTypes.find(dt => dt._id === watchedDeviceType)?.name} {manufacturers.find(m => m._id === watchedManufacturer)?.name} {models.find(m => m._id === watchedModel)?.name}
-                    </span>
+              {/* Unlock Information Review */}
+              {(unlockPattern.length > 0 || unlockCode || noDeviceLock) && (
+                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-3">
+                  <h4 className="font-semibold text-sm flex items-center gap-2">
+                    <Lock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    Device Lock Information
+                  </h4>
+                  <div className="text-sm space-y-2">
+                    {noDeviceLock && (
+                      <p className="text-blue-900 dark:text-blue-100">
+                        ✓ Device has no lock
+                      </p>
+                    )}
+                    {unlockPattern.length > 0 && (
+                      <p className="text-blue-900 dark:text-blue-100">
+                        ✓ Pattern lock: <span className="font-mono">{unlockPattern.join(' → ')}</span>
+                      </p>
+                    )}
+                    {unlockCode && (
+                      <p className="text-blue-900 dark:text-blue-100">
+                        ✓ Unlock code provided (kept confidential)
+                      </p>
+                    )}
                   </div>
+                </div>
+              )}
 
-                  <div className="space-y-1">
-                    <span className="text-sm font-medium">Services:</span>
-                    {services.filter(s => selectedServices.includes(s._id)).map(service => (
-                      <div key={service._id} className="flex justify-between text-sm ml-4">
-                        <span>• {service.name}</span>
-                        <span>${service.price}</span>
+              {/* Selected Add-ons Review */}
+              {selectedAddOns.length > 0 && (
+                <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4 space-y-3">
+                  <h4 className="font-semibold text-sm flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    Selected Add-ons
+                  </h4>
+                  <div className="space-y-1 text-sm">
+                    {addOns.filter(a => selectedAddOns.includes(a._id)).map(addOn => (
+                      <div key={addOn._id} className="flex justify-between text-green-900 dark:text-green-100">
+                        <span>✓ {addOn.name}</span>
+                        <span>${addOn.price}</span>
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Complete Order Summary */}
+              <div className="bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg p-4 space-y-4 border-2 border-primary/20">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Order Summary
+                </h3>
+
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Device:</span>
+                    <span className="font-medium">
+                      {selectedDevice
+                        ? `${selectedDevice.deviceType} • ${selectedDevice.manufacturer} • ${selectedDevice.name}`
+                        : "Not selected"
+                      }
+                    </span>
+                  </div>
+
+                  {selectedServices.length > 0 && (
+                    <div className="pt-2 border-t space-y-1">
+                      <span className="text-muted-foreground block font-medium">Services:</span>
+                      {services.filter(s => selectedServices.includes(s._id)).map(service => (
+                        <div key={service._id} className="flex justify-between ml-2">
+                          <span>• {service.name}</span>
+                          <span>${service.price}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {selectedAddOns.length > 0 && (
-                    <div className="space-y-1">
-                      <span className="text-sm font-medium">Add-ons:</span>
+                    <div className="pt-2 border-t space-y-1">
+                      <span className="text-muted-foreground block font-medium">Add-ons:</span>
                       {addOns.filter(a => selectedAddOns.includes(a._id)).map(addOn => (
-                        <div key={addOn._id} className="flex justify-between text-sm ml-4">
+                        <div key={addOn._id} className="flex justify-between ml-2">
                           <span>• {addOn.name}</span>
                           <span>${addOn.price}</span>
                         </div>
@@ -844,19 +1078,33 @@ export function NewOrder() {
                     </div>
                   )}
 
-                  <div className="border-t pt-2 flex justify-between font-semibold">
-                    <span>Total:</span>
-                    <span>${calculateTotal()}</span>
+                  <div className="border-t pt-3 mt-3 flex justify-between font-bold text-base">
+                    <span>Total Cost:</span>
+                    <span className="text-primary">${calculateTotal()}</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Terms Agreement */}
+              <div className="bg-muted/50 rounded-lg p-4">
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  By submitting this order, you agree to our repair terms and conditions. Your device lock information will be kept confidential and used only by our authorized technicians. You will receive a confirmation email with your order number and expected repair timeline.
+                </p>
               </div>
 
               <div className="flex justify-between">
                 <Button type="button" variant="outline" onClick={prevStep}>
                   Previous
                 </Button>
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? "Creating Order..." : "Create Order"}
+                <Button type="submit" disabled={submitting} size="lg" className="min-w-[200px]">
+                  {submitting ? (
+                    <span className="flex items-center gap-2">
+                      <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                      Creating Order...
+                    </span>
+                  ) : (
+                    "Create Order & Submit"
+                  )}
                 </Button>
               </div>
             </CardContent>
