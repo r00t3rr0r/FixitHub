@@ -240,9 +240,9 @@ class DeviceService {
             { name: { $regex: query, $options: 'i' } },
             { deviceType: { $regex: query, $options: 'i' } }
           ]
-        },
-        { limit: 20 }
+        }
       )
+        .limit(20)
         .populate('brandId', 'name logo')
         .sort({ name: 1 })
         .lean();
@@ -257,9 +257,9 @@ class DeviceService {
       if (brandMatches.length > 0) {
         const brandIds = brandMatches.map(b => b._id);
         brandModelResults = await DeviceModel.find(
-          { brandId: { $in: brandIds }, isActive: true },
-          { limit: 20 }
+          { brandId: { $in: brandIds }, isActive: true }
         )
+          .limit(20)
           .populate('brandId', 'name logo')
           .sort({ name: 1 })
           .lean();
@@ -272,16 +272,33 @@ class DeviceService {
       );
 
       // Format results for frontend consumption
-      const formattedResults = uniqueResults.map(model => ({
-        _id: model._id,
-        name: model.name,
-        deviceType: model.deviceType,
-        manufacturer: model.brandId?.name || 'Unknown',
-        manufacturerId: model.brandId?._id || null,
-        displayName: `${model.deviceType} • ${model.brandId?.name || 'Unknown'} • ${model.name}`
-      }));
+      const formattedResults = uniqueResults
+        .filter(model => {
+          // Ensure we have required fields
+          if (!model.name || !model.deviceType) {
+            console.log('DeviceService: Filtering out incomplete model:', {
+              _id: model._id,
+              name: model.name,
+              deviceType: model.deviceType,
+              brandId: model.brandId
+            });
+            return false;
+          }
+          return true;
+        })
+        .map(model => ({
+          _id: model._id,
+          name: model.name || 'Unknown Device',
+          deviceType: model.deviceType || 'unknown',
+          manufacturer: (model.brandId && model.brandId.name) || 'Unknown',
+          manufacturerId: (model.brandId && model.brandId._id) || null,
+          displayName: `${model.deviceType || 'unknown'} • ${(model.brandId && model.brandId.name) || 'Unknown'} • ${model.name || 'Unknown Device'}`
+        }));
 
-      console.log(`DeviceService: Found ${formattedResults.length} matching devices`);
+      console.log(`DeviceService: Found ${formattedResults.length} matching devices after filtering`);
+      if (formattedResults.length > 0) {
+        console.log('DeviceService: First result sample:', formattedResults[0]);
+      }
       return formattedResults;
     } catch (error) {
       console.error('DeviceService: Error searching devices:', error);

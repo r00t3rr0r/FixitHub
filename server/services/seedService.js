@@ -3,6 +3,7 @@ const Service = require('../models/Service');
 const AddOnService = require('../models/AddOnService');
 const Inventory = require('../models/Inventory');
 const Device = require('../models/Device');
+const { DeviceModel, DeviceBrand } = require('../models/Device');
 const Product = require('../models/Product');
 const { BlogPost, BlogCategory, BlogTag } = require('../models/BlogPost');
 const FAQ = require('../models/FAQ');
@@ -383,50 +384,84 @@ class SeedService {
   static async seedDevices() {
     try {
       console.log('SeedService.seedDevices: Starting devices seeding...');
-      
-      const existingDevices = await Device.countDocuments();
-      if (existingDevices > 0) {
+
+      const existingBrands = await DeviceBrand.countDocuments();
+      if (existingBrands > 0) {
         console.log('SeedService.seedDevices: Devices already exist, skipping...');
-        return await Device.find();
+        return;
       }
 
-      const devices = [
+      // Brand and model data
+      const devicesData = [
         {
           brand: 'Apple',
           models: [
-            { name: 'iPhone 14 Pro Max', type: 'Smartphone', releaseYear: 2022 },
-            { name: 'iPhone 14 Pro', type: 'Smartphone', releaseYear: 2022 },
-            { name: 'iPhone 14', type: 'Smartphone', releaseYear: 2022 },
-            { name: 'iPhone 13 Pro Max', type: 'Smartphone', releaseYear: 2021 },
-            { name: 'iPhone 13 Pro', type: 'Smartphone', releaseYear: 2021 },
-            { name: 'iPhone 13', type: 'Smartphone', releaseYear: 2021 },
-            { name: 'iPad Pro 12.9"', type: 'Tablet', releaseYear: 2022 },
-            { name: 'MacBook Pro 16"', type: 'Laptop', releaseYear: 2023 }
+            { name: 'iPhone 14 Pro Max', deviceType: 'smartphone' },
+            { name: 'iPhone 14 Pro', deviceType: 'smartphone' },
+            { name: 'iPhone 14', deviceType: 'smartphone' },
+            { name: 'iPhone 13 Pro Max', deviceType: 'smartphone' },
+            { name: 'iPhone 13 Pro', deviceType: 'smartphone' },
+            { name: 'iPhone 13', deviceType: 'smartphone' },
+            { name: 'iPad Pro 12.9"', deviceType: 'tablet' },
+            { name: 'MacBook Pro 16"', deviceType: 'laptop' }
           ]
         },
         {
           brand: 'Samsung',
           models: [
-            { name: 'Galaxy S23 Ultra', type: 'Smartphone', releaseYear: 2023 },
-            { name: 'Galaxy S23+', type: 'Smartphone', releaseYear: 2023 },
-            { name: 'Galaxy S23', type: 'Smartphone', releaseYear: 2023 },
-            { name: 'Galaxy S22 Ultra', type: 'Smartphone', releaseYear: 2022 },
-            { name: 'Galaxy Tab S8', type: 'Tablet', releaseYear: 2022 }
+            { name: 'Galaxy S23 Ultra', deviceType: 'smartphone' },
+            { name: 'Galaxy S23+', deviceType: 'smartphone' },
+            { name: 'Galaxy S23', deviceType: 'smartphone' },
+            { name: 'Galaxy S22 Ultra', deviceType: 'smartphone' },
+            { name: 'Galaxy Tab S8', deviceType: 'tablet' }
           ]
         },
         {
           brand: 'Google',
           models: [
-            { name: 'Pixel 7 Pro', type: 'Smartphone', releaseYear: 2022 },
-            { name: 'Pixel 7', type: 'Smartphone', releaseYear: 2022 },
-            { name: 'Pixel 6 Pro', type: 'Smartphone', releaseYear: 2021 }
+            { name: 'Pixel 7 Pro', deviceType: 'smartphone' },
+            { name: 'Pixel 7', deviceType: 'smartphone' },
+            { name: 'Pixel 6 Pro', deviceType: 'smartphone' }
+          ]
+        },
+        {
+          brand: 'Microsoft',
+          models: [
+            { name: 'Surface Laptop 5', deviceType: 'laptop' },
+            { name: 'Surface Pro 9', deviceType: 'tablet' }
           ]
         }
       ];
 
-      const createdDevices = await Device.insertMany(devices);
-      console.log('SeedService.seedDevices: Devices created successfully, count:', createdDevices.length);
-      return createdDevices;
+      // Create brands and models
+      for (const brandData of devicesData) {
+        console.log(`SeedService.seedDevices: Creating brand: ${brandData.brand}`);
+
+        // Create brand
+        const brand = new DeviceBrand({
+          name: brandData.brand,
+          logo: `https://via.placeholder.com/100x100/3b82f6/ffffff?text=${brandData.brand}`,
+          isActive: true
+        });
+        const savedBrand = await brand.save();
+        console.log(`SeedService.seedDevices: Brand ${brandData.brand} created with ID:`, savedBrand._id);
+
+        // Create models for this brand
+        const models = brandData.models.map(modelData => ({
+          name: modelData.name,
+          brandId: savedBrand._id,
+          deviceType: modelData.deviceType,
+          image: `https://via.placeholder.com/200x200/10b981/ffffff?text=${encodeURIComponent(modelData.name)}`,
+          specifications: {},
+          isActive: true
+        }));
+
+        const savedModels = await DeviceModel.insertMany(models);
+        console.log(`SeedService.seedDevices: Created ${savedModels.length} models for ${brandData.brand}`);
+      }
+
+      console.log('SeedService.seedDevices: Devices seeding completed successfully');
+      return;
     } catch (error) {
       console.error('SeedService.seedDevices: Error creating devices:', error);
       throw error;
