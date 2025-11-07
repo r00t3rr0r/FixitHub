@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { useParams, Link } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -70,6 +71,7 @@ import {
 export function OrderDetails() {
   const { id } = useParams<{ id: string }>()
   const { isAuthenticated } = useAuth()
+  const { t } = useTranslation()
   const [user, setUser] = useState<UserProfile | null>(null)
   const [order, setOrder] = useState<Order | null>(null)
   const [messages, setMessages] = useState<any[]>([])
@@ -718,7 +720,7 @@ export function OrderDetails() {
             <Button asChild>
               <Link to="/orders">
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Orders
+                {t('orderDetails.backToOrders')}
               </Link>
             </Button>
           </CardContent>
@@ -733,7 +735,7 @@ export function OrderDetails() {
       <Button variant="ghost" asChild>
         <Link to="/orders">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Orders
+          {t('orderDetails.backToOrders')}
         </Link>
       </Button>
 
@@ -784,7 +786,7 @@ export function OrderDetails() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <User className="h-5 w-5" />
-                Customer Information
+                {t('orderDetails.customerInformation')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -806,7 +808,7 @@ export function OrderDetails() {
                     {order.customerId.phone}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Customer since {new Date(order.customerId.createdAt).toLocaleDateString()}
+                    {t('orderDetails.customerSince')} {new Date(order.customerId.createdAt).toLocaleDateString()}
                   </p>
                 </div>
               </div>
@@ -816,7 +818,7 @@ export function OrderDetails() {
                 <div className="bg-muted/50 p-4 rounded-lg">
                   <h4 className="font-medium mb-2 flex items-center gap-2">
                     <Home className="h-4 w-4" />
-                    Address
+                    {t('orderDetails.address')}
                   </h4>
                   <div className="text-sm text-muted-foreground">
                     <p>{order.customerId.address.street}</p>
@@ -831,7 +833,7 @@ export function OrderDetails() {
                 <div className="bg-muted/50 p-4 rounded-lg">
                   <h4 className="font-medium mb-2 flex items-center gap-2">
                     <CreditCard className="h-4 w-4" />
-                    Payment Methods
+                    {t('orderDetails.paymentMethods')}
                   </h4>
                   <div className="space-y-2">
                     {order.customerId.paymentMethods.map((method, index) => (
@@ -842,7 +844,7 @@ export function OrderDetails() {
                             {method.expiryMonth}/{method.expiryYear}
                           </span>
                           {method.isDefault && (
-                            <Badge variant="secondary" className="text-xs">Default</Badge>
+                            <Badge variant="secondary" className="text-xs">{t('orderDetails.default')}</Badge>
                           )}
                         </div>
                       </div>
@@ -863,20 +865,20 @@ export function OrderDetails() {
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
-                  Assigned Staff
+                  {t('orderDetails.assignedStaff')}
                 </div>
                 <Dialog open={staffDialogOpen} onOpenChange={setStaffDialogOpen}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm">
                       <UserPlus className="h-4 w-4 mr-2" />
-                      Assign Staff
+                      {t('orderDetails.assignStaff')}
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                      <DialogTitle>Assign Staff to Order</DialogTitle>
+                      <DialogTitle>{t('orderDetails.assignStaffToOrder')}</DialogTitle>
                       <DialogDescription>
-                        Select one or more staff members to assign to this repair order.
+                        {t('orderDetails.selectStaffMembers')}
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 max-h-64 overflow-y-auto">
@@ -905,7 +907,7 @@ export function OrderDetails() {
                                 ))}
                                 {staff.specializations.length > 2 && (
                                   <Badge variant="secondary" className="text-xs">
-                                    +{staff.specializations.length - 2} more
+                                    +{staff.specializations.length - 2} {t('orderDetails.more')}
                                   </Badge>
                                 )}
                               </div>
@@ -919,7 +921,7 @@ export function OrderDetails() {
                         onClick={handleStaffAssignment}
                         disabled={selectedStaff.length === 0 || assigningStaff}
                       >
-                        {assigningStaff ? "Assigning..." : "Assign Staff"}
+                        {assigningStaff ? t('orderDetails.assigning') : t('orderDetails.assignStaff')}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -939,7 +941,7 @@ export function OrderDetails() {
                       </Avatar>
                       <div>
                         <p className="font-medium">{staff.name}</p>
-                        <p className="text-sm text-muted-foreground">Repair Technician</p>
+                        <p className="text-sm text-muted-foreground">{t('orderDetails.repairTechnician')}</p>
                       </div>
                     </div>
                   ))}
@@ -947,8 +949,8 @@ export function OrderDetails() {
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>No staff assigned yet</p>
-                  <p className="text-sm">Click "Assign Staff" to assign technicians to this order</p>
+                  <p>{t('orderDetails.noStaffAssigned')}</p>
+                  <p className="text-sm">{t('orderDetails.clickAssignStaff')}</p>
                 </div>
               )}
             </CardContent>
@@ -960,7 +962,7 @@ export function OrderDetails() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Camera className="h-5 w-5" />
-                Device Information
+                {t('orderDetails.deviceInformation')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -992,7 +994,7 @@ export function OrderDetails() {
                         </Badge>
                       ))
                     ) : (
-                      <Badge variant="outline">No services selected</Badge>
+                      <Badge variant="outline">{t('orderDetails.noServicesSelected')}</Badge>
                     )}
                   </div>
                 </div>
@@ -1000,7 +1002,7 @@ export function OrderDetails() {
 
               {order.customerNotes && (
                 <div className="bg-muted/50 p-4 rounded-lg">
-                  <h4 className="font-medium mb-2">Your Notes:</h4>
+                  <h4 className="font-medium mb-2">{t('orderDetails.yourNotes')}:</h4>
                   <p className="text-sm text-muted-foreground">{order.customerNotes}</p>
                 </div>
               )}
@@ -1013,7 +1015,7 @@ export function OrderDetails() {
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Shield className="h-5 w-5" />
-                  Add-On Services
+                  {t('orderDetails.addOnServices')}
                 </div>
                 {(user?.role === 'admin' || user?.role === 'staff') && (
                   <Button
@@ -1022,7 +1024,7 @@ export function OrderDetails() {
                     onClick={() => setAddAddonDialogOpen(true)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Add-On
+                    {t('orderDetails.addAddOn')}
                   </Button>
                 )}
               </CardTitle>
@@ -1091,9 +1093,9 @@ export function OrderDetails() {
               ) : (
                 <div className="text-center text-muted-foreground py-8">
                   <Shield className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>No add-on services</p>
+                  <p>{t('orderDetails.noAddOnServices')}</p>
                   {(user?.role === 'admin' || user?.role === 'staff') && (
-                    <p className="text-sm">Click "Add Add-On" to add services to this order</p>
+                    <p className="text-sm">{t('orderDetails.clickAddAddOn')}</p>
                   )}
                 </div>
               )}
@@ -1107,7 +1109,7 @@ export function OrderDetails() {
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Wrench className="h-5 w-5" />
-                    Electronic Parts
+                    {t('orderDetails.electronicParts')}
                   </div>
                   <Button
                     variant="outline"
@@ -1115,7 +1117,7 @@ export function OrderDetails() {
                     onClick={() => setEPartDialogOpen(true)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Add EPart
+                    {t('orderDetails.addEPart')}
                   </Button>
                 </CardTitle>
               </CardHeader>
@@ -1180,8 +1182,8 @@ export function OrderDetails() {
                 ) : (
                   <div className="text-center text-muted-foreground py-8">
                     <Wrench className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>No electronic parts assigned</p>
-                    <p className="text-sm">Click "Add EPart" to assign parts to this order</p>
+                    <p>{t('orderDetails.noElectronicParts')}</p>
+                    <p className="text-sm">{t('orderDetails.clickAddEPart')}</p>
                   </div>
                 )}
               </CardContent>
@@ -1206,7 +1208,7 @@ export function OrderDetails() {
                     <CardTitle className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <CheckCircle className="h-5 w-5" />
-                        Workflows
+                        {t('orderDetails.workflows')}
                       </div>
                       <Button
                         variant="outline"
@@ -1214,15 +1216,15 @@ export function OrderDetails() {
                         onClick={() => setWorkflowDialogOpen(true)}
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        Assign Workflow
+                        {t('orderDetails.assignWorkflow')}
                       </Button>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-center text-muted-foreground py-8">
                       <CheckCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                      <p>No workflows assigned</p>
-                      <p className="text-sm">Click "Assign Workflow" to add guided steps for this order</p>
+                      <p>{t('orderDetails.noWorkflowsAssigned')}</p>
+                      <p className="text-sm">{t('orderDetails.clickAssignWorkflow')}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -1235,25 +1237,25 @@ export function OrderDetails() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
-                Repair Progress
+                {t('orderDetails.repairProgress')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="font-medium">Overall Progress</span>
+                  <span className="font-medium">{t('orderDetails.overallProgress')}</span>
                   <span className="text-sm text-muted-foreground">{order.progress}%</span>
                 </div>
                 <Progress value={order.progress} className="h-3" />
                 {order.estimatedCompletion && order.status !== 'completed' && (
                   <p className="text-sm text-muted-foreground">
-                    Estimated completion: {new Date(order.estimatedCompletion).toLocaleDateString()}
+                    {t('orderDetails.estimatedCompletion')}: {new Date(order.estimatedCompletion).toLocaleDateString()}
                   </p>
                 )}
               </div>
 
               <div className="space-y-4">
-                <h4 className="font-medium">Repair Timeline</h4>
+                <h4 className="font-medium">{t('orderDetails.repairTimeline')}</h4>
                 <div className="space-y-3">
                   {[
                     { step: "Order Received", completed: true, date: order.createdAt },
@@ -1295,7 +1297,7 @@ export function OrderDetails() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5" />
-                Order Summary
+                {t('orderDetails.orderSummary')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">

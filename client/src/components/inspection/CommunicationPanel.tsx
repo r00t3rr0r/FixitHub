@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -67,6 +68,9 @@ export function CommunicationPanel({
   orderId,
   inspectionId,
 }: CommunicationPanelProps) {
+  // Description: React component for managing inspection communication threads
+  // i18n keys: communicationPanel namespace
+  const { t } = useTranslation()
   const { toast } = useToast()
   const [user, setUser] = useState<UserProfile | null>(null)
   const [communication, setCommunication] = useState<Communication | null>(null)
@@ -132,14 +136,14 @@ export function CommunicationPanel({
       const updated = await respondToFeedback(orderId, messageId, response)
       setCommunication(updated)
       toast({
-        title: "Success",
-        description: "Your response has been recorded",
+        title: t('common.success'),
+        description: t('communicationPanel.successResponseRecorded'),
       })
     } catch (error: any) {
       console.error("Error responding to feedback:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to submit response",
+        title: t('common.error'),
+        description: error.message || t('communicationPanel.errorEnterDescription'),
         variant: "destructive",
       })
     } finally {
@@ -150,8 +154,8 @@ export function CommunicationPanel({
   const handleSendFeedback = async () => {
     if (!feedbackQuestion.trim() || !feedbackOption1Label.trim() || !feedbackOption2Label.trim()) {
       toast({
-        title: "Error",
-        description: "Please fill in all fields",
+        title: t('common.error'),
+        description: t('communicationPanel.errorFillAllFields'),
         variant: "destructive",
       })
       return
@@ -166,8 +170,8 @@ export function CommunicationPanel({
       const updated = await sendFeedbackRequest(orderId, inspectionId || "", feedbackQuestion, options)
       setCommunication(updated)
       toast({
-        title: "Success",
-        description: "Feedback request sent to customer",
+        title: t('common.success'),
+        description: t('communicationPanel.successFeedbackSent'),
       })
       // Reset form
       setFeedbackQuestion("")
@@ -179,8 +183,8 @@ export function CommunicationPanel({
     } catch (error: any) {
       console.error("Error sending feedback:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to send feedback request",
+        title: t('common.error'),
+        description: error.message || t('communicationPanel.errorFillAllFields'),
         variant: "destructive",
       })
     } finally {
@@ -191,8 +195,8 @@ export function CommunicationPanel({
   const handleSendQuickAction = async () => {
     if (!quickActionDescription.trim()) {
       toast({
-        title: "Error",
-        description: "Please enter a description",
+        title: t('common.error'),
+        description: t('communicationPanel.errorEnterDescription'),
         variant: "destructive",
       })
       return
@@ -203,8 +207,8 @@ export function CommunicationPanel({
       const updated = await createQuickAction(orderId, inspectionId || "", quickActionType, quickActionDescription)
       setCommunication(updated)
       toast({
-        title: "Success",
-        description: "Quick action sent to customer",
+        title: t('common.success'),
+        description: t('communicationPanel.successActionSent'),
       })
       // Reset form
       setQuickActionDescription("")
@@ -213,8 +217,8 @@ export function CommunicationPanel({
     } catch (error: any) {
       console.error("Error sending quick action:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to send quick action",
+        title: t('common.error'),
+        description: error.message || t('communicationPanel.errorEnterDescription'),
         variant: "destructive",
       })
     } finally {
@@ -247,7 +251,7 @@ export function CommunicationPanel({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <MessageCircle className="w-4 h-4 text-blue-600" />
-            <h3 className="text-sm font-semibold">Communication & Feedback</h3>
+            <h3 className="text-sm font-semibold">{t('communicationPanel.communicationAndFeedback')}</h3>
           </div>
 
           {/* Staff/Admin Action Buttons */}
@@ -258,20 +262,20 @@ export function CommunicationPanel({
                 variant="ghost"
                 onClick={() => setShowFeedbackDialog(true)}
                 className="h-7 px-2 text-xs"
-                title="Send feedback request to customer"
+                title={t('communicationPanel.sendFeedbackRequest')}
               >
                 <Send className="w-3 h-3 mr-1" />
-                Feedback
+                {t('communicationPanel.feedback')}
               </Button>
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => setShowQuickActionDialog(true)}
                 className="h-7 px-2 text-xs"
-                title="Send quick action to customer"
+                title={t('communicationPanel.sendQuickAction')}
               >
                 <Plus className="w-3 h-3 mr-1" />
-                Action
+                {t('communicationPanel.action')}
               </Button>
             </div>
           )}
@@ -312,7 +316,7 @@ export function CommunicationPanel({
                       <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
                         <CheckCircle2 className="w-4 h-4" />
                         <span className="text-sm">
-                          You responded: <span className="font-medium">{message.feedbackRequest.response?.label}</span>
+                          {t('communicationPanel.youResponded')} <span className="font-medium">{message.feedbackRequest.response?.label}</span>
                         </span>
                       </div>
                     )}
@@ -333,13 +337,13 @@ export function CommunicationPanel({
                           </p>
                         )}
                         <p className="text-xs text-muted-foreground mt-2">
-                          From: <span className="font-medium">{message.senderName}</span>
+                          {t('communicationPanel.from')} <span className="font-medium">{message.senderName}</span>
                         </p>
                       </div>
                       {message.quickAction.status === "completed" && (
                         <Badge variant="default" className="gap-1 flex-shrink-0">
                           <CheckCircle2 className="w-3 h-3" />
-                          Completed
+                          {t('communicationPanel.completed')}
                         </Badge>
                       )}
                     </div>
@@ -351,7 +355,7 @@ export function CommunicationPanel({
         )}
 
         {communicationMessages.length === 0 && isStaffOrAdmin && (
-          <p className="text-sm text-gray-500">No communication messages yet. Use the buttons above to send feedback or actions to the customer.</p>
+          <p className="text-sm text-gray-500">{t('communicationPanel.noCommunicationMessages')}</p>
         )}
       </div>
 
@@ -359,18 +363,18 @@ export function CommunicationPanel({
       <Dialog open={showFeedbackDialog} onOpenChange={setShowFeedbackDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Send Feedback Request to Customer</DialogTitle>
+            <DialogTitle>{t('communicationPanel.sendFeedbackRequest')}</DialogTitle>
             <DialogDescription>
-              Ask the customer a question about the repair
+              {t('communicationPanel.askCustomerQuestion')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="question">Question</Label>
+              <Label htmlFor="question">{t('communicationPanel.question')}</Label>
               <Textarea
                 id="question"
-                placeholder="e.g., Do you approve the $45 battery replacement?"
+                placeholder={t('communicationPanel.exampleQuestion')}
                 value={feedbackQuestion}
                 onChange={(e) => setFeedbackQuestion(e.target.value)}
                 className="min-h-[80px]"
@@ -378,20 +382,20 @@ export function CommunicationPanel({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="option1">First Option</Label>
+              <Label htmlFor="option1">{t('communicationPanel.firstOption')}</Label>
               <Input
                 id="option1"
-                placeholder="e.g., Yes, proceed with repair"
+                placeholder={t('communicationPanel.exampleOption1')}
                 value={feedbackOption1Label}
                 onChange={(e) => setFeedbackOption1Label(e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="option2">Second Option</Label>
+              <Label htmlFor="option2">{t('communicationPanel.secondOption')}</Label>
               <Input
                 id="option2"
-                placeholder="e.g., No, don't proceed"
+                placeholder={t('communicationPanel.exampleOption2')}
                 value={feedbackOption2Label}
                 onChange={(e) => setFeedbackOption2Label(e.target.value)}
               />
@@ -400,10 +404,10 @@ export function CommunicationPanel({
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowFeedbackDialog(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleSendFeedback} disabled={sendingFeedback}>
-              {sendingFeedback ? "Sending..." : "Send Feedback Request"}
+              {sendingFeedback ? t('communicationPanel.sendingFeedback') : t('communicationPanel.sendFeedback')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -413,33 +417,33 @@ export function CommunicationPanel({
       <Dialog open={showQuickActionDialog} onOpenChange={setShowQuickActionDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Send Quick Action to Customer</DialogTitle>
+            <DialogTitle>{t('communicationPanel.sendQuickAction')}</DialogTitle>
             <DialogDescription>
-              Notify the customer of an important action
+              {t('communicationPanel.notifyCustomer')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="actionType">Action Type</Label>
+              <Label htmlFor="actionType">{t('communicationPanel.actionType')}</Label>
               <select
                 id="actionType"
                 value={quickActionType}
                 onChange={(e) => setQuickActionType(e.target.value as any)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-sm"
               >
-                <option value="part_replacement">Part Replacement Required</option>
-                <option value="incorrect_device">Incorrect Device Specification</option>
-                <option value="incorrect_unlock_code">Incorrect Unlock Code</option>
-                <option value="additional_costs">Additional Costs Required</option>
+                <option value="part_replacement">{t('communicationPanel.partReplacementRequired')}</option>
+                <option value="incorrect_device">{t('communicationPanel.incorrectDeviceSpecification')}</option>
+                <option value="incorrect_unlock_code">{t('communicationPanel.incorrectUnlockCode')}</option>
+                <option value="additional_costs">{t('communicationPanel.additionalCostsRequired')}</option>
               </select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">{t('communicationPanel.description')}</Label>
               <Textarea
                 id="description"
-                placeholder="Describe the action or issue..."
+                placeholder={t('communicationPanel.describeAction')}
                 value={quickActionDescription}
                 onChange={(e) => setQuickActionDescription(e.target.value)}
                 className="min-h-[100px]"
@@ -449,10 +453,10 @@ export function CommunicationPanel({
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowQuickActionDialog(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleSendQuickAction} disabled={sendingQuickAction}>
-              {sendingQuickAction ? "Sending..." : "Send Action"}
+              {sendingQuickAction ? t('communicationPanel.sendingAction') : t('communicationPanel.sendAction')}
             </Button>
           </DialogFooter>
         </DialogContent>
