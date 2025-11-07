@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/useToast"
-import { getCart, updateCartItem, removeFromCart, applyPromoCode, Cart, CartItem } from "@/api/shop"
+import { getCart, updateCartItem, removeFromCart, removeRepairOrderFromCart, applyPromoCode, Cart, CartItem } from "@/api/shop"
 import {
   ShoppingCart as ShoppingCartIcon,
   Plus,
@@ -13,7 +13,9 @@ import {
   Trash2,
   Tag,
   ArrowLeft,
-  CreditCard
+  CreditCard,
+  Wrench,
+  Smartphone
 } from "lucide-react"
 
 export function ShoppingCartPage() {
@@ -110,6 +112,32 @@ export function ShoppingCartPage() {
     }
   }
 
+  const handleRemoveRepairOrder = async (repairOrderId: string) => {
+    try {
+      setUpdating(repairOrderId)
+      console.log("Removing repair order:", repairOrderId)
+
+      await removeRepairOrderFromCart(repairOrderId)
+      toast({
+        title: "Repair order removed",
+        description: "Repair order has been removed from your cart"
+      })
+
+      // Refresh cart
+      const response = await getCart()
+      setCart((response as any).cart)
+    } catch (error: any) {
+      console.error("Error removing repair order:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to remove repair order",
+        variant: "destructive"
+      })
+    } finally {
+      setUpdating(null)
+    }
+  }
+
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
@@ -135,7 +163,9 @@ export function ShoppingCartPage() {
     )
   }
 
-  if (!cart || cart.items.length === 0) {
+  const hasItems = cart && (cart.items.length > 0 || (cart.repairOrders && cart.repairOrders.length > 0))
+
+  if (!cart || !hasItems) {
     return (
       <div className="max-w-4xl mx-auto">
         <Card>
@@ -143,14 +173,22 @@ export function ShoppingCartPage() {
             <ShoppingCartIcon className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
             <h3 className="text-lg font-semibold mb-2">Your cart is empty</h3>
             <p className="text-muted-foreground mb-4">
-              Add some products to get started
+              Add some products or create a repair order to get started
             </p>
-            <Button asChild>
-              <Link to="/shop">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Continue Shopping
-              </Link>
-            </Button>
+            <div className="flex gap-3 justify-center">
+              <Button asChild variant="outline">
+                <Link to="/shop">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Shop Products
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link to="/new-order">
+                  <Wrench className="h-4 w-4 mr-2" />
+                  Create Repair Order
+                </Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -178,6 +216,7 @@ export function ShoppingCartPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Cart Items */}
         <div className="lg:col-span-2 space-y-4">
+          {/* Product Items */}
           {cart.items.map((item) => (
             <Card key={item._id}>
               <CardContent className="p-6">
@@ -241,6 +280,60 @@ export function ShoppingCartPage() {
                         </p>
                         <p className="text-sm text-muted-foreground">
                           ${item.productId.price.toFixed(2)} each
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          {/* Repair Orders */}
+          {cart.repairOrders && cart.repairOrders.map((order: any) => (
+            <Card key={order._id} className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5">
+              <CardContent className="p-6">
+                <div className="flex gap-4">
+                  <div className="w-20 h-20 flex items-center justify-center bg-primary/10 rounded-lg">
+                    <Wrench className="h-10 w-10 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold">Repair Order</h3>
+                          <Badge variant="secondary">
+                            <Smartphone className="h-3 w-3 mr-1" />
+                            Device Repair
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {order.deviceType} • {order.deviceBrand} • {order.deviceModel}
+                        </p>
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          <p><strong>Services:</strong> {order.services?.length || 0} service(s)</p>
+                          {order.addOns && order.addOns.length > 0 && (
+                            <p><strong>Add-ons:</strong> {order.addOns.length} add-on(s)</p>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveRepairOrder(order._id)}
+                        disabled={updating === order._id}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                      <div className="text-xs text-muted-foreground">
+                        Repair services included
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-lg">
+                          ${order.totalCost.toFixed(2)}
                         </p>
                       </div>
                     </div>

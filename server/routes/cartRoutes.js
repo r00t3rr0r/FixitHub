@@ -132,7 +132,7 @@ router.delete('/clear', requireUser, async (req, res) => {
   try {
     console.log('CartRoutes: Clearing cart for user:', req.user._id);
     const cart = await CartService.clearCart(req.user._id);
-    
+
     res.json({
       success: true,
       message: 'Cart cleared successfully',
@@ -140,6 +140,64 @@ router.delete('/clear', requireUser, async (req, res) => {
     });
   } catch (error) {
     console.error('CartRoutes: Error clearing cart:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Description: Add repair order to cart
+// Endpoint: POST /api/cart/add-repair-order
+// Request: { deviceType: string, deviceBrand: string, deviceModel: string, services: string[], addOns: object[], customerNotes: string, photos: string[], totalCost: number }
+// Response: { success: boolean, message: string, cart: Cart }
+router.post('/add-repair-order', requireUser, async (req, res) => {
+  try {
+    console.log('CartRoutes: Adding repair order to cart:', req.body);
+    const repairOrderData = req.body;
+
+    if (!repairOrderData.deviceType || !repairOrderData.deviceBrand || !repairOrderData.deviceModel ||
+        !repairOrderData.services || !repairOrderData.totalCost) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: deviceType, deviceBrand, deviceModel, services, and totalCost are required'
+      });
+    }
+
+    const cart = await CartService.addRepairOrderToCart(req.user._id, repairOrderData);
+
+    res.json({
+      success: true,
+      message: 'Repair order added to cart successfully',
+      cart
+    });
+  } catch (error) {
+    console.error('CartRoutes: Error adding repair order to cart:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Description: Remove repair order from cart
+// Endpoint: DELETE /api/cart/remove-repair-order/:repairOrderId
+// Request: { repairOrderId: string }
+// Response: { success: boolean, message: string, cart: Cart }
+router.delete('/remove-repair-order/:repairOrderId', requireUser, async (req, res) => {
+  try {
+    console.log('CartRoutes: Removing repair order from cart:', req.params.repairOrderId);
+    const { repairOrderId } = req.params;
+
+    const cart = await CartService.removeRepairOrderFromCart(req.user._id, repairOrderId);
+
+    res.json({
+      success: true,
+      message: 'Repair order removed from cart',
+      cart
+    });
+  } catch (error) {
+    console.error('CartRoutes: Error removing repair order from cart:', error);
     res.status(500).json({
       success: false,
       error: error.message

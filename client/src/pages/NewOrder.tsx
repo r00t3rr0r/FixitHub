@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/useToast"
 import { getRepairServices, getAddOnServices, RepairService } from "@/api/services"
 import { getDeviceTypes, getManufacturersByDeviceType, getModelsByTypeAndManufacturer, DeviceType, Manufacturer, DeviceModel, searchDevices, SearchResult } from "@/api/devices"
 import { createOrder } from "@/api/orders"
+import { addRepairOrderToCart } from "@/api/shop"
 import { UnlockPatternInput } from "@/components/inspection/UnlockPatternInput"
 import {
   Select,
@@ -1236,27 +1237,28 @@ export function NewOrder() {
                     onClick={async () => {
                       try {
                         setSubmitting(true)
-                        console.log("Adding order to cart and redirecting...")
+                        console.log("Adding repair order to cart...")
 
-                        // Create order data
+                        // Get selected device details
                         const selectedDeviceTypeObj = deviceTypes.find(dt => dt._id === selectedDeviceType)
                         const selectedManufacturerObj = manufacturers.find(m => m._id === selectedManufacturer)
                         const selectedModelObj = models.find(m => m._id === selectedModel)
 
+                        // Prepare add-ons data
                         const selectedAddOnObjects = addOns
                           .filter(addOn => selectedAddOns.includes(addOn._id))
                           .map(addOn => ({
                             name: addOn.name,
                             description: addOn.description,
                             price: addOn.price,
-                            status: 'pending',
                             estimatedTime: addOn.estimatedTime || '30 minutes'
                           }))
 
                         const photoUrls: string[] = []
                         // Note: Photos would be handled separately in a real implementation
 
-                        const orderData = {
+                        // Prepare repair order data for cart
+                        const repairOrderData = {
                           deviceType: selectedDeviceTypeObj?.name || selectedDeviceType,
                           deviceBrand: selectedManufacturerObj?.name || selectedManufacturer,
                           deviceModel: selectedModelObj?.name || selectedModel,
@@ -1267,22 +1269,20 @@ export function NewOrder() {
                           totalCost: calculateTotal()
                         }
 
-                        console.log("Order data prepared:", orderData)
+                        console.log("Adding repair order to cart:", repairOrderData)
 
-                        // Redirect to cart with a flag or message
-                        navigate("/cart", {
-                          state: {
-                            newOrder: orderData,
-                            message: "Your repair order has been added to your cart!"
-                          }
-                        })
+                        // Call the API to add repair order to cart
+                        await addRepairOrderToCart(repairOrderData)
 
                         toast({
                           title: "Success!",
-                          description: "Your repair order has been added to your cart. You can now review it in your shopping cart.",
+                          description: "Your repair order has been added to your cart.",
                         })
+
+                        // Navigate to cart page
+                        navigate("/cart")
                       } catch (error: any) {
-                        console.error("Error adding to cart:", error)
+                        console.error("Error adding repair order to cart:", error)
                         toast({
                           title: "Error",
                           description: error.message || "Failed to add order to cart",

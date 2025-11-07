@@ -34,10 +34,29 @@ export interface CartItem {
   price: number;
 }
 
+export interface RepairOrderItem {
+  _id: string;
+  deviceType: string;
+  deviceBrand: string;
+  deviceModel: string;
+  services: string[];
+  addOns: Array<{
+    name: string;
+    description: string;
+    price: number;
+    estimatedTime: string;
+  }>;
+  customerNotes: string;
+  photos: string[];
+  totalCost: number;
+  addedAt: string;
+}
+
 export interface Cart {
   _id: string;
   user: string;
   items: CartItem[];
+  repairOrders?: RepairOrderItem[];
   subtotal: number;
   tax: number;
   total: number;
@@ -217,6 +236,49 @@ export const clearCart = async () => {
 export const applyPromoCode = async (data: { promoCode: string }) => {
   try {
     const response = await api.post('/api/cart/promo', data);
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Repair Order interfaces
+export interface RepairOrderData {
+  deviceType: string;
+  deviceBrand: string;
+  deviceModel: string;
+  services: string[];
+  addOns?: Array<{
+    name: string;
+    description: string;
+    price: number;
+    estimatedTime: string;
+  }>;
+  customerNotes?: string;
+  photos?: string[];
+  totalCost: number;
+}
+
+// Description: Add repair order to cart
+// Endpoint: POST /api/cart/add-repair-order
+// Request: { deviceType: string, deviceBrand: string, deviceModel: string, services: string[], addOns: object[], customerNotes: string, photos: string[], totalCost: number }
+// Response: { success: boolean, message: string, cart: Cart }
+export const addRepairOrderToCart = async (repairOrderData: RepairOrderData) => {
+  try {
+    const response = await api.post('/api/cart/add-repair-order', repairOrderData);
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Remove repair order from cart
+// Endpoint: DELETE /api/cart/remove-repair-order/:repairOrderId
+// Request: { repairOrderId: string }
+// Response: { success: boolean, message: string, cart: Cart }
+export const removeRepairOrderFromCart = async (repairOrderId: string) => {
+  try {
+    const response = await api.delete(`/api/cart/remove-repair-order/${repairOrderId}`);
     return response.data;
   } catch (error) {
     throw new Error(error?.response?.data?.error || error.message);
