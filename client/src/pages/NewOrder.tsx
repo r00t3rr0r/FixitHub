@@ -238,7 +238,7 @@ export function NewOrder() {
 
       fetchManufacturers()
     }
-  }, [watchedDeviceType, selectedDeviceType, selectedDevice, setValue, toast])
+  }, [watchedDeviceType, selectedDeviceType, selectedDevice])
 
   // Handle manufacturer selection
   useEffect(() => {
@@ -248,7 +248,7 @@ export function NewOrder() {
       console.log("selectedManufacturer:", selectedManufacturer);
       console.log("selectedDeviceType:", selectedDeviceType);
       console.log("Current manufacturers array:", manufacturers);
-      
+
       setSelectedManufacturer(watchedManufacturer)
       setSelectedModel("")
       setModels([])
@@ -261,13 +261,13 @@ export function NewOrder() {
           console.log("=== FETCHING MODELS ===");
           console.log("Device type for models fetch:", selectedDeviceType);
           console.log("Manufacturer for models fetch:", watchedManufacturer);
-          
+
           const response = await getModelsByTypeAndManufacturer(selectedDeviceType, watchedManufacturer)
           console.log("=== MODELS RESPONSE ===");
           console.log("Full response:", response);
           console.log("Models from response:", (response as any).models);
           console.log("Models array length:", (response as any).models?.length || 0);
-          
+
           setModels((response as any).models || [])
           console.log("=== MODELS SET IN STATE ===");
           console.log("Models set in state:", (response as any).models || []);
@@ -287,7 +287,7 @@ export function NewOrder() {
 
       fetchModels()
     }
-  }, [watchedManufacturer, selectedManufacturer, selectedDeviceType, setValue, toast])
+  }, [watchedManufacturer, selectedManufacturer, selectedDeviceType])
 
   // Handle model selection
   useEffect(() => {
