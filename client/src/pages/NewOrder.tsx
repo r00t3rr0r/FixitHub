@@ -239,7 +239,7 @@ export function NewOrder() {
 
       fetchManufacturers()
     }
-  }, [watchedDeviceType, selectedDeviceType, selectedDevice])
+  }, [selectedDeviceType, selectedDevice])
 
   // Handle manufacturer selection
   useEffect(() => {
@@ -288,7 +288,7 @@ export function NewOrder() {
 
       fetchModels()
     }
-  }, [watchedManufacturer, selectedManufacturer, selectedDeviceType])
+  }, [selectedManufacturer, selectedDeviceType])
 
   // Handle model selection
   useEffect(() => {
