@@ -978,8 +978,8 @@ export function OrderDetails() {
                     {t('orderDetails.paymentMethods')}
                   </h4>
                   <div className="space-y-2">
-                    {order.customerId.paymentMethods.map((method, index) => (
-                      <div key={index} className="flex items-center justify-between text-sm">
+                    {order.customerId.paymentMethods.map((method) => (
+                      <div key={`${method.type}-${method.last4}`} className="flex items-center justify-between text-sm">
                         <span className="capitalize">{method.type} ending in {method.last4}</span>
                         <div className="flex items-center gap-2">
                           <span className="text-muted-foreground">
@@ -1042,8 +1042,8 @@ export function OrderDetails() {
                               <p className="font-medium">{staff.name}</p>
                               <p className="text-sm text-muted-foreground">{staff.email}</p>
                               <div className="flex flex-wrap gap-1 mt-1">
-                                {staff.specializations.slice(0, 2).map((spec, index) => (
-                                  <Badge key={index} variant="secondary" className="text-xs">
+                                {staff.specializations.slice(0, 2).map((spec) => (
+                                  <Badge key={spec} variant="secondary" className="text-xs">
                                     {spec}
                                   </Badge>
                                 ))}
@@ -1130,9 +1130,9 @@ export function OrderDetails() {
                   <p className="text-muted-foreground">Repair Services</p>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {order.services && order.services.length > 0 ? (
-                      order.services.map((service, index) => (
-                        <Badge key={index} variant="outline">
-                          Service #{index + 1}
+                      order.services.map((service) => (
+                        <Badge key={service._id} variant="outline">
+                          Service #{service._id.substring(0, 8)}
                         </Badge>
                       ))
                     ) : (
@@ -1483,8 +1483,8 @@ export function OrderDetails() {
                     { step: "Repair in Progress", completed: order.progress >= 50, date: null },
                     { step: "Quality Check", completed: order.progress >= 75, date: null },
                     { step: "Ready for Pickup", completed: order.progress >= 100, date: null }
-                  ].map((step, index) => (
-                    <div key={index} className="flex items-center gap-3">
+                  ].map((step) => (
+                    <div key={step.step} className="flex items-center gap-3">
                       <div className={`w-4 h-4 rounded-full border-2 ${
                         step.completed
                           ? 'bg-green-500 border-green-500'
@@ -1523,10 +1523,10 @@ export function OrderDetails() {
             <CardContent className="space-y-3">
               <div className="space-y-2">
                 {order.services && order.services.length > 0 ? (
-                  order.services.map((service, index) => (
-                    <div key={index} className="flex justify-between text-sm">
-                      <span>Service #{index + 1}</span>
-                      <span>$199</span>
+                  order.services.map((service) => (
+                    <div key={service._id} className="flex justify-between text-sm">
+                      <span>Service #{service._id.substring(0, 8)}</span>
+                      <span>${service.price}</span>
                     </div>
                   ))
                 ) : (

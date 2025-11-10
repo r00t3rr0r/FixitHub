@@ -60,12 +60,12 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
 
   // Initialize form data
   useEffect(() => {
-    if (mode === 'edit' && service) {
+    if (mode === 'edit' && service && service.serviceId) {
       setFormData({
-        serviceId: service.serviceId._id,
-        price: service.price,
-        estimatedTime: service.estimatedTime,
-        notes: service.notes,
+        serviceId: service.serviceId?._id || '',
+        price: service.price || 0,
+        estimatedTime: service.estimatedTime || 0,
+        notes: service.notes || '',
       });
     } else {
       setFormData({

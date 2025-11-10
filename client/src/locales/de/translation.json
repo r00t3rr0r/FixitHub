@@ -1363,7 +1363,10 @@
     "assignWorkflowToOrder": "Arbeitsablauf dem Auftrag zuweisen",
     "selectWorkflowDescription": "Wählen Sie eine Workflow-Vorlage, die dem Gerätetyp und den Diensten dieses Auftrags entspricht",
     "noSuggestedWorkflows": "Keine vorgeschlagenen Arbeitsabläufe verfügbar",
-    "createWorkflows": "Erstellen Sie Arbeitsabläufe im Admin-Bereich, die dem Gerätetyp und den Diensten dieses Auftrags entsprechen"
+    "createWorkflows": "Erstellen Sie Arbeitsabläufe im Admin-Bereich, die dem Gerätetyp und den Diensten dieses Auftrags entsprechen",
+    "customerSince": "Kunde seit",
+    "more": "mehr",
+    "noElectronicParts": "Keine elektronischen Teile"
   },
   "deviceInspection": {
     "deviceInspection": "Geräteinspection",
