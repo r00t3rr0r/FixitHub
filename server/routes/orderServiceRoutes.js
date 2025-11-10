@@ -38,24 +38,28 @@ router.put(
 
       console.log(`[OrderServiceRoutes] PUT /:orderId/:serviceId - Updating service ${serviceId} in order ${orderId}`);
 
-      // Validate inputs
-      if (price !== undefined && (typeof price !== 'number' || price < 0)) {
-        return res.status(400).json({ error: 'Price must be a positive number' });
+      // Validate inputs - convert to numbers if needed and validate
+      let validatedPrice = price;
+      let validatedTime = estimatedTime;
+
+      if (price !== undefined) {
+        validatedPrice = typeof price === 'string' ? parseFloat(price) : price;
+        if (isNaN(validatedPrice) || validatedPrice < 0) {
+          return res.status(400).json({ error: 'Price must be a positive number' });
+        }
       }
 
-      if (
-        estimatedTime !== undefined &&
-        (typeof estimatedTime !== 'number' || estimatedTime < 0)
-      ) {
-        return res
-          .status(400)
-          .json({ error: 'Estimated time must be a positive number' });
+      if (estimatedTime !== undefined) {
+        validatedTime = typeof estimatedTime === 'string' ? parseFloat(estimatedTime) : estimatedTime;
+        if (isNaN(validatedTime) || validatedTime < 0) {
+          return res.status(400).json({ error: 'Estimated time must be a positive number' });
+        }
       }
 
       const order = await OrderServiceManagementService.updateOrderService(
         orderId,
         serviceId,
-        { price, estimatedTime, notes }
+        { price: validatedPrice, estimatedTime: validatedTime, notes }
       );
 
       console.log(
@@ -86,24 +90,28 @@ router.post('/:orderId', requireUser, requireRole(['admin', 'staff']), async (re
       return res.status(400).json({ error: 'Service ID is required' });
     }
 
-    // Validate optional fields
-    if (price !== undefined && (typeof price !== 'number' || price < 0)) {
-      return res.status(400).json({ error: 'Price must be a positive number' });
+    // Validate optional fields - convert to numbers if needed
+    let validatedPrice = price;
+    let validatedTime = estimatedTime;
+
+    if (price !== undefined) {
+      validatedPrice = typeof price === 'string' ? parseFloat(price) : price;
+      if (isNaN(validatedPrice) || validatedPrice < 0) {
+        return res.status(400).json({ error: 'Price must be a positive number' });
+      }
     }
 
-    if (
-      estimatedTime !== undefined &&
-      (typeof estimatedTime !== 'number' || estimatedTime < 0)
-    ) {
-      return res
-        .status(400)
-        .json({ error: 'Estimated time must be a positive number' });
+    if (estimatedTime !== undefined) {
+      validatedTime = typeof estimatedTime === 'string' ? parseFloat(estimatedTime) : estimatedTime;
+      if (isNaN(validatedTime) || validatedTime < 0) {
+        return res.status(400).json({ error: 'Estimated time must be a positive number' });
+      }
     }
 
     const order = await OrderServiceManagementService.addServiceToOrder(
       orderId,
       serviceId,
-      { price, estimatedTime, notes }
+      { price: validatedPrice, estimatedTime: validatedTime, notes }
     );
 
     console.log(

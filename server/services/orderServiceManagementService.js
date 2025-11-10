@@ -42,10 +42,13 @@ class OrderServiceManagementService {
         throw new Error('Order not found');
       }
 
-      // Find the service index
-      const serviceIndex = order.services.findIndex(
-        (s) => s._id.toString() === serviceId
-      );
+      // Find the service index with safe null/undefined checking
+      const serviceIndex = order.services.findIndex((s) => {
+        if (!s || !s._id) {
+          return false;
+        }
+        return s._id.toString() === serviceId;
+      });
 
       if (serviceIndex === -1) {
         throw new Error('Service not found in order');
@@ -199,10 +202,13 @@ class OrderServiceManagementService {
         throw new Error('Order not found');
       }
 
-      // Find service index
-      const serviceIndex = order.services.findIndex(
-        (s) => s._id.toString() === serviceId
-      );
+      // Find service index with safe null/undefined checking
+      const serviceIndex = order.services.findIndex((s) => {
+        if (!s || !s._id) {
+          return false;
+        }
+        return s._id.toString() === serviceId;
+      });
 
       if (serviceIndex === -1) {
         throw new Error('Service not found in order');
