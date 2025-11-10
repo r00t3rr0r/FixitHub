@@ -189,6 +189,29 @@ const orderEPartSchema = new mongoose.Schema({
   },
 }, { _id: true });
 
+// Define service schema for order services (repair services)
+const orderServiceSchema = new mongoose.Schema({
+  serviceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Service',
+    required: true,
+  },
+  price: {
+    type: Number,
+    required: true,
+    min: 0,
+  },
+  estimatedTime: {
+    type: Number,
+    required: true,
+    min: 0,
+  },
+  notes: {
+    type: String,
+    default: '',
+  },
+}, { _id: true });
+
 const orderSchema = new mongoose.Schema({
   orderNumber: {
     type: String,
@@ -211,10 +234,7 @@ const orderSchema = new mongoose.Schema({
     type: String,
     default: 'Smartphone',
   },
-  services: [{
-    type: String,
-    required: true,
-  }],
+  services: [orderServiceSchema],
   addOns: [addOnServiceSchema],
   status: {
     type: String,
@@ -315,6 +335,7 @@ orderSchema.pre('save', function(next) {
 orderSchema.pre(/^find/, function(next) {
   this.populate('customerId', 'name email phone avatar address paymentMethods isActive role createdAt')
       .populate('assignedStaff.staffId', 'name avatar')
+      .populate('services.serviceId', 'name description price estimatedTime category')
       .populate('eParts.partId')
       .populate('eParts.assignedBy', 'name email')
       .populate('workflows.workflowTemplateId')

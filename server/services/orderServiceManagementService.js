@@ -19,8 +19,18 @@ class OrderServiceManagementService {
         throw new Error('Order not found');
       }
 
-      console.log(`[OrderServiceManagement] Retrieved ${order.services?.length || 0} services for order ${orderId}`);
-      return order.services || [];
+      // Migrate old format (array of strings) to new format (array of objects)
+      let services = (order.services || []).filter((s) => {
+        // Filter out old string format and keep only new object format
+        if (typeof s === 'string') {
+          console.log(`[OrderServiceManagement] Migrating old service format (string) to new format`);
+          return false;
+        }
+        return true;
+      });
+
+      console.log(`[OrderServiceManagement] Retrieved ${services.length} services for order ${orderId}`);
+      return services;
     } catch (error) {
       console.error(`[OrderServiceManagement] Error getting order services: ${error.message}`);
       throw error;
@@ -128,23 +138,49 @@ class OrderServiceManagementService {
         throw new Error('Service not found');
       }
 
-      // Check if service is already in order
-      const serviceExists = order.services.some(
-        (s) => s.serviceId.toString() === serviceId
-      );
+      // Ensure services array exists and migrate old format if needed
+      if (!order.services) {
+        order.services = [];
+      } else {
+        // Migrate old format (array of strings) to new format (array of objects)
+        order.services = order.services.map((s) => {
+          // If it's a string (old format), skip it (we'll clear old data)
+          if (typeof s === 'string') {
+            return null;
+          }
+          return s;
+        }).filter(s => s !== null);
+      }
+
+      // Check if service is already in order (safely handle both formats)
+      const serviceExists = order.services.some((s) => {
+        if (!s || typeof s === 'string') return false;
+        if (!s.serviceId) return false;
+        const sId = typeof s.serviceId === 'object' ? s.serviceId.toString() : s.serviceId;
+        return sId === serviceId;
+      });
 
       if (serviceExists) {
         throw new Error('Service is already added to this order');
       }
 
+      // Ensure price and estimatedTime are numbers
+      let price = options.price !== undefined ? options.price : service.price;
+      let estimatedTime = options.estimatedTime !== undefined ? options.estimatedTime : service.estimatedTime;
+
+      // Convert to numbers if they're strings
+      if (typeof price === 'string') {
+        price = parseFloat(price);
+      }
+      if (typeof estimatedTime === 'string') {
+        estimatedTime = parseFloat(estimatedTime);
+      }
+
       // Add service with custom or default values
       const newService = {
         serviceId: serviceId,
-        price: options.price !== undefined ? options.price : service.price,
-        estimatedTime:
-          options.estimatedTime !== undefined
-            ? options.estimatedTime
-            : service.estimatedTime,
+        price: price,
+        estimatedTime: estimatedTime,
         notes: options.notes || '',
       };
 
