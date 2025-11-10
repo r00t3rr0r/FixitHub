@@ -1129,8 +1129,8 @@ export function OrderDetails() {
                   <h3 className="text-xl font-semibold">{order.deviceBrand} {order.deviceModel}</h3>
                   <p className="text-muted-foreground">Repair Services</p>
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {order.services && order.services.length > 0 ? (
-                      order.services.map((service) => (
+                    {order.services && order.services.filter((s) => s && s._id).length > 0 ? (
+                      order.services.filter((s) => s && s._id).map((service) => (
                         <Badge key={service._id} variant="outline">
                           Service #{service._id.substring(0, 8)}
                         </Badge>
@@ -1174,10 +1174,10 @@ export function OrderDetails() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {repairServices && repairServices.length > 0 ? (
+                {repairServices && repairServices.filter((s) => s && s._id).length > 0 ? (
                   <div className="space-y-4">
-                    {repairServices.map((service) => (
-                      <div key={service._id} className="flex items-center justify-between p-4 border rounded-lg">
+                    {repairServices.filter((s) => s && s._id).map((service, index) => (
+                      <div key={service._id || `service-${index}`} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center gap-3 flex-1">
                           <div className="flex-1">
                             <h4 className="font-medium">{service.serviceId?.name || 'Service'}</h4>
@@ -1208,7 +1208,7 @@ export function OrderDetails() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleDeleteRepairService(service._id)}
+                              onClick={() => service._id && handleDeleteRepairService(service._id)}
                               className="text-red-500 hover:text-red-700 hover:bg-red-50"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -1522,8 +1522,8 @@ export function OrderDetails() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-2">
-                {order.services && order.services.length > 0 ? (
-                  order.services.map((service) => (
+                {order.services && order.services.filter((s) => s && s._id).length > 0 ? (
+                  order.services.filter((s) => s && s._id).map((service) => (
                     <div key={service._id} className="flex justify-between text-sm">
                       <span>Service #{service._id.substring(0, 8)}</span>
                       <span>${service.price}</span>
