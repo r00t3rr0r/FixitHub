@@ -6,9 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Smartphone, Tablet, Laptop, Monitor, Star, ArrowRight, CheckCircle, Users, Award, Clock, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function Home() {
   const { t } = useTranslation();
+  const { isAuthenticated } = useAuth();
   const [email, setEmail] = useState('');
 
   const deviceTypes = [
@@ -70,12 +72,20 @@ export function Home() {
             <a href="#contact" className="text-muted-foreground hover:text-foreground">{t('home.nav.contact')}</a>
           </nav>
           <div className="flex items-center gap-2">
-            <Button variant="outline" asChild>
-              <Link to="/login">{t('navigation.login')}</Link>
-            </Button>
-            <Button asChild>
-              <Link to="/register">{t('home.nav.getStarted')}</Link>
-            </Button>
+            {isAuthenticated ? (
+              <Button asChild>
+                <Link to="/dashboard">{t('navigation.dashboard')}</Link>
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" asChild>
+                  <Link to="/login">{t('navigation.login')}</Link>
+                </Button>
+                <Button asChild>
+                  <Link to="/register">{t('home.nav.getStarted')}</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -92,7 +102,9 @@ export function Home() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" asChild>
-              <Link to="/register">{t('home.hero.bookRepair')}</Link>
+              <Link to={isAuthenticated ? "/new-order" : "/register"}>
+                {isAuthenticated ? t('home.hero.bookRepair') : t('home.hero.bookRepair')}
+              </Link>
             </Button>
             <Button size="lg" variant="outline">
               {t('home.hero.getQuote')}

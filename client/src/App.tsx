@@ -56,54 +56,149 @@ function App() {
     <AuthProvider>
       <ThemeProvider defaultTheme="light" storageKey="ui-theme">
         <Router>
+          {/* Public routes - accessible to all users */}
           <Routes>
+            {/* Home page as default landing page for all users */}
+            <Route path="/" element={<Home />} />
             <Route path="/home" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/debug" element={<DebugLogin />} />
-            <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+
+            {/* Protected routes - accessible only to authenticated users */}
+            <Route path="/dashboard" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
-              <Route path="new-order" element={<NewOrder />} />
-              <Route path="orders" element={<OrderTracking />} />
-              <Route path="orders/:id" element={<OrderDetails />} />
-              <Route path="messages" element={<Messages />} />
-              <Route path="notifications" element={<Notifications />} />
-              <Route path="shop" element={<WebShop />} />
-              <Route path="cart" element={<ShoppingCartPage />} />
-              <Route path="profile" element={<Profile />} />
-              <Route path="blog" element={<Blog />} />
-              <Route path="blog/:id" element={<BlogPostPage />} />
-              <Route path="staff" element={<StaffDashboard />} />
-              <Route path="staff/orders" element={<StaffOrders />} />
-              <Route path="staff/knowledge-base" element={<KnowledgeBase />} />
-              <Route path="staff/time-tracking" element={<TimeTracking />} />
-              <Route path="staff/schedule" element={<Schedule />} />
-              <Route path="staff/chat" element={<TeamChat />} />
-              <Route path="staff/performance" element={<Performance />} />
-              <Route path="admin" element={<AdminDashboard />} />
-              <Route path="admin/users" element={<UserManagement />} />
-              <Route path="admin/orders" element={<OrderManagement />} />
-              <Route path="admin/shop" element={<WebShopManagement />} />
-              <Route path="admin/services" element={<ServiceManagement />} />
-              <Route path="admin/addons" element={<AddOnServiceManagement />} />
-              <Route path="admin/devices" element={<DeviceBrandsManagement />} />
-              <Route path="admin/analytics" element={<Analytics />} />
-              <Route path="admin/blog" element={<BlogManagement />} />
-              <Route path="admin/faq" element={<FAQManagement />} />
-              <Route path="admin/homepage" element={<HomepageManagement />} />
-              <Route path="admin/seo" element={<SEOManagement />} />
-              <Route path="admin/system" element={<SystemConfiguration />} />
-              <Route path="admin/database" element={<DatabaseManagement />} />
-              <Route path="admin/security" element={<SecuritySettings />} />
-              <Route path="admin/workflow" element={<WorkflowManagement />} />
-              <Route path="admin/diagnostics" element={<DiagnosticTools />} />
-              <Route path="admin/parts" element={<PartsManagement />} />
-              <Route path="admin/quality" element={<QualityControl />} />
-              <Route path="admin/staff" element={<StaffManagement />} />
-              <Route path="admin/financial" element={<FinancialManagement />} />
-              <Route path="admin/epart-orders" element={<EPartOrderManagement />} />
-              <Route path="inspection/:orderId" element={<InspectionWorkflow />} />
             </Route>
+
+            {/* Customer routes */}
+            <Route path="/new-order" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<NewOrder />} />
+            </Route>
+            <Route path="/orders" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<OrderTracking />} />
+            </Route>
+            <Route path="/orders/:id" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<OrderDetails />} />
+            </Route>
+            <Route path="/messages" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<Messages />} />
+            </Route>
+            <Route path="/notifications" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<Notifications />} />
+            </Route>
+            <Route path="/shop" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<WebShop />} />
+            </Route>
+            <Route path="/cart" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<ShoppingCartPage />} />
+            </Route>
+            <Route path="/profile" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<Profile />} />
+            </Route>
+            <Route path="/blog" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<Blog />} />
+            </Route>
+            <Route path="/blog/:id" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<BlogPostPage />} />
+            </Route>
+
+            {/* Staff routes */}
+            <Route path="/staff" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<StaffDashboard />} />
+            </Route>
+            <Route path="/staff/orders" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<StaffOrders />} />
+            </Route>
+            <Route path="/staff/knowledge-base" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<KnowledgeBase />} />
+            </Route>
+            <Route path="/staff/time-tracking" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<TimeTracking />} />
+            </Route>
+            <Route path="/staff/schedule" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<Schedule />} />
+            </Route>
+            <Route path="/staff/chat" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<TeamChat />} />
+            </Route>
+            <Route path="/staff/performance" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<Performance />} />
+            </Route>
+
+            {/* Admin routes */}
+            <Route path="/admin" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<AdminDashboard />} />
+            </Route>
+            <Route path="/admin/users" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<UserManagement />} />
+            </Route>
+            <Route path="/admin/orders" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<OrderManagement />} />
+            </Route>
+            <Route path="/admin/shop" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<WebShopManagement />} />
+            </Route>
+            <Route path="/admin/services" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<ServiceManagement />} />
+            </Route>
+            <Route path="/admin/addons" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<AddOnServiceManagement />} />
+            </Route>
+            <Route path="/admin/devices" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<DeviceBrandsManagement />} />
+            </Route>
+            <Route path="/admin/analytics" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<Analytics />} />
+            </Route>
+            <Route path="/admin/blog" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<BlogManagement />} />
+            </Route>
+            <Route path="/admin/faq" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<FAQManagement />} />
+            </Route>
+            <Route path="/admin/homepage" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<HomepageManagement />} />
+            </Route>
+            <Route path="/admin/seo" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<SEOManagement />} />
+            </Route>
+            <Route path="/admin/system" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<SystemConfiguration />} />
+            </Route>
+            <Route path="/admin/database" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<DatabaseManagement />} />
+            </Route>
+            <Route path="/admin/security" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<SecuritySettings />} />
+            </Route>
+            <Route path="/admin/workflow" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<WorkflowManagement />} />
+            </Route>
+            <Route path="/admin/diagnostics" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<DiagnosticTools />} />
+            </Route>
+            <Route path="/admin/parts" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<PartsManagement />} />
+            </Route>
+            <Route path="/admin/quality" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<QualityControl />} />
+            </Route>
+            <Route path="/admin/staff" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<StaffManagement />} />
+            </Route>
+            <Route path="/admin/financial" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<FinancialManagement />} />
+            </Route>
+            <Route path="/admin/epart-orders" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<EPartOrderManagement />} />
+            </Route>
+
+            {/* Inspection route */}
+            <Route path="/inspection/:orderId" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<InspectionWorkflow />} />
+            </Route>
+
+            {/* Catch-all route */}
             <Route path="*" element={<BlankPage />} />
           </Routes>
         </Router>
