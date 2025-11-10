@@ -89,6 +89,8 @@ console.log('Loading language routes...');
 const languageRoutes = require("./routes/languageRoutes");
 console.log('Loading checkout routes...');
 const checkoutRoutes = require("./routes/checkoutRoutes");
+console.log('Loading order service routes...');
+const orderServiceRoutes = require("./routes/orderServiceRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -334,6 +336,8 @@ app.use('/api/inspection-communication', inspectionCommunicationRoutes);
 app.use('/api/languages', languageRoutes);
 // Checkout Routes
 app.use('/api/checkout', checkoutRoutes);
+// Order Service Routes
+app.use('/api/order-services', orderServiceRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 

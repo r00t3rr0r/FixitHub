@@ -12,9 +12,11 @@ import { getOrderById, Order, getOrderProgressTimeline } from "@/api/orders"
 import { getConversations, getConversationMessages, sendMessage, startConversation } from "@/api/messages"
 import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon } from "@/api/adminOrders"
 import { getUserProfile, UserProfile } from "@/api/user"
-import { getAddOnServices, AddOnService as AddOnServiceType } from "@/api/services"
+import { getAddOnServices, AddOnService as AddOnServiceType, getServices } from "@/api/services"
 import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder } from "@/api/workflow"
+import { getOrderServices, addServiceToOrder, updateOrderService, removeServiceFromOrder } from "@/api/orderServices"
 import EPartSelectionDialog from "@/components/admin/EPartSelectionDialog"
+import { RepairServiceDialog } from "@/components/inspection/RepairServiceDialog"
 import { WorkflowExecutionView } from "@/components/workflow/WorkflowExecutionView"
 import { InspectionResultsDisplay } from "@/components/inspection/InspectionResultsDisplay"
 import { OrderProgressTimeline } from "@/components/OrderProgressTimeline"
@@ -101,6 +103,10 @@ export function OrderDetails() {
   const [workflowDialogOpen, setWorkflowDialogOpen] = useState(false)
   const [assigningWorkflow, setAssigningWorkflow] = useState(false)
   const [progressTimeline, setProgressTimeline] = useState<any>(null)
+  const [repairServices, setRepairServices] = useState<any[]>([])
+  const [availableServices, setAvailableServices] = useState<any[]>([])
+  const [serviceDialogOpen, setServiceDialogOpen] = useState(false)
+  const [editingService, setEditingService] = useState<any>(null)
   const { toast } = useToast()
 
   // Fetch user profile
@@ -215,6 +221,31 @@ export function OrderDetails() {
 
     fetchAvailableAddons()
   }, [user])
+
+  // Fetch available repair services and repair services for order
+  useEffect(() => {
+    const fetchRepairServices = async () => {
+      if (!id || !user || (user.role !== 'admin' && user.role !== 'staff')) return
+
+      try {
+        console.log("Fetching repair services for order:", id)
+
+        // Fetch available services
+        const servicesResponse = await getServices()
+        setAvailableServices((servicesResponse as any).services || [])
+
+        // Fetch repair services for this order
+        const orderServicesResponse = await getOrderServices(id)
+        setRepairServices((orderServicesResponse as any).services || [])
+
+        console.log("Repair services loaded:", (orderServicesResponse as any).services)
+      } catch (error) {
+        console.error("Error fetching repair services:", error)
+      }
+    }
+
+    fetchRepairServices()
+  }, [id, user])
 
   // Fetch workflows for order
   useEffect(() => {
@@ -564,6 +595,117 @@ export function OrderDetails() {
     setCustomAddonDescription(addon.description || "")
     setCustomAddonTime(addon.estimatedTime || "")
     setEditAddonDialogOpen(true)
+  }
+
+  // Repair Service Handlers
+  const handleAddRepairService = async (formData: any) => {
+    if (!id) return
+
+    try {
+      console.log("Adding repair service:", formData)
+      await addServiceToOrder(id, formData.serviceId, {
+        price: formData.price,
+        estimatedTime: formData.estimatedTime,
+        notes: formData.notes
+      })
+
+      toast({
+        title: "Success",
+        description: "Repair service added successfully"
+      })
+
+      setServiceDialogOpen(false)
+
+      // Refresh repair services
+      const orderServicesResponse = await getOrderServices(id)
+      setRepairServices((orderServicesResponse as any).services || [])
+
+      // Refresh order data
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("Error adding repair service:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add repair service",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleEditRepairService = async (formData: any) => {
+    if (!id || !editingService) return
+
+    try {
+      console.log("Updating repair service:", editingService._id, formData)
+      await updateOrderService(id, editingService._id, {
+        price: formData.price,
+        estimatedTime: formData.estimatedTime,
+        notes: formData.notes
+      })
+
+      toast({
+        title: "Success",
+        description: "Repair service updated successfully"
+      })
+
+      setEditingService(null)
+      setServiceDialogOpen(false)
+
+      // Refresh repair services
+      const orderServicesResponse = await getOrderServices(id)
+      setRepairServices((orderServicesResponse as any).services || [])
+
+      // Refresh order data
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("Error updating repair service:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update repair service",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleDeleteRepairService = async (serviceId: string) => {
+    if (!id) return
+
+    try {
+      console.log("Removing repair service:", serviceId)
+      await removeServiceFromOrder(id, serviceId)
+
+      toast({
+        title: "Success",
+        description: "Repair service removed successfully"
+      })
+
+      // Refresh repair services
+      const orderServicesResponse = await getOrderServices(id)
+      setRepairServices((orderServicesResponse as any).services || [])
+
+      // Refresh order data
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("Error removing repair service:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to remove repair service",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const openEditServiceDialog = (service: any) => {
+    setEditingService(service)
+    setServiceDialogOpen(true)
+  }
+
+  const handleSaveService = async (formData: any) => {
+    if (editingService) {
+      await handleEditRepairService(formData)
+    } else {
+      await handleAddRepairService(formData)
+    }
   }
 
   const openAssignAddonStaffDialog = (addon: any) => {
@@ -1008,6 +1150,84 @@ export function OrderDetails() {
               )}
             </CardContent>
           </Card>
+
+          {/* Repair Services - Only visible to admin/staff */}
+          {(user?.role === 'admin' || user?.role === 'staff') && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Wrench className="h-5 w-5" />
+                    {t('orderDetails.repairServices')}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingService(null)
+                      setServiceDialogOpen(true)
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    {t('orderDetails.addService')}
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {repairServices && repairServices.length > 0 ? (
+                  <div className="space-y-4">
+                    {repairServices.map((service) => (
+                      <div key={service._id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-3 flex-1">
+                          <div className="flex-1">
+                            <h4 className="font-medium">{service.serviceId?.name || 'Service'}</h4>
+                            {service.notes && (
+                              <p className="text-sm text-muted-foreground">{service.notes}</p>
+                            )}
+                            {service.estimatedTime && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                <Clock className="h-3 w-3 inline mr-1" />
+                                {service.estimatedTime} min
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <p className="text-sm font-medium">${service.price}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEditServiceDialog(service)}
+                              className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteRepairService(service._id)}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    <Wrench className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>{t('orderDetails.noRepairServices')}</p>
+                    <p className="text-sm">{t('orderDetails.clickAddService')}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Add-On Services */}
           <Card>
@@ -1718,6 +1938,21 @@ export function OrderDetails() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Repair Service Dialog */}
+      {id && order && (
+        <RepairServiceDialog
+          isOpen={serviceDialogOpen}
+          onClose={() => {
+            setServiceDialogOpen(false)
+            setEditingService(null)
+          }}
+          service={editingService}
+          mode={editingService ? 'edit' : 'add'}
+          availableServices={availableServices}
+          onSave={handleSaveService}
+        />
+      )}
     </div>
   )
 }
