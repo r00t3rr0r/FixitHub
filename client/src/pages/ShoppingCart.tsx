@@ -6,6 +6,9 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/useToast"
 import { getCart, updateCartItem, removeFromCart, removeRepairOrderFromCart, applyPromoCode, Cart, CartItem } from "@/api/shop"
+import { initializeCheckout } from "@/api/checkout"
+import { useAuth } from "@/contexts/AuthContext"
+import { CheckoutDialog } from "@/components/checkout/CheckoutDialog"
 import {
   ShoppingCart as ShoppingCartIcon,
   Plus,
@@ -21,11 +24,14 @@ import { useTranslation } from 'react-i18next'
 
 export function ShoppingCartPage() {
   const { t } = useTranslation()
+  const { isAuthenticated } = useAuth()
   const [cart, setCart] = useState<Cart | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null)
   const [promoCode, setPromoCode] = useState("")
   const [applyingPromo, setApplyingPromo] = useState(false)
+  const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false)
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -137,6 +143,80 @@ export function ShoppingCartPage() {
       })
     } finally {
       setUpdating(null)
+    }
+  }
+
+  const handleProceedToCheckout = async () => {
+    console.log("Proceed to checkout clicked. Is authenticated:", isAuthenticated)
+
+    // Check if user is logged in
+    if (!isAuthenticated) {
+      console.log("User not authenticated, opening checkout dialog")
+      setCheckoutDialogOpen(true)
+      return
+    }
+
+    // User is logged in, proceed with checkout
+    try {
+      setCheckoutLoading(true)
+      console.log("User authenticated, initializing checkout...")
+
+      const response = await initializeCheckout()
+
+      console.log("Checkout initialized successfully:", response)
+
+      toast({
+        title: t('common.success'),
+        description: t('checkout.checkoutInitialized')
+      })
+
+      // TODO: Navigate to actual checkout/payment page
+      // For now, just show a success message
+      toast({
+        title: t('checkout.proceedingToPayment'),
+        description: t('checkout.proceedingToPaymentDesc')
+      })
+    } catch (error: any) {
+      console.error("Error initializing checkout:", error)
+      toast({
+        title: t('common.error'),
+        description: error.message || t('checkout.checkoutFailed'),
+        variant: "destructive"
+      })
+    } finally {
+      setCheckoutLoading(false)
+    }
+  }
+
+  const handleCheckoutSuccess = async () => {
+    console.log("Checkout authentication successful")
+
+    // User has successfully logged in or registered, now initialize checkout
+    try {
+      setCheckoutLoading(true)
+      const response = await initializeCheckout()
+
+      console.log("Checkout initialized after authentication:", response)
+
+      toast({
+        title: t('common.success'),
+        description: t('checkout.checkoutInitialized')
+      })
+
+      // TODO: Navigate to actual checkout/payment page
+      toast({
+        title: t('checkout.proceedingToPayment'),
+        description: t('checkout.proceedingToPaymentDesc')
+      })
+    } catch (error: any) {
+      console.error("Error initializing checkout after authentication:", error)
+      toast({
+        title: t('common.error'),
+        description: error.message || t('checkout.checkoutFailed'),
+        variant: "destructive"
+      })
+    } finally {
+      setCheckoutLoading(false)
     }
   }
 
@@ -411,9 +491,14 @@ export function ShoppingCartPage() {
                 <span>${cart.total.toFixed(2)}</span>
               </div>
 
-              <Button className="w-full" size="lg">
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={handleProceedToCheckout}
+                disabled={checkoutLoading}
+              >
                 <CreditCard className="h-4 w-4 mr-2" />
-                {t('cart.proceedToCheckout')}
+                {checkoutLoading ? t('common.loading') : t('cart.proceedToCheckout')}
               </Button>
 
               <p className="text-xs text-muted-foreground text-center">
@@ -438,6 +523,13 @@ export function ShoppingCartPage() {
           </Card>
         </div>
       </div>
+
+      {/* Checkout Dialog */}
+      <CheckoutDialog
+        open={checkoutDialogOpen}
+        onOpenChange={setCheckoutDialogOpen}
+        onSuccess={handleCheckoutSuccess}
+      />
     </div>
   )
 }

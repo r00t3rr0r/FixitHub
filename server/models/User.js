@@ -32,6 +32,18 @@ const schema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  company: {
+    type: String,
+    default: '',
+  },
+  country: {
+    type: String,
+    default: '',
+  },
+  vatId: {
+    type: String,
+    default: '',
+  },
   role: {
     type: String,
     enum: ['customer', 'staff', 'admin'],
