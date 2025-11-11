@@ -49,6 +49,21 @@ class OrderService {
         if (plain.totalCost !== undefined && typeof plain.totalCost === 'object') {
           plain.totalCost = Number(plain.totalCost);
         }
+
+        // Transform services array from objects to service names
+        if (plain.services && Array.isArray(plain.services)) {
+          plain.services = plain.services.map(service => {
+            // Handle populated service objects
+            if (typeof service === 'object' && service !== null) {
+              if (service.serviceId && typeof service.serviceId === 'object') {
+                return service.serviceId.name || 'Unknown Service';
+              }
+              return service.name || 'Unknown Service';
+            }
+            return String(service);
+          });
+        }
+
         return plain;
       });
 
@@ -127,6 +142,21 @@ class OrderService {
         if (plain.totalCost !== undefined && typeof plain.totalCost === 'object') {
           plain.totalCost = Number(plain.totalCost);
         }
+
+        // Transform services array from objects to service names
+        if (plain.services && Array.isArray(plain.services)) {
+          plain.services = plain.services.map(service => {
+            // Handle populated service objects
+            if (typeof service === 'object' && service !== null) {
+              if (service.serviceId && typeof service.serviceId === 'object') {
+                return service.serviceId.name || 'Unknown Service';
+              }
+              return service.name || 'Unknown Service';
+            }
+            return String(service);
+          });
+        }
+
         return plain;
       });
 
