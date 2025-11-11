@@ -62,6 +62,32 @@ const staffNoteSchema = new mongoose.Schema({
   },
 }, { _id: true });
 
+// Unlock pattern/code confirmation schema
+const unlockConfirmationSchema = new mongoose.Schema({
+  confirmedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+  confirmedByName: {
+    type: String,
+    required: true,
+  },
+  confirmedAt: {
+    type: Date,
+    default: Date.now,
+  },
+  confirmationStatus: {
+    type: String,
+    enum: ['verified', 'incorrect', 'unable-to-verify'],
+    required: true,
+  },
+  notes: {
+    type: String,
+    default: '',
+  },
+}, { _id: true });
+
 const orderTimelineSchema = new mongoose.Schema({
   status: {
     type: String,
@@ -287,6 +313,20 @@ const orderSchema = new mongoose.Schema({
     enum: ['pending', 'paid', 'refunded', 'partial'],
     default: 'pending',
   },
+  // Device unlock information
+  unlockPattern: {
+    type: [String],
+    default: [],
+  },
+  unlockCode: {
+    type: String,
+    default: '',
+  },
+  noLock: {
+    type: Boolean,
+    default: false,
+  },
+  unlockConfirmation: unlockConfirmationSchema,
   createdAt: {
     type: Date,
     default: Date.now,

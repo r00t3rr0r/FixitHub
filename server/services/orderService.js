@@ -1278,6 +1278,46 @@ class OrderService {
       throw error;
     }
   }
+
+  // Confirm/verify unlock code or pattern
+  static async confirmUnlock(orderId, userId, userName, confirmationStatus, notes = '') {
+    console.log('OrderService: Confirming unlock for order:', orderId, 'by user:', userName);
+
+    try {
+      // Validate order exists
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      // Validate user has unlock information
+      if (!order.unlockPattern.length && !order.unlockCode && !order.noLock) {
+        throw new Error('No unlock information to confirm for this order');
+      }
+
+      // Validate confirmation status
+      if (!['verified', 'incorrect', 'unable-to-verify'].includes(confirmationStatus)) {
+        throw new Error('Invalid confirmation status. Must be verified, incorrect, or unable-to-verify');
+      }
+
+      // Update order with confirmation
+      order.unlockConfirmation = {
+        confirmedBy: userId,
+        confirmedByName: userName,
+        confirmationStatus: confirmationStatus,
+        notes: notes,
+        confirmedAt: new Date()
+      };
+
+      const updatedOrder = await order.save();
+      console.log('OrderService: Unlock confirmation recorded for order:', orderId);
+
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error confirming unlock:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = OrderService;

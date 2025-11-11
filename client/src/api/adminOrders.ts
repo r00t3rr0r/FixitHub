@@ -537,3 +537,22 @@ export const assignStaffToAddon = async (orderId: string, addonId: string, staff
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// Description: Confirm/verify the device unlock code or pattern
+// Endpoint: POST /api/admin-orders/:id/confirm-unlock
+// Request: { confirmationStatus: 'verified' | 'incorrect' | 'unable-to-verify', notes?: string }
+// Response: { order: AdminOrder }
+export const confirmUnlockCode = async (orderId: string, confirmationStatus: 'verified' | 'incorrect' | 'unable-to-verify', notes: string = '') => {
+  console.log('confirmUnlockCode called with orderId:', orderId, 'confirmationStatus:', confirmationStatus);
+  try {
+    const response = await api.post(`/api/admin-orders/${orderId}/confirm-unlock`, {
+      confirmationStatus,
+      notes
+    });
+    console.log('confirmUnlockCode API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('confirmUnlockCode API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};

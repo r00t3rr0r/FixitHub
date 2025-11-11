@@ -384,7 +384,11 @@ export function NewOrder() {
         addOns: selectedAddOnObjects,
         customerNotes: data.customerNotes || '',
         photos: photoUrls,
-        totalCost: calculateTotal()
+        totalCost: calculateTotal(),
+        // Device unlock information
+        unlockPattern: unlockPattern,
+        unlockCode: unlockCode,
+        noLock: noDeviceLock
       }
 
       console.log("Processed order data:", orderData)

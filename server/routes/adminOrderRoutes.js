@@ -670,4 +670,42 @@ router.post('/:id/workflows/:workflowId/steps/:stepId/goto', requireUser, requir
   }
 });
 
+// Description: Confirm/verify the device unlock code or pattern
+// Endpoint: POST /api/admin-orders/:id/confirm-unlock
+// Request: { confirmationStatus: 'verified' | 'incorrect' | 'unable-to-verify', notes?: string }
+// Response: { order: Order }
+router.post('/:id/confirm-unlock', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Unlock confirmation request received for order:', req.params.id, 'from user:', req.user.email);
+
+  try {
+    const { confirmationStatus, notes = '' } = req.body;
+
+    // Validate required fields
+    if (!confirmationStatus) {
+      return res.status(400).json({ error: 'Confirmation status is required' });
+    }
+
+    const order = await OrderService.confirmUnlock(
+      req.params.id,
+      req.user._id,
+      req.user.name,
+      confirmationStatus,
+      notes
+    );
+
+    console.log('Unlock confirmation successful for order:', req.params.id);
+
+    return res.status(200).json({ order });
+  } catch (error) {
+    console.error('Error confirming unlock:', error);
+    if (error.message === 'Order not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    if (error.message.includes('No unlock information') || error.message.includes('Invalid confirmation status')) {
+      return res.status(400).json({ error: error.message });
+    }
+    return res.status(500).json({ error: error.message || 'Failed to confirm unlock' });
+  }
+});
+
 module.exports = router;

@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
 import { getOrderById, Order, getOrderProgressTimeline } from "@/api/orders"
 import { getConversations, getConversationMessages, sendMessage, startConversation } from "@/api/messages"
-import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon } from "@/api/adminOrders"
+import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode } from "@/api/adminOrders"
 import { getUserProfile, UserProfile } from "@/api/user"
 import { getAddOnServices, AddOnService as AddOnServiceType, getServices } from "@/api/services"
 import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder } from "@/api/workflow"
@@ -20,6 +20,8 @@ import { RepairServiceDialog } from "@/components/inspection/RepairServiceDialog
 import { WorkflowExecutionView } from "@/components/workflow/WorkflowExecutionView"
 import { InspectionResultsDisplay } from "@/components/inspection/InspectionResultsDisplay"
 import { OrderProgressTimeline } from "@/components/OrderProgressTimeline"
+import { UnlockInformationDisplay } from "@/components/inspection/UnlockInformationDisplay"
+import { ConfirmUnlockDialog } from "@/components/inspection/ConfirmUnlockDialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -107,6 +109,8 @@ export function OrderDetails() {
   const [availableServices, setAvailableServices] = useState<any[]>([])
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false)
   const [editingService, setEditingService] = useState<any>(null)
+  const [unlockConfirmDialogOpen, setUnlockConfirmDialogOpen] = useState(false)
+  const [confirmingUnlock, setConfirmingUnlock] = useState(false)
   const { toast } = useToast()
 
   // Fetch user profile
@@ -713,6 +717,25 @@ export function OrderDetails() {
     setAssignAddonStaffDialogOpen(true)
   }
 
+  const handleConfirmUnlock = async (confirmationStatus: 'verified' | 'incorrect' | 'unable-to-verify', notes: string) => {
+    if (!id || !user) return
+
+    try {
+      setConfirmingUnlock(true)
+      console.log("OrderDetails: Confirming unlock status:", confirmationStatus)
+
+      await confirmUnlockCode(id, confirmationStatus, notes)
+
+      // Refresh order to show confirmation
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("OrderDetails: Error confirming unlock:", error)
+      throw error
+    } finally {
+      setConfirmingUnlock(false)
+    }
+  }
+
   const handleAssignWorkflow = async (workflowTemplateId: string) => {
     if (!id) return
 
@@ -1150,6 +1173,29 @@ export function OrderDetails() {
               )}
             </CardContent>
           </Card>
+
+          {/* Unlock Information Display - Prominently display device unlock details */}
+          {(order?.unlockPattern?.length > 0 || order?.unlockCode || order?.noLock) && (
+            <>
+              <UnlockInformationDisplay
+                unlockPattern={order?.unlockPattern}
+                unlockCode={order?.unlockCode}
+                noLock={order?.noLock}
+                unlockConfirmation={order?.unlockConfirmation}
+                onConfirmClick={() => setUnlockConfirmDialogOpen(true)}
+                canConfirm={user?.role === 'admin' || user?.role === 'staff'}
+              />
+              <ConfirmUnlockDialog
+                isOpen={unlockConfirmDialogOpen}
+                onOpenChange={setUnlockConfirmDialogOpen}
+                onConfirm={handleConfirmUnlock}
+                unlockPattern={order?.unlockPattern}
+                unlockCode={order?.unlockCode}
+                noLock={order?.noLock}
+                isLoading={confirmingUnlock}
+              />
+            </>
+          )}
 
           {/* Repair Services - Only visible to admin/staff */}
           {(user?.role === 'admin' || user?.role === 'staff') && (
