@@ -197,6 +197,32 @@ router.post('/complete', requireUser, async (req, res) => {
 
     console.log('CheckoutRoutes: Found', cart.repairOrders.length, 'repair orders in cart');
 
+    // Helper function to parse estimated time string to minutes
+    const parseEstimatedTime = (timeString) => {
+      if (typeof timeString === 'number') {
+        return timeString;
+      }
+      if (!timeString || typeof timeString !== 'string') {
+        return 0;
+      }
+
+      // Extract the first number from the string (e.g., "2-3 hours" -> 2, "1 hour" -> 1)
+      const match = timeString.match(/(\d+)/);
+      if (!match) {
+        return 0;
+      }
+
+      const value = parseInt(match[1], 10);
+
+      // Convert to minutes if it contains "hour"
+      if (timeString.toLowerCase().includes('hour')) {
+        return value * 60;
+      }
+
+      // If it contains "minute" or no unit, assume minutes
+      return value;
+    };
+
     const createdOrders = [];
     const orderIds = [];
 
@@ -215,7 +241,7 @@ router.post('/complete', requireUser, async (req, res) => {
           return {
             serviceId: service._id,
             price: service.price,
-            estimatedTime: service.estimatedTime || 0,
+            estimatedTime: parseEstimatedTime(service.estimatedTime),
             notes: ''
           };
         });

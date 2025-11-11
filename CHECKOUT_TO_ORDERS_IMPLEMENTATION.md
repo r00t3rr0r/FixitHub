@@ -39,13 +39,19 @@ const Service = require('../models/Service');
 **Functionality:**
 1. Retrieves user's cart using CartService
 2. Validates cart has repair orders
-3. Iterates through each repair order in cart:
+3. Parses estimated time strings to numeric values (minutes):
+   - Handles various time formats: "2-3 hours", "1 hour", "30 minutes"
+   - Extracts first numeric value from string
+   - Converts hours to minutes
+   - Returns numeric value for database storage
+4. Iterates through each repair order in cart:
    - Fetches service details (price, estimated time)
+   - Parses estimated time strings to numeric minutes
    - Calculates total cost from services and add-ons
    - Creates Order document with proper schema structure
    - Tracks successfully created orders
-4. Clears cart (both repair orders and product items) after successful creation
-5. Returns created orders and order IDs
+5. Clears cart (both repair orders and product items) after successful creation
+6. Returns created orders and order IDs
 
 **Request:**
 ```json
