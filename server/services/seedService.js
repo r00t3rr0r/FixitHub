@@ -25,7 +25,7 @@ class SeedService {
         existingAdmin.password = await generatePasswordHash('admin123');
         await existingAdmin.save();
         console.log('SeedService.seedAdminUser: Admin password updated successfully');
-        return existingAdmin;
+        return { message: 'Admin user already exists' };
       }
 
       console.log('SeedService.seedAdminUser: Creating new admin user...');
@@ -143,7 +143,7 @@ class SeedService {
       const existingServices = await Service.countDocuments();
       if (existingServices > 0) {
         console.log('SeedService.seedServices: Services already exist, skipping...');
-        return await Service.find();
+        return { message: 'Services already exist' };
       }
 
       const services = [
@@ -215,7 +215,7 @@ class SeedService {
       const existingAddOns = await AddOnService.countDocuments();
       if (existingAddOns > 0) {
         console.log('SeedService.seedAddOnServices: Add-on services already exist, skipping...');
-        return await AddOnService.find();
+        return { message: 'Add-on services already exist' };
       }
 
       const addOnServices = [
@@ -292,7 +292,7 @@ class SeedService {
       const existingInventory = await Inventory.countDocuments();
       if (existingInventory > 0) {
         console.log('SeedService.seedInventory: Inventory already exists, skipping...');
-        return await Inventory.find();
+        return { message: 'Inventory already exists' };
       }
 
       const inventoryItems = [
@@ -389,7 +389,7 @@ class SeedService {
       const existingBrands = await DeviceBrand.countDocuments();
       if (existingBrands > 0) {
         console.log('SeedService.seedDevices: Devices already exist, skipping...');
-        return;
+        return { message: 'Devices already exist' };
       }
 
       // Brand and model data
@@ -476,7 +476,7 @@ class SeedService {
       const existingProducts = await Product.countDocuments();
       if (existingProducts > 0) {
         console.log('SeedService.seedProducts: Products already exist, skipping...');
-        return await Product.find();
+        return { message: 'Products already exist' };
       }
 
       const products = [
@@ -554,7 +554,7 @@ class SeedService {
       const existingPosts = await BlogPost.countDocuments();
       if (existingPosts > 0) {
         console.log('SeedService.seedBlogData: Blog posts already exist, skipping...');
-        return await BlogPost.find();
+        return { message: 'Blog posts already exist' };
       }
 
       const blogPosts = [
@@ -618,7 +618,7 @@ class SeedService {
       const existingFAQs = await FAQ.countDocuments();
       if (existingFAQs > 0) {
         console.log('SeedService.seedFAQs: FAQs already exist, skipping...');
-        return await FAQ.find();
+        return { message: 'FAQs already exist' };
       }
 
       const faqs = [
@@ -732,7 +732,7 @@ class SeedService {
       const existingHomepage = await HomepageSection.countDocuments();
       if (existingHomepage > 0) {
         console.log('SeedService.seedHomepageTemplate: Homepage template already exists, skipping...');
-        return await HomepageSection.find();
+        return { message: 'Homepage template already exists' };
       }
 
       const homepageData = [
@@ -830,7 +830,7 @@ class SeedService {
       const existingInvoices = await Invoice.countDocuments();
       if (existingInvoices > 0) {
         console.log('SeedService.seedFinancialData: Financial data already exists, skipping...');
-        return await Invoice.find();
+        return { message: 'Financial data already exists' };
       }
 
       // Get test users for invoice creation
