@@ -175,7 +175,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Description: Complete checkout - creates orders from cart repair orders and clears cart
+// Description: Complete checkout - creates orders from cart repair orders and shop products, clears cart
 // Endpoint: POST /api/checkout/complete
 // Request: {}
 // Response: { success: boolean, message: string, orders: Order[], orderIds: string[] }
@@ -186,23 +186,19 @@ router.post('/complete', requireUser, async (req, res) => {
     // Get user's cart
     const cart = await CartService.getCart(req.user._id);
 
-    // Check if cart has repair orders
-    if (!cart || !cart.repairOrders || cart.repairOrders.length === 0) {
-      console.log('CheckoutRoutes: No repair orders in cart');
+    // Check if cart has any items (repair orders or shop products)
+    const hasRepairOrders = cart && cart.repairOrders && cart.repairOrders.length > 0;
+    const hasShopProducts = cart && cart.items && cart.items.length > 0;
 
-      // Provide more helpful error message if cart has shop products but no repair orders
-      const hasShopProducts = cart && cart.items && cart.items.length > 0;
-      const errorMessage = hasShopProducts
-        ? 'Your cart contains shop products only. To create a repair order, please visit the "New Order" page to configure your device repair, then add it to your cart.'
-        : 'No repair orders in cart to checkout. Please add a repair order first.';
-
+    if (!cart || (!hasRepairOrders && !hasShopProducts)) {
+      console.log('CheckoutRoutes: Cart is empty');
       return res.status(400).json({
         success: false,
-        error: errorMessage
+        error: 'Cart is empty. Please add items before checkout.'
       });
     }
 
-    console.log('CheckoutRoutes: Found', cart.repairOrders.length, 'repair orders in cart');
+    console.log('CheckoutRoutes: Found', cart.repairOrders?.length || 0, 'repair orders and', cart.items?.length || 0, 'shop products in cart');
 
     // Helper function to parse estimated time string to minutes
     const parseEstimatedTime = (timeString) => {
@@ -233,43 +229,102 @@ router.post('/complete', requireUser, async (req, res) => {
     const createdOrders = [];
     const orderIds = [];
 
-    // Create an order for each repair order in the cart
-    for (const repairOrder of cart.repairOrders) {
-      try {
-        console.log('CheckoutRoutes: Creating order from repair order:', repairOrder);
+    // Create orders from repair orders in the cart
+    if (hasRepairOrders) {
+      for (const repairOrder of cart.repairOrders) {
+        try {
+          console.log('CheckoutRoutes: Creating order from repair order:', repairOrder);
 
-        // Fetch service details to get price and estimated time
-        const serviceDetails = await Service.find({ _id: { $in: repairOrder.services } });
+          // Fetch service details to get price and estimated time
+          const serviceDetails = await Service.find({ _id: { $in: repairOrder.services } });
 
-        // Calculate total cost from services
-        let totalCost = 0;
-        const services = serviceDetails.map(service => {
-          totalCost += service.price;
-          return {
-            serviceId: service._id,
-            price: service.price,
-            estimatedTime: parseEstimatedTime(service.estimatedTime),
-            notes: ''
-          };
-        });
-
-        // Add addOns to total cost if present
-        if (repairOrder.addOns && repairOrder.addOns.length > 0) {
-          repairOrder.addOns.forEach(addOn => {
-            totalCost += addOn.price || 0;
+          // Calculate total cost from services
+          let totalCost = 0;
+          const services = serviceDetails.map(service => {
+            totalCost += service.price;
+            return {
+              serviceId: service._id,
+              price: service.price,
+              estimatedTime: parseEstimatedTime(service.estimatedTime),
+              notes: ''
+            };
           });
+
+          // Add addOns to total cost if present
+          if (repairOrder.addOns && repairOrder.addOns.length > 0) {
+            repairOrder.addOns.forEach(addOn => {
+              totalCost += addOn.price || 0;
+            });
+          }
+
+          // Prepare order data matching the Order model schema
+          const orderData = {
+            customerId: req.user._id,
+            deviceBrand: repairOrder.deviceBrand,
+            deviceModel: repairOrder.deviceModel,
+            deviceType: repairOrder.deviceType || 'Smartphone',
+            services: services,
+            addOns: repairOrder.addOns || [],
+            customerNotes: repairOrder.customerNotes || '',
+            photos: repairOrder.photos || [],
+            totalCost: totalCost,
+            status: 'pending',
+            priority: 'normal',
+            progress: 0,
+            paymentStatus: 'pending',
+            estimatedCompletion: null
+          };
+
+          console.log('CheckoutRoutes: Order data prepared:', orderData);
+
+          // Create the order
+          const order = await OrderService.create(orderData);
+          console.log('CheckoutRoutes: Order created successfully:', order._id);
+
+          createdOrders.push(order);
+          orderIds.push(order._id.toString());
+        } catch (orderError) {
+          console.error('CheckoutRoutes: Error creating order from repair order:', orderError);
+          // Continue with other orders even if one fails
+        }
+      }
+    }
+
+    // Create an order from shop products if present
+    if (hasShopProducts && cart.items.length > 0) {
+      try {
+        console.log('CheckoutRoutes: Creating order from shop products');
+
+        // Populate product details
+        const Product = require('../models/Product');
+        const populatedItems = [];
+        let totalCost = 0;
+
+        for (const item of cart.items) {
+          const product = await Product.findById(item.productId);
+          if (product) {
+            const itemTotal = product.price * item.quantity;
+            totalCost += itemTotal;
+            populatedItems.push({
+              productId: product._id,
+              quantity: item.quantity,
+              priceAtOrder: product.price,
+              addedBy: req.user._id
+            });
+          }
         }
 
-        // Prepare order data matching the Order model schema
-        const orderData = {
+        // Create a shop product order with placeholder device info
+        const shopOrderData = {
           customerId: req.user._id,
-          deviceBrand: repairOrder.deviceBrand,
-          deviceModel: repairOrder.deviceModel,
-          deviceType: repairOrder.deviceType || 'Smartphone',
-          services: services,
-          addOns: repairOrder.addOns || [],
-          customerNotes: repairOrder.customerNotes || '',
-          photos: repairOrder.photos || [],
+          deviceBrand: 'N/A',  // Placeholder for shop-only orders
+          deviceModel: 'Shop Products Order',
+          deviceType: 'Shop Products',
+          services: [],  // Empty services array
+          addOns: [],
+          shopProducts: populatedItems,
+          customerNotes: 'Order containing shop products only',
+          photos: [],
           totalCost: totalCost,
           status: 'pending',
           priority: 'normal',
@@ -278,17 +333,17 @@ router.post('/complete', requireUser, async (req, res) => {
           estimatedCompletion: null
         };
 
-        console.log('CheckoutRoutes: Order data prepared:', orderData);
+        console.log('CheckoutRoutes: Shop order data prepared:', shopOrderData);
 
-        // Create the order
-        const order = await OrderService.create(orderData);
-        console.log('CheckoutRoutes: Order created successfully:', order._id);
+        // Create the shop product order
+        const shopOrder = await OrderService.create(shopOrderData);
+        console.log('CheckoutRoutes: Shop product order created successfully:', shopOrder._id);
 
-        createdOrders.push(order);
-        orderIds.push(order._id.toString());
-      } catch (orderError) {
-        console.error('CheckoutRoutes: Error creating order from repair order:', orderError);
-        // Continue with other orders even if one fails
+        createdOrders.push(shopOrder);
+        orderIds.push(shopOrder._id.toString());
+      } catch (shopOrderError) {
+        console.error('CheckoutRoutes: Error creating shop product order:', shopOrderError);
+        // Log but don't fail the entire checkout
       }
     }
 
@@ -300,10 +355,10 @@ router.post('/complete', requireUser, async (req, res) => {
       });
     }
 
-    // Clear the cart repair orders after successful order creation
+    // Clear the cart after successful order creation
     try {
       cart.repairOrders = [];
-      cart.items = []; // Also clear product items if any
+      cart.items = [];
       await cart.save();
       console.log('CheckoutRoutes: Cart cleared successfully');
     } catch (clearError) {
@@ -311,11 +366,25 @@ router.post('/complete', requireUser, async (req, res) => {
       // Don't fail the request if cart clearing fails - orders were created
     }
 
-    console.log('CheckoutRoutes: Checkout completed successfully. Created', createdOrders.length, 'orders');
+    // Create descriptive success message
+    const repairOrderCount = hasRepairOrders ? cart.repairOrders.length : 0;
+    const shopProductCount = hasShopProducts ? 1 : 0; // Shop products create 1 combined order
+    const totalOrders = createdOrders.length;
+
+    let successMessage = `Successfully created ${totalOrders} order(s)`;
+    if (repairOrderCount > 0 && shopProductCount > 0) {
+      successMessage = `Successfully created ${repairOrderCount} repair order(s) and 1 shop product order`;
+    } else if (repairOrderCount > 0) {
+      successMessage = `Successfully created ${repairOrderCount} repair order(s)`;
+    } else if (shopProductCount > 0) {
+      successMessage = `Successfully created shop product order`;
+    }
+
+    console.log('CheckoutRoutes: Checkout completed successfully. Created', totalOrders, 'orders');
 
     res.json({
       success: true,
-      message: `Successfully created ${createdOrders.length} order(s)`,
+      message: successMessage,
       orders: createdOrders,
       orderIds: orderIds
     });
