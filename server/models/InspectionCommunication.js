@@ -127,12 +127,10 @@ const InspectionCommunicationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Order',
     required: true,
-    index: true,
   },
   inspectionId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'DeviceInspection',
-    index: true,
   },
   messages: [communicationMessageSchema],
   status: {

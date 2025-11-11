@@ -110,9 +110,18 @@ class OrderService {
       const stats = await this.getOrderStats();
 
       console.log('OrderService: Found', orders.length, 'orders out of', totalOrders, 'total');
-      
+
+      // Convert to plain objects and ensure totalCost is a number
+      const plainOrders = orders.map(order => {
+        const plain = order.toObject ? order.toObject() : order;
+        if (plain.totalCost !== undefined && typeof plain.totalCost === 'object') {
+          plain.totalCost = Number(plain.totalCost);
+        }
+        return plain;
+      });
+
       return {
-        orders,
+        orders: plainOrders,
         totalPages,
         currentPage: page,
         totalOrders,

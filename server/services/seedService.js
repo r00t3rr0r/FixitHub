@@ -54,7 +54,7 @@ class SeedService {
 
       await adminUser.save();
       console.log('SeedService.seedAdminUser: Admin user created successfully with ID:', adminUser._id);
-      return adminUser;
+      return { message: 'Admin user created successfully' };
     } catch (error) {
       console.error('SeedService.seedAdminUser: Error creating admin user:', error);
       throw error;
@@ -201,7 +201,7 @@ class SeedService {
 
       const createdServices = await Service.insertMany(services);
       console.log('SeedService.seedServices: Services created successfully, count:', createdServices.length);
-      return createdServices;
+      return { message: `Services created successfully, count: ${createdServices.length}` };
     } catch (error) {
       console.error('SeedService.seedServices: Error creating services:', error);
       throw error;
@@ -278,7 +278,7 @@ class SeedService {
 
       const createdAddOns = await AddOnService.insertMany(addOnServices);
       console.log('SeedService.seedAddOnServices: Add-on services created successfully, count:', createdAddOns.length);
-      return createdAddOns;
+      return { message: `Add-on services created successfully, count: ${createdAddOns.length}` };
     } catch (error) {
       console.error('SeedService.seedAddOnServices: Error creating add-on services:', error);
       throw error;
@@ -375,7 +375,7 @@ class SeedService {
 
       const createdInventory = await Inventory.insertMany(inventoryItems);
       console.log('SeedService.seedInventory: Inventory created successfully, count:', createdInventory.length);
-      return createdInventory;
+      return { message: `Inventory created successfully, count: ${createdInventory.length}` };
     } catch (error) {
       console.error('SeedService.seedInventory: Error creating inventory:', error);
       throw error;
@@ -462,7 +462,7 @@ class SeedService {
       }
 
       console.log('SeedService.seedDevices: Devices seeding completed successfully');
-      return;
+      return { message: 'Devices seeded successfully' };
     } catch (error) {
       console.error('SeedService.seedDevices: Error creating devices:', error);
       throw error;
@@ -540,7 +540,7 @@ class SeedService {
 
       const createdProducts = await Product.insertMany(products);
       console.log('SeedService.seedProducts: Products created successfully, count:', createdProducts.length);
-      return createdProducts;
+      return { message: `Products created successfully, count: ${createdProducts.length}` };
     } catch (error) {
       console.error('SeedService.seedProducts: Error creating products:', error);
       throw error;
@@ -604,7 +604,7 @@ class SeedService {
 
       const createdPosts = await BlogPost.insertMany(blogPosts);
       console.log('SeedService.seedBlogData: Blog posts created successfully, count:', createdPosts.length);
-      return createdPosts;
+      return { message: `Blog posts created successfully, count: ${createdPosts.length}` };
     } catch (error) {
       console.error('SeedService.seedBlogData: Error creating blog posts:', error);
       throw error;
@@ -671,7 +671,7 @@ class SeedService {
 
       const createdFAQs = await FAQ.insertMany(faqs);
       console.log('SeedService.seedFAQs: FAQs created successfully, count:', createdFAQs.length);
-      return createdFAQs;
+      return { message: `FAQs created successfully, count: ${createdFAQs.length}` };
     } catch (error) {
       console.error('SeedService.seedFAQs: Error creating FAQs:', error);
       throw error;
@@ -816,7 +816,7 @@ class SeedService {
 
       const createdHomepage = await HomepageSection.insertMany(homepageData);
       console.log('SeedService.seedHomepageTemplate: Homepage template created successfully, count:', createdHomepage.length);
-      return createdHomepage;
+      return { message: `Homepage template created successfully, count: ${createdHomepage.length}` };
     } catch (error) {
       console.error('SeedService.seedHomepageTemplate: Error creating homepage template:', error);
       throw error;
@@ -890,7 +890,7 @@ class SeedService {
 
       const createdInvoices = await Invoice.insertMany(invoices);
       console.log('SeedService.seedFinancialData: Financial data created successfully, count:', createdInvoices.length);
-      return createdInvoices;
+      return { message: `Financial data created successfully, count: ${createdInvoices.length}` };
     } catch (error) {
       console.error('SeedService.seedFinancialData: Error creating financial data:', error);
       throw error;
