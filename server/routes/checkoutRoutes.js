@@ -189,9 +189,16 @@ router.post('/complete', requireUser, async (req, res) => {
     // Check if cart has repair orders
     if (!cart || !cart.repairOrders || cart.repairOrders.length === 0) {
       console.log('CheckoutRoutes: No repair orders in cart');
+
+      // Provide more helpful error message if cart has shop products but no repair orders
+      const hasShopProducts = cart && cart.items && cart.items.length > 0;
+      const errorMessage = hasShopProducts
+        ? 'Your cart contains shop products only. To create a repair order, please visit the "New Order" page to configure your device repair, then add it to your cart.'
+        : 'No repair orders in cart to checkout. Please add a repair order first.';
+
       return res.status(400).json({
         success: false,
-        error: 'No repair orders in cart to checkout.'
+        error: errorMessage
       });
     }
 
