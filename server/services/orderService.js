@@ -443,7 +443,8 @@ class OrderService {
         staffName: staff ? staff.name : 'Staff Member'
       });
 
-      const updatedOrder = await order.save();
+      // Use validateModifiedOnly to avoid validating unmodified services array
+      const updatedOrder = await order.save({ validateModifiedOnly: true });
 
       console.log('OrderService: EPart assigned successfully');
       return updatedOrder;
@@ -497,7 +498,8 @@ class OrderService {
         staffName: staff ? staff.name : 'Staff Member'
       });
 
-      const updatedOrder = await order.save();
+      // Use validateModifiedOnly to avoid validating unmodified services array
+      const updatedOrder = await order.save({ validateModifiedOnly: true });
 
       console.log('OrderService: EPart removed successfully');
       return updatedOrder;
@@ -538,7 +540,8 @@ class OrderService {
         staffName: staff ? staff.name : 'Staff Member'
       });
 
-      const updatedOrder = await order.save();
+      // Use validateModifiedOnly to avoid validating unmodified services array
+      const updatedOrder = await order.save({ validateModifiedOnly: true });
 
       console.log('OrderService: EPart status updated successfully');
       return updatedOrder;
@@ -583,7 +586,9 @@ class OrderService {
         staffName: staff ? staff.name : 'Staff Member'
       });
 
-      const updatedOrder = await order.save();
+      // Use validateModifiedOnly to avoid validating unmodified services array
+      // This prevents validation errors on existing incomplete service objects
+      const updatedOrder = await order.save({ validateModifiedOnly: true });
 
       console.log('OrderService: Add-on added successfully');
       return updatedOrder;
@@ -634,7 +639,8 @@ class OrderService {
         staffName: staff ? staff.name : 'Staff Member'
       });
 
-      const updatedOrder = await order.save();
+      // Use validateModifiedOnly to avoid validating unmodified services array
+      const updatedOrder = await order.save({ validateModifiedOnly: true });
 
       console.log('OrderService: Add-on updated successfully');
       return updatedOrder;
@@ -679,7 +685,8 @@ class OrderService {
         staffName: staff ? staff.name : 'Staff Member'
       });
 
-      const updatedOrder = await order.save();
+      // Use validateModifiedOnly to avoid validating unmodified services array
+      const updatedOrder = await order.save({ validateModifiedOnly: true });
 
       console.log('OrderService: Add-on removed successfully');
       return updatedOrder;
@@ -738,7 +745,8 @@ class OrderService {
         staffName: assigningStaff ? assigningStaff.name : 'System'
       });
 
-      const updatedOrder = await order.save();
+      // Use validateModifiedOnly to avoid validating unmodified services array
+      const updatedOrder = await order.save({ validateModifiedOnly: true });
 
       console.log('OrderService: Staff assigned to add-on successfully');
       return updatedOrder;
