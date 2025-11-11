@@ -1,6 +1,7 @@
 const Order = require('../models/Order');
 const User = require('../models/User');
 const Inventory = require('../models/Inventory');
+const Product = require('../models/Product');
 const { WorkflowTemplate, AddOnWorkflow } = require('../models/Workflow');
 
 class OrderService {
@@ -1317,6 +1318,179 @@ class OrderService {
       console.error('OrderService: Error confirming unlock:', error);
       throw error;
     }
+  }
+
+  // Add shop product to order
+  static async addShopProduct(orderId, productId, quantity, userId) {
+    console.log('OrderService: Adding shop product to order:', orderId, 'Product:', productId, 'Quantity:', quantity);
+
+    try {
+      // Validate order exists
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      // Validate product exists and has stock
+      const product = await Product.findById(productId);
+      if (!product) {
+        throw new Error('Product not found');
+      }
+
+      if (product.stock < quantity) {
+        throw new Error(`Insufficient stock. Available: ${product.stock}, Requested: ${quantity}`);
+      }
+
+      // Check if product already exists in order
+      const existingProductIndex = order.shopProducts.findIndex(
+        p => p.productId && p.productId.toString() === productId.toString()
+      );
+
+      if (existingProductIndex !== -1) {
+        // Update quantity
+        order.shopProducts[existingProductIndex].quantity += quantity;
+        console.log('OrderService: Updated quantity for existing product in order');
+      } else {
+        // Add new product
+        order.shopProducts.push({
+          productId: productId,
+          quantity: quantity,
+          priceAtOrder: product.price,
+          addedBy: userId,
+          addedAt: new Date()
+        });
+        console.log('OrderService: Added new product to order');
+      }
+
+      // Recalculate total cost
+      await this.recalculateOrderTotal(order);
+
+      const updatedOrder = await order.save();
+      console.log('OrderService: Shop product added successfully to order:', orderId);
+
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error adding shop product to order:', error);
+      throw error;
+    }
+  }
+
+  // Remove shop product from order
+  static async removeShopProduct(orderId, productItemId, userId) {
+    console.log('OrderService: Removing shop product from order:', orderId, 'Product item:', productItemId);
+
+    try {
+      // Validate order exists
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      // Find and remove the product
+      const productIndex = order.shopProducts.findIndex(
+        p => p._id && p._id.toString() === productItemId.toString()
+      );
+
+      if (productIndex === -1) {
+        throw new Error('Product not found in order');
+      }
+
+      order.shopProducts.splice(productIndex, 1);
+      console.log('OrderService: Shop product removed from order');
+
+      // Recalculate total cost
+      await this.recalculateOrderTotal(order);
+
+      const updatedOrder = await order.save();
+      console.log('OrderService: Shop product removed successfully from order:', orderId);
+
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error removing shop product from order:', error);
+      throw error;
+    }
+  }
+
+  // Update shop product quantity in order
+  static async updateShopProductQuantity(orderId, productItemId, quantity, userId) {
+    console.log('OrderService: Updating shop product quantity in order:', orderId, 'Product item:', productItemId, 'New quantity:', quantity);
+
+    try {
+      // Validate order exists
+      const order = await Order.findById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      // Find the product
+      const productItem = order.shopProducts.find(
+        p => p._id && p._id.toString() === productItemId.toString()
+      );
+
+      if (!productItem) {
+        throw new Error('Product not found in order');
+      }
+
+      // Validate product stock
+      const product = await Product.findById(productItem.productId);
+      if (!product) {
+        throw new Error('Product not found in database');
+      }
+
+      if (product.stock < quantity) {
+        throw new Error(`Insufficient stock. Available: ${product.stock}, Requested: ${quantity}`);
+      }
+
+      // Update quantity
+      productItem.quantity = quantity;
+      console.log('OrderService: Shop product quantity updated');
+
+      // Recalculate total cost
+      await this.recalculateOrderTotal(order);
+
+      const updatedOrder = await order.save();
+      console.log('OrderService: Shop product quantity updated successfully in order:', orderId);
+
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error updating shop product quantity:', error);
+      throw error;
+    }
+  }
+
+  // Helper method to recalculate order total
+  static async recalculateOrderTotal(order) {
+    console.log('OrderService: Recalculating order total for order:', order._id);
+
+    let total = 0;
+
+    // Add services cost
+    if (order.services && order.services.length > 0) {
+      order.services.forEach(service => {
+        const price = Number(service.price) || 0;
+        total += price;
+      });
+    }
+
+    // Add add-ons cost
+    if (order.addOns && order.addOns.length > 0) {
+      order.addOns.forEach(addon => {
+        const price = Number(addon.price) || 0;
+        total += price;
+      });
+    }
+
+    // Add shop products cost
+    if (order.shopProducts && order.shopProducts.length > 0) {
+      order.shopProducts.forEach(product => {
+        const price = Number(product.priceAtOrder) || 0;
+        const quantity = Number(product.quantity) || 0;
+        total += price * quantity;
+      });
+    }
+
+    order.totalCost = total;
+    console.log('OrderService: Total cost recalculated:', total);
   }
 }
 

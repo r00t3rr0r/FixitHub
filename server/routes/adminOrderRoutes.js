@@ -708,4 +708,118 @@ router.post('/:id/confirm-unlock', requireUser, requireAdminOrStaff, async (req,
   }
 });
 
+// ===== Shop Products Routes =====
+
+// Description: Add shop product to order
+// Endpoint: POST /api/admin/orders/:id/shop-products
+// Request: { productId: string, quantity: number }
+// Response: { success: boolean, message: string, order: Order }
+router.post('/:id/shop-products', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Add shop product to order request received:', req.params.id, req.body);
+
+  try {
+    const { productId, quantity } = req.body;
+
+    if (!productId || !quantity) {
+      return res.status(400).json({ error: 'Product ID and quantity are required' });
+    }
+
+    if (quantity <= 0) {
+      return res.status(400).json({ error: 'Quantity must be greater than 0' });
+    }
+
+    const order = await OrderService.addShopProduct(
+      req.params.id,
+      productId,
+      quantity,
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Shop product added successfully',
+      order
+    });
+  } catch (error) {
+    console.error('Error adding shop product to order:', error);
+    if (error.message === 'Order not found' || error.message === 'Product not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(400).json({
+      error: error.message || 'Failed to add shop product'
+    });
+  }
+});
+
+// Description: Update shop product quantity in order
+// Endpoint: PUT /api/admin/orders/:id/shop-products/:productItemId
+// Request: { quantity: number }
+// Response: { success: boolean, message: string, order: Order }
+router.put('/:id/shop-products/:productItemId', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Update shop product quantity in order request received:', req.params.id, req.params.productItemId, req.body);
+
+  try {
+    const { quantity } = req.body;
+
+    if (!quantity) {
+      return res.status(400).json({ error: 'Quantity is required' });
+    }
+
+    if (quantity <= 0) {
+      return res.status(400).json({ error: 'Quantity must be greater than 0' });
+    }
+
+    const order = await OrderService.updateShopProductQuantity(
+      req.params.id,
+      req.params.productItemId,
+      quantity,
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Shop product quantity updated successfully',
+      order
+    });
+  } catch (error) {
+    console.error('Error updating shop product quantity:', error);
+    if (error.message === 'Order not found' || error.message === 'Product not found in order' || error.message === 'Product not found in database') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(400).json({
+      error: error.message || 'Failed to update shop product quantity'
+    });
+  }
+});
+
+// Description: Remove shop product from order
+// Endpoint: DELETE /api/admin/orders/:id/shop-products/:productItemId
+// Request: {}
+// Response: { success: boolean, message: string, order: Order }
+router.delete('/:id/shop-products/:productItemId', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Remove shop product from order request received:', req.params.id, req.params.productItemId);
+
+  try {
+    const order = await OrderService.removeShopProduct(
+      req.params.id,
+      req.params.productItemId,
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Shop product removed successfully',
+      order
+    });
+  } catch (error) {
+    console.error('Error removing shop product from order:', error);
+    if (error.message === 'Order not found' || error.message === 'Product not found in order') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(500).json({
+      error: error.message || 'Failed to remove shop product'
+    });
+  }
+});
+
 module.exports = router;

@@ -215,6 +215,35 @@ const orderEPartSchema = new mongoose.Schema({
   },
 }, { _id: true });
 
+// Shop products schema for orders
+const orderShopProductSchema = new mongoose.Schema({
+  productId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product',
+    required: true,
+  },
+  quantity: {
+    type: Number,
+    required: true,
+    min: 1,
+    default: 1,
+  },
+  priceAtOrder: {
+    type: Number,
+    required: true,
+    min: 0,
+  },
+  addedAt: {
+    type: Date,
+    default: Date.now,
+  },
+  addedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+}, { _id: true });
+
 // Define service schema for order services (repair services)
 const orderServiceSchema = new mongoose.Schema({
   serviceId: {
@@ -300,6 +329,7 @@ const orderSchema = new mongoose.Schema({
   },
   staffNotes: [staffNoteSchema],
   eParts: [orderEPartSchema],
+  shopProducts: [orderShopProductSchema],
   workflows: [orderWorkflowSchema],
   progress: {
     type: Number,
@@ -378,6 +408,8 @@ orderSchema.pre(/^find/, function(next) {
       .populate('services.serviceId', 'name description price estimatedTime category')
       .populate('eParts.partId')
       .populate('eParts.assignedBy', 'name email')
+      .populate('shopProducts.productId', 'name price images category brand stock')
+      .populate('shopProducts.addedBy', 'name email')
       .populate('workflows.workflowTemplateId')
       .populate('workflows.steps.assignedStaffId', 'name avatar');
   next();

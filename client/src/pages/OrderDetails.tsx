@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
-import { getOrderById, Order, getOrderProgressTimeline } from "@/api/orders"
+import { getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct } from "@/api/orders"
 import { getConversations, getConversationMessages, sendMessage, startConversation } from "@/api/messages"
 import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode } from "@/api/adminOrders"
 import { getUserProfile, UserProfile } from "@/api/user"
@@ -16,6 +16,7 @@ import { getAddOnServices, AddOnService as AddOnServiceType, getServices } from 
 import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder } from "@/api/workflow"
 import { getOrderServices, addServiceToOrder, updateOrderService, removeServiceFromOrder } from "@/api/orderServices"
 import EPartSelectionDialog from "@/components/admin/EPartSelectionDialog"
+import { ShopProductSelectionDialog } from "@/components/admin/ShopProductSelectionDialog"
 import { RepairServiceDialog } from "@/components/inspection/RepairServiceDialog"
 import { WorkflowExecutionView } from "@/components/workflow/WorkflowExecutionView"
 import { InspectionResultsDisplay } from "@/components/inspection/InspectionResultsDisplay"
@@ -45,6 +46,7 @@ import {
 import {
   ArrowLeft,
   Package,
+  ShoppingCart,
   Clock,
   CheckCircle,
   AlertCircle,
@@ -111,6 +113,7 @@ export function OrderDetails() {
   const [editingService, setEditingService] = useState<any>(null)
   const [unlockConfirmDialogOpen, setUnlockConfirmDialogOpen] = useState(false)
   const [confirmingUnlock, setConfirmingUnlock] = useState(false)
+  const [shopProductDialogOpen, setShopProductDialogOpen] = useState(false)
   const { toast } = useToast()
 
   // Fetch user profile
@@ -599,6 +602,72 @@ export function OrderDetails() {
     setCustomAddonDescription(addon.description || "")
     setCustomAddonTime(addon.estimatedTime || "")
     setEditAddonDialogOpen(true)
+  }
+
+  // Shop Product Handlers
+  const handleAddShopProduct = async (productId: string, quantity: number) => {
+    if (!id) return
+
+    try {
+      await addShopProductToOrder(id, productId, quantity)
+
+      toast({
+        title: "Success",
+        description: "Product added to order successfully"
+      })
+
+      // Refresh order data
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("Error adding shop product:", error)
+      throw error
+    }
+  }
+
+  const handleRemoveShopProduct = async (productItemId: string) => {
+    if (!id) return
+
+    try {
+      await removeShopProductFromOrder(id, productItemId)
+
+      toast({
+        title: "Success",
+        description: "Product removed from order successfully"
+      })
+
+      // Refresh order data
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("Error removing shop product:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to remove product",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleUpdateShopProductQuantity = async (productItemId: string, newQuantity: number) => {
+    if (!id) return
+
+    try {
+      await updateShopProductQuantity(id, productItemId, newQuantity)
+
+      toast({
+        title: "Success",
+        description: "Product quantity updated successfully"
+      })
+
+      // Refresh order data
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("Error updating product quantity:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update product quantity",
+        variant: "destructive"
+      })
+    }
   }
 
   // Repair Service Handlers
@@ -1456,6 +1525,119 @@ export function OrderDetails() {
             </Card>
           )}
 
+          {/* Shop Products - Only visible to admin/staff */}
+          {(user?.role === 'admin' || user?.role === 'staff') && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShoppingCart className="h-5 w-5" />
+                    Shop Products
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShopProductDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Product
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {(order as any).shopProducts && (order as any).shopProducts.length > 0 ? (
+                  <div className="space-y-4">
+                    {(order as any).shopProducts.map((shopProduct: any) => {
+                      const product = shopProduct.productId;
+                      const totalPrice = shopProduct.priceAtOrder * shopProduct.quantity;
+
+                      return (
+                        <div key={shopProduct._id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50">
+                          <div className="flex items-start gap-4 flex-1">
+                            {product?.images && product.images.length > 0 && (
+                              <img
+                                src={product.images[0]}
+                                alt={product.name}
+                                className="w-16 h-16 object-cover rounded-md"
+                              />
+                            )}
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center gap-3">
+                                <h4 className="font-medium">{product?.name || 'Unknown Product'}</h4>
+                                <Badge variant="outline">
+                                  {product?.category}
+                                </Badge>
+                              </div>
+                              <div className="flex gap-6 text-sm text-muted-foreground">
+                                <div className="flex items-center gap-2">
+                                  <span>Brand:</span>
+                                  <span className="font-medium text-foreground">{product?.brand || 'N/A'}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span>Price:</span>
+                                  <span className="font-medium text-foreground">${shopProduct.priceAtOrder?.toFixed(2)}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span>Quantity:</span>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    max={product?.stock || 999}
+                                    value={shopProduct.quantity}
+                                    onChange={(e) => {
+                                      const newQty = parseInt(e.target.value) || 1;
+                                      if (newQty > 0) {
+                                        handleUpdateShopProductQuantity(shopProduct._id, newQty);
+                                      }
+                                    }}
+                                    className="w-20 h-8"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span>Total:</span>
+                                  <span className="font-bold text-foreground">${totalPrice.toFixed(2)}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <span>
+                                  Added: {new Date(shopProduct.addedAt).toLocaleDateString()}
+                                </span>
+                                {shopProduct.addedBy && (
+                                  <span>
+                                    By: {shopProduct.addedBy.name}
+                                  </span>
+                                )}
+                                {product?.stock !== undefined && (
+                                  <Badge variant={product.stock > 10 ? 'default' : product.stock > 0 ? 'secondary' : 'destructive'}>
+                                    Stock: {product.stock}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveShopProduct(shopProduct._id)}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    <ShoppingCart className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No shop products added</p>
+                    <p className="text-sm">Click "Add Product" to add products from the shop to this order</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Workflows - Only visible to admin/staff */}
           {(user?.role === 'admin' || user?.role === 'staff') && (
             <div className="space-y-4">
@@ -1585,6 +1767,12 @@ export function OrderDetails() {
                   <div key={addOn._id} className="flex justify-between text-sm">
                     <span>{addOn.name}</span>
                     <span>${addOn.price}</span>
+                  </div>
+                ))}
+                {(order as any).shopProducts && (order as any).shopProducts.map((shopProduct: any) => (
+                  <div key={shopProduct._id} className="flex justify-between text-sm">
+                    <span>{shopProduct.productId?.name || 'Product'} x{shopProduct.quantity}</span>
+                    <span>${(shopProduct.priceAtOrder * shopProduct.quantity).toFixed(2)}</span>
                   </div>
                 ))}
               </div>
@@ -1997,6 +2185,16 @@ export function OrderDetails() {
           mode={editingService ? 'edit' : 'add'}
           availableServices={availableServices}
           onSave={handleSaveService}
+        />
+      )}
+
+      {/* Shop Product Selection Dialog */}
+      {id && (
+        <ShopProductSelectionDialog
+          open={shopProductDialogOpen}
+          onClose={() => setShopProductDialogOpen(false)}
+          onAddProduct={handleAddShopProduct}
+          orderId={id}
         />
       )}
     </div>

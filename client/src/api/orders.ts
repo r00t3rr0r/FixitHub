@@ -53,6 +53,27 @@ export interface AddOnService {
   estimatedTime: string;
 }
 
+export interface ShopProduct {
+  _id: string;
+  productId: {
+    _id: string;
+    name: string;
+    price: number;
+    images: string[];
+    category: string;
+    brand: string;
+    stock: number;
+  };
+  quantity: number;
+  priceAtOrder: number;
+  addedAt: string;
+  addedBy: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+}
+
 // Description: Get all orders for the current user
 // Endpoint: GET /api/orders
 // Request: {}
@@ -117,6 +138,62 @@ export const getOrderProgressTimeline = async (orderId: string) => {
     return response.data;
   } catch (error) {
     console.error('getOrderProgressTimeline API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Add shop product to order
+// Endpoint: POST /api/admin/orders/:id/shop-products
+// Request: { productId: string, quantity: number }
+// Response: { success: boolean, message: string, order: Order }
+export const addShopProductToOrder = async (orderId: string, productId: string, quantity: number) => {
+  console.log('addShopProductToOrder called with:', { orderId, productId, quantity });
+
+  try {
+    const response = await api.post(`/api/admin/orders/${orderId}/shop-products`, {
+      productId,
+      quantity
+    });
+    console.log('addShopProductToOrder API response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('addShopProductToOrder API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Update shop product quantity in order
+// Endpoint: PUT /api/admin/orders/:id/shop-products/:productItemId
+// Request: { quantity: number }
+// Response: { success: boolean, message: string, order: Order }
+export const updateShopProductQuantity = async (orderId: string, productItemId: string, quantity: number) => {
+  console.log('updateShopProductQuantity called with:', { orderId, productItemId, quantity });
+
+  try {
+    const response = await api.put(`/api/admin/orders/${orderId}/shop-products/${productItemId}`, {
+      quantity
+    });
+    console.log('updateShopProductQuantity API response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('updateShopProductQuantity API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Remove shop product from order
+// Endpoint: DELETE /api/admin/orders/:id/shop-products/:productItemId
+// Request: {}
+// Response: { success: boolean, message: string, order: Order }
+export const removeShopProductFromOrder = async (orderId: string, productItemId: string) => {
+  console.log('removeShopProductFromOrder called with:', { orderId, productItemId });
+
+  try {
+    const response = await api.delete(`/api/admin/orders/${orderId}/shop-products/${productItemId}`);
+    console.log('removeShopProductFromOrder API response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('removeShopProductFromOrder API error:', error);
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
