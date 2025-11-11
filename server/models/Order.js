@@ -402,7 +402,13 @@ orderSchema.pre('save', function(next) {
 });
 
 // Populate customer and assigned staff when querying - include complete customer information
+// Can be disabled by setting { skipAutoPopulate: true } in query options
 orderSchema.pre(/^find/, function(next) {
+  // Check if auto-populate should be skipped
+  if (this.getOptions().skipAutoPopulate) {
+    return next();
+  }
+
   this.populate('customerId', 'name email phone avatar address paymentMethods isActive role createdAt')
       .populate('assignedStaff.staffId', 'name avatar')
       .populate('services.serviceId', 'name description price estimatedTime category')

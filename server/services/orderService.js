@@ -204,10 +204,10 @@ class OrderService {
   // Update order status
   static async updateStatus(orderId, status, note = null, staffId = null) {
     console.log('OrderService: Updating order status:', orderId, 'to', status);
-    
+
     try {
-      const order = await Order.findById(orderId);
-      
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
+
       if (!order) {
         throw new Error('Order not found');
       }
@@ -259,10 +259,10 @@ class OrderService {
   // Assign staff to order
   static async assignStaff(orderId, staffIds) {
     console.log('OrderService: Assigning staff to order:', orderId, 'staff:', staffIds);
-    
+
     try {
-      const order = await Order.findById(orderId);
-      
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
+
       if (!order) {
         throw new Error('Order not found');
       }
@@ -306,10 +306,10 @@ class OrderService {
   // Add staff note
   static async addNote(orderId, note, type, staffId) {
     console.log('OrderService: Adding note to order:', orderId);
-    
+
     try {
-      const order = await Order.findById(orderId);
-      
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
+
       if (!order) {
         throw new Error('Order not found');
       }
@@ -390,7 +390,7 @@ class OrderService {
     console.log('OrderService: Assigning EPart to order:', { orderId, partId, versionId, quantity, staffId });
 
     try {
-      const order = await Order.findById(orderId);
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
       if (!order) {
         throw new Error('Order not found');
       }
@@ -444,8 +444,7 @@ class OrderService {
         staffName: staff ? staff.name : 'Staff Member'
       });
 
-      // Use validateModifiedOnly to avoid validating unmodified services array
-      const updatedOrder = await order.save({ validateModifiedOnly: true });
+      const updatedOrder = await order.save();
 
       console.log('OrderService: EPart assigned successfully');
       return updatedOrder;
@@ -460,7 +459,7 @@ class OrderService {
     console.log('OrderService: Removing EPart from order:', { orderId, ePartId, staffId });
 
     try {
-      const order = await Order.findById(orderId);
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
       if (!order) {
         throw new Error('Order not found');
       }
@@ -499,8 +498,7 @@ class OrderService {
         staffName: staff ? staff.name : 'Staff Member'
       });
 
-      // Use validateModifiedOnly to avoid validating unmodified services array
-      const updatedOrder = await order.save({ validateModifiedOnly: true });
+      const updatedOrder = await order.save();
 
       console.log('OrderService: EPart removed successfully');
       return updatedOrder;
@@ -515,7 +513,7 @@ class OrderService {
     console.log('OrderService: Updating EPart status:', { orderId, ePartId, status, staffId });
 
     try {
-      const order = await Order.findById(orderId);
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
       if (!order) {
         throw new Error('Order not found');
       }
@@ -541,8 +539,7 @@ class OrderService {
         staffName: staff ? staff.name : 'Staff Member'
       });
 
-      // Use validateModifiedOnly to avoid validating unmodified services array
-      const updatedOrder = await order.save({ validateModifiedOnly: true });
+      const updatedOrder = await order.save();
 
       console.log('OrderService: EPart status updated successfully');
       return updatedOrder;
@@ -557,7 +554,7 @@ class OrderService {
     console.log('OrderService: Adding add-on to order:', { orderId, addonData, staffId });
 
     try {
-      const order = await Order.findById(orderId);
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
       if (!order) {
         throw new Error('Order not found');
       }
@@ -604,7 +601,7 @@ class OrderService {
     console.log('OrderService: Updating add-on in order:', { orderId, addonId, updateData, staffId });
 
     try {
-      const order = await Order.findById(orderId);
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
       if (!order) {
         throw new Error('Order not found');
       }
@@ -640,8 +637,7 @@ class OrderService {
         staffName: staff ? staff.name : 'Staff Member'
       });
 
-      // Use validateModifiedOnly to avoid validating unmodified services array
-      const updatedOrder = await order.save({ validateModifiedOnly: true });
+      const updatedOrder = await order.save();
 
       console.log('OrderService: Add-on updated successfully');
       return updatedOrder;
@@ -656,7 +652,7 @@ class OrderService {
     console.log('OrderService: Removing add-on from order:', { orderId, addonId, staffId });
 
     try {
-      const order = await Order.findById(orderId);
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
       if (!order) {
         throw new Error('Order not found');
       }
@@ -686,8 +682,7 @@ class OrderService {
         staffName: staff ? staff.name : 'Staff Member'
       });
 
-      // Use validateModifiedOnly to avoid validating unmodified services array
-      const updatedOrder = await order.save({ validateModifiedOnly: true });
+      const updatedOrder = await order.save();
 
       console.log('OrderService: Add-on removed successfully');
       return updatedOrder;
@@ -702,7 +697,7 @@ class OrderService {
     console.log('OrderService: Assigning staff to add-on:', { orderId, addonId, staffId, assigningStaffId });
 
     try {
-      const order = await Order.findById(orderId);
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
       if (!order) {
         throw new Error('Order not found');
       }
@@ -746,8 +741,7 @@ class OrderService {
         staffName: assigningStaff ? assigningStaff.name : 'System'
       });
 
-      // Use validateModifiedOnly to avoid validating unmodified services array
-      const updatedOrder = await order.save({ validateModifiedOnly: true });
+      const updatedOrder = await order.save();
 
       console.log('OrderService: Staff assigned to add-on successfully');
       return updatedOrder;
@@ -762,7 +756,7 @@ class OrderService {
     console.log('OrderService: Assigning workflow to order:', { orderId, workflowTemplateId, staffId });
 
     try {
-      const order = await Order.findById(orderId);
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
       if (!order) {
         throw new Error('Order not found');
       }
@@ -825,7 +819,7 @@ class OrderService {
     console.log('OrderService: Starting workflow:', { orderId, workflowId, staffId });
 
     try {
-      const order = await Order.findById(orderId);
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
       if (!order) {
         throw new Error('Order not found');
       }
@@ -874,7 +868,7 @@ class OrderService {
     console.log('OrderService: Completing workflow step:', { orderId, workflowId, stepId, staffId });
 
     try {
-      const order = await Order.findById(orderId);
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
       if (!order) {
         throw new Error('Order not found');
       }
@@ -956,7 +950,7 @@ class OrderService {
     console.log('OrderService: Skipping workflow step:', { orderId, workflowId, stepId, reason, staffId });
 
     try {
-      const order = await Order.findById(orderId);
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
       if (!order) {
         throw new Error('Order not found');
       }
@@ -1032,7 +1026,10 @@ class OrderService {
     console.log('OrderService: Updating workflow status:', { orderId, workflowId, status, staffId });
 
     try {
-      const order = await Order.findById(orderId);
+      // Fetch order without auto-population to avoid validation issues when saving
+      // The skipAutoPopulate option prevents the pre-find hook from populating references
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
+
       if (!order) {
         throw new Error('Order not found');
       }
@@ -1075,7 +1072,7 @@ class OrderService {
     console.log('OrderService: Going back to workflow step:', { orderId, workflowId, stepId, staffId });
 
     try {
-      const order = await Order.findById(orderId);
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
       if (!order) {
         throw new Error('Order not found');
       }
@@ -1286,7 +1283,7 @@ class OrderService {
 
     try {
       // Validate order exists
-      const order = await Order.findById(orderId);
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
       if (!order) {
         throw new Error('Order not found');
       }
@@ -1326,7 +1323,7 @@ class OrderService {
 
     try {
       // Validate order exists
-      const order = await Order.findById(orderId);
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
       if (!order) {
         throw new Error('Order not found');
       }
@@ -1381,7 +1378,7 @@ class OrderService {
 
     try {
       // Validate order exists
-      const order = await Order.findById(orderId);
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
       if (!order) {
         throw new Error('Order not found');
       }
@@ -1417,7 +1414,7 @@ class OrderService {
 
     try {
       // Validate order exists
-      const order = await Order.findById(orderId);
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
       if (!order) {
         throw new Error('Order not found');
       }
