@@ -66,3 +66,16 @@ export const registerDuringCheckout = async (data: CheckoutRegistrationData) => 
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// Description: Complete checkout - creates orders from cart repair orders and clears cart
+// Endpoint: POST /api/checkout/complete
+// Request: {}
+// Response: { success: boolean, message: string, orders: Order[], orderIds: string[] }
+export const completeCheckout = async () => {
+  try {
+    const response = await api.post('/api/checkout/complete');
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};

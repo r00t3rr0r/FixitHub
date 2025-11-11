@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/useToast"
 import { getCart, updateCartItem, removeFromCart, removeRepairOrderFromCart, applyPromoCode, Cart, CartItem } from "@/api/shop"
-import { initializeCheckout } from "@/api/checkout"
+import { initializeCheckout, completeCheckout } from "@/api/checkout"
 import { useAuth } from "@/contexts/AuthContext"
 import { CheckoutDialog } from "@/components/checkout/CheckoutDialog"
 import {
@@ -25,6 +25,7 @@ import { useTranslation } from 'react-i18next'
 export function ShoppingCartPage() {
   const { t } = useTranslation()
   const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
   const [cart, setCart] = useState<Cart | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null)
@@ -165,19 +166,21 @@ export function ShoppingCartPage() {
 
       console.log("Checkout initialized successfully:", response)
 
+      // Complete the checkout - create orders from cart repair orders
+      console.log("Completing checkout and creating orders...")
+      const checkoutResult = await completeCheckout()
+
+      console.log("Checkout completed successfully:", checkoutResult)
+
       toast({
         title: t('common.success'),
-        description: t('checkout.checkoutInitialized')
+        description: checkoutResult.message || `Successfully created ${checkoutResult.orderIds?.length || 0} order(s)`
       })
 
-      // TODO: Navigate to actual checkout/payment page
-      // For now, just show a success message
-      toast({
-        title: t('checkout.proceedingToPayment'),
-        description: t('checkout.proceedingToPaymentDesc')
-      })
+      // Navigate to orders page to show created orders
+      navigate('/orders')
     } catch (error: any) {
-      console.error("Error initializing checkout:", error)
+      console.error("Error during checkout:", error)
       toast({
         title: t('common.error'),
         description: error.message || t('checkout.checkoutFailed'),
@@ -198,18 +201,21 @@ export function ShoppingCartPage() {
 
       console.log("Checkout initialized after authentication:", response)
 
+      // Complete the checkout - create orders from cart repair orders
+      console.log("Completing checkout and creating orders...")
+      const checkoutResult = await completeCheckout()
+
+      console.log("Checkout completed successfully:", checkoutResult)
+
       toast({
         title: t('common.success'),
-        description: t('checkout.checkoutInitialized')
+        description: checkoutResult.message || `Successfully created ${checkoutResult.orderIds?.length || 0} order(s)`
       })
 
-      // TODO: Navigate to actual checkout/payment page
-      toast({
-        title: t('checkout.proceedingToPayment'),
-        description: t('checkout.proceedingToPaymentDesc')
-      })
+      // Navigate to orders page to show created orders
+      navigate('/orders')
     } catch (error: any) {
-      console.error("Error initializing checkout after authentication:", error)
+      console.error("Error during checkout after authentication:", error)
       toast({
         title: t('common.error'),
         description: error.message || t('checkout.checkoutFailed'),
