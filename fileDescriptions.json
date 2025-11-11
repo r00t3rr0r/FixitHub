@@ -421,6 +421,5 @@
 	"ORDER_SERVICES_FIXES_INDEX.md": "Master index and navigation guide for order services bug fixes, providing role-based learning paths, quick references, and links to seven comprehensive documentation files covering fixes, code changes, architecture, testing procedures, and deployment checklists.",
 	"QUICK_REFERENCE.md": "Quick reference guide documenting three critical bug fixes in the order service management system, including error descriptions, affected files with line numbers, test procedures, verification commands, and troubleshooting steps.",
 	"README_FIXES.md": "Central documentation hub for FixitHub order service bug fixes, providing navigation to detailed guides covering three critical bugs, code changes, testing procedures, and deployment information across frontend and backend files.",
-	"TEST_PLAN.md": "Comprehensive test plan documenting manual testing procedures, validation checks, and sign-off criteria for order service management fixes addressing undefined property errors, numeric input validation, and service CRUD operations across frontend and backend components.",
-	"client/dist/index.html": "Entry point HTML file for the FixitHub application, linking bundled JavaScript and CSS assets with a root DOM element for React mounting."
+	"TEST_PLAN.md": "Comprehensive test plan documenting manual testing procedures, validation checks, and sign-off criteria for order service management fixes addressing undefined property errors, numeric input validation, and service CRUD operations across frontend and backend components."
 }
