@@ -475,12 +475,14 @@ class FinancialService {
         throw new Error('Order not found');
       }
 
+      const amount = typeof order.totalCost === 'object' ? Number(order.totalCost) : order.totalCost;
+
       const payment = new Payment({
         orderId: order._id,
         orderNumber: order.orderNumber,
         customerId: order.customerId._id,
         customerName: order.customerId.name,
-        amount: order.totalCost,
+        amount: amount,
         paymentMethod: 'credit_card', // Default method
         gatewayResponse: 'Payment created'
       });
@@ -506,6 +508,9 @@ class FinancialService {
         throw new Error('Order not found');
       }
 
+      // Convert totalCost to number if it's a Decimal128
+      const totalCost = typeof order.totalCost === 'object' ? Number(order.totalCost) : order.totalCost;
+
       // Build invoice items from order
       const items = [];
 
@@ -514,8 +519,8 @@ class FinancialService {
         items.push({
           description: service,
           quantity: 1,
-          unitPrice: order.totalCost / (order.services.length + order.addOns.length),
-          total: order.totalCost / (order.services.length + order.addOns.length),
+          unitPrice: totalCost / (order.services.length + order.addOns.length),
+          total: totalCost / (order.services.length + order.addOns.length),
           type: 'service'
         });
       });
@@ -537,9 +542,9 @@ class FinancialService {
         customerName: order.customerId.name,
         customerEmail: order.customerId.email,
         items,
-        subtotal: order.totalCost,
-        tax: order.totalCost * 0.08, // 8% tax
-        total: order.totalCost * 1.08,
+        subtotal: totalCost,
+        tax: totalCost * 0.08, // 8% tax
+        total: totalCost * 1.08,
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
       });
 

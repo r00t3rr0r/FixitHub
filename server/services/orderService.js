@@ -29,21 +29,31 @@ class OrderService {
   // Get orders for a specific customer
   static async getByCustomer(customerId, filters = {}) {
     console.log('OrderService: Getting orders for customer:', customerId);
-    
+
     try {
       const query = { customerId };
-      
+
       // Apply filters
       if (filters.status) {
         query.status = filters.status;
       }
-      
+
       const orders = await Order.find(query)
         .sort({ createdAt: -1 });
-      
+
       console.log('OrderService: Found', orders.length, 'orders for customer');
-      console.log('OrderService: Orders data:', JSON.stringify(orders, null, 2));
-      return orders;
+
+      // Convert to plain objects and ensure totalCost is a number
+      const plainOrders = orders.map(order => {
+        const plain = order.toObject ? order.toObject() : order;
+        if (plain.totalCost !== undefined && typeof plain.totalCost === 'object') {
+          plain.totalCost = Number(plain.totalCost);
+        }
+        return plain;
+      });
+
+      console.log('OrderService: Orders data:', JSON.stringify(plainOrders, null, 2));
+      return plainOrders;
     } catch (error) {
       console.error('OrderService: Error getting customer orders:', error);
       throw error;
@@ -146,7 +156,14 @@ class OrderService {
       }
 
       console.log('OrderService: Order found:', order.orderNumber);
-      return order;
+
+      // Convert to plain object and ensure totalCost is a number
+      const plain = order.toObject ? order.toObject() : order;
+      if (plain.totalCost !== undefined && typeof plain.totalCost === 'object') {
+        plain.totalCost = Number(plain.totalCost);
+      }
+
+      return plain;
     } catch (error) {
       console.error('OrderService: Error getting order by ID:', error);
       throw error;

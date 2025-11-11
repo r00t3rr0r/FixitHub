@@ -48,10 +48,13 @@ class PerformanceService {
       });
 
       const completedOrders = orders.filter(order => order.status === 'completed');
-      
+
       // Calculate metrics
       const ordersCompleted = completedOrders.length;
-      const totalRevenue = completedOrders.reduce((sum, order) => sum + order.totalCost, 0);
+      const totalRevenue = completedOrders.reduce((sum, order) => {
+        const cost = typeof order.totalCost === 'object' ? Number(order.totalCost) : order.totalCost;
+        return sum + (cost || 0);
+      }, 0);
       
       // Calculate average completion time
       let totalCompletionTime = 0;
