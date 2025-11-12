@@ -13,7 +13,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/useToast"
-import { Send, AlertCircle } from "lucide-react"
+import { Send, AlertCircle, Eye, EyeOff, Copy, Check } from "lucide-react"
 
 interface ConfirmUnlockDialogProps {
   isOpen: boolean
@@ -48,6 +48,8 @@ export function ConfirmUnlockDialog({
   const [notes, setNotes] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [requestingFromCustomer, setRequestingFromCustomer] = useState(false)
+  const [showUnlockCode, setShowUnlockCode] = useState(false)
+  const [codeCopied, setCodeCopied] = useState(false)
 
   const handleConfirm = async () => {
     try {
@@ -85,6 +87,27 @@ export function ConfirmUnlockDialog({
     }
   }
 
+  const handleCopyCode = async () => {
+    if (unlockCode) {
+      try {
+        await navigator.clipboard.writeText(unlockCode)
+        setCodeCopied(true)
+        setTimeout(() => setCodeCopied(false), 2000)
+        toast({
+          title: t('common.success', 'Success'),
+          description: t('orderDetails.codecopied', 'Unlock code copied to clipboard'),
+          variant: "default"
+        })
+      } catch (error) {
+        toast({
+          title: t('common.error', 'Error'),
+          description: t('orderDetails.copyFailed', 'Failed to copy code'),
+          variant: "destructive"
+        })
+      }
+    }
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -100,26 +123,58 @@ export function ConfirmUnlockDialog({
         <div className="space-y-6">
           {/* Display Current Unlock Information */}
           <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-            <p className="text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-300 mb-3">
               {t('orderDetails.currentUnlockInfo', 'Current Unlock Information')}
             </p>
-            <div className="space-y-1 text-sm text-slate-700 dark:text-slate-400">
+            <div className="space-y-3 text-sm text-slate-700 dark:text-slate-400">
               {unlockPattern.length > 0 && (
-                <p>
-                  <span className="font-mono">{unlockPattern.join(' → ')}</span>{' '}
-                  <span className="text-xs text-slate-500">({t('orderDetails.pattern', 'Pattern')})</span>
-                </p>
+                <div className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-600">
+                  <div>
+                    <span className="font-mono font-semibold text-slate-900 dark:text-slate-100">{unlockPattern.join(' → ')}</span>{' '}
+                    <span className="text-xs text-slate-500">({t('orderDetails.pattern', 'Pattern')})</span>
+                  </div>
+                </div>
               )}
               {unlockCode && (
-                <p>
-                  <span className="font-mono">••••••••</span>{' '}
-                  <span className="text-xs text-slate-500">({t('orderDetails.code', 'Code')})</span>
-                </p>
+                <div className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-600 gap-2">
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className="font-mono font-semibold text-slate-900 dark:text-slate-100">
+                      {showUnlockCode ? unlockCode : '••••••••'}
+                    </span>
+                    <span className="text-xs text-slate-500">({t('orderDetails.code', 'Code')})</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowUnlockCode(!showUnlockCode)}
+                      className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                      title={showUnlockCode ? 'Hide code' : 'Show code'}
+                    >
+                      {showUnlockCode ? (
+                        <EyeOff className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCopyCode}
+                      className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                      title="Copy code"
+                    >
+                      {codeCopied ? (
+                        <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                      ) : (
+                        <Copy className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                      )}
+                    </button>
+                  </div>
+                </div>
               )}
               {noLock && (
-                <p className="text-green-700 dark:text-green-300">
+                <div className="p-2 bg-white dark:bg-slate-800 rounded border border-green-200 dark:border-green-900 text-green-700 dark:text-green-300">
                   ✓ {t('orderDetails.deviceHasNoLock', 'Device has no lock')}
-                </p>
+                </div>
               )}
             </div>
           </div>
@@ -199,16 +254,34 @@ export function ConfirmUnlockDialog({
             />
           </div>
 
-          {/* Request From Customer Option */}
-          {confirmationStatus === 'unable-to-verify' && (
-            <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 space-y-3">
+          {/* Request From Customer Option - for both Incorrect and Unable to Verify */}
+          {(confirmationStatus === 'unable-to-verify' || confirmationStatus === 'incorrect') && (
+            <div className={`p-4 rounded-lg border space-y-3 ${
+              confirmationStatus === 'unable-to-verify'
+                ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900'
+                : 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900'
+            }`}>
               <div className="flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <AlertCircle className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
+                  confirmationStatus === 'unable-to-verify'
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-red-600 dark:text-red-400'
+                }`} />
                 <div>
-                  <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                    {t('orderDetails.unableToVerifyActionNeeded', 'Action Needed')}
+                  <p className={`text-sm font-medium ${
+                    confirmationStatus === 'unable-to-verify'
+                      ? 'text-amber-900 dark:text-amber-100'
+                      : 'text-red-900 dark:text-red-100'
+                  }`}>
+                    {confirmationStatus === 'unable-to-verify'
+                      ? t('orderDetails.unableToVerifyActionNeeded', 'Action Needed')
+                      : t('orderDetails.incorrectActionNeeded', 'Incorrect Code - Action Needed')}
                   </p>
-                  <p className="text-sm text-amber-800 dark:text-amber-200 mt-1">
+                  <p className={`text-sm mt-1 ${
+                    confirmationStatus === 'unable-to-verify'
+                      ? 'text-amber-800 dark:text-amber-200'
+                      : 'text-red-800 dark:text-red-200'
+                  }`}>
                     {t('orderDetails.requestUnlockFromCustomer', 'You can request the unlock information directly from the customer via message')}
                   </p>
                 </div>
@@ -225,7 +298,11 @@ export function ConfirmUnlockDialog({
                   <Send className="h-3 w-3 mr-1" />
                   {t('orderDetails.contactCustomer', 'Contact Customer')}
                 </Button>
-                <label className="flex items-center gap-2 px-3 py-2 rounded border border-slate-300 dark:border-slate-600 text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900">
+                <label className={`flex items-center gap-2 px-3 py-2 rounded border text-sm font-medium cursor-pointer ${
+                  confirmationStatus === 'unable-to-verify'
+                    ? 'border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                    : 'border-red-300 dark:border-red-600 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20'
+                }`}>
                   <input
                     type="checkbox"
                     checked={requestingFromCustomer}
