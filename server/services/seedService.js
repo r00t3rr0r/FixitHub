@@ -897,12 +897,550 @@ class SeedService {
     }
   }
 
+  static async seedGermanData() {
+    try {
+      console.log('SeedService.seedGermanData: Starting German data seeding...');
+
+      const results = {};
+
+      // Seed German services
+      results.germanServices = await this.seedGermanServices();
+      results.germanAddOnServices = await this.seedGermanAddOnServices();
+      results.germanInventory = await this.seedGermanInventory();
+      results.germanDevices = await this.seedGermanDevices();
+      results.germanProducts = await this.seedGermanProducts();
+      results.germanBlogData = await this.seedGermanBlogData();
+      results.germanFAQs = await this.seedGermanFAQs();
+      results.germanHomepageTemplate = await this.seedGermanHomepageTemplate();
+
+      console.log('SeedService.seedGermanData: German data seeding finished successfully');
+      return results;
+    } catch (error) {
+      console.error('SeedService.seedGermanData: Error during German data seeding:', error);
+      throw error;
+    }
+  }
+
+  static async seedGermanServices() {
+    try {
+      console.log('SeedService.seedGermanServices: Starting German services seeding...');
+
+      // Check if German services already exist by name
+      const existingGermanService = await Service.findOne({ name: 'Bildschirmersatz' });
+      if (existingGermanService) {
+        console.log('SeedService.seedGermanServices: German services already exist, skipping...');
+        return { message: 'German services already exist' };
+      }
+
+      const germanServices = [
+        {
+          name: 'Bildschirmersatz',
+          description: 'Professioneller Austausch von beschädigten oder gebrochenen Bildschirmen',
+          category: 'Display',
+          price: 149.99,
+          estimatedTime: '60',
+          deviceTypes: ['Smartphone', 'Tablet'],
+          isActive: true,
+          knowledgeBaseArticles: []
+        },
+        {
+          name: 'Batterieaustausch',
+          description: 'Ersetzen Sie alte oder verschlissene Batterien, um die Geräteleisstung wiederherzustellen',
+          category: 'Power',
+          price: 89.99,
+          estimatedTime: '45',
+          deviceTypes: ['Smartphone', 'Tablet', 'Laptop'],
+          isActive: true,
+          knowledgeBaseArticles: []
+        },
+        {
+          name: 'Wasserschaden-Reparatur',
+          description: 'Umfassende Wasserschaden-Bewertung und Reparaturservice',
+          category: 'Emergency',
+          price: 199.99,
+          estimatedTime: '120',
+          deviceTypes: ['Smartphone', 'Tablet'],
+          isActive: true,
+          knowledgeBaseArticles: []
+        },
+        {
+          name: 'Datenrettung',
+          description: 'Professionelle Datenrettung von beschädigten oder beschädigten Geräten',
+          category: 'Software',
+          price: 299.99,
+          estimatedTime: '180',
+          deviceTypes: ['Smartphone', 'Tablet', 'Laptop'],
+          isActive: true,
+          knowledgeBaseArticles: []
+        },
+        {
+          name: 'Kamerarepatur',
+          description: 'Kameraprobleme beheben und Kameramodule austauschen',
+          category: 'Camera',
+          price: 129.99,
+          estimatedTime: '90',
+          deviceTypes: ['Smartphone', 'Tablet'],
+          isActive: true,
+          knowledgeBaseArticles: []
+        }
+      ];
+
+      const createdServices = await Service.insertMany(germanServices);
+      console.log('SeedService.seedGermanServices: German services created successfully, count:', createdServices.length);
+      return { message: `German services created successfully, count: ${createdServices.length}` };
+    } catch (error) {
+      console.error('SeedService.seedGermanServices: Error creating German services:', error);
+      throw error;
+    }
+  }
+
+  static async seedGermanAddOnServices() {
+    try {
+      console.log('SeedService.seedGermanAddOnServices: Starting German add-on services seeding...');
+
+      const existingGermanAddOn = await AddOnService.findOne({ name: 'Displayschutzfolie Installation' });
+      if (existingGermanAddOn) {
+        console.log('SeedService.seedGermanAddOnServices: German add-on services already exist, skipping...');
+        return { message: 'German add-on services already exist' };
+      }
+
+      const germanAddOnServices = [
+        {
+          name: 'Displayschutzfolie Installation',
+          description: 'Professionelle Installation von gehärteter Glasschutzfolie',
+          category: 'Protection',
+          price: 29.99,
+          estimatedTime: '10',
+          isActive: true,
+          compatibleServices: [],
+          inventoryRequired: true
+        },
+        {
+          name: 'Gerätereinigung',
+          description: 'Gründliche Reinigung und Desinfektion Ihres Geräts',
+          category: 'Service',
+          price: 19.99,
+          estimatedTime: '15',
+          isActive: true,
+          compatibleServices: [],
+          inventoryRequired: false
+        },
+        {
+          name: 'Datentransfer',
+          description: 'Übertragen Sie Daten vom alten Gerät zum reparierten Gerät',
+          category: 'Data',
+          price: 49.99,
+          estimatedTime: '30',
+          isActive: true,
+          compatibleServices: [],
+          inventoryRequired: false
+        },
+        {
+          name: 'Express-Service',
+          description: 'Prioritätsreparaturservice mit schnellerem Bearbeitungszeitraum',
+          category: 'Service',
+          price: 99.99,
+          estimatedTime: '0',
+          isActive: true,
+          compatibleServices: [],
+          inventoryRequired: false
+        },
+        {
+          name: 'Erweiterte Garantie',
+          description: '6-Monate erweiterte Garantie auf Reparaturarbeiten',
+          category: 'Warranty',
+          price: 79.99,
+          estimatedTime: '0',
+          isActive: true,
+          compatibleServices: [],
+          inventoryRequired: false
+        }
+      ];
+
+      const createdAddOns = await AddOnService.insertMany(germanAddOnServices);
+      console.log('SeedService.seedGermanAddOnServices: German add-on services created successfully, count:', createdAddOns.length);
+      return { message: `German add-on services created successfully, count: ${createdAddOns.length}` };
+    } catch (error) {
+      console.error('SeedService.seedGermanAddOnServices: Error creating German add-on services:', error);
+      throw error;
+    }
+  }
+
+  static async seedGermanInventory() {
+    try {
+      console.log('SeedService.seedGermanInventory: Starting German inventory seeding...');
+
+      const existingGermanInventory = await Inventory.findOne({ itemName: 'iPhone 13 Bildschirmmodul' });
+      if (existingGermanInventory) {
+        console.log('SeedService.seedGermanInventory: German inventory already exists, skipping...');
+        return { message: 'German inventory already exist' };
+      }
+
+      const germanInventoryItems = [
+        {
+          itemName: 'iPhone 13 Bildschirmmodul',
+          itemDescription: 'Originalqualität Bildschirmmodul für iPhone 13',
+          category: 'display',
+          manufacturer: 'Apple',
+          brand: 'Apple',
+          sku: 'DE-IP13-SCR-DE',
+          versions: [
+            {
+              versionType: 'original',
+              versionId: 'IP13-SCR-001',
+              quantity: 25,
+              minStockLevel: 5,
+              reorderLevel: 10,
+              unitCost: 120.00,
+              sellingPrice: 180.00,
+              storageLocation: 'A1-01',
+              supplierInfo: {
+                name: 'Apple Autorisierter Distributor'
+              }
+            },
+            {
+              versionType: 'efficient',
+              versionId: 'IP13-SCR-002',
+              quantity: 50,
+              minStockLevel: 10,
+              reorderLevel: 20,
+              unitCost: 80.00,
+              sellingPrice: 120.00,
+              storageLocation: 'A1-02',
+              supplierInfo: {
+                name: 'Zertifizierter Teile-Supplier'
+              }
+            }
+          ]
+        },
+        {
+          itemName: 'Samsung Galaxy S21 Akku',
+          itemDescription: 'Hochkapazitäts-Akku für Samsung Galaxy S21',
+          category: 'battery',
+          manufacturer: 'Samsung',
+          brand: 'Samsung',
+          sku: 'DE-SAM-BAT-DE',
+          versions: [
+            {
+              versionType: 'original',
+              versionId: 'SAM-BAT-001',
+              quantity: 30,
+              minStockLevel: 8,
+              reorderLevel: 15,
+              unitCost: 45.00,
+              sellingPrice: 70.00,
+              storageLocation: 'B2-01',
+              supplierInfo: {
+                name: 'Samsung Teile-Abteilung'
+              }
+            }
+          ]
+        }
+      ];
+
+      const createdInventory = await Inventory.insertMany(germanInventoryItems);
+      console.log('SeedService.seedGermanInventory: German inventory created successfully, count:', createdInventory.length);
+      return { message: `German inventory created successfully, count: ${createdInventory.length}` };
+    } catch (error) {
+      console.error('SeedService.seedGermanInventory: Error creating German inventory:', error);
+      throw error;
+    }
+  }
+
+  static async seedGermanDevices() {
+    try {
+      console.log('SeedService.seedGermanDevices: Starting German devices seeding...');
+
+      // Check if Fairphone already exists
+      const existingFairphone = await DeviceBrand.findOne({ name: 'Fairphone' });
+      if (existingFairphone) {
+        console.log('SeedService.seedGermanDevices: German devices already exist, skipping...');
+        return { message: 'German devices already exist' };
+      }
+
+      console.log('SeedService.seedGermanDevices: Fairphone brand not found, creating...');
+      const brand = new DeviceBrand({
+        name: 'Fairphone',
+        logo: 'https://via.placeholder.com/100x100/10b981/ffffff?text=Fairphone',
+        isActive: true
+      });
+      const savedBrand = await brand.save();
+      console.log(`SeedService.seedGermanDevices: Created brand Fairphone with ID:`, savedBrand._id);
+
+      const models = [
+        { name: 'Fairphone 5', deviceType: 'smartphone' },
+        { name: 'Fairphone 4', deviceType: 'smartphone' }
+      ].map(modelData => ({
+        name: modelData.name,
+        brandId: savedBrand._id,
+        deviceType: modelData.deviceType,
+        image: `https://via.placeholder.com/200x200/06b6d4/ffffff?text=${encodeURIComponent(modelData.name)}`,
+        specifications: {},
+        isActive: true
+      }));
+
+      const savedModels = await DeviceModel.insertMany(models);
+      console.log(`SeedService.seedGermanDevices: Created ${savedModels.length} models for Fairphone`);
+
+      console.log('SeedService.seedGermanDevices: German devices seeding completed successfully');
+      return { message: 'German devices seeded successfully' };
+    } catch (error) {
+      console.error('SeedService.seedGermanDevices: Error creating German devices:', error);
+      throw error;
+    }
+  }
+
+  static async seedGermanProducts() {
+    try {
+      console.log('SeedService.seedGermanProducts: Starting German products seeding...');
+
+      const existingGermanProduct = await Product.findOne({ name: 'iPhone 13 Pro Schutzhülle' });
+      if (existingGermanProduct) {
+        console.log('SeedService.seedGermanProducts: German products already exist, skipping...');
+        return { message: 'German products already exist' };
+      }
+
+      const germanProducts = [
+        {
+          name: 'iPhone 13 Pro Schutzhülle (DE)',
+          description: 'Premium Schutzhülle für iPhone 13 Pro',
+          category: 'Cases',
+          brand: 'FixitHub',
+          price: 39.99,
+          costPrice: 15.00,
+          stockCount: 75,
+          sku: 'DE-IP13-CASE-001',
+          images: ['https://via.placeholder.com/300x300/3b82f6/ffffff?text=Hülle'],
+          inStock: true,
+          isActive: true
+        },
+        {
+          name: 'Kabelloses Ladepad (DE)',
+          description: 'Schnelles kabelloses Ladepad kompatibel mit allen Qi-Geräten',
+          category: 'Chargers',
+          brand: 'FixitHub',
+          price: 49.99,
+          costPrice: 20.00,
+          stockCount: 50,
+          sku: 'DE-CHARGER-001',
+          images: ['https://via.placeholder.com/300x300/10b981/ffffff?text=Ladegerät'],
+          inStock: true,
+          isActive: true
+        },
+        {
+          name: 'Bildschirm-Reinigungsset (DE)',
+          description: 'Professionelles Bildschirm-Reinigungsset mit Mikrofaser-Tuch',
+          category: 'Accessories',
+          brand: 'FixitHub',
+          price: 19.99,
+          costPrice: 5.00,
+          stockCount: 100,
+          sku: 'DE-CLEAN-001',
+          images: ['https://via.placeholder.com/300x300/f59e0b/ffffff?text=Set'],
+          inStock: true,
+          isActive: true
+        }
+      ];
+
+      const createdProducts = await Product.insertMany(germanProducts);
+      console.log('SeedService.seedGermanProducts: German products created successfully, count:', createdProducts.length);
+      return { message: `German products created successfully, count: ${createdProducts.length}` };
+    } catch (error) {
+      console.error('SeedService.seedGermanProducts: Error creating German products:', error);
+      throw error;
+    }
+  }
+
+  static async seedGermanBlogData() {
+    try {
+      console.log('SeedService.seedGermanBlogData: Starting German blog data seeding (skipped - complex schema)...');
+      // Blog seeding skipped due to complex category relationships
+      // Categories need to be created first as separate objects with unique references
+      return { message: 'German blog posts skipped (requires category setup)' };
+    } catch (error) {
+      console.error('SeedService.seedGermanBlogData: Error creating German blog posts:', error);
+      throw error;
+    }
+  }
+
+  static async seedGermanFAQs() {
+    try {
+      console.log('SeedService.seedGermanFAQs: Starting German FAQs seeding...');
+
+      const existingGermanFAQ = await FAQ.findOne({ question: 'Wie lange dauert eine typische Bildschirmreparatur?' });
+      if (existingGermanFAQ) {
+        console.log('SeedService.seedGermanFAQs: German FAQs already exist, skipping...');
+        return { message: 'German FAQs already exist' };
+      }
+
+      // Get admin user for createdBy reference
+      const adminUser = await User.findOne({ role: 'admin' });
+      if (!adminUser) {
+        console.log('SeedService.seedGermanFAQs: No admin user found for FAQ creator, skipping...');
+        return { message: 'No admin user found' };
+      }
+
+      const germanFAQs = [
+        {
+          question: 'Wie lange dauert eine typische Bildschirmreparatur?',
+          answer: 'Die meisten Bildschirmreparaturen werden innerhalb von 1-2 Stunden abgeschlossen. Die genaue Zeit hängt vom Gerätemodell und der Teile-Verfügbarkeit ab.',
+          category: 'General',
+          tags: [],
+          isActive: true,
+          createdBy: adminUser._id,
+          order: 1
+        },
+        {
+          question: 'Bieten Sie Garantie auf Reparaturen?',
+          answer: 'Ja, wir bieten eine 90-Tage-Garantie auf alle Reparaturarbeiten. Dies deckt alle Mängel in Teilen oder Verarbeitung ab.',
+          category: 'Warranty',
+          tags: [],
+          isActive: true,
+          createdBy: adminUser._id,
+          order: 2
+        },
+        {
+          question: 'Können Sie Daten von einem wassergeschädigten Telefon retten?',
+          answer: 'In vielen Fällen ja. Unsere Datenrettungsquote für wassergeschädigte Geräte beträgt etwa 85%. Wir empfehlen, Ihr Gerät so schnell wie möglich zu bringen.',
+          category: 'Technical',
+          tags: [],
+          isActive: true,
+          createdBy: adminUser._id,
+          order: 3
+        },
+        {
+          question: 'Welche Zahlungsmethoden akzeptieren Sie?',
+          answer: 'Wir akzeptieren Bargeld, Kreditkarten (Visa, MasterCard, American Express), Debitkarten und PayPal. Die Zahlung ist nach Abschluss der Reparatur fällig.',
+          category: 'General',
+          tags: [],
+          isActive: true,
+          createdBy: adminUser._id,
+          order: 4
+        },
+        {
+          question: 'Brauche ich einen Termin für eine Reparatur?',
+          answer: 'Termine sind nicht erforderlich, aber wir empfehlen, einen zu vereinbaren, um einen schnelleren Service zu gewährleisten. Laufkundschaft ist willkommen, kann aber längere Wartezeiten erfordern.',
+          category: 'Account',
+          tags: [],
+          isActive: true,
+          createdBy: adminUser._id,
+          order: 5
+        }
+      ];
+
+      const createdFAQs = await FAQ.insertMany(germanFAQs);
+      console.log('SeedService.seedGermanFAQs: German FAQs created successfully, count:', createdFAQs.length);
+      return { message: `German FAQs created successfully, count: ${createdFAQs.length}` };
+    } catch (error) {
+      console.error('SeedService.seedGermanFAQs: Error creating German FAQs:', error);
+      throw error;
+    }
+  }
+
+  static async seedGermanHomepageTemplate() {
+    try {
+      console.log('SeedService.seedGermanHomepageTemplate: Starting German homepage template seeding...');
+
+      const existingGermanHomepage = await HomepageSection.findOne({ title: 'Professionelle Gerätereparaturservices' });
+      if (existingGermanHomepage) {
+        console.log('SeedService.seedGermanHomepageTemplate: German homepage template already exists, skipping...');
+        return { message: 'German homepage template already exists' };
+      }
+
+      const germanHomepageData = [
+        {
+          name: 'Held Sektion (Deutsch)',
+          type: 'hero',
+          title: 'Professionelle Gerätereparaturservices',
+          content: 'Lassen Sie Ihre Geräte von zertifizierten Technikern mit Originalersatzteilen und Garantieabdeckung reparieren.',
+          settings: {
+            backgroundColor: '#3b82f6',
+            textColor: '#ffffff',
+            buttonText: 'Jetzt anfangen',
+            buttonLink: '/new-order',
+            backgroundImage: 'https://via.placeholder.com/1920x800/3b82f6/ffffff?text=Hero+Sektion'
+          },
+          isActive: true,
+          order: 1
+        },
+        {
+          name: 'Services Übersicht (Deutsch)',
+          type: 'services',
+          title: 'Unsere Reparaturservices',
+          content: 'Wir spezialisieren uns auf die Reparatur aller großen Gerätemarken mit schnellen Bearbeitungszeiten.',
+          settings: {
+            backgroundColor: '#ffffff',
+            textColor: '#1f2937',
+            showPricing: true,
+            layout: 'grid'
+          },
+          isActive: true,
+          order: 2
+        },
+        {
+          name: 'Warum FixitHub (Deutsch)',
+          type: 'features',
+          title: 'Warum FixitHub wählen?',
+          content: 'Professioneller Service, Originalersatzteile und Kundenzufriedenheit garantiert.',
+          settings: {
+            backgroundColor: '#f9fafb',
+            textColor: '#1f2937',
+            features: [
+              'Zertifizierte Techniker',
+              'Originalersatzteile',
+              '90-Tage-Garantie',
+              'Schnelle Bearbeitung'
+            ]
+          },
+          isActive: true,
+          order: 3
+        },
+        {
+          name: 'Kundenaussagen (Deutsch)',
+          type: 'testimonials',
+          title: 'Was unsere Kunden sagen',
+          content: 'Lesen Sie Bewertungen von zufriedenen Kunden, die uns ihre Gerätereparaturen anvertrauen.',
+          settings: {
+            backgroundColor: '#ffffff',
+            textColor: '#1f2937',
+            showRatings: true,
+            autoplay: true
+          },
+          isActive: true,
+          order: 4
+        },
+        {
+          name: 'Aufruf zum Handeln (Deutsch)',
+          type: 'cta',
+          title: 'Bereit, Ihr Gerät zu reparieren?',
+          content: 'Erhalten Sie noch heute ein kostenloses Angebot und erleben Sie unsere professionellen Reparaturservices.',
+          settings: {
+            backgroundColor: '#10b981',
+            textColor: '#ffffff',
+            buttonText: 'Kostenloses Angebot erhalten',
+            buttonLink: '/new-order',
+            centered: true
+          },
+          isActive: true,
+          order: 5
+        }
+      ];
+
+      const createdHomepage = await HomepageSection.insertMany(germanHomepageData);
+      console.log('SeedService.seedGermanHomepageTemplate: German homepage template created successfully, count:', createdHomepage.length);
+      return { message: `German homepage template created successfully, count: ${createdHomepage.length}` };
+    } catch (error) {
+      console.error('SeedService.seedGermanHomepageTemplate: Error creating German homepage template:', error);
+      throw error;
+    }
+  }
+
   static async seedAll() {
     try {
       console.log('SeedService.seedAll: Starting complete database seeding...');
-      
+
       const results = {};
-      
+
       // Seed in order of dependencies
       results.adminUser = await this.seedAdminUser();
       results.testUsers = await this.seedTestUsers();
@@ -915,7 +1453,7 @@ class SeedService {
       results.faqs = await this.seedFAQs();
       results.homepageTemplate = await this.seedHomepageTemplate();
       results.financialData = await this.seedFinancialData();
-      
+
       console.log('SeedService.seedAll: Complete database seeding finished successfully');
       return results;
     } catch (error) {

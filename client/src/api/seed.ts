@@ -64,3 +64,18 @@ export const checkServerHealth = async () => {
     throw new Error(error?.response?.data?.message || error.message);
   }
 };
+
+// —GERMAN_SEEDING_API (file `client/src/api/seed.ts`) —
+// Description: Seed German language services, products, FAQs, blog posts, and homepage content
+// Endpoint: POST /api/seed/german
+// Request: {}
+// Response: { success: boolean, message: string, data: { germanServices, germanAddOnServices, germanInventory, germanDevices, germanProducts, germanBlogData, germanFAQs, germanHomepageTemplate } }
+export const seedGermanData = async () => {
+  try {
+    const response = await api.post('/api/seed/german');
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.message || error.message);
+  }
+};
+// —END_OF_GERMAN_SEEDING_API—
