@@ -1168,19 +1168,53 @@ class OrderService {
     console.log('OrderService: Getting suggested workflows for order:', orderId);
 
     try {
-      const order = await Order.findById(orderId);
+      const order = await Order.findById(orderId).populate('services.serviceId');
       if (!order) {
         throw new Error('Order not found');
       }
 
-      // Find workflows matching device type and services
+      console.log('OrderService: Order details for workflow matching:', {
+        orderId,
+        deviceType: order.deviceType,
+        serviceCount: order.services?.length || 0,
+        services: order.services?.map(s => ({
+          serviceId: s.serviceId?._id,
+          serviceName: s.serviceId?.name,
+          serviceCategory: s.serviceId?.category
+        }))
+      });
+
+      // Extract service categories from the order services
+      const serviceCategories = [];
+      if (order.services && order.services.length > 0) {
+        order.services.forEach(orderService => {
+          if (orderService.serviceId && orderService.serviceId.category) {
+            if (!serviceCategories.includes(orderService.serviceId.category)) {
+              serviceCategories.push(orderService.serviceId.category);
+            }
+          }
+        });
+      }
+
+      console.log('OrderService: Extracted service categories:', serviceCategories);
+      console.log('OrderService: Looking for workflows with deviceTypes:', order.deviceType, 'and serviceTypes:', serviceCategories);
+
+      // Find workflows matching device type and service categories
       const workflows = await WorkflowTemplate.find({
         isActive: true,
         deviceTypes: { $in: [order.deviceType] },
-        serviceTypes: { $in: order.services }
+        serviceTypes: { $in: serviceCategories }
       }).sort({ createdAt: -1 });
 
       console.log('OrderService: Found', workflows.length, 'suggested workflows');
+      console.log('OrderService: Suggested workflows:', workflows.map(w => ({
+        id: w._id,
+        name: w.name,
+        deviceTypes: w.deviceTypes,
+        serviceTypes: w.serviceTypes,
+        stepsCount: w.steps?.length || 0
+      })));
+
       return workflows;
     } catch (error) {
       console.error('OrderService: Error getting suggested workflows:', error);

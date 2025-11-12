@@ -14,7 +14,7 @@ const workflowTemplates = [
     name: 'Standard Screen Replacement',
     description: 'Complete workflow for replacing a device screen with quality checks',
     deviceTypes: ['Smartphone', 'Tablet'],
-    serviceTypes: ['Screen Replacement', 'Display Repair'],
+    serviceTypes: ['Display'],
     isActive: true,
     steps: [
       {
@@ -178,7 +178,7 @@ const workflowTemplates = [
     name: 'Battery Replacement',
     description: 'Safe battery replacement procedure with testing',
     deviceTypes: ['Smartphone', 'Tablet', 'Laptop'],
-    serviceTypes: ['Battery Replacement', 'Power Issues'],
+    serviceTypes: ['Power'],
     isActive: true,
     steps: [
       {
@@ -298,6 +298,109 @@ const workflowTemplates = [
       }
     ],
     estimatedTotalTime: 70,
+    globalAutomationRules: [],
+    workflowSettings: {
+      allowParallelSteps: false,
+      requireStrictOrder: true,
+      autoProgressOnCompletion: true
+    }
+  },
+  {
+    name: 'Camera Repair',
+    description: 'Complete workflow for repairing device cameras',
+    deviceTypes: ['Smartphone', 'Tablet', 'Laptop'],
+    serviceTypes: ['Camera'],
+    isActive: true,
+    steps: [
+      {
+        name: 'Camera Diagnostic',
+        description: 'Test camera functionality and identify issues',
+        estimatedTime: 10,
+        isRequired: true,
+        order: 1,
+        category: 'diagnostic',
+        dependencies: [],
+        tools: ['Camera app', 'Diagnostic software'],
+        skills: ['Camera testing'],
+        checklistItems: [
+          'Test front camera',
+          'Test rear camera',
+          'Check autofocus',
+          'Test flash',
+          'Document any errors'
+        ],
+        formFields: [],
+        requiresFormCompletion: false,
+        automationRules: [],
+        position: { x: 0, y: 0 },
+        canSkip: false,
+        requiresApproval: false,
+        notificationSettings: {
+          onStart: true,
+          onComplete: false,
+          onDelay: false
+        }
+      },
+      {
+        name: 'Camera Replacement',
+        description: 'Replace faulty camera module',
+        estimatedTime: 30,
+        isRequired: true,
+        order: 2,
+        category: 'repair',
+        dependencies: [],
+        tools: ['Screwdrivers', 'Prying tools', 'Camera module'],
+        skills: ['Component replacement'],
+        checklistItems: [
+          'Remove protective cover',
+          'Disconnect camera flex',
+          'Remove faulty camera',
+          'Install new camera',
+          'Verify alignment'
+        ],
+        formFields: [],
+        requiresFormCompletion: false,
+        automationRules: [],
+        position: { x: 0, y: 100 },
+        canSkip: false,
+        requiresApproval: false,
+        notificationSettings: {
+          onStart: false,
+          onComplete: false,
+          onDelay: false
+        }
+      },
+      {
+        name: 'Camera Testing',
+        description: 'Test camera functionality after repair',
+        estimatedTime: 15,
+        isRequired: true,
+        order: 3,
+        category: 'quality',
+        dependencies: [],
+        tools: ['Camera app', 'Diagnostic software'],
+        skills: ['Camera testing'],
+        checklistItems: [
+          'Test photo quality',
+          'Test video recording',
+          'Test autofocus',
+          'Test flash',
+          'Check for artifacts'
+        ],
+        formFields: [],
+        requiresFormCompletion: false,
+        automationRules: [],
+        position: { x: 0, y: 200 },
+        canSkip: false,
+        requiresApproval: true,
+        notificationSettings: {
+          onStart: false,
+          onComplete: true,
+          onDelay: false
+        }
+      }
+    ],
+    estimatedTotalTime: 55,
     globalAutomationRules: [],
     workflowSettings: {
       allowParallelSteps: false,
