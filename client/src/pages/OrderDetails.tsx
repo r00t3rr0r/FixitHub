@@ -15,6 +15,7 @@ import { getUserProfile, UserProfile } from "@/api/user"
 import { getAddOnServices, AddOnService as AddOnServiceType, getServices } from "@/api/services"
 import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder } from "@/api/workflow"
 import { getOrderServices, addServiceToOrder, updateOrderService, removeServiceFromOrder } from "@/api/orderServices"
+import { searchDevices, SearchResult } from "@/api/devices"
 import EPartSelectionDialog from "@/components/admin/EPartSelectionDialog"
 import { ShopProductSelectionDialog } from "@/components/admin/ShopProductSelectionDialog"
 import { RepairServiceDialog } from "@/components/inspection/RepairServiceDialog"
@@ -119,6 +120,10 @@ export function OrderDetails() {
   const [newDeviceModel, setNewDeviceModel] = useState("")
   const [newDeviceType, setNewDeviceType] = useState("")
   const [updatingDevice, setUpdatingDevice] = useState(false)
+  const [deviceSearchQuery, setDeviceSearchQuery] = useState("")
+  const [deviceSearchResults, setDeviceSearchResults] = useState<SearchResult[]>([])
+  const [showDeviceResults, setShowDeviceResults] = useState(false)
+  const [selectedDeviceForChange, setSelectedDeviceForChange] = useState<SearchResult | null>(null)
   const { toast } = useToast()
 
   // Fetch user profile
@@ -810,6 +815,42 @@ export function OrderDetails() {
     }
   }
 
+  // Handle device search
+  const handleDeviceSearch = async (query: string) => {
+    setDeviceSearchQuery(query)
+
+    if (query.length < 2) {
+      setDeviceSearchResults([])
+      setShowDeviceResults(false)
+      return
+    }
+
+    try {
+      console.log("OrderDetails: Searching devices with query:", query)
+      const response = await searchDevices(query)
+      setDeviceSearchResults((response as any).devices || [])
+      setShowDeviceResults(true)
+    } catch (error: any) {
+      console.error("OrderDetails: Error searching devices:", error)
+      toast({
+        title: "Error",
+        description: "Failed to search devices",
+        variant: "destructive"
+      })
+    }
+  }
+
+  // Handle device selection from search
+  const handleSelectDeviceForChange = (device: SearchResult) => {
+    console.log("OrderDetails: Device selected for change:", device)
+    setSelectedDeviceForChange(device)
+    setNewDeviceBrand(device.manufacturer || device.displayName?.split(" ")[0] || "")
+    setNewDeviceModel(device.displayName || device.name || "")
+    setNewDeviceType(device.deviceType || "Smartphone")
+    setDeviceSearchQuery(device.displayName || "")
+    setShowDeviceResults(false)
+  }
+
   const handleDeviceChange = async () => {
     if (!id || !newDeviceBrand.trim() || !newDeviceModel.trim()) {
       toast({
@@ -835,6 +876,10 @@ export function OrderDetails() {
       setNewDeviceBrand("")
       setNewDeviceModel("")
       setNewDeviceType("")
+      setDeviceSearchQuery("")
+      setDeviceSearchResults([])
+      setSelectedDeviceForChange(null)
+      setShowDeviceResults(false)
       setDeviceChangeDialogOpen(false)
 
       // Refresh order to show updated device information
@@ -1308,51 +1353,104 @@ export function OrderDetails() {
 
           {/* Device Change Dialog */}
           <Dialog open={deviceChangeDialogOpen} onOpenChange={setDeviceChangeDialogOpen}>
-            <DialogContent>
+            <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>{t('orderDetails.changeDevice') || 'Change Device Information'}</DialogTitle>
                 <DialogDescription>
-                  {t('orderDetails.changeDeviceDescription') || 'Update the device brand, model, and type for this order'}
+                  {t('orderDetails.changeDeviceDescription') || 'Search and select a device or manually enter device information'}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                <div>
-                  <Label htmlFor="device-brand">{t('orderDetails.deviceBrand') || 'Device Brand'}</Label>
+                {/* Device Search with Autocomplete */}
+                <div className="relative">
+                  <Label htmlFor="device-search">{t('orderDetails.searchDevice') || 'Search Device'}</Label>
                   <Input
-                    id="device-brand"
-                    placeholder="e.g., Apple, Samsung, Google"
-                    value={newDeviceBrand}
-                    onChange={(e) => setNewDeviceBrand(e.target.value)}
+                    id="device-search"
+                    placeholder="e.g., iPhone 14 Pro, Galaxy S23..."
+                    value={deviceSearchQuery}
+                    onChange={(e) => handleDeviceSearch(e.target.value)}
+                    onFocus={() => deviceSearchResults.length > 0 && setShowDeviceResults(true)}
                   />
+
+                  {/* Search Results Dropdown */}
+                  {showDeviceResults && deviceSearchResults.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-64 overflow-y-auto">
+                      {deviceSearchResults.map((device) => (
+                        <button
+                          key={device._id}
+                          onClick={() => handleSelectDeviceForChange(device)}
+                          className="w-full text-left px-4 py-2 hover:bg-gray-100 border-b last:border-b-0 transition-colors"
+                        >
+                          <div className="font-medium">{device.displayName}</div>
+                          <div className="text-sm text-gray-500">{device.deviceType}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <Label htmlFor="device-model">{t('orderDetails.deviceModel') || 'Device Model'}</Label>
-                  <Input
-                    id="device-model"
-                    placeholder="e.g., iPhone 14 Pro, Galaxy S23"
-                    value={newDeviceModel}
-                    onChange={(e) => setNewDeviceModel(e.target.value)}
-                  />
+
+                {/* Or Manual Entry Section */}
+                <div className="border-t pt-4">
+                  <p className="text-sm text-gray-500 mb-3">Or enter device details manually:</p>
+
+                  <div>
+                    <Label htmlFor="device-brand">{t('orderDetails.deviceBrand') || 'Device Brand'}</Label>
+                    <Input
+                      id="device-brand"
+                      placeholder="e.g., Apple, Samsung, Google"
+                      value={newDeviceBrand}
+                      onChange={(e) => setNewDeviceBrand(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="mt-3">
+                    <Label htmlFor="device-model">{t('orderDetails.deviceModel') || 'Device Model'}</Label>
+                    <Input
+                      id="device-model"
+                      placeholder="e.g., iPhone 14 Pro, Galaxy S23"
+                      value={newDeviceModel}
+                      onChange={(e) => setNewDeviceModel(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="mt-3">
+                    <Label htmlFor="device-type">{t('orderDetails.deviceType') || 'Device Type'}</Label>
+                    <Select value={newDeviceType} onValueChange={setNewDeviceType}>
+                      <SelectTrigger id="device-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Smartphone">Smartphone</SelectItem>
+                        <SelectItem value="Tablet">Tablet</SelectItem>
+                        <SelectItem value="Laptop">Laptop</SelectItem>
+                        <SelectItem value="Watch">Watch</SelectItem>
+                        <SelectItem value="Headphones">Headphones</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="device-type">{t('orderDetails.deviceType') || 'Device Type'}</Label>
-                  <Select value={newDeviceType} onValueChange={setNewDeviceType}>
-                    <SelectTrigger id="device-type">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Smartphone">Smartphone</SelectItem>
-                      <SelectItem value="Tablet">Tablet</SelectItem>
-                      <SelectItem value="Laptop">Laptop</SelectItem>
-                      <SelectItem value="Watch">Watch</SelectItem>
-                      <SelectItem value="Headphones">Headphones</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+
+                {selectedDeviceForChange && (
+                  <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                    <p className="text-sm font-medium text-blue-900">
+                      Selected: {selectedDeviceForChange.displayName}
+                    </p>
+                    <p className="text-xs text-blue-700 mt-1">
+                      {selectedDeviceForChange.deviceType}
+                    </p>
+                  </div>
+                )}
               </div>
+
               <DialogFooter>
-                <Button variant="outline" onClick={() => setDeviceChangeDialogOpen(false)}>
+                <Button variant="outline" onClick={() => {
+                  setDeviceChangeDialogOpen(false)
+                  setDeviceSearchQuery("")
+                  setDeviceSearchResults([])
+                  setShowDeviceResults(false)
+                  setSelectedDeviceForChange(null)
+                }}>
                   {t('common.cancel') || 'Cancel'}
                 </Button>
                 <Button onClick={handleDeviceChange} disabled={updatingDevice}>
