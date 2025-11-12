@@ -437,9 +437,5 @@
 	"server/scripts/fix-corrupted-services.js": "Database repair script that detects and fixes corrupted service records in MongoDB orders by reconstructing ObjectIds from fragmented data and validating/normalizing service fields.",
 	"check-services.js": "Utility script that connects to MongoDB and retrieves all Service documents, displaying their names, categories, and supported device types.",
 	"test-device-change.js": "CLI test script that validates the admin device change functionality by authenticating, fetching an order, updating device details via PUT endpoint, and verifying persistence.",
-	"server/add-unlock-data.js": "Database migration script that connects to MongoDB and adds unlock pattern data to the most recent order document.",
-	"client/dist/index.html": "Entry point HTML file for the FixitHub application, linking bundled JavaScript and CSS assets with a root DOM element for React mounting.",
-	"client/dist/locales/de/translation.json": "German translation file for FixitHub repair management system, containing localized strings for admin dashboards, user management, order processing, services, blog, shop, checkout, and customer communication across all application modules.",
-	"client/dist/locales/en/translation.json": "English translation file for FixitHub application, containing localized strings for UI components, pages, dialogs, and system messages across admin, staff, and customer interfaces including user management, order tracking, repair services, workflows, and e-commerce functionality.",
-	"client/dist/assets/index-CIsTIQqX.css": "Compiled Tailwind CSS stylesheet containing utility classes, component styles, and design tokens for the application's UI framework with light and dark mode support."
+	"server/add-unlock-data.js": "Database migration script that connects to MongoDB and adds unlock pattern data to the most recent order document."
 }
