@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import {
   Dialog,
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,7 +23,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { CheckCircle2, Clock, AlertCircle, ChevronRight, ChevronLeft } from "lucide-react"
+import { CheckCircle2, Clock, AlertCircle, ChevronRight, ChevronLeft, Play } from "lucide-react"
+import { WorkflowStepExecutionPanel } from "./WorkflowStepExecutionPanel"
+import { completeWorkflowStep, skipWorkflowStep } from "@/api/workflow"
+import { useToast } from "@/hooks/useToast"
 
 interface WorkflowStep {
   _id: string
@@ -37,24 +41,39 @@ interface WorkflowExecutionModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   workflow: any
+  orderId?: string
+  workflowId?: string
   onConfirmStart?: () => void
   onConfirmResume?: () => void
+  onStepComplete?: () => Promise<void>
   isLoading?: boolean
-  mode: 'start' | 'resume' | 'view'
+  mode: 'start' | 'resume' | 'execute' | 'view'
 }
 
 export function WorkflowExecutionModal({
   open,
   onOpenChange,
   workflow,
+  orderId,
+  workflowId,
   onConfirmStart,
   onConfirmResume,
+  onStepComplete,
   isLoading = false,
   mode = 'view',
 }: WorkflowExecutionModalProps) {
   const { t } = useTranslation()
+  const { toast } = useToast()
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const [tab, setTab] = useState<'overview' | 'execute'>('overview')
+
+  // Auto-set tab to execute when mode changes to execute
+  useEffect(() => {
+    if (mode === 'execute') {
+      setTab('execute')
+    }
+  }, [mode])
 
   if (!workflow) return null
 
@@ -104,6 +123,203 @@ export function WorkflowExecutionModal({
     setShowConfirmation(false)
   }
 
+  const handleStepComplete = async (stepData: any) => {
+    if (!orderId || !workflowId) {
+      toast({
+        title: "Error",
+        description: "Missing order or workflow information",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const currentStepData = steps[currentStepIndex]
+      await completeWorkflowStep(orderId, workflowId, currentStepData._id, stepData)
+
+      if (onStepComplete) {
+        onStepComplete()
+      }
+    } catch (error: any) {
+      console.error("Error completing step:", error)
+      throw error
+    }
+  }
+
+  const handleSkipStep = async (reason: string) => {
+    if (!orderId || !workflowId) {
+      toast({
+        title: "Error",
+        description: "Missing order or workflow information",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const currentStepData = steps[currentStepIndex]
+      await skipWorkflowStep(orderId, workflowId, currentStepData._id, reason)
+
+      if (onStepComplete) {
+        onStepComplete()
+      }
+    } catch (error: any) {
+      console.error("Error skipping step:", error)
+      throw error
+    }
+  }
+
+  // Render based on mode
+  if (mode === 'execute' && currentStep) {
+    return (
+      <>
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <DialogTitle className="text-2xl">{workflow.workflowName}</DialogTitle>
+                  <DialogDescription className="mt-2">
+                    {totalSteps} steps • {Math.round(totalEstimatedTime)} minutes estimated
+                  </DialogDescription>
+                </div>
+                <Badge variant="outline" className="whitespace-nowrap">
+                  Executing Step {currentStepIndex + 1}
+                </Badge>
+              </div>
+            </DialogHeader>
+
+            <Tabs value={tab} onValueChange={(value: any) => setTab(value)} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="overview" className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger value="execute" className="flex items-center gap-2">
+                  <Play className="h-4 w-4" />
+                  Execute Step
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview" className="space-y-4 mt-4">
+                <div className="space-y-6">
+                  {/* Overall Progress */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Workflow Progress</span>
+                      <span className="text-sm text-muted-foreground">
+                        {completedSteps}/{totalSteps} steps completed
+                      </span>
+                    </div>
+                    <Progress value={progressPercentage} className="h-2" />
+                  </div>
+
+                  {/* Current Step Preview */}
+                  {currentStep && (
+                    <Card className="border-blue-200 bg-blue-50/50">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <CardTitle className="text-lg">
+                              Step {currentStepIndex + 1}: {currentStep.stepName}
+                            </CardTitle>
+                            <CardDescription className="mt-2">
+                              {currentStep.description || 'No description provided'}
+                            </CardDescription>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={`flex items-center gap-1 whitespace-nowrap ${getStepStatusColor(
+                              currentStep.status
+                            )}`}
+                          >
+                            {getStepStatusIcon(currentStep.status)}
+                            <span className="capitalize">{currentStep.status}</span>
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {currentStep.estimatedTime && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <span>Estimated time: {currentStep.estimatedTime} minutes</span>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* All Steps List */}
+                  <div className="space-y-3">
+                    <h3 className="font-medium">All Steps</h3>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {steps.map((step: any, index: number) => (
+                        <button
+                          key={step._id}
+                          onClick={() => setCurrentStepIndex(index)}
+                          className={`w-full text-left p-3 rounded-lg border transition-all ${
+                            currentStepIndex === index
+                              ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-300'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`h-3 w-3 rounded-full flex-shrink-0 ${
+                                step.status === 'completed'
+                                  ? 'bg-green-500'
+                                  : step.status === 'in-progress'
+                                    ? 'bg-blue-500'
+                                    : step.status === 'skipped'
+                                      ? 'bg-gray-400'
+                                      : 'bg-gray-300'
+                              }`}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-sm font-medium truncate">
+                                {index + 1}. {step.stepName}
+                              </p>
+                            </div>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
+                              {step.status === 'completed' && '✓'}
+                              {step.status === 'in-progress' && '⟳'}
+                              {step.status === 'skipped' && '⊘'}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="execute" className="mt-4">
+                {currentStep && (
+                  <WorkflowStepExecutionPanel
+                    step={currentStep}
+                    steps={steps}
+                    currentStepIndex={currentStepIndex}
+                    onStepChange={setCurrentStepIndex}
+                    onStepComplete={handleStepComplete}
+                    onStepSkip={handleSkipStep}
+                    isLoading={isLoading}
+                  />
+                )}
+              </TabsContent>
+            </Tabs>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    )
+  }
+
+  // Standard overview/start/resume mode
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>

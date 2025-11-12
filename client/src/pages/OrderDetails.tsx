@@ -116,7 +116,7 @@ export function OrderDetails() {
   } | null>(null)
   const [selectedWorkflowForExecution, setSelectedWorkflowForExecution] = useState<any | null>(null)
   const [workflowExecutionModalOpen, setWorkflowExecutionModalOpen] = useState(false)
-  const [workflowExecutionMode, setWorkflowExecutionMode] = useState<'start' | 'resume' | 'view'>('view')
+  const [workflowExecutionMode, setWorkflowExecutionMode] = useState<'start' | 'resume' | 'execute' | 'view'>('view')
   const [progressTimeline, setProgressTimeline] = useState<any>(null)
   const [repairServices, setRepairServices] = useState<any[]>([])
   const [availableServices, setAvailableServices] = useState<any[]>([])
@@ -1084,6 +1084,32 @@ export function OrderDetails() {
       setSelectedWorkflowForExecution(workflow)
       setWorkflowExecutionMode('resume')
       setWorkflowExecutionModalOpen(true)
+    }
+  }
+
+  const handleWorkflowStepComplete = async () => {
+    if (!id) return
+
+    try {
+      console.log("OrderDetails: Refreshing workflows after step completion")
+      // Refresh workflows to get updated step status
+      const workflowsResponse = await getOrderWorkflows(id)
+      setWorkflows((workflowsResponse as any).workflows || [])
+
+      // Refresh order to get updated progress
+      await refreshOrder()
+
+      toast({
+        title: "Success",
+        description: "Workflow step completed successfully"
+      })
+    } catch (error: any) {
+      console.error("OrderDetails: Error refreshing workflows:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to refresh workflow data",
+        variant: "destructive"
+      })
     }
   }
 
@@ -2619,8 +2645,11 @@ export function OrderDetails() {
             }
           }}
           workflow={selectedWorkflowForExecution}
+          orderId={id}
+          workflowId={selectedWorkflowForExecution._id}
           onConfirmStart={handleConfirmStartWorkflow}
           onConfirmResume={handleConfirmResumeWorkflow}
+          onStepComplete={handleWorkflowStepComplete}
           isLoading={workflowActionInProgress !== null}
           mode={workflowExecutionMode}
         />
