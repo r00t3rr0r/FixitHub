@@ -2,13 +2,14 @@ const Order = require('../models/Order');
 const User = require('../models/User');
 const Inventory = require('../models/Inventory');
 const Product = require('../models/Product');
+const Service = require('../models/Service');
 const { WorkflowTemplate, AddOnWorkflow } = require('../models/Workflow');
 
 class OrderService {
   // Create a new order
   static async create(orderData) {
     console.log('OrderService: Creating new order with data:', orderData);
-    
+
     try {
       // Validate customer exists
       const customer = await User.findById(orderData.customerId);
@@ -16,10 +17,48 @@ class OrderService {
         throw new Error('Customer not found');
       }
 
+      // Transform services array if it contains just IDs
+      if (orderData.services && Array.isArray(orderData.services)) {
+        console.log('OrderService: Processing services array:', orderData.services);
+
+        // Check if services are just IDs (strings) or already full objects
+        const processedServices = await Promise.all(
+          orderData.services.map(async (service) => {
+            // If it's already an object with serviceId, price, and estimatedTime, use as-is
+            if (typeof service === 'object' && service.serviceId && service.price !== undefined && service.estimatedTime !== undefined) {
+              console.log('OrderService: Service already in correct format:', service);
+              return service;
+            }
+
+            // If it's a string (ID), fetch the service and create proper object
+            if (typeof service === 'string') {
+              console.log('OrderService: Converting service ID to object:', service);
+              const serviceObj = await Service.findById(service);
+              if (!serviceObj) {
+                throw new Error(`Service not found: ${service}`);
+              }
+              return {
+                serviceId: serviceObj._id,
+                price: serviceObj.price,
+                estimatedTime: serviceObj.estimatedTime || 60, // Default to 60 minutes if not set
+                notes: ''
+              };
+            }
+
+            return service;
+          })
+        );
+
+        orderData.services = processedServices;
+        console.log('OrderService: Transformed services:', orderData.services);
+      }
+
       const order = new Order(orderData);
       const savedOrder = await order.save();
-      
+
       console.log('OrderService: Order created successfully with ID:', savedOrder._id);
+      console.log('OrderService: Order unlock data - Pattern:', savedOrder.unlockPattern, 'Code:', savedOrder.unlockCode, 'NoLock:', savedOrder.noLock);
+
       return savedOrder;
     } catch (error) {
       console.error('OrderService: Error creating order:', error);
