@@ -436,5 +436,6 @@
 	"ORDER_SERVICES_DATA_CORRUPTION_FIX.md": "Documentation of a MongoDB data corruption issue in order services, detailing the root cause (Mongoose auto-population hook), the three-part fix (conditional skipAutoPopulate option, 20 updated OrderService methods, database repair script), testing procedures, and prevention guidelines for future development.",
 	"server/scripts/fix-corrupted-services.js": "Database repair script that detects and fixes corrupted service records in MongoDB orders by reconstructing ObjectIds from fragmented data and validating/normalizing service fields.",
 	"check-services.js": "Utility script that connects to MongoDB and retrieves all Service documents, displaying their names, categories, and supported device types.",
-	"test-device-change.js": "CLI test script that validates the admin device change functionality by authenticating, fetching an order, updating device details via PUT endpoint, and verifying persistence."
+	"test-device-change.js": "CLI test script that validates the admin device change functionality by authenticating, fetching an order, updating device details via PUT endpoint, and verifying persistence.",
+	"server/add-unlock-data.js": "Database migration script that connects to MongoDB and adds unlock pattern data to the most recent order document."
 }
