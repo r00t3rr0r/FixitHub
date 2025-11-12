@@ -1236,7 +1236,10 @@ class OrderService {
     }
   }
 
-  // Get suggested workflows for order based on device type and services
+  // —SUGGESTED_WORKFLOWS_FIX (file `server/services/orderService.js`) —
+  // Description: Get suggested workflows for order based on device type and services, including general workflows available for all devices/services
+  // Enhancement: Now returns both specific device/service type matches and general workflows with empty arrays
+  // This allows German workflows (like general repair process, quality check, etc.) to be suggested for all orders
   static async getSuggestedWorkflows(orderId) {
     console.log('OrderService: Getting suggested workflows for order:', orderId);
 
@@ -1271,12 +1274,30 @@ class OrderService {
 
       console.log('OrderService: Extracted service categories:', serviceCategories);
       console.log('OrderService: Looking for workflows with deviceTypes:', order.deviceType, 'and serviceTypes:', serviceCategories);
+      console.log('OrderService: Also including general workflows available for all devices/services');
 
-      // Find workflows matching device type and service categories
+      // Find workflows matching device type and service categories, OR workflows available for all (empty arrays)
+      // This includes:
+      // 1. Specific device/service type matches (e.g., "Screen Replacement" for "Display" service on "Smartphone")
+      // 2. General workflows with empty deviceTypes (available for all devices)
+      // 3. General workflows with empty serviceTypes (available for all services)
       const workflows = await WorkflowTemplate.find({
         isActive: true,
-        deviceTypes: { $in: [order.deviceType] },
-        serviceTypes: { $in: serviceCategories }
+        $or: [
+          // Specific device type and service type match
+          {
+            deviceTypes: { $in: [order.deviceType] },
+            serviceTypes: { $in: serviceCategories }
+          },
+          // General workflows available for all devices
+          {
+            deviceTypes: { $size: 0 }
+          },
+          // General workflows available for all services
+          {
+            serviceTypes: { $size: 0 }
+          }
+        ]
       }).sort({ createdAt: -1 });
 
       console.log('OrderService: Found', workflows.length, 'suggested workflows');
@@ -1294,6 +1315,7 @@ class OrderService {
       throw error;
     }
   }
+  // —END_OF_SUGGESTED_WORKFLOWS_FIX—
 
   // Description: Get order progress timeline with milestone data
   // Returns structured stages with completion status and dates
