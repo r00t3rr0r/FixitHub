@@ -13,7 +13,7 @@ import { getConversations, getConversationMessages, sendMessage, startConversati
 import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, updateOrderDevice } from "@/api/adminOrders"
 import { getUserProfile, UserProfile } from "@/api/user"
 import { getAddOnServices, AddOnService as AddOnServiceType, getServices } from "@/api/services"
-import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder, deleteWorkflowFromOrder } from "@/api/workflow"
+import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder, deleteWorkflowFromOrder, startWorkflow, updateWorkflowStatus } from "@/api/workflow"
 import { getOrderServices, addServiceToOrder, updateOrderService, removeServiceFromOrder } from "@/api/orderServices"
 import { searchDevices, SearchResult } from "@/api/devices"
 import EPartSelectionDialog from "@/components/admin/EPartSelectionDialog"
@@ -21,6 +21,7 @@ import { ShopProductSelectionDialog } from "@/components/admin/ShopProductSelect
 import { RepairServiceDialog } from "@/components/inspection/RepairServiceDialog"
 import { WorkflowExecutionView } from "@/components/workflow/WorkflowExecutionView"
 import { WorkflowCard } from "@/components/admin/WorkflowCard"
+import { WorkflowExecutionModal } from "@/components/admin/WorkflowExecutionModal"
 import { InspectionResultsDisplay } from "@/components/inspection/InspectionResultsDisplay"
 import { OrderProgressTimeline } from "@/components/OrderProgressTimeline"
 import { UnlockInformationDisplay } from "@/components/inspection/UnlockInformationDisplay"
@@ -109,6 +110,13 @@ export function OrderDetails() {
   const [workflowDialogOpen, setWorkflowDialogOpen] = useState(false)
   const [assigningWorkflow, setAssigningWorkflow] = useState(false)
   const [deletingWorkflowId, setDeletingWorkflowId] = useState<string | null>(null)
+  const [workflowActionInProgress, setWorkflowActionInProgress] = useState<{
+    workflowId: string
+    action: 'start' | 'pause' | 'resume'
+  } | null>(null)
+  const [selectedWorkflowForExecution, setSelectedWorkflowForExecution] = useState<any | null>(null)
+  const [workflowExecutionModalOpen, setWorkflowExecutionModalOpen] = useState(false)
+  const [workflowExecutionMode, setWorkflowExecutionMode] = useState<'start' | 'resume' | 'view'>('view')
   const [progressTimeline, setProgressTimeline] = useState<any>(null)
   const [repairServices, setRepairServices] = useState<any[]>([])
   const [availableServices, setAvailableServices] = useState<any[]>([])
@@ -992,6 +1000,124 @@ export function OrderDetails() {
       })
     } finally {
       setDeletingWorkflowId(null)
+    }
+  }
+
+  const handleStartWorkflow = (workflowId: string) => {
+    const workflow = workflows.find((w: any) => w._id === workflowId)
+    if (workflow) {
+      setSelectedWorkflowForExecution(workflow)
+      setWorkflowExecutionMode('start')
+      setWorkflowExecutionModalOpen(true)
+    }
+  }
+
+  const handleConfirmStartWorkflow = async () => {
+    if (!id || !selectedWorkflowForExecution) return
+
+    try {
+      setWorkflowActionInProgress({ workflowId: selectedWorkflowForExecution._id, action: 'start' })
+      console.log("OrderDetails: Starting workflow:", selectedWorkflowForExecution._id)
+
+      await startWorkflow(id, selectedWorkflowForExecution._id)
+
+      toast({
+        title: "Success",
+        description: "Workflow started successfully"
+      })
+
+      // Refresh workflows
+      const workflowsResponse = await getOrderWorkflows(id)
+      setWorkflows((workflowsResponse as any).workflows || [])
+
+      // Refresh order
+      await refreshOrder()
+
+      setWorkflowExecutionModalOpen(false)
+    } catch (error: any) {
+      console.error("OrderDetails: Error starting workflow:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start workflow",
+        variant: "destructive"
+      })
+    } finally {
+      setWorkflowActionInProgress(null)
+    }
+  }
+
+  const handlePauseWorkflow = async (workflowId: string) => {
+    if (!id) return
+
+    try {
+      setWorkflowActionInProgress({ workflowId, action: 'pause' })
+      console.log("OrderDetails: Pausing workflow:", workflowId)
+
+      await updateWorkflowStatus(id, workflowId, 'on-hold')
+
+      toast({
+        title: "Success",
+        description: "Workflow paused successfully"
+      })
+
+      // Refresh workflows
+      const workflowsResponse = await getOrderWorkflows(id)
+      setWorkflows((workflowsResponse as any).workflows || [])
+
+      // Refresh order
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("OrderDetails: Error pausing workflow:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to pause workflow",
+        variant: "destructive"
+      })
+    } finally {
+      setWorkflowActionInProgress(null)
+    }
+  }
+
+  const handleResumeWorkflow = (workflowId: string) => {
+    const workflow = workflows.find((w: any) => w._id === workflowId)
+    if (workflow) {
+      setSelectedWorkflowForExecution(workflow)
+      setWorkflowExecutionMode('resume')
+      setWorkflowExecutionModalOpen(true)
+    }
+  }
+
+  const handleConfirmResumeWorkflow = async () => {
+    if (!id || !selectedWorkflowForExecution) return
+
+    try {
+      setWorkflowActionInProgress({ workflowId: selectedWorkflowForExecution._id, action: 'resume' })
+      console.log("OrderDetails: Resuming workflow:", selectedWorkflowForExecution._id)
+
+      await updateWorkflowStatus(id, selectedWorkflowForExecution._id, 'in-progress')
+
+      toast({
+        title: "Success",
+        description: "Workflow resumed successfully"
+      })
+
+      // Refresh workflows
+      const workflowsResponse = await getOrderWorkflows(id)
+      setWorkflows((workflowsResponse as any).workflows || [])
+
+      // Refresh order
+      await refreshOrder()
+
+      setWorkflowExecutionModalOpen(false)
+    } catch (error: any) {
+      console.error("OrderDetails: Error resuming workflow:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to resume workflow",
+        variant: "destructive"
+      })
+    } finally {
+      setWorkflowActionInProgress(null)
     }
   }
 
@@ -1942,7 +2068,14 @@ export function OrderDetails() {
                         workflow={workflow}
                         orderId={id!}
                         onDelete={handleDeleteWorkflow}
+                        onStart={handleStartWorkflow}
+                        onPause={handlePauseWorkflow}
+                        onResume={handleResumeWorkflow}
                         isDeleting={deletingWorkflowId === workflow._id}
+                        isActionInProgress={
+                          workflowActionInProgress?.workflowId === workflow._id
+                        }
+                        actionInProgressType={workflowActionInProgress?.action}
                       />
                     ))}
                   </div>
@@ -2472,6 +2605,24 @@ export function OrderDetails() {
           onClose={() => setShopProductDialogOpen(false)}
           onAddProduct={handleAddShopProduct}
           orderId={id}
+        />
+      )}
+
+      {/* Workflow Execution Modal */}
+      {selectedWorkflowForExecution && (
+        <WorkflowExecutionModal
+          open={workflowExecutionModalOpen}
+          onOpenChange={(open) => {
+            setWorkflowExecutionModalOpen(open)
+            if (!open) {
+              setSelectedWorkflowForExecution(null)
+            }
+          }}
+          workflow={selectedWorkflowForExecution}
+          onConfirmStart={handleConfirmStartWorkflow}
+          onConfirmResume={handleConfirmResumeWorkflow}
+          isLoading={workflowActionInProgress !== null}
+          mode={workflowExecutionMode}
         />
       )}
     </div>

@@ -24,6 +24,8 @@ interface WorkflowCardProps {
   onPause?: (workflowId: string) => void
   onResume?: (workflowId: string) => void
   isDeleting?: boolean
+  isActionInProgress?: boolean
+  actionInProgressType?: 'start' | 'pause' | 'resume'
 }
 
 export function WorkflowCard({
@@ -34,6 +36,8 @@ export function WorkflowCard({
   onPause,
   onResume,
   isDeleting = false,
+  isActionInProgress = false,
+  actionInProgressType,
 }: WorkflowCardProps) {
   const { t } = useTranslation()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -171,10 +175,11 @@ export function WorkflowCard({
                 size="sm"
                 variant="outline"
                 onClick={() => onStart(workflow._id)}
+                disabled={isActionInProgress}
                 className="flex-1"
               >
-                <Play className="h-4 w-4 mr-2" />
-                Start
+                <Play className={`h-4 w-4 mr-2 ${isActionInProgress && actionInProgressType === 'start' ? 'animate-spin' : ''}`} />
+                {isActionInProgress && actionInProgressType === 'start' ? 'Starting...' : 'Start'}
               </Button>
             )}
 
@@ -183,10 +188,11 @@ export function WorkflowCard({
                 size="sm"
                 variant="outline"
                 onClick={() => onPause(workflow._id)}
+                disabled={isActionInProgress}
                 className="flex-1"
               >
-                <Pause className="h-4 w-4 mr-2" />
-                Pause
+                <Pause className={`h-4 w-4 mr-2 ${isActionInProgress && actionInProgressType === 'pause' ? 'animate-spin' : ''}`} />
+                {isActionInProgress && actionInProgressType === 'pause' ? 'Pausing...' : 'Pause'}
               </Button>
             )}
 
@@ -195,10 +201,11 @@ export function WorkflowCard({
                 size="sm"
                 variant="outline"
                 onClick={() => onResume(workflow._id)}
+                disabled={isActionInProgress}
                 className="flex-1"
               >
-                <Play className="h-4 w-4 mr-2" />
-                Resume
+                <Play className={`h-4 w-4 mr-2 ${isActionInProgress && actionInProgressType === 'resume' ? 'animate-spin' : ''}`} />
+                {isActionInProgress && actionInProgressType === 'resume' ? 'Resuming...' : 'Resume'}
               </Button>
             )}
 
@@ -206,7 +213,7 @@ export function WorkflowCard({
               size="sm"
               variant="ghost"
               onClick={() => setShowDeleteConfirm(true)}
-              disabled={isDeleting}
+              disabled={isDeleting || isActionInProgress}
               className="text-destructive hover:text-destructive"
             >
               <Trash2 className="h-4 w-4 mr-2" />
