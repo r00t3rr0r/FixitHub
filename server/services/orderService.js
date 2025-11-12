@@ -1608,6 +1608,50 @@ class OrderService {
     order.totalCost = total;
     console.log('OrderService: Total cost recalculated:', total);
   }
+
+  // Remove workflow from order
+  static async removeWorkflowFromOrder(orderId, workflowId, staffId) {
+    console.log('OrderService: Removing workflow from order:', { orderId, workflowId, staffId });
+
+    try {
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      // Find the workflow to remove
+      const workflowIndex = order.workflows.findIndex(
+        w => w._id.toString() === workflowId
+      );
+
+      if (workflowIndex === -1) {
+        throw new Error('Workflow not found in order');
+      }
+
+      const removedWorkflow = order.workflows[workflowIndex];
+      console.log('OrderService: Found workflow to remove:', removedWorkflow.workflowName);
+
+      // Remove workflow from array
+      order.workflows.splice(workflowIndex, 1);
+
+      // Add timeline entry
+      const staff = await User.findById(staffId);
+      order.timeline.push({
+        status: 'Workflow Removed',
+        description: `Workflow "${removedWorkflow.workflowName}" removed from order`,
+        completedAt: new Date(),
+        staffId: staffId || 'system',
+        staffName: staff ? staff.name : 'System'
+      });
+
+      const updatedOrder = await order.save();
+      console.log('OrderService: Workflow removed successfully');
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error removing workflow:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = OrderService;

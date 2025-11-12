@@ -577,3 +577,19 @@ export const goBackToStep = async (
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// Description: Delete workflow from order
+// Endpoint: DELETE /api/admin/orders/:orderId/workflows/:workflowId
+// Request: {}
+// Response: { success: boolean, message: string, order: Order }
+export const deleteWorkflowFromOrder = async (orderId: string, workflowId: string) => {
+  try {
+    console.log("OrderWorkflowAPI: Deleting workflow from order:", { orderId, workflowId });
+    const response = await api.delete(`/api/admin/orders/${orderId}/workflows/${workflowId}`);
+    console.log("OrderWorkflowAPI: Workflow deleted successfully:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("OrderWorkflowAPI: Error deleting workflow:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};

@@ -13,13 +13,14 @@ import { getConversations, getConversationMessages, sendMessage, startConversati
 import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, updateOrderDevice } from "@/api/adminOrders"
 import { getUserProfile, UserProfile } from "@/api/user"
 import { getAddOnServices, AddOnService as AddOnServiceType, getServices } from "@/api/services"
-import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder } from "@/api/workflow"
+import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder, deleteWorkflowFromOrder } from "@/api/workflow"
 import { getOrderServices, addServiceToOrder, updateOrderService, removeServiceFromOrder } from "@/api/orderServices"
 import { searchDevices, SearchResult } from "@/api/devices"
 import EPartSelectionDialog from "@/components/admin/EPartSelectionDialog"
 import { ShopProductSelectionDialog } from "@/components/admin/ShopProductSelectionDialog"
 import { RepairServiceDialog } from "@/components/inspection/RepairServiceDialog"
 import { WorkflowExecutionView } from "@/components/workflow/WorkflowExecutionView"
+import { WorkflowCard } from "@/components/admin/WorkflowCard"
 import { InspectionResultsDisplay } from "@/components/inspection/InspectionResultsDisplay"
 import { OrderProgressTimeline } from "@/components/OrderProgressTimeline"
 import { UnlockInformationDisplay } from "@/components/inspection/UnlockInformationDisplay"
@@ -107,6 +108,7 @@ export function OrderDetails() {
   const [suggestedWorkflows, setSuggestedWorkflows] = useState<any[]>([])
   const [workflowDialogOpen, setWorkflowDialogOpen] = useState(false)
   const [assigningWorkflow, setAssigningWorkflow] = useState(false)
+  const [deletingWorkflowId, setDeletingWorkflowId] = useState<string | null>(null)
   const [progressTimeline, setProgressTimeline] = useState<any>(null)
   const [repairServices, setRepairServices] = useState<any[]>([])
   const [availableServices, setAvailableServices] = useState<any[]>([])
@@ -958,6 +960,38 @@ export function OrderDetails() {
       await refreshOrder()
     } catch (error: any) {
       console.error("OrderDetails: Error refreshing workflows:", error)
+    }
+  }
+
+  const handleDeleteWorkflow = async (workflowId: string) => {
+    if (!id) return
+
+    try {
+      setDeletingWorkflowId(workflowId)
+      console.log("OrderDetails: Deleting workflow:", workflowId)
+
+      await deleteWorkflowFromOrder(id, workflowId)
+
+      toast({
+        title: "Success",
+        description: "Workflow removed from order successfully"
+      })
+
+      // Refresh workflows
+      const workflowsResponse = await getOrderWorkflows(id)
+      setWorkflows((workflowsResponse as any).workflows || [])
+
+      // Refresh order
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("OrderDetails: Error deleting workflow:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete workflow",
+        variant: "destructive"
+      })
+    } finally {
+      setDeletingWorkflowId(null)
     }
   }
 
@@ -1877,44 +1911,50 @@ export function OrderDetails() {
 
           {/* Workflows - Only visible to admin/staff */}
           {(user?.role === 'admin' || user?.role === 'staff') && (
-            <div className="space-y-4">
-              {workflows.length > 0 ? (
-                workflows.map((workflow: any) => (
-                  <WorkflowExecutionView
-                    key={workflow._id}
-                    orderId={id!}
-                    workflow={workflow}
-                    onWorkflowUpdate={handleWorkflowUpdate}
-                  />
-                ))
-              ) : (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-5 w-5" />
-                        {t('orderDetails.workflows')}
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setWorkflowDialogOpen(true)}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        {t('orderDetails.assignWorkflow')}
-                      </Button>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-center text-muted-foreground py-8">
-                      <CheckCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                      <p>{t('orderDetails.noWorkflowsAssigned')}</p>
-                      <p className="text-sm">{t('orderDetails.clickAssignWorkflow')}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5" />
+                    {t('orderDetails.workflows')}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setWorkflowDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    {t('orderDetails.assignWorkflow')}
+                  </Button>
+                </CardTitle>
+                {workflows.length > 0 && (
+                  <CardDescription>
+                    {workflows.length} workflow{workflows.length !== 1 ? 's' : ''} assigned to this order
+                  </CardDescription>
+                )}
+              </CardHeader>
+              <CardContent>
+                {workflows.length > 0 ? (
+                  <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
+                    {workflows.map((workflow: any) => (
+                      <WorkflowCard
+                        key={workflow._id}
+                        workflow={workflow}
+                        orderId={id!}
+                        onDelete={handleDeleteWorkflow}
+                        isDeleting={deletingWorkflowId === workflow._id}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    <CheckCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>{t('orderDetails.noWorkflowsAssigned')}</p>
+                    <p className="text-sm">{t('orderDetails.clickAssignWorkflow')}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           )}
 
           {/* Progress Timeline */}
