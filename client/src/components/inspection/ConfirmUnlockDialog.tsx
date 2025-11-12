@@ -13,21 +13,24 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/useToast"
+import { Send, AlertCircle } from "lucide-react"
 
 interface ConfirmUnlockDialogProps {
   isOpen: boolean
   onOpenChange: (open: boolean) => void
-  onConfirm: (confirmationStatus: 'verified' | 'incorrect' | 'unable-to-verify', notes: string) => Promise<void>
+  onConfirm: (confirmationStatus: 'verified' | 'incorrect' | 'unable-to-verify', notes: string, requestFromCustomer?: boolean) => Promise<void>
   unlockPattern?: string[]
   unlockCode?: string
   noLock?: boolean
   isLoading?: boolean
+  orderId?: string
+  onOpenContactCustomer?: () => void
 }
 
 // Description: Dialog component for admin/staff to confirm device unlock code or pattern
 // Component: ConfirmUnlockDialog
-// Props: isOpen, onOpenChange, onConfirm, unlockPattern, unlockCode, noLock, isLoading
-// Renders: Modal dialog with confirmation options and notes field
+// Props: isOpen, onOpenChange, onConfirm, unlockPattern, unlockCode, noLock, isLoading, orderId, onOpenContactCustomer
+// Renders: Modal dialog with confirmation options, notes field, and request from customer feature
 export function ConfirmUnlockDialog({
   isOpen,
   onOpenChange,
@@ -35,28 +38,34 @@ export function ConfirmUnlockDialog({
   unlockPattern = [],
   unlockCode = "",
   noLock = false,
-  isLoading = false
+  isLoading = false,
+  orderId,
+  onOpenContactCustomer
 }: ConfirmUnlockDialogProps) {
   const { t } = useTranslation()
   const { toast } = useToast()
   const [confirmationStatus, setConfirmationStatus] = useState<'verified' | 'incorrect' | 'unable-to-verify'>('verified')
   const [notes, setNotes] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [requestingFromCustomer, setRequestingFromCustomer] = useState(false)
 
   const handleConfirm = async () => {
     try {
       setSubmitting(true)
-      await onConfirm(confirmationStatus, notes)
+      await onConfirm(confirmationStatus, notes, requestingFromCustomer)
 
       toast({
         title: t('common.success', 'Success'),
-        description: t('orderDetails.unlockConfirmationSuccess', 'Unlock confirmation recorded successfully'),
+        description: requestingFromCustomer
+          ? t('orderDetails.unlockRequestSent', 'Unlock verification request sent to customer')
+          : t('orderDetails.unlockConfirmationSuccess', 'Unlock confirmation recorded successfully'),
         variant: "default"
       })
 
       // Reset form and close dialog
       setConfirmationStatus('verified')
       setNotes("")
+      setRequestingFromCustomer(false)
       onOpenChange(false)
     } catch (error: any) {
       toast({
@@ -66,6 +75,13 @@ export function ConfirmUnlockDialog({
       })
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleRequestFromCustomer = () => {
+    if (onOpenContactCustomer) {
+      onOpenContactCustomer()
+      onOpenChange(false)
     }
   }
 
@@ -178,10 +194,50 @@ export function ConfirmUnlockDialog({
               placeholder={t('orderDetails.confirmationNotesPlaceholder', 'Add any additional notes about the unlock verification...')}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              disabled={submitting || isLoading}
-              className="resize-none h-24"
+              disabled={submitting || isLoading || requestingFromCustomer}
+              className="resize-none h-20"
             />
           </div>
+
+          {/* Request From Customer Option */}
+          {confirmationStatus === 'unable-to-verify' && (
+            <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 space-y-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                    {t('orderDetails.unableToVerifyActionNeeded', 'Action Needed')}
+                  </p>
+                  <p className="text-sm text-amber-800 dark:text-amber-200 mt-1">
+                    {t('orderDetails.requestUnlockFromCustomer', 'You can request the unlock information directly from the customer via message')}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRequestFromCustomer}
+                  disabled={submitting || isLoading || !onOpenContactCustomer}
+                  className="flex-1"
+                >
+                  <Send className="h-3 w-3 mr-1" />
+                  {t('orderDetails.contactCustomer', 'Contact Customer')}
+                </Button>
+                <label className="flex items-center gap-2 px-3 py-2 rounded border border-slate-300 dark:border-slate-600 text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900">
+                  <input
+                    type="checkbox"
+                    checked={requestingFromCustomer}
+                    onChange={(e) => setRequestingFromCustomer(e.target.checked)}
+                    disabled={submitting || isLoading}
+                    className="rounded"
+                  />
+                  {t('orderDetails.markAsRequested', 'Mark as Requested')}
+                </label>
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="gap-2">

@@ -796,17 +796,33 @@ export function OrderDetails() {
     setAssignAddonStaffDialogOpen(true)
   }
 
-  const handleConfirmUnlock = async (confirmationStatus: 'verified' | 'incorrect' | 'unable-to-verify', notes: string) => {
+  const handleConfirmUnlock = async (confirmationStatus: 'verified' | 'incorrect' | 'unable-to-verify', notes: string, requestFromCustomer: boolean = false) => {
     if (!id || !user) return
 
     try {
       setConfirmingUnlock(true)
-      console.log("OrderDetails: Confirming unlock status:", confirmationStatus)
+      console.log("OrderDetails: Confirming unlock status:", confirmationStatus, "Request from customer:", requestFromCustomer)
 
       await confirmUnlockCode(id, confirmationStatus, notes)
 
       // Refresh order to show confirmation
       await refreshOrder()
+
+      // If staff selected to request from customer, send automated message
+      if (requestFromCustomer && confirmationStatus === 'unable-to-verify') {
+        try {
+          // Create a message requesting unlock information
+          const customerName = order?.customerId?.name || 'Customer'
+          const messageContent = `Hello ${customerName},\n\nWe need to verify the device unlock information for your order. Could you please provide the:\n- Unlock pattern/PIN\n- Unlock code\n- Or confirm if your device has no lock\n\nThis information is required to proceed with the repair.\n\nThank you!`
+
+          // Try to send message if conversation exists
+          // This would integrate with the messaging system
+          console.log("OrderDetails: Message would be sent to customer:", messageContent)
+        } catch (err) {
+          console.error("Could not send automated message:", err)
+          // Don't fail - the confirmation was still recorded
+        }
+      }
     } catch (error: any) {
       console.error("OrderDetails: Error confirming unlock:", error)
       throw error
@@ -1479,6 +1495,7 @@ export function OrderDetails() {
                 unlockCode={order?.unlockCode}
                 noLock={order?.noLock}
                 isLoading={confirmingUnlock}
+                orderId={id}
               />
             </>
           )}

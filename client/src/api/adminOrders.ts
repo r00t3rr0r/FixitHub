@@ -40,6 +40,14 @@ export interface OrderEPart {
   };
 }
 
+export interface UnlockConfirmation {
+  confirmedBy?: string;
+  confirmedByName?: string;
+  confirmedAt?: string;
+  confirmationStatus?: 'verified' | 'incorrect' | 'unable-to-verify';
+  notes?: string;
+}
+
 export interface AdminOrder {
   _id: string;
   orderNumber: string;
@@ -109,6 +117,11 @@ export interface AdminOrder {
     staffName: string;
   }[];
   paymentStatus: 'pending' | 'paid' | 'refunded' | 'partial';
+  // Device unlock information
+  unlockPattern?: string[];
+  unlockCode?: string;
+  noLock?: boolean;
+  unlockConfirmation?: UnlockConfirmation;
   createdAt: string;
 }
 
