@@ -1530,8 +1530,11 @@ export function OrderDetails() {
                         <div className="flex items-center gap-3 flex-1">
                           <div className="flex-1">
                             <h4 className="font-medium">{service.serviceId?.name || 'Service'}</h4>
+                            {service.serviceId?.description && (
+                              <p className="text-sm text-muted-foreground mt-1">{service.serviceId.description}</p>
+                            )}
                             {service.notes && (
-                              <p className="text-sm text-muted-foreground">{service.notes}</p>
+                              <p className="text-sm text-muted-foreground italic">{service.notes}</p>
                             )}
                             {service.estimatedTime && (
                               <p className="text-xs text-muted-foreground mt-1">
