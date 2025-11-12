@@ -1023,17 +1023,24 @@ export function OrderDetails() {
 
       toast({
         title: "Success",
-        description: "Workflow started successfully"
+        description: "Workflow started successfully. Now executing steps..."
       })
 
       // Refresh workflows
       const workflowsResponse = await getOrderWorkflows(id)
-      setWorkflows((workflowsResponse as any).workflows || [])
+      const updatedWorkflows = (workflowsResponse as any).workflows || []
+      setWorkflows(updatedWorkflows)
+
+      // Update selected workflow with the latest data
+      const updatedWorkflow = updatedWorkflows.find((w: any) => w._id === selectedWorkflowForExecution._id)
+      if (updatedWorkflow) {
+        setSelectedWorkflowForExecution(updatedWorkflow)
+        // Switch to execute mode to show the step execution panel
+        setWorkflowExecutionMode('execute')
+      }
 
       // Refresh order
       await refreshOrder()
-
-      setWorkflowExecutionModalOpen(false)
     } catch (error: any) {
       console.error("OrderDetails: Error starting workflow:", error)
       toast({
@@ -1124,17 +1131,24 @@ export function OrderDetails() {
 
       toast({
         title: "Success",
-        description: "Workflow resumed successfully"
+        description: "Workflow resumed successfully. Now executing steps..."
       })
 
       // Refresh workflows
       const workflowsResponse = await getOrderWorkflows(id)
-      setWorkflows((workflowsResponse as any).workflows || [])
+      const updatedWorkflows = (workflowsResponse as any).workflows || []
+      setWorkflows(updatedWorkflows)
+
+      // Update selected workflow with the latest data
+      const updatedWorkflow = updatedWorkflows.find((w: any) => w._id === selectedWorkflowForExecution._id)
+      if (updatedWorkflow) {
+        setSelectedWorkflowForExecution(updatedWorkflow)
+        // Switch to execute mode to show the step execution panel
+        setWorkflowExecutionMode('execute')
+      }
 
       // Refresh order
       await refreshOrder()
-
-      setWorkflowExecutionModalOpen(false)
     } catch (error: any) {
       console.error("OrderDetails: Error resuming workflow:", error)
       toast({
