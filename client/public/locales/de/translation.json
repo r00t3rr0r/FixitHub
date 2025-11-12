@@ -1415,6 +1415,7 @@
     "searchDevicePlaceholder": "Geben Sie mindestens 2 Zeichen ein, um zu suchen...",
     "deviceBrand": "Gerätemarke",
     "deviceModel": "Gerätemodell",
+    "deviceType": "Gerätetyp",
     "selectDevice": "Wählen Sie ein Gerät aus der obigen Liste",
     "manualEntry": "Manuelle Eingabe",
     "enterDeviceBrand": "Gerätemarke eingeben",

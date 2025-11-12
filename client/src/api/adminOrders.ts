@@ -572,13 +572,13 @@ export const updateOrderDevice = async (orderId: string, deviceBrand: string, de
 };
 
 // Description: Confirm/verify the device unlock code or pattern
-// Endpoint: POST /api/admin-orders/:id/confirm-unlock
+// Endpoint: POST /api/admin/orders/:id/confirm-unlock
 // Request: { confirmationStatus: 'verified' | 'incorrect' | 'unable-to-verify', notes?: string }
 // Response: { order: AdminOrder }
 export const confirmUnlockCode = async (orderId: string, confirmationStatus: 'verified' | 'incorrect' | 'unable-to-verify', notes: string = '') => {
   console.log('confirmUnlockCode called with orderId:', orderId, 'confirmationStatus:', confirmationStatus);
   try {
-    const response = await api.post(`/api/admin-orders/${orderId}/confirm-unlock`, {
+    const response = await api.post(`/api/admin/orders/${orderId}/confirm-unlock`, {
       confirmationStatus,
       notes
     });
