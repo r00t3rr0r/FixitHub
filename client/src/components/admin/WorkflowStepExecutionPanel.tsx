@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -18,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { CheckCircle2, Clock, AlertCircle, ChevronLeft, ChevronRight, FileUp } from "lucide-react"
+import { CheckCircle2, Clock, AlertCircle, ChevronLeft, ChevronRight, FileUp, X } from "lucide-react"
 import { useToast } from "@/hooks/useToast"
 
 interface FormField {
@@ -105,7 +106,15 @@ export function WorkflowStepExecutionPanel({
     if (!normalizedStep.formFields || normalizedStep.formFields.length === 0) return true
 
     for (const field of normalizedStep.formFields) {
-      if (field.required && !formData[field.name]) {
+      // Skip validation for file types as they handle their own validation
+      if (field.type === 'file') continue
+
+      // Check if required field is empty
+      const fieldValue = formData[field.name]
+      const isEmpty = fieldValue === undefined || fieldValue === null || fieldValue === '' ||
+                      (Array.isArray(fieldValue) && fieldValue.length === 0)
+
+      if (field.required && isEmpty) {
         toast({
           title: "Validation Error",
           description: `${field.label} is required`,
@@ -115,8 +124,16 @@ export function WorkflowStepExecutionPanel({
       }
 
       // Validate number fields
-      if (field.type === 'number' && formData[field.name]) {
-        const value = parseFloat(formData[field.name])
+      if (field.type === 'number' && fieldValue) {
+        const value = parseFloat(fieldValue)
+        if (isNaN(value)) {
+          toast({
+            title: "Validation Error",
+            description: `${field.label} must be a valid number`,
+            variant: "destructive",
+          })
+          return false
+        }
         if (field.validation?.min !== undefined && value < field.validation.min) {
           toast({
             title: "Validation Error",
@@ -136,8 +153,8 @@ export function WorkflowStepExecutionPanel({
       }
 
       // Validate text fields
-      if (field.type === 'text' && formData[field.name]) {
-        const value = formData[field.name] as string
+      if (field.type === 'text' && fieldValue) {
+        const value = fieldValue as string
         if (field.validation?.minLength && value.length < field.validation.minLength) {
           toast({
             title: "Validation Error",
@@ -150,6 +167,39 @@ export function WorkflowStepExecutionPanel({
           toast({
             title: "Validation Error",
             description: `${field.label} must be at most ${field.validation.maxLength} characters`,
+            variant: "destructive",
+          })
+          return false
+        }
+      }
+
+      // Validate textarea fields
+      if (field.type === 'textarea' && fieldValue) {
+        const value = fieldValue as string
+        if (field.validation?.minLength && value.length < field.validation.minLength) {
+          toast({
+            title: "Validation Error",
+            description: `${field.label} must be at least ${field.validation.minLength} characters`,
+            variant: "destructive",
+          })
+          return false
+        }
+        if (field.validation?.maxLength && value.length > field.validation.maxLength) {
+          toast({
+            title: "Validation Error",
+            description: `${field.label} must be at most ${field.validation.maxLength} characters`,
+            variant: "destructive",
+          })
+          return false
+        }
+      }
+
+      // Validate multiselect fields
+      if (field.type === 'multiselect' && field.required) {
+        if (!Array.isArray(fieldValue) || fieldValue.length === 0) {
+          toast({
+            title: "Validation Error",
+            description: `Please select at least one option for ${field.label}`,
             variant: "destructive",
           })
           return false
@@ -431,6 +481,114 @@ export function WorkflowStepExecutionPanel({
                           disabled={isSubmitting}
                         />
                         <span className="text-sm">{field.placeholder}</span>
+                      </div>
+                    )}
+
+                    {field.type === 'radio' && field.options && (
+                      <RadioGroup
+                        value={formData[field.name] || ""}
+                        onValueChange={(value) => handleFormFieldChange(field.name, value)}
+                        disabled={isSubmitting}
+                      >
+                        <div className="space-y-2">
+                          {field.options.map((option) => (
+                            <div key={option.value} className="flex items-center gap-2">
+                              <RadioGroupItem
+                                value={option.value}
+                                id={`${field.id}-${option.value}`}
+                                disabled={isSubmitting}
+                              />
+                              <label
+                                htmlFor={`${field.id}-${option.value}`}
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                              >
+                                {option.label}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </RadioGroup>
+                    )}
+
+                    {field.type === 'multiselect' && field.options && (
+                      <div className="space-y-2">
+                        {field.options.map((option) => (
+                          <div key={option.value} className="flex items-center gap-2">
+                            <Checkbox
+                              id={`${field.id}-${option.value}`}
+                              checked={(formData[field.name] || []).includes(option.value)}
+                              onCheckedChange={(checked) => {
+                                const currentValues = formData[field.name] || []
+                                if (checked) {
+                                  handleFormFieldChange(field.name, [...currentValues, option.value])
+                                } else {
+                                  handleFormFieldChange(
+                                    field.name,
+                                    currentValues.filter((v: string) => v !== option.value)
+                                  )
+                                }
+                              }}
+                              disabled={isSubmitting}
+                            />
+                            <label
+                              htmlFor={`${field.id}-${option.value}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                            >
+                              {option.label}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {field.type === 'file' && (
+                      <div className="space-y-2">
+                        <div className="border-2 border-dashed rounded-lg p-3 text-center">
+                          <input
+                            type="file"
+                            multiple
+                            onChange={(e) => {
+                              if (e.target.files) {
+                                const files = Array.from(e.target.files)
+                                const currentFiles = formData[field.name] || []
+                                handleFormFieldChange(field.name, [...currentFiles, ...files])
+                              }
+                            }}
+                            disabled={isSubmitting}
+                            className="hidden"
+                            id={`file-${field.id}`}
+                          />
+                          <label
+                            htmlFor={`file-${field.id}`}
+                            className="cursor-pointer flex flex-col items-center gap-1"
+                          >
+                            <FileUp className="h-5 w-5 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">
+                              Click to upload files
+                            </span>
+                          </label>
+                        </div>
+                        {formData[field.name] && formData[field.name].length > 0 && (
+                          <div className="space-y-1">
+                            {formData[field.name].map((file: File, index: number) => (
+                              <div key={index} className="flex items-center justify-between text-xs bg-gray-50 p-2 rounded">
+                                <span className="truncate">{file.name}</span>
+                                <button
+                                  onClick={() => {
+                                    const updatedFiles = formData[field.name].filter(
+                                      (_: File, i: number) => i !== index
+                                    )
+                                    handleFormFieldChange(field.name, updatedFiles)
+                                  }}
+                                  className="text-red-500 hover:text-red-700"
+                                  type="button"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
 
