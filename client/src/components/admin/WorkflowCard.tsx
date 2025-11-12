@@ -14,7 +14,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Trash2, Play, Pause, CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { Trash2, Play, Pause, CheckCircle, Clock, AlertCircle, FileText } from "lucide-react"
+import { WorkflowReportModal } from "./WorkflowReportModal"
 
 interface WorkflowCardProps {
   workflow: any
@@ -41,6 +42,7 @@ export function WorkflowCard({
 }: WorkflowCardProps) {
   const { t } = useTranslation()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showReportModal, setShowReportModal] = useState(false)
 
   // Calculate workflow progress
   const totalSteps = workflow.steps?.length || 0
@@ -209,6 +211,18 @@ export function WorkflowCard({
               </Button>
             )}
 
+            {workflow.status === 'completed' && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowReportModal(true)}
+                className="flex-1 gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                View Report
+              </Button>
+            )}
+
             <Button
               size="sm"
               variant="ghost"
@@ -222,6 +236,14 @@ export function WorkflowCard({
           </div>
         </CardContent>
       </Card>
+
+      {/* Workflow Report Modal */}
+      <WorkflowReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        workflow={workflow}
+        orderId={orderId}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
