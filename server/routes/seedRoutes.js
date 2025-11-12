@@ -245,10 +245,10 @@ router.post('/financial', requireUser, requireRole(['admin']), async (req, res) 
 });
 
 // —GERMAN_SEEDING_ROUTE_1 (file `server/routes/seedRoutes.js`) —
-// Description: Seed German language services, products, FAQs, blog posts, and homepage content
+// Description: Seed German language services, products, FAQs, blog posts, homepage content, and workflows
 // Endpoint: POST /api/seed/german
 // Request: {}
-// Response: { success: boolean, message: string, data: { germanServices, germanAddOnServices, germanInventory, germanDevices, germanProducts, germanBlogData, germanFAQs, germanHomepageTemplate } }
+// Response: { success: boolean, message: string, data: { germanServices, germanAddOnServices, germanInventory, germanDevices, germanProducts, germanBlogData, germanFAQs, germanHomepageTemplate, germanWorkflows } }
 router.post('/german', async (req, res) => {
   try {
     console.log('Seed German data request received');
@@ -264,7 +264,8 @@ router.post('/german', async (req, res) => {
         germanProducts: results.germanProducts,
         germanBlogData: results.germanBlogData,
         germanFAQs: results.germanFAQs,
-        germanHomepageTemplate: results.germanHomepageTemplate
+        germanHomepageTemplate: results.germanHomepageTemplate,
+        germanWorkflows: results.germanWorkflows
       }
     });
   } catch (error) {

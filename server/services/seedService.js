@@ -8,6 +8,7 @@ const Product = require('../models/Product');
 const { BlogPost, BlogCategory, BlogTag } = require('../models/BlogPost');
 const FAQ = require('../models/FAQ');
 const { HomepageSection, LayoutTemplate } = require('../models/Homepage');
+const { WorkflowTemplate } = require('../models/Workflow');
 const Invoice = require('../models/Invoice');
 const Language = require('../models/Language');
 const { generatePasswordHash } = require('../utils/password');
@@ -912,6 +913,7 @@ class SeedService {
       results.germanBlogData = await this.seedGermanBlogData();
       results.germanFAQs = await this.seedGermanFAQs();
       results.germanHomepageTemplate = await this.seedGermanHomepageTemplate();
+      results.germanWorkflows = await this.seedGermanWorkflows();
 
       console.log('SeedService.seedGermanData: German data seeding finished successfully');
       return results;
@@ -1469,7 +1471,7 @@ class SeedService {
   static async verifyTestUsers() {
     try {
       console.log('SeedService.verifyTestUsers: Verifying test user credentials...');
-      
+
       const testCredentials = [
         { email: 'admin@example.com', password: 'admin123' },
         { email: 'customer@example.com', password: 'password123' },
@@ -1503,6 +1505,1280 @@ class SeedService {
       throw error;
     }
   }
+
+  // —GERMAN_WORKFLOWS_SEEDING (file `server/services/seedService.js`) —
+  // Description: Seed 5 example German workflows for repair and quality check processes available for all device and service types
+  static async seedGermanWorkflows() {
+    try {
+      console.log('SeedService.seedGermanWorkflows: Starting German workflows seeding...');
+
+      // Check if German workflows already exist
+      const existingGermanWorkflows = await WorkflowTemplate.findOne({ name: /Allgemeiner/ });
+      if (existingGermanWorkflows) {
+        console.log('SeedService.seedGermanWorkflows: German workflows already exist, skipping...');
+        return [];
+      }
+
+      const germanWorkflows = [
+        {
+          name: 'Allgemeiner Reparaturprozess',
+          description: 'Vollständiger Workflow für alle Reparaturen mit Qualitätskontrolle. Dieser Workflow ist für alle Gerätetypen und Dienstleistungen verfügbar.',
+          deviceTypes: [], // Empty array means available for all device types
+          serviceTypes: [], // Empty array means available for all service types
+          isActive: true,
+          steps: [
+            {
+              name: 'Geräteüberprüfung und Diagnose',
+              description: 'Überprüfen Sie den Gerätezustand und dokumentieren Sie bereits vorhandene Schäden',
+              estimatedTime: 15,
+              isRequired: true,
+              order: 1,
+              category: 'diagnostic',
+              dependencies: [],
+              tools: ['Inspektionslampe', 'Kamera', 'Diagnosesoftware'],
+              skills: ['Sichtprüfung', 'Dokumentation', 'Diagnose'],
+              checklistItems: [
+                'Überprüfen Sie auf Wasserschäden',
+                'Dokumentieren Sie alle vorhandenen Kratzer und Dellen',
+                'Testen Sie die Funktionalität (soweit möglich)',
+                'Machen Sie Fotos des Gerätezustands'
+              ],
+              formFields: [
+                {
+                  id: 'device_condition',
+                  name: 'device_condition',
+                  label: 'Gerätezustand',
+                  type: 'select',
+                  required: true,
+                  placeholder: 'Wählen Sie den Gerätezustand',
+                  options: [
+                    { value: 'excellent', label: 'Ausgezeichnet' },
+                    { value: 'good', label: 'Gut' },
+                    { value: 'fair', label: 'Befriedigend' },
+                    { value: 'poor', label: 'Schlecht' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'damage_description',
+                  name: 'damage_description',
+                  label: 'Beschreibung der Schäden',
+                  type: 'textarea',
+                  required: true,
+                  placeholder: 'Beschreiben Sie alle vorhandenen Schäden im Detail',
+                  validation: { minLength: 10, maxLength: 500 },
+                  order: 2
+                },
+                {
+                  id: 'water_damage_indicator',
+                  name: 'water_damage_indicator',
+                  label: 'Wasserschaden-Indikator erkannt?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 3
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [],
+              position: { x: 0, y: 0 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: true,
+                onComplete: false,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Ersatzteil-Vorbereitung',
+              description: 'Bereiten Sie alle notwendigen Ersatzteile und Werkzeuge vor',
+              estimatedTime: 10,
+              isRequired: true,
+              order: 2,
+              category: 'repair',
+              dependencies: ['device_condition'],
+              tools: ['Ersatzteile', 'Werkzeugset'],
+              skills: ['Teileverwaltung', 'Vorbereitung'],
+              checklistItems: [
+                'Überprüfen Sie die Ersatzteilkompatibilität',
+                'Verifizieren Sie die Verfügbarkeit aller Teile',
+                'Bereiten Sie das Werkzeugset vor',
+                'Überprüfen Sie Verfallsdaten und Qualität'
+              ],
+              formFields: [
+                {
+                  id: 'parts_available',
+                  name: 'parts_available',
+                  label: 'Sind alle erforderlichen Ersatzteile verfügbar?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'parts_serial',
+                  name: 'parts_serial',
+                  label: 'Seriennummern der Ersatzteile',
+                  type: 'text',
+                  required: false,
+                  placeholder: 'Geben Sie die Seriennummern ein',
+                  order: 2
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [],
+              position: { x: 0, y: 100 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: false,
+                onComplete: false,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Reparaturausführung',
+              description: 'Führen Sie die eigentliche Reparatur nach Herstellervorgaben durch',
+              estimatedTime: 45,
+              isRequired: true,
+              order: 3,
+              category: 'repair',
+              dependencies: ['parts_available'],
+              tools: ['Verschiedene Werkzeuge', 'Ersatzteile'],
+              skills: ['Reparaturtechnik', 'Handwerkliche Fähigkeiten'],
+              checklistItems: [
+                'Folgen Sie den Schritt-für-Schritt-Anweisungen',
+                'Verwenden Sie die richtigen Werkzeuge',
+                'Dokumentieren Sie jeden Schritt',
+                'Achten Sie auf Sicherheit'
+              ],
+              formFields: [
+                {
+                  id: 'repair_steps_completed',
+                  name: 'repair_steps_completed',
+                  label: 'Reparaturschritte abgeschlossen',
+                  type: 'checkbox',
+                  required: true,
+                  options: [
+                    { value: 'disassembly', label: 'Demontage' },
+                    { value: 'cleaning', label: 'Reinigung' },
+                    { value: 'component_replacement', label: 'Komponentenwechsel' },
+                    { value: 'reassembly', label: 'Wieder zusammenbauen' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'repair_notes',
+                  name: 'repair_notes',
+                  label: 'Reparaturnotizen',
+                  type: 'textarea',
+                  required: false,
+                  placeholder: 'Notizen zu besonderen Problemen oder Beobachtungen',
+                  order: 2
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [],
+              position: { x: 0, y: 200 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: false,
+                onComplete: false,
+                onDelay: true
+              }
+            },
+            {
+              name: 'Funktionsprüfung',
+              description: 'Testen Sie alle Gerätfunktionen, um sicherzustellen, dass die Reparatur erfolgreich war',
+              estimatedTime: 20,
+              isRequired: true,
+              order: 4,
+              category: 'quality',
+              dependencies: [],
+              tools: ['Testsoftware', 'Multimeter', 'Testgeräte'],
+              skills: ['Funktionsprüfung', 'Problemdiagnose'],
+              checklistItems: [
+                'Testen Sie das Hauptproblem (das behoben wurde)',
+                'Testen Sie alle Sensoren',
+                'Überprüfen Sie die Konnektivität (WiFi, Bluetooth)',
+                'Führen Sie Stresstests durch'
+              ],
+              formFields: [
+                {
+                  id: 'primary_issue_resolved',
+                  name: 'primary_issue_resolved',
+                  label: 'Wurde das Hauptproblem behoben?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'no', label: 'Nein' },
+                    { value: 'partial', label: 'Teilweise' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'test_results',
+                  name: 'test_results',
+                  label: 'Testergebnisse',
+                  type: 'textarea',
+                  required: true,
+                  placeholder: 'Dokumentieren Sie alle Testergebnisse',
+                  validation: { minLength: 10 },
+                  order: 2
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [],
+              position: { x: 0, y: 300 },
+              canSkip: false,
+              requiresApproval: true,
+              notificationSettings: {
+                onStart: false,
+                onComplete: true,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Endkontrolle und Verpackung',
+              description: 'Führen Sie eine abschließende Kontrolle durch und verpacken Sie das Gerät sicher',
+              estimatedTime: 10,
+              isRequired: true,
+              order: 5,
+              category: 'completion',
+              dependencies: [],
+              tools: ['Mikrofasertuch', 'Verpackungsmaterial', 'Kamera'],
+              skills: ['Reinigung', 'Verpackung', 'Finale Kontrolle'],
+              checklistItems: [
+                'Reinigen Sie das Gerät gründlich',
+                'Entfernen Sie alle Fingerabdrücke',
+                'Verpacken Sie das Gerät sicher',
+                'Erstellen Sie ein Abschlussprotokoll'
+              ],
+              formFields: [
+                {
+                  id: 'device_cleaned',
+                  name: 'device_cleaned',
+                  label: 'Ist das Gerät gereinigt?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'packaging_secure',
+                  name: 'packaging_secure',
+                  label: 'Ist die Verpackung sicher?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 2
+                },
+                {
+                  id: 'final_notes',
+                  name: 'final_notes',
+                  label: 'Abschließende Notizen',
+                  type: 'textarea',
+                  required: false,
+                  placeholder: 'Weitere Notizen für den Kunden',
+                  order: 3
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [
+                {
+                  trigger: 'step_completion',
+                  action: 'update_status',
+                  actionData: { orderStatus: 'ready-for-pickup' },
+                  isActive: true
+                }
+              ],
+              position: { x: 0, y: 400 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: false,
+                onComplete: true,
+                onDelay: false
+              }
+            }
+          ],
+          estimatedTotalTime: 100,
+          globalAutomationRules: [],
+          workflowSettings: {
+            allowParallelSteps: false,
+            requireStrictOrder: true,
+            autoProgressOnCompletion: true
+          }
+        },
+        {
+          name: 'Allgemeine Qualitätskontrolle',
+          description: 'Umfassender Qualitätskontroll-Workflow für alle Reparaturen. Dieser Workflow ist für alle Gerätetypen und Dienstleistungen verfügbar.',
+          deviceTypes: [], // Empty array means available for all device types
+          serviceTypes: [], // Empty array means available for all service types
+          isActive: true,
+          steps: [
+            {
+              name: 'Visuelle Inspektion',
+              description: 'Führen Sie eine detaillierte visuelle Kontrolle des reparierten Geräts durch',
+              estimatedTime: 15,
+              isRequired: true,
+              order: 1,
+              category: 'quality',
+              dependencies: [],
+              tools: ['Inspektionslampe', 'Lupe', 'Kamera'],
+              skills: ['Visuelle Inspektion', 'Detailbeobachtung'],
+              checklistItems: [
+                'Überprüfen Sie auf Kratzer oder Beschädigungen',
+                'Prüfen Sie auf falsch ausgerichtete Teile',
+                'Überprüfen Sie die Spaltmaße',
+                'Dokumentieren Sie alle Mängel'
+              ],
+              formFields: [
+                {
+                  id: 'visual_quality_rating',
+                  name: 'visual_quality_rating',
+                  label: 'Visuelle Qualitätsbewertung',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: '5', label: 'Hervorragend - Keine Mängel' },
+                    { value: '4', label: 'Sehr gut - Minimale Mängel' },
+                    { value: '3', label: 'Gut - Akzeptable Mängel' },
+                    { value: '2', label: 'Befriedigend - Mehrere Mängel' },
+                    { value: '1', label: 'Unzureichend - Nicht akzeptabel' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'defects_found',
+                  name: 'defects_found',
+                  label: 'Gefundene Mängel',
+                  type: 'textarea',
+                  required: false,
+                  placeholder: 'Beschreiben Sie alle visuellen Mängel',
+                  order: 2
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [],
+              position: { x: 0, y: 0 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: true,
+                onComplete: false,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Funktionale Tests',
+              description: 'Führen Sie umfassende Funktionstests aller Gerätekomponenten durch',
+              estimatedTime: 25,
+              isRequired: true,
+              order: 2,
+              category: 'quality',
+              dependencies: [],
+              tools: ['Testsoftware', 'Testgeräte', 'Multimeter'],
+              skills: ['Funktionstests', 'Fehlerdiagnose'],
+              checklistItems: [
+                'Testen Sie alle Tasten und Schalter',
+                'Überprüfen Sie Display/Touchscreen',
+                'Testen Sie Lautsprecher und Mikrofon',
+                'Überprüfen Sie Batterie/Ladung',
+                'Testen Sie Verbindungen (USB, Kopfhörer, etc.)'
+              ],
+              formFields: [
+                {
+                  id: 'button_functionality',
+                  name: 'button_functionality',
+                  label: 'Funktionieren alle Tasten?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'partial', label: 'Teilweise' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'display_functionality',
+                  name: 'display_functionality',
+                  label: 'Funktioniert das Display korrekt?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'partial', label: 'Teilweise' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 2
+                },
+                {
+                  id: 'audio_functionality',
+                  name: 'audio_functionality',
+                  label: 'Funktioniert das Audio (Lautsprecher/Mikrofon) korrekt?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'partial', label: 'Teilweise' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 3
+                },
+                {
+                  id: 'connectivity_functionality',
+                  name: 'connectivity_functionality',
+                  label: 'Funktionieren alle Verbindungen?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'partial', label: 'Teilweise' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 4
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [],
+              position: { x: 0, y: 100 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: false,
+                onComplete: false,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Sicherheits- und Sicherheitsprüfung',
+              description: 'Überprüfen Sie die Sicherheit und Stabilität des Geräts',
+              estimatedTime: 15,
+              isRequired: true,
+              order: 3,
+              category: 'quality',
+              dependencies: [],
+              tools: ['Sicherheitstestwerkzeuge', 'Antivirus-Software'],
+              skills: ['Sicherheitsprüfung', 'Risikoanalyse'],
+              checklistItems: [
+                'Überprüfen Sie auf Überwärmung',
+                'Überprüfen Sie die Batterie auf Schwellungen',
+                'Führen Sie einen Antivirus-Scan durch',
+                'Überprüfen Sie auf Spannungsprobleme'
+              ],
+              formFields: [
+                {
+                  id: 'safety_concerns',
+                  name: 'safety_concerns',
+                  label: 'Gibt es Sicherheitsbedenken?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'safety_details',
+                  name: 'safety_details',
+                  label: 'Sicherheitsbedenken - Details',
+                  type: 'textarea',
+                  required: false,
+                  placeholder: 'Beschreiben Sie alle Sicherheitsbedenken',
+                  isConditional: true,
+                  conditionalLogic: {
+                    dependsOn: 'safety_concerns',
+                    condition: 'equals',
+                    value: 'yes'
+                  },
+                  order: 2
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [],
+              position: { x: 0, y: 200 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: false,
+                onComplete: false,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Leistungsprüfung',
+              description: 'Testen Sie die Leistung des Geräts unter Last',
+              estimatedTime: 20,
+              isRequired: true,
+              order: 4,
+              category: 'quality',
+              dependencies: [],
+              tools: ['Benchmark-Software', 'Benchmark-Tools'],
+              skills: ['Leistungstests', 'Benchmarking'],
+              checklistItems: [
+                'Führen Sie CPU-Benchmarks durch',
+                'Führen Sie GPU-Benchmarks durch (falls zutreffend)',
+                'Testen Sie die Speicherleistung',
+                'Überprüfen Sie auf Drosselung'
+              ],
+              formFields: [
+                {
+                  id: 'performance_acceptable',
+                  name: 'performance_acceptable',
+                  label: 'Ist die Leistung akzeptabel?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'excellent', label: 'Ausgezeichnet' },
+                    { value: 'good', label: 'Gut' },
+                    { value: 'acceptable', label: 'Akzeptabel' },
+                    { value: 'poor', label: 'Schlecht' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'performance_notes',
+                  name: 'performance_notes',
+                  label: 'Leistungsnotizen',
+                  type: 'textarea',
+                  required: false,
+                  placeholder: 'Geben Sie alle Leistungsergebnisse an',
+                  order: 2
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [],
+              position: { x: 0, y: 300 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: false,
+                onComplete: false,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Qualitätsbestätigung und Genehmigung',
+              description: 'Geben Sie die abschließende Qualitätsbestätigung ab',
+              estimatedTime: 10,
+              isRequired: true,
+              order: 5,
+              category: 'completion',
+              dependencies: [],
+              tools: ['Qualitätscheckliste'],
+              skills: ['Qualitätsbewertung', 'Entscheidungsfindung'],
+              checklistItems: [
+                'Überprüfen Sie alle Test-Ergebnisse',
+                'Dokumentieren Sie die Qualitätsentscheidung',
+                'Erhalten Sie die entsprechende Genehmigung'
+              ],
+              formFields: [
+                {
+                  id: 'quality_approval',
+                  name: 'quality_approval',
+                  label: 'Qualitätsbestätigung',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'approved', label: 'Genehmigt - Bereit zur Abgabe' },
+                    { value: 'rework_required', label: 'Überarbeitung erforderlich' },
+                    { value: 'rejected', label: 'Abgelehnt' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'quality_comments',
+                  name: 'quality_comments',
+                  label: 'Qualitätskommentare',
+                  type: 'textarea',
+                  required: true,
+                  placeholder: 'Geben Sie Kommentare zur Qualitätsentscheidung an',
+                  validation: { minLength: 5 },
+                  order: 2
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [
+                {
+                  trigger: 'form_submission',
+                  condition: JSON.stringify({ field: 'quality_approval', value: 'approved' }),
+                  action: 'update_status',
+                  actionData: { orderStatus: 'quality-approved' },
+                  isActive: true
+                }
+              ],
+              position: { x: 0, y: 400 },
+              canSkip: false,
+              requiresApproval: true,
+              notificationSettings: {
+                onStart: false,
+                onComplete: true,
+                onDelay: false
+              }
+            }
+          ],
+          estimatedTotalTime: 85,
+          globalAutomationRules: [],
+          workflowSettings: {
+            allowParallelSteps: false,
+            requireStrictOrder: true,
+            autoProgressOnCompletion: false
+          }
+        },
+        {
+          name: 'Wasserschaden-Wiederherstellung',
+          description: 'Spezialisierter Workflow für die Behandlung und Wiederherstellung von Wasserschäden an Geräten',
+          deviceTypes: [],
+          serviceTypes: [],
+          isActive: true,
+          steps: [
+            {
+              name: 'Wasserschaden-Diagnose',
+              description: 'Diagnostizieren Sie den Umfang und die Art des Wasserschadens',
+              estimatedTime: 20,
+              isRequired: true,
+              order: 1,
+              category: 'diagnostic',
+              dependencies: [],
+              tools: ['Multimeter', 'Inspektionslampe', 'Diagnosesoftware'],
+              skills: ['Wasserschaden-Diagnose', 'Elektronik-Kenntnisse'],
+              checklistItems: [
+                'Überprüfen Sie die Wasserschaden-Indikatoren',
+                'Suchen Sie nach Korrosionsspuren',
+                'Überprüfen Sie auf Flüssigkeitsrückstände',
+                'Testen Sie die Funktion der kritischen Komponenten'
+              ],
+              formFields: [
+                {
+                  id: 'water_damage_extent',
+                  name: 'water_damage_extent',
+                  label: 'Ausmaß des Wasserschadens',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'minimal', label: 'Minimal - Oberflächlich' },
+                    { value: 'moderate', label: 'Moderat - Teilweise eindringen' },
+                    { value: 'severe', label: 'Schwer - Tiefes Eindringen' },
+                    { value: 'critical', label: 'Kritisch - Umfangreiche Beschädigung' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'damage_type',
+                  name: 'damage_type',
+                  label: 'Art der Flüssigkeit',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'fresh_water', label: 'Süßwasser' },
+                    { value: 'salt_water', label: 'Salzwasser' },
+                    { value: 'other_liquid', label: 'Andere Flüssigkeit' }
+                  ],
+                  order: 2
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [],
+              position: { x: 0, y: 0 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: true,
+                onComplete: false,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Trocknung und Reinigung',
+              description: 'Trocknen und reinigen Sie alle betroffenen Komponenten',
+              estimatedTime: 60,
+              isRequired: true,
+              order: 2,
+              category: 'repair',
+              dependencies: [],
+              tools: ['Destilliertes Wasser', 'Isopropylalkohol', 'Druckluft', 'Wärmequelle'],
+              skills: ['Reinigung', 'Trocknung', 'Detailarbeit'],
+              checklistItems: [
+                'Disassemblieren Sie das Gerät sorgfältig',
+                'Spülen Sie mit destilliertem Wasser',
+                'Wischen Sie mit Isopropylalkohol ab',
+                'Trocknen Sie gründlich mit Druckluft',
+                'Verwenden Sie bei Bedarf Wärmequelle'
+              ],
+              formFields: [
+                {
+                  id: 'drying_method',
+                  name: 'drying_method',
+                  label: 'Verwendete Trocknungsmethode',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'air_dry', label: 'Lufttrocknung' },
+                    { value: 'compressed_air', label: 'Druckluft' },
+                    { value: 'heat', label: 'Wärmetrocknung' },
+                    { value: 'combined', label: 'Kombiniert' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'drying_duration',
+                  name: 'drying_duration',
+                  label: 'Trocknungsdauer (in Stunden)',
+                  type: 'number',
+                  required: true,
+                  validation: { min: 1, max: 168 },
+                  order: 2
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [],
+              position: { x: 0, y: 100 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: false,
+                onComplete: false,
+                onDelay: true
+              }
+            },
+            {
+              name: 'Komponentenbewertung',
+              description: 'Bewerten Sie alle Komponenten auf Beschädigungen oder Austausch',
+              estimatedTime: 30,
+              isRequired: true,
+              order: 3,
+              category: 'diagnostic',
+              dependencies: [],
+              tools: ['Multimeter', 'Inspektionsgeräte'],
+              skills: ['Komponentenbewertung', 'Fehlerdiagnose'],
+              checklistItems: [
+                'Überprüfen Sie Kondensatoren auf Beschädigungen',
+                'Prüfen Sie auf Korrosion auf Leiterplatten',
+                'Testen Sie wichtige Halbleiter',
+                'Überprüfen Sie Stromversorgungskomponenten'
+              ],
+              formFields: [
+                {
+                  id: 'components_damaged',
+                  name: 'components_damaged',
+                  label: 'Beschädigte Komponenten',
+                  type: 'multiselect',
+                  required: false,
+                  options: [
+                    { value: 'battery', label: 'Batterie' },
+                    { value: 'motherboard', label: 'Hauptplatine' },
+                    { value: 'display', label: 'Display' },
+                    { value: 'ports', label: 'Anschlüsse' },
+                    { value: 'speakers', label: 'Lautsprecher' },
+                    { value: 'microphone', label: 'Mikrofon' },
+                    { value: 'other', label: 'Sonstige' }
+                  ],
+                  order: 1
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [],
+              position: { x: 0, y: 200 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: false,
+                onComplete: false,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Komponentenaustausch und -reparatur',
+              description: 'Tauschen oder reparieren Sie beschädigte Komponenten',
+              estimatedTime: 45,
+              isRequired: false,
+              order: 4,
+              category: 'repair',
+              dependencies: ['components_damaged'],
+              tools: ['Ersatzkomponenten', 'Lötkolben', 'Werkzeuge'],
+              skills: ['Komponentenaustausch', 'Löten'],
+              checklistItems: [
+                'Entfernen Sie beschädigte Komponenten sorgfältig',
+                'Installieren Sie Ersatzkomponenten',
+                'Prüfen Sie auf Verbindungsfehler',
+                'Testen Sie nach jedem Austausch'
+              ],
+              formFields: [
+                {
+                  id: 'replacement_completed',
+                  name: 'replacement_completed',
+                  label: 'Komponentenaustausch abgeschlossen',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 1
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [],
+              position: { x: 0, y: 300 },
+              canSkip: true,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: false,
+                onComplete: false,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Funktionsprüfung nach Wasserschaden',
+              description: 'Testen Sie alle Funktionen nach der Wasserschaden-Behandlung',
+              estimatedTime: 25,
+              isRequired: true,
+              order: 5,
+              category: 'quality',
+              dependencies: [],
+              tools: ['Testsoftware', 'Testgeräte'],
+              skills: ['Funktionstests', 'Diagnose'],
+              checklistItems: [
+                'Testen Sie die Stromversorgung',
+                'Testen Sie alle Kommunikationsfunktionen',
+                'Überprüfen Sie auf Korrosionsprobleme',
+                'Durchführen Sie Stresstests'
+              ],
+              formFields: [
+                {
+                  id: 'device_operational',
+                  name: 'device_operational',
+                  label: 'Funktioniert das Gerät betriebsbereit?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'limited', label: 'Begrenzt' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 1
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [],
+              position: { x: 0, y: 400 },
+              canSkip: false,
+              requiresApproval: true,
+              notificationSettings: {
+                onStart: false,
+                onComplete: true,
+                onDelay: false
+              }
+            }
+          ],
+          estimatedTotalTime: 180,
+          globalAutomationRules: [],
+          workflowSettings: {
+            allowParallelSteps: false,
+            requireStrictOrder: true,
+            autoProgressOnCompletion: false
+          }
+        },
+        {
+          name: 'Batteriewechsel und -kalibrierung',
+          description: 'Spezialisierter Workflow für sicheren Batteriewechsel und Kalibrierung',
+          deviceTypes: [],
+          serviceTypes: [],
+          isActive: true,
+          steps: [
+            {
+              name: 'Batterie-Diagnose',
+              description: 'Diagnostizieren Sie den aktuellen Batteriezustand',
+              estimatedTime: 15,
+              isRequired: true,
+              order: 1,
+              category: 'diagnostic',
+              dependencies: [],
+              tools: ['Batterie-Tester', 'Diagnosesoftware'],
+              skills: ['Batterie-Diagnostik', 'Dateninterpretation'],
+              checklistItems: [
+                'Führen Sie Batterie-Gesundheitstests durch',
+                'Dokumentieren Sie die Batteriekapazität',
+                'Überprüfen Sie auf Schwellungen oder Beschädigungen',
+                'Überprüfen Sie das Ladeverhalten'
+              ],
+              formFields: [
+                {
+                  id: 'battery_health',
+                  name: 'battery_health',
+                  label: 'Batteriegesundheit (%)',
+                  type: 'number',
+                  required: true,
+                  validation: { min: 0, max: 100 },
+                  order: 1
+                },
+                {
+                  id: 'battery_capacity',
+                  name: 'battery_capacity',
+                  label: 'Batteriekapazität (mAh)',
+                  type: 'number',
+                  required: true,
+                  validation: { min: 0 },
+                  order: 2
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [],
+              position: { x: 0, y: 0 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: true,
+                onComplete: false,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Batterie-Austausch',
+              description: 'Sicherer Austausch der alten Batterie gegen eine neue',
+              estimatedTime: 25,
+              isRequired: true,
+              order: 2,
+              category: 'repair',
+              dependencies: [],
+              tools: ['Schraubendreher', 'Hebel', 'Wärmequelle', 'Sicherheitshandschuhe'],
+              skills: ['Batterie-Austausch', 'Sicherheitsprotokolle'],
+              checklistItems: [
+                'Schalten Sie das Gerät vollständig aus',
+                'Trennen Sie den Batterie-Anschluss zuerst',
+                'Wenden Sie bei Bedarf Wärme an',
+                'Entfernen Sie die Batterie sicher',
+                'Entsorgen Sie die alte Batterie ordnungsgemäß'
+              ],
+              formFields: [
+                {
+                  id: 'new_battery_model',
+                  name: 'new_battery_model',
+                  label: 'Modell der neuen Batterie',
+                  type: 'text',
+                  required: true,
+                  placeholder: 'Geben Sie das Modell an (z.B. BL-T7)',
+                  order: 1
+                },
+                {
+                  id: 'old_battery_disposed',
+                  name: 'old_battery_disposed',
+                  label: 'Alte Batterie ordnungsgemäß entsorgt?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 2
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [],
+              position: { x: 0, y: 100 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: false,
+                onComplete: false,
+                onDelay: true
+              }
+            },
+            {
+              name: 'Batterie-Kalibrierung und Test',
+              description: 'Kalibrieren und testen Sie die neue Batterie',
+              estimatedTime: 35,
+              isRequired: true,
+              order: 3,
+              category: 'quality',
+              dependencies: [],
+              tools: ['Ladegerät', 'Batterie-Tester', 'Diagnosesoftware'],
+              skills: ['Batterie-Kalibrierung', 'Batterie-Tests'],
+              checklistItems: [
+                'Testen Sie die Ladefunktion',
+                'Stellen Sie sicher, dass die Batterie erkannt wird',
+                'Überprüfen Sie die Ladegeschwindigkeit',
+                'Führen Sie einen vollständigen Lade-/Entladezyklus durch',
+                'Überprüfen Sie, ob die Batteriegesundheit 100% erreicht'
+              ],
+              formFields: [
+                {
+                  id: 'battery_recognized',
+                  name: 'battery_recognized',
+                  label: 'Wird die neue Batterie erkannt?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'charge_speed',
+                  name: 'charge_speed',
+                  label: 'Ladegeschwindigkeit',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'very_fast', label: 'Sehr schnell' },
+                    { value: 'normal', label: 'Normal' },
+                    { value: 'slow', label: 'Langsam' }
+                  ],
+                  order: 2
+                },
+                {
+                  id: 'battery_health_percentage',
+                  name: 'battery_health_percentage',
+                  label: 'Neue Batteriegesundheit (%)',
+                  type: 'number',
+                  required: true,
+                  validation: { min: 0, max: 100 },
+                  order: 3
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [],
+              position: { x: 0, y: 200 },
+              canSkip: false,
+              requiresApproval: true,
+              notificationSettings: {
+                onStart: false,
+                onComplete: true,
+                onDelay: false
+              }
+            }
+          ],
+          estimatedTotalTime: 75,
+          globalAutomationRules: [],
+          workflowSettings: {
+            allowParallelSteps: false,
+            requireStrictOrder: true,
+            autoProgressOnCompletion: true
+          }
+        },
+        {
+          name: 'Display-Reparatur und -Kalibrierung',
+          description: 'Umfassender Workflow für Display-Austausch, Kalibrierung und Farbtest',
+          deviceTypes: [],
+          serviceTypes: [],
+          isActive: true,
+          steps: [
+            {
+              name: 'Display-Diagnose',
+              description: 'Diagnostizieren Sie den Display-Fehler und die Art der Beschädigung',
+              estimatedTime: 15,
+              isRequired: true,
+              order: 1,
+              category: 'diagnostic',
+              dependencies: [],
+              tools: ['Inspektionslampe', 'Testsoftware'],
+              skills: ['Display-Diagnose', 'Fehleridentifikation'],
+              checklistItems: [
+                'Überprüfen Sie auf Risse oder Bruchstellen',
+                'Testen Sie die Touch-Empfindlichkeit',
+                'Überprüfen Sie auf tote Pixel',
+                'Testen Sie die Farbwiedergabe'
+              ],
+              formFields: [
+                {
+                  id: 'display_issue_type',
+                  name: 'display_issue_type',
+                  label: 'Art des Display-Problems',
+                  type: 'multiselect',
+                  required: true,
+                  options: [
+                    { value: 'cracked', label: 'Risse/Bruch' },
+                    { value: 'dead_pixels', label: 'Tote Pixel' },
+                    { value: 'color_issues', label: 'Farbprobleme' },
+                    { value: 'touch_unresponsive', label: 'Touch nicht reagierend' },
+                    { value: 'brightness_issues', label: 'Helligkeit-Probleme' }
+                  ],
+                  order: 1
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [],
+              position: { x: 0, y: 0 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: true,
+                onComplete: false,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Display-Austausch',
+              description: 'Sorgfältige Entfernung und Ersatz des Displays',
+              estimatedTime: 35,
+              isRequired: true,
+              order: 2,
+              category: 'repair',
+              dependencies: [],
+              tools: ['Wärmequelle', 'Saugnapf', 'Hebel', 'Neues Display', 'Klebstoff'],
+              skills: ['Display-Austausch', 'Heizanwendung', 'Handwerkliche Fähigkeiten'],
+              checklistItems: [
+                'Wenden Sie Wärme an, um den Klebstoff zu lockern',
+                'Verwenden Sie Saugnapf zum Abheben des Displays',
+                'Trennen Sie vorsichtig die Flex-Kabel ab',
+                'Entfernen Sie alle Klebstoffreste',
+                'Installieren Sie das neue Display'
+              ],
+              formFields: [
+                {
+                  id: 'display_model',
+                  name: 'display_model',
+                  label: 'Modell des neuen Displays',
+                  type: 'text',
+                  required: true,
+                  placeholder: 'Geben Sie das Display-Modell an',
+                  order: 1
+                },
+                {
+                  id: 'adhesive_removed',
+                  name: 'adhesive_removed',
+                  label: 'Alter Klebstoff vollständig entfernt?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 2
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [],
+              position: { x: 0, y: 100 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: false,
+                onComplete: false,
+                onDelay: true
+              }
+            },
+            {
+              name: 'Display-Kalibrierung und Farbtest',
+              description: 'Kalibrieren und testen Sie das neue Display auf Farbe und Helligkeit',
+              estimatedTime: 20,
+              isRequired: true,
+              order: 3,
+              category: 'quality',
+              dependencies: [],
+              tools: ['Testsoftware', 'Farbtester', 'Helligkeitsmessgerät'],
+              skills: ['Display-Kalibrierung', 'Farbtests', 'Qualitätskontrolle'],
+              checklistItems: [
+                'Führen Sie Farbtests durch',
+                'Überprüfen Sie die Helligkeit',
+                'Testen Sie die Touch-Empfindlichkeit über das gesamte Display',
+                'Überprüfen Sie auf tote Pixel oder Hot Spots'
+              ],
+              formFields: [
+                {
+                  id: 'display_color_quality',
+                  name: 'display_color_quality',
+                  label: 'Display-Farbqualität',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'excellent', label: 'Ausgezeichnet' },
+                    { value: 'good', label: 'Gut' },
+                    { value: 'acceptable', label: 'Akzeptabel' },
+                    { value: 'poor', label: 'Schlecht' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'touch_sensitivity',
+                  name: 'touch_sensitivity',
+                  label: 'Touch-Empfindlichkeit',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'excellent', label: 'Ausgezeichnet' },
+                    { value: 'good', label: 'Gut' },
+                    { value: 'acceptable', label: 'Akzeptabel' },
+                    { value: 'poor', label: 'Schlecht' }
+                  ],
+                  order: 2
+                },
+                {
+                  id: 'dead_pixels_found',
+                  name: 'dead_pixels_found',
+                  label: 'Tote Pixel gefunden?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 3
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [],
+              position: { x: 0, y: 200 },
+              canSkip: false,
+              requiresApproval: true,
+              notificationSettings: {
+                onStart: false,
+                onComplete: true,
+                onDelay: false
+              }
+            }
+          ],
+          estimatedTotalTime: 70,
+          globalAutomationRules: [],
+          workflowSettings: {
+            allowParallelSteps: false,
+            requireStrictOrder: true,
+            autoProgressOnCompletion: true
+          }
+        }
+      ];
+
+      const createdWorkflows = [];
+
+      for (const workflowData of germanWorkflows) {
+        try {
+          const workflow = new WorkflowTemplate(workflowData);
+          await workflow.save();
+          createdWorkflows.push(workflow);
+          console.log(`SeedService.seedGermanWorkflows: Created German workflow: ${workflow.name}`);
+        } catch (error) {
+          console.error(`SeedService.seedGermanWorkflows: Error creating workflow ${workflowData.name}:`, error.message);
+          throw error;
+        }
+      }
+
+      console.log(`SeedService.seedGermanWorkflows: German workflows created successfully, count: ${createdWorkflows.length}`);
+      return createdWorkflows;
+    } catch (error) {
+      console.error('SeedService.seedGermanWorkflows: Error creating German workflows:', error);
+      throw error;
+    }
+  }
+  // —END_OF_GERMAN_WORKFLOWS_SEEDING—
 }
 
 module.exports = SeedService;

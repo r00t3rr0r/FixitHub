@@ -66,14 +66,26 @@ export const checkServerHealth = async () => {
 };
 
 // —GERMAN_SEEDING_API (file `client/src/api/seed.ts`) —
-// Description: Seed German language services, products, FAQs, blog posts, and homepage content
+// Description: Seed German language services, products, FAQs, blog posts, homepage content, and workflows
 // Endpoint: POST /api/seed/german
 // Request: {}
-// Response: { success: boolean, message: string, data: { germanServices, germanAddOnServices, germanInventory, germanDevices, germanProducts, germanBlogData, germanFAQs, germanHomepageTemplate } }
+// Response: { success: boolean, message: string, data: { germanServices, germanAddOnServices, germanInventory, germanDevices, germanProducts, germanBlogData, germanFAQs, germanHomepageTemplate, germanWorkflows } }
 export const seedGermanData = async () => {
   try {
     const response = await api.post('/api/seed/german');
     return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.message || error.message);
+  }
+};
+
+// Description: Seed 5 example German workflows for repair and quality check processes
+// Endpoint: POST /api/seed/german (workflows are included in seedGermanData)
+// Alternative: This function provides direct access to workflow seeding
+export const seedGermanWorkflows = async () => {
+  try {
+    const response = await api.post('/api/seed/german');
+    return response.data?.data?.germanWorkflows || [];
   } catch (error) {
     throw new Error(error?.response?.data?.message || error.message);
   }

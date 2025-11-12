@@ -104,6 +104,15 @@ async function seedGermanData() {
       results.failed.push(`German homepage template: ${e.message}`);
     }
 
+    // Seed German workflows
+    console.log('⚙️  Seeding German workflows...');
+    try {
+      await SeedService.seedGermanWorkflows();
+      results.success.push('German workflows');
+    } catch (e) {
+      results.failed.push(`German workflows: ${e.message}`);
+    }
+
     // Print results
     console.log('\n' + '='.repeat(60));
     console.log('📊 German Seeding Results');
