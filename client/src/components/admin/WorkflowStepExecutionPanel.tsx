@@ -42,7 +42,9 @@ interface FormField {
 
 interface WorkflowStep {
   _id: string
+  stepId?: string
   name: string
+  stepName?: string // For backward compatibility
   description?: string
   status: 'completed' | 'in-progress' | 'skipped' | 'pending'
   estimatedTime?: number
@@ -77,6 +79,14 @@ export function WorkflowStepExecutionPanel({
   const { t } = useTranslation()
   const { toast } = useToast()
 
+  // Normalize step data to ensure consistent property naming
+  const normalizedStep = {
+    ...step,
+    name: step.name || step.stepName || 'Unnamed Step',
+    checklistItems: step.checklistItems || [],
+    formFields: step.formFields || [],
+  }
+
   const [formData, setFormData] = useState<Record<string, any>>({})
   const [checklistData, setChecklistData] = useState<Record<number, boolean>>({})
   const [notes, setNotes] = useState("")
@@ -92,9 +102,9 @@ export function WorkflowStepExecutionPanel({
   const progressPercentage = (completedSteps / steps.length) * 100
 
   const validateForm = (): boolean => {
-    if (!step.formFields) return true
+    if (!normalizedStep.formFields || normalizedStep.formFields.length === 0) return true
 
-    for (const field of step.formFields) {
+    for (const field of normalizedStep.formFields) {
       if (field.required && !formData[field.name]) {
         toast({
           title: "Validation Error",
@@ -253,7 +263,7 @@ export function WorkflowStepExecutionPanel({
   }
 
   const completedChecklistItems = Object.values(checklistData).filter(Boolean).length
-  const totalChecklistItems = step.checklistItems?.length || 0
+  const totalChecklistItems = normalizedStep.checklistItems?.length || 0
 
   return (
     <>
@@ -262,25 +272,25 @@ export function WorkflowStepExecutionPanel({
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <CardTitle className="text-lg">
-                Step {currentStepIndex + 1}: {step.name}
+                Step {currentStepIndex + 1}: {normalizedStep.name}
               </CardTitle>
               <CardDescription className="mt-2">
-                {step.description || "No description provided"}
+                {normalizedStep.description || "No description provided"}
               </CardDescription>
             </div>
             <Badge
               variant="outline"
               className={`whitespace-nowrap ${
-                step.status === 'completed'
+                normalizedStep.status === 'completed'
                   ? 'bg-green-500/10 text-green-700 border-green-200'
-                  : step.status === 'in-progress'
+                  : normalizedStep.status === 'in-progress'
                     ? 'bg-blue-500/10 text-blue-700 border-blue-200'
                     : 'bg-gray-500/10 text-gray-700 border-gray-200'
               }`}
             >
-              {step.status === 'completed' && <CheckCircle2 className="h-4 w-4 mr-1" />}
-              {step.status === 'in-progress' && <AlertCircle className="h-4 w-4 mr-1" />}
-              <span className="capitalize">{step.status}</span>
+              {normalizedStep.status === 'completed' && <CheckCircle2 className="h-4 w-4 mr-1" />}
+              {normalizedStep.status === 'in-progress' && <AlertCircle className="h-4 w-4 mr-1" />}
+              <span className="capitalize">{normalizedStep.status}</span>
             </Badge>
           </div>
         </CardHeader>
@@ -298,22 +308,22 @@ export function WorkflowStepExecutionPanel({
           </div>
 
           {/* Step Time Estimate */}
-          {step.estimatedTime && (
+          {normalizedStep.estimatedTime && (
             <div className="flex items-center gap-2 text-sm">
               <Clock className="h-4 w-4 text-muted-foreground" />
-              <span>Estimated time: {step.estimatedTime} minutes</span>
+              <span>Estimated time: {normalizedStep.estimatedTime} minutes</span>
             </div>
           )}
 
           {/* Checklist Items */}
-          {step.checklistItems && step.checklistItems.length > 0 && (
+          {normalizedStep.checklistItems && normalizedStep.checklistItems.length > 0 && (
             <div className="space-y-3">
               <h4 className="font-medium flex items-center gap-2">
                 <AlertCircle className="h-4 w-4" />
                 Checklist Items ({completedChecklistItems}/{totalChecklistItems})
               </h4>
               <div className="space-y-2 bg-white p-3 rounded-lg border">
-                {step.checklistItems.map((item, index) => (
+                {normalizedStep.checklistItems.map((item, index) => (
                   <div key={index} className="flex items-center gap-3">
                     <Checkbox
                       id={`checklist-${index}`}
@@ -334,11 +344,11 @@ export function WorkflowStepExecutionPanel({
           )}
 
           {/* Form Fields */}
-          {step.formFields && step.formFields.length > 0 && (
+          {normalizedStep.formFields && normalizedStep.formFields.length > 0 && (
             <div className="space-y-3">
               <h4 className="font-medium">Form Information</h4>
               <div className="space-y-4 bg-white p-3 rounded-lg border">
-                {step.formFields.map((field) => (
+                {normalizedStep.formFields.map((field) => (
                   <div key={field.id} className="space-y-1">
                     <label className="text-sm font-medium">
                       {field.label}
@@ -504,7 +514,7 @@ export function WorkflowStepExecutionPanel({
 
           {/* Complete and Skip Actions */}
           <div className="flex gap-2 pt-2 border-t">
-            {step.status !== 'completed' && (
+            {normalizedStep.status !== 'completed' && (
               <>
                 <Button
                   onClick={() => setShowCompleteConfirm(true)}
@@ -514,7 +524,7 @@ export function WorkflowStepExecutionPanel({
                   {isSubmitting ? "Completing..." : `Complete Step ${currentStepIndex + 1}`}
                 </Button>
 
-                {step.canSkip && (
+                {normalizedStep.canSkip && (
                   <Button
                     variant="ghost"
                     onClick={() => setShowSkipConfirm(true)}
@@ -526,7 +536,7 @@ export function WorkflowStepExecutionPanel({
               </>
             )}
 
-            {step.status === 'completed' && (
+            {normalizedStep.status === 'completed' && (
               <div className="flex-1 flex items-center justify-center gap-2 text-green-600">
                 <CheckCircle2 className="h-5 w-5" />
                 <span>Step Completed</span>
@@ -542,7 +552,7 @@ export function WorkflowStepExecutionPanel({
           <AlertDialogHeader>
             <AlertDialogTitle>Complete Step?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to mark "{step.name}" as complete? You will be automatically guided to the next step.
+              Are you sure you want to mark "{normalizedStep.name}" as complete? You will be automatically guided to the next step.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -555,13 +565,13 @@ export function WorkflowStepExecutionPanel({
       </AlertDialog>
 
       {/* Skip Confirmation Dialog */}
-      {step.canSkip && (
+      {normalizedStep.canSkip && (
         <AlertDialog open={showSkipConfirm} onOpenChange={setShowSkipConfirm}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Skip Step?</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to skip "{step.name}"? Please provide a reason for skipping this step.
+                Are you sure you want to skip "{normalizedStep.name}"? Please provide a reason for skipping this step.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="space-y-4 py-4">

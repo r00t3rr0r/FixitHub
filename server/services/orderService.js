@@ -1194,8 +1194,42 @@ class OrderService {
         throw new Error('Order not found');
       }
 
+      // Enrich workflow steps with form fields and checklist items from template
+      const enrichedWorkflows = order.workflows.map((workflow) => {
+        const workflowObj = workflow.toObject();
+
+        if (workflowObj.workflowTemplateId && workflowObj.workflowTemplateId.steps) {
+          // Create a map of template steps by stepId for quick lookup
+          const templateStepsMap = {};
+          workflowObj.workflowTemplateId.steps.forEach((step) => {
+            templateStepsMap[step._id.toString()] = step;
+          });
+
+          // Enrich execution steps with template data
+          workflowObj.steps = workflowObj.steps.map((execStep) => {
+            const templateStep = templateStepsMap[execStep.stepId?.toString()];
+            if (templateStep) {
+              return {
+                ...execStep,
+                name: templateStep.name || execStep.stepName,
+                description: templateStep.description,
+                checklistItems: templateStep.checklistItems || [],
+                formFields: templateStep.formFields || [],
+                requiresFormCompletion: templateStep.requiresFormCompletion,
+                canSkip: templateStep.canSkip,
+                estimatedTime: templateStep.estimatedTime,
+              };
+            }
+            return execStep;
+          });
+        }
+
+        return workflowObj;
+      });
+
       console.log('OrderService: Found', order.workflows.length, 'workflows for order');
-      return order.workflows;
+      console.log('OrderService: Enriched workflows with form fields and checklist items');
+      return enrichedWorkflows;
     } catch (error) {
       console.error('OrderService: Error getting order workflows:', error);
       throw error;

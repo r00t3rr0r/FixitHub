@@ -77,7 +77,16 @@ export function WorkflowExecutionModal({
 
   if (!workflow) return null
 
-  const steps: WorkflowStep[] = workflow.steps || []
+  // Normalize steps to ensure consistent naming (handle both `name` and `stepName`)
+  const normalizeSteps = (stepsData: any[]): WorkflowStep[] => {
+    return stepsData.map((step: any) => ({
+      ...step,
+      // Use name if available, otherwise use stepName
+      name: step.name || step.stepName || 'Unnamed Step',
+    })) as WorkflowStep[]
+  }
+
+  const steps: WorkflowStep[] = normalizeSteps(workflow.steps || [])
   const totalSteps = steps.length
   const completedSteps = steps.filter((s: any) => s.status === 'completed').length
   const progressPercentage = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0
@@ -277,7 +286,7 @@ export function WorkflowExecutionModal({
                             />
                             <div className="flex-1 min-w-0">
                               <p className="font-sm font-medium truncate">
-                                {index + 1}. {step.stepName}
+                                {index + 1}. {step.name}
                               </p>
                             </div>
                             <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
@@ -418,7 +427,7 @@ export function WorkflowExecutionModal({
                       />
                       <div className="flex-1 min-w-0">
                         <p className="font-sm font-medium truncate">
-                          {index + 1}. {step.stepName}
+                          {index + 1}. {step.name}
                         </p>
                       </div>
                       <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
