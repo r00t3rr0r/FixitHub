@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
 import { getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct } from "@/api/orders"
 import { getConversations, getConversationMessages, sendMessage, startConversation } from "@/api/messages"
-import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode } from "@/api/adminOrders"
+import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, updateOrderDevice } from "@/api/adminOrders"
 import { getUserProfile, UserProfile } from "@/api/user"
 import { getAddOnServices, AddOnService as AddOnServiceType, getServices } from "@/api/services"
 import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder } from "@/api/workflow"
@@ -114,6 +114,11 @@ export function OrderDetails() {
   const [unlockConfirmDialogOpen, setUnlockConfirmDialogOpen] = useState(false)
   const [confirmingUnlock, setConfirmingUnlock] = useState(false)
   const [shopProductDialogOpen, setShopProductDialogOpen] = useState(false)
+  const [deviceChangeDialogOpen, setDeviceChangeDialogOpen] = useState(false)
+  const [newDeviceBrand, setNewDeviceBrand] = useState("")
+  const [newDeviceModel, setNewDeviceModel] = useState("")
+  const [newDeviceType, setNewDeviceType] = useState("")
+  const [updatingDevice, setUpdatingDevice] = useState(false)
   const { toast } = useToast()
 
   // Fetch user profile
@@ -805,6 +810,47 @@ export function OrderDetails() {
     }
   }
 
+  const handleDeviceChange = async () => {
+    if (!id || !newDeviceBrand.trim() || !newDeviceModel.trim()) {
+      toast({
+        title: "Error",
+        description: "Device brand and model are required",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      setUpdatingDevice(true)
+      console.log("OrderDetails: Updating device information", { newDeviceBrand, newDeviceModel, newDeviceType })
+
+      await updateOrderDevice(id, newDeviceBrand, newDeviceModel, newDeviceType || undefined)
+
+      toast({
+        title: "Success",
+        description: "Device information updated successfully"
+      })
+
+      // Clear form and close dialog
+      setNewDeviceBrand("")
+      setNewDeviceModel("")
+      setNewDeviceType("")
+      setDeviceChangeDialogOpen(false)
+
+      // Refresh order to show updated device information
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("OrderDetails: Error updating device:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update device information",
+        variant: "destructive"
+      })
+    } finally {
+      setUpdatingDevice(false)
+    }
+  }
+
   const handleAssignWorkflow = async (workflowTemplateId: string) => {
     if (!id) return
 
@@ -1194,9 +1240,26 @@ export function OrderDetails() {
           {/* Device Information */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Camera className="h-5 w-5" />
-                {t('orderDetails.deviceInformation')}
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Camera className="h-5 w-5" />
+                  {t('orderDetails.deviceInformation')}
+                </div>
+                {(user?.role === 'admin' || user?.role === 'staff') && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setNewDeviceBrand(order?.deviceBrand || "")
+                      setNewDeviceModel(order?.deviceModel || "")
+                      setNewDeviceType(order?.deviceType || "Smartphone")
+                      setDeviceChangeDialogOpen(true)
+                    }}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    {t('common.edit')}
+                  </Button>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1242,6 +1305,62 @@ export function OrderDetails() {
               )}
             </CardContent>
           </Card>
+
+          {/* Device Change Dialog */}
+          <Dialog open={deviceChangeDialogOpen} onOpenChange={setDeviceChangeDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t('orderDetails.changeDevice') || 'Change Device Information'}</DialogTitle>
+                <DialogDescription>
+                  {t('orderDetails.changeDeviceDescription') || 'Update the device brand, model, and type for this order'}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="device-brand">{t('orderDetails.deviceBrand') || 'Device Brand'}</Label>
+                  <Input
+                    id="device-brand"
+                    placeholder="e.g., Apple, Samsung, Google"
+                    value={newDeviceBrand}
+                    onChange={(e) => setNewDeviceBrand(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="device-model">{t('orderDetails.deviceModel') || 'Device Model'}</Label>
+                  <Input
+                    id="device-model"
+                    placeholder="e.g., iPhone 14 Pro, Galaxy S23"
+                    value={newDeviceModel}
+                    onChange={(e) => setNewDeviceModel(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="device-type">{t('orderDetails.deviceType') || 'Device Type'}</Label>
+                  <Select value={newDeviceType} onValueChange={setNewDeviceType}>
+                    <SelectTrigger id="device-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Smartphone">Smartphone</SelectItem>
+                      <SelectItem value="Tablet">Tablet</SelectItem>
+                      <SelectItem value="Laptop">Laptop</SelectItem>
+                      <SelectItem value="Watch">Watch</SelectItem>
+                      <SelectItem value="Headphones">Headphones</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDeviceChangeDialogOpen(false)}>
+                  {t('common.cancel') || 'Cancel'}
+                </Button>
+                <Button onClick={handleDeviceChange} disabled={updatingDevice}>
+                  {updatingDevice ? t('common.saving') || 'Saving...' : t('common.save') || 'Save'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Unlock Information Display - Prominently display device unlock details */}
           {(order?.unlockPattern?.length > 0 || order?.unlockCode || order?.noLock) && (

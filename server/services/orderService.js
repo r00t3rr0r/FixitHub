@@ -1351,6 +1351,52 @@ class OrderService {
     }
   }
 
+  // Update device information for order
+  static async updateDevice(orderId, deviceData, userId, userName) {
+    console.log('OrderService: Updating device information for order:', orderId, 'Device:', deviceData);
+
+    try {
+      // Validate order exists
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      // Store old device information for timeline
+      const oldDeviceBrand = order.deviceBrand;
+      const oldDeviceModel = order.deviceModel;
+      const oldDeviceType = order.deviceType;
+
+      // Update device information
+      if (deviceData.deviceBrand) {
+        order.deviceBrand = deviceData.deviceBrand;
+      }
+      if (deviceData.deviceModel) {
+        order.deviceModel = deviceData.deviceModel;
+      }
+      if (deviceData.deviceType) {
+        order.deviceType = deviceData.deviceType;
+      }
+
+      // Add timeline entry for device change
+      order.timeline.push({
+        status: 'Device Changed',
+        description: `Device changed from ${oldDeviceBrand} ${oldDeviceModel} to ${deviceData.deviceBrand} ${deviceData.deviceModel}`,
+        completedAt: new Date(),
+        staffId: userId,
+        staffName: userName
+      });
+
+      const updatedOrder = await order.save();
+      console.log('OrderService: Device information updated for order:', orderId);
+
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error updating device information:', error);
+      throw error;
+    }
+  }
+
   // Add shop product to order
   static async addShopProduct(orderId, productId, quantity, userId) {
     console.log('OrderService: Adding shop product to order:', orderId, 'Product:', productId, 'Quantity:', quantity);

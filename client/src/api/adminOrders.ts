@@ -538,6 +538,26 @@ export const assignStaffToAddon = async (orderId: string, addonId: string, staff
   }
 };
 
+// Description: Update device information for an order
+// Endpoint: PUT /api/admin/orders/:id/device
+// Request: { deviceBrand: string, deviceModel: string, deviceType?: string }
+// Response: { success: boolean, message: string, order: AdminOrder }
+export const updateOrderDevice = async (orderId: string, deviceBrand: string, deviceModel: string, deviceType?: string) => {
+  console.log('updateOrderDevice called with orderId:', orderId, 'deviceBrand:', deviceBrand, 'deviceModel:', deviceModel);
+  try {
+    const response = await api.put(`/api/admin/orders/${orderId}/device`, {
+      deviceBrand,
+      deviceModel,
+      deviceType
+    });
+    console.log('updateOrderDevice API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('updateOrderDevice API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
 // Description: Confirm/verify the device unlock code or pattern
 // Endpoint: POST /api/admin-orders/:id/confirm-unlock
 // Request: { confirmationStatus: 'verified' | 'incorrect' | 'unable-to-verify', notes?: string }

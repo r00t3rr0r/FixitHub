@@ -670,6 +670,52 @@ router.post('/:id/workflows/:workflowId/steps/:stepId/goto', requireUser, requir
   }
 });
 
+// Description: Update device information for an order
+// Endpoint: PUT /api/admin/orders/:id/device
+// Request: { deviceBrand: string, deviceModel: string, deviceType?: string }
+// Response: { success: boolean, message: string, order: Order }
+router.put('/:id/device', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Update device information request received:', req.params.id, req.body);
+
+  try {
+    const { deviceBrand, deviceModel, deviceType } = req.body;
+
+    // Validate required fields
+    if (!deviceBrand || !deviceBrand.trim()) {
+      return res.status(400).json({ error: 'Device brand is required' });
+    }
+
+    if (!deviceModel || !deviceModel.trim()) {
+      return res.status(400).json({ error: 'Device model is required' });
+    }
+
+    const order = await OrderService.updateDevice(
+      req.params.id,
+      {
+        deviceBrand: deviceBrand.trim(),
+        deviceModel: deviceModel.trim(),
+        deviceType: deviceType ? deviceType.trim() : undefined
+      },
+      req.user._id,
+      req.user.name
+    );
+
+    console.log('Device information updated successfully for order:', req.params.id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Device information updated successfully',
+      order
+    });
+  } catch (error) {
+    console.error('Error updating device information:', error);
+    if (error.message === 'Order not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(500).json({ error: error.message || 'Failed to update device information' });
+  }
+});
+
 // Description: Confirm/verify the device unlock code or pattern
 // Endpoint: POST /api/admin-orders/:id/confirm-unlock
 // Request: { confirmationStatus: 'verified' | 'incorrect' | 'unable-to-verify', notes?: string }
