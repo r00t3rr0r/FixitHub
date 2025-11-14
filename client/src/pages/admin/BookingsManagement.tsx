@@ -657,7 +657,11 @@ export function BookingsManagement() {
                                     </TableHeader>
                                     <TableBody>
                                       {expandedOrdersData[booking._id].map((item: any, idx: number) => (
-                                        <TableRow key={idx}>
+                                        <TableRow
+                                          key={idx}
+                                          className="hover:bg-muted/50 cursor-pointer transition-colors"
+                                          onClick={() => item.orderId && navigate(`/orders/${item.orderId}`)}
+                                        >
                                           <TableCell>
                                             <Badge variant={item.type === 'repair' ? 'default' : 'secondary'}>
                                               {item.type === 'repair' ? 'Repair' : 'Product'}
@@ -747,8 +751,11 @@ function BookingDetailDialog({
   // Description: Navigate to the order details page for a specific order
   // Endpoint: None (client-side navigation)
   const handleViewOrder = (orderId: string) => {
-    navigate(`/admin/orders`)
-    // TODO: Ideally, we'd navigate with filter params to show that specific order
+    if (!orderId) {
+      console.warn("No order ID provided for navigation")
+      return
+    }
+    navigate(`/orders/${orderId}`)
   }
 
   const handleStatusUpdate = async () => {
