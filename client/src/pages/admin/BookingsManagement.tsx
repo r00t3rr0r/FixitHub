@@ -26,7 +26,9 @@ import {
   CheckCircle,
   AlertCircle,
   Trash2,
-  ExternalLink
+  ExternalLink,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react"
 import {
   Select,
@@ -114,6 +116,7 @@ interface ExpandedBooking extends Booking {
 
 export function BookingsManagement() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [bookings, setBookings] = useState<ExpandedBooking[]>([])
   const [filteredBookings, setFilteredBookings] = useState<ExpandedBooking[]>([])
   const [loading, setLoading] = useState(true)
@@ -129,6 +132,9 @@ export function BookingsManagement() {
   const [description, setDescription] = useState("")
   const [updating, setUpdating] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [expandedBookings, setExpandedBookings] = useState<Set<string>>(new Set())
+  const [expandedOrdersData, setExpandedOrdersData] = useState<Record<string, any[]>>({})
+  const [loadingOrders, setLoadingOrders] = useState<Set<string>>(new Set())
   const { toast } = useToast()
 
   useEffect(() => {
@@ -266,6 +272,62 @@ export function BookingsManagement() {
       })
     } finally {
       setDeleting(null)
+    }
+  }
+
+  // Description: Toggle expanded view of booking with associated orders
+  // Fetches orders related to the booking ID and displays them in a nested table
+  const toggleExpandBooking = async (bookingId: string) => {
+    const newExpanded = new Set(expandedBookings)
+
+    if (newExpanded.has(bookingId)) {
+      // Collapse
+      newExpanded.delete(bookingId)
+      setExpandedBookings(newExpanded)
+    } else {
+      // Expand - fetch orders data
+      try {
+        const newLoading = new Set(loadingOrders)
+        newLoading.add(bookingId)
+        setLoadingOrders(newLoading)
+
+        // Get the booking data to find associated order IDs
+        const booking = filteredBookings.find(b => b._id === bookingId)
+        if (booking && booking.orderIds && booking.orderIds.length > 0) {
+          // Fetch each order to display in expanded view
+          // We'll fetch the full order details from the booking item data
+          const ordersData = booking.items.map((item: any) => ({
+            orderId: item.orderId,
+            type: item.type,
+            device: item.device,
+            services: item.services || [],
+            products: item.products || [],
+            cost: item.cost
+          }))
+
+          setExpandedOrdersData(prev => ({
+            ...prev,
+            [bookingId]: ordersData
+          }))
+        }
+
+        newExpanded.add(bookingId)
+        setExpandedBookings(newExpanded)
+
+        const newLoading2 = new Set(loadingOrders)
+        newLoading2.delete(bookingId)
+        setLoadingOrders(newLoading2)
+      } catch (error) {
+        console.error("Error loading orders:", error)
+        toast({
+          title: t('common.error'),
+          description: "Failed to load associated orders",
+          variant: "destructive"
+        })
+        const newLoading = new Set(loadingOrders)
+        newLoading.delete(bookingId)
+        setLoadingOrders(newLoading)
+      }
     }
   }
 
@@ -448,6 +510,7 @@ export function BookingsManagement() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12"></TableHead>
                     <TableHead>Booking ID</TableHead>
                     <TableHead>Customer</TableHead>
                     <TableHead>Status</TableHead>
@@ -461,7 +524,22 @@ export function BookingsManagement() {
                 </TableHeader>
                 <TableBody>
                   {filteredBookings.map((booking) => (
+                    <>
                     <TableRow key={booking._id} className="hover:bg-muted/50">
+                      <TableCell className="w-12">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleExpandBooking(booking._id)}
+                          disabled={loadingOrders.has(booking._id)}
+                        >
+                          {expandedBookings.has(booking._id) ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TableCell>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
                           <span>#{booking._id.slice(-8).toUpperCase()}</span>
@@ -534,6 +612,7 @@ export function BookingsManagement() {
                             {selectedBooking?._id === booking._id && (
                               <BookingDetailDialog
                                 booking={selectedBooking}
+                                navigate={navigate}
                                 onStatusUpdate={() => {
                                   setSelectedBooking(null)
                                   setShowDetailDialog(false)
@@ -553,6 +632,88 @@ export function BookingsManagement() {
                         </div>
                       </TableCell>
                     </TableRow>
+
+                    {/* Expanded Row with Orders/Repair Jobs */}
+                    {expandedBookings.has(booking._id) && (
+                      <TableRow className="bg-muted/30">
+                        <TableCell colSpan={10}>
+                          <div className="p-4 space-y-4">
+                            {loadingOrders.has(booking._id) ? (
+                              <div className="text-center py-4">
+                                <p className="text-sm text-foreground/60">Loading orders...</p>
+                              </div>
+                            ) : expandedOrdersData[booking._id] && expandedOrdersData[booking._id].length > 0 ? (
+                              <div className="space-y-4">
+                                <h4 className="font-semibold text-sm mb-3">Associated Orders & Repairs</h4>
+                                <div className="border rounded-lg overflow-hidden">
+                                  <Table className="text-sm">
+                                    <TableHeader>
+                                      <TableRow className="bg-muted/50">
+                                        <TableHead>Type</TableHead>
+                                        <TableHead>Device/Product</TableHead>
+                                        <TableHead>Services/Details</TableHead>
+                                        <TableHead className="text-right">Cost</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {expandedOrdersData[booking._id].map((item: any, idx: number) => (
+                                        <TableRow key={idx}>
+                                          <TableCell>
+                                            <Badge variant={item.type === 'repair' ? 'default' : 'secondary'}>
+                                              {item.type === 'repair' ? 'Repair' : 'Product'}
+                                            </Badge>
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="text-sm">
+                                              {item.type === 'repair' ? (
+                                                <span>{item.device || 'Device Repair'}</span>
+                                              ) : (
+                                                <span>{item.products?.map((p: any) => p.name).join(', ') || 'Product Item'}</span>
+                                              )}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="text-sm space-y-1">
+                                              {item.type === 'repair' && item.services && item.services.length > 0 ? (
+                                                <div>
+                                                  {item.services.map((service: any, sidx: number) => (
+                                                    <div key={sidx} className="text-xs text-foreground/70">
+                                                      • {service.name} {service.price && `($${service.price})`}
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              ) : item.type === 'product' && item.products && item.products.length > 0 ? (
+                                                <div>
+                                                  {item.products.map((product: any, pidx: number) => (
+                                                    <div key={pidx} className="text-xs text-foreground/70">
+                                                      • {product.name} × {product.quantity}
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              ) : (
+                                                <span className="text-xs text-foreground/50">No details</span>
+                                              )}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell className="text-right font-medium">
+                                            ${item.cost?.toFixed(2) || '0.00'}
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-center py-4">
+                                <p className="text-sm text-foreground/60">No associated orders found</p>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    </>
                   ))}
                 </TableBody>
               </Table>
@@ -565,13 +726,30 @@ export function BookingsManagement() {
 }
 
 // Detailed Booking Dialog Component
-function BookingDetailDialog({ booking, onStatusUpdate }: { booking: Booking; onStatusUpdate: () => void }) {
+// Description: Display detailed booking information with tabs for overview, repair jobs, items, and timeline
+// Features: Status/billing updates, clickable repair jobs linking to orders
+function BookingDetailDialog({
+  booking,
+  navigate,
+  onStatusUpdate
+}: {
+  booking: Booking;
+  navigate: any;
+  onStatusUpdate: () => void
+}) {
   const [activeTab, setActiveTab] = useState("overview")
   const [updating, setUpdating] = useState(false)
   const [newStatus, setNewStatus] = useState(booking.status)
   const [newBillingStatus, setNewBillingStatus] = useState(booking.billingStatus)
   const [description, setDescription] = useState("")
   const { toast } = useToast()
+
+  // Description: Navigate to the order details page for a specific order
+  // Endpoint: None (client-side navigation)
+  const handleViewOrder = (orderId: string) => {
+    navigate(`/admin/orders`)
+    // TODO: Ideally, we'd navigate with filter params to show that specific order
+  }
 
   const handleStatusUpdate = async () => {
     try {
@@ -806,12 +984,24 @@ function BookingDetailDialog({ booking, onStatusUpdate }: { booking: Booking; on
           {booking.items && booking.items.filter(item => item.type === 'repair').length > 0 ? (
             <div className="space-y-3">
               {booking.items.filter(item => item.type === 'repair').map((item, idx) => (
-                <div key={idx} className="border p-4 rounded-lg">
+                <div
+                  key={idx}
+                  className="border p-4 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                  onClick={() => item.orderId && handleViewOrder(item.orderId)}
+                >
                   <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h4 className="font-semibold">{item.device || 'Device Repair'}</h4>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold">{item.device || 'Device Repair'}</h4>
+                        {item.orderId && (
+                          <span className="text-xs text-foreground/50 flex items-center gap-1">
+                            <ExternalLink className="h-3 w-3" />
+                            Order: {item.orderId?.slice(-8)}
+                          </span>
+                        )}
+                      </div>
                       {item.services && item.services.length > 0 && (
-                        <p className="text-sm text-foreground/60">{item.services.map(s => s.name).join(', ')}</p>
+                        <p className="text-sm text-foreground/60 mt-1">{item.services.map(s => s.name).join(', ')}</p>
                       )}
                     </div>
                   </div>
@@ -821,6 +1011,12 @@ function BookingDetailDialog({ booking, onStatusUpdate }: { booking: Booking; on
                       <div className="text-right">Est. Time: {item.services[0].estimatedTime} min</div>
                     )}
                   </div>
+                  {item.orderId && (
+                    <div className="text-xs text-blue-600 dark:text-blue-400 mt-2 flex items-center gap-1">
+                      <ExternalLink className="h-3 w-3" />
+                      Click to view order details
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
