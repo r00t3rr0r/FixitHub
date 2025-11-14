@@ -4,6 +4,7 @@ const { requireUser } = require('./middleware/auth');
 const CartService = require('../services/cartService');
 const UserService = require('../services/userService');
 const OrderService = require('../services/orderService');
+const BookingService = require('../services/bookingService');
 const Service = require('../models/Service');
 
 // Description: Initialize checkout - validates user authentication and returns cart with user info
@@ -355,6 +356,27 @@ router.post('/complete', requireUser, async (req, res) => {
       });
     }
 
+    // Create booking to consolidate all orders
+    console.log('CheckoutRoutes: Creating booking to consolidate', createdOrders.length, 'orders');
+    let booking = null;
+    try {
+      const mongoose = require('mongoose');
+      booking = await BookingService.create({
+        customerId: req.user._id,
+        orderIds: orderIds.map(id => new mongoose.Types.ObjectId(id)),
+        discount: cart.discount || 0,
+        appliedPromoCode: cart.promoCode || '',
+        status: 'pending',
+        billingStatus: 'unpaid',
+        paymentStatus: 'pending',
+      });
+      console.log('CheckoutRoutes: Booking created successfully:', booking._id);
+    } catch (bookingError) {
+      console.error('CheckoutRoutes: Error creating booking:', bookingError);
+      // Don't fail checkout if booking creation fails - orders were created
+      // This is a graceful degradation scenario
+    }
+
     // Clear the cart after successful order creation
     try {
       cart.repairOrders = [];
@@ -367,24 +389,26 @@ router.post('/complete', requireUser, async (req, res) => {
     }
 
     // Create descriptive success message
-    const repairOrderCount = hasRepairOrders ? cart.repairOrders.length : 0;
+    const repairOrderCount = hasRepairOrders ? (cart.repairOrders?.length || 0) : 0;
     const shopProductCount = hasShopProducts ? 1 : 0; // Shop products create 1 combined order
     const totalOrders = createdOrders.length;
 
-    let successMessage = `Successfully created ${totalOrders} order(s)`;
+    let successMessage = `Successfully created booking with ${totalOrders} order(s)`;
     if (repairOrderCount > 0 && shopProductCount > 0) {
-      successMessage = `Successfully created ${repairOrderCount} repair order(s) and 1 shop product order`;
+      successMessage = `Successfully created booking with ${repairOrderCount} repair order(s) and 1 shop product order`;
     } else if (repairOrderCount > 0) {
-      successMessage = `Successfully created ${repairOrderCount} repair order(s)`;
+      successMessage = `Successfully created booking with ${repairOrderCount} repair order(s)`;
     } else if (shopProductCount > 0) {
-      successMessage = `Successfully created shop product order`;
+      successMessage = `Successfully created booking with shop product order`;
     }
 
-    console.log('CheckoutRoutes: Checkout completed successfully. Created', totalOrders, 'orders');
+    console.log('CheckoutRoutes: Checkout completed successfully. Created booking:', booking?._id);
 
     res.json({
       success: true,
       message: successMessage,
+      booking: booking || { orderIds: orderIds },
+      bookingId: booking?._id?.toString() || null,
       orders: createdOrders,
       orderIds: orderIds
     });
