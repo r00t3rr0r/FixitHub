@@ -648,7 +648,6 @@ export function BookingsManagement() {
 
 // Detailed Booking Dialog Component
 function BookingDetailDialog({ booking, onStatusUpdate }: { booking: Booking; onStatusUpdate: () => void }) {
-  const { t } = useToast()
   const [activeTab, setActiveTab] = useState("overview")
   const [updating, setUpdating] = useState(false)
   const [newStatus, setNewStatus] = useState(booking.status)
@@ -767,10 +766,10 @@ function BookingDetailDialog({ booking, onStatusUpdate }: { booking: Booking; on
                 <div className="flex items-center gap-3">
                   <Avatar>
                     <AvatarImage src={booking.customerId.avatar} />
-                    <AvatarFallback>{booking.customerId.name.charAt(0)}</AvatarFallback>
+                    <AvatarFallback>{(booking.customerId.firstName || booking.customerId.name || booking.customerId.email).charAt(0)}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-medium text-sm">{booking.customerId.name}</p>
+                    <p className="font-medium text-sm">{booking.customerId.firstName ? `${booking.customerId.firstName} ${booking.customerId.lastName || ''}` : (booking.customerId.name || booking.customerId.email)}</p>
                     <p className="text-xs text-foreground/60">{booking.customerId.email}</p>
                   </div>
                 </div>
