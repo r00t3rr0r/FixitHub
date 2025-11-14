@@ -64,4 +64,7 @@ const requireRole = (roles) => {
   };
 };
 
-module.exports = { auth, requireUser, requireRole };
+// Middleware to require admin role
+const requireAdmin = requireRole(['admin']);
+
+module.exports = { auth, requireUser, requireRole, requireAdmin };
