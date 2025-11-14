@@ -3,13 +3,13 @@ const router = express.Router();
 const { requireUser, requireAdmin } = require('./middleware/auth');
 const BookingService = require('../services/bookingService');
 
-// Description: Get all bookings for the authenticated user
+// Description: Get all bookings (admin) or bookings for authenticated user (customer)
 // Endpoint: GET /api/bookings
 // Request: { status?: string, billingStatus?: string, limit?: number, skip?: number }
 // Response: { success: boolean, bookings: Booking[], count: number }
 router.get('/', requireUser, async (req, res) => {
   try {
-    console.log('BookingRoutes: Getting bookings for user:', req.user._id);
+    console.log('BookingRoutes: Getting bookings for user:', req.user._id, 'Role:', req.user.role);
 
     const { status, billingStatus, limit = 50, skip = 0 } = req.query;
 
@@ -19,7 +19,16 @@ router.get('/', requireUser, async (req, res) => {
     filters.limit = parseInt(limit);
     filters.skip = parseInt(skip);
 
-    const bookings = await BookingService.getByCustomer(req.user._id, filters);
+    let bookings;
+
+    // If admin, get all bookings; otherwise get only customer's bookings
+    if (req.user.role === 'admin' || req.user.role === 'staff') {
+      console.log('BookingRoutes: Admin/Staff user requesting all bookings');
+      bookings = await BookingService.getAllBookings(filters);
+    } else {
+      console.log('BookingRoutes: Regular user requesting their own bookings');
+      bookings = await BookingService.getByCustomer(req.user._id, filters);
+    }
 
     console.log('BookingRoutes: Retrieved', bookings.length, 'bookings');
 

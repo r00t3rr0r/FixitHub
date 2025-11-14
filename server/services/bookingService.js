@@ -141,6 +141,37 @@ class BookingService {
     }
   }
 
+  // Get all bookings (admin view)
+  static async getAllBookings(filters = {}) {
+    console.log('BookingService: Getting all bookings');
+
+    try {
+      const query = {};
+
+      // Apply status filter if provided
+      if (filters.status) {
+        query.status = filters.status;
+      }
+
+      // Apply billing status filter if provided
+      if (filters.billingStatus) {
+        query.billingStatus = filters.billingStatus;
+      }
+
+      const bookings = await Booking.find(query)
+        .populate('customerId', 'firstName lastName email phone avatar name')
+        .sort({ createdAt: -1 })
+        .limit(filters.limit || 50)
+        .skip(filters.skip || 0);
+
+      console.log('BookingService: Found', bookings.length, 'total bookings');
+      return bookings;
+    } catch (error) {
+      console.error('BookingService: Error getting all bookings:', error);
+      throw error;
+    }
+  }
+
   // Get all bookings for a customer
   static async getByCustomer(customerId, filters = {}) {
     console.log('BookingService: Getting bookings for customer:', customerId);

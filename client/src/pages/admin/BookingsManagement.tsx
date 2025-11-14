@@ -59,43 +59,53 @@ import { Textarea } from "@/components/ui/textarea"
 
 interface Booking {
   _id: string
-  bookingId?: string
+  bookingNumber?: string
   customerId: {
     _id: string
-    name: string
+    firstName?: string
+    lastName?: string
+    name?: string
     email: string
     phone: string
     avatar?: string
   }
-  orders: Array<{
-    _id: string
-    orderNumber: string
-    deviceBrand: string
-    deviceModel: string
-    status: string
-    totalCost: number
-  }>
+  orderIds?: Array<any>
+  repairOrderIds?: Array<any>
   items: Array<{
-    _id: string
-    itemName: string
-    quantity: number
-    unitPrice: number
-    totalPrice: number
-    sku?: string
+    _id?: string
+    type: string
+    device?: string
+    orderId: string
+    services?: Array<{
+      name: string
+      price: number
+      estimatedTime?: number
+    }>
+    products?: Array<{
+      name: string
+      quantity: number
+      price: number
+      totalPrice: number
+    }>
+    cost: number
   }>
   status: 'pending' | 'payment-pending' | 'processing' | 'completed' | 'cancelled'
   billingStatus: 'unpaid' | 'partially-paid' | 'paid'
   totalCost: number
-  finalCost?: number
+  subtotal?: number
+  tax?: number
+  discount?: number
   createdAt: string
   updatedAt: string
   timeline?: Array<{
+    _id?: string
     status: string
     description: string
     completedAt: string
     staffName?: string
+    staffId?: string
   }>
-  internalNotes?: string
+  paymentStatus?: string
 }
 
 interface ExpandedBooking extends Booking {
@@ -151,13 +161,18 @@ export function BookingsManagement() {
     let filtered = bookings
 
     if (searchTerm) {
-      filtered = filtered.filter(booking =>
-        booking._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.customerId.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.customerId.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.customerId.phone.includes(searchTerm) ||
-        booking.orders.some(o => o.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()))
-      )
+      filtered = filtered.filter(booking => {
+        const customerName = booking.customerId.firstName
+          ? `${booking.customerId.firstName} ${booking.customerId.lastName || ''}`
+          : (booking.customerId.name || '')
+        return (
+          booking._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (booking.bookingNumber && booking.bookingNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          booking.customerId.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          booking.customerId.phone.includes(searchTerm)
+        )
+      })
     }
 
     if (statusFilter !== "all") {
@@ -470,14 +485,14 @@ export function BookingsManagement() {
                       <div className="flex items-center gap-3 mt-4 pt-4 border-t">
                         <Avatar className="h-8 w-8">
                           <AvatarImage src={booking.customerId.avatar} />
-                          <AvatarFallback>{booking.customerId.name.charAt(0)}</AvatarFallback>
+                          <AvatarFallback>{(booking.customerId.firstName || booking.customerId.name || booking.customerId.email).charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{booking.customerId.name}</p>
+                          <p className="text-sm font-medium truncate">{booking.customerId.firstName ? `${booking.customerId.firstName} ${booking.customerId.lastName || ''}` : (booking.customerId.name || booking.customerId.email)}</p>
                           <p className="text-xs text-foreground/60 truncate">{booking.customerId.email}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm">{booking.orders.length} Orders</p>
+                          <p className="text-sm">{(booking.orderIds?.length || 0)} Orders</p>
                           <p className="text-xs text-foreground/60">{booking.items.length} Items</p>
                         </div>
                       </div>
@@ -537,25 +552,24 @@ export function BookingsManagement() {
                     {/* Expanded Details */}
                     {booking.isExpanded && (
                       <div className="bg-muted/30 p-4 space-y-4 border-t">
-                        {/* Orders Section */}
-                        {booking.orders.length > 0 && (
+                        {/* Repair Jobs Section */}
+                        {booking.items && booking.items.filter(item => item.type === 'repair').length > 0 && (
                           <div>
                             <h4 className="font-semibold text-sm mb-2">Repair Jobs</h4>
                             <div className="space-y-2">
-                              {booking.orders.map(order => (
-                                <div key={order._id} className="text-sm bg-card p-3 rounded border">
+                              {booking.items.filter(item => item.type === 'repair').map((item, idx) => (
+                                <div key={idx} className="text-sm bg-card p-3 rounded border">
                                   <div className="flex justify-between items-start mb-2">
                                     <div>
-                                      <p className="font-medium">{order.orderNumber}</p>
-                                      <p className="text-xs text-foreground/60">{order.deviceBrand} {order.deviceModel}</p>
+                                      <p className="font-medium">{item.device || 'Device Repair'}</p>
+                                      {item.services && item.services.length > 0 && (
+                                        <p className="text-xs text-foreground/60">{item.services.map(s => s.name).join(', ')}</p>
+                                      )}
                                     </div>
-                                    <Badge className={getStatusColor(order.status)} variant="secondary">
-                                      {order.status}
-                                    </Badge>
                                   </div>
                                   <div className="flex justify-between items-center">
-                                    <span className="text-xs text-foreground/60">Repair Cost:</span>
-                                    <span className="font-medium">{formatCurrency(order.totalCost)}</span>
+                                    <span className="text-xs text-foreground/60">Cost:</span>
+                                    <span className="font-medium">{formatCurrency(item.cost)}</span>
                                   </div>
                                 </div>
                               ))}
@@ -563,23 +577,27 @@ export function BookingsManagement() {
                           </div>
                         )}
 
-                        {/* Items Section */}
-                        {booking.items.length > 0 && (
+                        {/* Products Section */}
+                        {booking.items && booking.items.filter(item => item.type === 'product').length > 0 && (
                           <div>
-                            <h4 className="font-semibold text-sm mb-2">Items Included</h4>
+                            <h4 className="font-semibold text-sm mb-2">Products</h4>
                             <div className="space-y-2">
-                              {booking.items.map(item => (
-                                <div key={item._id} className="text-sm bg-card p-3 rounded border">
-                                  <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                      <p className="font-medium">{item.itemName}</p>
-                                      {item.sku && <p className="text-xs text-foreground/60">SKU: {item.sku}</p>}
+                              {booking.items.filter(item => item.type === 'product').map((item, idx) => (
+                                <div key={idx} className="text-sm bg-card p-3 rounded border">
+                                  <h5 className="font-medium mb-2">Product Item</h5>
+                                  {item.products && item.products.length > 0 && (
+                                    <div className="space-y-1">
+                                      {item.products.map((product, pidx) => (
+                                        <div key={pidx} className="flex justify-between items-center text-xs">
+                                          <span>{product.name} × {product.quantity}</span>
+                                          <span className="font-medium">{formatCurrency(product.totalPrice)}</span>
+                                        </div>
+                                      ))}
                                     </div>
-                                    <Badge variant="outline">Qty: {item.quantity}</Badge>
-                                  </div>
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs text-foreground/60">{formatCurrency(item.unitPrice)} × {item.quantity}</span>
-                                    <span className="font-medium">{formatCurrency(item.totalPrice)}</span>
+                                  )}
+                                  <div className="flex justify-between items-center mt-2 pt-2 border-t">
+                                    <span className="text-xs text-foreground/60">Total:</span>
+                                    <span className="font-medium">{formatCurrency(item.cost)}</span>
                                   </div>
                                 </div>
                               ))}
@@ -868,20 +886,23 @@ function BookingDetailDialog({ booking, onStatusUpdate }: { booking: Booking; on
         </TabsContent>
 
         <TabsContent value="repairs" className="space-y-4 mt-4">
-          {booking.orders.length > 0 ? (
+          {booking.items && booking.items.filter(item => item.type === 'repair').length > 0 ? (
             <div className="space-y-3">
-              {booking.orders.map(order => (
-                <div key={order._id} className="border p-4 rounded-lg">
+              {booking.items.filter(item => item.type === 'repair').map((item, idx) => (
+                <div key={idx} className="border p-4 rounded-lg">
                   <div className="flex justify-between items-start mb-3">
                     <div>
-                      <h4 className="font-semibold">{order.orderNumber}</h4>
-                      <p className="text-sm text-foreground/60">{order.deviceBrand} {order.deviceModel}</p>
+                      <h4 className="font-semibold">{item.device || 'Device Repair'}</h4>
+                      {item.services && item.services.length > 0 && (
+                        <p className="text-sm text-foreground/60">{item.services.map(s => s.name).join(', ')}</p>
+                      )}
                     </div>
-                    <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>Device: {order.deviceBrand} {order.deviceModel}</div>
-                    <div className="text-right">Cost: {formatCurrency(order.totalCost)}</div>
+                    <div>Item Cost: {formatCurrency(item.cost)}</div>
+                    {item.services && item.services[0]?.estimatedTime && (
+                      <div className="text-right">Est. Time: {item.services[0].estimatedTime} min</div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -892,27 +913,35 @@ function BookingDetailDialog({ booking, onStatusUpdate }: { booking: Booking; on
         </TabsContent>
 
         <TabsContent value="items" className="space-y-4 mt-4">
-          {booking.items.length > 0 ? (
+          {booking.items && booking.items.filter(item => item.type === 'product').length > 0 ? (
             <div className="space-y-3">
-              {booking.items.map(item => (
-                <div key={item._id} className="border p-4 rounded-lg">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h4 className="font-semibold">{item.itemName}</h4>
-                      {item.sku && <p className="text-sm text-foreground/60">SKU: {item.sku}</p>}
+              {booking.items.filter(item => item.type === 'product').map((item, idx) => (
+                <div key={idx} className="border p-4 rounded-lg">
+                  <h4 className="font-semibold mb-3">Product Item</h4>
+                  {item.products && item.products.length > 0 ? (
+                    <div className="space-y-2">
+                      {item.products.map((product, pidx) => (
+                        <div key={pidx} className="flex justify-between items-center text-sm pb-2 border-b last:border-0">
+                          <div>
+                            <p className="font-medium">{product.name}</p>
+                            <p className="text-xs text-foreground/60">Qty: {product.quantity} × {formatCurrency(product.price)}</p>
+                          </div>
+                          <p className="font-semibold">{formatCurrency(product.totalPrice)}</p>
+                        </div>
+                      ))}
+                      <div className="flex justify-between items-center text-sm mt-2 pt-2 border-t font-semibold">
+                        <span>Total:</span>
+                        <span>{formatCurrency(item.cost)}</span>
+                      </div>
                     </div>
-                    <Badge variant="outline">Qty: {item.quantity}</Badge>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-sm">
-                    <div>Unit Price: {formatCurrency(item.unitPrice)}</div>
-                    <div>Qty: {item.quantity}</div>
-                    <div className="text-right font-semibold">Total: {formatCurrency(item.totalPrice)}</div>
-                  </div>
+                  ) : (
+                    <p className="text-sm text-foreground/60">No products</p>
+                  )}
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-foreground/60 text-center py-4">No items in this booking</p>
+            <p className="text-foreground/60 text-center py-4">No product items in this booking</p>
           )}
         </TabsContent>
 
