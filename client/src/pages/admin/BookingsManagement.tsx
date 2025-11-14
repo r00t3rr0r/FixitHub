@@ -302,6 +302,7 @@ export function BookingsManagement() {
             device: item.device,
             services: item.services || [],
             products: item.products || [],
+            status: item.status || 'pending',
             cost: item.cost
           }))
 
@@ -638,6 +639,28 @@ export function BookingsManagement() {
                       <TableRow className="bg-muted/30">
                         <TableCell colSpan={10}>
                           <div className="p-4 space-y-4">
+                            {/* Booking Status Summary */}
+                            <div className="bg-muted/50 p-3 rounded-lg border">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-semibold text-foreground/60 uppercase">Booking Status</span>
+                                <Badge className={getStatusColor(booking.status)}>
+                                  {booking.status}
+                                </Badge>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                  <span className="text-foreground/60">Billing Status:</span>
+                                  <Badge className={`${getBillingStatusColor(booking.billingStatus)} ml-2`}>
+                                    {booking.billingStatus}
+                                  </Badge>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-foreground/60">Total: </span>
+                                  <span className="font-semibold">{formatCurrency(booking.totalCost)}</span>
+                                </div>
+                              </div>
+                            </div>
+
                             {loadingOrders.has(booking._id) ? (
                               <div className="text-center py-4">
                                 <p className="text-sm text-foreground/60">Loading orders...</p>
@@ -652,6 +675,7 @@ export function BookingsManagement() {
                                         <TableHead>Type</TableHead>
                                         <TableHead>Device/Product</TableHead>
                                         <TableHead>Services/Details</TableHead>
+                                        <TableHead>Status</TableHead>
                                         <TableHead className="text-right">Cost</TableHead>
                                       </TableRow>
                                     </TableHeader>
@@ -681,8 +705,13 @@ export function BookingsManagement() {
                                               {item.type === 'repair' && item.services && item.services.length > 0 ? (
                                                 <div>
                                                   {item.services.map((service: any, sidx: number) => (
-                                                    <div key={sidx} className="text-xs text-foreground/70">
-                                                      • {service.name} {service.price && `($${service.price})`}
+                                                    <div key={sidx} className="text-xs text-foreground/70 flex items-center justify-between gap-2">
+                                                      <span>• {service.name} {service.price && `($${service.price})`}</span>
+                                                      {service.status && (
+                                                        <span className="text-xs px-1 py-0 rounded bg-muted text-foreground/60">
+                                                          {service.status}
+                                                        </span>
+                                                      )}
                                                     </div>
                                                   ))}
                                                 </div>
@@ -698,6 +727,11 @@ export function BookingsManagement() {
                                                 <span className="text-xs text-foreground/50">No details</span>
                                               )}
                                             </div>
+                                          </TableCell>
+                                          <TableCell>
+                                            <Badge className={getStatusColor(item.status || 'pending')}>
+                                              {item.status || 'pending'}
+                                            </Badge>
                                           </TableCell>
                                           <TableCell className="text-right font-medium">
                                             ${item.cost?.toFixed(2) || '0.00'}
@@ -1000,6 +1034,9 @@ function BookingDetailDialog({
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <h4 className="font-semibold">{item.device || 'Device Repair'}</h4>
+                        <Badge className={getStatusColor(item.status || 'pending')}>
+                          {item.status || 'pending'}
+                        </Badge>
                         {item.orderId && (
                           <span className="text-xs text-foreground/50 flex items-center gap-1">
                             <ExternalLink className="h-3 w-3" />
@@ -1037,7 +1074,12 @@ function BookingDetailDialog({
             <div className="space-y-3">
               {booking.items.filter(item => item.type === 'product').map((item, idx) => (
                 <div key={idx} className="border p-4 rounded-lg">
-                  <h4 className="font-semibold mb-3">Product Item</h4>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold">Product Item</h4>
+                    <Badge className={getStatusColor(item.status || 'pending')}>
+                      {item.status || 'pending'}
+                    </Badge>
+                  </div>
                   {item.products && item.products.length > 0 ? (
                     <div className="space-y-2">
                       {item.products.map((product, pidx) => (

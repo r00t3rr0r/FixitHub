@@ -233,6 +233,11 @@ const orderShopProductSchema = new mongoose.Schema({
     required: true,
     min: 0,
   },
+  status: {
+    type: String,
+    enum: ['pending', 'in-progress', 'completed'],
+    default: 'pending',
+  },
   addedAt: {
     type: Date,
     default: Date.now,
