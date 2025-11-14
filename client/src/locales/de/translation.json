@@ -55,6 +55,7 @@
     "menu": {
       "userManagement": "Benutzerverwaltung",
       "orderManagement": "Auftragsverwaltung",
+      "bookings": "Buchungen",
       "serviceManagement": "Dienstverwaltung",
       "addOnServices": "Zusatzdienste",
       "staffManagement": "Personalverwaltung",

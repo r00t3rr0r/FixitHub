@@ -55,6 +55,7 @@
     "menu": {
       "userManagement": "User Management",
       "orderManagement": "Order Management",
+      "bookings": "Bookings",
       "serviceManagement": "Service Management",
       "addOnServices": "Add-On Services",
       "staffManagement": "Staff Management",

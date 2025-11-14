@@ -28,7 +28,8 @@ import {
   User,
   ChevronDown,
   ChevronRight,
-  Boxes
+  Boxes,
+  BookMarked
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -175,6 +176,9 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
       >
         <NavItem to="/admin/orders" icon={Package}>
           {t('navigation.orders')}
+        </NavItem>
+        <NavItem to="/admin/bookings" icon={BookMarked}>
+          {t('admin.menu.bookings')}
         </NavItem>
         <NavItem to="/admin/services" icon={Wrench}>
           {t('admin.menu.serviceManagement')}

@@ -121,3 +121,30 @@ export const cancelBooking = async (bookingId: string) => {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// Description: Get all bookings for admin with filtering (admin only)
+// Endpoint: GET /api/bookings
+// Request: { status?: string, billingStatus?: string, limit?: number, skip?: number }
+// Response: { success: boolean, bookings: Array<Booking>, count: number }
+export const getAdminBookings = async (filters?: {
+  status?: string;
+  billingStatus?: string;
+  limit?: number;
+  skip?: number;
+}) => {
+  try {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.billingStatus) params.append('billingStatus', filters.billingStatus);
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.skip) params.append('skip', filters.skip.toString());
+
+    const queryString = params.toString();
+    const endpoint = queryString ? `/api/bookings?${queryString}` : '/api/bookings';
+
+    const response = await api.get(endpoint);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};

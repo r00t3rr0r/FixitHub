@@ -30,6 +30,7 @@ import { Performance } from "./pages/staff/Performance"
 import { AdminDashboard } from "./pages/admin/AdminDashboard"
 import { UserManagement } from "./pages/admin/UserManagement"
 import { OrderManagement } from "./pages/admin/OrderManagement"
+import { BookingsManagement } from "./pages/admin/BookingsManagement"
 import { WebShopManagement } from "./pages/admin/WebShopManagement"
 import { ServiceManagement } from "./pages/admin/ServiceManagement"
 import { AddOnServiceManagement } from "./pages/admin/AddOnServiceManagement"
@@ -134,6 +135,9 @@ function App() {
             </Route>
             <Route path="/admin/orders" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<OrderManagement />} />
+            </Route>
+            <Route path="/admin/bookings" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<BookingsManagement />} />
             </Route>
             <Route path="/admin/shop" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<WebShopManagement />} />
