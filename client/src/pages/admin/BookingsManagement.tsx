@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,8 +14,6 @@ import {
   Eye,
   Edit2,
   X,
-  ChevronDown,
-  ChevronUp,
   Calendar,
   DollarSign,
   User,
@@ -26,7 +25,8 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
-  Trash2
+  Trash2,
+  ExternalLink
 } from "lucide-react"
 import {
   Select,
@@ -143,8 +143,8 @@ export function BookingsManagement() {
         skip: 0
       })
       const bookingsData = (response as any).bookings || []
-      setBookings(bookingsData.map((b: any) => ({ ...b, isExpanded: false })))
-      setFilteredBookings(bookingsData.map((b: any) => ({ ...b, isExpanded: false })))
+      setBookings(bookingsData)
+      setFilteredBookings(bookingsData)
     } catch (error) {
       console.error("Error fetching bookings:", error)
       toast({
@@ -185,14 +185,6 @@ export function BookingsManagement() {
 
     setFilteredBookings(filtered)
   }, [bookings, searchTerm, statusFilter, billingStatusFilter])
-
-  const toggleExpand = (bookingId: string) => {
-    setFilteredBookings(prev =>
-      prev.map(b =>
-        b._id === bookingId ? { ...b, isExpanded: !b.isExpanded } : b
-      )
-    )
-  }
 
   const handleViewDetails = async (booking: Booking) => {
     try {
@@ -439,207 +431,133 @@ export function BookingsManagement() {
         </CardContent>
       </Card>
 
-      {/* Bookings List */}
+      {/* Bookings Table */}
       <Card>
         <CardHeader>
           <CardTitle>Bookings List</CardTitle>
           <CardDescription>{filteredBookings.length} bookings found</CardDescription>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="w-full">
-            <div className="space-y-4">
-              {filteredBookings.length === 0 ? (
-                <div className="text-center py-8 text-foreground/60">
-                  <Package className="h-12 w-12 mx-auto mb-4 opacity-40" />
-                  <p>No bookings found</p>
-                </div>
-              ) : (
-                filteredBookings.map((booking) => (
-                  <div key={booking._id} className="border rounded-lg overflow-hidden">
-                    {/* Booking Header */}
-                    <div className="bg-card border-b p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div>
-                              <h3 className="font-semibold text-sm">Booking #{booking._id.slice(-8).toUpperCase()}</h3>
-                              <p className="text-xs text-foreground/60">Created: {formatDateTime(booking.createdAt)}</p>
-                            </div>
-                          </div>
-                          <div className="flex flex-wrap gap-2 mb-3">
-                            <Badge className={getStatusColor(booking.status)}>
-                              {booking.status}
-                            </Badge>
-                            <Badge className={getBillingStatusColor(booking.billingStatus)}>
-                              {booking.billingStatus}
-                            </Badge>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold">{formatCurrency(booking.finalCost || booking.totalCost)}</div>
-                          <p className="text-xs text-foreground/60">Total Cost</p>
-                        </div>
-                      </div>
-
-                      {/* Customer Info Preview */}
-                      <div className="flex items-center gap-3 mt-4 pt-4 border-t">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={booking.customerId.avatar} />
-                          <AvatarFallback>{(booking.customerId.firstName || booking.customerId.name || booking.customerId.email).charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{booking.customerId.firstName ? `${booking.customerId.firstName} ${booking.customerId.lastName || ''}` : (booking.customerId.name || booking.customerId.email)}</p>
-                          <p className="text-xs text-foreground/60 truncate">{booking.customerId.email}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm">{(booking.orderIds?.length || 0)} Orders</p>
-                          <p className="text-xs text-foreground/60">{booking.items.length} Items</p>
-                        </div>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex gap-2 mt-4 pt-4 border-t">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => toggleExpand(booking._id)}
-                          className="flex-1"
-                        >
-                          {booking.isExpanded ? <ChevronUp className="h-4 w-4 mr-2" /> : <ChevronDown className="h-4 w-4 mr-2" />}
-                          {booking.isExpanded ? "Collapse" : "Expand"}
-                        </Button>
-                        <Dialog open={selectedBooking?._id === booking._id && showDetailDialog} onOpenChange={(open) => {
-                          if (!open) {
-                            setShowDetailDialog(false)
-                            setSelectedBooking(null)
-                          }
-                        }}>
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleViewDetails(booking)}
-                              className="flex-1"
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              Details
-                            </Button>
-                          </DialogTrigger>
-                          {selectedBooking?._id === booking._id && (
-                            <BookingDetailDialog
-                              booking={selectedBooking}
-                              onStatusUpdate={() => {
-                                setSelectedBooking(null)
-                                setShowDetailDialog(false)
-                                fetchBookings()
-                              }}
-                            />
-                          )}
-                        </Dialog>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleCancelBooking(booking._id)}
-                          disabled={deleting === booking._id || booking.status === 'cancelled'}
-                          className="flex-1"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Expanded Details */}
-                    {booking.isExpanded && (
-                      <div className="bg-muted/30 p-4 space-y-4 border-t">
-                        {/* Repair Jobs Section */}
-                        {booking.items && booking.items.filter(item => item.type === 'repair').length > 0 && (
-                          <div>
-                            <h4 className="font-semibold text-sm mb-2">Repair Jobs</h4>
-                            <div className="space-y-2">
-                              {booking.items.filter(item => item.type === 'repair').map((item, idx) => (
-                                <div key={idx} className="text-sm bg-card p-3 rounded border">
-                                  <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                      <p className="font-medium">{item.device || 'Device Repair'}</p>
-                                      {item.services && item.services.length > 0 && (
-                                        <p className="text-xs text-foreground/60">{item.services.map(s => s.name).join(', ')}</p>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs text-foreground/60">Cost:</span>
-                                    <span className="font-medium">{formatCurrency(item.cost)}</span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Products Section */}
-                        {booking.items && booking.items.filter(item => item.type === 'product').length > 0 && (
-                          <div>
-                            <h4 className="font-semibold text-sm mb-2">Products</h4>
-                            <div className="space-y-2">
-                              {booking.items.filter(item => item.type === 'product').map((item, idx) => (
-                                <div key={idx} className="text-sm bg-card p-3 rounded border">
-                                  <h5 className="font-medium mb-2">Product Item</h5>
-                                  {item.products && item.products.length > 0 && (
-                                    <div className="space-y-1">
-                                      {item.products.map((product, pidx) => (
-                                        <div key={pidx} className="flex justify-between items-center text-xs">
-                                          <span>{product.name} × {product.quantity}</span>
-                                          <span className="font-medium">{formatCurrency(product.totalPrice)}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                  <div className="flex justify-between items-center mt-2 pt-2 border-t">
-                                    <span className="text-xs text-foreground/60">Total:</span>
-                                    <span className="font-medium">{formatCurrency(item.cost)}</span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Timeline Section */}
-                        {booking.timeline && booking.timeline.length > 0 && (
-                          <div>
-                            <h4 className="font-semibold text-sm mb-2">Timeline</h4>
-                            <div className="space-y-2">
-                              {booking.timeline.map((event, idx) => (
-                                <div key={idx} className="text-sm bg-card p-3 rounded border flex gap-3">
-                                  <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
-                                  <div className="flex-1">
-                                    <p className="font-medium">{event.status}</p>
-                                    <p className="text-xs text-foreground/60">{event.description}</p>
-                                    <p className="text-xs text-foreground/60 mt-1">{formatDateTime(event.completedAt)}</p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Internal Notes */}
-                        {booking.internalNotes && (
-                          <div>
-                            <h4 className="font-semibold text-sm mb-2">Internal Notes</h4>
-                            <div className="text-sm bg-card p-3 rounded border">
-                              <p className="text-foreground/80">{booking.internalNotes}</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
+          {filteredBookings.length === 0 ? (
+            <div className="text-center py-8 text-foreground/60">
+              <Package className="h-12 w-12 mx-auto mb-4 opacity-40" />
+              <p>No bookings found</p>
             </div>
-          </ScrollArea>
+          ) : (
+            <ScrollArea className="w-full">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Booking ID</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Billing Status</TableHead>
+                    <TableHead>Total Cost</TableHead>
+                    <TableHead>Orders</TableHead>
+                    <TableHead>Items</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredBookings.map((booking) => (
+                    <TableRow key={booking._id} className="hover:bg-muted/50">
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <span>#{booking._id.slice(-8).toUpperCase()}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={booking.customerId.avatar} />
+                            <AvatarFallback>{(booking.customerId.firstName || booking.customerId.name || booking.customerId.email).charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{booking.customerId.firstName ? `${booking.customerId.firstName} ${booking.customerId.lastName || ''}` : (booking.customerId.name || booking.customerId.email)}</p>
+                            <p className="text-xs text-foreground/60 truncate">{booking.customerId.email}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(booking.status)}>
+                          {booking.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getBillingStatusColor(booking.billingStatus)}>
+                          {booking.billingStatus}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {formatCurrency(booking.finalCost || booking.totalCost)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {(booking.orderIds?.length || 0)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {booking.items.length}
+                      </TableCell>
+                      <TableCell className="text-sm text-foreground/60">
+                        {formatDate(booking.createdAt)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
+                          {(booking.orderIds?.length || 0) > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="View associated orders"
+                              onClick={() => {
+                                // Store booking info and navigate to orders filtered view
+                                window.location.href = `/admin/orders?bookingId=${booking._id}`
+                              }}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Dialog open={selectedBooking?._id === booking._id && showDetailDialog} onOpenChange={(open) => {
+                            if (!open) {
+                              setShowDetailDialog(false)
+                              setSelectedBooking(null)
+                            }
+                          }}>
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleViewDetails(booking)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </DialogTrigger>
+                            {selectedBooking?._id === booking._id && (
+                              <BookingDetailDialog
+                                booking={selectedBooking}
+                                onStatusUpdate={() => {
+                                  setSelectedBooking(null)
+                                  setShowDetailDialog(false)
+                                  fetchBookings()
+                                }}
+                              />
+                            )}
+                          </Dialog>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCancelBooking(booking._id)}
+                            disabled={deleting === booking._id || booking.status === 'cancelled'}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          )}
         </CardContent>
       </Card>
     </div>
