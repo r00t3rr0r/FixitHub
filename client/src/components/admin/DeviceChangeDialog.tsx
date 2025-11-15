@@ -113,7 +113,8 @@ export function DeviceChangeDialog({
       setLoading(true)
       console.log("[DeviceChange] Searching for devices:", query)
       const response = await searchDevices(query)
-      setSearchResults((response as any).results || [])
+      // API returns response.devices, not response.results
+      setSearchResults((response as any).devices || [])
     } catch (error) {
       console.error("[DeviceChange] Error searching devices:", error)
       toast({
@@ -145,11 +146,14 @@ export function DeviceChangeDialog({
       setLoading(true)
       console.log("[DeviceChange] Recalculating services for new device:", selectedDevice)
 
+      // Extract device data from search result
+      // SearchResult has: name, deviceType, manufacturer
+      // API expects: deviceBrand, deviceModel, deviceType
       const result = await changeDeviceAndRecalculateServices(
         orderId,
-        selectedDevice.brand,
-        selectedDevice.model,
-        selectedDevice.type || selectedDevice.deviceType
+        selectedDevice.manufacturer,
+        selectedDevice.name,
+        selectedDevice.deviceType
       )
 
       setPricingChanges(result.pricingChangesSummary)
@@ -265,9 +269,9 @@ export function DeviceChangeDialog({
                 </Label>
                 {searchResults.map((device) => (
                   <Card
-                    key={`${device.brand}-${device.model}`}
+                    key={`${device.manufacturer}-${device.name}`}
                     className={`cursor-pointer transition-colors ${
-                      selectedDevice?.model === device.model
+                      selectedDevice?.name === device.name
                         ? 'border-primary bg-primary/5'
                         : 'hover:border-muted-foreground/50'
                     }`}
@@ -277,13 +281,13 @@ export function DeviceChangeDialog({
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="font-medium">
-                            {device.brand} {device.model}
+                            {device.manufacturer} {device.name}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {device.type}
+                            {device.deviceType}
                           </div>
                         </div>
-                        {selectedDevice?.model === device.model && (
+                        {selectedDevice?.name === device.name && (
                           <CheckCircle className="w-5 h-5 text-green-600" />
                         )}
                       </div>
