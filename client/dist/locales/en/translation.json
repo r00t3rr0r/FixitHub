@@ -110,6 +110,21 @@
       "totalKeys": "Total Keys",
       "translatedKeys": "Translated Keys",
       "missingKeys": "Missing Keys"
+    },
+    "kanban": {
+      "statusUpdated": "Status Updated",
+      "statusUpdatedDescription": "Item status has been updated successfully",
+      "error": "Error",
+      "errorDescription": "Failed to update status",
+      "orders": "orders",
+      "bookings": "bookings",
+      "noItems": "No items"
+    },
+    "orders": {
+      "assignedTo": "Assigned To"
+    },
+    "bookings": {
+      "orders": "Orders"
     }
   },
   "staff": {

@@ -424,9 +424,16 @@ export function OrderManagement() {
                       <div>
                         <p className="font-medium">{order.deviceBrand} {order.deviceModel}</p>
                         <p className="text-sm text-muted-foreground">
-                          {Array.isArray(order.services)
-                            ? order.services.map((s: any) => typeof s === 'string' ? s : s.name).join(', ')
-                            : ''}
+                          {Array.isArray(order.services) && order.services.length > 0
+                            ? order.services
+                                .map((s: any) => {
+                                  if (typeof s === 'string') return s;
+                                  if (s?.serviceId?.name) return s.serviceId.name;
+                                  if (s?.name) return s.name;
+                                  return 'Unknown Service';
+                                })
+                                .join(', ')
+                            : 'No services'}
                         </p>
                       </div>
                     </TableCell>
@@ -594,11 +601,17 @@ export function OrderManagement() {
                     <div>
                       <p className="font-semibold mb-2">Services:</p>
                       <div className="flex flex-wrap gap-2">
-                        {order.services.map((service: any, index: number) => (
-                          <Badge key={index} variant="outline" className="bg-white/50">
-                            {typeof service === 'string' ? service : service.name}
-                          </Badge>
-                        ))}
+                        {Array.isArray(order.services) && order.services.length > 0 ? (
+                          order.services.map((service: any, index: number) => (
+                            <Badge key={index} variant="outline" className="bg-white/50">
+                              {typeof service === 'string'
+                                ? service
+                                : service?.serviceId?.name || service?.name || 'Unknown Service'}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-sm text-muted-foreground">No services</span>
+                        )}
                       </div>
                     </div>
                   </div>
