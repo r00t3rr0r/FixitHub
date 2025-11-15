@@ -376,10 +376,27 @@ export function NewOrder() {
         }
       }
 
+      // Ensure we have proper device names, not IDs
+      let deviceBrandName = selectedManufacturerObj?.name;
+      let deviceModelName = selectedModelObj?.name;
+
+      // If we couldn't find the selected objects, try to search by ID in the data
+      if (!deviceBrandName && data.deviceManufacturer) {
+        // Search through all loaded manufacturers to find the matching one
+        const found = manufacturers.find(m => m._id === data.deviceManufacturer);
+        deviceBrandName = found?.name || data.deviceManufacturer;
+      }
+
+      if (!deviceModelName && data.deviceModel) {
+        // Search through all loaded models to find the matching one
+        const found = models.find(m => m._id === data.deviceModel);
+        deviceModelName = found?.name || data.deviceModel;
+      }
+
       const orderData = {
         deviceType: selectedDeviceTypeObj?.name || data.deviceType,
-        deviceBrand: selectedManufacturerObj?.name || data.deviceManufacturer,
-        deviceModel: selectedModelObj?.name || data.deviceModel,
+        deviceBrand: deviceBrandName || data.deviceManufacturer,
+        deviceModel: deviceModelName || data.deviceModel,
         services: selectedServices,
         addOns: selectedAddOnObjects,
         customerNotes: data.customerNotes || '',
@@ -390,6 +407,8 @@ export function NewOrder() {
         unlockCode: unlockCode,
         noLock: noDeviceLock
       }
+
+      console.log('Order data - Device Brand:', deviceBrandName, 'Device Model:', deviceModelName);
 
       console.log("Processed order data:", orderData)
 

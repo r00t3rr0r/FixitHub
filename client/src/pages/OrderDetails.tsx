@@ -179,7 +179,15 @@ export function OrderDetails() {
           orderResponse = await getOrderById(id)
         }
 
-        setOrder((orderResponse as any).order)
+        const fetchedOrder = (orderResponse as any).order
+        setOrder(fetchedOrder)
+
+        // Log unlock information if present
+        console.log("Unlock Pattern:", fetchedOrder?.unlockPattern)
+        console.log("Unlock Code:", fetchedOrder?.unlockCode ? "***" : "Not provided")
+        console.log("No Lock:", fetchedOrder?.noLock)
+        console.log("Device Brand:", fetchedOrder?.deviceBrand)
+        console.log("Device Model:", fetchedOrder?.deviceModel)
 
         // Try to find existing conversation for this order
         try {
