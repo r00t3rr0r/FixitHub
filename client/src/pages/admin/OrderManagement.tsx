@@ -424,7 +424,9 @@ export function OrderManagement() {
                       <div>
                         <p className="font-medium">{order.deviceBrand} {order.deviceModel}</p>
                         <p className="text-sm text-muted-foreground">
-                          {order.services.join(', ')}
+                          {Array.isArray(order.services)
+                            ? order.services.map((s: any) => typeof s === 'string' ? s : s.name).join(', ')
+                            : ''}
                         </p>
                       </div>
                     </TableCell>
@@ -592,9 +594,9 @@ export function OrderManagement() {
                     <div>
                       <p className="font-semibold mb-2">Services:</p>
                       <div className="flex flex-wrap gap-2">
-                        {order.services.map((service, index) => (
+                        {order.services.map((service: any, index: number) => (
                           <Badge key={index} variant="outline" className="bg-white/50">
-                            {service}
+                            {typeof service === 'string' ? service : service.name}
                           </Badge>
                         ))}
                       </div>

@@ -78,7 +78,7 @@ export interface AdminOrder {
   deviceBrand: string;
   deviceModel: string;
   deviceType: string;
-  services: string[];
+  services: Array<string | { name: string; price: number; estimatedTime?: number; notes?: string }>;
   addOns: {
     _id: string;
     name: string;
