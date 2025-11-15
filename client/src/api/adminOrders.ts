@@ -589,3 +589,62 @@ export const confirmUnlockCode = async (orderId: string, confirmationStatus: 've
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// Description: Change device and recalculate repair services
+// Endpoint: POST /api/admin/orders/:id/change-device
+// Request: { deviceBrand: string, deviceModel: string, deviceType: string }
+// Response: { success: boolean, order: AdminOrder, pricingChangesSummary: Object, requiresConfirmation: boolean }
+export const changeDeviceAndRecalculateServices = async (
+  orderId: string,
+  deviceBrand: string,
+  deviceModel: string,
+  deviceType: string
+) => {
+  console.log('changeDeviceAndRecalculateServices called with:', { orderId, deviceBrand, deviceModel, deviceType });
+  try {
+    const response = await api.post(`/api/admin/orders/${orderId}/change-device`, {
+      deviceBrand,
+      deviceModel,
+      deviceType,
+    });
+    console.log('changeDeviceAndRecalculateServices API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('changeDeviceAndRecalculateServices API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Confirm device change after pricing approval
+// Endpoint: POST /api/admin/orders/:id/confirm-device-change
+// Request: { confirmed: boolean }
+// Response: { success: boolean, message: string, order: AdminOrder }
+export const confirmDeviceChange = async (orderId: string, confirmed: boolean) => {
+  console.log('confirmDeviceChange called with:', { orderId, confirmed });
+  try {
+    const response = await api.post(`/api/admin/orders/${orderId}/confirm-device-change`, {
+      confirmed,
+    });
+    console.log('confirmDeviceChange API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('confirmDeviceChange API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Get compatible services for a device type
+// Endpoint: GET /api/admin/orders/device-type/:deviceType/compatible-services
+// Request: {}
+// Response: { success: boolean, services: Array<Service> }
+export const getCompatibleServices = async (deviceType: string) => {
+  console.log('getCompatibleServices called with deviceType:', deviceType);
+  try {
+    const response = await api.get(`/api/admin/orders/device-type/${deviceType}/compatible-services`);
+    console.log('getCompatibleServices API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('getCompatibleServices API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};

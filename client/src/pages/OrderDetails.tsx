@@ -26,6 +26,7 @@ import { InspectionResultsDisplay } from "@/components/inspection/InspectionResu
 import { OrderProgressTimeline } from "@/components/OrderProgressTimeline"
 import { UnlockInformationDisplay } from "@/components/inspection/UnlockInformationDisplay"
 import { ConfirmUnlockDialog } from "@/components/inspection/ConfirmUnlockDialog"
+import { DeviceChangeDialog } from "@/components/admin/DeviceChangeDialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -1552,7 +1553,20 @@ export function OrderDetails() {
                   <Smartphone className="h-8 w-8 text-primary" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-xl font-semibold">{order.deviceBrand} {order.deviceModel}</h3>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xl font-semibold">{order.deviceBrand} {order.deviceModel}</h3>
+                    {(user?.role === 'admin' || user?.role === 'staff') && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDeviceChangeDialogOpen(true)}
+                        className="text-xs gap-1"
+                      >
+                        <Edit className="w-3 h-3" />
+                        Change Device
+                      </Button>
+                    )}
+                  </div>
                   <p className="text-muted-foreground">Repair Services</p>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {order.services && order.services.filter((s) => s && s._id).length > 0 ? (
@@ -2800,6 +2814,28 @@ export function OrderDetails() {
           onStepComplete={handleWorkflowStepComplete}
           isLoading={workflowActionInProgress !== null}
           mode={workflowExecutionMode}
+        />
+      )}
+
+      {/* Device Change Dialog */}
+      {id && order && (
+        <DeviceChangeDialog
+          open={deviceChangeDialogOpen}
+          onOpenChange={setDeviceChangeDialogOpen}
+          orderId={id}
+          currentDevice={{
+            brand: order.deviceBrand,
+            model: order.deviceModel,
+            type: order.deviceType,
+          }}
+          onDeviceChanged={(updatedOrder) => {
+            console.log('[OrderDetails] Device changed, updating order:', updatedOrder)
+            setOrder(updatedOrder)
+            toast({
+              title: "Success",
+              description: "Device has been changed successfully",
+            })
+          }}
         />
       )}
     </div>

@@ -1,160 +1,149 @@
-#!/usr/bin/env node
-
 const axios = require('axios');
 
-// Configuration
-const API_BASE_URL = 'http://localhost:3001';
-const ADMIN_EMAIL = 'admin@example.com';
-const ADMIN_PASSWORD = 'admin123';
+const BASE_URL = 'http://localhost:5000/api';
 
-let adminToken = null;
-let orderId = null;
-let adminUserId = null;
+let testResults = {
+  passed: 0,
+  failed: 0,
+  errors: []
+};
 
-// Helper function to make API requests
-async function request(method, path, data = null, headers = {}) {
+const log = (message, type = 'info') => {
+  const timestamp = new Date().toISOString();
+  const prefix = {
+    info: '✓',
+    error: '✗',
+    warning: '⚠'
+  }[type] || '•';
+  console.log(timestamp + ' ' + prefix + ' ' + message);
+};
+
+async function runTests() {
+  log('Starting Device Change Feature Tests', 'info');
+  log('========================================', 'info');
+
+  let adminToken = null;
+  let orderId = null;
+  let originalDevice = null;
+
   try {
-    const config = {
-      method,
-      url: `${API_BASE_URL}${path}`,
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers
-      }
-    };
-
-    if (data) {
-      config.data = data;
-    }
-
-    const response = await axios(config);
-    return response.data;
-  } catch (error) {
-    if (error.response?.data) {
-      throw new Error(`API Error: ${JSON.stringify(error.response.data)}`);
-    }
-    throw error;
-  }
-}
-
-// Step 1: Login as admin
-async function login() {
-  console.log('\n📝 Step 1: Logging in as admin...');
-  try {
-    const response = await request('POST', '/api/auth/login', {
-      email: ADMIN_EMAIL,
-      password: ADMIN_PASSWORD
-    });
-
-    adminToken = response.accessToken;
-    adminUserId = response.user._id;
-    console.log('✅ Admin logged in successfully');
-    console.log(`   Token: ${adminToken.substring(0, 20)}...`);
-    console.log(`   User ID: ${adminUserId}`);
-  } catch (error) {
-    console.error('❌ Login failed:', error.message);
-    throw error;
-  }
-}
-
-// Step 2: Get an order (or create one if needed)
-async function getOrCreateOrder() {
-  console.log('\n📝 Step 2: Fetching an existing order...');
-  try {
-    const response = await request('GET', '/api/admin/orders?limit=1', null, {
-      'Authorization': `Bearer ${adminToken}`
-    });
-
-    if (response.orders && response.orders.length > 0) {
-      orderId = response.orders[0]._id;
-      console.log('✅ Found order:', orderId);
-      console.log(`   Current device: ${response.orders[0].deviceBrand} ${response.orders[0].deviceModel}`);
+    // Step 1: Admin Login
+    log('Step 1: Admin Login', 'info');
+    try {
+      const loginResponse = await axios.post(BASE_URL + '/auth/login', {
+        email: 'admin@fixithub.com',
+        password: 'password123'
+      });
+      adminToken = loginResponse.data.token;
+      log('Admin login successful, token received', 'info');
+      testResults.passed++;
+    } catch (error) {
+      const errorMsg = error.response && error.response.data ? error.response.data.error : error.message;
+      log('Admin login failed: ' + errorMsg, 'error');
+      testResults.failed++;
+      testResults.errors.push('Admin login failed');
       return;
     }
 
-    console.log('⚠️  No orders found. Please create an order first.');
-    throw new Error('No orders available for testing');
-  } catch (error) {
-    console.error('❌ Failed to get order:', error.message);
-    throw error;
-  }
-}
+    // Step 2: Get available orders
+    log('\nStep 2: Fetching orders', 'info');
+    try {
+      const ordersResponse = await axios.get(BASE_URL + '/admin/orders', {
+        headers: { Authorization: 'Bearer ' + adminToken }
+      });
 
-// Step 3: Test the device change endpoint
-async function testDeviceChange() {
-  console.log('\n📝 Step 3: Testing device change endpoint...');
-  try {
-    const newDevice = {
-      deviceBrand: 'Samsung',
-      deviceModel: 'Galaxy S24 Ultra',
-      deviceType: 'Smartphone'
-    };
-
-    console.log('   Updating device to:', newDevice);
-
-    const response = await request(
-      'PUT',
-      `/api/admin/orders/${orderId}/device`,
-      newDevice,
-      { 'Authorization': `Bearer ${adminToken}` }
-    );
-
-    console.log('✅ Device changed successfully');
-    console.log(`   Response status: ${response.success}`);
-    console.log(`   Message: ${response.message}`);
-    console.log(`   Updated device: ${response.order.deviceBrand} ${response.order.deviceModel}`);
-
-    // Verify the change was recorded in timeline
-    const timeline = response.order.timeline || [];
-    const deviceChangeEntry = timeline.find(entry => entry.status === 'Device Changed');
-    if (deviceChangeEntry) {
-      console.log('   ✅ Timeline entry created:', deviceChangeEntry.description);
+      if (ordersResponse.data.orders && ordersResponse.data.orders.length > 0) {
+        orderId = ordersResponse.data.orders[0]._id;
+        originalDevice = {
+          brand: ordersResponse.data.orders[0].deviceBrand,
+          model: ordersResponse.data.orders[0].deviceModel,
+          type: ordersResponse.data.orders[0].deviceType
+        };
+        log('Found order ' + ordersResponse.data.orders[0].orderNumber + ' with device: ' + originalDevice.brand + ' ' + originalDevice.model, 'info');
+        testResults.passed++;
+      } else {
+        log('No orders available for testing', 'warning');
+        testResults.failed++;
+        testResults.errors.push('No test orders available');
+        return;
+      }
+    } catch (error) {
+      const errorMsg = error.response && error.response.data ? error.response.data.error : error.message;
+      log('Failed to fetch orders: ' + errorMsg, 'error');
+      testResults.failed++;
+      testResults.errors.push('Failed to fetch orders');
+      return;
     }
+
+    // Step 3: Test Device Change
+    log('\nStep 3: Testing device change and service recalculation', 'info');
+    try {
+      const newDevice = {
+        deviceBrand: 'Samsung',
+        deviceModel: 'Galaxy S24',
+        deviceType: 'Smartphone'
+      };
+
+      const changeResponse = await axios.post(
+        BASE_URL + '/admin/orders/' + orderId + '/change-device',
+        newDevice,
+        { headers: { Authorization: 'Bearer ' + adminToken } }
+      );
+
+      if (changeResponse.data.success) {
+        log('Device change successful', 'info');
+        const summary = changeResponse.data.pricingChangesSummary;
+        log('Total Cost Before: $' + summary.totalCostBefore.toFixed(2), 'info');
+        log('Total Cost After: $' + summary.totalCostAfter.toFixed(2), 'info');
+        testResults.passed++;
+      } else {
+        log('Device change failed: No success flag', 'error');
+        testResults.failed++;
+      }
+    } catch (error) {
+      const errorMsg = error.response && error.response.data ? error.response.data.error : error.message;
+      log('Device change failed: ' + errorMsg, 'error');
+      testResults.failed++;
+    }
+
+    // Step 4: Confirm Device Change
+    log('\nStep 4: Confirming device change', 'info');
+    try {
+      const confirmResponse = await axios.post(
+        BASE_URL + '/admin/orders/' + orderId + '/confirm-device-change',
+        { confirmed: true },
+        { headers: { Authorization: 'Bearer ' + adminToken } }
+      );
+
+      if (confirmResponse.data.success) {
+        log('Device change confirmed successfully', 'info');
+        testResults.passed++;
+      } else {
+        log('Device change confirmation failed', 'error');
+        testResults.failed++;
+      }
+    } catch (error) {
+      const errorMsg = error.response && error.response.data ? error.response.data.error : error.message;
+      log('Device change confirmation failed: ' + errorMsg, 'error');
+      testResults.failed++;
+    }
+
   } catch (error) {
-    console.error('❌ Device change failed:', error.message);
-    throw error;
+    log('Unexpected error: ' + error.message, 'error');
+    testResults.failed++;
   }
+
+  // Print Summary
+  log('\n========================================', 'info');
+  log('Test Summary', 'info');
+  log('Passed: ' + testResults.passed, 'info');
+  log('Failed: ' + testResults.failed, 'error');
+  log('========================================', 'info');
+
+  process.exit(testResults.failed > 0 ? 1 : 0);
 }
 
-// Step 4: Verify the change persisted
-async function verifyDeviceChange() {
-  console.log('\n📝 Step 4: Verifying device change persisted...');
-  try {
-    const response = await request(
-      'GET',
-      `/api/admin/orders/${orderId}`,
-      null,
-      { 'Authorization': `Bearer ${adminToken}` }
-    );
-
-    console.log('✅ Device verification successful');
-    console.log(`   Device Brand: ${response.order.deviceBrand}`);
-    console.log(`   Device Model: ${response.order.deviceModel}`);
-    console.log(`   Device Type: ${response.order.deviceType}`);
-  } catch (error) {
-    console.error('❌ Verification failed:', error.message);
-    throw error;
-  }
-}
-
-// Main test runner
-async function runTests() {
-  console.log('\n🧪 Testing Device Change Functionality');
-  console.log('=========================================');
-
-  try {
-    await login();
-    await getOrCreateOrder();
-    await testDeviceChange();
-    await verifyDeviceChange();
-
-    console.log('\n✅ All tests passed successfully!');
-    process.exit(0);
-  } catch (error) {
-    console.error('\n❌ Test suite failed:', error.message);
-    process.exit(1);
-  }
-}
-
-// Run tests
-runTests();
+runTests().catch(function(error) {
+  log('Fatal error: ' + error.message, 'error');
+  process.exit(1);
+});

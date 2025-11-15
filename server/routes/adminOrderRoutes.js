@@ -1,5 +1,6 @@
 const express = require('express');
 const OrderService = require('../services/orderService');
+const DeviceChangeService = require('../services/deviceChangeService');
 const { requireUser } = require('./middleware/auth');
 
 const router = express.Router();
@@ -894,6 +895,112 @@ router.delete('/:id/workflows/:workflowId', requireUser, requireAdminOrStaff, as
     }
     return res.status(500).json({
       error: error.message || 'Failed to delete workflow from order'
+    });
+  }
+});
+
+// Description: Change device and recalculate repair services
+// Endpoint: POST /api/admin/orders/:id/change-device
+// Request: { deviceBrand: string, deviceModel: string, deviceType: string }
+// Response: { success: boolean, order: Order, pricingChangesSummary: Object, requiresConfirmation: boolean }
+router.post('/:id/change-device', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('[DeviceChange] Change device request received:', req.params.id, req.body);
+
+  try {
+    const { deviceBrand, deviceModel, deviceType } = req.body;
+
+    if (!deviceBrand || !deviceModel || !deviceType) {
+      return res.status(400).json({ error: 'Device brand, model, and type are required' });
+    }
+
+    const result = await DeviceChangeService.changeDeviceAndRecalculateServices(
+      req.params.id,
+      {
+        deviceBrand,
+        deviceModel,
+        deviceType,
+      },
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Device changed and services recalculated successfully',
+      order: result.order,
+      pricingChangesSummary: result.pricingChangesSummary,
+      requiresConfirmation: result.requiresConfirmation,
+    });
+  } catch (error) {
+    console.error('[DeviceChange] Error changing device:', error);
+    if (error.message === 'Order not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(400).json({
+      error: error.message || 'Failed to change device',
+    });
+  }
+});
+
+// Description: Confirm device change after pricing approval
+// Endpoint: POST /api/admin/orders/:id/confirm-device-change
+// Request: { confirmed: boolean }
+// Response: { success: boolean, message: string, order: Order }
+router.post('/:id/confirm-device-change', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('[DeviceChange] Confirm device change request received:', req.params.id, req.body);
+
+  try {
+    const { confirmed } = req.body;
+
+    if (typeof confirmed !== 'boolean') {
+      return res.status(400).json({ error: 'Confirmation status is required' });
+    }
+
+    const order = await DeviceChangeService.confirmDeviceChange(
+      req.params.id,
+      confirmed,
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: confirmed ? 'Device change confirmed' : 'Device change cancelled',
+      order,
+    });
+  } catch (error) {
+    console.error('[DeviceChange] Error confirming device change:', error);
+    if (error.message === 'Order not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(400).json({
+      error: error.message || 'Failed to confirm device change',
+    });
+  }
+});
+
+// Description: Get compatible services for a device type
+// Endpoint: GET /api/admin/orders/device-type/:deviceType/compatible-services
+// Request: {}
+// Response: { services: Array<Service> }
+router.get('/device-type/:deviceType/compatible-services', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('[DeviceChange] Get compatible services for device type:', req.params.deviceType);
+
+  try {
+    const { deviceType } = req.params;
+
+    if (!deviceType) {
+      return res.status(400).json({ error: 'Device type is required' });
+    }
+
+    const services = await DeviceChangeService.getCompatibleServices(deviceType);
+
+    return res.status(200).json({
+      success: true,
+      services,
+    });
+  } catch (error) {
+    console.error('[DeviceChange] Error getting compatible services:', error);
+    return res.status(500).json({
+      error: error.message || 'Failed to get compatible services',
     });
   }
 });
