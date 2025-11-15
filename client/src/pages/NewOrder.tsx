@@ -1264,8 +1264,10 @@ export function NewOrder() {
 
                         // Get selected device details
                         const selectedDeviceTypeObj = deviceTypes.find(dt => dt._id === selectedDeviceType)
-                        const selectedManufacturerObj = manufacturers.find(m => m._id === selectedManufacturer)
-                        const selectedModelObj = models.find(m => m._id === selectedModel)
+
+                        // For device brand and model, prioritize the search-selected device
+                        let deviceBrandName = selectedDevice?.manufacturer || manufacturers.find(m => m._id === selectedManufacturer)?.name || selectedManufacturer
+                        let deviceModelName = selectedDevice?.name || models.find(m => m._id === selectedModel)?.name || selectedModel
 
                         // Prepare add-ons data
                         const selectedAddOnObjects = addOns
@@ -1283,8 +1285,8 @@ export function NewOrder() {
                         // Prepare repair order data for cart
                         const repairOrderData = {
                           deviceType: selectedDeviceTypeObj?.name || selectedDeviceType,
-                          deviceBrand: selectedManufacturerObj?.name || selectedManufacturer,
-                          deviceModel: selectedModelObj?.name || selectedModel,
+                          deviceBrand: deviceBrandName,
+                          deviceModel: deviceModelName,
                           services: selectedServices,
                           addOns: selectedAddOnObjects,
                           customerNotes: watch("customerNotes") || '',
