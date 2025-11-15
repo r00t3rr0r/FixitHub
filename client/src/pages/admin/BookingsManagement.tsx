@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
 import { getAdminBookings, getBooking, updateBookingStatus, updateBookingBillingStatus, cancelBooking, getBookingOrders } from "@/api/bookings"
+import { getBookingsKanban, updateBookingStatus as updateKanbanBookingStatus } from "@/api/kanban"
+import { KanbanBoard } from "@/components/admin/KanbanBoard"
 import {
   Search,
   Filter,
@@ -28,7 +30,9 @@ import {
   Trash2,
   ExternalLink,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  LayoutGrid,
+  List
 } from "lucide-react"
 import {
   Select,
@@ -135,6 +139,8 @@ export function BookingsManagement() {
   const [expandedBookings, setExpandedBookings] = useState<Set<string>>(new Set())
   const [expandedOrdersData, setExpandedOrdersData] = useState<Record<string, any[]>>({})
   const [loadingOrders, setLoadingOrders] = useState<Set<string>>(new Set())
+  const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table')
+  const [kanbanColumns, setKanbanColumns] = useState<any>({})
   const { toast } = useToast()
 
   useEffect(() => {
@@ -144,13 +150,23 @@ export function BookingsManagement() {
   const fetchBookings = async () => {
     try {
       setLoading(true)
-      const response = await getAdminBookings({
-        limit: 100,
-        skip: 0
-      })
-      const bookingsData = (response as any).bookings || []
-      setBookings(bookingsData)
-      setFilteredBookings(bookingsData)
+
+      if (viewMode === 'table') {
+        const response = await getAdminBookings({
+          limit: 100,
+          skip: 0
+        })
+        const bookingsData = (response as any).bookings || []
+        setBookings(bookingsData)
+        setFilteredBookings(bookingsData)
+      } else {
+        const filters = {
+          search: searchTerm || undefined,
+          billingStatus: billingStatusFilter !== 'all' ? billingStatusFilter : undefined
+        }
+        const response = await getBookingsKanban(filters)
+        setKanbanColumns(response.columns)
+      }
     } catch (error) {
       console.error("Error fetching bookings:", error)
       toast({
@@ -323,6 +339,21 @@ export function BookingsManagement() {
     }
   }
 
+  const handleKanbanStatusChange = async (bookingId: string, newStatus: string) => {
+    try {
+      await updateKanbanBookingStatus(bookingId, newStatus)
+      // Refresh kanban data
+      const filters = {
+        search: searchTerm || undefined,
+        billingStatus: billingStatusFilter !== 'all' ? billingStatusFilter : undefined
+      }
+      const response = await getBookingsKanban(filters)
+      setKanbanColumns(response.columns)
+    } catch (error: any) {
+      throw error
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
@@ -411,9 +442,35 @@ export function BookingsManagement() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Bookings Management</h1>
-        <p className="text-foreground/60">Manage and oversee all booking-related tasks</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Bookings Management</h1>
+          <p className="text-foreground/60">Manage and oversee all booking-related tasks</p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant={viewMode === 'table' ? 'default' : 'outline'}
+            onClick={() => {
+              setViewMode('table')
+              setLoading(true)
+              fetchBookings()
+            }}
+          >
+            <List className="h-4 w-4 mr-2" />
+            Table View
+          </Button>
+          <Button
+            variant={viewMode === 'kanban' ? 'default' : 'outline'}
+            onClick={() => {
+              setViewMode('kanban')
+              setLoading(true)
+              fetchBookings()
+            }}
+          >
+            <LayoutGrid className="h-4 w-4 mr-2" />
+            Kanban View
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -505,13 +562,14 @@ export function BookingsManagement() {
         </CardContent>
       </Card>
 
-      {/* Bookings Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Bookings List</CardTitle>
-          <CardDescription>{filteredBookings.length} bookings found</CardDescription>
-        </CardHeader>
-        <CardContent>
+      {/* Bookings Table or Kanban View */}
+      {viewMode === 'table' ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Bookings List</CardTitle>
+            <CardDescription>{filteredBookings.length} bookings found</CardDescription>
+          </CardHeader>
+          <CardContent>
           {filteredBookings.length === 0 ? (
             <div className="text-center py-8 text-foreground/60">
               <Package className="h-12 w-12 mx-auto mb-4 opacity-40" />
@@ -790,6 +848,25 @@ export function BookingsManagement() {
           )}
         </CardContent>
       </Card>
+      ) : (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Kanban Board</CardTitle>
+              <CardDescription>
+                Drag and drop bookings to change their status
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <KanbanBoard
+                columns={kanbanColumns}
+                type="booking"
+                onStatusChange={handleKanbanStatusChange}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

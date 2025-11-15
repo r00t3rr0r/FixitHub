@@ -110,6 +110,21 @@
       "totalKeys": "Gesamte Schlüssel",
       "translatedKeys": "Übersetzte Schlüssel",
       "missingKeys": "Fehlende Schlüssel"
+    },
+    "kanban": {
+      "statusUpdated": "Status aktualisiert",
+      "statusUpdatedDescription": "Elementstatus wurde erfolgreich aktualisiert",
+      "error": "Fehler",
+      "errorDescription": "Status konnte nicht aktualisiert werden",
+      "orders": "Bestellungen",
+      "bookings": "Buchungen",
+      "noItems": "Keine Elemente"
+    },
+    "orders": {
+      "assignedTo": "Zugewiesen an"
+    },
+    "bookings": {
+      "orders": "Bestellungen"
     }
   },
   "staff": {

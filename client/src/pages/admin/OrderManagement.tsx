@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
 import { getAdminOrders, updateOrderStatus, AdminOrder } from "@/api/adminOrders"
+import { getOrdersKanban, updateOrderStatus as updateKanbanOrderStatus } from "@/api/kanban"
+import { KanbanBoard } from "@/components/admin/KanbanBoard"
 import {
   Package,
   Search,
@@ -22,7 +24,9 @@ import {
   User,
   Phone,
   Mail,
-  Wrench
+  Wrench,
+  LayoutGrid,
+  List
 } from "lucide-react"
 import {
   Select,
@@ -50,16 +54,28 @@ export function OrderManagement() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
   const [updating, setUpdating] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table')
+  const [kanbanColumns, setKanbanColumns] = useState<any>({})
   const { toast } = useToast()
 
   useEffect(() => {
     const fetchOrders = async () => {
       try {
         console.log("Fetching admin orders...")
-        const response = await getAdminOrders()
-        const ordersData = (response as any).orders || []
-        setOrders(ordersData)
-        setFilteredOrders(ordersData)
+
+        if (viewMode === 'table') {
+          const response = await getAdminOrders()
+          const ordersData = (response as any).orders || []
+          setOrders(ordersData)
+          setFilteredOrders(ordersData)
+        } else {
+          const filters = {
+            search: searchTerm || undefined,
+            priority: priorityFilter !== 'all' ? priorityFilter : undefined
+          }
+          const response = await getOrdersKanban(filters)
+          setKanbanColumns(response.columns)
+        }
       } catch (error) {
         console.error("Error fetching orders:", error)
         toast({
@@ -73,7 +89,7 @@ export function OrderManagement() {
     }
 
     fetchOrders()
-  }, [toast])
+  }, [toast, viewMode, searchTerm, priorityFilter])
 
   useEffect(() => {
     let filtered = orders
@@ -157,6 +173,21 @@ export function OrderManagement() {
     }
   }
 
+  const handleKanbanStatusChange = async (orderId: string, newStatus: string) => {
+    try {
+      await updateKanbanOrderStatus(orderId, newStatus)
+      // Refresh kanban data
+      const filters = {
+        search: searchTerm || undefined,
+        priority: priorityFilter !== 'all' ? priorityFilter : undefined
+      }
+      const response = await getOrdersKanban(filters)
+      setKanbanColumns(response.columns)
+    } catch (error: any) {
+      throw error
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -180,14 +211,38 @@ export function OrderManagement() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Package className="h-8 w-8" />
-          Order Management
-        </h1>
-        <p className="text-muted-foreground">
-          Monitor and manage all repair orders across the platform
-        </p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <Package className="h-8 w-8" />
+            Order Management
+          </h1>
+          <p className="text-muted-foreground">
+            Monitor and manage all repair orders across the platform
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant={viewMode === 'table' ? 'default' : 'outline'}
+            onClick={() => {
+              setViewMode('table')
+              setLoading(true)
+            }}
+          >
+            <List className="h-4 w-4 mr-2" />
+            Table View
+          </Button>
+          <Button
+            variant={viewMode === 'kanban' ? 'default' : 'outline'}
+            onClick={() => {
+              setViewMode('kanban')
+              setLoading(true)
+            }}
+          >
+            <LayoutGrid className="h-4 w-4 mr-2" />
+            Kanban View
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -298,16 +353,17 @@ export function OrderManagement() {
         </CardContent>
       </Card>
 
-      {/* Orders Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Order Directory</CardTitle>
-          <CardDescription>
-            Comprehensive list of all repair orders with management capabilities
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
+      {/* Orders Table or Kanban View */}
+      {viewMode === 'table' ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Order Directory</CardTitle>
+            <CardDescription>
+              Comprehensive list of all repair orders with management capabilities
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Order</TableHead>
@@ -455,10 +511,30 @@ export function OrderManagement() {
           </Table>
         </CardContent>
       </Card>
+      ) : (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Kanban Board</CardTitle>
+              <CardDescription>
+                Drag and drop orders to change their status
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <KanbanBoard
+                columns={kanbanColumns}
+                type="order"
+                onStatusChange={handleKanbanStatusChange}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Order Details */}
-      <div className="space-y-6">
-        {filteredOrders.map((order) => (
+      {viewMode === 'table' && (
+        <div className="space-y-6">
+          {filteredOrders.map((order) => (
           <Card key={order._id}>
             <CardHeader>
               <CardTitle>Order Details</CardTitle>
@@ -582,7 +658,8 @@ export function OrderManagement() {
             </CardContent>
           </Card>
         ))}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

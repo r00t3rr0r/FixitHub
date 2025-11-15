@@ -93,6 +93,8 @@ console.log('Loading order service routes...');
 const orderServiceRoutes = require("./routes/orderServiceRoutes");
 console.log('Loading booking routes...');
 const bookingRoutes = require("./routes/bookingRoutes");
+console.log('Loading kanban routes...');
+const kanbanRoutes = require("./routes/kanbanRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -342,6 +344,8 @@ app.use('/api/checkout', checkoutRoutes);
 app.use('/api/bookings', bookingRoutes);
 // Order Service Routes
 app.use('/api/order-services', orderServiceRoutes);
+// Kanban Routes
+app.use('/api/kanban', kanbanRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 
