@@ -148,3 +148,16 @@ export const getAdminBookings = async (filters?: {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// Description: Get all orders associated with a booking with their current repair progress status
+// Endpoint: GET /api/bookings/:id/orders
+// Request: {}
+// Response: { success: boolean, orders: Array<{orderId, orderNumber, type, device, services, products, status, progress, cost}>, count: number }
+export const getBookingOrders = async (bookingId: string) => {
+  try {
+    const response = await api.get(`/api/bookings/${bookingId}/orders`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};

@@ -364,6 +364,63 @@ class BookingService {
       throw error;
     }
   }
+
+  // Get all orders associated with a booking with their current repair progress status
+  static async getBookingOrders(bookingId) {
+    console.log('BookingService: Getting all orders for booking:', bookingId);
+
+    try {
+      const booking = await Booking.findById(bookingId);
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      // Fetch all orders with full details
+      const orders = await Order.find({ _id: { $in: booking.orderIds } })
+        .populate('services.serviceId', 'name')
+        .populate('shopProducts.productId', 'name')
+        .select('_id orderNumber status progress deviceBrand deviceModel totalCost shopProducts services paymentStatus');
+
+      console.log('BookingService: Retrieved', orders.length, 'orders for booking');
+
+      // Map orders to booking item format with current status
+      const ordersData = orders.map((order) => {
+        let itemData = {
+          orderId: order._id.toString(),
+          orderNumber: order.orderNumber || order._id.toString().slice(-8).toUpperCase(),
+          type: order.deviceType === 'Shop Products' ? 'product' : 'repair',
+          device: order.deviceType === 'Shop Products' ? undefined : `${order.deviceBrand} ${order.deviceModel}`,
+          status: order.status, // Repair progress status (pending, in-progress, quality-check, completed, ready-for-pickup, cancelled)
+          progress: order.progress || 0,
+          cost: order.totalCost,
+        };
+
+        if (order.deviceType === 'Shop Products') {
+          // Shop product order
+          itemData.products = order.shopProducts.map(product => ({
+            name: product.productId?.name || 'Unknown Product',
+            quantity: product.quantity,
+            price: product.priceAtOrder,
+            totalPrice: product.priceAtOrder * product.quantity,
+          }));
+        } else {
+          // Repair order
+          itemData.services = order.services.map(service => ({
+            name: service.serviceId?.name || 'Unknown Service',
+            price: service.price,
+            estimatedTime: service.estimatedTime,
+          }));
+        }
+
+        return itemData;
+      });
+
+      return ordersData;
+    } catch (error) {
+      console.error('BookingService: Error getting booking orders:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = BookingService;

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
-import { getAdminBookings, getBooking, updateBookingStatus, updateBookingBillingStatus, cancelBooking } from "@/api/bookings"
+import { getAdminBookings, getBooking, updateBookingStatus, updateBookingBillingStatus, cancelBooking, getBookingOrders } from "@/api/bookings"
 import {
   Search,
   Filter,
@@ -276,7 +276,7 @@ export function BookingsManagement() {
   }
 
   // Description: Toggle expanded view of booking with associated orders
-  // Fetches orders related to the booking ID and displays them in a nested table with order number and progress
+  // Fetches orders related to the booking ID from the API and displays them in a nested table with current repair progress status
   const toggleExpandBooking = async (bookingId: string) => {
     const newExpanded = new Set(expandedBookings)
 
@@ -285,34 +285,23 @@ export function BookingsManagement() {
       newExpanded.delete(bookingId)
       setExpandedBookings(newExpanded)
     } else {
-      // Expand - fetch orders data
+      // Expand - fetch fresh orders data from API
       try {
         const newLoading = new Set(loadingOrders)
         newLoading.add(bookingId)
         setLoadingOrders(newLoading)
 
-        // Get the booking data to find associated order IDs
-        const booking = filteredBookings.find(b => b._id === bookingId)
-        if (booking && booking.orderIds && booking.orderIds.length > 0) {
-          // Fetch each order to display in expanded view
-          // We'll fetch the full order details from the booking item data
-          const ordersData = booking.items.map((item: any) => ({
-            orderId: item.orderId,
-            orderNumber: item.orderNumber || item.orderId?.slice(-8).toUpperCase() || 'N/A',
-            type: item.type,
-            device: item.device,
-            services: item.services || [],
-            products: item.products || [],
-            status: item.status || 'pending',
-            progress: item.progress || 0,
-            cost: item.cost
-          }))
+        // Fetch fresh order data from API with current repair progress status
+        console.log(`Fetching orders for booking: ${bookingId}`)
+        const response = await getBookingOrders(bookingId)
+        const ordersData = response.orders || []
 
-          setExpandedOrdersData(prev => ({
-            ...prev,
-            [bookingId]: ordersData
-          }))
-        }
+        console.log(`Retrieved ${ordersData.length} orders with repair progress status`)
+
+        setExpandedOrdersData(prev => ({
+          ...prev,
+          [bookingId]: ordersData
+        }))
 
         newExpanded.add(bookingId)
         setExpandedBookings(newExpanded)
@@ -342,6 +331,26 @@ export function BookingsManagement() {
         return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
       case 'processing':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+      case 'completed':
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+      case 'cancelled':
+        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  // Description: Get color for repair order progress status (not payment status)
+  const getOrderStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+      case 'in-progress':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+      case 'quality-check':
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+      case 'ready-for-pickup':
+        return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
       case 'completed':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
       case 'cancelled':
@@ -751,7 +760,7 @@ export function BookingsManagement() {
                                             </div>
                                           </TableCell>
                                           <TableCell>
-                                            <Badge className={getStatusColor(item.status || 'pending')}>
+                                            <Badge className={getOrderStatusColor(item.status || 'pending')}>
                                               {item.status || 'pending'}
                                             </Badge>
                                           </TableCell>

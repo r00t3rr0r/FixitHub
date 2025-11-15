@@ -253,6 +253,40 @@ router.get('/:id/summary', requireUser, async (req, res) => {
   }
 });
 
+// Description: Get all orders associated with a booking with their current repair progress status
+// Endpoint: GET /api/bookings/:id/orders
+// Request: {}
+// Response: { success: boolean, orders: Array<{orderId, orderNumber, type, device, services, products, status, progress, cost}> }
+router.get('/:id/orders', requireUser, async (req, res) => {
+  try {
+    console.log('BookingRoutes: Getting orders for booking:', req.params.id);
+
+    const orders = await BookingService.getBookingOrders(req.params.id);
+
+    if (!orders || orders.length === 0) {
+      console.log('BookingRoutes: No orders found for booking');
+      return res.status(404).json({
+        success: false,
+        error: 'No orders found for this booking',
+      });
+    }
+
+    console.log('BookingRoutes: Retrieved', orders.length, 'orders for booking');
+
+    res.json({
+      success: true,
+      orders: orders,
+      count: orders.length,
+    });
+  } catch (error) {
+    console.error('BookingRoutes: Error getting booking orders:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
 // Description: Cancel a booking (admin only)
 // Endpoint: DELETE /api/bookings/:id
 // Request: {}
