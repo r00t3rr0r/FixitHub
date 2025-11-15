@@ -31,6 +31,7 @@ export interface Order {
   customerId: CustomerInfo;
   deviceBrand: string;
   deviceModel: string;
+  deviceType?: string;
   services: string[];
   addOns: AddOnService[];
   status: 'pending' | 'in-progress' | 'quality-check' | 'completed' | 'ready-for-pickup';
@@ -42,6 +43,17 @@ export interface Order {
   staffNotes: string[];
   progress: number;
   paymentStatus: 'pending' | 'paid' | 'refunded' | 'partial';
+  // Device unlock information
+  unlockPattern?: string[];
+  unlockCode?: string;
+  noLock?: boolean;
+  unlockConfirmation?: {
+    confirmedBy?: string;
+    confirmedByName?: string;
+    confirmedAt?: string;
+    confirmationStatus?: 'verified' | 'incorrect' | 'unable-to-verify';
+    notes?: string;
+  };
 }
 
 export interface AddOnService {

@@ -74,7 +74,9 @@ import {
   Trash2,
   Plus,
   Edit,
-  X
+  X,
+  Lock,
+  HelpCircle
 } from "lucide-react"
 
 export function OrderDetails() {
@@ -1546,11 +1548,22 @@ export function OrderDetails() {
                   <p className="text-muted-foreground">Repair Services</p>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {order.services && order.services.filter((s) => s && s._id).length > 0 ? (
-                      order.services.filter((s) => s && s._id).map((service) => (
-                        <Badge key={service._id} variant="outline">
-                          Service #{service._id.substring(0, 8)}
-                        </Badge>
-                      ))
+                      order.services.filter((s) => s && s._id).map((service) => {
+                        // Get service name from populated serviceId object or fallback to ID
+                        const serviceName = typeof service.serviceId === 'object'
+                          ? service.serviceId?.name
+                          : service.serviceName || `Service #${String(service._id).substring(0, 8)}`;
+                        const servicePrice = typeof service.serviceId === 'object'
+                          ? service.serviceId?.price || service.price
+                          : service.price;
+
+                        return (
+                          <Badge key={service._id} variant="outline" className="text-xs">
+                            {serviceName}
+                            {servicePrice && <span className="ml-1 font-semibold">${servicePrice.toFixed(2)}</span>}
+                          </Badge>
+                        );
+                      })
                     ) : (
                       <Badge variant="outline">{t('orderDetails.noServicesSelected')}</Badge>
                     )}
@@ -1562,6 +1575,119 @@ export function OrderDetails() {
                 <div className="bg-muted/50 p-4 rounded-lg">
                   <h4 className="font-medium mb-2">{t('orderDetails.yourNotes')}:</h4>
                   <p className="text-sm text-muted-foreground">{order.customerNotes}</p>
+                </div>
+              )}
+
+              {/* Unlock Information Display - Integrated into Device Information Section */}
+              {(order?.unlockPattern?.length > 0 || order?.unlockCode || order?.noLock) && (
+                <div className="border-t pt-4 mt-4">
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Lock className="h-4 w-4" />
+                    {t('orderDetails.deviceLockInformation', 'Device Lock Information')}
+                  </h4>
+
+                  <div className="space-y-3">
+                    {/* Unlock Pattern Display */}
+                    {order.unlockPattern && order.unlockPattern.length > 0 && (
+                      <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+                        <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                          {t('orderDetails.unlockPattern', 'Unlock Pattern')}
+                        </p>
+                        <div className="text-sm font-mono font-bold text-blue-600 dark:text-blue-400">
+                          {order.unlockPattern.join(' → ')}
+                        </div>
+                        <span className="text-xs text-slate-500">({order.unlockPattern.length} {t('orderDetails.dots', 'dots')})</span>
+                      </div>
+                    )}
+
+                    {/* Unlock Code Display */}
+                    {order.unlockCode && (
+                      <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+                        <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                          {t('orderDetails.unlockCode', 'Unlock Code')}
+                        </p>
+                        <input
+                          type="password"
+                          value={order.unlockCode}
+                          readOnly
+                          className="w-full px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-mono text-sm"
+                        />
+                      </div>
+                    )}
+
+                    {/* No Lock Display */}
+                    {order.noLock && (
+                      <div className="p-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+                        <div className="flex items-center gap-2">
+                          <X className="h-4 w-4 text-green-600 dark:text-green-400" />
+                          <p className="text-sm font-medium text-green-700 dark:text-green-300">
+                            {t('orderDetails.unlockNoLock', 'Device has no lock')}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Confirmation Status */}
+                    {order.unlockConfirmation && order.unlockConfirmation.confirmationStatus && (
+                      <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                        <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                          {t('orderDetails.confirmationStatus', 'Confirmation Status')}
+                        </p>
+                        <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                          <div className="flex items-center gap-2">
+                            {order.unlockConfirmation.confirmationStatus === 'verified' && (
+                              <Badge className="bg-green-100 border-green-300 text-green-800">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                {t('orderDetails.unlockVerified', 'Verified')}
+                              </Badge>
+                            )}
+                            {order.unlockConfirmation.confirmationStatus === 'incorrect' && (
+                              <Badge className="bg-red-100 border-red-300 text-red-800">
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                {t('orderDetails.unlockIncorrect', 'Incorrect')}
+                              </Badge>
+                            )}
+                            {order.unlockConfirmation.confirmationStatus === 'unable-to-verify' && (
+                              <Badge variant="outline" className="bg-gray-50 border-gray-300 text-gray-800">
+                                <HelpCircle className="h-3 w-3 mr-1" />
+                                {t('orderDetails.unlockUnableToVerify', 'Unable to Verify')}
+                              </Badge>
+                            )}
+                          </div>
+                          <p>
+                            <span className="font-medium">
+                              {t('orderDetails.confirmedBy', 'Confirmed by:')}
+                            </span>{' '}
+                            {order.unlockConfirmation.confirmedByName}
+                          </p>
+                          {order.unlockConfirmation.notes && (
+                            <p>
+                              <span className="font-medium">
+                                {t('orderDetails.notes', 'Notes:')}
+                              </span>{' '}
+                              {order.unlockConfirmation.notes}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Confirm Button for Staff/Admin - Only show if not confirmed or can re-confirm */}
+                    {(user?.role === 'admin' || user?.role === 'staff') && (
+                      <div className="pt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setUnlockConfirmDialogOpen(true)}
+                          className="w-full text-xs"
+                        >
+                          {order.unlockConfirmation
+                            ? t('orderDetails.updateConfirmation', 'Update Confirmation')
+                            : t('orderDetails.confirmUnlock', 'Confirm Unlock Information')}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </CardContent>
