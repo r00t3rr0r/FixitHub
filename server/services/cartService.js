@@ -203,7 +203,7 @@ class CartService {
     console.log('CartService: Adding repair order to cart:', { userId, repairOrderData });
 
     try {
-      const { deviceType, deviceBrand, deviceModel, services, addOns, customerNotes, photos, totalCost } = repairOrderData;
+      const { deviceType, deviceBrand, deviceModel, services, addOns, customerNotes, photos, totalCost, unlockPattern, unlockCode, noLock } = repairOrderData;
 
       // Validate required fields
       if (!deviceType || !deviceBrand || !deviceModel || !services || services.length === 0 || !totalCost) {
@@ -222,6 +222,9 @@ class CartService {
         customerNotes: customerNotes || '',
         photos: photos || [],
         totalCost,
+        unlockPattern: unlockPattern || [],
+        unlockCode: unlockCode || '',
+        noLock: noLock || false,
         addedAt: new Date()
       };
 
@@ -235,7 +238,7 @@ class CartService {
       await cart.populate('repairOrders.services');
       await cart.populate('items.productId');
 
-      console.log('CartService: Repair order added to cart successfully');
+      console.log('CartService: Repair order added to cart successfully with unlock data:', { unlockPattern, unlockCode, noLock });
       return cart;
     } catch (error) {
       console.error('CartService: Error adding repair order to cart:', error);

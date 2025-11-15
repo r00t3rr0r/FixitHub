@@ -273,7 +273,11 @@ router.post('/complete', requireUser, async (req, res) => {
             priority: 'normal',
             progress: 0,
             paymentStatus: 'pending',
-            estimatedCompletion: null
+            estimatedCompletion: null,
+            // Device unlock information from cart
+            unlockPattern: repairOrder.unlockPattern || [],
+            unlockCode: repairOrder.unlockCode || '',
+            noLock: repairOrder.noLock || false
           };
 
           console.log('CheckoutRoutes: Order data prepared:', orderData);

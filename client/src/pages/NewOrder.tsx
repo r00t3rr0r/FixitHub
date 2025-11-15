@@ -1289,7 +1289,10 @@ export function NewOrder() {
                           addOns: selectedAddOnObjects,
                           customerNotes: watch("customerNotes") || '',
                           photos: photoUrls,
-                          totalCost: calculateTotal()
+                          totalCost: calculateTotal(),
+                          unlockPattern: unlockPattern,
+                          unlockCode: unlockCode,
+                          noLock: noDeviceLock
                         }
 
                         console.log("Adding repair order to cart:", repairOrderData)

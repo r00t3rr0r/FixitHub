@@ -55,6 +55,19 @@ const repairOrderItemSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  // Device unlock information
+  unlockPattern: {
+    type: [String],
+    default: []
+  },
+  unlockCode: {
+    type: String,
+    default: ''
+  },
+  noLock: {
+    type: Boolean,
+    default: false
+  },
   addedAt: {
     type: Date,
     default: Date.now

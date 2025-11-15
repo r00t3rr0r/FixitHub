@@ -50,6 +50,9 @@ export interface RepairOrderItem {
   photos: string[];
   totalCost: number;
   addedAt: string;
+  unlockPattern?: string[];
+  unlockCode?: string;
+  noLock?: boolean;
 }
 
 export interface Cart {
@@ -257,11 +260,14 @@ export interface RepairOrderData {
   customerNotes?: string;
   photos?: string[];
   totalCost: number;
+  unlockPattern?: string[];
+  unlockCode?: string;
+  noLock?: boolean;
 }
 
 // Description: Add repair order to cart
 // Endpoint: POST /api/cart/add-repair-order
-// Request: { deviceType: string, deviceBrand: string, deviceModel: string, services: string[], addOns: object[], customerNotes: string, photos: string[], totalCost: number }
+// Request: { deviceType: string, deviceBrand: string, deviceModel: string, services: string[], addOns: object[], customerNotes: string, photos: string[], totalCost: number, unlockPattern?: string[], unlockCode?: string, noLock?: boolean }
 // Response: { success: boolean, message: string, cart: Cart }
 export const addRepairOrderToCart = async (repairOrderData: RepairOrderData) => {
   try {
