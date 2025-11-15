@@ -276,7 +276,7 @@ export function BookingsManagement() {
   }
 
   // Description: Toggle expanded view of booking with associated orders
-  // Fetches orders related to the booking ID and displays them in a nested table
+  // Fetches orders related to the booking ID and displays them in a nested table with order number and progress
   const toggleExpandBooking = async (bookingId: string) => {
     const newExpanded = new Set(expandedBookings)
 
@@ -298,11 +298,13 @@ export function BookingsManagement() {
           // We'll fetch the full order details from the booking item data
           const ordersData = booking.items.map((item: any) => ({
             orderId: item.orderId,
+            orderNumber: item.orderNumber || item.orderId?.slice(-8).toUpperCase() || 'N/A',
             type: item.type,
             device: item.device,
             services: item.services || [],
             products: item.products || [],
             status: item.status || 'pending',
+            progress: item.progress || 0,
             cost: item.cost
           }))
 
@@ -672,9 +674,11 @@ export function BookingsManagement() {
                                   <Table className="text-sm">
                                     <TableHeader>
                                       <TableRow className="bg-muted/50">
+                                        <TableHead>Order Number</TableHead>
                                         <TableHead>Type</TableHead>
                                         <TableHead>Device/Product</TableHead>
                                         <TableHead>Services/Details</TableHead>
+                                        <TableHead className="text-center">Progress</TableHead>
                                         <TableHead>Status</TableHead>
                                         <TableHead className="text-right">Cost</TableHead>
                                       </TableRow>
@@ -686,6 +690,11 @@ export function BookingsManagement() {
                                           className="hover:bg-muted/50 cursor-pointer transition-colors"
                                           onClick={() => item.orderId && navigate(`/orders/${item.orderId}`)}
                                         >
+                                          <TableCell className="font-medium">
+                                            <div className="text-sm font-semibold">
+                                              {item.orderNumber}
+                                            </div>
+                                          </TableCell>
                                           <TableCell>
                                             <Badge variant={item.type === 'repair' ? 'default' : 'secondary'}>
                                               {item.type === 'repair' ? 'Repair' : 'Product'}
@@ -726,6 +735,19 @@ export function BookingsManagement() {
                                               ) : (
                                                 <span className="text-xs text-foreground/50">No details</span>
                                               )}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell className="text-center">
+                                            <div className="flex items-center justify-center gap-2">
+                                              <div className="w-16 bg-muted rounded-full h-2">
+                                                <div
+                                                  className="bg-primary h-2 rounded-full transition-all"
+                                                  style={{ width: `${item.progress || 0}%` }}
+                                                ></div>
+                                              </div>
+                                              <span className="text-xs font-semibold whitespace-nowrap">
+                                                {item.progress || 0}%
+                                              </span>
                                             </div>
                                           </TableCell>
                                           <TableCell>

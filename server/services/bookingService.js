@@ -48,6 +48,9 @@ class BookingService {
         let itemData = {
           type: order.deviceType === 'Shop Products' ? 'product' : 'repair',
           orderId: order._id,
+          orderNumber: order.orderNumber || order._id.toString().slice(-8).toUpperCase(),
+          status: order.status || 'pending',
+          progress: order.progress || 0,
           cost: order.totalCost,
         };
 

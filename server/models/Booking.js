@@ -36,8 +36,22 @@ const bookingItemSchema = new mongoose.Schema({
     ref: 'Order',
     required: true,
   },
+  orderNumber: {
+    type: String,
+    default: '',
+  },
   device: {
     type: String,
+  },
+  status: {
+    type: String,
+    default: 'pending',
+  },
+  progress: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100,
   },
   services: [{
     name: String,
@@ -193,9 +207,9 @@ bookingSchema.pre(/^find/, function(next) {
   }
 
   this.populate('customerId', 'firstName lastName email phone avatar')
-      .populate('orderIds', 'orderNumber status totalCost deviceBrand deviceModel')
-      .populate('repairOrderIds', 'orderNumber status totalCost')
-      .populate('shopProductOrderId', 'orderNumber status totalCost');
+      .populate('orderIds', 'orderNumber status totalCost deviceBrand deviceModel progress')
+      .populate('repairOrderIds', 'orderNumber status totalCost progress')
+      .populate('shopProductOrderId', 'orderNumber status totalCost progress');
   next();
 });
 
