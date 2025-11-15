@@ -16,10 +16,7 @@ class KanbanService {
       // Apply search filter
       if (filters.search) {
         query.$or = [
-          { orderNumber: { $regex: filters.search, $options: 'i' } },
-          { 'customer.firstName': { $regex: filters.search, $options: 'i' } },
-          { 'customer.lastName': { $regex: filters.search, $options: 'i' } },
-          { 'customer.email': { $regex: filters.search, $options: 'i' } }
+          { orderNumber: { $regex: filters.search, $options: 'i' } }
         ];
       }
 
@@ -30,7 +27,7 @@ class KanbanService {
 
       // Fetch all orders matching filters
       const orders = await Order.find(query)
-        .populate('customer', 'firstName lastName email')
+        .populate('customerId', 'firstName lastName email')
         .populate('assignedTo', 'firstName lastName')
         .sort({ createdAt: -1 })
         .lean();
@@ -79,10 +76,7 @@ class KanbanService {
       // Apply search filter
       if (filters.search) {
         query.$or = [
-          { bookingNumber: { $regex: filters.search, $options: 'i' } },
-          { 'customer.firstName': { $regex: filters.search, $options: 'i' } },
-          { 'customer.lastName': { $regex: filters.search, $options: 'i' } },
-          { 'customer.email': { $regex: filters.search, $options: 'i' } }
+          { bookingNumber: { $regex: filters.search, $options: 'i' } }
         ];
       }
 
@@ -93,8 +87,8 @@ class KanbanService {
 
       // Fetch all bookings matching filters
       const bookings = await Booking.find(query)
-        .populate('customer', 'firstName lastName email')
-        .populate('orders')
+        .populate('customerId', 'firstName lastName email')
+        .populate('orderIds')
         .sort({ createdAt: -1 })
         .lean();
 

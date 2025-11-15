@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import React, { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -594,8 +594,8 @@ export function BookingsManagement() {
                 </TableHeader>
                 <TableBody>
                   {filteredBookings.map((booking) => (
-                    <>
-                    <TableRow key={booking._id} className="hover:bg-muted/50">
+                    <React.Fragment key={booking._id}>
+                    <TableRow className="hover:bg-muted/50">
                       <TableCell className="w-12">
                         <Button
                           variant="ghost"
@@ -840,7 +840,7 @@ export function BookingsManagement() {
                         </TableCell>
                       </TableRow>
                     )}
-                    </>
+                    </React.Fragment>
                   ))}
                 </TableBody>
               </Table>
