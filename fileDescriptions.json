@@ -519,5 +519,6 @@
 	"client/src/components/admin/KanbanCard.tsx": "Draggable Kanban card component for displaying order and booking details with priority/billing status badges, customer info, and navigation to detail pages.",
 	"server/routes/kanbanRoutes.js": "Express router for Kanban board endpoints, providing GET routes to retrieve orders and bookings grouped by status with optional filtering, and PUT routes to update order/booking status via drag-and-drop operations with admin/staff role protection.",
 	"server/services/kanbanService.js": "Service class providing Kanban board functionality with methods to fetch and group orders/bookings by status, apply filters (search, priority, billing status), and update order/booking statuses with timeline tracking.",
-	"KANBAN_FIXES_SUMMARY.md": "Documentation of critical bug fixes for Kanban view implementation, detailing MongoDB populate field name corrections in kanbanService.js and React Fragment key prop resolution in BookingsManagement.tsx component."
+	"KANBAN_FIXES_SUMMARY.md": "Documentation of critical bug fixes for Kanban view implementation, detailing MongoDB populate field name corrections in kanbanService.js and React Fragment key prop resolution in BookingsManagement.tsx component.",
+	"SCRIPT_LOAD_ERROR_RESOLUTION.md": "Documentation guide for resolving transient script load errors in Vite development environment, providing root cause analysis, verification results, and user-facing troubleshooting solutions including hard refresh and cache clearing procedures."
 }
