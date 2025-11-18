@@ -20,6 +20,8 @@ import { ShoppingCartPage } from "./pages/ShoppingCart"
 import { Profile } from "./pages/Profile"
 import { Blog } from "./pages/Blog"
 import { BlogPostPage } from "./pages/BlogPost"
+import { CustomerBookings } from "./pages/CustomerBookings"
+import { CustomerInvoices } from "./pages/CustomerInvoices"
 import { StaffDashboard } from "./pages/staff/StaffDashboard"
 import { StaffOrders } from "./pages/staff/StaffOrders"
 import { KnowledgeBase } from "./pages/staff/KnowledgeBase"
@@ -95,6 +97,12 @@ function App() {
             </Route>
             <Route path="/profile" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Profile />} />
+            </Route>
+            <Route path="/bookings" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<CustomerBookings />} />
+            </Route>
+            <Route path="/invoices" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<CustomerInvoices />} />
             </Route>
             <Route path="/blog" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Blog />} />

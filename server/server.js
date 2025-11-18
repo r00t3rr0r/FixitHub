@@ -97,6 +97,8 @@ console.log('Loading complaint routes...');
 const complaintRoutes = require("./routes/complaintRoutes");
 console.log('Loading reminder routes...');
 const reminderRoutes = require("./routes/reminderRoutes");
+console.log('Loading invoice routes...');
+const invoiceRoutes = require("./routes/invoiceRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -348,6 +350,8 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/complaints', complaintRoutes);
 // Reminder Routes
 app.use('/api/reminders', reminderRoutes);
+// Invoice Routes
+app.use('/api/invoices', invoiceRoutes);
 // Order Service Routes
 app.use('/api/order-services', orderServiceRoutes);
 // Seed Routes

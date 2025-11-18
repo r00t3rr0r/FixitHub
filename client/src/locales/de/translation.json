@@ -30,7 +30,10 @@
     "import": "Importieren",
     "refresh": "Aktualisieren",
     "actions": "Aktionen",
-    "select": "Auswählen"
+    "select": "Auswählen",
+    "hide": "Ausblenden",
+    "selectStatus": "Status auswählen",
+    "all": "Alle"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -41,6 +44,9 @@
     "messages": "Nachrichten",
     "notifications": "Benachrichtigungen",
     "profile": "Profil",
+    "account": "Konto",
+    "bookings": "Buchungen",
+    "invoices": "Rechnungen",
     "webShop": "Webshop",
     "shop": "Shop",
     "browseProducts": "Produkte durchsuchen",
@@ -1480,5 +1486,76 @@
     "successFeedbackSent": "Rückmeldungsanfrage an Kunden gesendet",
     "successActionSent": "Schnellaktion an Kunden gesendet",
     "successResponseRecorded": "Ihre Antwort wurde aufgezeichnet"
+  },
+  "bookings": {
+    "myBookings": "Meine Buchungen",
+    "manageYourBookings": "Alle Ihre Buchungen anzeigen und verwalten",
+    "searchByBookingNumber": "Nach Buchungsnummer suchen...",
+    "noBookings": "Keine Buchungen gefunden",
+    "noBookingsDescription": "Sie haben noch keine Buchungen. Erstellen Sie einen neuen Auftrag, um loszulegen.",
+    "progress": "Fortschritt",
+    "viewOrders": "Aufträge anzeigen",
+    "errorFetchingBookings": "Fehler beim Abrufen der Buchungen",
+    "errorFetchingOrders": "Fehler beim Abrufen der Aufträge für diese Buchung"
+  },
+  "invoices": {
+    "myInvoices": "Meine Rechnungen",
+    "manageYourInvoices": "Alle Ihre Rechnungen anzeigen und verwalten",
+    "searchByInvoiceNumber": "Nach Rechnungsnummer suchen...",
+    "noInvoices": "Keine Rechnungen gefunden",
+    "noInvoicesDescription": "Sie haben noch keine Rechnungen.",
+    "invoiceList": "Rechnungsliste",
+    "viewAndManageInvoices": "Ihre Rechnungen anzeigen und verwalten",
+    "invoiceNumber": "Rechnungsnummer",
+    "date": "Datum",
+    "dueDate": "Fälligkeitsdatum",
+    "amount": "Betrag",
+    "invoiceDetails": "Rechnungsdetails",
+    "issueDate": "Ausstellungsdatum",
+    "items": "Positionen",
+    "description": "Beschreibung",
+    "quantity": "Menge",
+    "unitPrice": "Stückpreis",
+    "total": "Gesamt",
+    "subtotal": "Zwischensumme",
+    "tax": "Steuer",
+    "discount": "Rabatt",
+    "notes": "Notizen",
+    "paymentTerms": "Zahlungsbedingungen",
+    "payNow": "Jetzt bezahlen",
+    "totalInvoices": "Rechnungen gesamt",
+    "totalAmount": "Gesamtbetrag",
+    "unpaid": "Unbezahlt",
+    "overdue": "Überfällig",
+    "invoices": "Rechnungen",
+    "downloadStarted": "Rechnungs-Download gestartet",
+    "paymentComingSoon": "Zahlungsfunktion demnächst verfügbar",
+    "errorFetchingInvoices": "Fehler beim Abrufen der Rechnungen"
+  },
+  "invoiceStatus": {
+    "draft": "Entwurf",
+    "sent": "Gesendet",
+    "viewed": "Angesehen",
+    "paid": "Bezahlt",
+    "overdue": "Überfällig",
+    "cancelled": "Storniert"
+  },
+  "billingStatus": {
+    "unpaid": "Unbezahlt",
+    "partially-paid": "Teilweise bezahlt",
+    "paid": "Bezahlt"
+  },
+  "status": {
+    "pending": "Ausstehend",
+    "paymentPending": "Zahlung ausstehend",
+    "processing": "In Bearbeitung",
+    "completed": "Abgeschlossen",
+    "cancelled": "Storniert"
+  },
+  "orders": {
+    "orderNumber": "Auftragsnummer",
+    "type": "Typ",
+    "device": "Gerät",
+    "cost": "Kosten"
   }
 }

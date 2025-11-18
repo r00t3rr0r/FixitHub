@@ -30,7 +30,10 @@
     "import": "Import",
     "refresh": "Refresh",
     "actions": "Actions",
-    "select": "Select"
+    "select": "Select",
+    "hide": "Hide",
+    "selectStatus": "Select Status",
+    "all": "All"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -41,6 +44,9 @@
     "messages": "Messages",
     "notifications": "Notifications",
     "profile": "Profile",
+    "account": "Account",
+    "bookings": "Bookings",
+    "invoices": "Invoices",
     "webShop": "Web Shop",
     "shop": "Shop",
     "browseProducts": "Browse Products",
@@ -1477,5 +1483,76 @@
     "successFeedbackSent": "Feedback request sent to customer",
     "successActionSent": "Quick action sent to customer",
     "successResponseRecorded": "Your response has been recorded"
+  },
+  "bookings": {
+    "myBookings": "My Bookings",
+    "manageYourBookings": "View and manage all your bookings",
+    "searchByBookingNumber": "Search by booking number...",
+    "noBookings": "No Bookings Found",
+    "noBookingsDescription": "You don't have any bookings yet. Create a new order to get started.",
+    "progress": "Progress",
+    "viewOrders": "View Orders",
+    "errorFetchingBookings": "Failed to fetch bookings",
+    "errorFetchingOrders": "Failed to fetch orders for this booking"
+  },
+  "invoices": {
+    "myInvoices": "My Invoices",
+    "manageYourInvoices": "View and manage all your invoices",
+    "searchByInvoiceNumber": "Search by invoice number...",
+    "noInvoices": "No Invoices Found",
+    "noInvoicesDescription": "You don't have any invoices yet.",
+    "invoiceList": "Invoice List",
+    "viewAndManageInvoices": "View and manage your invoices",
+    "invoiceNumber": "Invoice Number",
+    "date": "Date",
+    "dueDate": "Due Date",
+    "amount": "Amount",
+    "invoiceDetails": "Invoice Details",
+    "issueDate": "Issue Date",
+    "items": "Items",
+    "description": "Description",
+    "quantity": "Quantity",
+    "unitPrice": "Unit Price",
+    "total": "Total",
+    "subtotal": "Subtotal",
+    "tax": "Tax",
+    "discount": "Discount",
+    "notes": "Notes",
+    "paymentTerms": "Payment Terms",
+    "payNow": "Pay Now",
+    "totalInvoices": "Total Invoices",
+    "totalAmount": "Total Amount",
+    "unpaid": "Unpaid",
+    "overdue": "Overdue",
+    "invoices": "invoices",
+    "downloadStarted": "Invoice download started",
+    "paymentComingSoon": "Payment feature coming soon",
+    "errorFetchingInvoices": "Failed to fetch invoices"
+  },
+  "invoiceStatus": {
+    "draft": "Draft",
+    "sent": "Sent",
+    "viewed": "Viewed",
+    "paid": "Paid",
+    "overdue": "Overdue",
+    "cancelled": "Cancelled"
+  },
+  "billingStatus": {
+    "unpaid": "Unpaid",
+    "partially-paid": "Partially Paid",
+    "paid": "Paid"
+  },
+  "status": {
+    "pending": "Pending",
+    "paymentPending": "Payment Pending",
+    "processing": "Processing",
+    "completed": "Completed",
+    "cancelled": "Cancelled"
+  },
+  "orders": {
+    "orderNumber": "Order Number",
+    "type": "Type",
+    "device": "Device",
+    "cost": "Cost"
   }
 }

@@ -11,7 +11,9 @@ import {
   User,
   BookOpen,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Calendar,
+  FileText
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -30,6 +32,7 @@ export function CustomerSidebar({ isCollapsed }: CustomerSidebarProps) {
   const [cartItemCount, setCartItemCount] = useState(0)
   const [ordersOpen, setOrdersOpen] = useState(false)
   const [shopOpen, setShopOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -188,9 +191,22 @@ export function CustomerSidebar({ isCollapsed }: CustomerSidebarProps) {
         {t('navigation.blog')}
       </NavItem>
 
-      <NavItem to="/profile" icon={User}>
-        {t('navigation.profile')}
-      </NavItem>
+      <CollapsibleSection
+        title={t('navigation.account')}
+        icon={User}
+        isOpen={accountOpen}
+        onToggle={() => setAccountOpen(!accountOpen)}
+      >
+        <NavItem to="/bookings" icon={Calendar}>
+          {t('navigation.bookings')}
+        </NavItem>
+        <NavItem to="/invoices" icon={FileText}>
+          {t('navigation.invoices')}
+        </NavItem>
+        <NavItem to="/profile" icon={User}>
+          {t('navigation.profile')}
+        </NavItem>
+      </CollapsibleSection>
     </nav>
   )
 }
