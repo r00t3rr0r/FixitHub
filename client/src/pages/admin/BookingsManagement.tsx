@@ -595,8 +595,8 @@ export function BookingsManagement() {
                 </TableHeader>
                 <TableBody>
                   {filteredBookings.map((booking) => (
-                    <>
-                    <TableRow key={booking._id} className="hover:bg-muted/50">
+                    <React.Fragment key={booking._id}>
+                    <TableRow className="hover:bg-muted/50">
                       <TableCell className="w-12">
                         <Button
                           variant="ghost"
@@ -800,9 +800,9 @@ export function BookingsManagement() {
                                       </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                      {expandedOrdersData[booking._id].map((item: any, idx: number) => (
+                                      {expandedOrdersData[booking._id].map((item: any) => (
                                         <TableRow
-                                          key={idx}
+                                          key={item.orderId || item._id}
                                           className="hover:bg-muted/50 cursor-pointer transition-colors"
                                           onClick={() => item.orderId && navigate(`/orders/${item.orderId}`)}
                                         >
@@ -889,7 +889,7 @@ export function BookingsManagement() {
                         </TableCell>
                       </TableRow>
                     )}
-                    </>
+                    </React.Fragment>
                   ))}
                 </TableBody>
               </Table>
@@ -1223,9 +1223,9 @@ function BookingDetailDialog({
         <TabsContent value="repairs" className="space-y-4 mt-4">
           {booking.items && booking.items.filter(item => item.type === 'repair').length > 0 ? (
             <div className="space-y-3">
-              {booking.items.filter(item => item.type === 'repair').map((item, idx) => (
+              {booking.items.filter(item => item.type === 'repair').map((item) => (
                 <div
-                  key={idx}
+                  key={item._id || item.orderId}
                   className="border p-4 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
                   onClick={() => item.orderId && handleViewOrder(item.orderId)}
                 >
@@ -1271,8 +1271,8 @@ function BookingDetailDialog({
         <TabsContent value="items" className="space-y-4 mt-4">
           {booking.items && booking.items.filter(item => item.type === 'product').length > 0 ? (
             <div className="space-y-3">
-              {booking.items.filter(item => item.type === 'product').map((item, idx) => (
-                <div key={idx} className="border p-4 rounded-lg">
+              {booking.items.filter(item => item.type === 'product').map((item) => (
+                <div key={item._id || item.orderId} className="border p-4 rounded-lg">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="font-semibold">Product Item</h4>
                     <Badge className={getStatusColor(item.status || 'pending')}>
@@ -1281,8 +1281,8 @@ function BookingDetailDialog({
                   </div>
                   {item.products && item.products.length > 0 ? (
                     <div className="space-y-2">
-                      {item.products.map((product, pidx) => (
-                        <div key={pidx} className="flex justify-between items-center text-sm pb-2 border-b last:border-0">
+                      {item.products.map((product) => (
+                        <div key={product._id || product.productId} className="flex justify-between items-center text-sm pb-2 border-b last:border-0">
                           <div>
                             <p className="font-medium">{product.name}</p>
                             <p className="text-xs text-foreground/60">Qty: {product.quantity} × {formatCurrency(product.price)}</p>
@@ -1313,8 +1313,8 @@ function BookingDetailDialog({
         <TabsContent value="timeline" className="space-y-4 mt-4">
           {booking.timeline && booking.timeline.length > 0 ? (
             <div className="space-y-3">
-              {booking.timeline.map((event, idx) => (
-                <div key={idx} className="border p-4 rounded-lg flex gap-4">
+              {booking.timeline.map((event) => (
+                <div key={event._id || event.completedAt} className="border p-4 rounded-lg flex gap-4">
                   <div className="flex-shrink-0">
                     <CheckCircle className="h-5 w-5 text-green-600 mt-1" />
                   </div>
@@ -1646,8 +1646,8 @@ function InvoiceDialog({
             <div className="border rounded-lg p-4">
               <h3 className="font-semibold mb-3">Invoice Items</h3>
               <div className="space-y-2">
-                {preview.items.map((item: any, idx: number) => (
-                  <div key={idx} className="flex justify-between text-sm border-b pb-2 last:border-0">
+                {preview.items.map((item: any) => (
+                  <div key={item._id || item.description} className="flex justify-between text-sm border-b pb-2 last:border-0">
                     <div className="flex-1">
                       <p className="font-medium">{item.description}</p>
                       <p className="text-xs text-foreground/60">
