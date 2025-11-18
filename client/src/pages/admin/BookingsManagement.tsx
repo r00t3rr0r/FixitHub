@@ -1086,10 +1086,11 @@ function BookingDetailDialog({
       </DialogHeader>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="repairs">Repair Jobs</TabsTrigger>
           <TabsTrigger value="items">Items</TabsTrigger>
+          <TabsTrigger value="invoices">Invoices</TabsTrigger>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
         </TabsList>
 
@@ -1305,6 +1306,10 @@ function BookingDetailDialog({
           )}
         </TabsContent>
 
+        <TabsContent value="invoices" className="space-y-4 mt-4">
+          <InvoicesTabContent booking={booking} />
+        </TabsContent>
+
         <TabsContent value="timeline" className="space-y-4 mt-4">
           {booking.timeline && booking.timeline.length > 0 ? (
             <div className="space-y-3">
@@ -1330,6 +1335,224 @@ function BookingDetailDialog({
         </TabsContent>
       </Tabs>
     </DialogContent>
+  )
+}
+
+// Invoices Tab Content Component
+// Description: Display invoices for a booking with reminder actions
+function InvoicesTabContent({ booking }: { booking: Booking }) {
+  const [invoices, setInvoices] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [reminderDialogOpen, setReminderDialogOpen] = useState(false)
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
+  const { toast } = useToast()
+
+  useEffect(() => {
+    loadInvoices()
+  }, [booking._id])
+
+  const loadInvoices = async () => {
+    try {
+      setLoading(true)
+      const response = await getBookingInvoices(booking._id)
+      setInvoices(response.invoices || [])
+    } catch (error) {
+      console.error('Error loading invoices:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load invoices",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSendReminder = (invoice: any) => {
+    setSelectedInvoice(invoice)
+    setReminderDialogOpen(true)
+  }
+
+  const getInvoiceStatusColor = (status: string) => {
+    switch (status) {
+      case 'paid':
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+      case 'overdue':
+        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+      case 'cancelled':
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(value)
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
+
+  if (invoices.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <FileText className="h-12 w-12 mx-auto mb-4 opacity-40" />
+        <p className="text-foreground/60">No invoices created for this booking yet</p>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div className="space-y-3">
+        {invoices.map((invoice) => (
+          <div key={invoice._id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <h4 className="font-semibold">Invoice #{invoice.invoiceNumber}</h4>
+                  <Badge className={getInvoiceStatusColor(invoice.status)}>
+                    {invoice.status}
+                  </Badge>
+                </div>
+                <p className="text-sm text-foreground/60">
+                  Created: {formatDate(invoice.createdAt)}
+                </p>
+                {invoice.dueDate && (
+                  <p className="text-sm text-foreground/60">
+                    Due: {formatDate(invoice.dueDate)}
+                  </p>
+                )}
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-bold">{formatCurrency(invoice.total)}</p>
+                {invoice.amountPaid > 0 && (
+                  <p className="text-sm text-green-600">
+                    Paid: {formatCurrency(invoice.amountPaid)}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <Separator className="my-3" />
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-foreground/60">
+                <Mail className="h-4 w-4" />
+                <span>{booking.customerId.email}</span>
+              </div>
+              <div className="flex gap-2">
+                {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleSendReminder(invoice)}
+                  >
+                    <Bell className="h-4 w-4 mr-1" />
+                    Send Reminder
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Open invoice in new tab or download
+                    window.open(`/api/invoices/${invoice._id}/pdf`, '_blank')
+                  }}
+                >
+                  <FileText className="h-4 w-4 mr-1" />
+                  View PDF
+                </Button>
+              </div>
+            </div>
+
+            {invoice.notes && (
+              <div className="mt-3 p-2 bg-muted rounded text-sm">
+                <p className="text-foreground/60">Notes: {invoice.notes}</p>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Reminder Dialog for Invoice */}
+      {selectedInvoice && (
+        <Dialog open={reminderDialogOpen} onOpenChange={setReminderDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Send Payment Reminder</DialogTitle>
+              <DialogDescription>
+                Send a reminder to {booking.customerId.firstName || booking.customerId.email} about Invoice #{selectedInvoice.invoiceNumber}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-muted/50 p-3 rounded">
+                <p className="text-sm font-medium">Invoice Details</p>
+                <p className="text-sm text-foreground/60">Amount: {formatCurrency(selectedInvoice.total)}</p>
+                <p className="text-sm text-foreground/60">Status: {selectedInvoice.status}</p>
+                {selectedInvoice.dueDate && (
+                  <p className="text-sm text-foreground/60">Due Date: {formatDate(selectedInvoice.dueDate)}</p>
+                )}
+              </div>
+              <p className="text-sm text-foreground/60">
+                A payment reminder email will be sent to the customer with invoice details and a payment link.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setReminderDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={async () => {
+                try {
+                  await createReminder({
+                    bookingId: booking._id,
+                    customerId: booking.customerId._id,
+                    type: 'payment',
+                    title: `Payment Reminder - Invoice #${selectedInvoice.invoiceNumber}`,
+                    message: `This is a reminder that Invoice #${selectedInvoice.invoiceNumber} for ${formatCurrency(selectedInvoice.total)} is ${selectedInvoice.status === 'overdue' ? 'overdue' : 'pending payment'}. Please make payment at your earliest convenience.`,
+                    scheduledDate: new Date().toISOString(),
+                    priority: selectedInvoice.status === 'overdue' ? 'high' : 'medium',
+                    notificationMethod: ['email', 'in-app']
+                  })
+                  toast({
+                    title: "Success",
+                    description: "Payment reminder sent successfully"
+                  })
+                  setReminderDialogOpen(false)
+                } catch (error) {
+                  toast({
+                    title: "Error",
+                    description: "Failed to send reminder",
+                    variant: "destructive"
+                  })
+                }
+              }}>
+                <Bell className="h-4 w-4 mr-2" />
+                Send Reminder
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   )
 }
 

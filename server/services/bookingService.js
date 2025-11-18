@@ -170,7 +170,38 @@ class BookingService {
         .skip(filters.skip || 0);
 
       console.log('BookingService: Found', bookings.length, 'total bookings');
-      return bookings;
+
+      // Calculate real-time progress for all bookings from their associated orders
+      const bookingsWithProgress = await Promise.all(
+        bookings.map(async (booking) => {
+          try {
+            // Get all orders for this booking
+            const allOrders = await Order.find({ bookingId: booking._id });
+
+            if (allOrders.length === 0) {
+              return booking;
+            }
+
+            // Calculate overall progress from all orders
+            let totalProgress = 0;
+            allOrders.forEach(order => {
+              totalProgress += (order.progress || 0);
+            });
+            const averageProgress = Math.round(totalProgress / allOrders.length);
+
+            // Update booking document with calculated progress (in-memory only, not saved)
+            booking.overallProgress = averageProgress;
+
+            return booking;
+          } catch (error) {
+            console.error('BookingService: Error calculating progress for booking:', booking._id, error);
+            return booking;
+          }
+        })
+      );
+
+      console.log('BookingService: Calculated real-time progress for all bookings');
+      return bookingsWithProgress;
     } catch (error) {
       console.error('BookingService: Error getting all bookings:', error);
       throw error;
