@@ -161,3 +161,49 @@ export const getBookingOrders = async (bookingId: string) => {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// Description: Preview invoice for a booking before creation
+// Endpoint: GET /api/bookings/:id/invoice/preview
+// Request: {}
+// Response: { success: boolean, invoicePreview: object }
+export const previewBookingInvoice = async (bookingId: string) => {
+  try {
+    const response = await api.get(`/api/bookings/${bookingId}/invoice/preview`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Create invoice from booking
+// Endpoint: POST /api/bookings/:id/invoice
+// Request: { dueDate?: string, notes?: string, sendImmediately?: boolean }
+// Response: { success: boolean, invoice: Invoice }
+export const createBookingInvoice = async (
+  bookingId: string,
+  invoiceData?: {
+    dueDate?: string;
+    notes?: string;
+    sendImmediately?: boolean;
+  }
+) => {
+  try {
+    const response = await api.post(`/api/bookings/${bookingId}/invoice`, invoiceData || {});
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Get all invoices for a booking
+// Endpoint: GET /api/bookings/:id/invoices
+// Request: {}
+// Response: { success: boolean, invoices: Invoice[] }
+export const getBookingInvoices = async (bookingId: string) => {
+  try {
+    const response = await api.get(`/api/bookings/${bookingId}/invoices`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};

@@ -7,7 +7,25 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
-import { getAdminBookings, getBooking, updateBookingStatus, updateBookingBillingStatus, cancelBooking, getBookingOrders } from "@/api/bookings"
+import {
+  getAdminBookings,
+  getBooking,
+  updateBookingStatus,
+  updateBookingBillingStatus,
+  cancelBooking,
+  getBookingOrders,
+  previewBookingInvoice,
+  createBookingInvoice,
+  getBookingInvoices
+} from "@/api/bookings"
+import {
+  createComplaint,
+  getComplaintsByBooking
+} from "@/api/complaints"
+import {
+  createReminder,
+  getRemindersByBooking
+} from "@/api/reminders"
 import {
   Search,
   Filter,
@@ -28,7 +46,10 @@ import {
   Trash2,
   ExternalLink,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  FileText,
+  Bell,
+  MessageSquare
 } from "lucide-react"
 import {
   Select,
@@ -135,6 +156,9 @@ export function BookingsManagement() {
   const [expandedBookings, setExpandedBookings] = useState<Set<string>>(new Set())
   const [expandedOrdersData, setExpandedOrdersData] = useState<Record<string, any[]>>({})
   const [loadingOrders, setLoadingOrders] = useState<Set<string>>(new Set())
+  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false)
+  const [showReminderDialog, setShowReminderDialog] = useState(false)
+  const [showComplaintDialog, setShowComplaintDialog] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -592,7 +616,40 @@ export function BookingsManagement() {
                         {formatDate(booking.createdAt)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex gap-2 justify-end">
+                        <div className="flex gap-1 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Create Invoice"
+                            onClick={() => {
+                              setSelectedBooking(booking)
+                              setShowInvoiceDialog(true)
+                            }}
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Create Reminder"
+                            onClick={() => {
+                              setSelectedBooking(booking)
+                              setShowReminderDialog(true)
+                            }}
+                          >
+                            <Bell className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="File Complaint"
+                            onClick={() => {
+                              setSelectedBooking(booking)
+                              setShowComplaintDialog(true)
+                            }}
+                          >
+                            <MessageSquare className="h-4 w-4" />
+                          </Button>
                           {(booking.orderIds?.length || 0) > 0 && (
                             <Button
                               variant="ghost"
@@ -790,6 +847,66 @@ export function BookingsManagement() {
           )}
         </CardContent>
       </Card>
+
+      {/* Invoice Dialog */}
+      {selectedBooking && (
+        <InvoiceDialog
+          booking={selectedBooking}
+          open={showInvoiceDialog}
+          onClose={() => {
+            setShowInvoiceDialog(false)
+            setSelectedBooking(null)
+          }}
+          onSuccess={() => {
+            toast({
+              title: "Success",
+              description: "Invoice created successfully"
+            })
+            setShowInvoiceDialog(false)
+            setSelectedBooking(null)
+          }}
+        />
+      )}
+
+      {/* Reminder Dialog */}
+      {selectedBooking && (
+        <ReminderDialog
+          booking={selectedBooking}
+          open={showReminderDialog}
+          onClose={() => {
+            setShowReminderDialog(false)
+            setSelectedBooking(null)
+          }}
+          onSuccess={() => {
+            toast({
+              title: "Success",
+              description: "Reminder created successfully"
+            })
+            setShowReminderDialog(false)
+            setSelectedBooking(null)
+          }}
+        />
+      )}
+
+      {/* Complaint Dialog */}
+      {selectedBooking && (
+        <ComplaintDialog
+          booking={selectedBooking}
+          open={showComplaintDialog}
+          onClose={() => {
+            setShowComplaintDialog(false)
+            setSelectedBooking(null)
+          }}
+          onSuccess={() => {
+            toast({
+              title: "Success",
+              description: "Complaint filed successfully"
+            })
+            setShowComplaintDialog(false)
+            setSelectedBooking(null)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -1163,5 +1280,445 @@ function BookingDetailDialog({
         </TabsContent>
       </Tabs>
     </DialogContent>
+  )
+}
+
+// Invoice Creation Dialog Component
+// Description: Dialog for previewing and creating invoices for bookings
+function InvoiceDialog({
+  booking,
+  open,
+  onClose,
+  onSuccess
+}: {
+  booking: Booking;
+  open: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [loading, setLoading] = useState(false)
+  const [preview, setPreview] = useState<any>(null)
+  const [notes, setNotes] = useState('')
+  const [sendImmediately, setSendImmediately] = useState(false)
+  const { toast } = useToast()
+
+  useEffect(() => {
+    if (open && booking) {
+      loadPreview()
+    }
+  }, [open, booking])
+
+  const loadPreview = async () => {
+    try {
+      setLoading(true)
+      const response = await previewBookingInvoice(booking._id)
+      setPreview(response.invoicePreview)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load invoice preview",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCreate = async () => {
+    try {
+      setLoading(true)
+      await createBookingInvoice(booking._id, {
+        notes,
+        sendImmediately
+      })
+      onSuccess()
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create invoice",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(value)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Create Invoice for Booking</DialogTitle>
+          <DialogDescription>Preview and confirm invoice details</DialogDescription>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          </div>
+        ) : preview ? (
+          <div className="space-y-4">
+            <div className="border rounded-lg p-4 bg-muted/30">
+              <h3 className="font-semibold mb-2">Customer Information</h3>
+              <p className="text-sm">{preview.customerName}</p>
+              <p className="text-sm text-foreground/60">{preview.customerEmail}</p>
+            </div>
+
+            <div className="border rounded-lg p-4">
+              <h3 className="font-semibold mb-3">Invoice Items</h3>
+              <div className="space-y-2">
+                {preview.items.map((item: any, idx: number) => (
+                  <div key={idx} className="flex justify-between text-sm border-b pb-2 last:border-0">
+                    <div className="flex-1">
+                      <p className="font-medium">{item.description}</p>
+                      <p className="text-xs text-foreground/60">
+                        Qty: {item.quantity} × {formatCurrency(item.unitPrice)}
+                      </p>
+                    </div>
+                    <p className="font-semibold">{formatCurrency(item.total)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="border rounded-lg p-4 bg-muted/30">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Subtotal:</span>
+                  <span>{formatCurrency(preview.subtotal)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Tax:</span>
+                  <span>{formatCurrency(preview.tax)}</span>
+                </div>
+                {preview.discount > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Discount:</span>
+                    <span>-{formatCurrency(preview.discount)}</span>
+                  </div>
+                )}
+                <Separator />
+                <div className="flex justify-between text-lg font-bold">
+                  <span>Total:</span>
+                  <span>{formatCurrency(preview.total)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium">Notes (optional)</label>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Add any additional notes..."
+                  rows={3}
+                  className="mt-2"
+                />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="sendImmediately"
+                  checked={sendImmediately}
+                  onChange={(e) => setSendImmediately(e.target.checked)}
+                  className="rounded"
+                />
+                <label htmlFor="sendImmediately" className="text-sm">
+                  Send invoice immediately to customer
+                </label>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-foreground/60">
+            No preview available
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleCreate} disabled={loading || !preview}>
+            Create Invoice
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// Reminder Creation Dialog Component
+// Description: Dialog for creating reminders for bookings
+function ReminderDialog({
+  booking,
+  open,
+  onClose,
+  onSuccess
+}: {
+  booking: Booking;
+  open: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [loading, setLoading] = useState(false)
+  const [reminderType, setReminderType] = useState('payment')
+  const [title, setTitle] = useState('')
+  const [message, setMessage] = useState('')
+  const [scheduledDate, setScheduledDate] = useState('')
+  const [priority, setPriority] = useState('medium')
+  const { toast } = useToast()
+
+  const handleCreate = async () => {
+    if (!title || !message || !scheduledDate) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      setLoading(true)
+      await createReminder({
+        bookingId: booking._id,
+        customerId: booking.customerId._id,
+        type: reminderType,
+        title,
+        message,
+        scheduledDate,
+        priority,
+        notificationMethod: ['email', 'in-app']
+      })
+      onSuccess()
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create reminder",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Create Reminder</DialogTitle>
+          <DialogDescription>Schedule a reminder for this booking</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium">Reminder Type</label>
+            <Select value={reminderType} onValueChange={setReminderType}>
+              <SelectTrigger className="mt-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="payment">Payment</SelectItem>
+                <SelectItem value="pickup">Pickup</SelectItem>
+                <SelectItem value="followup">Follow-up</SelectItem>
+                <SelectItem value="feedback">Feedback</SelectItem>
+                <SelectItem value="maintenance">Maintenance</SelectItem>
+                <SelectItem value="custom">Custom</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">Title *</label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Reminder title"
+              className="mt-2"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">Message *</label>
+            <Textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Reminder message"
+              rows={4}
+              className="mt-2"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">Scheduled Date & Time *</label>
+            <Input
+              type="datetime-local"
+              value={scheduledDate}
+              onChange={(e) => setScheduledDate(e.target.value)}
+              className="mt-2"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">Priority</label>
+            <Select value={priority} onValueChange={setPriority}>
+              <SelectTrigger className="mt-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleCreate} disabled={loading}>
+            Create Reminder
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// Complaint Creation Dialog Component
+// Description: Dialog for filing complaints about bookings
+function ComplaintDialog({
+  booking,
+  open,
+  onClose,
+  onSuccess
+}: {
+  booking: Booking;
+  open: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [loading, setLoading] = useState(false)
+  const [category, setCategory] = useState('service')
+  const [subject, setSubject] = useState('')
+  const [description, setDescription] = useState('')
+  const [priority, setPriority] = useState('medium')
+  const { toast } = useToast()
+
+  const handleCreate = async () => {
+    if (!subject || !description) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      setLoading(true)
+      await createComplaint({
+        bookingId: booking._id,
+        subject,
+        description,
+        category,
+        priority
+      })
+      onSuccess()
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to file complaint",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>File Complaint</DialogTitle>
+          <DialogDescription>Report an issue with this booking</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium">Category</label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger className="mt-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="quality">Quality</SelectItem>
+                <SelectItem value="service">Service</SelectItem>
+                <SelectItem value="delivery">Delivery</SelectItem>
+                <SelectItem value="billing">Billing</SelectItem>
+                <SelectItem value="communication">Communication</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">Subject *</label>
+            <Input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Brief summary of the issue"
+              className="mt-2"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">Description *</label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Detailed description of the issue"
+              rows={5}
+              className="mt-2"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">Priority</label>
+            <Select value={priority} onValueChange={setPriority}>
+              <SelectTrigger className="mt-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="urgent">Urgent</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleCreate} disabled={loading}>
+            File Complaint
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -2,6 +2,8 @@ const Booking = require('../models/Booking');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Service = require('../models/Service');
+const Invoice = require('../models/Invoice');
+const User = require('../models/User');
 
 class BookingService {
   // Create a new booking from orders (consolidated from cart checkout)
@@ -418,6 +420,196 @@ class BookingService {
       return ordersData;
     } catch (error) {
       console.error('BookingService: Error getting booking orders:', error);
+      throw error;
+    }
+  }
+
+  // Preview invoice for a booking (before creation)
+  static async previewInvoice(bookingId) {
+    console.log('BookingService: Previewing invoice for booking:', bookingId);
+
+    try {
+      const booking = await Booking.findById(bookingId)
+        .populate('customerId', 'firstName lastName email phone name')
+        .populate('orderIds');
+
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      // Build invoice items from booking
+      const items = [];
+
+      for (const item of booking.items) {
+        if (item.type === 'repair' && item.services) {
+          // Add repair services
+          for (const service of item.services) {
+            items.push({
+              description: `${service.name} - ${item.device || 'Device Repair'}`,
+              quantity: 1,
+              unitPrice: service.price,
+              total: service.price,
+              type: 'service'
+            });
+          }
+        } else if (item.type === 'product' && item.products) {
+          // Add products
+          for (const product of item.products) {
+            items.push({
+              description: product.name,
+              quantity: product.quantity,
+              unitPrice: product.price,
+              total: product.totalPrice,
+              type: 'product'
+            });
+          }
+        }
+      }
+
+      // Calculate invoice totals
+      const subtotal = items.reduce((sum, item) => sum + item.total, 0);
+      const tax = booking.tax || (subtotal * 0.08);
+      const discount = booking.discount || 0;
+      const total = subtotal + tax - discount;
+
+      const customer = booking.customerId;
+      const customerName = customer.firstName
+        ? `${customer.firstName} ${customer.lastName || ''}`
+        : (customer.name || customer.email);
+
+      // Create preview data
+      const invoicePreview = {
+        bookingId: booking._id,
+        bookingNumber: booking.bookingNumber,
+        customerId: customer._id,
+        customerName: customerName,
+        customerEmail: customer.email,
+        items: items,
+        subtotal: subtotal,
+        tax: tax,
+        discount: discount,
+        total: total,
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        paymentTerms: 'Net 30',
+        notes: `Invoice for booking ${booking.bookingNumber || booking._id}`
+      };
+
+      console.log('BookingService: Invoice preview created with', items.length, 'items');
+      return invoicePreview;
+    } catch (error) {
+      console.error('BookingService: Error previewing invoice:', error);
+      throw error;
+    }
+  }
+
+  // Create invoice from booking
+  static async createInvoice(bookingId, invoiceData = {}) {
+    console.log('BookingService: Creating invoice for booking:', bookingId);
+
+    try {
+      const booking = await Booking.findById(bookingId)
+        .populate('customerId', 'firstName lastName email phone name')
+        .populate('orderIds');
+
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      // Build invoice items from booking
+      const items = [];
+
+      for (const item of booking.items) {
+        if (item.type === 'repair' && item.services) {
+          // Add repair services
+          for (const service of item.services) {
+            items.push({
+              description: `${service.name} - ${item.device || 'Device Repair'}`,
+              quantity: 1,
+              unitPrice: service.price,
+              total: service.price,
+              type: 'service'
+            });
+          }
+        } else if (item.type === 'product' && item.products) {
+          // Add products
+          for (const product of item.products) {
+            items.push({
+              description: product.name,
+              quantity: product.quantity,
+              unitPrice: product.price,
+              total: product.totalPrice,
+              type: 'product'
+            });
+          }
+        }
+      }
+
+      // Calculate invoice totals
+      const subtotal = items.reduce((sum, item) => sum + item.total, 0);
+      const tax = invoiceData.tax || booking.tax || (subtotal * 0.08);
+      const discount = invoiceData.discount || booking.discount || 0;
+      const total = subtotal + tax - discount;
+
+      const customer = booking.customerId;
+      const customerName = customer.firstName
+        ? `${customer.firstName} ${customer.lastName || ''}`
+        : (customer.name || customer.email);
+
+      // Create invoice
+      const invoice = new Invoice({
+        orderId: booking.orderIds && booking.orderIds.length > 0 ? booking.orderIds[0]._id : null,
+        customerId: customer._id,
+        customerName: customerName,
+        customerEmail: customer.email,
+        items: items,
+        subtotal: subtotal,
+        tax: tax,
+        discount: discount,
+        total: total,
+        status: invoiceData.status || 'draft',
+        dueDate: invoiceData.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        paymentTerms: invoiceData.paymentTerms || 'Net 30',
+        notes: invoiceData.notes || `Invoice for booking ${booking.bookingNumber || booking._id}`,
+        template: invoiceData.template || 'standard'
+      });
+
+      const savedInvoice = await invoice.save();
+      console.log('BookingService: Invoice created successfully with ID:', savedInvoice._id, 'Number:', savedInvoice.invoiceNumber);
+
+      // Update invoice status to 'sent' if requested
+      if (invoiceData.sendImmediately) {
+        savedInvoice.status = 'sent';
+        savedInvoice.sentAt = new Date();
+        await savedInvoice.save();
+        console.log('BookingService: Invoice marked as sent');
+      }
+
+      return savedInvoice;
+    } catch (error) {
+      console.error('BookingService: Error creating invoice:', error);
+      throw error;
+    }
+  }
+
+  // Get invoices for a booking
+  static async getBookingInvoices(bookingId) {
+    console.log('BookingService: Getting invoices for booking:', bookingId);
+
+    try {
+      const booking = await Booking.findById(bookingId);
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      // Find invoices by order IDs associated with the booking
+      const invoices = await Invoice.find({
+        orderId: { $in: booking.orderIds }
+      }).sort({ createdAt: -1 });
+
+      console.log('BookingService: Found', invoices.length, 'invoices for booking');
+      return invoices;
+    } catch (error) {
+      console.error('BookingService: Error getting booking invoices:', error);
       throw error;
     }
   }

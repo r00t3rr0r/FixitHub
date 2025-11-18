@@ -320,4 +320,94 @@ router.delete('/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// Description: Preview invoice for a booking before creation
+// Endpoint: GET /api/bookings/:id/invoice/preview
+// Request: {}
+// Response: { success: boolean, invoicePreview: object }
+router.get('/:id/invoice/preview', requireUser, async (req, res) => {
+  try {
+    console.log('BookingRoutes: Previewing invoice for booking:', req.params.id);
+
+    const invoicePreview = await BookingService.previewInvoice(req.params.id);
+
+    if (!invoicePreview) {
+      console.log('BookingRoutes: Could not generate invoice preview');
+      return res.status(404).json({
+        success: false,
+        error: 'Could not generate invoice preview',
+      });
+    }
+
+    console.log('BookingRoutes: Invoice preview generated successfully');
+
+    res.json({
+      success: true,
+      invoicePreview: invoicePreview,
+    });
+  } catch (error) {
+    console.error('BookingRoutes: Error previewing invoice:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// Description: Create invoice from booking
+// Endpoint: POST /api/bookings/:id/invoice
+// Request: { dueDate?: string, notes?: string, sendImmediately?: boolean }
+// Response: { success: boolean, invoice: Invoice }
+router.post('/:id/invoice', requireAdmin, async (req, res) => {
+  try {
+    console.log('BookingRoutes: Creating invoice for booking:', req.params.id);
+
+    const { dueDate, notes, sendImmediately } = req.body;
+
+    const invoiceData = {};
+    if (dueDate) invoiceData.dueDate = new Date(dueDate);
+    if (notes) invoiceData.notes = notes;
+    if (sendImmediately !== undefined) invoiceData.sendImmediately = sendImmediately;
+
+    const invoice = await BookingService.createInvoice(req.params.id, invoiceData);
+
+    console.log('BookingRoutes: Invoice created successfully:', invoice._id);
+
+    res.status(201).json({
+      success: true,
+      invoice: invoice,
+    });
+  } catch (error) {
+    console.error('BookingRoutes: Error creating invoice:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// Description: Get all invoices for a booking
+// Endpoint: GET /api/bookings/:id/invoices
+// Request: {}
+// Response: { success: boolean, invoices: Invoice[] }
+router.get('/:id/invoices', requireUser, async (req, res) => {
+  try {
+    console.log('BookingRoutes: Getting invoices for booking:', req.params.id);
+
+    const invoices = await BookingService.getBookingInvoices(req.params.id);
+
+    console.log('BookingRoutes: Retrieved', invoices.length, 'invoices');
+
+    res.json({
+      success: true,
+      invoices: invoices,
+    });
+  } catch (error) {
+    console.error('BookingRoutes: Error getting invoices:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
 module.exports = router;
