@@ -49,7 +49,8 @@ import {
   ChevronUp,
   FileText,
   Bell,
-  MessageSquare
+  MessageSquare,
+  MoreVertical
 } from "lucide-react"
 import {
   Select,
@@ -58,6 +59,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
 import {
   Table,
   TableBody,
@@ -157,6 +165,7 @@ export function BookingsManagement() {
   const [expandedBookings, setExpandedBookings] = useState<Set<string>>(new Set())
   const [expandedOrdersData, setExpandedOrdersData] = useState<Record<string, any[]>>({})
   const [loadingOrders, setLoadingOrders] = useState<Set<string>>(new Set())
+  const [calculatedProgress, setCalculatedProgress] = useState<Record<string, number>>({})
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false)
   const [showReminderDialog, setShowReminderDialog] = useState(false)
   const [showComplaintDialog, setShowComplaintDialog] = useState(false)
@@ -323,9 +332,23 @@ export function BookingsManagement() {
 
         console.log(`Retrieved ${ordersData.length} orders with repair progress status`)
 
+        // Calculate actual progress from fresh order data
+        let totalProgress = 0
+        ordersData.forEach((order: any) => {
+          totalProgress += (order.progress || 0)
+        })
+        const averageProgress = ordersData.length > 0 ? Math.round(totalProgress / ordersData.length) : 0
+
+        console.log(`Calculated progress for booking ${bookingId}: ${averageProgress}%`)
+
         setExpandedOrdersData(prev => ({
           ...prev,
           [bookingId]: ordersData
+        }))
+
+        setCalculatedProgress(prev => ({
+          ...prev,
+          [bookingId]: averageProgress
         }))
 
         newExpanded.add(bookingId)
@@ -346,6 +369,16 @@ export function BookingsManagement() {
         setLoadingOrders(newLoading)
       }
     }
+  }
+
+  // Helper function to get actual progress (calculated from orders if expanded, otherwise from booking)
+  const getBookingProgress = (bookingId: string, fallbackProgress: number = 0) => {
+    // If we have calculated progress from expanded orders, use that
+    if (calculatedProgress[bookingId] !== undefined) {
+      return calculatedProgress[bookingId]
+    }
+    // Otherwise use the fallback (booking's overallProgress from database)
+    return fallbackProgress
   }
 
   const getStatusColor = (status: string) => {
@@ -610,11 +643,11 @@ export function BookingsManagement() {
                           <div className="flex-1 bg-muted rounded-full h-2">
                             <div
                               className="bg-primary h-2 rounded-full transition-all"
-                              style={{ width: `${booking.overallProgress || 0}%` }}
+                              style={{ width: `${getBookingProgress(booking._id, booking.overallProgress || 0)}%` }}
                             ></div>
                           </div>
                           <span className="text-xs font-semibold whitespace-nowrap">
-                            {booking.overallProgress || 0}%
+                            {getBookingProgress(booking._id, booking.overallProgress || 0)}%
                           </span>
                         </div>
                       </TableCell>
@@ -631,89 +664,77 @@ export function BookingsManagement() {
                         {formatDate(booking.createdAt)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex gap-1 justify-end">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            title="Create Invoice"
-                            onClick={() => {
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem onClick={() => handleViewDetails(booking)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
                               setSelectedBooking(booking)
                               setShowInvoiceDialog(true)
-                            }}
-                          >
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            title="Create Reminder"
-                            onClick={() => {
+                            }}>
+                              <FileText className="h-4 w-4 mr-2" />
+                              Create Invoice
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
                               setSelectedBooking(booking)
                               setShowReminderDialog(true)
-                            }}
-                          >
-                            <Bell className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            title="File Complaint"
-                            onClick={() => {
+                            }}>
+                              <Bell className="h-4 w-4 mr-2" />
+                              Create Reminder
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
                               setSelectedBooking(booking)
                               setShowComplaintDialog(true)
-                            }}
-                          >
-                            <MessageSquare className="h-4 w-4" />
-                          </Button>
-                          {(booking.orderIds?.length || 0) > 0 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              title="View associated orders"
-                              onClick={() => {
-                                // Store booking info and navigate to orders filtered view
+                            }}>
+                              <MessageSquare className="h-4 w-4 mr-2" />
+                              File Complaint
+                            </DropdownMenuItem>
+                            {(booking.orderIds?.length || 0) > 0 && (
+                              <DropdownMenuItem onClick={() => {
                                 window.location.href = `/admin/orders?bookingId=${booking._id}`
-                              }}
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Dialog open={selectedBooking?._id === booking._id && showDetailDialog} onOpenChange={(open) => {
-                            if (!open) {
-                              setShowDetailDialog(false)
-                              setSelectedBooking(null)
-                            }
-                          }}>
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleViewDetails(booking)}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </DialogTrigger>
-                            {selectedBooking?._id === booking._id && (
-                              <BookingDetailDialog
-                                booking={selectedBooking}
-                                navigate={navigate}
-                                onStatusUpdate={() => {
-                                  setSelectedBooking(null)
-                                  setShowDetailDialog(false)
-                                  fetchBookings()
-                                }}
-                              />
+                              }}>
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                View Orders
+                              </DropdownMenuItem>
                             )}
-                          </Dialog>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleCancelBooking(booking._id)}
-                            disabled={deleting === booking._id || booking.status === 'cancelled'}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleCancelBooking(booking._id)}
+                              disabled={deleting === booking._id || booking.status === 'cancelled'}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Cancel Booking
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        {/* Hidden Dialog for View Details */}
+                        <Dialog open={selectedBooking?._id === booking._id && showDetailDialog} onOpenChange={(open) => {
+                          if (!open) {
+                            setShowDetailDialog(false)
+                            setSelectedBooking(null)
+                          }
+                        }}>
+                          {selectedBooking?._id === booking._id && (
+                            <BookingDetailDialog
+                              booking={selectedBooking}
+                              navigate={navigate}
+                              onStatusUpdate={() => {
+                                setSelectedBooking(null)
+                                setShowDetailDialog(false)
+                                fetchBookings()
+                              }}
+                            />
+                          )}
+                        </Dialog>
                       </TableCell>
                     </TableRow>
 
@@ -748,11 +769,11 @@ export function BookingsManagement() {
                                   <div className="flex-1 bg-muted rounded-full h-3">
                                     <div
                                       className="bg-primary h-3 rounded-full transition-all"
-                                      style={{ width: `${booking.overallProgress || 0}%` }}
+                                      style={{ width: `${getBookingProgress(booking._id, booking.overallProgress || 0)}%` }}
                                     ></div>
                                   </div>
                                   <span className="text-sm font-semibold whitespace-nowrap">
-                                    {booking.overallProgress || 0}%
+                                    {getBookingProgress(booking._id, booking.overallProgress || 0)}%
                                   </span>
                                 </div>
                               </div>
