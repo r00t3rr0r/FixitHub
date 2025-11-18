@@ -61,7 +61,20 @@ module.exports = { auth, requireUser, requireRole, requireAdmin, requireStaff };
 
 **Changes**: Updated multiple map operations to use proper `key` props on the outermost element.
 
-#### Change 2.1: Main Bookings Table Fragment
+#### Change 2.1: Add React Import
+**Before** (Line 1):
+```tsx
+import { useEffect, useState } from "react"
+```
+
+**After**:
+```tsx
+import React, { useEffect, useState } from "react"
+```
+
+**Explanation**: Added `React` to the imports to use `React.Fragment` component with proper key props.
+
+#### Change 2.2: Main Bookings Table Fragment
 **Before** (Lines 597-599):
 ```tsx
 {filteredBookings.map((booking) => (
@@ -78,7 +91,7 @@ module.exports = { auth, requireUser, requireRole, requireAdmin, requireStaff };
 
 **Explanation**: The `key` must be on the outermost element returned by the map function. Since we're returning a Fragment containing two TableRows (main row + expanded row), the key must be on the Fragment.
 
-#### Change 2.2: Expanded Orders Table
+#### Change 2.3: Expanded Orders Table
 **Before** (Line 803):
 ```tsx
 {expandedOrdersData[booking._id].map((item: any, idx: number) => (
@@ -95,7 +108,7 @@ module.exports = { auth, requireUser, requireRole, requireAdmin, requireStaff };
 
 **Explanation**: Using index as key is problematic because it doesn't uniquely identify items if the list order changes. Using `orderId` or `_id` provides stable, unique keys.
 
-#### Change 2.3: Repair Items Tab
+#### Change 2.4: Repair Items Tab
 **Before** (Line 1226):
 ```tsx
 {booking.items.filter(item => item.type === 'repair').map((item, idx) => (
@@ -110,7 +123,7 @@ module.exports = { auth, requireUser, requireRole, requireAdmin, requireStaff };
     key={item._id || item.orderId}
 ```
 
-#### Change 2.4: Product Items Tab
+#### Change 2.5: Product Items Tab
 **Before** (Line 1274):
 ```tsx
 {booking.items.filter(item => item.type === 'product').map((item, idx) => (
@@ -123,7 +136,7 @@ module.exports = { auth, requireUser, requireRole, requireAdmin, requireStaff };
   <div key={item._id || item.orderId} className="border p-4 rounded-lg">
 ```
 
-#### Change 2.5: Nested Products in Product Items
+#### Change 2.6: Nested Products in Product Items
 **Before** (Line 1284):
 ```tsx
 {item.products.map((product, pidx) => (
@@ -136,7 +149,7 @@ module.exports = { auth, requireUser, requireRole, requireAdmin, requireStaff };
   <div key={product._id || product.productId} className="flex justify-between items-center text-sm pb-2 border-b last:border-0">
 ```
 
-#### Change 2.6: Timeline Events Tab
+#### Change 2.7: Timeline Events Tab
 **Before** (Line 1316):
 ```tsx
 {booking.timeline.map((event, idx) => (
@@ -149,7 +162,7 @@ module.exports = { auth, requireUser, requireRole, requireAdmin, requireStaff };
   <div key={event._id || event.completedAt} className="border p-4 rounded-lg flex gap-4">
 ```
 
-#### Change 2.7: Invoice Preview Items
+#### Change 2.8: Invoice Preview Items
 **Before** (Line 1649):
 ```tsx
 {preview.items.map((item: any, idx: number) => (
@@ -172,9 +185,10 @@ module.exports = { auth, requireUser, requireRole, requireAdmin, requireStaff };
 
 ### Frontend (1 file)
 - `client/src/pages/admin/BookingsManagement.tsx`
+  - Added React import for Fragment component
   - Updated 7 map operations to use proper key props
   - Changed Fragment syntax from `<>` to `<React.Fragment>`
-  - Total changes: ~14 lines
+  - Total changes: ~15 lines
 
 ## Testing Results
 
@@ -327,8 +341,8 @@ Both fixes follow industry standards and best practices.
 
 ### Lines Changed
 - Backend: 5 lines (auth middleware)
-- Frontend: 14 lines (key props in maps)
-- Total: 19 lines
+- Frontend: 15 lines (React import + key props in maps)
+- Total: 20 lines
 
 ### Testing Status
 - ✅ Build successful
