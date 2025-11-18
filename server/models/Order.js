@@ -431,6 +431,96 @@ orderSchema.pre(/^find/, function(next) {
   next();
 });
 
+// Post-save hook to update booking status and progress when order progresses
+orderSchema.post('save', async function(doc) {
+  console.log('Order post-save hook: Order saved, checking for booking updates:', doc._id);
+
+  // Only proceed if this order belongs to a booking
+  if (!doc.bookingId) {
+    console.log('Order post-save hook: No booking associated, skipping');
+    return;
+  }
+
+  try {
+    const Booking = mongoose.model('Booking');
+    const booking = await Booking.findById(doc.bookingId);
+
+    if (!booking) {
+      console.log('Order post-save hook: Booking not found:', doc.bookingId);
+      return;
+    }
+
+    console.log('Order post-save hook: Found booking:', booking._id, 'Current status:', booking.status);
+
+    // Get all orders for this booking
+    const Order = mongoose.model('Order');
+    const allOrders = await Order.find({ bookingId: booking._id });
+
+    console.log('Order post-save hook: Found', allOrders.length, 'orders for booking');
+
+    // Calculate overall progress from all orders
+    let totalProgress = 0;
+    let hasInProgressOrders = false;
+    let allCompleted = true;
+
+    allOrders.forEach(order => {
+      totalProgress += (order.progress || 0);
+      if (order.status === 'in-progress' || order.status === 'quality-check') {
+        hasInProgressOrders = true;
+      }
+      if (order.status !== 'completed' && order.status !== 'cancelled') {
+        allCompleted = false;
+      }
+    });
+
+    const averageProgress = allOrders.length > 0 ? Math.round(totalProgress / allOrders.length) : 0;
+
+    console.log('Order post-save hook: Calculated progress:', averageProgress, '%');
+    console.log('Order post-save hook: Has in-progress orders:', hasInProgressOrders);
+    console.log('Order post-save hook: All completed:', allCompleted);
+
+    // Update booking status based on order progress
+    let newBookingStatus = booking.status;
+    let statusChanged = false;
+
+    // If any order is in progress and booking is still pending, change to processing
+    if (hasInProgressOrders && booking.status === 'pending') {
+      newBookingStatus = 'processing';
+      statusChanged = true;
+      console.log('Order post-save hook: Changing booking status from pending to processing');
+    }
+
+    // If all orders are completed, mark booking as completed
+    if (allCompleted && allOrders.length > 0 && booking.status !== 'completed' && booking.status !== 'cancelled') {
+      newBookingStatus = 'completed';
+      statusChanged = true;
+      console.log('Order post-save hook: All orders completed, changing booking status to completed');
+    }
+
+    // Update booking with new status and progress
+    if (statusChanged) {
+      booking.status = newBookingStatus;
+      booking.timeline.push({
+        status: `Status Changed to ${newBookingStatus}`,
+        description: `Booking status automatically updated based on order progress`,
+        completedAt: new Date(),
+        staffId: 'system',
+        staffName: 'System'
+      });
+    }
+
+    // Store overall progress in booking (we'll add this field to model)
+    booking.overallProgress = averageProgress;
+
+    await booking.save();
+    console.log('Order post-save hook: Booking updated successfully with status:', newBookingStatus, 'and progress:', averageProgress, '%');
+
+  } catch (error) {
+    console.error('Order post-save hook: Error updating booking:', error);
+    // Don't throw error to avoid breaking order save operation
+  }
+});
+
 const Order = mongoose.model('Order', orderSchema);
 
 module.exports = Order;

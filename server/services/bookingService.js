@@ -613,6 +613,88 @@ class BookingService {
       throw error;
     }
   }
+
+  // Description: Calculate and update booking progress and status based on associated orders
+  // This method calculates overall progress from all orders and automatically updates booking status
+  static async updateBookingProgressAndStatus(bookingId) {
+    console.log('BookingService: Updating booking progress and status for:', bookingId);
+
+    try {
+      const booking = await Booking.findById(bookingId);
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      // Get all orders for this booking
+      const allOrders = await Order.find({ bookingId: booking._id });
+      console.log('BookingService: Found', allOrders.length, 'orders for booking');
+
+      if (allOrders.length === 0) {
+        console.log('BookingService: No orders found, keeping booking at 0% progress');
+        booking.overallProgress = 0;
+        await booking.save();
+        return booking;
+      }
+
+      // Calculate overall progress from all orders
+      let totalProgress = 0;
+      let hasInProgressOrders = false;
+      let allCompleted = true;
+
+      allOrders.forEach(order => {
+        totalProgress += (order.progress || 0);
+        if (order.status === 'in-progress' || order.status === 'quality-check') {
+          hasInProgressOrders = true;
+        }
+        if (order.status !== 'completed' && order.status !== 'cancelled') {
+          allCompleted = false;
+        }
+      });
+
+      const averageProgress = Math.round(totalProgress / allOrders.length);
+      console.log('BookingService: Calculated average progress:', averageProgress, '%');
+
+      // Update booking status based on order progress
+      let newBookingStatus = booking.status;
+      let statusChanged = false;
+
+      // If any order is in progress and booking is still pending, change to processing
+      if (hasInProgressOrders && booking.status === 'pending') {
+        newBookingStatus = 'processing';
+        statusChanged = true;
+        console.log('BookingService: Changing booking status from pending to processing');
+      }
+
+      // If all orders are completed, mark booking as completed
+      if (allCompleted && booking.status !== 'completed' && booking.status !== 'cancelled') {
+        newBookingStatus = 'completed';
+        statusChanged = true;
+        console.log('BookingService: All orders completed, changing booking status to completed');
+      }
+
+      // Update booking with new status and progress
+      if (statusChanged) {
+        booking.status = newBookingStatus;
+        booking.timeline.push({
+          status: `Status Changed to ${newBookingStatus}`,
+          description: `Booking status automatically updated based on order progress`,
+          completedAt: new Date(),
+          staffId: 'system',
+          staffName: 'System'
+        });
+      }
+
+      booking.overallProgress = averageProgress;
+      const savedBooking = await booking.save();
+
+      console.log('BookingService: Booking updated - Status:', savedBooking.status, 'Progress:', savedBooking.overallProgress, '%');
+      return savedBooking;
+
+    } catch (error) {
+      console.error('BookingService: Error updating booking progress and status:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = BookingService;

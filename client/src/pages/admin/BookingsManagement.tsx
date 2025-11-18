@@ -118,6 +118,7 @@ interface Booking {
   subtotal?: number
   tax?: number
   discount?: number
+  overallProgress?: number
   createdAt: string
   updatedAt: string
   timeline?: Array<{
@@ -551,6 +552,7 @@ export function BookingsManagement() {
                     <TableHead>Customer</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Billing Status</TableHead>
+                    <TableHead>Progress</TableHead>
                     <TableHead>Total Cost</TableHead>
                     <TableHead>Orders</TableHead>
                     <TableHead>Items</TableHead>
@@ -602,6 +604,19 @@ export function BookingsManagement() {
                         <Badge className={getBillingStatusColor(booking.billingStatus)}>
                           {booking.billingStatus}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 min-w-[120px]">
+                          <div className="flex-1 bg-muted rounded-full h-2">
+                            <div
+                              className="bg-primary h-2 rounded-full transition-all"
+                              style={{ width: `${booking.overallProgress || 0}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-xs font-semibold whitespace-nowrap">
+                            {booking.overallProgress || 0}%
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell className="font-medium">
                         {formatCurrency(booking.finalCost || booking.totalCost)}
@@ -705,7 +720,7 @@ export function BookingsManagement() {
                     {/* Expanded Row with Orders/Repair Jobs */}
                     {expandedBookings.has(booking._id) && (
                       <TableRow className="bg-muted/30">
-                        <TableCell colSpan={10}>
+                        <TableCell colSpan={11}>
                           <div className="p-4 space-y-4">
                             {/* Booking Status Summary */}
                             <div className="bg-muted/50 p-3 rounded-lg border">
@@ -715,7 +730,7 @@ export function BookingsManagement() {
                                   {booking.status}
                                 </Badge>
                               </div>
-                              <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="grid grid-cols-2 gap-2 text-xs mb-3">
                                 <div>
                                   <span className="text-foreground/60">Billing Status:</span>
                                   <Badge className={`${getBillingStatusColor(booking.billingStatus)} ml-2`}>
@@ -725,6 +740,20 @@ export function BookingsManagement() {
                                 <div className="text-right">
                                   <span className="text-foreground/60">Total: </span>
                                   <span className="font-semibold">{formatCurrency(booking.totalCost)}</span>
+                                </div>
+                              </div>
+                              <div>
+                                <span className="text-xs text-foreground/60 mb-1 block">Overall Progress:</span>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 bg-muted rounded-full h-3">
+                                    <div
+                                      className="bg-primary h-3 rounded-full transition-all"
+                                      style={{ width: `${booking.overallProgress || 0}%` }}
+                                    ></div>
+                                  </div>
+                                  <span className="text-sm font-semibold whitespace-nowrap">
+                                    {booking.overallProgress || 0}%
+                                  </span>
                                 </div>
                               </div>
                             </div>

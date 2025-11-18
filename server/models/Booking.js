@@ -142,6 +142,12 @@ const bookingSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  overallProgress: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100,
+  },
   timeline: [bookingTimelineSchema],
   createdAt: {
     type: Date,
