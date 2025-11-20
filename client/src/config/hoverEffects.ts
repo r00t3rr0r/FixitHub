@@ -14,7 +14,7 @@ export const HOVER_EFFECTS: HoverEffect[] = [
   // None option
   {
     name: 'None',
-    className: '',
+    className: 'none',
     category: '2d-transitions',
     description: 'No hover effect',
     preview: 'Default state',
