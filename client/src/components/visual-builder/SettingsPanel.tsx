@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Settings, Palette, Layout, Code, Eye } from 'lucide-react';
-import { ClassicEditor, Bold, Essentials, Italic, Mention, Paragraph, Undo, Heading, Link, List, BlockQuote, Table, MediaEmbed, Image, ImageToolbar, ImageCaption, ImageStyle, ImageResize, Alignment, FontFamily, FontSize, FontColor, FontBackgroundColor, Indent, IndentBlock, Underline, Strikethrough, Code as CodeInline, Subscript, Superscript, RemoveFormat, HorizontalLine, SpecialCharacters, SpecialCharactersEssentials } from 'ckeditor5';
-import 'ckeditor5/ckeditor5.css';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import type { PageContent, Section, Component } from '@/api/pageContent';
 
 interface SettingsPanelProps {
@@ -486,10 +486,9 @@ const HTMLEditor: React.FC<HTMLEditorProps> = ({ component, selectedElement, onU
   const [editorMode, setEditorMode] = useState<'wysiwyg' | 'code'>('wysiwyg');
   const [showPreview, setShowPreview] = useState(false);
   const [htmlCode, setHtmlCode] = useState(component.content?.html || '');
-  const editorRef = useRef<any>(null);
-  const editorContainerRef = useRef<HTMLDivElement>(null);
 
   const handleEditorChange = (content: string) => {
+    console.log('WYSIWYG editor content changed');
     setHtmlCode(content);
     onUpdateComponent(selectedElement.sectionId!, component.id, {
       content: { ...component.content, html: content }
@@ -498,98 +497,50 @@ const HTMLEditor: React.FC<HTMLEditorProps> = ({ component, selectedElement, onU
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newCode = e.target.value;
+    console.log('HTML code manually updated');
     setHtmlCode(newCode);
     onUpdateComponent(selectedElement.sectionId!, component.id, {
       content: { ...component.content, html: newCode }
     });
   };
 
+  // Quill modules configuration
+  const modules = {
+    toolbar: [
+      [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+      [{ 'font': [] }],
+      [{ 'size': ['small', false, 'large', 'huge'] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'color': [] }, { 'background': [] }],
+      [{ 'script': 'sub' }, { 'script': 'super' }],
+      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+      [{ 'indent': '-1' }, { 'indent': '+1' }],
+      [{ 'align': [] }],
+      ['blockquote', 'code-block'],
+      ['link', 'image', 'video'],
+      ['clean']
+    ],
+  };
+
+  // Quill formats configuration
+  const formats = [
+    'header', 'font', 'size',
+    'bold', 'italic', 'underline', 'strike',
+    'color', 'background',
+    'script',
+    'list', 'bullet', 'indent',
+    'align',
+    'blockquote', 'code-block',
+    'link', 'image', 'video'
+  ];
+
   useEffect(() => {
-    if (editorMode === 'wysiwyg' && editorContainerRef.current && !editorRef.current) {
-      ClassicEditor
-        .create(editorContainerRef.current, {
-          licenseKey: 'eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3NjQ4OTI3OTksImp0aSI6ImIwMDk5MGEwLTE4YWItNGI5MC04MTU2LTliZDA4OWViYjI0ZSIsInVzYWdlRW5kcG9pbnQiOiJodHRwczovL3Byb3h5LWV2ZW50LmNrZWRpdG9yLmNvbSIsImRpc3RyaWJ1dGlvbkNoYW5uZWwiOlsiY2xvdWQiLCJkcnVwYWwiLCJzaCJdLCJ3aGl0ZUxhYmVsIjp0cnVlLCJsaWNlbnNlVHlwZSI6InRyaWFsIiwiZmVhdHVyZXMiOlsiKiJdLCJ2YyI6IjdmN2JlMDM1In0.MvgPqJqT526vTxbU6-6MsU8usnMCjKZBheBiaJOGdKkPVAFaIojL2peu8CrZnSH0ikp0ikser8CkrHO3RXjNmA',
-          plugins: [
-            Essentials, Bold, Italic, Underline, Strikethrough, Subscript, Superscript,
-            Paragraph, Heading, FontFamily, FontSize, FontColor, FontBackgroundColor,
-            Link, List, BlockQuote, Table, Image, ImageToolbar, ImageCaption, ImageStyle, ImageResize,
-            MediaEmbed, Alignment, Indent, IndentBlock, Undo, RemoveFormat,
-            HorizontalLine, SpecialCharacters, SpecialCharactersEssentials, CodeInline
-          ],
-          toolbar: {
-            items: [
-              'undo', 'redo',
-              '|', 'heading',
-              '|', 'bold', 'italic', 'underline', 'strikethrough', 'code',
-              '|', 'fontSize', 'fontFamily', 'fontColor', 'fontBackgroundColor',
-              '|', 'link', 'insertImage', 'insertTable', 'blockQuote', 'mediaEmbed',
-              '|', 'bulletedList', 'numberedList', 'outdent', 'indent',
-              '|', 'alignment', 'horizontalLine', 'specialCharacters',
-              '|', 'subscript', 'superscript', 'removeFormat'
-            ],
-            shouldNotGroupWhenFull: true
-          },
-          heading: {
-            options: [
-              { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
-              { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
-              { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
-              { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' },
-              { model: 'heading4', view: 'h4', title: 'Heading 4', class: 'ck-heading_heading4' }
-            ]
-          },
-          image: {
-            toolbar: [
-              'imageStyle:inline',
-              'imageStyle:block',
-              'imageStyle:side',
-              '|',
-              'toggleImageCaption',
-              'imageTextAlternative'
-            ]
-          },
-          table: {
-            contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells']
-          },
-          initialData: htmlCode
-        })
-        .then((editor: any) => {
-          editorRef.current = editor;
-          console.log('CKEditor 5 initialized successfully');
+    console.log('HTMLEditor component mounted with React-Quill');
+  }, []);
 
-          // Listen for content changes
-          editor.model.document.on('change:data', () => {
-            const data = editor.getData();
-            handleEditorChange(data);
-          });
-        })
-        .catch((error: any) => {
-          console.error('Error initializing CKEditor 5:', error);
-        });
-    }
-
-    return () => {
-      if (editorRef.current) {
-        editorRef.current.destroy()
-          .then(() => {
-            editorRef.current = null;
-          })
-          .catch((error: any) => {
-            console.error('Error destroying CKEditor 5:', error);
-          });
-      }
-    };
+  useEffect(() => {
+    console.log(`Editor mode changed to: ${editorMode}`);
   }, [editorMode]);
-
-  // Update editor content when switching from code mode
-  useEffect(() => {
-    if (editorRef.current && editorMode === 'wysiwyg') {
-      const currentData = editorRef.current.getData();
-      if (currentData !== htmlCode) {
-        editorRef.current.setData(htmlCode);
-      }
-    }
-  }, [htmlCode, editorMode]);
 
   return (
     <div className="space-y-4">
@@ -617,8 +568,19 @@ const HTMLEditor: React.FC<HTMLEditorProps> = ({ component, selectedElement, onU
 
           <TabsContent value="wysiwyg" className="mt-2">
             <div className="border rounded-md overflow-hidden min-h-[400px]">
-              <div ref={editorContainerRef}></div>
+              <ReactQuill
+                theme="snow"
+                value={htmlCode}
+                onChange={handleEditorChange}
+                modules={modules}
+                formats={formats}
+                className="bg-white"
+                style={{ minHeight: '400px' }}
+              />
             </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Use the rich text editor to format your content with various styling options.
+            </p>
           </TabsContent>
 
           <TabsContent value="code" className="mt-2">
