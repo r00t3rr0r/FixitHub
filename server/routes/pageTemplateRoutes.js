@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { requireRole } = require('./middleware/auth');
+const { requireAdmin } = require('./middleware/auth');
 const PageTemplateService = require('../services/pageTemplateService');
 
 // Description: Get all available page templates
 // Endpoint: GET /api/page-templates
 // Request: {}
 // Response: { templates: Array<Template> }
-router.get('/', requireRole('admin'), async (req, res) => {
+router.get('/', requireAdmin, async (req, res) => {
   try {
     console.log('GET /api/page-templates - Fetching available templates');
 
@@ -30,7 +30,7 @@ router.get('/', requireRole('admin'), async (req, res) => {
 // Endpoint: GET /api/page-templates/:templateId
 // Request: { templateId: string }
 // Response: { template: Template }
-router.get('/:templateId', requireRole('admin'), async (req, res) => {
+router.get('/:templateId', requireAdmin, async (req, res) => {
   try {
     const { templateId } = req.params;
     console.log(`GET /api/page-templates/${templateId} - Fetching template`);
@@ -61,7 +61,7 @@ router.get('/:templateId', requireRole('admin'), async (req, res) => {
 // Endpoint: POST /api/page-templates/apply
 // Request: { pageId: string, templateId: string }
 // Response: { success: boolean, message: string }
-router.post('/apply', requireRole('admin'), async (req, res) => {
+router.post('/apply', requireAdmin, async (req, res) => {
   try {
     const { pageId, templateId } = req.body;
     const userId = req.user._id;
