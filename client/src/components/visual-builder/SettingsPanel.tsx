@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Settings, Palette, Layout, Code } from 'lucide-react';
+import { Settings, Palette, Layout, Code, Eye } from 'lucide-react';
+import { Editor } from '@tinymce/tinymce-react';
 import type { PageContent, Section, Component } from '@/api/pageContent';
 
 interface SettingsPanelProps {
@@ -184,6 +185,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               />
             </div>
           </>
+        )}
+
+        {component.type === 'html' && (
+          <HTMLEditor
+            component={component}
+            selectedElement={selectedElement}
+            onUpdateComponent={onUpdateComponent}
+          />
         )}
 
         {/* Style Settings */}
@@ -457,6 +466,147 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           )}
         </div>
       </ScrollArea>
+    </div>
+  );
+};
+
+// HTML Editor Component with Preview
+interface HTMLEditorProps {
+  component: Component;
+  selectedElement: {
+    type: 'section' | 'component';
+    sectionId?: string;
+    componentId?: string;
+  };
+  onUpdateComponent: (sectionId: string, componentId: string, updates: Partial<Component>) => void;
+}
+
+const HTMLEditor: React.FC<HTMLEditorProps> = ({ component, selectedElement, onUpdateComponent }) => {
+  const [editorMode, setEditorMode] = useState<'wysiwyg' | 'code'>('wysiwyg');
+  const [showPreview, setShowPreview] = useState(false);
+  const [htmlCode, setHtmlCode] = useState(component.content?.html || '');
+
+  const handleEditorChange = (content: string) => {
+    setHtmlCode(content);
+    onUpdateComponent(selectedElement.sectionId!, component.id, {
+      content: { ...component.content, html: content }
+    });
+  };
+
+  const handleCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newCode = e.target.value;
+    setHtmlCode(newCode);
+    onUpdateComponent(selectedElement.sectionId!, component.id, {
+      content: { ...component.content, html: newCode }
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <Label>HTML Content</Label>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant={showPreview ? 'default' : 'outline'}
+              onClick={() => setShowPreview(!showPreview)}
+              className="h-7 text-xs"
+            >
+              <Eye className="h-3 w-3 mr-1" />
+              {showPreview ? 'Hide' : 'Show'} Preview
+            </Button>
+          </div>
+        </div>
+
+        <Tabs value={editorMode} onValueChange={(value: any) => setEditorMode(value)} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="wysiwyg">Visual Editor</TabsTrigger>
+            <TabsTrigger value="code">HTML Code</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="wysiwyg" className="mt-2">
+            <div className="border rounded-md overflow-hidden">
+              <Editor
+                apiKey="no-api-key"
+                value={htmlCode}
+                onEditorChange={handleEditorChange}
+                init={{
+                  height: 400,
+                  menubar: false,
+                  plugins: [
+                    'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
+                    'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                    'insertdatetime', 'media', 'table', 'preview', 'help', 'wordcount'
+                  ],
+                  toolbar:
+                    'undo redo | blocks | ' +
+                    'bold italic forecolor | alignleft aligncenter ' +
+                    'alignright alignjustify | bullist numlist outdent indent | ' +
+                    'removeformat | link image | code | help',
+                  content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }',
+                  branding: false,
+                  promotion: false,
+                  setup: (editor) => {
+                    editor.on('init', () => {
+                      console.log('TinyMCE editor initialized');
+                    });
+                  }
+                }}
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="code" className="mt-2">
+            <Textarea
+              value={htmlCode}
+              onChange={handleCodeChange}
+              placeholder="<div>Enter your HTML code here...</div>"
+              className="font-mono text-sm min-h-[400px]"
+              spellCheck={false}
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              Write or paste your HTML code directly. Changes are applied in real-time.
+            </p>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* Real-time Preview */}
+      {showPreview && (
+        <div className="pt-4 border-t">
+          <Label className="mb-2 block">Live Preview</Label>
+          <Card className="p-4 bg-white dark:bg-gray-900 min-h-[200px]">
+            {htmlCode ? (
+              <div
+                dangerouslySetInnerHTML={{ __html: htmlCode }}
+                className="prose prose-sm max-w-none dark:prose-invert"
+              />
+            ) : (
+              <div className="text-center text-gray-400 py-8">
+                <Code className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No HTML content to preview</p>
+                <p className="text-xs mt-1">Start editing to see your content here</p>
+              </div>
+            )}
+          </Card>
+          <p className="text-xs text-gray-500 mt-2">
+            This preview updates in real-time as you edit. The actual component will render on the canvas.
+          </p>
+        </div>
+      )}
+
+      {/* HTML Tips */}
+      <div className="pt-4 border-t">
+        <Label className="mb-2 block text-xs text-gray-500 uppercase">Tips</Label>
+        <ul className="text-xs text-gray-600 space-y-1 list-disc list-inside">
+          <li>Use the Visual Editor for easier formatting</li>
+          <li>Switch to HTML Code for direct code editing</li>
+          <li>Preview shows how your content will look</li>
+          <li>All changes are saved automatically</li>
+          <li>Supports standard HTML tags and inline styles</li>
+        </ul>
+      </div>
     </div>
   );
 };
