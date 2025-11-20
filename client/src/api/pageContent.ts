@@ -69,6 +69,9 @@ export interface ComponentStyle {
 
   // Custom CSS
   customCSS?: string;
+
+  // Hover Effect
+  hoverEffect?: string;
 }
 
 export interface ResponsiveStyles {

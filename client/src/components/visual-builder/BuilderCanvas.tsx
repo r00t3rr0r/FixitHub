@@ -102,6 +102,7 @@ export const BuilderCanvas: React.FC<BuilderCanvasProps> = ({
   const renderComponent = (component: Component, sectionId: string) => {
     const selected = isSelected('component', sectionId, component.id);
     const componentStyles = stylesToCSS(component.styles);
+    const hoverEffectClass = component.styles?.hoverEffect || '';
 
     // Render component based on type
     let componentContent;
@@ -109,7 +110,7 @@ export const BuilderCanvas: React.FC<BuilderCanvasProps> = ({
       case 'heading':
         const HeadingTag = (component.content?.level || 'h2') as keyof JSX.IntrinsicElements;
         componentContent = (
-          <HeadingTag style={componentStyles}>
+          <HeadingTag style={componentStyles} className={hoverEffectClass}>
             {component.content?.text || 'Heading'}
           </HeadingTag>
         );
@@ -118,7 +119,7 @@ export const BuilderCanvas: React.FC<BuilderCanvasProps> = ({
       case 'paragraph':
       case 'text':
         componentContent = (
-          <p style={componentStyles}>
+          <p style={componentStyles} className={hoverEffectClass}>
             {component.content?.text || 'Text content'}
           </p>
         );
@@ -130,6 +131,7 @@ export const BuilderCanvas: React.FC<BuilderCanvasProps> = ({
             <Button
               variant={component.content?.variant || 'default'}
               style={componentStyles}
+              className={hoverEffectClass}
             >
               {component.content?.text || 'Button'}
             </Button>
@@ -140,7 +142,7 @@ export const BuilderCanvas: React.FC<BuilderCanvasProps> = ({
       case 'image':
         if (component.content?.src) {
           componentContent = (
-            <div style={componentStyles}>
+            <div style={componentStyles} className={hoverEffectClass}>
               <img
                 src={component.content.src}
                 alt={component.content?.alt || 'Image'}
@@ -163,7 +165,7 @@ export const BuilderCanvas: React.FC<BuilderCanvasProps> = ({
           );
         } else {
           componentContent = (
-            <div className="bg-gray-100 border-2 border-dashed border-gray-300 rounded p-12 text-center" style={componentStyles}>
+            <div className={`bg-gray-100 border-2 border-dashed border-gray-300 rounded p-12 text-center ${hoverEffectClass}`} style={componentStyles}>
               <ImageIcon className="w-16 h-16 text-gray-400 mx-auto mb-3" />
               <p className="text-sm text-gray-500">Click to add image</p>
             </div>
@@ -265,7 +267,7 @@ export const BuilderCanvas: React.FC<BuilderCanvasProps> = ({
 
       case 'icon':
         componentContent = (
-          <div className="flex items-center justify-center p-4" style={componentStyles}>
+          <div className={`flex items-center justify-center p-4 ${hoverEffectClass}`} style={componentStyles}>
             <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
             </svg>
@@ -362,7 +364,7 @@ export const BuilderCanvas: React.FC<BuilderCanvasProps> = ({
 
       case 'card':
         componentContent = (
-          <div className="border rounded-lg shadow-md overflow-hidden" style={componentStyles}>
+          <div className={`border rounded-lg shadow-md overflow-hidden ${hoverEffectClass}`} style={componentStyles}>
             <div className="aspect-video bg-gray-200 flex items-center justify-center">
               <ImageIcon className="w-12 h-12 text-gray-400" />
             </div>

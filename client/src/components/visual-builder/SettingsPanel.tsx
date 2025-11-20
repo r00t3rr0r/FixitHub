@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Settings, Palette, Layout, Code, Eye } from 'lucide-react';
+import { Settings, Palette, Layout, Code, Eye, Sparkles, Image as ImageIcon } from 'lucide-react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import type { PageContent, Section, Component } from '@/api/pageContent';
+import { HOVER_EFFECTS, getApplicableEffects, getCategories } from '@/config/hoverEffects';
 
 interface SettingsPanelProps {
   pageContent: PageContent;
@@ -271,6 +272,20 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               </Select>
             </div>
           </div>
+        </div>
+
+        {/* Hover Effects Section */}
+        <div className="pt-4 border-t">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="h-4 w-4 text-purple-600" />
+            <h4 className="font-medium">Hover Effects</h4>
+          </div>
+
+          <HoverEffectSelector
+            component={component}
+            selectedElement={selectedElement}
+            onUpdateComponent={onUpdateComponent}
+          />
         </div>
       </div>
     );
@@ -670,6 +685,166 @@ const HTMLEditor: React.FC<HTMLEditorProps> = ({ component, selectedElement, onU
           <li>Preview shows how your content will look with applied CSS</li>
           <li>All changes are saved automatically</li>
           <li>Supports standard HTML tags, inline styles, and custom CSS classes</li>
+        </ul>
+      </div>
+    </div>
+  );
+};
+
+// Hover Effect Selector Component
+interface HoverEffectSelectorProps {
+  component: Component;
+  selectedElement: {
+    type: 'section' | 'component';
+    sectionId?: string;
+    componentId?: string;
+  };
+  onUpdateComponent: (sectionId: string, componentId: string, updates: Partial<Component>) => void;
+}
+
+const HoverEffectSelector: React.FC<HoverEffectSelectorProps> = ({ component, selectedElement, onUpdateComponent }) => {
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [showPreview, setShowPreview] = useState(false);
+
+  // Get applicable effects for this component type
+  const applicableEffects = selectedCategory === 'all'
+    ? getApplicableEffects(component.type)
+    : getApplicableEffects(component.type).filter(effect => effect.category === selectedCategory);
+
+  const categories = getCategories();
+  const currentEffect = component.styles?.hoverEffect || '';
+
+  const handleEffectChange = (effectClassName: string) => {
+    console.log(`Hover effect changed to: ${effectClassName}`);
+    onUpdateComponent(selectedElement.sectionId!, component.id, {
+      styles: { ...component.styles, hoverEffect: effectClassName }
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Category Filter */}
+      <div>
+        <Label className="text-xs">Effect Category</Label>
+        <Select
+          value={selectedCategory}
+          onValueChange={setSelectedCategory}
+        >
+          <SelectTrigger className="h-9">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Effects</SelectItem>
+            {categories.map((category) => (
+              <SelectItem key={category} value={category}>
+                {category.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Effect Selection */}
+      <div>
+        <Label className="text-xs">Select Hover Effect</Label>
+        <Select
+          value={currentEffect}
+          onValueChange={handleEffectChange}
+        >
+          <SelectTrigger className="h-9">
+            <SelectValue placeholder="Choose an effect..." />
+          </SelectTrigger>
+          <SelectContent className="max-h-[300px]">
+            {applicableEffects.map((effect) => (
+              <SelectItem key={effect.className || 'none'} value={effect.className}>
+                <div className="flex items-center justify-between w-full">
+                  <span>{effect.name}</span>
+                  {effect.className && (
+                    <span className="text-xs text-gray-400 ml-2">({effect.preview})</span>
+                  )}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Current Effect Info */}
+      {currentEffect && (
+        <Card className="p-3 bg-purple-50 border-purple-200">
+          <div className="flex items-start gap-2">
+            <Sparkles className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-purple-900">
+                {HOVER_EFFECTS.find(e => e.className === currentEffect)?.name || 'Custom Effect'}
+              </p>
+              <p className="text-xs text-purple-700 mt-1">
+                {HOVER_EFFECTS.find(e => e.className === currentEffect)?.description || 'Hover effect applied'}
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Preview Toggle */}
+      <div className="flex items-center gap-2 pt-2">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setShowPreview(!showPreview)}
+          className="h-7 text-xs"
+        >
+          <Eye className="h-3 w-3 mr-1" />
+          {showPreview ? 'Hide' : 'Show'} Preview
+        </Button>
+      </div>
+
+      {/* Live Preview */}
+      {showPreview && (
+        <Card className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200">
+          <Label className="text-xs mb-2 block">Live Preview - Hover to see effect</Label>
+          <div className="flex items-center justify-center p-8">
+            {component.type === 'button' ? (
+              <Button
+                variant="default"
+                className={currentEffect}
+              >
+                {component.content?.text || 'Hover Me'}
+              </Button>
+            ) : component.type === 'image' ? (
+              <div className={`w-32 h-32 bg-gray-200 rounded-lg flex items-center justify-center ${currentEffect}`}>
+                <ImageIcon className="w-12 h-12 text-gray-400" />
+              </div>
+            ) : component.type === 'icon' ? (
+              <div className={`${currentEffect}`}>
+                <Sparkles className="w-16 h-16 text-purple-600" />
+              </div>
+            ) : component.type === 'card' ? (
+              <Card className={`p-4 w-full ${currentEffect}`}>
+                <h3 className="font-semibold mb-2">Card Preview</h3>
+                <p className="text-sm text-gray-600">Hover to see effect</p>
+              </Card>
+            ) : (
+              <div className={`px-6 py-3 bg-white border-2 border-gray-300 rounded-lg ${currentEffect}`}>
+                <span className="text-sm font-medium">Hover Me</span>
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-center text-purple-600 mt-2">
+            Hover over the element to see the "{HOVER_EFFECTS.find(e => e.className === currentEffect)?.name || 'effect'}" in action
+          </p>
+        </Card>
+      )}
+
+      {/* Effect Tips */}
+      <div className="pt-2 border-t">
+        <Label className="mb-2 block text-xs text-gray-500 uppercase">Tips</Label>
+        <ul className="text-xs text-gray-600 space-y-1 list-disc list-inside">
+          <li>Hover effects work best on buttons, images, icons, and cards</li>
+          <li>Use subtle effects for professional designs</li>
+          <li>Preview effects before applying to your page</li>
+          <li>Effects are powered by Hover.css library</li>
+          <li>Combine with other styling for unique designs</li>
         </ul>
       </div>
     </div>
