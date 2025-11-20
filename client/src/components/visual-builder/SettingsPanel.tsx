@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Settings, Palette, Layout, Code, Eye } from 'lucide-react';
-import { Editor } from '@tinymce/tinymce-react';
+import { CKEditor } from 'ckeditor4-react';
 import type { PageContent, Section, Component } from '@/api/pageContent';
 
 interface SettingsPanelProps {
@@ -527,30 +527,39 @@ const HTMLEditor: React.FC<HTMLEditorProps> = ({ component, selectedElement, onU
 
           <TabsContent value="wysiwyg" className="mt-2">
             <div className="border rounded-md overflow-hidden">
-              <Editor
-                apiKey="no-api-key"
-                value={htmlCode}
-                onEditorChange={handleEditorChange}
-                init={{
+              <CKEditor
+                initData={htmlCode}
+                onChange={(evt: any) => {
+                  const data = evt.editor.getData();
+                  handleEditorChange(data);
+                }}
+                config={{
                   height: 400,
-                  menubar: false,
-                  plugins: [
-                    'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
-                    'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-                    'insertdatetime', 'media', 'table', 'preview', 'help', 'wordcount'
+                  toolbar: [
+                    { name: 'document', items: ['Source'] },
+                    { name: 'clipboard', items: ['Undo', 'Redo'] },
+                    { name: 'editing', items: ['Find', 'Replace'] },
+                    '/',
+                    { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strike', 'Subscript', 'Superscript'] },
+                    { name: 'paragraph', items: ['NumberedList', 'BulletedList', 'Outdent', 'Indent', 'Blockquote'] },
+                    { name: 'links', items: ['Link', 'Unlink'] },
+                    { name: 'insert', items: ['Image', 'Table', 'HorizontalRule', 'SpecialChar'] },
+                    '/',
+                    { name: 'styles', items: ['Format', 'Font', 'FontSize'] },
+                    { name: 'colors', items: ['TextColor', 'BGColor'] },
+                    { name: 'align', items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock'] },
+                    { name: 'tools', items: ['Maximize'] }
                   ],
-                  toolbar:
-                    'undo redo | blocks | ' +
-                    'bold italic forecolor | alignleft aligncenter ' +
-                    'alignright alignjustify | bullist numlist outdent indent | ' +
-                    'removeformat | link image | code | help',
-                  content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }',
-                  branding: false,
-                  promotion: false,
-                  setup: (editor) => {
-                    editor.on('init', () => {
-                      console.log('TinyMCE editor initialized');
-                    });
+                  removeButtons: '',
+                  extraPlugins: 'justify,font,colorbutton',
+                  allowedContent: true,
+                  fullPage: false,
+                  resize_enabled: false,
+                  removePlugins: 'elementspath',
+                  on: {
+                    instanceReady: function(evt: any) {
+                      console.log('CKEditor 4 initialized successfully');
+                    }
                   }
                 }}
               />

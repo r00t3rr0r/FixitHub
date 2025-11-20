@@ -46,6 +46,7 @@
     "@tinymce/tinymce-react": "^6.3.0",
     "@types/react-beautiful-dnd": "^13.1.8",
     "axios": "^1.7.8",
+    "ckeditor4-react": "^5.2.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
