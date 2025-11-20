@@ -134,7 +134,8 @@ export interface Integrations {
 }
 
 export interface Page {
-  id: string;
+  _id: string;
+  id?: string;
   title: string;
   slug: string;
   parentId?: string | null;

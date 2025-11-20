@@ -1361,7 +1361,7 @@ const PagesTab: React.FC<{
 
   const handleTogglePublish = async (page: Page) => {
     try {
-      await updatePage(page.id, { isPublished: !page.isPublished });
+      await updatePage(page._id, { isPublished: !page.isPublished });
       onRefresh();
       toast({
         title: 'Success',
@@ -1448,7 +1448,7 @@ const PagesTab: React.FC<{
             <div className="space-y-2">
               {pages.map((page) => (
                 <div
-                  key={page.id}
+                  key={page._id}
                   className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent"
                 >
                   <div className="flex items-center gap-4">
@@ -1473,7 +1473,7 @@ const PagesTab: React.FC<{
                       variant="secondary"
                       size="sm"
                       onClick={() => {
-                        setSelectedPageForTemplate(page.id);
+                        setSelectedPageForTemplate(page._id);
                         setShowTemplateDialog(true);
                       }}
                     >
@@ -1483,7 +1483,7 @@ const PagesTab: React.FC<{
                     <Button
                       variant="default"
                       size="sm"
-                      onClick={() => navigate(`/admin/visual-builder/${page.id}`)}
+                      onClick={() => navigate(`/admin/visual-builder/${page._id}`)}
                     >
                       <Edit className="h-4 w-4 mr-1" />
                       Edit Visually
@@ -1491,7 +1491,7 @@ const PagesTab: React.FC<{
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDeletePage(page.id)}
+                      onClick={() => handleDeletePage(page._id)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

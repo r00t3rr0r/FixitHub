@@ -438,7 +438,7 @@ class WebsiteSettingsService {
       console.log('Updating page:', pageId);
       const settings = await this.getSettings();
       const pages = settings.pages || [];
-      const pageIndex = pages.findIndex(p => p.id === pageId);
+      const pageIndex = pages.findIndex(p => p._id.toString() === pageId || p.id === pageId);
 
       if (pageIndex === -1) {
         throw new Error('Page not found');
@@ -459,7 +459,7 @@ class WebsiteSettingsService {
     try {
       console.log('Deleting page:', pageId);
       const settings = await this.getSettings();
-      const pages = (settings.pages || []).filter(p => p.id !== pageId);
+      const pages = (settings.pages || []).filter(p => p._id.toString() !== pageId && p.id !== pageId);
       return await this.updateSettings({ pages });
     } catch (error) {
       console.error('Error deleting page:', error);
@@ -476,7 +476,7 @@ class WebsiteSettingsService {
       const settings = await this.getSettings();
       const pages = settings.pages || [];
       const reorderedPages = pageIds.map((id, index) => {
-        const page = pages.find(p => p.id === id);
+        const page = pages.find(p => p._id.toString() === id || p.id === id);
         if (page) {
           page.order = index;
         }
