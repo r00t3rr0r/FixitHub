@@ -1290,7 +1290,7 @@ const PagesTab: React.FC<{
   const [newPageSlug, setNewPageSlug] = useState('');
 
   const handleAddPage = async () => {
-    if (!newPageTitle || !newPageSlug) {
+    if (!newPageTitle.trim() || !newPageSlug.trim()) {
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -1301,8 +1301,8 @@ const PagesTab: React.FC<{
 
     try {
       await addPage({
-        title: newPageTitle,
-        slug: newPageSlug,
+        title: newPageTitle.trim(),
+        slug: newPageSlug.trim(),
         isPublished: false,
         showInNavigation: true
       });
