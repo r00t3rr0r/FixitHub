@@ -488,6 +488,12 @@ const HTMLEditor: React.FC<HTMLEditorProps> = ({ component, selectedElement, onU
   const [htmlCode, setHtmlCode] = useState(component.content?.html || '');
   const [cssCode, setCssCode] = useState(component.content?.css || '');
 
+  // Sync state with component content when it changes externally
+  useEffect(() => {
+    setHtmlCode(component.content?.html || '');
+    setCssCode(component.content?.css || '');
+  }, [component.content?.html, component.content?.css]);
+
   const handleEditorChange = (content: string) => {
     console.log('WYSIWYG editor content changed');
     setHtmlCode(content);
@@ -625,15 +631,20 @@ const HTMLEditor: React.FC<HTMLEditorProps> = ({ component, selectedElement, onU
       {/* Real-time Preview */}
       {showPreview && (
         <div className="pt-4 border-t">
-          <Label className="mb-2 block">Live Preview</Label>
-          <Card className="p-4 bg-white dark:bg-gray-900 min-h-[200px]">
+          <div className="flex items-center justify-between mb-2">
+            <Label>Live Preview</Label>
+            {cssCode && (
+              <span className="text-xs text-green-600 font-medium">CSS Active ✓</span>
+            )}
+          </div>
+          <Card className="p-4 bg-white dark:bg-gray-900 min-h-[200px] border-2 border-blue-200">
             {cssCode && (
               <style dangerouslySetInnerHTML={{ __html: cssCode }} />
             )}
             {htmlCode ? (
               <div
                 dangerouslySetInnerHTML={{ __html: htmlCode }}
-                className="prose prose-sm max-w-none dark:prose-invert"
+                className="html-preview-content prose prose-sm max-w-none dark:prose-invert"
               />
             ) : (
               <div className="text-center text-gray-400 py-8">
@@ -644,7 +655,7 @@ const HTMLEditor: React.FC<HTMLEditorProps> = ({ component, selectedElement, onU
             )}
           </Card>
           <p className="text-xs text-gray-500 mt-2">
-            This preview updates in real-time as you edit. Custom CSS styles are applied automatically.
+            This preview updates in real-time as you edit. {cssCode ? 'Custom CSS styles are applied.' : 'Add CSS in the CSS Code tab for additional styling.'}
           </p>
         </div>
       )}
