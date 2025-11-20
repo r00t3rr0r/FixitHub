@@ -1,0 +1,462 @@
+import React from 'react';
+import { Card } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Settings, Palette, Layout, Code } from 'lucide-react';
+import type { PageContent, Section, Component } from '@/api/pageContent';
+
+interface SettingsPanelProps {
+  pageContent: PageContent;
+  selectedElement: {
+    type: 'section' | 'component';
+    sectionId?: string;
+    componentId?: string;
+  } | null;
+  onUpdateSection: (sectionId: string, updates: Partial<Section>) => void;
+  onUpdateComponent: (sectionId: string, componentId: string, updates: Partial<Component>) => void;
+  onUpdateGlobalStyles: (styles: any) => void;
+}
+
+export const SettingsPanel: React.FC<SettingsPanelProps> = ({
+  pageContent,
+  selectedElement,
+  onUpdateSection,
+  onUpdateComponent,
+  onUpdateGlobalStyles
+}) => {
+  const getSelectedSection = () => {
+    if (!selectedElement?.sectionId) return null;
+    return pageContent.sections.find(s => s.id === selectedElement.sectionId);
+  };
+
+  const getSelectedComponent = () => {
+    if (!selectedElement?.sectionId || !selectedElement?.componentId) return null;
+    const section = getSelectedSection();
+    return section?.components.find(c => c.id === selectedElement.componentId);
+  };
+
+  const renderComponentSettings = () => {
+    const component = getSelectedComponent();
+    if (!component || !selectedElement) return null;
+
+    return (
+      <div className="space-y-4">
+        <div>
+          <h3 className="font-semibold mb-2">Component Settings</h3>
+          <p className="text-sm text-gray-500 mb-4">Type: {component.type}</p>
+        </div>
+
+        {/* Common Settings */}
+        <div>
+          <Label>Component Name</Label>
+          <Input
+            value={component.name || ''}
+            onChange={(e) =>
+              onUpdateComponent(selectedElement.sectionId!, component.id, { name: e.target.value })
+            }
+            placeholder="Component name"
+          />
+        </div>
+
+        {/* Type-specific settings */}
+        {(component.type === 'heading' || component.type === 'paragraph' || component.type === 'text') && (
+          <div>
+            <Label>Text Content</Label>
+            <Textarea
+              value={component.content?.text || ''}
+              onChange={(e) =>
+                onUpdateComponent(selectedElement.sectionId!, component.id, {
+                  content: { ...component.content, text: e.target.value }
+                })
+              }
+              placeholder="Enter text"
+              rows={3}
+            />
+          </div>
+        )}
+
+        {component.type === 'heading' && (
+          <div>
+            <Label>Heading Level</Label>
+            <Select
+              value={component.content?.level || 'h2'}
+              onValueChange={(value) =>
+                onUpdateComponent(selectedElement.sectionId!, component.id, {
+                  content: { ...component.content, level: value }
+                })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="h1">H1</SelectItem>
+                <SelectItem value="h2">H2</SelectItem>
+                <SelectItem value="h3">H3</SelectItem>
+                <SelectItem value="h4">H4</SelectItem>
+                <SelectItem value="h5">H5</SelectItem>
+                <SelectItem value="h6">H6</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {component.type === 'button' && (
+          <>
+            <div>
+              <Label>Button Text</Label>
+              <Input
+                value={component.content?.text || ''}
+                onChange={(e) =>
+                  onUpdateComponent(selectedElement.sectionId!, component.id, {
+                    content: { ...component.content, text: e.target.value }
+                  })
+                }
+                placeholder="Button text"
+              />
+            </div>
+            <div>
+              <Label>Button URL</Label>
+              <Input
+                value={component.content?.url || ''}
+                onChange={(e) =>
+                  onUpdateComponent(selectedElement.sectionId!, component.id, {
+                    content: { ...component.content, url: e.target.value }
+                  })
+                }
+                placeholder="https://"
+              />
+            </div>
+            <div>
+              <Label>Button Variant</Label>
+              <Select
+                value={component.content?.variant || 'default'}
+                onValueChange={(value) =>
+                  onUpdateComponent(selectedElement.sectionId!, component.id, {
+                    content: { ...component.content, variant: value }
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Default</SelectItem>
+                  <SelectItem value="secondary">Secondary</SelectItem>
+                  <SelectItem value="outline">Outline</SelectItem>
+                  <SelectItem value="ghost">Ghost</SelectItem>
+                  <SelectItem value="destructive">Destructive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </>
+        )}
+
+        {component.type === 'image' && (
+          <>
+            <div>
+              <Label>Image URL</Label>
+              <Input
+                value={component.content?.src || ''}
+                onChange={(e) =>
+                  onUpdateComponent(selectedElement.sectionId!, component.id, {
+                    content: { ...component.content, src: e.target.value }
+                  })
+                }
+                placeholder="https://example.com/image.jpg"
+              />
+            </div>
+            <div>
+              <Label>Alt Text</Label>
+              <Input
+                value={component.content?.alt || ''}
+                onChange={(e) =>
+                  onUpdateComponent(selectedElement.sectionId!, component.id, {
+                    content: { ...component.content, alt: e.target.value }
+                  })
+                }
+                placeholder="Image description"
+              />
+            </div>
+          </>
+        )}
+
+        {/* Style Settings */}
+        <div className="pt-4 border-t">
+          <h4 className="font-medium mb-3">Styling</h4>
+
+          <div className="space-y-3">
+            <div>
+              <Label>Background Color</Label>
+              <Input
+                type="color"
+                value={component.styles?.backgroundColor || '#ffffff'}
+                onChange={(e) =>
+                  onUpdateComponent(selectedElement.sectionId!, component.id, {
+                    styles: { ...component.styles, backgroundColor: e.target.value }
+                  })
+                }
+              />
+            </div>
+
+            <div>
+              <Label>Text Color</Label>
+              <Input
+                type="color"
+                value={component.styles?.color || '#000000'}
+                onChange={(e) =>
+                  onUpdateComponent(selectedElement.sectionId!, component.id, {
+                    styles: { ...component.styles, color: e.target.value }
+                  })
+                }
+              />
+            </div>
+
+            <div>
+              <Label>Padding</Label>
+              <Input
+                value={component.styles?.padding?.top || 0}
+                onChange={(e) =>
+                  onUpdateComponent(selectedElement.sectionId!, component.id, {
+                    styles: {
+                      ...component.styles,
+                      padding: {
+                        top: parseInt(e.target.value) || 0,
+                        right: parseInt(e.target.value) || 0,
+                        bottom: parseInt(e.target.value) || 0,
+                        left: parseInt(e.target.value) || 0
+                      }
+                    }
+                  })
+                }
+                type="number"
+                placeholder="Padding (px)"
+              />
+            </div>
+
+            <div>
+              <Label>Text Align</Label>
+              <Select
+                value={component.styles?.textAlign || 'left'}
+                onValueChange={(value: any) =>
+                  onUpdateComponent(selectedElement.sectionId!, component.id, {
+                    styles: { ...component.styles, textAlign: value }
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="left">Left</SelectItem>
+                  <SelectItem value="center">Center</SelectItem>
+                  <SelectItem value="right">Right</SelectItem>
+                  <SelectItem value="justify">Justify</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSectionSettings = () => {
+    const section = getSelectedSection();
+    if (!section || !selectedElement) return null;
+
+    return (
+      <div className="space-y-4">
+        <div>
+          <h3 className="font-semibold mb-2">Section Settings</h3>
+          <p className="text-sm text-gray-500 mb-4">Type: {section.type}</p>
+        </div>
+
+        <div>
+          <Label>Section Name</Label>
+          <Input
+            value={section.name || ''}
+            onChange={(e) => onUpdateSection(section.id, { name: e.target.value })}
+            placeholder="Section name"
+          />
+        </div>
+
+        <div>
+          <Label>Section Type</Label>
+          <Select
+            value={section.type}
+            onValueChange={(value: any) => onUpdateSection(section.id, { type: value })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="hero">Hero</SelectItem>
+              <SelectItem value="features">Features</SelectItem>
+              <SelectItem value="gallery">Gallery</SelectItem>
+              <SelectItem value="cta">Call to Action</SelectItem>
+              <SelectItem value="contact">Contact</SelectItem>
+              <SelectItem value="footer">Footer</SelectItem>
+              <SelectItem value="custom">Custom</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="pt-4 border-t">
+          <h4 className="font-medium mb-3">Section Styling</h4>
+
+          <div className="space-y-3">
+            <div>
+              <Label>Background Color</Label>
+              <Input
+                type="color"
+                value={section.styles?.backgroundColor || '#ffffff'}
+                onChange={(e) =>
+                  onUpdateSection(section.id, {
+                    styles: { ...section.styles, backgroundColor: e.target.value }
+                  })
+                }
+              />
+            </div>
+
+            <div>
+              <Label>Max Width (px)</Label>
+              <Input
+                value={section.containerMaxWidth || '1280'}
+                onChange={(e) => onUpdateSection(section.id, { containerMaxWidth: e.target.value })}
+                placeholder="1280"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={section.isFullWidth || false}
+                onChange={(e) => onUpdateSection(section.id, { isFullWidth: e.target.checked })}
+                className="rounded"
+              />
+              <Label>Full Width Section</Label>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={section.parallax || false}
+                onChange={(e) => onUpdateSection(section.id, { parallax: e.target.checked })}
+                className="rounded"
+              />
+              <Label>Parallax Effect</Label>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderGlobalSettings = () => {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h3 className="font-semibold mb-2">Global Styles</h3>
+          <p className="text-sm text-gray-500 mb-4">These styles apply to the entire page</p>
+        </div>
+
+        <div>
+          <Label>Background Color</Label>
+          <Input
+            type="color"
+            value={pageContent.globalStyles?.backgroundColor || '#ffffff'}
+            onChange={(e) =>
+              onUpdateGlobalStyles({ backgroundColor: e.target.value })
+            }
+          />
+        </div>
+
+        <div>
+          <Label>Font Family</Label>
+          <Select
+            value={pageContent.globalStyles?.fontFamily || 'inherit'}
+            onValueChange={(value) => onUpdateGlobalStyles({ fontFamily: value })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="inherit">Default</SelectItem>
+              <SelectItem value="Inter, sans-serif">Inter</SelectItem>
+              <SelectItem value="Arial, sans-serif">Arial</SelectItem>
+              <SelectItem value="'Times New Roman', serif">Times New Roman</SelectItem>
+              <SelectItem value="'Courier New', monospace">Courier New</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="pt-4 border-t">
+          <h4 className="font-medium mb-3">Color Scheme</h4>
+          <div className="space-y-3">
+            <div>
+              <Label>Primary Color</Label>
+              <Input
+                type="color"
+                value={pageContent.globalStyles?.colorScheme?.primary || '#3b82f6'}
+                onChange={(e) =>
+                  onUpdateGlobalStyles({
+                    colorScheme: {
+                      ...pageContent.globalStyles?.colorScheme,
+                      primary: e.target.value
+                    }
+                  })
+                }
+              />
+            </div>
+            <div>
+              <Label>Secondary Color</Label>
+              <Input
+                type="color"
+                value={pageContent.globalStyles?.colorScheme?.secondary || '#8b5cf6'}
+                onChange={(e) =>
+                  onUpdateGlobalStyles({
+                    colorScheme: {
+                      ...pageContent.globalStyles?.colorScheme,
+                      secondary: e.target.value
+                    }
+                  })
+                }
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="p-4 border-b">
+        <h3 className="font-semibold text-lg flex items-center gap-2">
+          <Settings className="h-5 w-5" />
+          Settings
+        </h3>
+      </div>
+
+      <ScrollArea className="flex-1">
+        <div className="p-4">
+          {selectedElement ? (
+            selectedElement.type === 'component' ? (
+              renderComponentSettings()
+            ) : (
+              renderSectionSettings()
+            )
+          ) : (
+            renderGlobalSettings()
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+};

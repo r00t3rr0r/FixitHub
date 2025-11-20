@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Settings,
@@ -69,6 +70,7 @@ import {
 
 export const WebsiteBuilder: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [settings, setSettings] = useState<WebsiteSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -390,7 +392,7 @@ export const WebsiteBuilder: React.FC = () => {
 
         {/* Pages Management Tab */}
         <TabsContent value="pages" className="space-y-4">
-          <PagesTab settings={settings} onRefresh={fetchSettings} />
+          <PagesTab settings={settings} onRefresh={fetchSettings} navigate={navigate} />
         </TabsContent>
       </Tabs>
     </div>
@@ -1280,7 +1282,8 @@ const AdvancedTab: React.FC<{
 const PagesTab: React.FC<{
   settings: WebsiteSettings;
   onRefresh: () => void;
-}> = ({ settings, onRefresh }) => {
+  navigate: any;
+}> = ({ settings, onRefresh, navigate }) => {
   const { toast } = useToast();
   const [pages, setPages] = useState(settings.pages || []);
   const [newPageTitle, setNewPageTitle] = useState('');
@@ -1421,8 +1424,13 @@ const PagesTab: React.FC<{
                     >
                       {page.isPublished ? 'Unpublish' : 'Publish'}
                     </Button>
-                    <Button variant="outline" size="sm">
-                      <Edit className="h-4 w-4" />
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => navigate(`/admin/visual-builder/${page.id}`)}
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit Visually
                     </Button>
                     <Button
                       variant="outline"

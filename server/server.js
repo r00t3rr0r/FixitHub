@@ -101,6 +101,8 @@ console.log('Loading invoice routes...');
 const invoiceRoutes = require("./routes/invoiceRoutes");
 console.log('Loading website settings routes...');
 const websiteSettingsRoutes = require("./routes/websiteSettingsRoutes");
+console.log('Loading page content routes...');
+const pageContentRoutes = require("./routes/pageContentRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -358,6 +360,8 @@ app.use('/api/invoices', invoiceRoutes);
 app.use('/api/order-services', orderServiceRoutes);
 // Website Settings Routes
 app.use('/api/website-settings', websiteSettingsRoutes);
+// Page Content Routes (Visual Builder)
+app.use('/api/page-content', pageContentRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 

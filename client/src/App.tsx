@@ -41,6 +41,7 @@ import { BlogManagement } from "./pages/admin/BlogManagement"
 import { FAQManagement } from "./pages/admin/FAQManagement"
 import { HomepageManagement } from "./pages/admin/HomepageManagement"
 import { WebsiteBuilder } from "./pages/admin/WebsiteBuilder"
+import { VisualPageBuilder } from "./pages/admin/VisualPageBuilder"
 import { SEOManagement } from "./pages/admin/SEOManagement"
 import { SystemConfiguration } from "./pages/admin/SystemConfiguration"
 import { DatabaseManagement } from "./pages/admin/DatabaseManagement"
@@ -175,6 +176,7 @@ function App() {
             <Route path="/admin/website-builder" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<WebsiteBuilder />} />
             </Route>
+            <Route path="/admin/visual-builder/:pageId" element={<ProtectedRoute><VisualPageBuilder /></ProtectedRoute>} />
             <Route path="/admin/seo" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<SEOManagement />} />
             </Route>
