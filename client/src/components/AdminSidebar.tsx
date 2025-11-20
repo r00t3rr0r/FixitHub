@@ -240,6 +240,9 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
         <NavItem to="/admin/homepage" icon={Layout}>
           {t('admin.menu.homepageManagement')}
         </NavItem>
+        <NavItem to="/admin/website-builder" icon={Layout}>
+          Website Builder
+        </NavItem>
         <NavItem to="/admin/seo" icon={Search}>
           {t('admin.menu.seoManagement')}
         </NavItem>

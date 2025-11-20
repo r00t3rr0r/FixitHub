@@ -99,6 +99,8 @@ console.log('Loading reminder routes...');
 const reminderRoutes = require("./routes/reminderRoutes");
 console.log('Loading invoice routes...');
 const invoiceRoutes = require("./routes/invoiceRoutes");
+console.log('Loading website settings routes...');
+const websiteSettingsRoutes = require("./routes/websiteSettingsRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -354,6 +356,8 @@ app.use('/api/reminders', reminderRoutes);
 app.use('/api/invoices', invoiceRoutes);
 // Order Service Routes
 app.use('/api/order-services', orderServiceRoutes);
+// Website Settings Routes
+app.use('/api/website-settings', websiteSettingsRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 
