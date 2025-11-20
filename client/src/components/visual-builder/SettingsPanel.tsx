@@ -483,9 +483,10 @@ interface HTMLEditorProps {
 }
 
 const HTMLEditor: React.FC<HTMLEditorProps> = ({ component, selectedElement, onUpdateComponent }) => {
-  const [editorMode, setEditorMode] = useState<'wysiwyg' | 'code'>('wysiwyg');
+  const [editorMode, setEditorMode] = useState<'wysiwyg' | 'code' | 'css'>('wysiwyg');
   const [showPreview, setShowPreview] = useState(false);
   const [htmlCode, setHtmlCode] = useState(component.content?.html || '');
+  const [cssCode, setCssCode] = useState(component.content?.css || '');
 
   const handleEditorChange = (content: string) => {
     console.log('WYSIWYG editor content changed');
@@ -501,6 +502,15 @@ const HTMLEditor: React.FC<HTMLEditorProps> = ({ component, selectedElement, onU
     setHtmlCode(newCode);
     onUpdateComponent(selectedElement.sectionId!, component.id, {
       content: { ...component.content, html: newCode }
+    });
+  };
+
+  const handleCssChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newCss = e.target.value;
+    console.log('CSS code manually updated');
+    setCssCode(newCss);
+    onUpdateComponent(selectedElement.sectionId!, component.id, {
+      content: { ...component.content, css: newCss }
     });
   };
 
@@ -561,9 +571,10 @@ const HTMLEditor: React.FC<HTMLEditorProps> = ({ component, selectedElement, onU
         </div>
 
         <Tabs value={editorMode} onValueChange={(value: any) => setEditorMode(value)} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="wysiwyg">Visual Editor</TabsTrigger>
             <TabsTrigger value="code">HTML Code</TabsTrigger>
+            <TabsTrigger value="css">CSS Code</TabsTrigger>
           </TabsList>
 
           <TabsContent value="wysiwyg" className="mt-2">
@@ -595,6 +606,19 @@ const HTMLEditor: React.FC<HTMLEditorProps> = ({ component, selectedElement, onU
               Write or paste your HTML code directly. Changes are applied in real-time.
             </p>
           </TabsContent>
+
+          <TabsContent value="css" className="mt-2">
+            <Textarea
+              value={cssCode}
+              onChange={handleCssChange}
+              placeholder=".my-class {&#10;  color: #333;&#10;  font-size: 16px;&#10;  margin: 10px;&#10;}"
+              className="font-mono text-sm min-h-[400px]"
+              spellCheck={false}
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              Write custom CSS styles for your HTML content. Use class names or element selectors.
+            </p>
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -603,6 +627,9 @@ const HTMLEditor: React.FC<HTMLEditorProps> = ({ component, selectedElement, onU
         <div className="pt-4 border-t">
           <Label className="mb-2 block">Live Preview</Label>
           <Card className="p-4 bg-white dark:bg-gray-900 min-h-[200px]">
+            {cssCode && (
+              <style dangerouslySetInnerHTML={{ __html: cssCode }} />
+            )}
             {htmlCode ? (
               <div
                 dangerouslySetInnerHTML={{ __html: htmlCode }}
@@ -617,20 +644,21 @@ const HTMLEditor: React.FC<HTMLEditorProps> = ({ component, selectedElement, onU
             )}
           </Card>
           <p className="text-xs text-gray-500 mt-2">
-            This preview updates in real-time as you edit. The actual component will render on the canvas.
+            This preview updates in real-time as you edit. Custom CSS styles are applied automatically.
           </p>
         </div>
       )}
 
-      {/* HTML Tips */}
+      {/* Editor Tips */}
       <div className="pt-4 border-t">
         <Label className="mb-2 block text-xs text-gray-500 uppercase">Tips</Label>
         <ul className="text-xs text-gray-600 space-y-1 list-disc list-inside">
           <li>Use the Visual Editor for easier formatting</li>
           <li>Switch to HTML Code for direct code editing</li>
-          <li>Preview shows how your content will look</li>
+          <li>Use CSS Code to add custom styles to your content</li>
+          <li>Preview shows how your content will look with applied CSS</li>
           <li>All changes are saved automatically</li>
-          <li>Supports standard HTML tags and inline styles</li>
+          <li>Supports standard HTML tags, inline styles, and custom CSS classes</li>
         </ul>
       </div>
     </div>

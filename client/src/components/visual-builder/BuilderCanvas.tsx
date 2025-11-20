@@ -238,6 +238,9 @@ export const BuilderCanvas: React.FC<BuilderCanvasProps> = ({
               </svg>
               <span className="text-sm font-medium text-gray-700">Custom HTML</span>
             </div>
+            {component.content?.css && (
+              <style dangerouslySetInnerHTML={{ __html: component.content.css }} />
+            )}
             {component.content?.html ? (
               <div dangerouslySetInnerHTML={{ __html: component.content.html }} />
             ) : (
