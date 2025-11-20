@@ -28,7 +28,8 @@ import {
   GripVertical,
   Monitor,
   Tablet,
-  Loader2
+  Loader2,
+  Wand2
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -43,6 +44,7 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/useToast';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   getWebsiteSettings,
   updateWebsiteSettings,
@@ -67,6 +69,7 @@ import {
   WebsiteSettings,
   Page
 } from '@/api/websiteSettings';
+import { getPageTemplates, applyTemplate, type PageTemplate } from '@/api/pageTemplates';
 
 export const WebsiteBuilder: React.FC = () => {
   const { t } = useTranslation();
@@ -1288,6 +1291,23 @@ const PagesTab: React.FC<{
   const [pages, setPages] = useState(settings.pages || []);
   const [newPageTitle, setNewPageTitle] = useState('');
   const [newPageSlug, setNewPageSlug] = useState('');
+  const [templates, setTemplates] = useState<PageTemplate[]>([]);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [selectedPageForTemplate, setSelectedPageForTemplate] = useState<string | null>(null);
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
+
+  // Load templates
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const response = await getPageTemplates();
+        setTemplates(response.templates);
+      } catch (error: any) {
+        console.error('Error loading templates:', error);
+      }
+    };
+    loadTemplates();
+  }, []);
 
   const handleAddPage = async () => {
     if (!newPageTitle.trim() || !newPageSlug.trim()) {
@@ -1353,6 +1373,31 @@ const PagesTab: React.FC<{
         title: 'Error',
         description: error.message
       });
+    }
+  };
+
+  const handleApplyTemplate = async (templateId: string) => {
+    if (!selectedPageForTemplate) return;
+
+    try {
+      setApplyingTemplate(true);
+      await applyTemplate(selectedPageForTemplate, templateId);
+      setShowTemplateDialog(false);
+      setSelectedPageForTemplate(null);
+      toast({
+        title: 'Success',
+        description: 'Template applied successfully! You can now edit the page visually.'
+      });
+      // Navigate to visual builder to see the applied template
+      navigate(`/admin/visual-builder/${selectedPageForTemplate}`);
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to apply template'
+      });
+    } finally {
+      setApplyingTemplate(false);
     }
   };
 
@@ -1425,6 +1470,17 @@ const PagesTab: React.FC<{
                       {page.isPublished ? 'Unpublish' : 'Publish'}
                     </Button>
                     <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedPageForTemplate(page.id);
+                        setShowTemplateDialog(true);
+                      }}
+                    >
+                      <Wand2 className="h-4 w-4 mr-1" />
+                      Apply Template
+                    </Button>
+                    <Button
                       variant="default"
                       size="sm"
                       onClick={() => navigate(`/admin/visual-builder/${page.id}`)}
@@ -1452,6 +1508,62 @@ const PagesTab: React.FC<{
           </ScrollArea>
         </CardContent>
       </Card>
+
+      {/* Template Selection Dialog */}
+      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Choose a Template</DialogTitle>
+            <DialogDescription>
+              Select a pre-designed template to apply to your page. This will replace any existing content.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+            {templates.map((template) => (
+              <Card
+                key={template.id}
+                className="cursor-pointer hover:border-primary transition-all"
+                onClick={() => handleApplyTemplate(template.id)}
+              >
+                <CardHeader>
+                  <CardTitle className="text-lg">{template.name}</CardTitle>
+                  <Badge variant="outline" className="w-fit">{template.category}</Badge>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-3">{template.description}</p>
+                  <div className="bg-gray-100 dark:bg-gray-800 rounded p-4 flex items-center justify-center h-32">
+                    <div className="text-center">
+                      <FileText className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+                      <p className="text-xs text-gray-500">{template.name}</p>
+                    </div>
+                  </div>
+                  <Button className="w-full mt-4" size="sm" disabled={applyingTemplate}>
+                    {applyingTemplate ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Applying...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="h-4 w-4 mr-2" />
+                        Apply Template
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {templates.length === 0 && (
+            <div className="text-center py-12 text-muted-foreground">
+              <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
+              <p>No templates available</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

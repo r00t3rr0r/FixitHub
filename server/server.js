@@ -103,6 +103,8 @@ console.log('Loading website settings routes...');
 const websiteSettingsRoutes = require("./routes/websiteSettingsRoutes");
 console.log('Loading page content routes...');
 const pageContentRoutes = require("./routes/pageContentRoutes");
+console.log('Loading page template routes...');
+const pageTemplateRoutes = require("./routes/pageTemplateRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -362,6 +364,8 @@ app.use('/api/order-services', orderServiceRoutes);
 app.use('/api/website-settings', websiteSettingsRoutes);
 // Page Content Routes (Visual Builder)
 app.use('/api/page-content', pageContentRoutes);
+// Page Template Routes
+app.use('/api/page-templates', pageTemplateRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 
