@@ -67,11 +67,43 @@ export const VisualPageBuilder: React.FC = () => {
       setPageContent(response.pageContent);
     } catch (error: any) {
       console.error('Error loading page content:', error.message);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to load page content'
-      });
+
+      // If page content doesn't exist, initialize with empty content
+      if (error.message?.includes('Page content not found') || error.message?.includes('404')) {
+        console.log('Page content not found, initializing empty page');
+        setPageContent({
+          pageId: pageId!,
+          pageTitle: 'New Page',
+          pageSlug: pageId!,
+          sections: [],
+          globalStyles: {
+            primaryColor: '#3b82f6',
+            secondaryColor: '#10b981',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            fontSize: '16px',
+            backgroundColor: '#ffffff',
+            textColor: '#1f2937'
+          },
+          customCSS: '',
+          customJS: '',
+          isPublished: false,
+          createdBy: null,
+          updatedBy: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+
+        toast({
+          title: 'New Page',
+          description: 'Starting with a blank page. Add sections to get started!'
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: error.message || 'Failed to load page content'
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -83,6 +115,8 @@ export const VisualPageBuilder: React.FC = () => {
       setVersionHistory(history);
     } catch (error: any) {
       console.error('Error loading version history:', error.message);
+      // Set empty version history for new pages
+      setVersionHistory({ versions: [] });
     }
   };
 

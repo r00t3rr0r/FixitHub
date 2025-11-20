@@ -1,4 +1,5 @@
 const WebsiteSettings = require('../models/WebsiteSettings');
+const PageContent = require('../models/PageContent');
 
 class WebsiteSettingsService {
   /**
@@ -397,6 +398,31 @@ class WebsiteSettingsService {
         order: pages.length
       };
       pages.push(newPage);
+
+      // Create corresponding PageContent document for Visual Page Builder
+      try {
+        console.log('Creating empty PageContent for new page:', newPage.id);
+        await PageContent.createPage({
+          pageId: newPage.id,
+          pageTitle: newPage.title,
+          pageSlug: newPage.slug,
+          sections: [],
+          globalStyles: {
+            primaryColor: '#3b82f6',
+            secondaryColor: '#10b981',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            fontSize: '16px',
+            backgroundColor: '#ffffff',
+            textColor: '#1f2937'
+          }
+        }, null);
+        console.log('PageContent created successfully for:', newPage.id);
+      } catch (pageContentError) {
+        console.error('Error creating PageContent:', pageContentError);
+        // Don't fail the page creation if PageContent fails
+        // The Visual Page Builder will handle this gracefully
+      }
+
       return await this.updateSettings({ pages });
     } catch (error) {
       console.error('Error adding page:', error);
