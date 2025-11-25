@@ -93,7 +93,12 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
         console.log(`Parts CSV Import: Found ${results.data.length} rows and ${Object.keys((results.data[0] as any) || {}).length} columns`);
 
         setCSVData(results.data);
-        const columns = Object.keys((results.data[0] as any) || {});
+        const allColumns = Object.keys((results.data[0] as any) || {});
+
+        // Filter out empty or whitespace-only column names to prevent SelectItem errors
+        const columns = allColumns.filter(col => col && col.trim().length > 0);
+
+        console.log(`Parts CSV Import: Filtered columns from ${allColumns.length} to ${columns.length} (removed empty columns)`);
         setCSVColumns(columns);
 
         // Auto-map columns if they match common names
