@@ -98,10 +98,11 @@ export interface Supplier {
 
 // Description: Get all parts inventory
 // Endpoint: GET /api/inventory
-// Request: { category?: string, brand?: string, lowStock?: boolean, search?: string, page?: number, limit?: number }
+// Request: { category?: string, brand?: string, lowStock?: boolean, search?: string, page?: number, limit?: number, sortBy?: string, sortOrder?: 'asc' | 'desc' }
 // Response: { items: Part[], totalPages: number, currentPage: number, totalItems: number, totalValue: number, lowStockCount: number }
 export const getParts = async (filters: any = {}) => {
   try {
+    console.log('API: Fetching parts with filters:', filters);
     const response = await api.get('/api/inventory', { params: filters });
 
     // Transform inventory items to match Part interface
@@ -128,12 +129,18 @@ export const getParts = async (filters: any = {}) => {
       versions: item.versions || []
     }));
 
+    console.log('API: Received', transformedParts.length, 'parts, page', response.data.currentPage, 'of', response.data.totalPages);
+
     return {
       parts: transformedParts,
+      totalPages: response.data.totalPages,
+      currentPage: response.data.currentPage,
+      totalItems: response.data.totalItems,
       totalValue: response.data.totalValue,
       lowStockCount: response.data.lowStockCount
     };
   } catch (error) {
+    console.error('API: Error fetching parts:', error);
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
