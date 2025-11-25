@@ -32,7 +32,12 @@ import {
   Info,
   Calendar,
   Tag,
-  Smartphone
+  Smartphone,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react"
 import {
   Select,
@@ -76,10 +81,20 @@ import {
 
 export function AddOnServiceManagement() {
   const [addOnServices, setAddOnServices] = useState<AddOnService[]>([])
-  const [filteredServices, setFilteredServices] = useState<AddOnService[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
+
+  // Sorting state
+  const [sortBy, setSortBy] = useState<string>("createdAt")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -106,33 +121,34 @@ export function AddOnServiceManagement() {
 
   useEffect(() => {
     fetchAddOnServices()
-  }, [])
-
-  useEffect(() => {
-    let filtered = addOnServices
-
-    if (searchTerm) {
-      filtered = filtered.filter(service =>
-        service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.category.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    }
-
-    if (categoryFilter !== "all") {
-      filtered = filtered.filter(service => service.category === categoryFilter)
-    }
-
-    setFilteredServices(filtered)
-  }, [addOnServices, searchTerm, categoryFilter])
+  }, [currentPage, itemsPerPage, sortBy, sortOrder, categoryFilter])
 
   const fetchAddOnServices = async () => {
     try {
-      console.log("Fetching add-on services...")
-      const response = await getAddOnServices()
+      setLoading(true)
+      console.log("Fetching add-on services with pagination and sorting...")
+
+      const params: any = {
+        page: currentPage,
+        limit: itemsPerPage,
+        sortBy: sortBy,
+        sortOrder: sortOrder
+      }
+
+      if (categoryFilter !== "all") {
+        params.category = categoryFilter
+      }
+
+      const response = await getAddOnServices(params)
       const servicesData = response.addOns || []
       setAddOnServices(servicesData)
-      setFilteredServices(servicesData)
+
+      // Update pagination state
+      if (response.pagination) {
+        setTotalPages(response.pagination.totalPages)
+        setTotalItems(response.pagination.total)
+        console.log("Pagination info:", response.pagination)
+      }
     } catch (error: any) {
       console.error("Error fetching add-on services:", error)
       toast({
@@ -335,6 +351,49 @@ export function AddOnServiceManagement() {
     })
   }
 
+  // Column sorting function
+  const handleSort = (column: string) => {
+    console.log("Sorting by column:", column)
+    if (sortBy === column) {
+      // Toggle sort order if clicking the same column
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+    } else {
+      // Set new column and default to ascending
+      setSortBy(column)
+      setSortOrder("asc")
+    }
+    // Reset to first page when sorting changes
+    setCurrentPage(1)
+  }
+
+  // Render sort icon for column headers
+  const renderSortIcon = (column: string) => {
+    if (sortBy !== column) {
+      return <ChevronsUpDown className="h-4 w-4 ml-1 opacity-30" />
+    }
+    return sortOrder === "asc"
+      ? <ChevronUp className="h-4 w-4 ml-1" />
+      : <ChevronDown className="h-4 w-4 ml-1" />
+  }
+
+  // Pagination handlers
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1)
+    }
+  }
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1)
+    }
+  }
+
+  const handlePageSizeChange = (value: string) => {
+    setItemsPerPage(parseInt(value))
+    setCurrentPage(1) // Reset to first page when changing page size
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -480,18 +539,58 @@ export function AddOnServiceManagement() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Service</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Price</TableHead>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort("name")}
+                >
+                  <div className="flex items-center">
+                    Service
+                    {renderSortIcon("name")}
+                  </div>
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort("category")}
+                >
+                  <div className="flex items-center">
+                    Category
+                    {renderSortIcon("category")}
+                  </div>
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort("price")}
+                >
+                  <div className="flex items-center">
+                    Price
+                    {renderSortIcon("price")}
+                  </div>
+                </TableHead>
                 <TableHead>Est. Time</TableHead>
-                <TableHead>Bundle Discount</TableHead>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort("bundleDiscount")}
+                >
+                  <div className="flex items-center">
+                    Bundle Discount
+                    {renderSortIcon("bundleDiscount")}
+                  </div>
+                </TableHead>
                 <TableHead>Compatibility</TableHead>
-                <TableHead>Popularity</TableHead>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort("popularity")}
+                >
+                  <div className="flex items-center">
+                    Popularity
+                    {renderSortIcon("popularity")}
+                  </div>
+                </TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredServices.length === 0 ? (
+              {addOnServices.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8">
                     <Plus className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
@@ -499,9 +598,9 @@ export function AddOnServiceManagement() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredServices.map((service) => (
-                  <TableRow 
-                    key={service._id} 
+                addOnServices.map((service) => (
+                  <TableRow
+                    key={service._id}
                     className="cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => handleRowClick(service)}
                   >
@@ -583,6 +682,61 @@ export function AddOnServiceManagement() {
               )}
             </TableBody>
           </Table>
+
+          {/* Pagination Controls */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>
+                Showing {addOnServices.length === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1} to{" "}
+                {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} results
+              </span>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Label className="text-sm">Rows per page:</Label>
+                <Select value={itemsPerPage.toString()} onValueChange={handlePageSizeChange}>
+                  <SelectTrigger className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5</SelectItem>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePreviousPage}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+
+                <div className="flex items-center gap-1">
+                  <span className="text-sm font-medium">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleNextPage}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

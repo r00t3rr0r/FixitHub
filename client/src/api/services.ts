@@ -133,14 +133,14 @@ export const deleteRepairService = async (id: string) => {
   }
 };
 
-// Description: Get all add-on services
+// Description: Get all add-on services with pagination and sorting
 // Endpoint: GET /api/addons
-// Request: {}
-// Response: { success: boolean, addOns: AddOnService[] }
-export const getAddOnServices = async () => {
-  console.log('getAddOnServices called');
+// Request: { category?: string, deviceType?: string, page?: number, limit?: number, sortBy?: string, sortOrder?: 'asc' | 'desc' }
+// Response: { success: boolean, addOns: AddOnService[], pagination: PaginationResponse }
+export const getAddOnServices = async (params?: PaginationParams & { category?: string, deviceType?: string }) => {
+  console.log('getAddOnServices called with params:', params);
   try {
-    const response = await api.get('/api/addons');
+    const response = await api.get('/api/addons', { params });
     console.log('getAddOnServices API response:', response.data);
     return response.data;
   } catch (error) {
