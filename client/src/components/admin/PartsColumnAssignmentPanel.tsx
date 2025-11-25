@@ -108,7 +108,7 @@ export const PartsColumnAssignmentPanel: React.FC<PartsColumnAssignmentPanelProp
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">-- Not Mapped --</SelectItem>
-                      {csvColumns.map(col => (
+                      {csvColumns.filter(col => col && col.trim() !== '').map(col => (
                         <SelectItem key={col} value={col}>
                           {col}
                         </SelectItem>
@@ -140,7 +140,7 @@ export const PartsColumnAssignmentPanel: React.FC<PartsColumnAssignmentPanelProp
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">-- Not Mapped --</SelectItem>
-                      {csvColumns.map(col => (
+                      {csvColumns.filter(col => col && col.trim() !== '').map(col => (
                         <SelectItem key={col} value={col}>
                           {col}
                         </SelectItem>

@@ -59,6 +59,9 @@ const ProductColumnAssignmentPanel: React.FC<ProductColumnAssignmentPanelProps> 
   };
 
   const renderFieldSelector = (field: { key: string; label: string; description: string }, isRequired: boolean) => {
+    // Filter out empty or invalid headers to prevent Radix UI SelectItem errors
+    const validHeaders = csvHeaders.filter(header => header && header.trim() !== '');
+
     return (
       <div key={field.key} className="space-y-2">
         <Label htmlFor={field.key}>
@@ -74,7 +77,7 @@ const ProductColumnAssignmentPanel: React.FC<ProductColumnAssignmentPanelProps> 
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="none">-- Do not import --</SelectItem>
-            {csvHeaders.map((header) => (
+            {validHeaders.map((header) => (
               <SelectItem key={header} value={header}>
                 {header}
               </SelectItem>
