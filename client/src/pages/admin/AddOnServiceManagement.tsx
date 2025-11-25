@@ -37,8 +37,10 @@ import {
   ChevronDown,
   ChevronsUpDown,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Upload
 } from "lucide-react"
+import AddOnCSVImportDialog from "@/components/admin/AddOnCSVImportDialog"
 import {
   Select,
   SelectContent,
@@ -99,6 +101,7 @@ export function AddOnServiceManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
+  const [isCSVImportDialogOpen, setIsCSVImportDialogOpen] = useState(false)
   const [selectedService, setSelectedService] = useState<AddOnService | null>(null)
   const [detailService, setDetailService] = useState<AddOnService | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
@@ -427,10 +430,16 @@ export function AddOnServiceManagement() {
             Manage add-on services and compatibility settings
           </p>
         </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add New Service
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setIsCSVImportDialogOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Import CSV
+          </Button>
+          <Button onClick={openCreateDialog}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add New Service
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -1194,6 +1203,15 @@ export function AddOnServiceManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* CSV Import Dialog */}
+      <AddOnCSVImportDialog
+        open={isCSVImportDialogOpen}
+        onOpenChange={setIsCSVImportDialogOpen}
+        onImportComplete={() => {
+          fetchAddOnServices()
+        }}
+      />
     </div>
   )
 }

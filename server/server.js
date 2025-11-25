@@ -109,6 +109,8 @@ console.log('Loading CSV import routes...');
 const csvImportRoutes = require("./routes/csvImportRoutes");
 console.log('Loading CSV service import routes...');
 const csvServiceImportRoutes = require("./routes/csvServiceImportRoutes");
+console.log('Loading CSV add-on import routes...');
+const csvAddOnImportRoutes = require("./routes/csvAddOnImportRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -374,6 +376,8 @@ app.use('/api/page-templates', pageTemplateRoutes);
 app.use('/api/csv-import', csvImportRoutes);
 // CSV Service Import Routes
 app.use('/api/csv-service-import', csvServiceImportRoutes);
+// CSV Add-On Import Routes
+app.use('/api/csv-addon-import', csvAddOnImportRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 
