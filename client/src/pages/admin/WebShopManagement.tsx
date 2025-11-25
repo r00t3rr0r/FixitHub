@@ -20,8 +20,10 @@ import {
   X,
   ArrowUpDown,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Upload
 } from "lucide-react"
+import ProductCSVImportDialog from "@/components/admin/ProductCSVImportDialog"
 import {
   Select,
   SelectContent,
@@ -80,6 +82,7 @@ export function WebShopManagement() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [availableCategories, setAvailableCategories] = useState<string[]>([])
   const [availableBrands, setAvailableBrands] = useState<string[]>([])
+  const [showImportDialog, setShowImportDialog] = useState(false)
   const { toast } = useToast()
 
   // Form state for new product
@@ -537,10 +540,16 @@ export function WebShopManagement() {
             Manage products, inventory, and shop settings
           </p>
         </div>
-        <Button onClick={() => setShowAddDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Product
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowImportDialog(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Import CSV
+          </Button>
+          <Button onClick={() => setShowAddDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Product
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -1659,6 +1668,38 @@ export function WebShopManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* CSV Import Dialog */}
+      <ProductCSVImportDialog
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        onImportComplete={() => {
+          // Refresh the products list after import
+          setCurrentPage(1);
+          const fetchData = async () => {
+            try {
+              setLoading(true);
+              const filters: any = {
+                page: 1,
+                limit: itemsPerPage,
+                sortBy,
+                sortOrder
+              };
+              if (searchTerm) filters.search = searchTerm;
+              if (categoryFilter !== "all") filters.category = categoryFilter;
+              const productsResponse = await getProducts(filters);
+              setProducts(productsResponse.products || []);
+              setTotalPages(productsResponse.totalPages || 1);
+              setTotalProducts(productsResponse.totalProducts || 0);
+            } catch (error) {
+              console.error("Error refreshing products:", error);
+            } finally {
+              setLoading(false);
+            }
+          };
+          fetchData();
+        }}
+      />
     </div>
   )
 }
