@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const csv = require('csv-parser');
 const fs = require('fs');
-const { requireAdmin, requireRole } = require('./middleware/auth');
+const { auth, requireRole, requireAdmin, requireStaff } = require('./middleware/auth');
 const CSVProductImportService = require('../services/csvProductImportService');
 
 // Configure multer for file upload
@@ -25,7 +25,7 @@ const upload = multer({
 // Endpoint: POST /api/csv-product-import/validate
 // Request: { file: File (multipart), columnMapping: Object }
 // Response: { valid: boolean, validatedProducts: Array, errors: Array, warnings: Array, duplicates: Array, totalRows: number, validRows: number }
-router.post('/validate', requireRole(['admin', 'staff']), upload.single('file'), async (req, res) => {
+router.post('/validate', auth, requireRole(['admin', 'staff']), upload.single('file'), async (req, res) => {
   let filePath = null;
 
   try {
@@ -121,7 +121,7 @@ router.post('/validate', requireRole(['admin', 'staff']), upload.single('file'),
 // Endpoint: POST /api/csv-product-import/import
 // Request: { validatedProducts: Array, options: { updateExisting: boolean, skipDuplicates: boolean } }
 // Response: { successful: Array, failed: Array, updated: Array, skipped: Array }
-router.post('/import', requireRole(['admin', 'staff']), async (req, res) => {
+router.post('/import', auth, requireRole(['admin', 'staff']), async (req, res) => {
   try {
     console.log('CSV product import request received');
 
