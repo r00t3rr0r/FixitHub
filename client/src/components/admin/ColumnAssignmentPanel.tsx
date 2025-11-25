@@ -93,14 +93,20 @@ export const ColumnAssignmentPanel: React.FC<ColumnAssignmentPanelProps> = ({
                 </div>
 
                 <Select
-                  value={columnMapping[field.id] || ''}
-                  onValueChange={(value) => handleMappingChange(field.id, value)}
+                  value={columnMapping[field.id] || '__unmapped__'}
+                  onValueChange={(value) => {
+                    if (value === '__unmapped__') {
+                      handleRemoveMapping(field.id);
+                    } else {
+                      handleMappingChange(field.id, value);
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={`Select CSV column for ${field.label}`} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">-- Not mapped --</SelectItem>
+                    <SelectItem value="__unmapped__">-- Not mapped --</SelectItem>
                     {csvColumns.map(column => (
                       <SelectItem key={column} value={column}>
                         {column}
