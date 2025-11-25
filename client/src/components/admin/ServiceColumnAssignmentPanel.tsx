@@ -22,6 +22,9 @@ const ServiceColumnAssignmentPanel: React.FC<ServiceColumnAssignmentPanelProps> 
   columnMapping,
   onColumnMappingChange,
 }) => {
+  // Filter out any empty strings from CSV columns to prevent Radix UI Select errors
+  const filteredCsvColumns = csvColumns.filter((col) => col && col.trim() !== '');
+
   // Service fields that need to be mapped
   const serviceFields = [
     { field: 'name', label: 'Service Name', required: true, description: 'The name of the repair service' },
@@ -42,7 +45,7 @@ const ServiceColumnAssignmentPanel: React.FC<ServiceColumnAssignmentPanelProps> 
 
   // Get unmapped columns
   const mappedColumns = new Set(Object.values(columnMapping).filter((col) => col));
-  const unmappedColumns = csvColumns.filter((col) => !mappedColumns.has(col));
+  const unmappedColumns = filteredCsvColumns.filter((col) => !mappedColumns.has(col));
 
   return (
     <div className="space-y-6">
@@ -85,7 +88,7 @@ const ServiceColumnAssignmentPanel: React.FC<ServiceColumnAssignmentPanelProps> 
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__UNMAPPED__">-- Not mapped --</SelectItem>
-                {csvColumns.map((column) => (
+                {filteredCsvColumns.map((column) => (
                   <SelectItem key={column} value={column}>
                     {column}
                   </SelectItem>

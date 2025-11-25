@@ -94,16 +94,17 @@ const ServiceCSVImportDialog: React.FC<ServiceCSVImportDialogProps> = ({
 
       if (result.needsMapping) {
         // First pass: get columns for mapping
-        setCsvColumns(result.columns || []);
+        // Filter out empty strings to prevent Radix UI Select errors
+        const filteredColumns = (result.columns || []).filter((col) => col && col.trim() !== '');
+        setCsvColumns(filteredColumns);
         setPreviewData(result.previewData || []);
         setProgress(100);
         setStep('mapping');
 
         // Try to auto-map columns based on common names
         const autoMapping: Record<string, string> = {};
-        const columns = result.columns || [];
 
-        columns.forEach((col) => {
+        filteredColumns.forEach((col) => {
           const lowerCol = col.toLowerCase();
           if (lowerCol.includes('name') || lowerCol === 'service') {
             autoMapping['name'] = col;
@@ -338,7 +339,7 @@ const ServiceCSVImportDialog: React.FC<ServiceCSVImportDialogProps> = ({
                     <table className="w-full text-sm">
                       <thead>
                         <tr>
-                          {csvColumns.map((col) => (
+                          {csvColumns.filter((col) => col && col.trim() !== '').map((col) => (
                             <th key={col} className="text-left p-2 border-b">
                               {col}
                             </th>
@@ -348,7 +349,7 @@ const ServiceCSVImportDialog: React.FC<ServiceCSVImportDialogProps> = ({
                       <tbody>
                         {previewData.map((row, index) => (
                           <tr key={index}>
-                            {csvColumns.map((col) => (
+                            {csvColumns.filter((col) => col && col.trim() !== '').map((col) => (
                               <td key={col} className="p-2 border-b">
                                 {row[col]}
                               </td>
