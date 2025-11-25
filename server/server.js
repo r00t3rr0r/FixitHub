@@ -107,6 +107,8 @@ console.log('Loading page template routes...');
 const pageTemplateRoutes = require("./routes/pageTemplateRoutes");
 console.log('Loading CSV import routes...');
 const csvImportRoutes = require("./routes/csvImportRoutes");
+console.log('Loading CSV service import routes...');
+const csvServiceImportRoutes = require("./routes/csvServiceImportRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -370,6 +372,8 @@ app.use('/api/page-content', pageContentRoutes);
 app.use('/api/page-templates', pageTemplateRoutes);
 // CSV Import Routes
 app.use('/api/csv-import', csvImportRoutes);
+// CSV Service Import Routes
+app.use('/api/csv-service-import', csvServiceImportRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 

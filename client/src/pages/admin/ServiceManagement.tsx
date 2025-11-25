@@ -41,8 +41,10 @@ import {
   ChevronDown,
   ChevronsUpDown,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Upload
 } from "lucide-react"
+import ServiceCSVImportDialog from "@/components/admin/ServiceCSVImportDialog"
 import {
   Select,
   SelectContent,
@@ -115,6 +117,7 @@ export function ServiceManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
+  const [isCSVImportDialogOpen, setIsCSVImportDialogOpen] = useState(false)
   const [selectedService, setSelectedService] = useState<RepairService | null>(null)
   const [detailService, setDetailService] = useState<RepairService | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
@@ -442,10 +445,16 @@ export function ServiceManagement() {
             Manage repair services and pricing. Click on a service row to view detailed information.
           </p>
         </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Service
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setIsCSVImportDialogOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Import CSV
+          </Button>
+          <Button onClick={openCreateDialog}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Service
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -1346,6 +1355,16 @@ export function ServiceManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* CSV Import Dialog */}
+      <ServiceCSVImportDialog
+        open={isCSVImportDialogOpen}
+        onOpenChange={setIsCSVImportDialogOpen}
+        onImportComplete={() => {
+          fetchServices()
+          setIsCSVImportDialogOpen(false)
+        }}
+      />
     </div>
   )
 }
