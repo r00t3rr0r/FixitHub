@@ -12,9 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Separator } from '../../components/ui/separator';
 import { ScrollArea } from '../../components/ui/scroll-area';
 import { Checkbox } from '../../components/ui/checkbox';
-import { Plus, Search, Edit, Trash2, Package, AlertTriangle, Eye, DollarSign, MapPin, Calendar, Info, ListPlus, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, AlertTriangle, Eye, DollarSign, MapPin, Calendar, Info, ListPlus, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
 import { getParts, createInventoryItem, updatePart, deletePart, Part, PartVersion } from '../../api/parts';
 import { getNeedLists, createNeedList, addItemToNeedList, NeedList } from '../../api/needLists';
+import { PartsCSVImportDialog } from '../../components/admin/PartsCSVImportDialog';
 import { useToast } from '../../hooks/useToast';
 
 export function PartsManagement() {
@@ -48,6 +49,7 @@ export function PartsManagement() {
   const [newNeedListDescription, setNewNeedListDescription] = useState('');
   const [newNeedListPriority, setNewNeedListPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
   const [addingToNeedList, setAddingToNeedList] = useState(false);
+  const [showCSVImportDialog, setShowCSVImportDialog] = useState(false);
   const { toast } = useToast();
 
   // Form state for add/edit
@@ -441,35 +443,47 @@ export function PartsManagement() {
           <h1 className="text-3xl font-bold">Parts Management</h1>
           <p className="text-muted-foreground">Manage inventory parts and supplies</p>
         </div>
-        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogTrigger asChild>
-            <Button onClick={() => {
-              console.log('PartsManagement: Add Part button clicked');
-              resetForm();
-              setShowAddDialog(true);
-            }}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Part
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Add New Part</DialogTitle>
-            </DialogHeader>
-            <AddEditPartForm
-              formData={formData}
-              setFormData={setFormData}
-              onSubmit={handleAddPart}
-              onCancel={() => setShowAddDialog(false)}
-              categories={categories}
-              versionTypes={versionTypes}
-              addVersion={addVersion}
-              removeVersion={removeVersion}
-              updateVersion={updateVersion}
-              isEdit={false}
-            />
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              console.log('PartsManagement: CSV Import button clicked');
+              setShowCSVImportDialog(true);
+            }}
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            Import CSV
+          </Button>
+          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+            <DialogTrigger asChild>
+              <Button onClick={() => {
+                console.log('PartsManagement: Add Part button clicked');
+                resetForm();
+                setShowAddDialog(true);
+              }}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Part
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Add New Part</DialogTitle>
+              </DialogHeader>
+              <AddEditPartForm
+                formData={formData}
+                setFormData={setFormData}
+                onSubmit={handleAddPart}
+                onCancel={() => setShowAddDialog(false)}
+                categories={categories}
+                versionTypes={versionTypes}
+                addVersion={addVersion}
+                removeVersion={removeVersion}
+                updateVersion={updateVersion}
+                isEdit={false}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -917,6 +931,16 @@ export function PartsManagement() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* CSV Import Dialog */}
+      <PartsCSVImportDialog
+        open={showCSVImportDialog}
+        onOpenChange={setShowCSVImportDialog}
+        onImportSuccess={() => {
+          console.log('PartsManagement: CSV import successful, refreshing parts list');
+          fetchParts();
+        }}
+      />
     </div>
   );
 }

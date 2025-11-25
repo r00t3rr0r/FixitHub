@@ -17,6 +17,18 @@ export interface Part {
   lastUpdated: string;
   lastOrderDate?: string;
   isActive: boolean;
+  // Additional fields for display
+  partNumber?: string;
+  name?: string;
+  description?: string;
+  supplier?: string;
+  cost?: number;
+  sellingPrice?: number;
+  minStockLevel?: number;
+  location?: string;
+  condition?: string;
+  warranty?: number;
+  images?: string[];
 }
 
 export interface PartVersion {
