@@ -1,9 +1,9 @@
 const Product = require('../models/Product');
 
 class ProductService {
-  // Get all products with filtering
+  // Get all products with filtering, pagination, and sorting
   static async getProducts(filters = {}) {
-    console.log('ProductService: Getting products with filters:', filters);
+    console.log('ProductService: Getting products with filters and sorting:', filters);
 
     try {
       const query = { isActive: true };
@@ -31,23 +31,33 @@ class ProductService {
 
       // Pagination
       const page = parseInt(filters.page) || 1;
-      const limit = parseInt(filters.limit) || 20;
+      const limit = parseInt(filters.limit) || 10;
       const skip = (page - 1) * limit;
 
+      // Sorting
+      let sortObj = { createdAt: -1 }; // Default sort
+      if (filters.sortBy) {
+        const sortOrder = filters.sortOrder === 'asc' ? 1 : -1;
+        sortObj = { [filters.sortBy]: sortOrder };
+      }
+
+      console.log('ProductService: Applying sort:', sortObj);
+
       const products = await Product.find(query)
-        .sort({ createdAt: -1 })
+        .sort(sortObj)
         .skip(skip)
         .limit(limit);
 
       const totalProducts = await Product.countDocuments(query);
       const totalPages = Math.ceil(totalProducts / limit);
 
-      console.log('ProductService: Found', products.length, 'products');
+      console.log('ProductService: Found', products.length, 'products on page', page);
       return {
         products,
         totalPages,
         currentPage: page,
-        totalProducts
+        totalProducts,
+        limit
       };
     } catch (error) {
       console.error('ProductService: Error getting products:', error);

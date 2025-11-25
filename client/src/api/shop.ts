@@ -70,21 +70,24 @@ export interface Cart {
   updatedAt: string;
 }
 
-// Description: Get a list of products with optional filters
+// Description: Get a list of products with optional filters, pagination, and sorting
 // Endpoint: GET /api/products
-// Request: { category?: string, brand?: string, search?: string, page?: number, limit?: number }
-// Response: { success: boolean, products: Product[], totalPages: number, currentPage: number, totalProducts: number }
-export const getProducts = async (filters = {}) => {
+// Request: { page?: number, limit?: number, sortBy?: string, sortOrder?: 'asc'|'desc', category?: string, brand?: string, search?: string }
+// Response: { success: boolean, products: Product[], totalPages: number, currentPage: number, totalProducts: number, limit: number }
+export const getProducts = async (filters: any = {}) => {
   try {
     const queryParams = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
-      if (value) queryParams.append(key, value.toString());
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, value.toString());
+      }
     });
-    
+
     const url = `/api/products${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await api.get(url);
     return response.data;
   } catch (error) {
+    console.error('Error fetching products:', error);
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
