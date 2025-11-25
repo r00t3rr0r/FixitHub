@@ -107,7 +107,7 @@ export const ColumnAssignmentPanel: React.FC<ColumnAssignmentPanelProps> = ({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__unmapped__">-- Not mapped --</SelectItem>
-                    {csvColumns.map(column => (
+                    {csvColumns.filter(column => column && column.trim().length > 0).map(column => (
                       <SelectItem key={column} value={column}>
                         {column}
                       </SelectItem>
