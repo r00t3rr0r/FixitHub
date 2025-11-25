@@ -3,15 +3,15 @@ const router = express.Router();
 const { requireUser, requireAdmin } = require('./middleware/auth');
 const BookingService = require('../services/bookingService');
 
-// Description: Get all bookings (admin) or bookings for authenticated user (customer)
+// Description: Get all bookings (admin) or bookings for authenticated user (customer) with pagination
 // Endpoint: GET /api/bookings
 // Request: { status?: string, billingStatus?: string, limit?: number, skip?: number }
-// Response: { success: boolean, bookings: Booking[], count: number }
+// Response: { success: boolean, bookings: Booking[], count: number, total: number }
 router.get('/', requireUser, async (req, res) => {
   try {
     console.log('BookingRoutes: Getting bookings for user:', req.user._id, 'Role:', req.user.role);
 
-    const { status, billingStatus, limit = 50, skip = 0 } = req.query;
+    const { status, billingStatus, limit = 20, skip = 0 } = req.query;
 
     const filters = {};
     if (status) filters.status = status;
@@ -20,22 +20,36 @@ router.get('/', requireUser, async (req, res) => {
     filters.skip = parseInt(skip);
 
     let bookings;
+    let total;
 
     // If admin, get all bookings; otherwise get only customer's bookings
     if (req.user.role === 'admin' || req.user.role === 'staff') {
       console.log('BookingRoutes: Admin/Staff user requesting all bookings');
       bookings = await BookingService.getAllBookings(filters);
+
+      // Get total count for pagination
+      const countFilters = {};
+      if (status) countFilters.status = status;
+      if (billingStatus) countFilters.billingStatus = billingStatus;
+      total = await BookingService.getBookingsCount(countFilters);
     } else {
       console.log('BookingRoutes: Regular user requesting their own bookings');
       bookings = await BookingService.getByCustomer(req.user._id, filters);
+
+      // Get total count for pagination
+      const countFilters = { customerId: req.user._id };
+      if (status) countFilters.status = status;
+      if (billingStatus) countFilters.billingStatus = billingStatus;
+      total = await BookingService.getBookingsCount(countFilters);
     }
 
-    console.log('BookingRoutes: Retrieved', bookings.length, 'bookings');
+    console.log('BookingRoutes: Retrieved', bookings.length, 'bookings on current page. Total:', total);
 
     res.json({
       success: true,
       bookings: bookings,
       count: bookings.length,
+      total: total,
     });
   } catch (error) {
     console.error('BookingRoutes: Error getting bookings:', error);

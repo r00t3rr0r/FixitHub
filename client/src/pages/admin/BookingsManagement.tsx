@@ -50,7 +50,9 @@ import {
   FileText,
   Bell,
   MessageSquare,
-  MoreVertical
+  MoreVertical,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react"
 import {
   Select,
@@ -169,21 +171,45 @@ export function BookingsManagement() {
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false)
   const [showReminderDialog, setShowReminderDialog] = useState(false)
   const [showComplaintDialog, setShowComplaintDialog] = useState(false)
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(20)
+  const [totalBookings, setTotalBookings] = useState(0)
+
   const { toast } = useToast()
 
   useEffect(() => {
     fetchBookings()
-  }, [])
+  }, [currentPage, itemsPerPage, statusFilter, billingStatusFilter])
 
   const fetchBookings = async () => {
     try {
       setLoading(true)
-      const response = await getAdminBookings({
-        limit: 100,
-        skip: 0
-      })
+
+      const filters: any = {
+        limit: itemsPerPage,
+        skip: (currentPage - 1) * itemsPerPage
+      }
+
+      if (statusFilter !== "all") {
+        filters.status = statusFilter
+      }
+
+      if (billingStatusFilter !== "all") {
+        filters.billingStatus = billingStatusFilter
+      }
+
+      console.log('Fetching bookings with filters:', filters)
+      const response = await getAdminBookings(filters)
+
       const bookingsData = (response as any).bookings || []
+      const total = (response as any).total || 0
+
+      console.log('Received bookings:', bookingsData.length, 'Total:', total)
+
       setBookings(bookingsData)
+      setTotalBookings(total)
       setFilteredBookings(bookingsData)
     } catch (error) {
       console.error("Error fetching bookings:", error)
@@ -197,6 +223,7 @@ export function BookingsManagement() {
     }
   }
 
+  // Client-side search filtering (API filters are handled on server)
   useEffect(() => {
     let filtered = bookings
 
@@ -215,16 +242,8 @@ export function BookingsManagement() {
       })
     }
 
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(booking => booking.status === statusFilter)
-    }
-
-    if (billingStatusFilter !== "all") {
-      filtered = filtered.filter(booking => booking.billingStatus === billingStatusFilter)
-    }
-
     setFilteredBookings(filtered)
-  }, [bookings, searchTerm, statusFilter, billingStatusFilter])
+  }, [bookings, searchTerm])
 
   const handleViewDetails = async (booking: Booking) => {
     try {
@@ -531,7 +550,13 @@ export function BookingsManagement() {
             </div>
             <div className="w-full md:w-48">
               <label className="text-sm font-medium mb-2 block">Booking Status</label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select
+                value={statusFilter}
+                onValueChange={(value) => {
+                  setStatusFilter(value)
+                  setCurrentPage(1) // Reset to first page when filter changes
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -547,7 +572,13 @@ export function BookingsManagement() {
             </div>
             <div className="w-full md:w-48">
               <label className="text-sm font-medium mb-2 block">Billing Status</label>
-              <Select value={billingStatusFilter} onValueChange={setBillingStatusFilter}>
+              <Select
+                value={billingStatusFilter}
+                onValueChange={(value) => {
+                  setBillingStatusFilter(value)
+                  setCurrentPage(1) // Reset to first page when filter changes
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -894,6 +925,97 @@ export function BookingsManagement() {
                 </TableBody>
               </Table>
             </ScrollArea>
+          )}
+
+          {/* Pagination Controls */}
+          {filteredBookings.length > 0 && (
+            <div className="flex items-center justify-between px-2 py-4 border-t">
+              <div className="flex items-center gap-2">
+                <p className="text-sm text-foreground/60">
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalBookings)} of {totalBookings} bookings
+                </p>
+              </div>
+
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-foreground/60">Rows per page:</label>
+                  <Select
+                    value={itemsPerPage.toString()}
+                    onValueChange={(value) => {
+                      setItemsPerPage(parseInt(value))
+                      setCurrentPage(1) // Reset to first page when changing items per page
+                    }}
+                  >
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1 || loading}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.ceil(totalBookings / itemsPerPage) }, (_, i) => i + 1)
+                      .filter(page => {
+                        // Show first page, last page, current page, and pages around current
+                        const totalPages = Math.ceil(totalBookings / itemsPerPage)
+                        return (
+                          page === 1 ||
+                          page === totalPages ||
+                          Math.abs(page - currentPage) <= 1
+                        )
+                      })
+                      .map((page, index, array) => {
+                        // Add ellipsis between non-consecutive pages
+                        const prevPage = array[index - 1]
+                        const showEllipsis = prevPage && page - prevPage > 1
+
+                        return (
+                          <React.Fragment key={page}>
+                            {showEllipsis && (
+                              <span className="px-2 text-foreground/40">...</span>
+                            )}
+                            <Button
+                              variant={currentPage === page ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setCurrentPage(page)}
+                              disabled={loading}
+                              className="w-10"
+                            >
+                              {page}
+                            </Button>
+                          </React.Fragment>
+                        )
+                      })}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalBookings / itemsPerPage), prev + 1))}
+                    disabled={currentPage >= Math.ceil(totalBookings / itemsPerPage) || loading}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

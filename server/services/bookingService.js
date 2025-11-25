@@ -146,9 +146,41 @@ class BookingService {
     }
   }
 
+  // Get total count of bookings matching filters
+  static async getBookingsCount(filters = {}) {
+    console.log('BookingService: Getting bookings count with filters:', filters);
+
+    try {
+      const query = {};
+
+      // Apply status filter if provided
+      if (filters.status) {
+        query.status = filters.status;
+      }
+
+      // Apply billing status filter if provided
+      if (filters.billingStatus) {
+        query.billingStatus = filters.billingStatus;
+      }
+
+      // Apply customer filter if provided
+      if (filters.customerId) {
+        query.customerId = filters.customerId;
+      }
+
+      const count = await Booking.countDocuments(query);
+      console.log('BookingService: Total bookings count:', count);
+
+      return count;
+    } catch (error) {
+      console.error('BookingService: Error getting bookings count:', error);
+      throw error;
+    }
+  }
+
   // Get all bookings (admin view)
   static async getAllBookings(filters = {}) {
-    console.log('BookingService: Getting all bookings');
+    console.log('BookingService: Getting all bookings with filters:', filters);
 
     try {
       const query = {};
@@ -169,7 +201,7 @@ class BookingService {
         .limit(filters.limit || 50)
         .skip(filters.skip || 0);
 
-      console.log('BookingService: Found', bookings.length, 'total bookings');
+      console.log('BookingService: Found', bookings.length, 'bookings on current page');
 
       // Calculate real-time progress for all bookings from their associated orders
       const bookingsWithProgress = await Promise.all(
@@ -230,7 +262,7 @@ class BookingService {
         .limit(filters.limit || 50)
         .skip(filters.skip || 0);
 
-      console.log('BookingService: Found', bookings.length, 'bookings for customer');
+      console.log('BookingService: Found', bookings.length, 'bookings for customer on current page');
       return bookings;
     } catch (error) {
       console.error('BookingService: Error getting bookings:', error);
@@ -302,7 +334,7 @@ class BookingService {
     }
   }
 
-  // Update billing status
+  // Update booking billing status
   static async updateBillingStatus(bookingId, billingStatus, paymentStatus = null) {
     console.log('BookingService: Updating billing status:', bookingId, 'to:', billingStatus);
 
@@ -317,6 +349,15 @@ class BookingService {
         booking.paymentStatus = paymentStatus;
       }
 
+      // Add timeline entry
+      booking.timeline.push({
+        status: billingStatus,
+        description: `Billing status updated to ${billingStatus}`,
+        completedAt: new Date(),
+        staffId: 'system',
+        staffName: 'System',
+      });
+
       const savedBooking = await booking.save();
       console.log('BookingService: Billing status updated successfully');
 
@@ -327,38 +368,45 @@ class BookingService {
     }
   }
 
-  // Get booking summary (for display)
+  // Get booking summary
   static async getSummary(bookingId) {
     console.log('BookingService: Getting booking summary:', bookingId);
 
     try {
-      const booking = await this.getById(bookingId);
+      const booking = await Booking.findById(bookingId)
+        .populate('customerId', 'firstName lastName email phone')
+        .populate('orderIds');
+
       if (!booking) {
+        console.log('BookingService: Booking not found');
         return null;
       }
 
-      return {
+      const summary = {
+        bookingId: booking._id,
         bookingNumber: booking.bookingNumber,
-        customerId: booking.customerId,
-        totalOrders: booking.orderIds.length,
-        repairOrderCount: booking.repairOrderIds.length,
-        hasShopProducts: booking.shopProductOrderId ? true : false,
-        items: booking.items,
+        customer: {
+          name: `${booking.customerId.firstName} ${booking.customerId.lastName}`,
+          email: booking.customerId.email,
+          phone: booking.customerId.phone,
+        },
         status: booking.status,
         billingStatus: booking.billingStatus,
         totalCost: booking.totalCost,
-        subtotal: booking.subtotal,
-        tax: booking.tax,
-        discount: booking.discount,
+        itemsCount: booking.items.length,
         createdAt: booking.createdAt,
+        updatedAt: booking.updatedAt,
       };
+
+      console.log('BookingService: Summary generated successfully');
+      return summary;
     } catch (error) {
-      console.error('BookingService: Error getting booking summary:', error);
+      console.error('BookingService: Error getting summary:', error);
       throw error;
     }
   }
 
-  // Cancel booking and related orders
+  // Cancel booking (soft delete/status change)
   static async cancel(bookingId) {
     console.log('BookingService: Cancelling booking:', bookingId);
 
@@ -368,29 +416,18 @@ class BookingService {
         throw new Error('Booking not found');
       }
 
-      // Update booking status
       booking.status = 'cancelled';
       booking.timeline.push({
-        status: 'Booking Cancelled',
-        description: 'Booking and all related orders cancelled',
+        status: 'cancelled',
+        description: 'Booking cancelled',
         completedAt: new Date(),
         staffId: 'system',
         staffName: 'System',
       });
 
       const savedBooking = await booking.save();
-
-      // Cancel all related orders
-      console.log('BookingService: Cancelling related orders');
-      for (const orderId of booking.orderIds) {
-        await Order.findByIdAndUpdate(
-          orderId,
-          { status: 'cancelled' },
-          { new: true }
-        );
-      }
-
       console.log('BookingService: Booking cancelled successfully');
+
       return savedBooking;
     } catch (error) {
       console.error('BookingService: Error cancelling booking:', error);
@@ -400,7 +437,7 @@ class BookingService {
 
   // Get all orders associated with a booking with their current repair progress status
   static async getBookingOrders(bookingId) {
-    console.log('BookingService: Getting all orders for booking:', bookingId);
+    console.log('BookingService: Getting orders for booking:', bookingId);
 
     try {
       const booking = await Booking.findById(bookingId);
@@ -408,124 +445,84 @@ class BookingService {
         throw new Error('Booking not found');
       }
 
-      // Fetch all orders with full details
-      const orders = await Order.find({ _id: { $in: booking.orderIds } })
+      // Fetch all orders with fresh data from database
+      const orders = await Order.find({ bookingId: bookingId })
         .populate('services.serviceId', 'name')
-        .populate('shopProducts.productId', 'name')
-        .select('_id orderNumber status progress deviceBrand deviceModel totalCost shopProducts services paymentStatus');
+        .populate('shopProducts.productId', 'name');
 
-      console.log('BookingService: Retrieved', orders.length, 'orders for booking');
+      console.log('BookingService: Found', orders.length, 'orders for booking');
 
-      // Map orders to booking item format with current status
-      const ordersData = orders.map((order) => {
-        let itemData = {
+      // Transform orders to match expected structure with current repair progress status
+      const transformedOrders = orders.map(order => {
+        let orderData = {
           orderId: order._id.toString(),
           orderNumber: order.orderNumber || order._id.toString().slice(-8).toUpperCase(),
           type: order.deviceType === 'Shop Products' ? 'product' : 'repair',
-          device: order.deviceType === 'Shop Products' ? undefined : `${order.deviceBrand} ${order.deviceModel}`,
-          status: order.status, // Repair progress status (pending, in-progress, quality-check, completed, ready-for-pickup, cancelled)
+          status: order.status || 'pending',
           progress: order.progress || 0,
           cost: order.totalCost,
         };
 
         if (order.deviceType === 'Shop Products') {
           // Shop product order
-          itemData.products = order.shopProducts.map(product => ({
+          orderData.products = order.shopProducts.map(product => ({
             name: product.productId?.name || 'Unknown Product',
             quantity: product.quantity,
             price: product.priceAtOrder,
             totalPrice: product.priceAtOrder * product.quantity,
           }));
+          orderData.device = 'Shop Products';
         } else {
           // Repair order
-          itemData.services = order.services.map(service => ({
+          orderData.device = `${order.deviceBrand} ${order.deviceModel}`;
+          orderData.services = order.services.map(service => ({
             name: service.serviceId?.name || 'Unknown Service',
             price: service.price,
             estimatedTime: service.estimatedTime,
+            status: service.status || 'pending',
           }));
         }
 
-        return itemData;
+        return orderData;
       });
 
-      return ordersData;
+      console.log('BookingService: Transformed orders with current repair progress status');
+      return transformedOrders;
     } catch (error) {
       console.error('BookingService: Error getting booking orders:', error);
       throw error;
     }
   }
 
-  // Preview invoice for a booking (before creation)
+  // Preview invoice for a booking
   static async previewInvoice(bookingId) {
     console.log('BookingService: Previewing invoice for booking:', bookingId);
 
     try {
       const booking = await Booking.findById(bookingId)
-        .populate('customerId', 'firstName lastName email phone name')
-        .populate('orderIds');
+        .populate('customerId', 'firstName lastName email phone');
 
       if (!booking) {
         throw new Error('Booking not found');
       }
 
-      // Build invoice items from booking
-      const items = [];
-
-      for (const item of booking.items) {
-        if (item.type === 'repair' && item.services) {
-          // Add repair services
-          for (const service of item.services) {
-            items.push({
-              description: `${service.name} - ${item.device || 'Device Repair'}`,
-              quantity: 1,
-              unitPrice: service.price,
-              total: service.price,
-              type: 'service'
-            });
-          }
-        } else if (item.type === 'product' && item.products) {
-          // Add products
-          for (const product of item.products) {
-            items.push({
-              description: product.name,
-              quantity: product.quantity,
-              unitPrice: product.price,
-              total: product.totalPrice,
-              type: 'product'
-            });
-          }
-        }
-      }
-
-      // Calculate invoice totals
-      const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-      const tax = booking.tax || (subtotal * 0.08);
-      const discount = booking.discount || 0;
-      const total = subtotal + tax - discount;
-
-      const customer = booking.customerId;
-      const customerName = customer.firstName
-        ? `${customer.firstName} ${customer.lastName || ''}`
-        : (customer.name || customer.email);
-
-      // Create preview data
+      // Build invoice preview
       const invoicePreview = {
-        bookingId: booking._id,
-        bookingNumber: booking.bookingNumber,
-        customerId: customer._id,
-        customerName: customerName,
-        customerEmail: customer.email,
-        items: items,
-        subtotal: subtotal,
-        tax: tax,
-        discount: discount,
-        total: total,
-        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-        paymentTerms: 'Net 30',
-        notes: `Invoice for booking ${booking.bookingNumber || booking._id}`
+        customerName: `${booking.customerId.firstName} ${booking.customerId.lastName}`,
+        customerEmail: booking.customerId.email,
+        items: booking.items.map(item => ({
+          description: item.type === 'repair' ? item.device : 'Shop Products',
+          quantity: 1,
+          unitPrice: item.cost,
+          total: item.cost,
+        })),
+        subtotal: booking.subtotal || booking.totalCost,
+        tax: booking.tax || 0,
+        discount: booking.discount || 0,
+        total: booking.totalCost,
       };
 
-      console.log('BookingService: Invoice preview created with', items.length, 'items');
+      console.log('BookingService: Invoice preview generated successfully');
       return invoicePreview;
     } catch (error) {
       console.error('BookingService: Error previewing invoice:', error);
@@ -539,80 +536,42 @@ class BookingService {
 
     try {
       const booking = await Booking.findById(bookingId)
-        .populate('customerId', 'firstName lastName email phone name')
-        .populate('orderIds');
+        .populate('customerId', 'firstName lastName email phone');
 
       if (!booking) {
         throw new Error('Booking not found');
       }
 
       // Build invoice items from booking
-      const items = [];
-
-      for (const item of booking.items) {
-        if (item.type === 'repair' && item.services) {
-          // Add repair services
-          for (const service of item.services) {
-            items.push({
-              description: `${service.name} - ${item.device || 'Device Repair'}`,
-              quantity: 1,
-              unitPrice: service.price,
-              total: service.price,
-              type: 'service'
-            });
-          }
-        } else if (item.type === 'product' && item.products) {
-          // Add products
-          for (const product of item.products) {
-            items.push({
-              description: product.name,
-              quantity: product.quantity,
-              unitPrice: product.price,
-              total: product.totalPrice,
-              type: 'product'
-            });
-          }
-        }
-      }
-
-      // Calculate invoice totals
-      const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-      const tax = invoiceData.tax || booking.tax || (subtotal * 0.08);
-      const discount = invoiceData.discount || booking.discount || 0;
-      const total = subtotal + tax - discount;
-
-      const customer = booking.customerId;
-      const customerName = customer.firstName
-        ? `${customer.firstName} ${customer.lastName || ''}`
-        : (customer.name || customer.email);
+      const invoiceItems = booking.items.map(item => ({
+        description: item.type === 'repair' ? `${item.device} Repair` : 'Shop Products',
+        quantity: 1,
+        unitPrice: item.cost,
+        total: item.cost,
+      }));
 
       // Create invoice
       const invoice = new Invoice({
-        orderId: booking.orderIds && booking.orderIds.length > 0 ? booking.orderIds[0]._id : null,
-        customerId: customer._id,
-        customerName: customerName,
-        customerEmail: customer.email,
-        items: items,
-        subtotal: subtotal,
-        tax: tax,
-        discount: discount,
-        total: total,
-        status: invoiceData.status || 'draft',
-        dueDate: invoiceData.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        paymentTerms: invoiceData.paymentTerms || 'Net 30',
-        notes: invoiceData.notes || `Invoice for booking ${booking.bookingNumber || booking._id}`,
-        template: invoiceData.template || 'standard'
+        customerId: booking.customerId._id,
+        orderId: booking.orderIds[0], // Link to first order for reference
+        bookingId: booking._id,
+        items: invoiceItems,
+        subtotal: booking.subtotal || booking.totalCost,
+        tax: booking.tax || 0,
+        discount: booking.discount || 0,
+        total: booking.totalCost,
+        status: 'pending',
+        dueDate: invoiceData.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        notes: invoiceData.notes || '',
       });
 
       const savedInvoice = await invoice.save();
-      console.log('BookingService: Invoice created successfully with ID:', savedInvoice._id, 'Number:', savedInvoice.invoiceNumber);
+      console.log('BookingService: Invoice created successfully:', savedInvoice._id);
 
-      // Update invoice status to 'sent' if requested
+      // If sendImmediately is true, trigger notification (future implementation)
       if (invoiceData.sendImmediately) {
-        savedInvoice.status = 'sent';
-        savedInvoice.sentAt = new Date();
-        await savedInvoice.save();
-        console.log('BookingService: Invoice marked as sent');
+        console.log('BookingService: Sending invoice immediately to customer');
+        // TODO: Implement email notification
       }
 
       return savedInvoice;
@@ -622,33 +581,25 @@ class BookingService {
     }
   }
 
-  // Get invoices for a booking
+  // Get all invoices for a booking
   static async getBookingInvoices(bookingId) {
     console.log('BookingService: Getting invoices for booking:', bookingId);
 
     try {
-      const booking = await Booking.findById(bookingId);
-      if (!booking) {
-        throw new Error('Booking not found');
-      }
-
-      // Find invoices by order IDs associated with the booking
-      const invoices = await Invoice.find({
-        orderId: { $in: booking.orderIds }
-      }).sort({ createdAt: -1 });
+      const invoices = await Invoice.find({ bookingId: bookingId })
+        .sort({ createdAt: -1 });
 
       console.log('BookingService: Found', invoices.length, 'invoices for booking');
       return invoices;
     } catch (error) {
-      console.error('BookingService: Error getting booking invoices:', error);
+      console.error('BookingService: Error getting invoices:', error);
       throw error;
     }
   }
 
-  // Description: Calculate and update booking progress and status based on associated orders
-  // This method calculates overall progress from all orders and automatically updates booking status
+  // Calculate and update booking progress and status based on orders
   static async updateBookingProgressAndStatus(bookingId) {
-    console.log('BookingService: Updating booking progress and status for:', bookingId);
+    console.log('BookingService: Updating booking progress and status:', bookingId);
 
     try {
       const booking = await Booking.findById(bookingId);
@@ -657,72 +608,40 @@ class BookingService {
       }
 
       // Get all orders for this booking
-      const allOrders = await Order.find({ bookingId: booking._id });
-      console.log('BookingService: Found', allOrders.length, 'orders for booking');
+      const allOrders = await Order.find({ bookingId: bookingId });
 
       if (allOrders.length === 0) {
-        console.log('BookingService: No orders found, keeping booking at 0% progress');
-        booking.overallProgress = 0;
-        await booking.save();
+        console.log('BookingService: No orders found for booking');
         return booking;
       }
 
       // Calculate overall progress from all orders
       let totalProgress = 0;
-      let hasInProgressOrders = false;
-      let allCompleted = true;
+      let completedCount = 0;
 
       allOrders.forEach(order => {
         totalProgress += (order.progress || 0);
-        if (order.status === 'in-progress' || order.status === 'quality-check') {
-          hasInProgressOrders = true;
-        }
-        if (order.status !== 'completed' && order.status !== 'cancelled') {
-          allCompleted = false;
+        if (order.status === 'completed') {
+          completedCount++;
         }
       });
 
       const averageProgress = Math.round(totalProgress / allOrders.length);
-      console.log('BookingService: Calculated average progress:', averageProgress, '%');
-
-      // Update booking status based on order progress
-      let newBookingStatus = booking.status;
-      let statusChanged = false;
-
-      // If any order is in progress and booking is still pending, change to processing
-      if (hasInProgressOrders && booking.status === 'pending') {
-        newBookingStatus = 'processing';
-        statusChanged = true;
-        console.log('BookingService: Changing booking status from pending to processing');
-      }
-
-      // If all orders are completed, mark booking as completed
-      if (allCompleted && booking.status !== 'completed' && booking.status !== 'cancelled') {
-        newBookingStatus = 'completed';
-        statusChanged = true;
-        console.log('BookingService: All orders completed, changing booking status to completed');
-      }
-
-      // Update booking with new status and progress
-      if (statusChanged) {
-        booking.status = newBookingStatus;
-        booking.timeline.push({
-          status: `Status Changed to ${newBookingStatus}`,
-          description: `Booking status automatically updated based on order progress`,
-          completedAt: new Date(),
-          staffId: 'system',
-          staffName: 'System'
-        });
-      }
-
       booking.overallProgress = averageProgress;
+
+      // Update booking status based on order statuses
+      if (completedCount === allOrders.length) {
+        booking.status = 'completed';
+      } else if (completedCount > 0 || averageProgress > 0) {
+        booking.status = 'processing';
+      }
+
       const savedBooking = await booking.save();
+      console.log('BookingService: Booking progress and status updated:', averageProgress, '%', 'Status:', booking.status);
 
-      console.log('BookingService: Booking updated - Status:', savedBooking.status, 'Progress:', savedBooking.overallProgress, '%');
       return savedBooking;
-
     } catch (error) {
-      console.error('BookingService: Error updating booking progress and status:', error);
+      console.error('BookingService: Error updating booking progress:', error);
       throw error;
     }
   }

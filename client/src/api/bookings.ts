@@ -1,9 +1,9 @@
 import api from './api';
 
-// Description: Get all bookings for the authenticated user
+// Description: Get all bookings for the authenticated user with pagination
 // Endpoint: GET /api/bookings
 // Request: { status?: string, billingStatus?: string, limit?: number, skip?: number }
-// Response: { success: boolean, bookings: Array<Booking>, count: number }
+// Response: { success: boolean, bookings: Array<Booking>, count: number, total: number }
 export const getBookings = async (filters?: {
   status?: string;
   billingStatus?: string;
@@ -122,10 +122,10 @@ export const cancelBooking = async (bookingId: string) => {
   }
 };
 
-// Description: Get all bookings for admin with filtering (admin only)
+// Description: Get all bookings for admin with filtering and pagination (admin only)
 // Endpoint: GET /api/bookings
 // Request: { status?: string, billingStatus?: string, limit?: number, skip?: number }
-// Response: { success: boolean, bookings: Array<Booking>, count: number }
+// Response: { success: boolean, bookings: Array<Booking>, count: number, total: number }
 export const getAdminBookings = async (filters?: {
   status?: string;
   billingStatus?: string;
