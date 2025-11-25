@@ -16,11 +16,17 @@ interface AddOnColumnAssignmentPanelProps {
   onColumnMappingChange: (field: string, column: string) => void;
 }
 
+// Special value to represent "not mapped" state
+const NOT_MAPPED_VALUE = '__NOT_MAPPED__';
+
 const AddOnColumnAssignmentPanel: React.FC<AddOnColumnAssignmentPanelProps> = ({
   csvColumns,
   columnMapping,
   onColumnMappingChange,
 }) => {
+  console.log('[AddOnColumnAssignmentPanel] Received csvColumns:', csvColumns);
+  console.log('[AddOnColumnAssignmentPanel] Current columnMapping:', columnMapping);
+
   // Field definitions for Add-On Services
   const fields = [
     {
@@ -85,15 +91,26 @@ const AddOnColumnAssignmentPanel: React.FC<AddOnColumnAssignmentPanelProps> = ({
     },
   ];
 
+  // Filter out empty or whitespace-only columns
+  const validCsvColumns = csvColumns.filter((col) => col && col.trim() !== '');
+  console.log('[AddOnColumnAssignmentPanel] Valid CSV columns after filtering:', validCsvColumns);
+
   // Check if all required fields are mapped
   const requiredFields = fields.filter((f) => f.required);
   const allRequiredMapped = requiredFields.every(
-    (field) => columnMapping[field.key] && columnMapping[field.key] !== ''
+    (field) => columnMapping[field.key] && columnMapping[field.key] !== '' && columnMapping[field.key] !== NOT_MAPPED_VALUE
   );
 
   // Check for unmapped columns
-  const mappedColumns = Object.values(columnMapping).filter((col) => col !== '');
-  const unmappedColumns = csvColumns.filter((col) => !mappedColumns.includes(col));
+  const mappedColumns = Object.values(columnMapping).filter((col) => col !== '' && col !== NOT_MAPPED_VALUE);
+  const unmappedColumns = validCsvColumns.filter((col) => !mappedColumns.includes(col));
+
+  // Handle value change with proper mapping
+  const handleValueChange = (field: string, value: string) => {
+    console.log(`[AddOnColumnAssignmentPanel] Mapping field "${field}" to column "${value}"`);
+    // Convert NOT_MAPPED_VALUE back to empty string for the parent component
+    onColumnMappingChange(field, value === NOT_MAPPED_VALUE ? '' : value);
+  };
 
   return (
     <div className="space-y-4">
@@ -131,31 +148,36 @@ const AddOnColumnAssignmentPanel: React.FC<AddOnColumnAssignmentPanelProps> = ({
 
       {/* Field Mapping Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border rounded-lg p-4">
-        {fields.map((field) => (
-          <div key={field.key} className="space-y-2">
-            <Label htmlFor={`field-${field.key}`}>
-              {field.label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
-            <Select
-              value={columnMapping[field.key] || ''}
-              onValueChange={(value) => onColumnMappingChange(field.key, value)}
-            >
-              <SelectTrigger id={`field-${field.key}`}>
-                <SelectValue placeholder="Select column..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">-- Not Mapped --</SelectItem>
-                {csvColumns.map((column) => (
-                  <SelectItem key={column} value={column}>
-                    {column}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">{field.description}</p>
-          </div>
-        ))}
+        {fields.map((field) => {
+          // Get current value, converting empty string to NOT_MAPPED_VALUE for the Select component
+          const currentValue = columnMapping[field.key] || NOT_MAPPED_VALUE;
+
+          return (
+            <div key={field.key} className="space-y-2">
+              <Label htmlFor={`field-${field.key}`}>
+                {field.label}
+                {field.required && <span className="text-red-500 ml-1">*</span>}
+              </Label>
+              <Select
+                value={currentValue}
+                onValueChange={(value) => handleValueChange(field.key, value)}
+              >
+                <SelectTrigger id={`field-${field.key}`}>
+                  <SelectValue placeholder="Select column..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NOT_MAPPED_VALUE}>-- Not Mapped --</SelectItem>
+                  {validCsvColumns.map((column) => (
+                    <SelectItem key={column} value={column}>
+                      {column}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">{field.description}</p>
+            </div>
+          );
+        })}
       </div>
 
       {/* Format Guide */}
