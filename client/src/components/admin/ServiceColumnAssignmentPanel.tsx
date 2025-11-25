@@ -77,14 +77,14 @@ const ServiceColumnAssignmentPanel: React.FC<ServiceColumnAssignmentPanelProps> 
               )}
             </div>
             <Select
-              value={columnMapping[serviceField.field] || ''}
-              onValueChange={(value) => onColumnMappingChange(serviceField.field, value)}
+              value={columnMapping[serviceField.field] || '__UNMAPPED__'}
+              onValueChange={(value) => onColumnMappingChange(serviceField.field, value === '__UNMAPPED__' ? '' : value)}
             >
               <SelectTrigger id={`field-${serviceField.field}`}>
                 <SelectValue placeholder="Select CSV column" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">-- Not mapped --</SelectItem>
+                <SelectItem value="__UNMAPPED__">-- Not mapped --</SelectItem>
                 {csvColumns.map((column) => (
                   <SelectItem key={column} value={column}>
                     {column}
