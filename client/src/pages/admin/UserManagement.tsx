@@ -34,8 +34,10 @@ import {
   Clock,
   Activity,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Upload
 } from "lucide-react"
+import { CSVImportDialog } from "@/components/admin/CSVImportDialog"
 import {
   Select,
   SelectContent,
@@ -122,6 +124,7 @@ export function UserManagement() {
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [sortField, setSortField] = useState<SortField>('createdAt')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [showCSVImportDialog, setShowCSVImportDialog] = useState(false)
   const { toast } = useToast()
 
   // Form state
@@ -587,105 +590,114 @@ export function UserManagement() {
               {t('userManagement.description')}
             </p>
           </div>
-          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-            <DialogTrigger asChild>
-              <Button>
-                <UserPlus className="h-4 w-4 mr-2" />
-                {t('userManagement.createNewUser')}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md bg-background">
-              <DialogHeader>
-                <DialogTitle>{t('userManagement.createNewUser')}</DialogTitle>
-                <DialogDescription>
-                  {t('userManagement.description')}
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleCreateUser} className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">{t('userManagement.name')}</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      required
-                    />
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowCSVImportDialog(true)}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Import from CSV
+            </Button>
+            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+              <DialogTrigger asChild>
+                <Button>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  {t('userManagement.createNewUser')}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md bg-background">
+                <DialogHeader>
+                  <DialogTitle>{t('userManagement.createNewUser')}</DialogTitle>
+                  <DialogDescription>
+                    {t('userManagement.description')}
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleCreateUser} className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">{t('userManagement.name')}</Label>
+                      <Input
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">{t('userManagement.email')}</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        required
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">{t('userManagement.email')}</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      required
-                    />
-                  </div>
-                </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">{t('userManagement.phone')}</Label>
+                      <Input
+                        id="phone"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="role">{t('userManagement.role')}</Label>
+                      <Select
+                        value={formData.role}
+                        onValueChange={(value: "customer" | "staff" | "admin") =>
+                          setFormData({ ...formData, role: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={t('common.select')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="customer">{t('userManagement.customer')}</SelectItem>
+                          <SelectItem value="staff">{t('userManagement.staff')}</SelectItem>
+                          <SelectItem value="admin">{t('userManagement.admin')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="phone">{t('userManagement.phone')}</Label>
+                    <Label htmlFor="password">{t('login.password')}</Label>
                     <Input
-                      id="phone"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      id="password"
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      required
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="role">{t('userManagement.role')}</Label>
-                    <Select
-                      value={formData.role}
-                      onValueChange={(value: "customer" | "staff" | "admin") =>
-                        setFormData({ ...formData, role: value })
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="sendWelcomeEmail"
+                      checked={formData.sendWelcomeEmail}
+                      onCheckedChange={(checked) =>
+                        setFormData({ ...formData, sendWelcomeEmail: checked as boolean })
                       }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('common.select')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="customer">{t('userManagement.customer')}</SelectItem>
-                        <SelectItem value="staff">{t('userManagement.staff')}</SelectItem>
-                        <SelectItem value="admin">{t('userManagement.admin')}</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    />
+                    <Label htmlFor="sendWelcomeEmail">{t('userManagement.sendWelcomeEmail')}</Label>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="password">{t('login.password')}</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="sendWelcomeEmail"
-                    checked={formData.sendWelcomeEmail}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, sendWelcomeEmail: checked as boolean })
-                    }
-                  />
-                  <Label htmlFor="sendWelcomeEmail">{t('userManagement.sendWelcomeEmail')}</Label>
-                </div>
-
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
-                    {t('common.cancel')}
-                  </Button>
-                  <Button type="submit" disabled={creating}>
-                    {creating ? t('common.create') + "..." : t('common.create')}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
+                      {t('common.cancel')}
+                    </Button>
+                    <Button type="submit" disabled={creating}>
+                      {creating ? t('common.create') + "..." : t('common.create')}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -1082,17 +1094,27 @@ export function UserManagement() {
           </CardContent>
         </Card>
 
-        <UserDetailsDialog
-          userId={selectedUserId}
-          open={showDetailsDialog}
-          onOpenChange={setShowDetailsDialog}
-        />
+        {showDetailsDialog && (
+          <UserDetailsDialog
+            userId={selectedUserId}
+            open={showDetailsDialog}
+            onOpenChange={setShowDetailsDialog}
+          />
+        )}
 
-        <EditUserDialog
-          user={editingUser}
-          open={showEditDialog}
-          onOpenChange={setShowEditDialog}
-          onUserUpdated={handleUserUpdated}
+        {showEditDialog && (
+          <EditUserDialog
+            user={editingUser}
+            open={showEditDialog}
+            onOpenChange={setShowEditDialog}
+            onUserUpdated={handleUserUpdated}
+          />
+        )}
+
+        <CSVImportDialog
+          open={showCSVImportDialog}
+          onOpenChange={setShowCSVImportDialog}
+          onImportSuccess={fetchUsers}
         />
       </div>
     </TooltipProvider>
