@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/useToast"
-import { getUsers, createUser, updateUserRole, updateUserStatus, bulkUpdateUserStatus, deleteUser, User, CreateUserData } from "@/api/users"
+import { getUsers, createUser, updateUserRole, updateUserStatus, bulkUpdateUserStatus, deleteUser, User, CreateUserData, GetUsersParams } from "@/api/users"
 import {
   Users,
   Search,
@@ -32,7 +32,9 @@ import {
   ArrowDown,
   MapPin,
   Clock,
-  Activity
+  Activity,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react"
 import {
   Select,
@@ -83,6 +85,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import { UserDetailsDialog } from "@/components/admin/UserDetailsDialog"
 import { EditUserDialog } from "@/components/admin/EditUserDialog"
 
@@ -92,7 +103,10 @@ type SortDirection = 'asc' | 'desc'
 export function UserManagement() {
   const { t } = useTranslation()
   const [users, setUsers] = useState<User[]>([])
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([])
+  const [totalUsers, setTotalUsers] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
@@ -120,77 +134,70 @@ export function UserManagement() {
     sendWelcomeEmail: false
   })
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        console.log("Fetching users...")
-        const response = await getUsers()
-        const usersData = (response as any).users || []
-        setUsers(usersData)
-        setFilteredUsers(usersData)
-      } catch (error) {
-        console.error("Error fetching users:", error)
-        toast({
-          title: t('common.error'),
-          description: t('userManagement.failedToLoadUsers'),
-          variant: "destructive"
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
+  // Fetch users with pagination
+  const fetchUsers = async () => {
+    try {
+      setLoading(true)
+      console.log("Fetching users with pagination...", {
+        page: currentPage,
+        limit: pageSize,
+        search: searchTerm,
+        role: roleFilter,
+        status: statusFilter
+      })
 
+      const params: GetUsersParams = {
+        page: currentPage,
+        limit: pageSize,
+      }
+
+      if (searchTerm) {
+        params.search = searchTerm
+      }
+
+      if (roleFilter !== "all") {
+        params.role = roleFilter
+      }
+
+      if (statusFilter !== "all") {
+        params.status = statusFilter
+      }
+
+      const response = await getUsers(params)
+
+      console.log("Users fetched successfully:", {
+        usersCount: response.users.length,
+        totalUsers: response.totalUsers,
+        currentPage: response.currentPage,
+        totalPages: response.totalPages
+      })
+
+      setUsers(response.users)
+      setTotalUsers(response.totalUsers)
+      setTotalPages(response.totalPages)
+      setCurrentPage(response.currentPage)
+    } catch (error) {
+      console.error("Error fetching users:", error)
+      toast({
+        title: t('common.error'),
+        description: t('userManagement.failedToLoadUsers'),
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
     fetchUsers()
-  }, [toast])
+  }, [currentPage, pageSize, searchTerm, roleFilter, statusFilter])
 
+  // Reset to page 1 when filters change
   useEffect(() => {
-    let filtered = users
-
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter(user =>
-        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.phone.includes(searchTerm)
-      )
+    if (currentPage !== 1) {
+      setCurrentPage(1)
     }
-
-    // Filter by role
-    if (roleFilter !== "all") {
-      filtered = filtered.filter(user => user.role === roleFilter)
-    }
-
-    // Filter by status
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(user => user.status === statusFilter)
-    }
-
-    // Sort users
-    filtered.sort((a, b) => {
-      let aValue: any = a[sortField]
-      let bValue: any = b[sortField]
-
-      // Handle special cases
-      if (sortField === 'lastActivity') {
-        aValue = new Date(a.lastActivity || a.createdAt).getTime()
-        bValue = new Date(b.lastActivity || b.createdAt).getTime()
-      } else if (sortField === 'createdAt') {
-        aValue = new Date(a.createdAt).getTime()
-        bValue = new Date(b.createdAt).getTime()
-      } else if (typeof aValue === 'string') {
-        aValue = aValue.toLowerCase()
-        bValue = bValue.toLowerCase()
-      }
-
-      if (sortDirection === 'asc') {
-        return aValue > bValue ? 1 : -1
-      } else {
-        return aValue < bValue ? 1 : -1
-      }
-    })
-
-    setFilteredUsers(filtered)
-  }, [users, searchTerm, roleFilter, statusFilter, sortField, sortDirection])
+  }, [searchTerm, roleFilter, statusFilter])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -232,10 +239,7 @@ export function UserManagement() {
       })
 
       // Refresh users list
-      const usersResponse = await getUsers()
-      const usersData = (usersResponse as any).users || []
-      setUsers(usersData)
-      setFilteredUsers(usersData)
+      await fetchUsers()
 
       // Reset form and close dialog
       setFormData({
@@ -322,10 +326,8 @@ export function UserManagement() {
       console.log("Bulk updating user status:", selectedUsers, status)
       await bulkUpdateUserStatus(selectedUsers, status)
 
-      // Update local state
-      setUsers(users.map(user =>
-        selectedUsers.includes(user._id) ? { ...user, status: status as any } : user
-      ))
+      // Refresh users list to get updated data
+      await fetchUsers()
       setSelectedUsers([])
 
       toast({
@@ -348,8 +350,8 @@ export function UserManagement() {
       console.log("Deleting user:", userId)
       await deleteUser(userId)
 
-      // Remove user from local state
-      setUsers(users.filter(user => user._id !== userId))
+      // Refresh users list
+      await fetchUsers()
 
       toast({
         title: t('common.success'),
@@ -375,11 +377,9 @@ export function UserManagement() {
 
   const handleUserUpdated = (updatedUser: User) => {
     console.log("EditUser: User updated successfully:", updatedUser._id)
-    // Update the user in the local state
-    setUsers(users.map(user => 
-      user._id === updatedUser._id ? updatedUser : user
-    ))
-    
+    // Refresh users list to get updated data
+    fetchUsers()
+
     toast({
       title: "Success!",
       description: "User updated successfully"
@@ -395,10 +395,10 @@ export function UserManagement() {
   }
 
   const handleSelectAll = () => {
-    if (selectedUsers.length === filteredUsers.length) {
+    if (selectedUsers.length === users.length) {
       setSelectedUsers([])
     } else {
-      setSelectedUsers(filteredUsers.map(user => user._id))
+      setSelectedUsers(users.map(user => user._id))
     }
   }
 
@@ -433,7 +433,7 @@ export function UserManagement() {
     if ((e.target as HTMLElement).closest('button, input, select, [role="button"]')) {
       return
     }
-    
+
     console.log('Row clicked for user:', userId)
     setSelectedUserId(userId)
     setShowDetailsDialog(true)
@@ -457,7 +457,103 @@ export function UserManagement() {
     })
   }
 
-  if (loading) {
+  const handlePageChange = (page: number) => {
+    console.log("Changing to page:", page)
+    setCurrentPage(page)
+  }
+
+  const handlePageSizeChange = (newSize: string) => {
+    console.log("Changing page size to:", newSize)
+    setPageSize(parseInt(newSize))
+    setCurrentPage(1) // Reset to first page when changing page size
+  }
+
+  const renderPaginationItems = () => {
+    const items = []
+    const maxVisiblePages = 5
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
+
+    // Adjust start page if we're near the end
+    if (endPage - startPage < maxVisiblePages - 1) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1)
+    }
+
+    // Previous button
+    items.push(
+      <PaginationItem key="prev">
+        <PaginationPrevious
+          onClick={() => currentPage > 1 && handlePageChange(currentPage - 1)}
+          className={currentPage <= 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+        />
+      </PaginationItem>
+    )
+
+    // First page + ellipsis
+    if (startPage > 1) {
+      items.push(
+        <PaginationItem key={1}>
+          <PaginationLink onClick={() => handlePageChange(1)} className="cursor-pointer">
+            1
+          </PaginationLink>
+        </PaginationItem>
+      )
+      if (startPage > 2) {
+        items.push(
+          <PaginationItem key="ellipsis-start">
+            <PaginationEllipsis />
+          </PaginationItem>
+        )
+      }
+    }
+
+    // Page numbers
+    for (let i = startPage; i <= endPage; i++) {
+      items.push(
+        <PaginationItem key={i}>
+          <PaginationLink
+            onClick={() => handlePageChange(i)}
+            isActive={i === currentPage}
+            className="cursor-pointer"
+          >
+            {i}
+          </PaginationLink>
+        </PaginationItem>
+      )
+    }
+
+    // Last page + ellipsis
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        items.push(
+          <PaginationItem key="ellipsis-end">
+            <PaginationEllipsis />
+          </PaginationItem>
+        )
+      }
+      items.push(
+        <PaginationItem key={totalPages}>
+          <PaginationLink onClick={() => handlePageChange(totalPages)} className="cursor-pointer">
+            {totalPages}
+          </PaginationLink>
+        </PaginationItem>
+      )
+    }
+
+    // Next button
+    items.push(
+      <PaginationItem key="next">
+        <PaginationNext
+          onClick={() => currentPage < totalPages && handlePageChange(currentPage + 1)}
+          className={currentPage >= totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+        />
+      </PaginationItem>
+    )
+
+    return items
+  }
+
+  if (loading && users.length === 0) {
     return (
       <div className="space-y-6">
         <div className="h-8 bg-muted rounded w-48 animate-pulse"></div>
@@ -600,9 +696,9 @@ export function UserManagement() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{users.length}</div>
+              <div className="text-2xl font-bold">{totalUsers}</div>
               <p className="text-xs text-muted-foreground">
-                +{users.filter(u => new Date(u.createdAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)).length} this month
+                Total registered users
               </p>
             </CardContent>
           </Card>
@@ -613,10 +709,10 @@ export function UserManagement() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {users.filter(u => u.status === 'active').length}
+                {users.filter(u => u.isActive).length}
               </div>
               <p className="text-xs text-muted-foreground">
-                {Math.round((users.filter(u => u.status === 'active').length / users.length) * 100)}% of total
+                On current page
               </p>
             </CardContent>
           </Card>
@@ -690,6 +786,18 @@ export function UserManagement() {
                     <SelectItem value="suspended">Suspended</SelectItem>
                   </SelectContent>
                 </Select>
+
+                <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10 per page</SelectItem>
+                    <SelectItem value="25">25 per page</SelectItem>
+                    <SelectItem value="50">50 per page</SelectItem>
+                    <SelectItem value="100">100 per page</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -732,7 +840,7 @@ export function UserManagement() {
           <CardHeader>
             <CardTitle>{t('userManagement.users')}</CardTitle>
             <CardDescription>
-              {t('userManagement.description')}
+              Showing {users.length} of {totalUsers} users (Page {currentPage} of {totalPages})
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -742,7 +850,7 @@ export function UserManagement() {
                   <TableRow>
                     <TableHead className="w-12">
                       <Checkbox
-                        checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
+                        checked={selectedUsers.length === users.length && users.length > 0}
                         onCheckedChange={handleSelectAll}
                       />
                     </TableHead>
@@ -780,20 +888,20 @@ export function UserManagement() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsers.length === 0 ? (
+                  {users.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-8">
                         <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                         <p className="text-muted-foreground">{t('userManagement.noUsersFound')}</p>
                         {searchTerm && (
                           <p className="text-sm text-muted-foreground mt-2">
-                            {t('common.search')}
+                            Try adjusting your search or filters
                           </p>
                         )}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredUsers.map((user) => (
+                    users.map((user) => (
                       <TableRow
                         key={user._id}
                         className="cursor-pointer hover:bg-muted/50 transition-colors"
@@ -849,12 +957,12 @@ export function UserManagement() {
                               </SelectContent>
                             </Select>
                             <div className="flex items-center gap-2">
-                              <Badge className={getStatusColor(user.status)} variant="outline">
-                                {user.status}
+                              <Badge className={getStatusColor(user.isActive ? 'active' : 'inactive')} variant="outline">
+                                {user.isActive ? 'active' : 'inactive'}
                               </Badge>
                               <Switch
-                                checked={user.status === 'active'}
-                                onCheckedChange={() => handleStatusToggle(user._id, user.status)}
+                                checked={user.isActive}
+                                onCheckedChange={() => handleStatusToggle(user._id, user.isActive ? 'active' : 'inactive')}
                                 disabled={updating === user._id}
                                 size="sm"
                               />
@@ -872,11 +980,11 @@ export function UserManagement() {
                             <TooltipTrigger>
                               <div className="flex items-center gap-1 text-sm">
                                 <Activity className="h-3 w-3 text-muted-foreground" />
-                                <span>{formatDate(user.lastActivity || user.createdAt)}</span>
+                                <span>{formatDate(user.createdAt)}</span>
                               </div>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>{formatDateTime(user.lastActivity || user.createdAt)}</p>
+                              <p>{formatDateTime(user.createdAt)}</p>
                             </TooltipContent>
                           </Tooltip>
                         </TableCell>
@@ -957,15 +1065,18 @@ export function UserManagement() {
                 </TableBody>
               </Table>
             </div>
-            
-            {filteredUsers.length > 0 && (
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
               <div className="flex items-center justify-between px-2 py-4">
                 <div className="text-sm text-muted-foreground">
-                  Showing {filteredUsers.length} of {users.length} users
+                  Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalUsers)} of {totalUsers} users
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  Click on any row to view detailed user information
-                </div>
+                <Pagination>
+                  <PaginationContent>
+                    {renderPaginationItems()}
+                  </PaginationContent>
+                </Pagination>
               </div>
             )}
           </CardContent>

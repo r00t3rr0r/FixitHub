@@ -22,6 +22,21 @@ export interface CreateUserData {
   sendWelcomeEmail?: boolean;
 }
 
+export interface GetUsersParams {
+  search?: string;
+  role?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface GetUsersResponse {
+  users: User[];
+  totalPages: number;
+  currentPage: number;
+  totalUsers: number;
+}
+
 // Description: Create a new user (admin only)
 // Endpoint: POST /api/admin/users
 // Request: { name: string, email: string, phone: string, password: string, role: string, sendWelcomeEmail?: boolean }
@@ -45,15 +60,15 @@ export const createUser = async (userData: CreateUserData) => {
   }
 };
 
-// Description: Get all users (admin only)
+// Description: Get all users with pagination and filtering (admin only)
 // Endpoint: GET /api/admin/users
 // Request: { search?: string, role?: string, status?: string, page?: number, limit?: number }
 // Response: { users: User[], totalPages: number, currentPage: number, totalUsers: number }
-export const getUsers = async (filters: any = {}) => {
-  console.log('getUsers called with filters:', filters);
+export const getUsers = async (params: GetUsersParams = {}): Promise<GetUsersResponse> => {
+  console.log('getUsers called with params:', params);
 
   try {
-    const response = await api.get('/api/admin/users', { params: filters });
+    const response = await api.get('/api/admin/users', { params });
     console.log('getUsers API response:', response.data);
     return response.data;
   } catch (error) {
