@@ -1709,6 +1709,8 @@
       "services": "Services:",
       "addOns": "Add-ons:",
       "totalCost": "Total Cost:",
+      "costPerOrder": "Cost per order:",
+      "totalForAllOrders": "Total for All Orders:",
       "termsAgreement": "🔒 By submitting this order, you agree to our repair terms and conditions. Your device lock information will be kept confidential and used only by our authorized technicians. You will receive a confirmation email with your order number and expected repair timeline.",
       "reviewInCart": "Review in Cart",
       "previous": "Previous"

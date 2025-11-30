@@ -1708,6 +1708,8 @@
       "services": "Dienste:",
       "addOns": "Zusatzdienste:",
       "totalCost": "Gesamtkosten:",
+      "costPerOrder": "Kosten pro Auftrag:",
+      "totalForAllOrders": "Gesamt für alle Aufträge:",
       "termsAgreement": "🔒 Durch das Absenden dieser Bestellung stimmen Sie unseren Reparaturbedingungen zu. Ihre Gerätesperrinformationen werden vertraulich behandelt und nur von unseren autorisierten Technikern verwendet. Sie erhalten eine Bestätigungs-E-Mail mit Ihrer Auftragsnummer und der erwarteten Reparaturzeit.",
       "reviewInCart": "Im Warenkorb Überprüfen",
       "previous": "Zurück"

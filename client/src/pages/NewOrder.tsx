@@ -1407,11 +1407,19 @@ export function NewOrder() {
                     </div>
                   )}
 
-                  <div className="border-t-2 pt-4 mt-4 flex justify-between items-center">
-                    <span className="font-bold text-lg">{t('newOrder.reviewStep.totalCost')}</span>
-                    <span className="font-bold text-2xl bg-gradient-to-r from-yellow-600 to-amber-600 bg-clip-text text-transparent">
-                      ${calculateTotal()}
-                    </span>
+                  <div className="border-t-2 pt-4 mt-4">
+                    {quantity > 1 && (
+                      <div className="flex justify-between items-center mb-2 text-sm">
+                        <span className="text-muted-foreground">{t('newOrder.reviewStep.costPerOrder')}</span>
+                        <span className="font-semibold">${calculateTotal().toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-lg">{quantity > 1 ? t('newOrder.reviewStep.totalForAllOrders') : t('newOrder.reviewStep.totalCost')}</span>
+                      <span className="font-bold text-2xl bg-gradient-to-r from-yellow-600 to-amber-600 bg-clip-text text-transparent">
+                        ${(calculateTotal() * quantity).toFixed(2)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1479,12 +1487,12 @@ export function NewOrder() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Package className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                          <span className="font-bold text-purple-900 dark:text-purple-100">Order Quantity:</span>
+                          <span className="font-bold text-purple-900 dark:text-purple-100">{t('newOrder.detailsStep.quantityLabel')}</span>
                         </div>
                         <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">{quantity}</span>
                       </div>
                       <p className="text-xs text-purple-700 dark:text-purple-200 mt-2">
-                        Creating {quantity} identical repair orders (Total: ${calculateTotal() * quantity})
+                        {t('newOrder.reviewStep.multipleOrders', { quantity })} ({t('newOrder.reviewStep.totalForAll', { total: (calculateTotal() * quantity).toFixed(2) })})
                       </p>
                     </div>
                   )}
@@ -1529,11 +1537,19 @@ export function NewOrder() {
                     </div>
                   )}
 
-                  <div className="border-t-2 pt-4 mt-4 flex justify-between items-center">
-                    <span className="font-bold text-lg">{t('newOrder.reviewStep.totalCost')}</span>
-                    <span className="font-bold text-2xl bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                      ${calculateTotal()}
-                    </span>
+                  <div className="border-t-2 pt-4 mt-4">
+                    {quantity > 1 && (
+                      <div className="flex justify-between items-center mb-2 text-sm">
+                        <span className="text-muted-foreground">{t('newOrder.reviewStep.costPerOrder')}</span>
+                        <span className="font-semibold">${calculateTotal().toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-lg">{quantity > 1 ? t('newOrder.reviewStep.totalForAllOrders') : t('newOrder.reviewStep.totalCost')}</span>
+                      <span className="font-bold text-2xl bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                        ${(calculateTotal() * quantity).toFixed(2)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
