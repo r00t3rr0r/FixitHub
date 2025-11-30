@@ -26,9 +26,10 @@ import {
 interface InspectionResultsDisplayProps {
   orderId: string;
   onStartInspection?: () => void;
+  userRole?: string; // 'customer', 'staff', 'admin'
 }
 
-export function InspectionResultsDisplay({ orderId, onStartInspection }: InspectionResultsDisplayProps) {
+export function InspectionResultsDisplay({ orderId, onStartInspection, userRole = 'customer' }: InspectionResultsDisplayProps) {
   // Description: Display device inspection results with progress tracking, status badges, and report generation
   // i18n keys: deviceInspection namespace
   const { t } = useTranslation();
@@ -46,6 +47,9 @@ export function InspectionResultsDisplay({ orderId, onStartInspection }: Inspect
       navigate(`/inspection/${orderId}`);
     }
   };
+
+  // Check if user has permission to access inspection workflow
+  const canAccessInspectionWorkflow = userRole === 'admin' || userRole === 'staff';
 
   useEffect(() => {
     fetchInspection();
@@ -100,6 +104,12 @@ export function InspectionResultsDisplay({ orderId, onStartInspection }: Inspect
 
   // No inspection yet
   if (!inspection) {
+    // For customers: don't show anything if no inspection exists yet
+    if (!canAccessInspectionWorkflow) {
+      return null;
+    }
+
+    // For admin/staff: show button to start inspection
     return (
       <Card className="border-dashed">
         <CardHeader>
@@ -181,6 +191,55 @@ export function InspectionResultsDisplay({ orderId, onStartInspection }: Inspect
     const progress = calculateProgress();
     const currentStep = getCurrentStep();
 
+    // For customers: show simple status card without continue button
+    if (!canAccessInspectionWorkflow) {
+      return (
+        <div className="space-y-4">
+          <Card className="border-blue-200 bg-blue-50">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-600" />
+                  <CardTitle className="text-blue-900">{t('deviceInspection.deviceInspection')}</CardTitle>
+                </div>
+                <Badge className="bg-blue-500">{t('deviceInspection.inProgress')}</Badge>
+              </div>
+              <CardDescription className="text-blue-800">
+                {t('deviceInspection.inspectionBeingPerformed')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Progress Bar */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">{t('deviceInspection.step')} {currentStep} {t('deviceInspection.of')} 6</span>
+                  <span className="text-sm font-medium">{progress}% {t('deviceInspection.complete')}</span>
+                </div>
+                <Progress value={progress} className="h-2" />
+              </div>
+
+              {/* Current Step Information */}
+              <div className="bg-white p-3 rounded border border-blue-200">
+                <p className="text-sm font-medium text-blue-900 mb-1">{t('deviceInspection.currentStep')}:</p>
+                <p className="text-sm text-muted-foreground">
+                  {currentStep === 1 && t('deviceInspection.modelVerification')}
+                  {currentStep === 2 && t('deviceInspection.deviceIdentification')}
+                  {currentStep === 3 && t('deviceInspection.accessoriesPackaging')}
+                  {currentStep === 4 && t('deviceInspection.externalInspection')}
+                  {currentStep === 5 && t('deviceInspection.deviceTesting')}
+                  {currentStep === 6 && t('deviceInspection.appleSpecificChecks')}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t('deviceInspection.inspectionWillBeCompletedShortly')}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    // For admin/staff: show continue button
     return (
       <div className="space-y-4">
         {/* In-Progress Card */}

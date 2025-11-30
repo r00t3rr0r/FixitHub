@@ -1583,7 +1583,10 @@
     "continueInspection": "Continue Inspection",
     "inProgress": "In Progress",
     "continueWhereYouLeftOff": "Continue where you left off",
-    "loadingInspectionData": "Loading inspection data..."
+    "loadingInspectionData": "Loading inspection data...",
+    "inspectionBeingPerformed": "Inspection is being performed by our technicians",
+    "currentStep": "Current Step",
+    "inspectionWillBeCompletedShortly": "The inspection will be completed shortly. You'll be notified when the report is ready."
   },
   "communicationPanel": {
     "communicationAndFeedback": "Communication & Feedback",

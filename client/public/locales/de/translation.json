@@ -1582,7 +1582,10 @@
     "continueInspection": "Überprüfung fortfahren",
     "inProgress": "Läuft",
     "continueWhereYouLeftOff": "Fahren Sie dort fort, wo Sie stehen gelassen haben",
-    "loadingInspectionData": "Überprüfungsdaten werden geladen..."
+    "loadingInspectionData": "Überprüfungsdaten werden geladen...",
+    "inspectionBeingPerformed": "Die Überprüfung wird von unseren Technikern durchgeführt",
+    "currentStep": "Aktueller Schritt",
+    "inspectionWillBeCompletedShortly": "Die Überprüfung wird in Kürze abgeschlossen. Sie werden benachrichtigt, wenn der Bericht fertig ist."
   },
   "communicationPanel": {
     "communicationAndFeedback": "Kommunikation & Rückmeldung",

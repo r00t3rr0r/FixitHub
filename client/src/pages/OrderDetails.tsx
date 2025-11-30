@@ -1408,7 +1408,7 @@ export function OrderDetails() {
           </Card>
 
           {/* Device Inspection Section - visible to all roles when inspection is completed */}
-          <InspectionResultsDisplay orderId={id!} />
+          <InspectionResultsDisplay orderId={id!} userRole={user?.role} />
 
           {/* Assigned Staff - Only visible to admin/staff */}
           {(user?.role === 'admin' || user?.role === 'staff') && (
