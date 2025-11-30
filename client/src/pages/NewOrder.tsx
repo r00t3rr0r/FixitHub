@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { useForm } from "react-hook-form"
+import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -85,6 +86,7 @@ const getDeviceTypeIcon = (deviceType: string) => {
 }
 
 export function NewOrder() {
+  const { t } = useTranslation()
   const [step, setStep] = useState(1)
   const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([])
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([])
@@ -170,8 +172,8 @@ export function NewOrder() {
 
             // Show success message
             toast({
-              title: "Device Selected!",
-              description: `${preSelectedDevice.name} has been pre-selected for your repair order.`
+              title: t('newOrder.deviceSelection.deviceSelected'),
+              description: t('newOrder.deviceSelection.preSelectedSuccess', { device: preSelectedDevice.name })
             })
           } catch (error) {
             console.error("Error processing pre-selected device:", error)
@@ -180,8 +182,8 @@ export function NewOrder() {
       } catch (error) {
         console.error("Error fetching initial form data:", error)
         toast({
-          title: "Error",
-          description: "Failed to load form data",
+          title: t('common.error'),
+          description: t('newOrder.deviceSelection.loadError'),
           variant: "destructive"
         })
       } finally {
@@ -212,8 +214,8 @@ export function NewOrder() {
     } catch (error) {
       console.error("Error searching devices:", error)
       toast({
-        title: "Error",
-        description: "Failed to search devices",
+        title: t('common.error'),
+        description: t('newOrder.errors.searchDevices'),
         variant: "destructive"
       })
       setDeviceSearchResults([])
@@ -270,8 +272,8 @@ export function NewOrder() {
         } catch (error) {
           console.error("Error fetching manufacturers:", error)
           toast({
-            title: "Error",
-            description: "Failed to load manufacturers",
+            title: t('common.error'),
+            description: t('newOrder.serviceSelection.loadManufacturersError'),
             variant: "destructive"
           })
         } finally {
@@ -318,8 +320,8 @@ export function NewOrder() {
           console.error("=== ERROR FETCHING MODELS ===");
           console.error("Error details:", error);
           toast({
-            title: "Error",
-            description: "Failed to load models",
+            title: t('common.error'),
+            description: t('newOrder.serviceSelection.loadModelsError'),
             variant: "destructive"
           })
         } finally {
@@ -456,16 +458,16 @@ export function NewOrder() {
       const response = await createOrder(orderData)
 
       toast({
-        title: "Success!",
-        description: "Your repair order has been created successfully",
+        title: t('common.success'),
+        description: t('newOrder.success.orderCreated'),
       })
 
       navigate("/orders")
     } catch (error: any) {
       console.error("Error creating order:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to create order",
+        title: t('common.error'),
+        description: error.message || t('newOrder.errors.createOrder'),
         variant: "destructive"
       })
     } finally {
@@ -497,12 +499,12 @@ export function NewOrder() {
 
   const getStepTitle = (stepNumber: number) => {
     switch (stepNumber) {
-      case 1: return "Device"
-      case 2: return "Services"
-      case 3: return "Details"
-      case 4: return "Review"
-      case 5: return "Cart"
-      default: return `Step ${stepNumber}`
+      case 1: return t('newOrder.step1')
+      case 2: return t('newOrder.step2')
+      case 3: return t('newOrder.step3')
+      case 4: return t('newOrder.step4')
+      case 5: return t('newOrder.step5')
+      default: return t('newOrder.stepOf', { current: stepNumber, total: 5 })
     }
   }
 
@@ -536,11 +538,11 @@ export function NewOrder() {
               <Sparkles className="h-6 w-6 text-gray-900 animate-pulse" />
             </div>
             <span className="bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent font-bold">
-              Create New Repair Order
+              {t('newOrder.title')}
             </span>
           </CardTitle>
           <CardDescription className="text-base">
-            Follow the guided steps to submit your device for professional repair
+            {t('newOrder.subtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -608,7 +610,7 @@ export function NewOrder() {
 
           {/* Step Progress Text */}
           <p className="text-center text-sm text-muted-foreground mt-3 font-medium">
-            Step {step} of 5 - {getStepTitle(step)}
+            {t('newOrder.stepOf', { current: step, total: 5 })} - {getStepTitle(step)}
           </p>
         </CardContent>
       </Card>
@@ -622,16 +624,16 @@ export function NewOrder() {
                 <div className="p-2 bg-blue-500 rounded-lg shadow-md">
                   <Package className="h-5 w-5 text-white" />
                 </div>
-                <span>Select Your Device</span>
+                <span>{t('newOrder.deviceSelection.title')}</span>
               </CardTitle>
               <CardDescription className="text-base">
-                Search for your device to get started on your repair journey
+                {t('newOrder.deviceSelection.subtitle')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
               {/* Enhanced Device Search with Autocomplete */}
               <div className="space-y-2">
-                <Label htmlFor="deviceSearch" className="text-base font-semibold">Search Device</Label>
+                <Label htmlFor="deviceSearch" className="text-base font-semibold">{t('newOrder.deviceSelection.searchLabel')}</Label>
                 <div className="relative">
                   <div className="flex items-center gap-2 relative group">
                     <div className="absolute left-3 text-muted-foreground transition-colors group-focus-within:text-yellow-500">
@@ -640,7 +642,7 @@ export function NewOrder() {
                     <Input
                       id="deviceSearch"
                       type="text"
-                      placeholder="Search by device name, brand, or model (e.g., iPhone 13, Samsung Galaxy)"
+                      placeholder={t('newOrder.deviceSelection.searchPlaceholder')}
                       value={deviceSearchQuery}
                       onChange={(e) => handleDeviceSearch(e.target.value)}
                       onFocus={() => deviceSearchResults.length > 0 && setShowSearchResults(true)}
@@ -674,7 +676,7 @@ export function NewOrder() {
                         <div className="p-6 text-center">
                           <div className="inline-flex items-center gap-3 text-muted-foreground">
                             <div className="h-5 w-5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
-                            <span className="animate-pulse">Searching devices...</span>
+                            <span className="animate-pulse">{t('newOrder.deviceSelection.searching')}</span>
                           </div>
                         </div>
                       ) : deviceSearchResults.length > 0 ? (
@@ -708,7 +710,7 @@ export function NewOrder() {
                         <div className="p-6 text-center text-muted-foreground text-sm">
                           <div className="inline-flex flex-col items-center gap-2">
                             <Search className="h-8 w-8 text-gray-300" />
-                            <span>No devices found</span>
+                            <span>{t('newOrder.deviceSelection.noResults')}</span>
                           </div>
                         </div>
                       )}
@@ -717,7 +719,7 @@ export function NewOrder() {
                 </div>
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Sparkles className="h-3 w-3" />
-                  Type at least 2 characters to search
+                  {t('newOrder.deviceSelection.searchMinChars')}
                 </p>
               </div>
 
@@ -732,7 +734,7 @@ export function NewOrder() {
                       <div className="flex items-center gap-2 mb-1">
                         <Check className="h-4 w-4 text-green-600" />
                         <span className="text-xs font-medium text-green-600 dark:text-green-400 uppercase tracking-wide">
-                          Device Selected
+                          {t('newOrder.deviceSelection.deviceSelected')}
                         </span>
                       </div>
                       <h4 className="font-bold text-lg text-gray-900 dark:text-white">{selectedDevice.name}</h4>
@@ -752,7 +754,7 @@ export function NewOrder() {
                   size="lg"
                   className="bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-semibold shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed group"
                 >
-                  <span>Continue to Services</span>
+                  <span>{t('newOrder.deviceSelection.continueToServices')}</span>
                   <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </div>
@@ -768,16 +770,16 @@ export function NewOrder() {
                 <div className="p-2 bg-purple-500 rounded-lg shadow-md">
                   <Package className="h-5 w-5 text-white" />
                 </div>
-                <span>Select Repair Services</span>
+                <span>{t('newOrder.serviceSelection.title')}</span>
               </CardTitle>
               <CardDescription className="text-base">
-                Choose the services you need • {selectedServices.length} selected
+                {t('newOrder.serviceSelection.subtitle', { count: selectedServices.length })}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
               {/* Enhanced Category Filter Buttons */}
               <div className="space-y-3">
-                <Label className="text-base font-semibold">Filter by Category</Label>
+                <Label className="text-base font-semibold">{t('newOrder.serviceSelection.filterLabel')}</Label>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
@@ -790,7 +792,7 @@ export function NewOrder() {
                         : 'hover:border-yellow-400 hover:text-yellow-600'
                     }`}
                   >
-                    All Services
+                    {t('newOrder.serviceSelection.allServices')}
                   </Button>
                   {getServiceCategories().map((category) => (
                     <Button
@@ -838,7 +840,7 @@ export function NewOrder() {
                           {service.popularity > 80 && (
                             <Badge variant="secondary" className="text-xs bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 border border-yellow-300">
                               <Star className="h-3 w-3 mr-1 text-yellow-500 fill-yellow-500" />
-                              Popular
+                              {t('newOrder.serviceSelection.popular')}
                             </Badge>
                           )}
                         </div>
@@ -867,7 +869,7 @@ export function NewOrder() {
               {getFilteredServices().length === 0 && (
                 <div className="text-center py-12 text-muted-foreground animate-in fade-in duration-300">
                   <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p className="text-base">No services available in this category</p>
+                  <p className="text-base">{t('newOrder.serviceSelection.noServicesInCategory')}</p>
                 </div>
               )}
 
@@ -880,7 +882,7 @@ export function NewOrder() {
                   className="group"
                 >
                   <ChevronRight className="mr-2 h-5 w-5 rotate-180 group-hover:-translate-x-1 transition-transform" />
-                  Previous
+                  {t('newOrder.serviceSelection.previous')}
                 </Button>
                 <Button
                   type="button"
@@ -889,7 +891,7 @@ export function NewOrder() {
                   size="lg"
                   className="bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-semibold shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 group"
                 >
-                  <span>Continue ({selectedServices.length} services)</span>
+                  <span>{t('newOrder.serviceSelection.continueButton', { count: selectedServices.length })}</span>
                   <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </div>
@@ -907,10 +909,10 @@ export function NewOrder() {
                   <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg shadow-md">
                     <Package className="h-5 w-5 text-white" />
                   </div>
-                  <span>Order Summary</span>
+                  <span>{t('newOrder.detailsStep.orderSummaryTitle')}</span>
                 </CardTitle>
                 <CardDescription className="text-base">
-                  Review your device and service details
+                  {t('newOrder.detailsStep.orderSummarySubtitle')}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -919,7 +921,7 @@ export function NewOrder() {
                   <div className="space-y-3 p-4 bg-white/50 dark:bg-gray-900/30 rounded-lg">
                     <h4 className="font-semibold text-sm flex items-center gap-2">
                       <User className="h-4 w-4 text-blue-500" />
-                      Customer Information
+                      {t('newOrder.detailsStep.customerInfo')}
                     </h4>
                     <div className="space-y-2 text-sm">
                       <div className="flex items-center gap-2 text-muted-foreground">
@@ -941,29 +943,29 @@ export function NewOrder() {
                   <div className="space-y-3 p-4 bg-white/50 dark:bg-gray-900/30 rounded-lg">
                     <h4 className="font-semibold text-sm flex items-center gap-2">
                       <Smartphone className="h-4 w-4 text-blue-500" />
-                      Device Details
+                      {t('newOrder.detailsStep.deviceDetails')}
                     </h4>
                     <div className="space-y-2 text-sm">
                       {selectedDevice ? (
                         <>
                           <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground w-20">Device:</span>
+                            <span className="text-muted-foreground w-20">{t('newOrder.detailsStep.device')}:</span>
                             <Badge variant="secondary" className="gap-1">
                               {getDeviceTypeIcon(selectedDevice.deviceType)}
                               {selectedDevice.deviceType}
                             </Badge>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground w-20">Brand:</span>
+                            <span className="text-muted-foreground w-20">{t('newOrder.detailsStep.brand')}:</span>
                             <span className="font-medium">{selectedDevice.manufacturer}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground w-20">Model:</span>
+                            <span className="text-muted-foreground w-20">{t('newOrder.detailsStep.model')}:</span>
                             <span className="font-medium">{selectedDevice.name}</span>
                           </div>
                         </>
                       ) : (
-                        <p className="text-muted-foreground text-xs">No device selected</p>
+                        <p className="text-muted-foreground text-xs">{t('newOrder.detailsStep.noDeviceSelected')}</p>
                       )}
                     </div>
                   </div>
@@ -974,7 +976,7 @@ export function NewOrder() {
                   <div className="space-y-3 pt-4 border-t">
                     <h4 className="font-semibold text-sm flex items-center gap-2">
                       <Check className="h-4 w-4 text-green-500" />
-                      Selected Services ({selectedServices.length})
+                      {t('newOrder.detailsStep.selectedServices', { count: selectedServices.length })}
                     </h4>
                     <div className="space-y-2">
                       {services.filter(s => selectedServices.includes(s._id)).map((service, index) => (
@@ -999,19 +1001,19 @@ export function NewOrder() {
                   <div className="space-y-3 pt-4 border-t bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-950/40 dark:to-indigo-950/40 p-4 rounded-xl">
                     <h4 className="font-semibold text-sm flex items-center gap-2">
                       <BookOpen className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                      Related Information
+                      {t('newOrder.detailsStep.relatedInfo')}
                     </h4>
                     <div className="space-y-2 text-sm">
                       {services.filter(s => selectedServices.includes(s._id)).map(service => (
                         <div key={service._id} className="flex items-start gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0 animate-pulse" />
+                          <div className="w-1.5 h-1.5 rounded-full bg-500 mt-1.5 flex-shrink-0 animate-pulse" />
                           <div className="flex-1">
                             <p className="font-medium text-blue-900 dark:text-blue-100">
-                              {service.name} Guide
+                              {t('newOrder.detailsStep.guide', { service: service.name })}
                             </p>
                             {service.knowledgeBaseArticles && service.knowledgeBaseArticles.length > 0 && (
                               <p className="text-xs text-blue-700 dark:text-blue-200 mt-1">
-                                📚 {service.knowledgeBaseArticles.length} article{service.knowledgeBaseArticles.length !== 1 ? "s" : ""} available
+                                📚 {t('newOrder.detailsStep.articlesAvailable', { count: service.knowledgeBaseArticles.length })}
                               </p>
                             )}
                           </div>
@@ -1030,10 +1032,10 @@ export function NewOrder() {
                   <div className="p-2 bg-orange-500 rounded-lg shadow-md">
                     <Lock className="h-5 w-5 text-white" />
                   </div>
-                  <span>Device Lock Information</span>
+                  <span>{t('newOrder.detailsStep.unlockTitle')}</span>
                 </CardTitle>
                 <CardDescription className="text-base">
-                  Provide your device lock details for seamless repair service
+                  {t('newOrder.detailsStep.unlockSubtitle')}
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
@@ -1055,17 +1057,17 @@ export function NewOrder() {
                   <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg shadow-md">
                     <Shield className="h-5 w-5 text-white" />
                   </div>
-                  <span>Add-On Services</span>
+                  <span>{t('newOrder.detailsStep.addOnsTitle')}</span>
                 </CardTitle>
                 <CardDescription className="text-base">
-                  Enhance your repair with premium services • {selectedAddOns.length} selected
+                  {t('newOrder.detailsStep.addOnsSubtitle', { count: selectedAddOns.length })}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 pt-6">
                 {addOns.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Shield className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                    <p className="text-base">No add-on services available</p>
+                    <p className="text-base">{t('newOrder.detailsStep.noAddOnsAvailable')}</p>
                   </div>
                 ) : (
                   <>
@@ -1095,7 +1097,7 @@ export function NewOrder() {
                                 {addOn.category === 'Service' && (
                                   <Badge variant="secondary" className="text-xs bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 border border-yellow-300">
                                     <Zap className="h-3 w-3 mr-1 text-yellow-500 fill-yellow-500" />
-                                    Express
+                                    {t('newOrder.detailsStep.express')}
                                   </Badge>
                                 )}
                               </div>
@@ -1123,7 +1125,7 @@ export function NewOrder() {
                       <div className="mt-6 p-5 rounded-xl bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 border-2 border-green-300 dark:border-green-700 space-y-3 animate-in zoom-in duration-300">
                         <p className="text-sm font-bold flex items-center gap-2">
                           <Check className="h-4 w-4 text-green-600" />
-                          Selected Add-ons:
+                          {t('newOrder.detailsStep.selectedAddOns')}
                         </p>
                         <div className="space-y-2">
                           {addOns.filter(a => selectedAddOns.includes(a._id)).map(addOn => (
@@ -1134,7 +1136,7 @@ export function NewOrder() {
                           ))}
                         </div>
                         <div className="pt-3 border-t border-green-300 dark:border-green-700 flex justify-between font-bold">
-                          <span>Add-ons Total:</span>
+                          <span>{t('newOrder.detailsStep.addOnsTotal')}</span>
                           <span className="text-green-600 text-lg">
                             ${addOns.filter(a => selectedAddOns.includes(a._id)).reduce((sum, a) => sum + a.price, 0)}
                           </span>
@@ -1153,7 +1155,7 @@ export function NewOrder() {
                     className="group"
                   >
                     <ChevronRight className="mr-2 h-5 w-5 rotate-180 group-hover:-translate-x-1 transition-transform" />
-                    Previous
+                    {t('newOrder.serviceSelection.previous')}
                   </Button>
                   <Button
                     type="button"
@@ -1161,7 +1163,7 @@ export function NewOrder() {
                     size="lg"
                     className="bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-semibold shadow-lg hover:shadow-xl transition-all duration-300 group"
                   >
-                    <span>Review & Submit</span>
+                    <span>{t('newOrder.detailsStep.reviewAndSubmit')}</span>
                     <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   </Button>
                 </div>
@@ -1178,17 +1180,17 @@ export function NewOrder() {
                 <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg shadow-md">
                   <Upload className="h-5 w-5 text-white" />
                 </div>
-                <span>Final Details & Submit</span>
+                <span>{t('newOrder.reviewStep.title')}</span>
               </CardTitle>
               <CardDescription className="text-base">
-                Add photos and notes, then review your complete repair order
+                {t('newOrder.reviewStep.subtitle')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
               <div className="space-y-3 p-5 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl">
                 <Label htmlFor="photos" className="text-base font-semibold flex items-center gap-2">
                   <Upload className="h-4 w-4 text-blue-600" />
-                  Device Photos (Optional)
+                  {t('newOrder.reviewStep.photosLabel')}
                 </Label>
                 <Input
                   id="photos"
@@ -1200,15 +1202,15 @@ export function NewOrder() {
                 />
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Sparkles className="h-3 w-3" />
-                  Upload photos to help us assess the damage better
+                  {t('newOrder.reviewStep.photosHint')}
                 </p>
               </div>
 
               <div className="space-y-3">
-                <Label htmlFor="customerNotes" className="text-base font-semibold">Additional Notes (Optional)</Label>
+                <Label htmlFor="customerNotes" className="text-base font-semibold">{t('newOrder.reviewStep.notesLabel')}</Label>
                 <Textarea
                   id="customerNotes"
-                  placeholder="Describe the issue, when it started, or any other relevant information..."
+                  placeholder={t('newOrder.reviewStep.notesPlaceholder')}
                   {...register("customerNotes")}
                   rows={5}
                   className="border-2 focus:border-yellow-400 focus:ring-yellow-400/20 resize-none"
@@ -1220,25 +1222,25 @@ export function NewOrder() {
                 <div className="bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-950/40 dark:to-indigo-950/40 border-2 border-blue-300 dark:border-blue-700 rounded-xl p-5 space-y-3 animate-in zoom-in duration-300">
                   <h4 className="font-bold text-sm flex items-center gap-2">
                     <Lock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                    Device Lock Information
+                    {t('newOrder.reviewStep.unlockInfoTitle')}
                   </h4>
                   <div className="text-sm space-y-2">
                     {noDeviceLock && (
                       <p className="text-blue-900 dark:text-blue-100 flex items-center gap-2">
                         <Check className="h-4 w-4 text-green-600" />
-                        Device has no lock
+                        {t('newOrder.reviewStep.deviceNoLock')}
                       </p>
                     )}
                     {unlockPattern.length > 0 && (
                       <p className="text-blue-900 dark:text-blue-100 flex items-center gap-2">
                         <Check className="h-4 w-4 text-green-600" />
-                        Pattern lock: <span className="font-mono font-bold">{unlockPattern.join(' → ')}</span>
+                        {t('newOrder.reviewStep.patternLock')} <span className="font-mono font-bold">{unlockPattern.join(' → ')}</span>
                       </p>
                     )}
                     {unlockCode && (
                       <p className="text-blue-900 dark:text-blue-100 flex items-center gap-2">
                         <Check className="h-4 w-4 text-green-600" />
-                        Unlock code provided (kept confidential)
+                        {t('newOrder.reviewStep.unlockCodeProvided')}
                       </p>
                     )}
                   </div>
@@ -1250,7 +1252,7 @@ export function NewOrder() {
                 <div className="bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-950/40 dark:to-emerald-950/40 border-2 border-green-300 dark:border-green-700 rounded-xl p-5 space-y-3 animate-in zoom-in duration-300">
                   <h4 className="font-bold text-sm flex items-center gap-2">
                     <Shield className="h-5 w-5 text-green-600 dark:text-green-400" />
-                    Selected Add-ons
+                    {t('newOrder.reviewStep.selectedAddOns')}
                   </h4>
                   <div className="space-y-2 text-sm">
                     {addOns.filter(a => selectedAddOns.includes(a._id)).map(addOn => (
@@ -1272,23 +1274,23 @@ export function NewOrder() {
                   <div className="p-2 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-lg shadow-md">
                     <DollarSign className="h-5 w-5 text-gray-900" />
                   </div>
-                  <span>Order Summary</span>
+                  <span>{t('newOrder.reviewStep.orderSummary')}</span>
                 </h3>
 
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between items-center p-3 bg-white/50 dark:bg-gray-900/30 rounded-lg">
-                    <span className="text-muted-foreground font-medium">Device:</span>
+                    <span className="text-muted-foreground font-medium">{t('newOrder.reviewStep.device')}:</span>
                     <span className="font-bold text-right">
                       {selectedDevice
                         ? `${selectedDevice.deviceType} • ${selectedDevice.manufacturer} • ${selectedDevice.name}`
-                        : "Not selected"
+                        : t('newOrder.reviewStep.notSelected')
                       }
                     </span>
                   </div>
 
                   {selectedServices.length > 0 && (
                     <div className="pt-2 border-t space-y-2">
-                      <span className="text-muted-foreground block font-bold">Services:</span>
+                      <span className="text-muted-foreground block font-bold">{t('newOrder.reviewStep.services')}</span>
                       {services.filter(s => selectedServices.includes(s._id)).map(service => (
                         <div key={service._id} className="flex justify-between ml-4 p-2 hover:bg-white/50 dark:hover:bg-gray-900/30 rounded-lg transition-colors">
                           <span className="flex items-center gap-2">
@@ -1303,7 +1305,7 @@ export function NewOrder() {
 
                   {selectedAddOns.length > 0 && (
                     <div className="pt-2 border-t space-y-2">
-                      <span className="text-muted-foreground block font-bold">Add-ons:</span>
+                      <span className="text-muted-foreground block font-bold">{t('newOrder.reviewStep.addOns')}</span>
                       {addOns.filter(a => selectedAddOns.includes(a._id)).map(addOn => (
                         <div key={addOn._id} className="flex justify-between ml-4 p-2 hover:bg-white/50 dark:hover:bg-gray-900/30 rounded-lg transition-colors">
                           <span className="flex items-center gap-2">
@@ -1317,7 +1319,7 @@ export function NewOrder() {
                   )}
 
                   <div className="border-t-2 pt-4 mt-4 flex justify-between items-center">
-                    <span className="font-bold text-lg">Total Cost:</span>
+                    <span className="font-bold text-lg">{t('newOrder.reviewStep.totalCost')}</span>
                     <span className="font-bold text-2xl bg-gradient-to-r from-yellow-600 to-amber-600 bg-clip-text text-transparent">
                       ${calculateTotal()}
                     </span>
@@ -1328,7 +1330,7 @@ export function NewOrder() {
               {/* Enhanced Terms Agreement */}
               <div className="bg-muted/50 rounded-xl p-5 border-2">
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  🔒 By submitting this order, you agree to our repair terms and conditions. Your device lock information will be kept confidential and used only by our authorized technicians. You will receive a confirmation email with your order number and expected repair timeline.
+                  {t('newOrder.reviewStep.termsAgreement')}
                 </p>
               </div>
 
@@ -1341,7 +1343,7 @@ export function NewOrder() {
                   className="group"
                 >
                   <ChevronRight className="mr-2 h-5 w-5 rotate-180 group-hover:-translate-x-1 transition-transform" />
-                  Previous
+                  {t('newOrder.reviewStep.previous')}
                 </Button>
                 <Button
                   type="button"
@@ -1349,7 +1351,7 @@ export function NewOrder() {
                   size="lg"
                   className="min-w-[200px] bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-bold shadow-lg hover:shadow-xl transition-all duration-300 group"
                 >
-                  <span>Review in Cart</span>
+                  <span>{t('newOrder.reviewStep.reviewInCart')}</span>
                   <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </div>
@@ -1365,10 +1367,10 @@ export function NewOrder() {
                 <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg shadow-md animate-pulse">
                   <ShoppingCartIcon className="h-5 w-5 text-white" />
                 </div>
-                <span>Add to Cart</span>
+                <span>{t('newOrder.cartStep.title')}</span>
               </CardTitle>
               <CardDescription className="text-base">
-                Review and add your repair order to your shopping cart
+                {t('newOrder.cartStep.subtitle')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
@@ -1378,23 +1380,23 @@ export function NewOrder() {
                   <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg shadow-md">
                     <Package className="h-5 w-5 text-white" />
                   </div>
-                  <span>Order Details</span>
+                  <span>{t('newOrder.cartStep.orderDetails')}</span>
                 </h3>
 
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between items-center p-3 bg-white/50 dark:bg-gray-900/30 rounded-lg">
-                    <span className="text-muted-foreground font-medium">Device:</span>
+                    <span className="text-muted-foreground font-medium">{t('newOrder.cartStep.device')}:</span>
                     <span className="font-bold text-right">
                       {selectedDevice
                         ? `${selectedDevice.deviceType} • ${selectedDevice.manufacturer} • ${selectedDevice.name}`
-                        : "Not selected"
+                        : t('newOrder.cartStep.notSelected')
                       }
                     </span>
                   </div>
 
                   {selectedServices.length > 0 && (
                     <div className="pt-2 border-t space-y-2">
-                      <span className="text-muted-foreground block font-bold">Services:</span>
+                      <span className="text-muted-foreground block font-bold">{t('newOrder.cartStep.services')}</span>
                       {services.filter(s => selectedServices.includes(s._id)).map(service => (
                         <div key={service._id} className="flex justify-between ml-4 p-2 hover:bg-white/50 dark:hover:bg-gray-900/30 rounded-lg transition-colors">
                           <span className="flex items-center gap-2">
@@ -1409,7 +1411,7 @@ export function NewOrder() {
 
                   {selectedAddOns.length > 0 && (
                     <div className="pt-2 border-t space-y-2">
-                      <span className="text-muted-foreground block font-bold">Add-ons:</span>
+                      <span className="text-muted-foreground block font-bold">{t('newOrder.reviewStep.addOns')}</span>
                       {addOns.filter(a => selectedAddOns.includes(a._id)).map(addOn => (
                         <div key={addOn._id} className="flex justify-between ml-4 p-2 hover:bg-white/50 dark:hover:bg-gray-900/30 rounded-lg transition-colors">
                           <span className="flex items-center gap-2">
@@ -1423,7 +1425,7 @@ export function NewOrder() {
                   )}
 
                   <div className="border-t-2 pt-4 mt-4 flex justify-between items-center">
-                    <span className="font-bold text-lg">Total Cost:</span>
+                    <span className="font-bold text-lg">{t('newOrder.reviewStep.totalCost')}</span>
                     <span className="font-bold text-2xl bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                       ${calculateTotal()}
                     </span>
@@ -1435,20 +1437,20 @@ export function NewOrder() {
               <div className="bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-950/40 dark:to-indigo-950/40 border-2 border-blue-300 dark:border-blue-700 rounded-xl p-5 animate-in fade-in duration-500">
                 <h4 className="font-bold text-sm mb-3 flex items-center gap-2 text-blue-900 dark:text-blue-100">
                   <ShoppingCartIcon className="h-5 w-5" />
-                  Shopping Cart Benefits
+                  {t('newOrder.cartStep.cartBenefitsTitle')}
                 </h4>
                 <p className="text-sm text-blue-900 dark:text-blue-100 leading-relaxed">
-                  Your repair order will be added to your shopping cart. You can review, modify, apply discount codes, and manage your orders before proceeding to checkout. This gives you flexibility to add multiple services, compare pricing, and manage your repairs all in one place.
+                  {t('newOrder.cartStep.cartBenefitsDesc')}
                 </p>
               </div>
 
               {/* Enhanced Benefits Grid */}
               <div className="grid md:grid-cols-2 gap-4">
                 {[
-                  { title: "Review & Modify", desc: "Make changes before checkout", delay: 0 },
-                  { title: "Apply Discount Codes", desc: "Save with promo codes", delay: 100 },
-                  { title: "Multiple Orders", desc: "Add multiple repairs to cart", delay: 200 },
-                  { title: "Secure Checkout", desc: "Safe payment processing", delay: 300 }
+                  { title: t('newOrder.cartStep.benefit1Title'), desc: t('newOrder.cartStep.benefit1Desc'), delay: 0 },
+                  { title: t('newOrder.cartStep.benefit2Title'), desc: t('newOrder.cartStep.benefit2Desc'), delay: 100 },
+                  { title: t('newOrder.cartStep.benefit3Title'), desc: t('newOrder.cartStep.benefit3Desc'), delay: 200 },
+                  { title: t('newOrder.cartStep.benefit4Title'), desc: t('newOrder.cartStep.benefit4Desc'), delay: 300 }
                 ].map((benefit, index) => (
                   <div
                     key={index}
@@ -1475,7 +1477,7 @@ export function NewOrder() {
                   className="group"
                 >
                   <ChevronRight className="mr-2 h-5 w-5 rotate-180 group-hover:-translate-x-1 transition-transform" />
-                  Previous
+                  {t('newOrder.cartStep.previous')}
                 </Button>
                 <div className="flex gap-3">
                   <Button
@@ -1484,14 +1486,14 @@ export function NewOrder() {
                     onClick={() => {
                       navigate("/shop")
                       toast({
-                        title: "Order ready!",
-                        description: "Add your repair order to the cart and continue shopping"
+                        title: t('newOrder.cartStep.orderReady'),
+                        description: t('newOrder.cartStep.orderReadyDesc')
                       })
                     }}
                     size="lg"
                     className="hover:border-yellow-400 hover:text-yellow-600"
                   >
-                    Continue Shopping
+                    {t('newOrder.cartStep.continueShopping')}
                   </Button>
                   <Button
                     type="button"
@@ -1544,8 +1546,8 @@ export function NewOrder() {
                         await addRepairOrderToCart(repairOrderData)
 
                         toast({
-                          title: "Success!",
-                          description: "Your repair order has been added to your cart.",
+                          title: t('common.success'),
+                          description: t('newOrder.success.addedToCart'),
                         })
 
                         // Navigate to cart page
@@ -1553,8 +1555,8 @@ export function NewOrder() {
                       } catch (error: any) {
                         console.error("Error adding repair order to cart:", error)
                         toast({
-                          title: "Error",
-                          description: error.message || "Failed to add order to cart",
+                          title: t('common.error'),
+                          description: error.message || t('newOrder.errors.addToCart'),
                           variant: "destructive"
                         })
                       } finally {
@@ -1565,12 +1567,12 @@ export function NewOrder() {
                     {submitting ? (
                       <span className="flex items-center gap-2">
                         <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Adding to Cart...
+                        {t('newOrder.cartStep.addingToCart')}
                       </span>
                     ) : (
                       <span className="flex items-center gap-2">
                         <ShoppingCartIcon className="h-5 w-5" />
-                        Add to Cart & Review
+                        {t('newOrder.cartStep.addToCart')}
                       </span>
                     )}
                   </Button>
