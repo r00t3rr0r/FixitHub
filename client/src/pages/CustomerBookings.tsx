@@ -170,16 +170,44 @@ export function CustomerBookings() {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t('bookings.myBookings')}</h1>
-          <p className="text-muted-foreground">{t('bookings.manageYourBookings')}</p>
-        </div>
-      </div>
+    <>
+      <style>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
 
-      {/* Filters */}
-      <Card>
+        .animate-fade-in-up {
+          animation: fadeInUp 0.5s ease-out;
+        }
+
+        .stagger-item {
+          animation: fadeInUp 0.5s ease-out;
+        }
+
+        .stagger-item:nth-child(1) { animation-delay: 0s; }
+        .stagger-item:nth-child(2) { animation-delay: 0.1s; }
+        .stagger-item:nth-child(3) { animation-delay: 0.2s; }
+        .stagger-item:nth-child(4) { animation-delay: 0.3s; }
+        .stagger-item:nth-child(5) { animation-delay: 0.4s; }
+      `}</style>
+
+      <div className="space-y-6 animate-fade-in-up">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">{t('bookings.myBookings')}</h1>
+            <p className="text-muted-foreground">{t('bookings.manageYourBookings')}</p>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <Card className="stagger-item">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Filter className="h-5 w-5" />
@@ -218,11 +246,11 @@ export function CustomerBookings() {
             </div>
           </div>
         </CardContent>
-      </Card>
+        </Card>
 
-      {/* Bookings List */}
-      {filteredBookings.length === 0 ? (
-        <Card>
+        {/* Bookings List */}
+        {filteredBookings.length === 0 ? (
+          <Card className="stagger-item">
           <CardContent className="py-12">
             <div className="text-center">
               <Package className="h-12 w-12 mx-auto text-muted-foreground" />
@@ -233,11 +261,11 @@ export function CustomerBookings() {
               </Button>
             </div>
           </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {filteredBookings.map((booking) => (
-            <Card key={booking._id}>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {filteredBookings.map((booking) => (
+              <Card key={booking._id} className="stagger-item hover:shadow-lg transition-shadow duration-300">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div>
@@ -350,10 +378,11 @@ export function CustomerBookings() {
                   )}
                 </div>
               </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-    </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 }

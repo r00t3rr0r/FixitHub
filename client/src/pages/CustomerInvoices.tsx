@@ -176,18 +176,46 @@ export function CustomerInvoices() {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t('invoices.myInvoices')}</h1>
-          <p className="text-muted-foreground">{t('invoices.manageYourInvoices')}</p>
-        </div>
-      </div>
+    <>
+      <style>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
 
-      {/* Statistics Cards */}
-      {stats && (
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
+        .animate-fade-in-up {
+          animation: fadeInUp 0.5s ease-out;
+        }
+
+        .stagger-item {
+          animation: fadeInUp 0.5s ease-out;
+        }
+
+        .stagger-item:nth-child(1) { animation-delay: 0s; }
+        .stagger-item:nth-child(2) { animation-delay: 0.1s; }
+        .stagger-item:nth-child(3) { animation-delay: 0.2s; }
+        .stagger-item:nth-child(4) { animation-delay: 0.3s; }
+        .stagger-item:nth-child(5) { animation-delay: 0.4s; }
+      `}</style>
+
+      <div className="space-y-6 animate-fade-in-up">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">{t('invoices.myInvoices')}</h1>
+            <p className="text-muted-foreground">{t('invoices.manageYourInvoices')}</p>
+          </div>
+        </div>
+
+        {/* Statistics Cards */}
+        {stats && (
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card className="stagger-item">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t('invoices.totalInvoices')}</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
@@ -195,45 +223,45 @@ export function CustomerInvoices() {
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalInvoices}</div>
             </CardContent>
-          </Card>
+            </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t('invoices.totalAmount')}</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <Card className="stagger-item">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{t('invoices.totalAmount')}</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">${stats.totalAmount?.toFixed(2) || '0.00'}</div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t('invoices.unpaid')}</CardTitle>
-              <TrendingUp className="h-4 w-4 text-yellow-600" />
+            <Card className="stagger-item">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{t('invoices.unpaid')}</CardTitle>
+                <TrendingUp className="h-4 w-4 text-yellow-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">${stats.unpaidAmount?.toFixed(2) || '0.00'}</div>
               <p className="text-xs text-muted-foreground mt-1">
                 {stats.unpaidInvoices} {t('invoices.invoices')}
               </p>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t('invoices.overdue')}</CardTitle>
-              <AlertCircle className="h-4 w-4 text-red-600" />
+            <Card className="stagger-item">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{t('invoices.overdue')}</CardTitle>
+                <AlertCircle className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">{stats.overdueInvoices}</div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-      {/* Filters */}
-      <Card>
+        {/* Filters */}
+        <Card className="stagger-item">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Filter className="h-5 w-5" />
@@ -272,12 +300,12 @@ export function CustomerInvoices() {
               </Select>
             </div>
           </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Invoices Table */}
-      {filteredInvoices.length === 0 ? (
-        <Card>
+        {/* Invoices Table */}
+        {filteredInvoices.length === 0 ? (
+          <Card className="stagger-item">
           <CardContent className="py-12">
             <div className="text-center">
               <FileText className="h-12 w-12 mx-auto text-muted-foreground" />
@@ -285,9 +313,9 @@ export function CustomerInvoices() {
               <p className="text-muted-foreground">{t('invoices.noInvoicesDescription')}</p>
             </div>
           </CardContent>
-        </Card>
-      ) : (
-        <Card>
+          </Card>
+        ) : (
+          <Card className="stagger-item">
           <CardHeader>
             <CardTitle>{t('invoices.invoiceList')}</CardTitle>
             <CardDescription>
@@ -350,13 +378,13 @@ export function CustomerInvoices() {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+              </Table>
+            </CardContent>
+          </Card>
+        )}
 
-      {/* Invoice Details Dialog */}
-      <Dialog open={showInvoiceDialog} onOpenChange={setShowInvoiceDialog}>
+        {/* Invoice Details Dialog */}
+        <Dialog open={showInvoiceDialog} onOpenChange={setShowInvoiceDialog}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('invoices.invoiceDetails')}</DialogTitle>
@@ -471,9 +499,10 @@ export function CustomerInvoices() {
                 )}
               </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
+    </>
   );
 }

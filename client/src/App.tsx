@@ -8,6 +8,7 @@ import { Register } from "./pages/Register"
 import { DebugLogin } from "./pages/DebugLogin"
 import { ProtectedRoute } from "./components/ProtectedRoute"
 import { Layout } from "./components/Layout"
+import { CustomerLayout } from "./components/CustomerLayout"
 import { BlankPage } from "./pages/BlankPage"
 import { Dashboard } from "./pages/Dashboard"
 import { NewOrder } from "./pages/NewOrder"
@@ -100,10 +101,10 @@ function App() {
             <Route path="/profile" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Profile />} />
             </Route>
-            <Route path="/bookings" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/bookings" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
               <Route index element={<CustomerBookings />} />
             </Route>
-            <Route path="/invoices" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/invoices" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
               <Route index element={<CustomerInvoices />} />
             </Route>
             <Route path="/blog" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
