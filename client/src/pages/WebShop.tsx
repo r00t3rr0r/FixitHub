@@ -99,7 +99,14 @@ export function WebShop() {
     try {
       setAddingToCart(productId)
       console.log("Adding product to cart:", productId)
-      await addToCart({ productId, quantity: 1 })
+
+      // Find the product to pass its data for guest cart
+      const product = products.find(p => p._id === productId)
+      await addToCart({ productId, quantity: 1, product })
+
+      // Dispatch cart update event
+      window.dispatchEvent(new Event('cartUpdated'))
+
       toast({
         title: "Success!",
         description: "Product added to cart",

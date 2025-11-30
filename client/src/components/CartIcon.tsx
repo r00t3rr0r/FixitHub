@@ -14,12 +14,6 @@ export function CartIcon() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      setCart(null);
-      setItemCount(0);
-      return;
-    }
-
     const fetchCart = async () => {
       try {
         setIsLoading(true);
@@ -54,40 +48,40 @@ export function CartIcon() {
     const interval = setInterval(fetchCart, 30000);
 
     return () => clearInterval(interval);
-  }, [isAuthenticated, itemCount]);
+  }, [itemCount]);
 
-  // Listen for cart update events
+  // Listen for cart update events (both authenticated and guest)
   useEffect(() => {
     const handleCartUpdate = () => {
-      if (isAuthenticated) {
-        getCart()
-          .then((response) => {
-            const cartData = (response as any).cart;
-            if (cartData) {
-              const newItemCount = cartData.totalItems || 0;
+      getCart()
+        .then((response) => {
+          const cartData = (response as any).cart;
+          if (cartData) {
+            const newItemCount = cartData.totalItems || 0;
 
-              if (newItemCount > itemCount) {
-                setShouldBounce(true);
-                setTimeout(() => setShouldBounce(false), 500);
-              }
-
-              setCart(cartData);
-              setItemCount(newItemCount);
+            if (newItemCount > itemCount) {
+              setShouldBounce(true);
+              setTimeout(() => setShouldBounce(false), 500);
             }
-          })
-          .catch((error) => {
-            console.error('CartIcon: Error fetching cart on update event:', error);
-          });
-      }
+
+            setCart(cartData);
+            setItemCount(newItemCount);
+          }
+        })
+        .catch((error) => {
+          console.error('CartIcon: Error fetching cart on update event:', error);
+        });
     };
 
+    // Listen for both authenticated and guest cart updates
     window.addEventListener('cartUpdated', handleCartUpdate);
-    return () => window.removeEventListener('cartUpdated', handleCartUpdate);
-  }, [isAuthenticated, itemCount]);
+    window.addEventListener('guestCartUpdate', handleCartUpdate);
 
-  if (!isAuthenticated) {
-    return null;
-  }
+    return () => {
+      window.removeEventListener('cartUpdated', handleCartUpdate);
+      window.removeEventListener('guestCartUpdate', handleCartUpdate);
+    };
+  }, [itemCount]);
 
   return (
     <>

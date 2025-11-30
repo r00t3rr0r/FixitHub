@@ -77,9 +77,24 @@ function App() {
             </Route>
 
             {/* Customer routes */}
-            <Route path="/new-order" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            {/* Public access routes - no authentication required */}
+            <Route path="/new-order" element={<CustomerLayout />}>
               <Route index element={<NewOrder />} />
             </Route>
+            <Route path="/shop" element={<CustomerLayout />}>
+              <Route index element={<WebShop />} />
+            </Route>
+            <Route path="/cart" element={<CustomerLayout />}>
+              <Route index element={<ShoppingCartPage />} />
+            </Route>
+            <Route path="/blog" element={<CustomerLayout />}>
+              <Route index element={<Blog />} />
+            </Route>
+            <Route path="/blog/:id" element={<CustomerLayout />}>
+              <Route index element={<BlogPostPage />} />
+            </Route>
+
+            {/* Protected customer routes - authentication required */}
             <Route path="/orders" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<OrderTracking />} />
             </Route>
@@ -92,12 +107,6 @@ function App() {
             <Route path="/notifications" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Notifications />} />
             </Route>
-            <Route path="/shop" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
-              <Route index element={<WebShop />} />
-            </Route>
-            <Route path="/cart" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
-              <Route index element={<ShoppingCartPage />} />
-            </Route>
             <Route path="/profile" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Profile />} />
             </Route>
@@ -106,12 +115,6 @@ function App() {
             </Route>
             <Route path="/invoices" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
               <Route index element={<CustomerInvoices />} />
-            </Route>
-            <Route path="/blog" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
-              <Route index element={<Blog />} />
-            </Route>
-            <Route path="/blog/:id" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
-              <Route index element={<BlogPostPage />} />
             </Route>
 
             {/* Staff routes */}

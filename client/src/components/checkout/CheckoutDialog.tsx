@@ -10,6 +10,8 @@ import { registerDuringCheckout } from "@/api/checkout";
 import { useToast } from "@/hooks/useToast";
 import { useTranslation } from 'react-i18next';
 import { UserPlus, LogIn, Eye, EyeOff } from "lucide-react";
+import { mergeGuestCartWithUserCart } from "@/utils/guestCart";
+import { addToCart, addRepairOrderToCart } from "@/api/shop";
 
 interface CheckoutDialogProps {
   open: boolean;
@@ -155,13 +157,28 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess }: CheckoutDialog
       localStorage.setItem("accessToken", response.accessToken);
       localStorage.setItem("refreshToken", response.refreshToken);
 
+      console.log('CheckoutDialog: Registration successful, merging guest cart...');
+
+      // Merge guest cart with user cart after successful registration
+      try {
+        await mergeGuestCartWithUserCart({
+          addToCart,
+          addRepairOrderToCart
+        });
+        console.log('CheckoutDialog: Guest cart merged successfully');
+      } catch (mergeError) {
+        console.error('CheckoutDialog: Error merging guest cart:', mergeError);
+        // Continue anyway - cart merge is not critical
+      }
+
       toast({
         title: t('common.success'),
         description: t('checkout.accountCreatedSuccessfully')
       });
 
-      // Reload the page to update authentication state
-      window.location.reload();
+      // Close dialog and trigger success callback instead of reloading
+      onOpenChange(false);
+      onSuccess();
     } catch (error: any) {
       console.error("Registration error:", error);
       toast({

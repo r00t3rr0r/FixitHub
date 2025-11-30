@@ -1,4 +1,14 @@
 import api from './api';
+import {
+  getGuestCart as getGuestCartFromStorage,
+  addToGuestCart as addToGuestCartStorage,
+  updateGuestCartItem as updateGuestCartItemStorage,
+  removeFromGuestCart as removeFromGuestCartStorage,
+  clearGuestCart as clearGuestCartStorage,
+  addRepairOrderToGuestCart as addRepairOrderToGuestCartStorage,
+  removeRepairOrderFromGuestCart as removeRepairOrderFromGuestCartStorage,
+  GuestCart
+} from '@/utils/guestCart';
 
 export interface Product {
   _id: string;
@@ -170,66 +180,188 @@ export const getProductBrands = async () => {
   }
 };
 
-// Description: Get user's cart
-// Endpoint: GET /api/cart
+// Helper function to check if user is authenticated
+const isAuthenticated = () => {
+  return !!localStorage.getItem('accessToken');
+};
+
+// Description: Get user's cart (handles both authenticated and guest users)
+// Endpoint: GET /api/cart (authenticated) or localStorage (guest)
 // Request: {}
 // Response: { success: boolean, cart: Cart }
 export const getCart = async () => {
   try {
-    const response = await api.get('/api/cart');
-    return response.data;
+    if (isAuthenticated()) {
+      const response = await api.get('/api/cart');
+      return response.data;
+    } else {
+      // Return guest cart from localStorage
+      const guestCart = getGuestCartFromStorage();
+      return {
+        success: true,
+        cart: {
+          _id: 'guest-cart',
+          user: 'guest',
+          items: guestCart.items.map(item => ({
+            _id: item._id,
+            productId: item.product,
+            quantity: item.quantity,
+            price: item.product.price
+          })),
+          repairOrders: guestCart.repairOrders,
+          subtotal: guestCart.totalCost,
+          tax: 0,
+          total: guestCart.totalCost,
+          totalItems: guestCart.itemCount,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      };
+    }
   } catch (error) {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
 
-// Description: Add item to cart
-// Endpoint: POST /api/cart/add
-// Request: { productId: string, quantity: number }
+// Description: Add item to cart (handles both authenticated and guest users)
+// Endpoint: POST /api/cart/add (authenticated) or localStorage (guest)
+// Request: { productId: string, quantity: number, product?: Product }
 // Response: { success: boolean, message: string, cart: Cart }
-export const addToCart = async (data: { productId: string; quantity: number }) => {
+export const addToCart = async (data: { productId: string; quantity: number; product?: Product }) => {
   try {
-    const response = await api.post('/api/cart/add', data);
-    return response.data;
+    if (isAuthenticated()) {
+      const response = await api.post('/api/cart/add', { productId: data.productId, quantity: data.quantity });
+      return response.data;
+    } else {
+      // Add to guest cart
+      if (!data.product) {
+        // Fetch product details if not provided
+        const productResponse = await getProduct(data.productId);
+        data.product = productResponse.product;
+      }
+      const guestCart = addToGuestCartStorage(data.product, data.quantity);
+      return {
+        success: true,
+        message: 'Item added to cart successfully',
+        cart: {
+          _id: 'guest-cart',
+          user: 'guest',
+          items: guestCart.items.map(item => ({
+            _id: item._id,
+            productId: item.product,
+            quantity: item.quantity,
+            price: item.product.price
+          })),
+          repairOrders: guestCart.repairOrders,
+          subtotal: guestCart.totalCost,
+          tax: 0,
+          total: guestCart.totalCost,
+          totalItems: guestCart.itemCount,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      };
+    }
   } catch (error) {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
 
-// Description: Update cart item quantity
-// Endpoint: PUT /api/cart/update
+// Description: Update cart item quantity (handles both authenticated and guest users)
+// Endpoint: PUT /api/cart/update (authenticated) or localStorage (guest)
 // Request: { productId: string, quantity: number }
 // Response: { success: boolean, message: string, cart: Cart }
 export const updateCartItem = async (productId: string, quantity: number) => {
   try {
-    const response = await api.put('/api/cart/update', { productId, quantity });
-    return response.data;
+    if (isAuthenticated()) {
+      const response = await api.put('/api/cart/update', { productId, quantity });
+      return response.data;
+    } else {
+      // Update guest cart
+      const guestCart = updateGuestCartItemStorage(productId, quantity);
+      return {
+        success: true,
+        message: 'Cart updated successfully',
+        cart: {
+          _id: 'guest-cart',
+          user: 'guest',
+          items: guestCart.items.map(item => ({
+            _id: item._id,
+            productId: item.product,
+            quantity: item.quantity,
+            price: item.product.price
+          })),
+          repairOrders: guestCart.repairOrders,
+          subtotal: guestCart.totalCost,
+          tax: 0,
+          total: guestCart.totalCost,
+          totalItems: guestCart.itemCount,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      };
+    }
   } catch (error) {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
 
-// Description: Remove item from cart
-// Endpoint: DELETE /api/cart/remove/:productId
+// Description: Remove item from cart (handles both authenticated and guest users)
+// Endpoint: DELETE /api/cart/remove/:productId (authenticated) or localStorage (guest)
 // Request: { productId: string }
 // Response: { success: boolean, message: string, cart: Cart }
 export const removeFromCart = async (productId: string) => {
   try {
-    const response = await api.delete(`/api/cart/remove/${productId}`);
-    return response.data;
+    if (isAuthenticated()) {
+      const response = await api.delete(`/api/cart/remove/${productId}`);
+      return response.data;
+    } else {
+      // Remove from guest cart
+      const guestCart = removeFromGuestCartStorage(productId);
+      return {
+        success: true,
+        message: 'Item removed from cart',
+        cart: {
+          _id: 'guest-cart',
+          user: 'guest',
+          items: guestCart.items.map(item => ({
+            _id: item._id,
+            productId: item.product,
+            quantity: item.quantity,
+            price: item.product.price
+          })),
+          repairOrders: guestCart.repairOrders,
+          subtotal: guestCart.totalCost,
+          tax: 0,
+          total: guestCart.totalCost,
+          totalItems: guestCart.itemCount,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      };
+    }
   } catch (error) {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
 
-// Description: Clear cart
-// Endpoint: DELETE /api/cart/clear
+// Description: Clear cart (handles both authenticated and guest users)
+// Endpoint: DELETE /api/cart/clear (authenticated) or localStorage (guest)
 // Request: {}
 // Response: { success: boolean, message: string }
 export const clearCart = async () => {
   try {
-    const response = await api.delete('/api/cart/clear');
-    return response.data;
+    if (isAuthenticated()) {
+      const response = await api.delete('/api/cart/clear');
+      return response.data;
+    } else {
+      // Clear guest cart
+      clearGuestCartStorage();
+      return {
+        success: true,
+        message: 'Cart cleared successfully'
+      };
+    }
   } catch (error) {
     throw new Error(error?.response?.data?.error || error.message);
   }
@@ -268,27 +400,79 @@ export interface RepairOrderData {
   noLock?: boolean;
 }
 
-// Description: Add repair order to cart
-// Endpoint: POST /api/cart/add-repair-order
+// Description: Add repair order to cart (handles both authenticated and guest users)
+// Endpoint: POST /api/cart/add-repair-order (authenticated) or localStorage (guest)
 // Request: { deviceType: string, deviceBrand: string, deviceModel: string, services: string[], addOns: object[], customerNotes: string, photos: string[], totalCost: number, unlockPattern?: string[], unlockCode?: string, noLock?: boolean }
 // Response: { success: boolean, message: string, cart: Cart }
 export const addRepairOrderToCart = async (repairOrderData: RepairOrderData) => {
   try {
-    const response = await api.post('/api/cart/add-repair-order', repairOrderData);
-    return response.data;
+    if (isAuthenticated()) {
+      const response = await api.post('/api/cart/add-repair-order', repairOrderData);
+      return response.data;
+    } else {
+      // Add to guest cart
+      const guestCart = addRepairOrderToGuestCartStorage(repairOrderData);
+      return {
+        success: true,
+        message: 'Repair order added to cart successfully',
+        cart: {
+          _id: 'guest-cart',
+          user: 'guest',
+          items: guestCart.items.map(item => ({
+            _id: item._id,
+            productId: item.product,
+            quantity: item.quantity,
+            price: item.product.price
+          })),
+          repairOrders: guestCart.repairOrders,
+          subtotal: guestCart.totalCost,
+          tax: 0,
+          total: guestCart.totalCost,
+          totalItems: guestCart.itemCount,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      };
+    }
   } catch (error) {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
 
-// Description: Remove repair order from cart
-// Endpoint: DELETE /api/cart/remove-repair-order/:repairOrderId
+// Description: Remove repair order from cart (handles both authenticated and guest users)
+// Endpoint: DELETE /api/cart/remove-repair-order/:repairOrderId (authenticated) or localStorage (guest)
 // Request: { repairOrderId: string }
 // Response: { success: boolean, message: string, cart: Cart }
 export const removeRepairOrderFromCart = async (repairOrderId: string) => {
   try {
-    const response = await api.delete(`/api/cart/remove-repair-order/${repairOrderId}`);
-    return response.data;
+    if (isAuthenticated()) {
+      const response = await api.delete(`/api/cart/remove-repair-order/${repairOrderId}`);
+      return response.data;
+    } else {
+      // Remove from guest cart
+      const guestCart = removeRepairOrderFromGuestCartStorage(repairOrderId);
+      return {
+        success: true,
+        message: 'Repair order removed from cart',
+        cart: {
+          _id: 'guest-cart',
+          user: 'guest',
+          items: guestCart.items.map(item => ({
+            _id: item._id,
+            productId: item.product,
+            quantity: item.quantity,
+            price: item.product.price
+          })),
+          repairOrders: guestCart.repairOrders,
+          subtotal: guestCart.totalCost,
+          tax: 0,
+          total: guestCart.totalCost,
+          totalItems: guestCart.itemCount,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      };
+    }
   } catch (error) {
     throw new Error(error?.response?.data?.error || error.message);
   }
