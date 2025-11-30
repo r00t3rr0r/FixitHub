@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
-import { HeroSection } from '@/components/home/HeroSection';
+import { DeviceSelectionHero } from '@/components/home/DeviceSelectionHero';
 import { ServicesOverview } from '@/components/home/ServicesOverview';
 import { DevicesSection } from '@/components/home/DevicesSection';
 import { FeaturesSection } from '@/components/home/FeaturesSection';
@@ -135,8 +135,8 @@ export function Home() {
         </div>
       </header>
 
-      {/* Hero Section with Background Image */}
-      <HeroSection />
+      {/* Hero Section with Device Selection */}
+      <DeviceSelectionHero />
 
       {/* Services Overview - Step by Step */}
       <ServicesOverview />

@@ -136,6 +136,45 @@ export function NewOrder() {
         setDeviceTypes((deviceTypesResponse as any).deviceTypes || [])
         setServices((servicesResponse as any).services || [])
         setAddOns((addOnsResponse as any).addOns || [])
+
+        // Check if device was pre-selected from homepage
+        const preSelectedDeviceJson = sessionStorage.getItem('selectedDevice')
+        if (preSelectedDeviceJson) {
+          try {
+            const preSelectedDevice = JSON.parse(preSelectedDeviceJson)
+            console.log("Pre-selected device from homepage:", preSelectedDevice)
+
+            // Set the selected device
+            setSelectedDevice(preSelectedDevice)
+            setDeviceSearchQuery(preSelectedDevice.name)
+
+            // Find the device type ID from the loaded device types
+            const deviceTypeObj = ((deviceTypesResponse as any).deviceTypes || []).find(
+              (dt: DeviceType) => dt.name.toLowerCase() === preSelectedDevice.deviceType.toLowerCase()
+            )
+
+            if (deviceTypeObj) {
+              setValue("deviceType", deviceTypeObj._id)
+              setValue("deviceManufacturer", preSelectedDevice.manufacturerId)
+              setValue("deviceModel", preSelectedDevice._id)
+
+              setSelectedDeviceType(deviceTypeObj._id)
+              setSelectedManufacturer(preSelectedDevice.manufacturerId)
+              setSelectedModel(preSelectedDevice._id)
+            }
+
+            // Clear the session storage
+            sessionStorage.removeItem('selectedDevice')
+
+            // Show success message
+            toast({
+              title: "Device Selected!",
+              description: `${preSelectedDevice.name} has been pre-selected for your repair order.`
+            })
+          } catch (error) {
+            console.error("Error processing pre-selected device:", error)
+          }
+        }
       } catch (error) {
         console.error("Error fetching initial form data:", error)
         toast({
@@ -149,7 +188,7 @@ export function NewOrder() {
     }
 
     fetchInitialData()
-  }, [])
+  }, [toast, setValue])
 
   // Handle device search
   const handleDeviceSearch = useCallback(async (query: string) => {
