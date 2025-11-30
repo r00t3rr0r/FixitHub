@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link } from 'react-router-dom';
@@ -13,39 +13,124 @@ import { BlogCarousel } from '@/components/home/BlogCarousel';
 import { TestimonialsCarousel } from '@/components/home/TestimonialsCarousel';
 import { AboutUsSection } from '@/components/home/AboutUsSection';
 import { ContactSection } from '@/components/home/ContactSection';
+import { LanguageSelector } from '@/components/LanguageSelector';
+import { CartIcon } from '@/components/CartIcon';
 
 export function Home() {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   const [email, setEmail] = useState('');
+  const [logoLoaded, setLogoLoaded] = useState(false);
+
+  // Preload logo image for fade-in effect
+  useEffect(() => {
+    const img = new Image();
+    img.src = 'https://www.mcrepair.de/bilder/intern/shoplogo/logo180.png';
+    img.onload = () => {
+      console.log('Home: Shop logo loaded successfully');
+      setLogoLoaded(true);
+    };
+    img.onerror = () => {
+      console.error('Home: Failed to load shop logo');
+      setLogoLoaded(true); // Show placeholder if image fails
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b sticky top-0 z-50 bg-white/95 backdrop-blur">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">FH</span>
+      {/* Enhanced Header with Animations */}
+      <header className="border-b sticky top-0 z-50 bg-white/95 backdrop-blur shadow-sm">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          {/* Logo with fade-in animation */}
+          <Link to="/" className="flex items-center gap-3 group">
+            <div
+              className="relative transition-all duration-300 group-hover:scale-105"
+              style={{
+                opacity: logoLoaded ? 1 : 0,
+                transform: logoLoaded ? 'translateY(0)' : 'translateY(-10px)',
+                transition: 'opacity 0.6s ease-out, transform 0.6s ease-out'
+              }}
+            >
+              <img
+                src="https://www.mcrepair.de/bilder/intern/shoplogo/logo180.png"
+                alt="FixitHub Logo"
+                className="h-12 w-auto object-contain"
+                onError={(e) => {
+                  console.error('Home: Logo image failed to load');
+                  // Show fallback
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+              {/* Fallback logo if image fails */}
+              <div
+                className="w-12 h-12 bg-yellow-400 rounded-lg flex items-center justify-center"
+                style={{ display: 'none' }}
+              >
+                <span className="text-gray-900 font-bold text-lg">FH</span>
+              </div>
+
+              {/* Subtle glow effect on hover */}
+              <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-30 transition-opacity duration-300 bg-yellow-400 blur-md -z-10" />
             </div>
-            <span className="text-xl font-bold">FixitHub</span>
-          </div>
+            <span className="text-xl font-bold text-gray-900 hidden sm:inline-block group-hover:text-yellow-600 transition-colors duration-200">
+              FixitHub
+            </span>
+          </Link>
+
+          {/* Navigation */}
           <nav className="hidden md:flex items-center gap-6">
-            <a href="#services" className="text-muted-foreground hover:text-foreground transition-colors">{t('home.nav.services')}</a>
-            <a href="#about" className="text-muted-foreground hover:text-foreground transition-colors">{t('home.nav.about')}</a>
-            <a href="#contact" className="text-muted-foreground hover:text-foreground transition-colors">{t('home.nav.contact')}</a>
+            <a
+              href="#services"
+              className="text-gray-600 hover:text-yellow-600 transition-colors duration-200 font-medium relative group"
+            >
+              {t('home.nav.services')}
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-yellow-400 group-hover:w-full transition-all duration-300" />
+            </a>
+            <a
+              href="#about"
+              className="text-gray-600 hover:text-yellow-600 transition-colors duration-200 font-medium relative group"
+            >
+              {t('home.nav.about')}
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-yellow-400 group-hover:w-full transition-all duration-300" />
+            </a>
+            <a
+              href="#contact"
+              className="text-gray-600 hover:text-yellow-600 transition-colors duration-200 font-medium relative group"
+            >
+              {t('home.nav.contact')}
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-yellow-400 group-hover:w-full transition-all duration-300" />
+            </a>
           </nav>
+
+          {/* Right side actions */}
           <div className="flex items-center gap-2">
+            {/* Language Selector with hover effect */}
+            <LanguageSelector />
+
+            {/* Shopping Cart with item count and bounce animation */}
+            <CartIcon />
+
+            {/* Auth buttons */}
             {isAuthenticated ? (
-              <Button asChild>
+              <Button
+                asChild
+                className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold shadow-md hover:shadow-lg transition-all duration-200"
+              >
                 <Link to="/dashboard">{t('navigation.dashboard')}</Link>
               </Button>
             ) : (
               <>
-                <Button variant="outline" asChild>
+                <Button
+                  variant="outline"
+                  asChild
+                  className="hidden sm:inline-flex border-gray-300 hover:border-yellow-400 hover:text-yellow-600 transition-all duration-200"
+                >
                   <Link to="/login">{t('navigation.login')}</Link>
                 </Button>
-                <Button asChild>
+                <Button
+                  asChild
+                  className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold shadow-md hover:shadow-lg transition-all duration-200"
+                >
                   <Link to="/register">{t('home.nav.getStarted')}</Link>
                 </Button>
               </>
@@ -86,8 +171,19 @@ export function Home() {
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center">
+              <div className="flex items-center gap-3 mb-4">
+                <img
+                  src="https://www.mcrepair.de/bilder/intern/shoplogo/logo180.png"
+                  alt="FixitHub Logo"
+                  className="h-10 w-auto object-contain brightness-0 invert"
+                  onError={(e) => {
+                    // Fallback to text logo
+                    (e.target as HTMLImageElement).style.display = 'none';
+                    const fallback = (e.target as HTMLImageElement).nextElementSibling as HTMLElement;
+                    if (fallback) fallback.style.display = 'flex';
+                  }}
+                />
+                <div className="w-10 h-10 bg-yellow-400 rounded-lg items-center justify-center hidden">
                   <span className="text-gray-900 font-bold text-sm">FH</span>
                 </div>
                 <span className="text-xl font-bold">FixitHub</span>
