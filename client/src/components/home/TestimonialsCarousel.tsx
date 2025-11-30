@@ -104,7 +104,7 @@ export function TestimonialsCarousel({
           updated[i] = true;
           return updated;
         });
-      }, i * 150);
+      }, i * 120);
     });
   }, [currentIndex]);
 
@@ -127,31 +127,31 @@ export function TestimonialsCarousel({
     testimonials[(currentIndex + 2) % testimonials.length]
   ].filter((_, i) => i < (window.innerWidth >= 1024 ? 3 : window.innerWidth >= 768 ? 2 : 1));
 
-  // Array of professional gradient backgrounds
-  const gradientBackgrounds = [
-    'from-blue-50 to-blue-100/50',
-    'from-purple-50 to-purple-100/50',
-    'from-emerald-50 to-emerald-100/50',
-    'from-orange-50 to-orange-100/50',
-    'from-pink-50 to-pink-100/50'
-  ];
-
   return (
-    <section className="py-20 bg-white relative overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-r from-yellow-200/5 to-orange-200/5 rounded-full blur-3xl -z-10 opacity-30 animate-pulse"></div>
-      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gradient-to-r from-blue-200/5 to-purple-200/5 rounded-full blur-3xl -z-10 opacity-30 animate-pulse" style={{ animationDelay: '1s' }}></div>
+    <section
+      className="py-24 px-4 relative overflow-hidden"
+      style={{
+        backgroundImage: 'url(https://www.mcrepair.de/bilder/home/banner/fakten_bg.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      {/* Professional overlay with gradient */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/40 to-black/50"></div>
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-black/20 to-transparent"></div>
 
-      <div className="container mx-auto px-4">
+      {/* Content wrapper */}
+      <div className="relative z-10 container mx-auto">
         {/* Section Header */}
         <div className="text-center mb-16">
-          <div className="inline-block mb-4 px-4 py-2 bg-yellow-100/50 rounded-full border border-yellow-200/50">
-            <span className="text-sm font-semibold text-yellow-700">⭐ {t('home.testimonials.featured') || 'Customer Reviews'}</span>
+          <div className="inline-block mb-4 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20 hover:bg-white/15 transition-all duration-300">
+            <span className="text-sm font-semibold text-white">⭐ {t('home.testimonials.featured') || 'Customer Reviews'}</span>
           </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-700 bg-clip-text text-transparent">
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-4 drop-shadow-lg">
             {title || t('home.testimonials.title')}
           </h2>
-          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+          <p className="text-gray-100 text-lg max-w-2xl mx-auto drop-shadow-md">
             {t('home.testimonials.subtitle')}
           </p>
         </div>
@@ -167,16 +167,16 @@ export function TestimonialsCarousel({
                   style={{
                     opacity: visibleLogos[index] ? 1 : 0,
                     transform: visibleLogos[index] ? 'translateY(0) scale(1)' : 'translateY(20px) scale(0.95)',
-                    transition: 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                    transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
                   }}
                 >
-                  <Card className={`h-full bg-gradient-to-br ${gradientBackgrounds[currentIndex % 5]} border-0 shadow-lg hover:shadow-2xl transition-all duration-500 group hover:-translate-y-3 relative overflow-hidden`}>
-                    {/* Accent line on top */}
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-orange-400 to-red-400 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
+                  <Card className="h-full bg-white/95 backdrop-blur-sm border-0 shadow-2xl hover:shadow-3xl transition-all duration-400 group hover:-translate-y-2 relative overflow-hidden">
+                    {/* Top accent line */}
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-orange-400 to-transparent transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
 
                     {/* Quote icon background */}
-                    <div className="absolute -top-8 -right-8 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
-                      <Quote className="w-32 h-32 text-gray-800" />
+                    <div className="absolute -top-12 -right-12 opacity-5 group-hover:opacity-8 transition-opacity duration-300">
+                      <Quote className="w-40 h-40 text-gray-800" />
                     </div>
 
                     <CardContent className="p-8 relative z-10">
@@ -188,7 +188,7 @@ export function TestimonialsCarousel({
                             style={{
                               opacity: Object.keys(displayedRatings).includes(String(i)) ? 1 : 0,
                               transform: Object.keys(displayedRatings).includes(String(i)) ? 'scale(1) rotate(0deg)' : 'scale(0) rotate(-180deg)',
-                              transition: `all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) ${i * 100}ms`
+                              transition: `all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) ${i * 80}ms`
                             }}
                           >
                             <Star className="w-5 h-5 fill-yellow-400 text-yellow-400 drop-shadow-md" />
@@ -197,21 +197,21 @@ export function TestimonialsCarousel({
                       </div>
 
                       {/* Comment */}
-                      <p className="text-gray-700 text-base mb-6 leading-relaxed font-medium">
+                      <p className="text-gray-700 text-base mb-6 leading-relaxed font-medium group-hover:text-gray-800 transition-colors duration-300">
                         "{testimonial.comment}"
                       </p>
 
                       {/* Animated divider */}
                       <div className="flex items-center gap-2 mb-6">
-                        <div className="flex-1 h-1 bg-gradient-to-r from-yellow-400/50 to-yellow-400/0 rounded-full"></div>
-                        <div className="w-1 h-1 bg-yellow-400 rounded-full"></div>
+                        <div className="flex-1 h-1 bg-gradient-to-r from-yellow-300 to-yellow-100 rounded-full"></div>
+                        <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full"></div>
                       </div>
 
                       {/* Author Info with enhanced styling */}
                       <div className="flex items-center gap-4">
                         <div className="relative">
-                          <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full blur opacity-0 group-hover:opacity-75 transition-opacity duration-300"></div>
-                          <Avatar className="h-12 w-12 relative border-2 border-white shadow-md">
+                          <div className="absolute inset-0 bg-gradient-to-r from-yellow-300 to-orange-300 rounded-full blur opacity-0 group-hover:opacity-60 transition-opacity duration-300"></div>
+                          <Avatar className="h-12 w-12 relative border-2 border-white shadow-lg">
                             <AvatarImage src={testimonial.avatar} alt={testimonial.name} />
                             <AvatarFallback className="bg-gradient-to-br from-yellow-400 to-orange-400 text-white font-bold">
                               {testimonial.name.charAt(0)}
@@ -240,7 +240,7 @@ export function TestimonialsCarousel({
             {/* Previous Button */}
             <button
               onClick={prevTestimonial}
-              className="p-3 rounded-full bg-gradient-to-r from-yellow-400 to-orange-400 text-gray-900 hover:from-yellow-500 hover:to-orange-500 transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+              className="p-3 rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white/30 transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-2xl transform hover:-translate-y-1 border border-white/30"
               aria-label="Previous testimonial"
             >
               <ChevronLeft className="w-6 h-6" />
@@ -258,8 +258,8 @@ export function TestimonialsCarousel({
                   }}
                   className={`rounded-full transition-all duration-500 ${
                     index === currentIndex
-                      ? 'bg-gradient-to-r from-yellow-400 to-orange-400 w-8 h-3 shadow-lg'
-                      : 'bg-gray-300 w-3 h-3 hover:bg-gray-400'
+                      ? 'bg-white/80 w-8 h-3 shadow-lg'
+                      : 'bg-white/30 w-3 h-3 hover:bg-white/50'
                   }`}
                   aria-label={`Go to testimonial ${index + 1}`}
                 />
@@ -269,7 +269,7 @@ export function TestimonialsCarousel({
             {/* Next Button */}
             <button
               onClick={nextTestimonial}
-              className="p-3 rounded-full bg-gradient-to-r from-yellow-400 to-orange-400 text-gray-900 hover:from-yellow-500 hover:to-orange-500 transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+              className="p-3 rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white/30 transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-2xl transform hover:-translate-y-1 border border-white/30"
               aria-label="Next testimonial"
             >
               <ChevronRight className="w-6 h-6" />
@@ -278,8 +278,8 @@ export function TestimonialsCarousel({
 
           {/* Counter with enhanced styling */}
           <div className="text-center mt-8">
-            <p className="text-sm font-semibold text-gray-600 bg-gray-100/50 inline-block px-4 py-2 rounded-full">
-              {currentIndex + 1} <span className="text-gray-500">/</span> {testimonials.length}
+            <p className="text-sm font-semibold text-white/90 bg-white/10 backdrop-blur-md inline-block px-4 py-2 rounded-full border border-white/20">
+              {currentIndex + 1} <span className="text-white/70">/</span> {testimonials.length}
             </p>
           </div>
         </div>
