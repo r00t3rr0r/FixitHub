@@ -83,7 +83,7 @@ function App() {
             <Route path="/orders" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<OrderTracking />} />
             </Route>
-            <Route path="/orders/:id" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/orders/:id" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
               <Route index element={<OrderDetails />} />
             </Route>
             <Route path="/messages" element={<ProtectedRoute><Layout /></ProtectedRoute>}>

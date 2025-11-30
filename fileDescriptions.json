@@ -605,5 +605,6 @@
 	"client/src/components/CartIcon.tsx": "React component that displays a shopping cart icon with item count badge, featuring real-time cart synchronization via polling and event listeners, bounce animations on item additions, and authenticated user-only visibility.",
 	"client/src/components/ProfileDropdown.tsx": "Dropdown menu component displaying authenticated user profile with avatar, name, email, and navigation links to profile, orders, bookings, invoices, settings, and logout functionality.",
 	"client/src/components/CustomerLayout.tsx": "Layout wrapper component for customer pages that renders CustomerNavbar, routed content via Outlet, and Footer with a gradient background and responsive spacing.",
-	"client/src/components/CustomerNavbar.tsx": "Navigation header component for customer-facing pages with logo, navigation links, language selector, shopping cart, and authentication controls; includes logo preloading, responsive design, and i18n support."
+	"client/src/components/CustomerNavbar.tsx": "Navigation header component for customer-facing pages with logo, navigation links, language selector, shopping cart, and authentication controls; includes logo preloading, responsive design, and i18n support.",
+	"ORDER_DETAILS_REDESIGN_COMPLETE.md": "Documentation of the Order Details page redesign implementation, detailing routing changes from Layout to CustomerLayout component, integration of CustomerNavbar and Footer, design alignment with homepage aesthetics, UX improvements, technical specifications, and deployment status."
 }
