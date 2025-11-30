@@ -182,8 +182,8 @@ export function ShoppingCartPage() {
         description: checkoutResult.message || `Successfully created ${checkoutResult.orderIds?.length || 0} order(s)`
       })
 
-      // Navigate to orders page to show created orders
-      navigate('/orders')
+      // Navigate to bookings page to show created orders
+      navigate('/bookings')
     } catch (error: any) {
       console.error("Error during checkout:", error)
       toast({
@@ -217,8 +217,8 @@ export function ShoppingCartPage() {
         description: checkoutResult.message || `Successfully created ${checkoutResult.orderIds?.length || 0} order(s)`
       })
 
-      // Navigate to orders page to show created orders
-      navigate('/orders')
+      // Navigate to bookings page to show created orders
+      navigate('/bookings')
     } catch (error: any) {
       console.error("Error during checkout after authentication:", error)
       toast({
