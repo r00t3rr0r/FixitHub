@@ -95,7 +95,7 @@ function App() {
             <Route path="/shop" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<WebShop />} />
             </Route>
-            <Route path="/cart" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/cart" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
               <Route index element={<ShoppingCartPage />} />
             </Route>
             <Route path="/profile" element={<ProtectedRoute><Layout /></ProtectedRoute>}>

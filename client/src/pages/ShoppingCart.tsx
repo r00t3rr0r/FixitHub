@@ -18,7 +18,12 @@ import {
   ArrowLeft,
   CreditCard,
   Wrench,
-  Smartphone
+  Smartphone,
+  Package,
+  TrendingUp,
+  Shield,
+  Zap,
+  CheckCircle2
 } from "lucide-react"
 import { useTranslation } from 'react-i18next'
 
@@ -228,25 +233,27 @@ export function ShoppingCartPage() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto space-y-6">
-        <Card className="animate-pulse">
-          <CardHeader>
-            <div className="h-6 bg-muted rounded w-1/3"></div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="flex gap-4">
-                  <div className="w-20 h-20 bg-muted rounded"></div>
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-muted rounded w-3/4"></div>
-                    <div className="h-4 bg-muted rounded w-1/2"></div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-yellow-50/30">
+        <div className="container mx-auto px-4 py-12">
+          <Card className="animate-pulse border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+            <CardHeader>
+              <div className="h-8 bg-gradient-to-r from-gray-200 to-gray-100 rounded-lg w-1/3"></div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="flex gap-6 p-6 rounded-xl bg-gradient-to-r from-gray-100 to-gray-50">
+                    <div className="w-24 h-24 bg-gradient-to-br from-gray-200 to-gray-100 rounded-xl"></div>
+                    <div className="flex-1 space-y-3">
+                      <div className="h-6 bg-gradient-to-r from-gray-200 to-gray-100 rounded-lg w-3/4"></div>
+                      <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-100 rounded-lg w-1/2"></div>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     )
   }
@@ -255,278 +262,377 @@ export function ShoppingCartPage() {
 
   if (!cart || !hasItems) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <Card>
-          <CardContent className="text-center py-12">
-            <ShoppingCartIcon className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <h3 className="text-lg font-semibold mb-2">{t('cart.emptyCart')}</h3>
-            <p className="text-muted-foreground mb-4">
-              {t('cart.emptyCartDesc')}
-            </p>
-            <div className="flex gap-3 justify-center">
-              <Button asChild variant="outline">
-                <Link to="/shop">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  {t('cart.continueShopping')}
-                </Link>
-              </Button>
-              <Button asChild>
-                <Link to="/new-order">
-                  <Wrench className="h-4 w-4 mr-2" />
-                  {t('orders.newOrder')}
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-yellow-50/30 flex items-center justify-center py-12">
+        <div className="container mx-auto px-4">
+          <Card className="max-w-2xl mx-auto border-0 shadow-2xl bg-white/90 backdrop-blur-sm overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-400"></div>
+            <CardContent className="text-center py-16 px-8">
+              <div className="relative inline-block mb-6">
+                <div className="absolute inset-0 bg-yellow-400/20 rounded-full blur-3xl animate-pulse"></div>
+                <div className="relative bg-gradient-to-br from-yellow-50 to-yellow-100 p-8 rounded-full">
+                  <ShoppingCartIcon className="h-20 w-20 text-yellow-600" />
+                </div>
+              </div>
+              <h3 className="text-3xl font-bold mb-3 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                {t('cart.emptyCart')}
+              </h3>
+              <p className="text-gray-600 mb-8 text-lg max-w-md mx-auto">
+                {t('cart.emptyCartDesc')}
+              </p>
+              <div className="flex gap-4 justify-center flex-wrap">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="border-2 border-gray-300 hover:border-yellow-400 hover:bg-yellow-50 transition-all duration-300 group"
+                >
+                  <Link to="/shop">
+                    <Package className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
+                    {t('cart.continueShopping')}
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  size="lg"
+                  className="bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-semibold shadow-lg hover:shadow-xl transition-all duration-300 group"
+                >
+                  <Link to="/new-order">
+                    <Wrench className="h-5 w-5 mr-2 group-hover:rotate-12 transition-transform" />
+                    {t('orders.newOrder')}
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">{t('cart.title')}</h1>
-          <p className="text-muted-foreground">
-            {cart.totalItems} {cart.totalItems === 1 ? 'item' : 'items'} in your cart
-          </p>
-        </div>
-        <Button variant="outline" asChild>
-          <Link to="/shop">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            {t('cart.continueShopping')}
-          </Link>
-        </Button>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Cart Items */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* Product Items */}
-          {cart.items.map((item) => (
-            <Card key={item._id}>
-              <CardContent className="p-6">
-                <div className="flex gap-4">
-                  <img
-                    src={item.productId.images[0]}
-                    alt={item.productId.name}
-                    className="w-20 h-20 object-cover rounded-lg"
-                  />
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h3 className="font-semibold">{item.productId.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {item.productId.brand}
-                        </p>
-                        {!item.productId.inStock && (
-                          <Badge variant="destructive" className="mt-1">
-                            {t('shop.outOfStock')}
-                          </Badge>
-                        )}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleUpdateQuantity(item.productId._id, 0)}
-                        disabled={updating === item.productId._id}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleUpdateQuantity(item.productId._id, item.quantity - 1)}
-                          disabled={updating === item.productId._id || item.quantity <= 1}
-                        >
-                          <Minus className="h-3 w-3" />
-                        </Button>
-                        <span className="w-8 text-center font-medium">
-                          {item.quantity}
-                        </span>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleUpdateQuantity(item.productId._id, item.quantity + 1)}
-                          disabled={updating === item.productId._id || !item.productId.inStock}
-                        >
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                      </div>
-
-                      <div className="text-right">
-                        <p className="font-semibold">
-                          ${(item.productId.price * item.quantity).toFixed(2)}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          ${item.productId.price.toFixed(2)} each
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-
-          {/* Repair Orders */}
-          {cart.repairOrders && cart.repairOrders.map((order: any) => (
-            <Card key={order._id} className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5">
-              <CardContent className="p-6">
-                <div className="flex gap-4">
-                  <div className="w-20 h-20 flex items-center justify-center bg-primary/10 rounded-lg">
-                    <Wrench className="h-10 w-10 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold">Repair Order</h3>
-                          <Badge variant="secondary">
-                            <Smartphone className="h-3 w-3 mr-1" />
-                            Device Repair
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {order.deviceType} • {order.deviceBrand} • {order.deviceModel}
-                        </p>
-                        <div className="mt-2 text-xs text-muted-foreground">
-                          <p><strong>Services:</strong> {order.services?.length || 0} service(s)</p>
-                          {order.addOns && order.addOns.length > 0 && (
-                            <p><strong>Add-ons:</strong> {order.addOns.length} add-on(s)</p>
-                          )}
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveRepairOrder(order._id)}
-                        disabled={updating === order._id}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t">
-                      <div className="text-xs text-muted-foreground">
-                        Repair services included
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-lg">
-                          ${order.totalCost.toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-yellow-50/30">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header with gradient background */}
+        <div className="mb-8 relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/10 via-yellow-500/5 to-transparent rounded-2xl blur-3xl"></div>
+          <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6">
+            <div className="space-y-2">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent">
+                {t('cart.title')}
+              </h1>
+              <div className="flex items-center gap-3">
+                <Badge variant="secondary" className="bg-yellow-400/20 text-yellow-800 border-yellow-300 px-3 py-1">
+                  <ShoppingCartIcon className="h-3 w-3 mr-1" />
+                  {cart.totalItems} {cart.totalItems === 1 ? 'item' : 'items'}
+                </Badge>
+                <span className="text-sm text-gray-500">in your cart</span>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              asChild
+              className="border-2 border-gray-300 hover:border-yellow-400 hover:bg-yellow-50 transition-all duration-300 group shadow-sm hover:shadow-md"
+            >
+              <Link to="/shop">
+                <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+                {t('cart.continueShopping')}
+              </Link>
+            </Button>
+          </div>
         </div>
 
-        {/* Order Summary */}
-        <div className="space-y-4">
-          {/* Promo Code */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Tag className="h-5 w-5" />
-                {t('cart.promoCode')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex gap-2">
-                <Input
-                  placeholder={t('cart.promoPlaceholder')}
-                  value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value)}
-                />
-                <Button
-                  onClick={handleApplyPromoCode}
-                  disabled={!promoCode.trim() || applyingPromo}
-                >
-                  {applyingPromo ? t('common.loading') : t('cart.apply')}
-                </Button>
-              </div>
-              {cart.promoCode && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-green-600">
-                    Code "{cart.promoCode}" applied
-                  </span>
-                  <span className="text-green-600 font-medium">
-                    -${cart.discount?.toFixed(2)}
-                  </span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Order Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('cart.orderSummary')}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between">
-                <span>{t('cart.subtotal')}</span>
-                <span>${cart.subtotal.toFixed(2)}</span>
-              </div>
-
-              {cart.discount && cart.discount > 0 && (
-                <div className="flex justify-between text-green-600">
-                  <span>{t('cart.discount')}</span>
-                  <span>-${cart.discount.toFixed(2)}</span>
-                </div>
-              )}
-
-              <div className="flex justify-between">
-                <span>{t('cart.tax')}</span>
-                <span>${cart.tax.toFixed(2)}</span>
-              </div>
-
-              <div className="border-t pt-3 flex justify-between font-semibold text-lg">
-                <span>{t('cart.grandTotal')}</span>
-                <span>${cart.total.toFixed(2)}</span>
-              </div>
-
-              <Button
-                className="w-full"
-                size="lg"
-                onClick={handleProceedToCheckout}
-                disabled={checkoutLoading}
+        <div className="grid gap-8 lg:grid-cols-3">
+          {/* Cart Items - Left Column (2/3 width) */}
+          <div className="lg:col-span-2 space-y-5">
+            {/* Product Items */}
+            {cart.items.map((item, index) => (
+              <div
+                key={item._id}
+                className="group"
+                style={{
+                  animation: `fadeInUp 0.5s ease-out ${index * 0.1}s both`
+                }}
               >
-                <CreditCard className="h-4 w-4 mr-2" />
-                {checkoutLoading ? t('common.loading') : t('cart.proceedToCheckout')}
-              </Button>
+                <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 bg-white/90 backdrop-blur-sm overflow-hidden group-hover:scale-[1.02]">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <CardContent className="p-6">
+                    <div className="flex gap-6">
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/20 to-transparent rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <img
+                          src={item.productId.images[0]}
+                          alt={item.productId.name}
+                          className="relative w-24 h-24 object-cover rounded-xl shadow-md group-hover:scale-105 transition-transform duration-300"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex-1 min-w-0 pr-4">
+                            <h3 className="font-semibold text-lg text-gray-900 truncate">{item.productId.name}</h3>
+                            <p className="text-sm text-gray-500 flex items-center gap-2 mt-1">
+                              <Package className="h-3 w-3" />
+                              {item.productId.brand}
+                            </p>
+                            {!item.productId.inStock && (
+                              <Badge variant="destructive" className="mt-2 animate-pulse">
+                                {t('shop.outOfStock')}
+                              </Badge>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleUpdateQuantity(item.productId._id, 0)}
+                            disabled={updating === item.productId._id}
+                            className="hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
 
-              <p className="text-xs text-muted-foreground text-center">
-                Secure checkout powered by Stripe
-              </p>
-            </CardContent>
-          </Card>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-9 w-9 border-2 hover:border-yellow-400 hover:bg-yellow-50 transition-all"
+                              onClick={() => handleUpdateQuantity(item.productId._id, item.quantity - 1)}
+                              disabled={updating === item.productId._id || item.quantity <= 1}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-12 text-center font-semibold text-gray-900">
+                              {item.quantity}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-9 w-9 border-2 hover:border-yellow-400 hover:bg-yellow-50 transition-all"
+                              onClick={() => handleUpdateQuantity(item.productId._id, item.quantity + 1)}
+                              disabled={updating === item.productId._id || !item.productId.inStock}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
 
-          {/* Shipping Info */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Free shipping</span>
-                  <span className="text-green-600">$0.00</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  On orders over $50
-                </p>
+                          <div className="text-right">
+                            <p className="font-bold text-xl text-gray-900">
+                              ${(item.productId.price * item.quantity).toFixed(2)}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              ${item.productId.price.toFixed(2)} each
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-            </CardContent>
-          </Card>
+            ))}
+
+            {/* Repair Orders */}
+            {cart.repairOrders && cart.repairOrders.map((order: any, index: number) => (
+              <div
+                key={order._id}
+                className="group"
+                style={{
+                  animation: `fadeInUp 0.5s ease-out ${(cart.items.length + index) * 0.1}s both`
+                }}
+              >
+                <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 bg-gradient-to-br from-yellow-50/50 via-white to-white backdrop-blur-sm overflow-hidden group-hover:scale-[1.02]">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600"></div>
+                  <CardContent className="p-6">
+                    <div className="flex gap-6">
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/30 to-yellow-500/20 rounded-xl blur-xl animate-pulse"></div>
+                        <div className="relative w-24 h-24 flex items-center justify-center bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-xl shadow-lg group-hover:scale-105 transition-transform duration-300">
+                          <Wrench className="h-12 w-12 text-white drop-shadow-md" />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex-1 min-w-0 pr-4">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <h3 className="font-bold text-lg text-gray-900">Repair Order</h3>
+                              <Badge className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 border-0 shadow-sm">
+                                <Smartphone className="h-3 w-3 mr-1" />
+                                Device Repair
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-gray-600 font-medium">
+                              {order.deviceType} • {order.deviceBrand} • {order.deviceModel}
+                            </p>
+                            <div className="mt-3 flex gap-4 text-xs text-gray-500">
+                              <div className="flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3 text-yellow-600" />
+                                <span><strong>{order.services?.length || 0}</strong> service(s)</span>
+                              </div>
+                              {order.addOns && order.addOns.length > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <Zap className="h-3 w-3 text-yellow-600" />
+                                  <span><strong>{order.addOns.length}</strong> add-on(s)</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveRepairOrder(order._id)}
+                            disabled={updating === order._id}
+                            className="hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-yellow-200">
+                          <div className="text-xs text-gray-500 flex items-center gap-1">
+                            <Shield className="h-3 w-3 text-yellow-600" />
+                            Professional repair services included
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-2xl bg-gradient-to-r from-yellow-600 to-yellow-700 bg-clip-text text-transparent">
+                              ${order.totalCost.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            ))}
+          </div>
+
+          {/* Order Summary - Right Column (1/3 width) */}
+          <div className="space-y-5">
+            {/* Promo Code */}
+            <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm overflow-hidden hover:shadow-xl transition-shadow">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-green-400 via-green-500 to-green-400"></div>
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Tag className="h-5 w-5 text-green-600" />
+                  {t('cart.promoCode')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder={t('cart.promoPlaceholder')}
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value)}
+                    className="border-2 focus:border-green-400 transition-colors"
+                  />
+                  <Button
+                    onClick={handleApplyPromoCode}
+                    disabled={!promoCode.trim() || applyingPromo}
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md hover:shadow-lg transition-all"
+                  >
+                    {applyingPromo ? t('common.loading') : t('cart.apply')}
+                  </Button>
+                </div>
+                {cart.promoCode && (
+                  <div className="flex items-center justify-between text-sm bg-green-50 p-3 rounded-lg border border-green-200 animate-fadeIn">
+                    <span className="text-green-700 font-medium flex items-center gap-1">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Code "{cart.promoCode}" applied
+                    </span>
+                    <span className="text-green-700 font-bold">
+                      -${cart.discount?.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Order Summary */}
+            <Card className="border-0 shadow-xl bg-gradient-to-br from-white to-yellow-50/30 backdrop-blur-sm overflow-hidden sticky top-20">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-400"></div>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-xl">{t('cart.orderSummary')}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">{t('cart.subtotal')}</span>
+                    <span className="font-semibold text-gray-900">${cart.subtotal.toFixed(2)}</span>
+                  </div>
+
+                  {cart.discount && cart.discount > 0 && (
+                    <div className="flex justify-between items-center text-green-600 bg-green-50 p-2 rounded-lg">
+                      <span className="flex items-center gap-1">
+                        <TrendingUp className="h-4 w-4" />
+                        {t('cart.discount')}
+                      </span>
+                      <span className="font-bold">-${cart.discount.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">{t('cart.tax')}</span>
+                    <span className="font-semibold text-gray-900">${cart.tax.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="border-t-2 border-yellow-200 pt-4 flex justify-between items-center">
+                  <span className="text-lg font-bold text-gray-900">{t('cart.grandTotal')}</span>
+                  <span className="text-2xl font-bold bg-gradient-to-r from-yellow-600 to-yellow-700 bg-clip-text text-transparent">
+                    ${cart.total.toFixed(2)}
+                  </span>
+                </div>
+
+                <Button
+                  className="w-full py-6 text-lg font-semibold bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 shadow-lg hover:shadow-xl transition-all duration-300 group"
+                  onClick={handleProceedToCheckout}
+                  disabled={checkoutLoading}
+                >
+                  <CreditCard className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
+                  {checkoutLoading ? t('common.loading') : t('cart.proceedToCheckout')}
+                </Button>
+
+                <p className="text-xs text-gray-500 text-center flex items-center justify-center gap-1">
+                  <Shield className="h-3 w-3" />
+                  Secure checkout powered by Stripe
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Benefits Card */}
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-white backdrop-blur-sm overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-400"></div>
+              <CardContent className="pt-6 space-y-3">
+                <div className="flex items-start gap-3 text-sm">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Shield className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">Free shipping</p>
+                    <p className="text-xs text-gray-500">On orders over $50</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 text-sm">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">Quality guarantee</p>
+                    <p className="text-xs text-gray-500">90-day warranty on all repairs</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 text-sm">
+                  <div className="p-2 bg-yellow-100 rounded-lg">
+                    <Zap className="h-4 w-4 text-yellow-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">Fast turnaround</p>
+                    <p className="text-xs text-gray-500">Most repairs done in 24-48 hours</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
 
@@ -536,6 +642,33 @@ export function ShoppingCartPage() {
         onOpenChange={setCheckoutDialogOpen}
         onSuccess={handleCheckoutSuccess}
       />
+
+      {/* Custom animations */}
+      <style>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+      `}</style>
     </div>
   )
 }
