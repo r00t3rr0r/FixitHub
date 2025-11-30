@@ -16,6 +16,7 @@ import { ContactSection } from '@/components/home/ContactSection';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { CartIcon } from '@/components/CartIcon';
 import { ProfileDropdown } from '@/components/ProfileDropdown';
+import { saveDeviceInfo } from '@/utils/deviceDetection';
 
 export function Home() {
   const { t } = useTranslation();
@@ -35,6 +36,12 @@ export function Home() {
       console.error('Home: Failed to load shop logo');
       setLogoLoaded(true); // Show placeholder if image fails
     };
+  }, []);
+
+  // Detect and save device information on homepage load
+  useEffect(() => {
+    console.log('Home: Detecting and saving device information...');
+    saveDeviceInfo();
   }, []);
 
   return (

@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
 import { getUserProfile, updateUserProfile, uploadAvatar, UserProfile } from "@/api/user"
+import { getSavedDeviceInfo, DeviceInfo } from "@/utils/deviceDetection"
 import {
   User,
   Mail,
@@ -23,7 +24,13 @@ import {
   Copy,
   TrendingUp,
   Calendar,
-  DollarSign
+  DollarSign,
+  Smartphone,
+  Monitor,
+  Tablet,
+  Wifi,
+  Globe,
+  Info
 } from "lucide-react"
 
 export function Profile() {
@@ -32,6 +39,7 @@ export function Profile() {
   const [saving, setSaving] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [sameAsInvoice, setSameAsInvoice] = useState(true)
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null)
   const { toast } = useToast()
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm()
@@ -79,6 +87,18 @@ export function Profile() {
 
     fetchProfile()
   }, [toast, setValue])
+
+  // Load device information from localStorage
+  useEffect(() => {
+    console.log("Loading device information from localStorage...")
+    const savedDeviceInfo = getSavedDeviceInfo()
+    if (savedDeviceInfo) {
+      console.log("Device information loaded:", savedDeviceInfo)
+      setDeviceInfo(savedDeviceInfo)
+    } else {
+      console.log("No device information found in localStorage")
+    }
+  }, [])
 
   const onSubmit = async (data: any) => {
     try {
@@ -424,6 +444,149 @@ export function Profile() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Current Device Information */}
+        {deviceInfo && (
+          <Card className="hover-lift border-2 animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
+            <CardHeader className="bg-gradient-to-r from-indigo-50 to-white">
+              <CardTitle className="flex items-center gap-2 text-xl">
+                {deviceInfo.isMobile ? <Smartphone className="h-5 w-5 text-indigo-600" /> :
+                 deviceInfo.isTablet ? <Tablet className="h-5 w-5 text-indigo-600" /> :
+                 <Monitor className="h-5 w-5 text-indigo-600" />}
+                Current Device Information
+              </CardTitle>
+              <CardDescription>
+                Details about the device you're currently using
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {/* Device Type */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    {deviceInfo.isMobile ? <Smartphone className="h-4 w-4" /> :
+                     deviceInfo.isTablet ? <Tablet className="h-4 w-4" /> :
+                     <Monitor className="h-4 w-4" />}
+                    Device Type
+                  </div>
+                  <p className="text-base text-gray-900 font-medium">
+                    {deviceInfo.isMobile ? 'Mobile' : deviceInfo.isTablet ? 'Tablet' : 'Desktop'}
+                  </p>
+                  <p className="text-sm text-gray-600">{deviceInfo.deviceModel}</p>
+                </div>
+
+                {/* Operating System */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <Globe className="h-4 w-4" />
+                    Operating System
+                  </div>
+                  <p className="text-base text-gray-900 font-medium">{deviceInfo.os}</p>
+                  <p className="text-sm text-gray-600">Version {deviceInfo.osVersion}</p>
+                </div>
+
+                {/* Browser */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <Globe className="h-4 w-4" />
+                    Browser
+                  </div>
+                  <p className="text-base text-gray-900 font-medium">{deviceInfo.browser}</p>
+                  <p className="text-sm text-gray-600">Version {deviceInfo.browserVersion}</p>
+                </div>
+
+                {/* Screen Resolution */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <Monitor className="h-4 w-4" />
+                    Screen Resolution
+                  </div>
+                  <p className="text-base text-gray-900 font-medium">
+                    {deviceInfo.screenWidth} × {deviceInfo.screenHeight}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {deviceInfo.screenOrientation} • {deviceInfo.pixelRatio}x pixel ratio
+                  </p>
+                </div>
+
+                {/* Touch Support */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <Smartphone className="h-4 w-4" />
+                    Touch Support
+                  </div>
+                  <p className="text-base text-gray-900 font-medium">
+                    {deviceInfo.touchSupport ? 'Yes' : 'No'}
+                  </p>
+                  {deviceInfo.touchSupport && (
+                    <p className="text-sm text-gray-600">
+                      {deviceInfo.maxTouchPoints} touch points
+                    </p>
+                  )}
+                </div>
+
+                {/* Connection */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <Wifi className="h-4 w-4" />
+                    Connection
+                  </div>
+                  <p className="text-base text-gray-900 font-medium">
+                    {deviceInfo.effectiveType !== 'Unknown' ? deviceInfo.effectiveType.toUpperCase() : 'Unknown'}
+                  </p>
+                  {deviceInfo.connectionType !== 'Unknown' && (
+                    <p className="text-sm text-gray-600">{deviceInfo.connectionType}</p>
+                  )}
+                </div>
+
+                {/* Vendor */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <Info className="h-4 w-4" />
+                    Vendor
+                  </div>
+                  <p className="text-base text-gray-900 font-medium">{deviceInfo.vendor}</p>
+                  <p className="text-sm text-gray-600">{deviceInfo.platform}</p>
+                </div>
+
+                {/* Language & Timezone */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <Globe className="h-4 w-4" />
+                    Language & Timezone
+                  </div>
+                  <p className="text-base text-gray-900 font-medium">{deviceInfo.language}</p>
+                  <p className="text-sm text-gray-600">{deviceInfo.timezone}</p>
+                </div>
+
+                {/* Detection Time */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <Calendar className="h-4 w-4" />
+                    Detected
+                  </div>
+                  <p className="text-base text-gray-900 font-medium">
+                    {localStorage.getItem('deviceInfoTimestamp')
+                      ? new Date(localStorage.getItem('deviceInfoTimestamp')!).toLocaleString()
+                      : 'Recently'}
+                  </p>
+                  <p className="text-sm text-gray-600">On homepage visit</p>
+                </div>
+              </div>
+
+              {/* Additional Info - User Agent */}
+              <div className="mt-6 p-4 bg-gray-50 rounded-lg border-2 border-gray-200">
+                <div className="flex items-start gap-2 mb-2">
+                  <Info className="h-4 w-4 text-gray-600 mt-0.5" />
+                  <span className="text-sm font-semibold text-gray-700">User Agent</span>
+                </div>
+                <p className="text-xs text-gray-600 font-mono break-all">
+                  {deviceInfo.userAgent}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Personal Information */}
