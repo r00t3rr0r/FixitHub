@@ -116,6 +116,7 @@ export function NewOrder() {
   const [unlockCode, setUnlockCode] = useState<string>("")
   const [noDeviceLock, setNoDeviceLock] = useState<boolean>(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [quantity, setQuantity] = useState<number>(1)
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<OrderForm>()
   const { toast } = useToast()
@@ -1025,6 +1026,79 @@ export function NewOrder() {
               </CardContent>
             </Card>
 
+            {/* Enhanced Quantity Selection Card */}
+            <Card className="border-2 hover:shadow-lg transition-shadow duration-300 border-purple-200 dark:border-purple-800">
+              <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20">
+                <CardTitle className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-500 rounded-lg shadow-md">
+                    <Package className="h-5 w-5 text-white" />
+                  </div>
+                  <span>Order Quantity</span>
+                </CardTitle>
+                <CardDescription className="text-base">
+                  How many identical devices need this repair?
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <Label htmlFor="quantity" className="text-base font-semibold min-w-[100px]">
+                      Quantity:
+                    </Label>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                        disabled={quantity <= 1}
+                        className="h-10 w-10"
+                      >
+                        -
+                      </Button>
+                      <Input
+                        id="quantity"
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={quantity}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 1
+                          setQuantity(Math.max(1, Math.min(100, value)))
+                        }}
+                        className="w-20 text-center text-lg font-bold border-2"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setQuantity(Math.min(100, quantity + 1))}
+                        disabled={quantity >= 100}
+                        className="h-10 w-10"
+                      >
+                        +
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 border-2 border-purple-300 dark:border-purple-700 rounded-xl p-4">
+                    <p className="text-sm text-purple-900 dark:text-purple-100 leading-relaxed">
+                      💡 <strong>Note:</strong> Each device will be created as a separate order. This is useful when you have multiple identical devices requiring the same repairs (e.g., company phone fleet, inventory stock).
+                    </p>
+                    {quantity > 1 && (
+                      <div className="mt-3 pt-3 border-t border-purple-300 dark:border-purple-700">
+                        <p className="text-sm font-bold text-purple-900 dark:text-purple-100">
+                          📦 You will create <span className="text-lg text-purple-600 dark:text-purple-400">{quantity}</span> separate repair orders
+                        </p>
+                        <p className="text-xs text-purple-700 dark:text-purple-200 mt-1">
+                          Total cost: ${calculateTotal() * quantity}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Enhanced Unlock Code/Pattern Input Card */}
             <Card className="border-2 hover:shadow-lg transition-shadow duration-300">
               <CardHeader className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20">
@@ -1384,6 +1458,22 @@ export function NewOrder() {
                 </h3>
 
                 <div className="space-y-3 text-sm">
+                  {/* Quantity Display */}
+                  {quantity > 1 && (
+                    <div className="bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 border-2 border-purple-300 dark:border-purple-700 rounded-lg p-4 mb-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Package className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                          <span className="font-bold text-purple-900 dark:text-purple-100">Order Quantity:</span>
+                        </div>
+                        <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">{quantity}</span>
+                      </div>
+                      <p className="text-xs text-purple-700 dark:text-purple-200 mt-2">
+                        Creating {quantity} identical repair orders (Total: ${calculateTotal() * quantity})
+                      </p>
+                    </div>
+                  )}
+
                   <div className="flex justify-between items-center p-3 bg-white/50 dark:bg-gray-900/30 rounded-lg">
                     <span className="text-muted-foreground font-medium">{t('newOrder.cartStep.device')}:</span>
                     <span className="font-bold text-right">
@@ -1503,7 +1593,7 @@ export function NewOrder() {
                     onClick={async () => {
                       try {
                         setSubmitting(true)
-                        console.log("Adding repair order to cart...")
+                        console.log(`Adding ${quantity} repair order(s) to cart...`)
 
                         // Get selected device details
                         const selectedDeviceTypeObj = deviceTypes.find(dt => dt._id === selectedDeviceType)
@@ -1540,20 +1630,44 @@ export function NewOrder() {
                           noLock: noDeviceLock
                         }
 
-                        console.log("Adding repair order to cart:", repairOrderData)
+                        console.log("Repair order data template:", repairOrderData)
 
-                        // Call the API to add repair order to cart
-                        await addRepairOrderToCart(repairOrderData)
+                        // Create multiple orders based on quantity
+                        let successCount = 0
+                        let failCount = 0
 
-                        toast({
-                          title: t('common.success'),
-                          description: t('newOrder.success.addedToCart'),
-                        })
+                        for (let i = 0; i < quantity; i++) {
+                          try {
+                            console.log(`Adding order ${i + 1} of ${quantity} to cart...`)
+                            await addRepairOrderToCart(repairOrderData)
+                            successCount++
+                          } catch (error) {
+                            console.error(`Error adding order ${i + 1}:`, error)
+                            failCount++
+                          }
+                        }
+
+                        if (successCount === quantity) {
+                          toast({
+                            title: t('common.success'),
+                            description: quantity > 1
+                              ? `Successfully added ${quantity} repair orders to cart!`
+                              : t('newOrder.success.addedToCart'),
+                          })
+                        } else if (successCount > 0) {
+                          toast({
+                            title: 'Partial Success',
+                            description: `Added ${successCount} of ${quantity} orders. ${failCount} failed.`,
+                            variant: "default"
+                          })
+                        } else {
+                          throw new Error('Failed to add any orders to cart')
+                        }
 
                         // Navigate to cart page
                         navigate("/cart")
                       } catch (error: any) {
-                        console.error("Error adding repair order to cart:", error)
+                        console.error("Error adding repair order(s) to cart:", error)
                         toast({
                           title: t('common.error'),
                           description: error.message || t('newOrder.errors.addToCart'),
@@ -1567,12 +1681,12 @@ export function NewOrder() {
                     {submitting ? (
                       <span className="flex items-center gap-2">
                         <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        {t('newOrder.cartStep.addingToCart')}
+                        {quantity > 1 ? `Adding ${quantity} orders...` : t('newOrder.cartStep.addingToCart')}
                       </span>
                     ) : (
                       <span className="flex items-center gap-2">
                         <ShoppingCartIcon className="h-5 w-5" />
-                        {t('newOrder.cartStep.addToCart')}
+                        {quantity > 1 ? `Add ${quantity} Orders to Cart` : t('newOrder.cartStep.addToCart')}
                       </span>
                     )}
                   </Button>
