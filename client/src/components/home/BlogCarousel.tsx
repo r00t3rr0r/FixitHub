@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, ChevronRight, Calendar, User, Eye } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { getBlogPosts } from '@/api/blog';
 import { useToast } from '@/hooks/useToast';
 
@@ -191,8 +192,9 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
                     <Button
                       variant="outline"
                       className="w-full border-yellow-400 text-yellow-600 hover:bg-yellow-400 hover:text-gray-900 font-semibold transition-all duration-300 hover:scale-105"
+                      asChild
                     >
-                      {t('home.blog.readMore')}
+                      <Link to={`/blog/${post._id}`}>{t('home.blog.readMore')}</Link>
                     </Button>
                   </CardContent>
                 </Card>
@@ -238,8 +240,9 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
             size="lg"
             variant="outline"
             className="border-yellow-400 text-yellow-600 hover:bg-yellow-400 hover:text-gray-900 font-semibold"
+            asChild
           >
-            {t('home.blog.viewAll')}
+            <Link to="/blog">{t('home.blog.viewAll')}</Link>
           </Button>
         </div>
       </div>

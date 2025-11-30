@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ShoppingCart, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { getProducts } from '@/api/shop';
 import { useToast } from '@/hooks/useToast';
 
@@ -237,8 +238,9 @@ export function ShopSection({ title, maxItems = 6, products: initialProducts }: 
               size="lg"
               variant="outline"
               className="border-yellow-400 text-yellow-600 hover:bg-yellow-400 hover:text-gray-900 font-semibold"
+              asChild
             >
-              {t('home.shop.viewAll')}
+              <Link to="/shop">{t('home.shop.viewAll')}</Link>
             </Button>
           </div>
         )}
