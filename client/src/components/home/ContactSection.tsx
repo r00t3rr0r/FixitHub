@@ -24,8 +24,8 @@ export function ContactSection({ title, showMap = true }: ContactSectionProps) {
     // Simulate submission
     setTimeout(() => {
       showToast({
-        title: 'Success',
-        description: `Thank you for subscribing! Check your email at ${email}`
+        title: t('home.contact.subscribeSuccess'),
+        description: `${t('home.contact.subscribeSuccessDesc')} ${email}`
       });
       setEmail('');
       setSubmitting(false);

@@ -50,8 +50,8 @@ export function ShopSection({ title, maxItems = 6, products: initialProducts }: 
       console.error('Error fetching products:', error);
       showToast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to load products'
+        title: t('common.error'),
+        description: t('home.shop.loadError')
       });
     } finally {
       setLoading(false);
@@ -60,8 +60,8 @@ export function ShopSection({ title, maxItems = 6, products: initialProducts }: 
 
   const handleAddToCart = (product: Product) => {
     showToast({
-      title: 'Success',
-      description: `${product.name} added to cart`,
+      title: t('common.success'),
+      description: `${product.name} ${t('home.shop.addedToCart')}`,
       className: 'animate-bounce'
     });
   };

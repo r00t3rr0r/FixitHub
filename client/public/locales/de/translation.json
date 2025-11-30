@@ -1153,6 +1153,28 @@
       "popular": "Beliebt",
       "learnMore": "Mehr Erfahren"
     },
+    "shop": {
+      "title": "Ausgewählte Produkte",
+      "subtitle": "Qualitäts-Ersatzteile und Zubehör für Ihre Geräte",
+      "allProducts": "Alle Produkte",
+      "featured": "Ausgewählt",
+      "inStock": "Auf Lager",
+      "outOfStock": "Nicht verfügbar",
+      "addToCart": "In Den Warenkorb",
+      "viewAll": "Alle Produkte Ansehen",
+      "noProducts": "Keine Produkte verfügbar",
+      "reviews": "Bewertungen",
+      "loadError": "Fehler beim Laden der Produkte",
+      "addedToCart": "zum Warenkorb hinzugefügt"
+    },
+    "blog": {
+      "title": "Neueste Blog-Artikel",
+      "subtitle": "Expertentipps und Reparaturanleitungen zur Wartung Ihrer Geräte",
+      "readMore": "Weiterlesen",
+      "viewAll": "Alle Artikel Ansehen",
+      "minRead": "Min. Lesezeit",
+      "loadError": "Fehler beim Laden der Blog-Beiträge"
+    },
     "features": {
       "title": "Warum FixitHub Wählen?",
       "qualityGuarantee": "Qualitätsgarantie",
@@ -1203,7 +1225,9 @@
       "emailPlaceholder": "Geben Sie Ihre E-Mail ein",
       "subscribe": "Abonnieren",
       "subscribeSuccess": "Erfolgreich abonniert!",
-      "subscribeFailed": "Abonnierung fehlgeschlagen"
+      "subscribeFailed": "Abonnierung fehlgeschlagen",
+      "newsletterPrivacy": "Wir respektieren Ihre Privatsphäre. Jederzeit abbestellbar.",
+      "subscribeSuccessDesc": "Vielen Dank für Ihr Abonnement! Prüfen Sie Ihre E-Mail unter"
     },
     "cta": {
       "title": "Bereit, Ihr Gerät Reparieren Zu Lassen?",

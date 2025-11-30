@@ -52,8 +52,8 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
       console.error('Error fetching blog posts:', error);
       showToast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to load blog posts'
+        title: t('common.error'),
+        description: t('home.blog.loadError')
       });
     } finally {
       setLoading(false);

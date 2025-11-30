@@ -1131,7 +1131,9 @@
       "addToCart": "Add to Cart",
       "viewAll": "View All Products",
       "noProducts": "No products available",
-      "reviews": "reviews"
+      "reviews": "reviews",
+      "loadError": "Failed to load products",
+      "addedToCart": "added to cart"
     },
     "nav": {
       "services": "Services",
@@ -1174,7 +1176,8 @@
       "subtitle": "Expert tips and repair guides to help maintain your devices",
       "readMore": "Read More",
       "viewAll": "View All Articles",
-      "minRead": "min read"
+      "minRead": "min read",
+      "loadError": "Failed to load blog posts"
     },
     "testimonials": {
       "title": "What Our Customers Say",
@@ -1214,7 +1217,9 @@
       "newsletter": "Subscribe to Our Newsletter",
       "emailPlaceholder": "Enter your email",
       "subscribe": "Subscribe",
-      "newsletterPrivacy": "We respect your privacy. Unsubscribe at any time."
+      "newsletterPrivacy": "We respect your privacy. Unsubscribe at any time.",
+      "subscribeSuccess": "Successfully subscribed!",
+      "subscribeSuccessDesc": "Thank you for subscribing! Check your email at"
     },
     "features": {
       "title": "Why Choose FixitHub?",
