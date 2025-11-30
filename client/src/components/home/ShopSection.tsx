@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ShoppingCart, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getProducts } from '@/api/shop';
-import { toast } from '@/hooks/useToast';
+import { useToast } from '@/hooks/useToast';
 
 interface Product {
   _id: string;
@@ -32,7 +32,7 @@ export function ShopSection({ title, maxItems = 6, products: initialProducts }: 
   const [products, setProducts] = useState<Product[]>(initialProducts || []);
   const [loading, setLoading] = useState(!initialProducts);
   const [filter, setFilter] = useState('all');
-  const { toast: showToast } = toast();
+  const { toast: showToast } = useToast();
 
   useEffect(() => {
     if (!initialProducts) {

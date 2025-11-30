@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, ChevronRight, Calendar, User, Eye } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getBlogPosts } from '@/api/blog';
-import { toast } from '@/hooks/useToast';
+import { useToast } from '@/hooks/useToast';
 
 interface BlogPost {
   _id: string;
@@ -34,7 +34,7 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
   const [posts, setPosts] = useState<BlogPost[]>(initialPosts || []);
   const [loading, setLoading] = useState(!initialPosts);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const { toast: showToast } = toast();
+  const { toast: showToast } = useToast();
 
   useEffect(() => {
     if (!initialPosts) {

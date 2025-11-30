@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MapPin, Phone, Mail, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { toast } from '@/hooks/useToast';
+import { useToast } from '@/hooks/useToast';
 
 interface ContactSectionProps {
   title?: string;
@@ -15,7 +15,7 @@ export function ContactSection({ title, showMap = true }: ContactSectionProps) {
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const { toast: showToast } = toast();
+  const { toast: showToast } = useToast();
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
