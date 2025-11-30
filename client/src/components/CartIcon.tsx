@@ -90,33 +90,8 @@ export function CartIcon() {
   }
 
   return (
-    <Button variant="ghost" size="icon" asChild className="relative group">
-      <Link to="/cart" className="relative">
-        <div
-          className={`transition-all duration-300 ${
-            shouldBounce ? 'animate-bounce-custom' : ''
-          } group-hover:scale-110`}
-        >
-          <ShoppingCart className="h-5 w-5 text-gray-700 group-hover:text-yellow-600 transition-colors duration-200" />
-        </div>
-
-        {itemCount > 0 && (
-          <Badge
-            className={`absolute -top-1 -right-1 h-5 min-w-[20px] flex items-center justify-center px-1 bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold border-2 border-white shadow-md ${
-              shouldBounce ? 'animate-pulse' : ''
-            }`}
-          >
-            {itemCount > 99 ? '99+' : itemCount}
-          </Badge>
-        )}
-
-        {/* Subtle hover effect ring */}
-        <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 ring-2 ring-yellow-400 ring-offset-2" />
-
-        <span className="sr-only">Shopping Cart ({itemCount} items)</span>
-      </Link>
-
-      <style jsx>{`
+    <>
+      <style>{`
         @keyframes bounce-custom {
           0%, 100% {
             transform: translateY(0) scale(1);
@@ -136,6 +111,33 @@ export function CartIcon() {
           animation: bounce-custom 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
       `}</style>
-    </Button>
+
+      <Button variant="ghost" size="icon" asChild className="relative group">
+        <Link to="/cart" className="relative">
+          <div
+            className={`transition-all duration-300 ${
+              shouldBounce ? 'animate-bounce-custom' : ''
+            } group-hover:scale-110`}
+          >
+            <ShoppingCart className="h-5 w-5 text-gray-700 group-hover:text-yellow-600 transition-colors duration-200" />
+          </div>
+
+          {itemCount > 0 && (
+            <Badge
+              className={`absolute -top-1 -right-1 h-5 min-w-[20px] flex items-center justify-center px-1 bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold border-2 border-white shadow-md ${
+                shouldBounce ? 'animate-pulse' : ''
+              }`}
+            >
+              {itemCount > 99 ? '99+' : itemCount}
+            </Badge>
+          )}
+
+          {/* Subtle hover effect ring */}
+          <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 ring-2 ring-yellow-400 ring-offset-2" />
+
+          <span className="sr-only">Shopping Cart ({itemCount} items)</span>
+        </Link>
+      </Button>
+    </>
   );
 }
