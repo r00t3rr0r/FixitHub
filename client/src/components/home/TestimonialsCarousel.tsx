@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Star, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Star, ChevronLeft, ChevronRight, Quote } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 interface Testimonial {
@@ -26,6 +26,7 @@ export function TestimonialsCarousel({
   const { t } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [displayedRatings, setDisplayedRatings] = useState<{ [key: number]: number }>({});
+  const [visibleLogos, setVisibleLogos] = useState<boolean[]>([]);
 
   const defaultTestimonials: Testimonial[] = [
     {
@@ -85,14 +86,38 @@ export function TestimonialsCarousel({
     return () => clearTimeout(timer);
   }, [currentIndex, testimonials]);
 
+  // Initialize visibility array on component mount
+  useEffect(() => {
+    const visibleCount = window.innerWidth >= 1024 ? 3 : window.innerWidth >= 768 ? 2 : 1;
+    setVisibleLogos(new Array(visibleCount).fill(false));
+  }, []);
+
+  // Staggered animation for testimonial cards
+  useEffect(() => {
+    const visibleCount = window.innerWidth >= 1024 ? 3 : window.innerWidth >= 768 ? 2 : 1;
+    const newVisible = new Array(visibleCount).fill(false);
+
+    newVisible.forEach((_, i) => {
+      setTimeout(() => {
+        setVisibleLogos(prev => {
+          const updated = [...prev];
+          updated[i] = true;
+          return updated;
+        });
+      }, i * 150);
+    });
+  }, [currentIndex]);
+
   const nextTestimonial = () => {
     setCurrentIndex((prev) => (prev + 1) % testimonials.length);
     setDisplayedRatings({});
+    setVisibleLogos(visibleLogos.map(() => false));
   };
 
   const prevTestimonial = () => {
     setCurrentIndex((prev) => (prev - 1 + testimonials.length) % testimonials.length);
     setDisplayedRatings({});
+    setVisibleLogos(visibleLogos.map(() => false));
   };
 
   const currentTestimonial = testimonials[currentIndex];
@@ -102,15 +127,31 @@ export function TestimonialsCarousel({
     testimonials[(currentIndex + 2) % testimonials.length]
   ].filter((_, i) => i < (window.innerWidth >= 1024 ? 3 : window.innerWidth >= 768 ? 2 : 1));
 
+  // Array of professional gradient backgrounds
+  const gradientBackgrounds = [
+    'from-blue-50 to-blue-100/50',
+    'from-purple-50 to-purple-100/50',
+    'from-emerald-50 to-emerald-100/50',
+    'from-orange-50 to-orange-100/50',
+    'from-pink-50 to-pink-100/50'
+  ];
+
   return (
-    <section className="py-20 bg-gradient-to-b from-gray-50 to-white">
+    <section className="py-20 bg-white relative overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-r from-yellow-200/5 to-orange-200/5 rounded-full blur-3xl -z-10 opacity-30 animate-pulse"></div>
+      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gradient-to-r from-blue-200/5 to-purple-200/5 rounded-full blur-3xl -z-10 opacity-30 animate-pulse" style={{ animationDelay: '1s' }}></div>
+
       <div className="container mx-auto px-4">
         {/* Section Header */}
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+          <div className="inline-block mb-4 px-4 py-2 bg-yellow-100/50 rounded-full border border-yellow-200/50">
+            <span className="text-sm font-semibold text-yellow-700">⭐ {t('home.testimonials.featured') || 'Customer Reviews'}</span>
+          </div>
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-700 bg-clip-text text-transparent">
             {title || t('home.testimonials.title')}
           </h2>
-          <p className="text-gray-600 text-lg">
+          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
             {t('home.testimonials.subtitle')}
           </p>
         </div>
@@ -121,43 +162,69 @@ export function TestimonialsCarousel({
           <div className="mb-12">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {visibleTestimonials.map((testimonial, index) => (
-                <div key={index} className="opacity-0 animate-fadeIn" style={{ animationDelay: `${index * 100}ms` }}>
-                  <Card className="h-full shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
-                    <CardContent className="p-8">
-                      {/* Stars */}
+                <div
+                  key={index}
+                  style={{
+                    opacity: visibleLogos[index] ? 1 : 0,
+                    transform: visibleLogos[index] ? 'translateY(0) scale(1)' : 'translateY(20px) scale(0.95)',
+                    transition: 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                  }}
+                >
+                  <Card className={`h-full bg-gradient-to-br ${gradientBackgrounds[currentIndex % 5]} border-0 shadow-lg hover:shadow-2xl transition-all duration-500 group hover:-translate-y-3 relative overflow-hidden`}>
+                    {/* Accent line on top */}
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-orange-400 to-red-400 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
+
+                    {/* Quote icon background */}
+                    <div className="absolute -top-8 -right-8 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
+                      <Quote className="w-32 h-32 text-gray-800" />
+                    </div>
+
+                    <CardContent className="p-8 relative z-10">
+                      {/* Stars with animation */}
                       <div className="flex gap-1 mb-6">
                         {Array.from({ length: testimonial.rating }).map((_, i) => (
                           <div
                             key={i}
-                            className="opacity-0 animate-scaleIn"
-                            style={{ animationDelay: `${i * 100}ms` }}
+                            style={{
+                              opacity: Object.keys(displayedRatings).includes(String(i)) ? 1 : 0,
+                              transform: Object.keys(displayedRatings).includes(String(i)) ? 'scale(1) rotate(0deg)' : 'scale(0) rotate(-180deg)',
+                              transition: `all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) ${i * 100}ms`
+                            }}
                           >
-                            <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+                            <Star className="w-5 h-5 fill-yellow-400 text-yellow-400 drop-shadow-md" />
                           </div>
                         ))}
                       </div>
 
                       {/* Comment */}
-                      <p className="text-gray-700 text-lg mb-6 italic leading-relaxed">
+                      <p className="text-gray-700 text-base mb-6 leading-relaxed font-medium">
                         "{testimonial.comment}"
                       </p>
 
-                      {/* Divider */}
-                      <div className="w-12 h-1 bg-yellow-400 rounded-full mb-6"></div>
+                      {/* Animated divider */}
+                      <div className="flex items-center gap-2 mb-6">
+                        <div className="flex-1 h-1 bg-gradient-to-r from-yellow-400/50 to-yellow-400/0 rounded-full"></div>
+                        <div className="w-1 h-1 bg-yellow-400 rounded-full"></div>
+                      </div>
 
-                      {/* Author Info */}
+                      {/* Author Info with enhanced styling */}
                       <div className="flex items-center gap-4">
-                        <Avatar className="h-12 w-12">
-                          <AvatarImage src={testimonial.avatar} alt={testimonial.name} />
-                          <AvatarFallback>{testimonial.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
+                        <div className="relative">
+                          <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full blur opacity-0 group-hover:opacity-75 transition-opacity duration-300"></div>
+                          <Avatar className="h-12 w-12 relative border-2 border-white shadow-md">
+                            <AvatarImage src={testimonial.avatar} alt={testimonial.name} />
+                            <AvatarFallback className="bg-gradient-to-br from-yellow-400 to-orange-400 text-white font-bold">
+                              {testimonial.name.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-gray-900">{testimonial.name}</p>
+                          <p className="font-bold text-gray-900 group-hover:text-yellow-700 transition-colors duration-300">{testimonial.name}</p>
                           {testimonial.role && (
                             <p className="text-sm text-gray-600">{testimonial.role}</p>
                           )}
                           {testimonial.company && (
-                            <p className="text-sm text-gray-500">{testimonial.company}</p>
+                            <p className="text-xs text-gray-500">{testimonial.company}</p>
                           )}
                         </div>
                       </div>
@@ -169,24 +236,32 @@ export function TestimonialsCarousel({
           </div>
 
           {/* Navigation Controls */}
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex items-center justify-center gap-6 mt-12">
             {/* Previous Button */}
             <button
               onClick={prevTestimonial}
-              className="p-3 rounded-full bg-yellow-400 text-gray-900 hover:bg-yellow-500 transition-all duration-300 hover:scale-110 shadow-lg"
+              className="p-3 rounded-full bg-gradient-to-r from-yellow-400 to-orange-400 text-gray-900 hover:from-yellow-500 hover:to-orange-500 transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+              aria-label="Previous testimonial"
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
 
             {/* Indicators */}
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               {testimonials.map((_, index) => (
                 <button
                   key={index}
-                  onClick={() => setCurrentIndex(index)}
-                  className={`h-3 rounded-full transition-all duration-300 ${
-                    index === currentIndex ? 'bg-yellow-400 w-8' : 'bg-gray-300 w-3'
+                  onClick={() => {
+                    setCurrentIndex(index);
+                    setDisplayedRatings({});
+                    setVisibleLogos(visibleLogos.map(() => false));
+                  }}
+                  className={`rounded-full transition-all duration-500 ${
+                    index === currentIndex
+                      ? 'bg-gradient-to-r from-yellow-400 to-orange-400 w-8 h-3 shadow-lg'
+                      : 'bg-gray-300 w-3 h-3 hover:bg-gray-400'
                   }`}
+                  aria-label={`Go to testimonial ${index + 1}`}
                 />
               ))}
             </div>
@@ -194,16 +269,17 @@ export function TestimonialsCarousel({
             {/* Next Button */}
             <button
               onClick={nextTestimonial}
-              className="p-3 rounded-full bg-yellow-400 text-gray-900 hover:bg-yellow-500 transition-all duration-300 hover:scale-110 shadow-lg"
+              className="p-3 rounded-full bg-gradient-to-r from-yellow-400 to-orange-400 text-gray-900 hover:from-yellow-500 hover:to-orange-500 transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+              aria-label="Next testimonial"
             >
               <ChevronRight className="w-6 h-6" />
             </button>
           </div>
 
-          {/* Counter */}
-          <div className="text-center mt-8 text-gray-600">
-            <p>
-              {currentIndex + 1} {t('home.testimonials.of')} {testimonials.length}
+          {/* Counter with enhanced styling */}
+          <div className="text-center mt-8">
+            <p className="text-sm font-semibold text-gray-600 bg-gray-100/50 inline-block px-4 py-2 rounded-full">
+              {currentIndex + 1} <span className="text-gray-500">/</span> {testimonials.length}
             </p>
           </div>
         </div>
@@ -232,12 +308,57 @@ export function TestimonialsCarousel({
           }
         }
 
+        @keyframes slideInUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes slideInDown {
+          from {
+            opacity: 0;
+            transform: translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes rotateIn {
+          from {
+            opacity: 0;
+            transform: rotate(-180deg) scale(0);
+          }
+          to {
+            opacity: 1;
+            transform: rotate(0deg) scale(1);
+          }
+        }
+
         .animate-fadeIn {
-          animation: fadeIn 0.5s ease-out forwards;
+          animation: fadeIn 0.6s ease-out forwards;
         }
 
         .animate-scaleIn {
-          animation: scaleIn 0.3s ease-out forwards;
+          animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        .animate-slideInUp {
+          animation: slideInUp 0.6s ease-out forwards;
+        }
+
+        .animate-slideInDown {
+          animation: slideInDown 0.6s ease-out forwards;
+        }
+
+        .animate-rotateIn {
+          animation: rotateIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
         }
       `}</style>
     </section>
