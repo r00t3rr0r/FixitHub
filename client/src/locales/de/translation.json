@@ -53,6 +53,7 @@
     "cart": "Warenkorb",
     "shoppingCart": "Warenkorb",
     "blog": "Blog",
+    "settings": "Einstellungen",
     "logout": "Abmelden",
     "login": "Anmelden",
     "register": "Registrieren"
@@ -135,6 +136,7 @@
     "themeToggle": "Design wechseln",
     "notifications": "Benachrichtigungen",
     "profile": "Profil",
+    "profileMenu": "Profilmenü",
     "settings": "Einstellungen"
   },
   "footer": {

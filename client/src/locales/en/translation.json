@@ -53,6 +53,7 @@
     "cart": "Shopping Cart",
     "shoppingCart": "Shopping Cart",
     "blog": "Blog",
+    "settings": "Settings",
     "logout": "Logout",
     "login": "Login",
     "register": "Register"
@@ -135,6 +136,7 @@
     "themeToggle": "Toggle Theme",
     "notifications": "Notifications",
     "profile": "Profile",
+    "profileMenu": "Profile Menu",
     "settings": "Settings"
   },
   "footer": {

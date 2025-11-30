@@ -436,7 +436,10 @@ export function ShoppingCartPage() {
               // Group repair orders by identical specifications
               const groupedOrders: { [key: string]: any[] } = {}
               cart.repairOrders.forEach((order: any) => {
-                const key = `${order.deviceType}-${order.deviceBrand}-${order.deviceModel}-${order.services?.join(',')}-${order.addOns?.map((a: any) => a.name).join(',')}-${order.totalCost}`
+                const addOnsKey = Array.isArray(order.addOns)
+                  ? order.addOns.map((a: any) => (typeof a === 'object' && a?.name) ? a.name : String(a || '')).join(',')
+                  : ''
+                const key = `${order.deviceType}-${order.deviceBrand}-${order.deviceModel}-${order.services?.join(',')}-${addOnsKey}-${order.totalCost}`
                 if (!groupedOrders[key]) {
                   groupedOrders[key] = []
                 }
