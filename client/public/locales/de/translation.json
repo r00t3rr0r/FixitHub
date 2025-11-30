@@ -31,7 +31,8 @@
     "refresh": "Aktualisieren",
     "actions": "Aktionen",
     "select": "Auswählen",
-    "optional": "Optional"
+    "optional": "Optional",
+    "sending": "Wird gesendet..."
   },
   "navigation": {
     "dashboard": "Dashboard",
