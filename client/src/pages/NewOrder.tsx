@@ -816,13 +816,12 @@ export function NewOrder() {
                 {getFilteredServices().map((service, index) => (
                   <div
                     key={service._id}
-                    className={`p-5 rounded-xl border-2 transition-all duration-300 cursor-pointer group animate-in slide-in-from-bottom ${
+                    className={`p-5 rounded-xl border-2 transition-all duration-300 group animate-in slide-in-from-bottom ${
                       selectedServices.includes(service._id)
                         ? 'border-yellow-400 bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 shadow-lg scale-105'
                         : 'border-gray-200 dark:border-gray-700 hover:border-yellow-300 hover:shadow-md hover:scale-102'
                     }`}
                     style={{ animationDelay: `${index * 50}ms` }}
-                    onClick={() => handleServiceToggle(service._id, !selectedServices.includes(service._id))}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -1074,13 +1073,12 @@ export function NewOrder() {
                       {addOns.map((addOn, index) => (
                         <div
                           key={addOn._id}
-                          className={`p-5 rounded-xl border-2 transition-all duration-300 cursor-pointer group animate-in slide-in-from-bottom ${
+                          className={`p-5 rounded-xl border-2 transition-all duration-300 group animate-in slide-in-from-bottom ${
                             selectedAddOns.includes(addOn._id)
                               ? 'border-green-400 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 shadow-lg scale-105'
                               : 'border-gray-200 dark:border-gray-700 hover:border-green-300 hover:shadow-md hover:scale-102'
                           }`}
                           style={{ animationDelay: `${index * 50}ms` }}
-                          onClick={() => handleAddOnToggle(addOn._id, !selectedAddOns.includes(addOn._id))}
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
