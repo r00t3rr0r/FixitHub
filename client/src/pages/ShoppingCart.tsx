@@ -439,7 +439,16 @@ export function ShoppingCartPage() {
                 const addOnsKey = Array.isArray(order.addOns)
                   ? order.addOns.map((a: any) => (typeof a === 'object' && a?.name) ? a.name : String(a || '')).join(',')
                   : ''
-                const key = `${order.deviceType}-${order.deviceBrand}-${order.deviceModel}-${order.services?.join(',')}-${addOnsKey}-${order.totalCost}`
+                const servicesKey = Array.isArray(order.services)
+                  ? order.services.map((s: any) => {
+                      // Services can be populated objects or IDs
+                      if (typeof s === 'object' && s !== null) {
+                        return s._id ? String(s._id) : (s.name ? String(s.name) : String(s))
+                      }
+                      return String(s || '')
+                    }).join(',')
+                  : String(order.services || '')
+                const key = `${String(order.deviceType || '')}-${String(order.deviceBrand || '')}-${String(order.deviceModel || '')}-${servicesKey}-${addOnsKey}-${String(order.totalCost || '')}`
                 if (!groupedOrders[key]) {
                   groupedOrders[key] = []
                 }
