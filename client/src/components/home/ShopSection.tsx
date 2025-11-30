@@ -72,33 +72,22 @@ export function ShopSection({ title, maxItems = 6, products: initialProducts }: 
   const categories = ['all', ...new Set(products.map(p => p.category))];
 
   return (
-    <section
-      className="relative py-24 overflow-hidden"
-      style={{
-        backgroundImage: 'url(https://www.mcrepair.de/bilder/home/banner/fakten_bg.jpg)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed'
-      }}
-    >
-      {/* Overlay with gradient for better text readability */}
-      <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/60 to-black/70"></div>
-
+    <section className="relative py-24 overflow-hidden bg-white">
       {/* Animated particles background */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-10 left-10 w-72 h-72 bg-yellow-400/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-10 right-10 w-72 h-72 bg-yellow-400/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute top-10 left-10 w-72 h-72 bg-yellow-400/5 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-10 right-10 w-72 h-72 bg-yellow-400/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
       </div>
 
       {/* Content */}
       <div className="container mx-auto px-4 relative z-10">
         {/* Section Header */}
         <div className="text-center mb-12 animate-fadeIn">
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
             {title || t('home.shop.title')}
           </h2>
           <div className="w-24 h-1 bg-gradient-to-r from-yellow-400 to-yellow-500 mx-auto rounded-full mb-4"></div>
-          <p className="text-xl text-gray-200 max-w-2xl mx-auto">
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             {t('home.shop.subtitle')}
           </p>
         </div>
@@ -110,7 +99,7 @@ export function ShopSection({ title, maxItems = 6, products: initialProducts }: 
               key={category}
               variant={filter === category ? 'default' : 'outline'}
               onClick={() => setFilter(category)}
-              className="capitalize transition-all duration-300 bg-white/10 hover:bg-yellow-400 text-white hover:text-gray-900 border-white/30"
+              className="capitalize transition-all duration-300 bg-yellow-400 hover:bg-yellow-500 text-gray-900 border-gray-300 hover:border-yellow-500"
               style={{ animationDelay: `${idx * 50}ms` }}
             >
               {category === 'all' ? t('home.shop.allProducts') : category}
@@ -135,7 +124,7 @@ export function ShopSection({ title, maxItems = 6, products: initialProducts }: 
                 className="group animate-scaleIn"
                 style={{ animationDelay: `${idx * 100}ms` }}
               >
-                <Card className="h-full overflow-hidden bg-white/10 backdrop-blur-md border border-white/20 hover:border-yellow-400/50 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+                <Card className="h-full overflow-hidden bg-white border border-gray-200 hover:border-yellow-400/50 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-2">
                   {/* Product Image */}
                   <div className="relative h-48 bg-gray-200 overflow-hidden">
                     {product.image ? (
@@ -174,7 +163,7 @@ export function ShopSection({ title, maxItems = 6, products: initialProducts }: 
 
                   <CardHeader>
                     {/* Product Title */}
-                    <CardTitle className="line-clamp-2 group-hover:text-yellow-400 transition-colors text-white">
+                    <CardTitle className="line-clamp-2 group-hover:text-yellow-500 transition-colors text-gray-900">
                       {product.name}
                     </CardTitle>
 
@@ -190,7 +179,7 @@ export function ShopSection({ title, maxItems = 6, products: initialProducts }: 
                           ))}
                         </div>
                         {product.reviews && (
-                          <span className="text-sm text-gray-300">
+                          <span className="text-sm text-gray-600">
                             ({product.reviews} {t('home.shop.reviews')})
                           </span>
                         )}
@@ -201,14 +190,14 @@ export function ShopSection({ title, maxItems = 6, products: initialProducts }: 
                   <CardContent>
                     {/* Description */}
                     {product.description && (
-                      <p className="text-gray-300 text-sm mb-4 line-clamp-2">
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-2">
                         {product.description}
                       </p>
                     )}
 
                     {/* Pricing */}
                     <div className="flex items-baseline gap-2 mb-4">
-                      <span className="text-2xl font-bold text-yellow-300">
+                      <span className="text-2xl font-bold text-yellow-600">
                         ${product.price.toFixed(2)}
                       </span>
                       {product.originalPrice && (
@@ -247,7 +236,7 @@ export function ShopSection({ title, maxItems = 6, products: initialProducts }: 
             <Button
               size="lg"
               variant="outline"
-              className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-gray-900 font-semibold"
+              className="border-yellow-400 text-yellow-600 hover:bg-yellow-400 hover:text-gray-900 font-semibold"
             >
               {t('home.shop.viewAll')}
             </Button>

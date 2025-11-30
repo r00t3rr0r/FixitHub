@@ -69,19 +69,10 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
 
   if (loading) {
     return (
-      <section
-        className="relative py-20 overflow-hidden"
-        style={{
-          backgroundImage: 'url(https://www.mcrepair.de/bilder/home/banner/counter_bg.jpg)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundAttachment: 'fixed'
-        }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/60"></div>
+      <section className="relative py-20 overflow-hidden bg-white">
         <div className="container mx-auto px-4 text-center relative z-10">
-          <div className="animate-spin inline-block w-12 h-12 border-4 border-yellow-400 border-t-white rounded-full"></div>
-          <p className="text-gray-200 mt-4">{t('common.loading')}</p>
+          <div className="animate-spin inline-block w-12 h-12 border-4 border-yellow-400 border-t-gray-900 rounded-full"></div>
+          <p className="text-gray-600 mt-4">{t('common.loading')}</p>
         </div>
       </section>
     );
@@ -94,18 +85,7 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
   const visiblePosts = posts.slice(currentIndex, currentIndex + 3);
 
   return (
-    <section
-      className="relative py-24 overflow-hidden"
-      style={{
-        backgroundImage: 'url(https://www.mcrepair.de/bilder/home/banner/counter_bg.jpg)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed'
-      }}
-    >
-      {/* Overlay with gradient for better text readability */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/60"></div>
-
+    <section className="relative py-24 overflow-hidden bg-white">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-20 left-1/4 w-96 h-96 bg-yellow-400/5 rounded-full blur-3xl animate-float"></div>
@@ -116,11 +96,11 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
       <div className="container mx-auto px-4 relative z-10">
         {/* Section Header */}
         <div className="text-center mb-12 animate-slideIn">
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
             {title || t('home.blog.title')}
           </h2>
           <div className="w-24 h-1 bg-gradient-to-r from-yellow-400 to-yellow-500 mx-auto rounded-full mb-4"></div>
-          <p className="text-xl text-gray-200 max-w-2xl mx-auto">
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             {t('home.blog.subtitle')}
           </p>
         </div>
@@ -135,7 +115,7 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
                 className="animate-scaleIn group"
                 style={{ animationDelay: `${index * 150}ms` }}
               >
-                <Card className="h-full overflow-hidden bg-white/10 backdrop-blur-md border border-white/20 hover:border-yellow-400/50 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+                <Card className="h-full overflow-hidden bg-white border border-gray-200 hover:border-yellow-400/50 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-2">
                   {/* Featured Image */}
                   {post.image && (
                     <div className="relative h-40 bg-gray-200 overflow-hidden">
@@ -154,12 +134,12 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
 
                   <CardHeader>
                     {/* Title */}
-                    <CardTitle className="line-clamp-2 hover:text-yellow-400 transition-colors text-white">
+                    <CardTitle className="line-clamp-2 hover:text-yellow-500 transition-colors text-gray-900">
                       {post.title}
                     </CardTitle>
 
                     {/* Metadata */}
-                    <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-300">
+                    <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-600">
                       {post.publishedAt && (
                         <div className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
@@ -183,14 +163,14 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
                   <CardContent>
                     {/* Excerpt */}
                     {post.excerpt && (
-                      <p className="text-gray-300 text-sm mb-4 line-clamp-3">
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">
                         {post.excerpt}
                       </p>
                     )}
 
                     {/* Author */}
                     {post.author && (
-                      <div className="flex items-center gap-3 mb-4 pt-4 border-t border-white/20">
+                      <div className="flex items-center gap-3 mb-4 pt-4 border-t border-gray-200">
                         {post.author.avatar && (
                           <img
                             src={post.author.avatar}
@@ -199,18 +179,18 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
                           />
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-white truncate">
+                          <p className="text-sm font-semibold text-gray-900 truncate">
                             {post.author.name}
                           </p>
                         </div>
-                        <User className="w-4 h-4 text-gray-400" />
+                        <User className="w-4 h-4 text-gray-500" />
                       </div>
                     )}
 
                     {/* Read More Button */}
                     <Button
                       variant="outline"
-                      className="w-full border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-gray-900 font-semibold transition-all duration-300 hover:scale-105"
+                      className="w-full border-yellow-400 text-yellow-600 hover:bg-yellow-400 hover:text-gray-900 font-semibold transition-all duration-300 hover:scale-105"
                     >
                       {t('home.blog.readMore')}
                     </Button>
@@ -245,7 +225,7 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
                 key={index}
                 onClick={() => setCurrentIndex(index)}
                 className={`h-2 rounded-full transition-all duration-300 ${
-                  index === currentIndex ? 'bg-yellow-400 w-8' : 'bg-gray-400 w-2'
+                  index === currentIndex ? 'bg-yellow-400 w-8' : 'bg-gray-300 w-2'
                 }`}
               />
             ))}
@@ -257,7 +237,7 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
           <Button
             size="lg"
             variant="outline"
-            className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-gray-900 font-semibold"
+            className="border-yellow-400 text-yellow-600 hover:bg-yellow-400 hover:text-gray-900 font-semibold"
           >
             {t('home.blog.viewAll')}
           </Button>
