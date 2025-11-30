@@ -1116,6 +1116,18 @@
       "tabletRepair": "Tablet Repair",
       "notebookRepair": "Notebook Repair"
     },
+    "shop": {
+      "title": "Featured Products",
+      "subtitle": "Quality repair parts and accessories for your devices",
+      "allProducts": "All Products",
+      "featured": "Featured",
+      "inStock": "In Stock",
+      "outOfStock": "Out of Stock",
+      "addToCart": "Add to Cart",
+      "viewAll": "View All Products",
+      "noProducts": "No products available",
+      "reviews": "reviews"
+    },
     "nav": {
       "services": "Services",
       "about": "About",
@@ -1150,18 +1162,6 @@
       "from": "From",
       "popular": "Popular",
       "learnMore": "Learn More"
-    },
-    "shop": {
-      "title": "Featured Products",
-      "subtitle": "Quality repair parts and accessories for your devices",
-      "allProducts": "All Products",
-      "featured": "Featured",
-      "inStock": "In Stock",
-      "outOfStock": "Out of Stock",
-      "addToCart": "Add to Cart",
-      "viewAll": "View All Products",
-      "noProducts": "No products available",
-      "reviews": "reviews"
     },
     "blog": {
       "title": "Latest Blog Articles",
