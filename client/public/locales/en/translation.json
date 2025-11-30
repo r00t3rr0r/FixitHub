@@ -1152,6 +1152,7 @@
     },
     "services": {
       "title": "Our Services",
+      "hoSoEinfachGehts": "How It Works",
       "step1Title": "Select Device & Service",
       "step1Desc": "Choose your device type and select the repair service you need",
       "step2Title": "Send or Bring Your Device",
@@ -1178,6 +1179,7 @@
     "testimonials": {
       "title": "What Our Customers Say",
       "subtitle": "Thousands of satisfied customers trust us with their device repairs",
+      "featured": "Featured",
       "sarah": "Excellent service! My iPhone was repaired quickly and works perfectly. The staff was professional and the pricing was very reasonable.",
       "mike": "Professional staff and fair pricing. Highly recommend!",
       "emily": "Saved my laptop with water damage. Great work!",
@@ -1189,6 +1191,8 @@
       "title": "About Us",
       "content": "McRepair.de is one of the leading online service providers for professional repair of smartphones, tablets, notebooks and smartwatches.",
       "contentPart2": "Technicians with years of experience in the mobile industry and repair sector put defective or damaged mobile devices of all kinds back in working order quickly, competently and reliably.",
+      "trustedBy": "Trusted by",
+      "trustStatement": "Thousands of satisfied customers nationwide",
       "keyPoint1": "Over 350 partner locations nationwide",
       "keyPoint2": "10,000+ devices repaired successfully",
       "keyPoint3": "Expert technicians with certification",
