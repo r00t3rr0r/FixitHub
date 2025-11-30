@@ -183,6 +183,26 @@ export function CustomerBookings() {
           }
         }
 
+        @keyframes scaleIn {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        @keyframes shimmer {
+          0% {
+            background-position: -1000px 0;
+          }
+          100% {
+            background-position: 1000px 0;
+          }
+        }
+
         .animate-fade-in-up {
           animation: fadeInUp 0.5s ease-out;
         }
@@ -196,13 +216,30 @@ export function CustomerBookings() {
         .stagger-item:nth-child(3) { animation-delay: 0.2s; }
         .stagger-item:nth-child(4) { animation-delay: 0.3s; }
         .stagger-item:nth-child(5) { animation-delay: 0.4s; }
+
+        .header-section {
+          background: linear-gradient(135deg, rgba(251, 191, 36, 0.05) 0%, rgba(251, 191, 36, 0.02) 100%);
+          border-radius: 12px;
+          padding: 24px;
+          border: 1px solid rgba(251, 191, 36, 0.1);
+          animation: scaleIn 0.6s ease-out;
+        }
+
+        .header-section h1 {
+          background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
       `}</style>
 
       <div className="space-y-6 animate-fade-in-up">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">{t('bookings.myBookings')}</h1>
-            <p className="text-muted-foreground">{t('bookings.manageYourBookings')}</p>
+        <div className="header-section">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight">{t('bookings.myBookings')}</h1>
+              <p className="text-muted-foreground mt-2">{t('bookings.manageYourBookings')}</p>
+            </div>
           </div>
         </div>
 

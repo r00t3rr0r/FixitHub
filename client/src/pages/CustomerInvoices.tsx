@@ -189,6 +189,17 @@ export function CustomerInvoices() {
           }
         }
 
+        @keyframes scaleIn {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
         .animate-fade-in-up {
           animation: fadeInUp 0.5s ease-out;
         }
@@ -202,20 +213,46 @@ export function CustomerInvoices() {
         .stagger-item:nth-child(3) { animation-delay: 0.2s; }
         .stagger-item:nth-child(4) { animation-delay: 0.3s; }
         .stagger-item:nth-child(5) { animation-delay: 0.4s; }
+
+        .header-section {
+          background: linear-gradient(135deg, rgba(251, 191, 36, 0.05) 0%, rgba(251, 191, 36, 0.02) 100%);
+          border-radius: 12px;
+          padding: 24px;
+          border: 1px solid rgba(251, 191, 36, 0.1);
+          animation: scaleIn 0.6s ease-out;
+        }
+
+        .header-section h1 {
+          background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
+        .stat-card {
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .stat-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 12px 24px rgba(251, 191, 36, 0.1);
+        }
       `}</style>
 
       <div className="space-y-6 animate-fade-in-up">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">{t('invoices.myInvoices')}</h1>
-            <p className="text-muted-foreground">{t('invoices.manageYourInvoices')}</p>
+        <div className="header-section">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight">{t('invoices.myInvoices')}</h1>
+              <p className="text-muted-foreground mt-2">{t('invoices.manageYourInvoices')}</p>
+            </div>
           </div>
         </div>
 
         {/* Statistics Cards */}
         {stats && (
           <div className="grid gap-4 md:grid-cols-4">
-            <Card className="stagger-item">
+            <Card className="stagger-item stat-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t('invoices.totalInvoices')}</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
@@ -225,7 +262,7 @@ export function CustomerInvoices() {
             </CardContent>
             </Card>
 
-            <Card className="stagger-item">
+            <Card className="stagger-item stat-card">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{t('invoices.totalAmount')}</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -235,7 +272,7 @@ export function CustomerInvoices() {
               </CardContent>
             </Card>
 
-            <Card className="stagger-item">
+            <Card className="stagger-item stat-card">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{t('invoices.unpaid')}</CardTitle>
                 <TrendingUp className="h-4 w-4 text-yellow-600" />
@@ -248,7 +285,7 @@ export function CustomerInvoices() {
               </CardContent>
             </Card>
 
-            <Card className="stagger-item">
+            <Card className="stagger-item stat-card">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{t('invoices.overdue')}</CardTitle>
                 <AlertCircle className="h-4 w-4 text-red-600" />
