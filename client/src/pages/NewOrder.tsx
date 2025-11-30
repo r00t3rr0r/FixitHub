@@ -44,7 +44,9 @@ import {
   User,
   Mail,
   Phone,
-  ShoppingCart as ShoppingCartIcon
+  ShoppingCart as ShoppingCartIcon,
+  ChevronRight,
+  Sparkles
 } from "lucide-react"
 
 interface OrderForm {
@@ -472,31 +474,51 @@ export function NewOrder() {
   }
 
   const nextStep = () => {
-    if (step < 5) setStep(step + 1)
+    if (step < 5) {
+      setStep(step + 1)
+      // Smooth scroll to top on step change
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
   }
 
   const prevStep = () => {
-    if (step > 1) setStep(step - 1)
+    if (step > 1) {
+      setStep(step - 1)
+      // Smooth scroll to top on step change
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
   }
 
   const getStepIcon = (stepNumber: number) => {
     if (stepNumber < step) return <Check className="h-4 w-4" />
-    if (stepNumber === step) return <div className="w-2 h-2 bg-primary rounded-full" />
+    if (stepNumber === step) return <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
     return <div className="w-2 h-2 bg-muted rounded-full" />
+  }
+
+  const getStepTitle = (stepNumber: number) => {
+    switch (stepNumber) {
+      case 1: return "Device"
+      case 2: return "Services"
+      case 3: return "Details"
+      case 4: return "Review"
+      case 5: return "Cart"
+      default: return `Step ${stepNumber}`
+    }
   }
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto space-y-6">
-        <Card className="animate-pulse">
+      <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
+        <Card className="animate-pulse border-2 shadow-lg">
           <CardHeader>
-            <div className="h-6 bg-muted rounded w-1/3"></div>
-            <div className="h-4 bg-muted rounded w-2/3"></div>
+            <div className="h-8 bg-gradient-to-r from-muted via-muted/50 to-muted rounded w-1/3 animate-pulse"></div>
+            <div className="h-4 bg-gradient-to-r from-muted via-muted/50 to-muted rounded w-2/3 mt-2 animate-pulse"></div>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="h-10 bg-muted rounded"></div>
-              <div className="h-10 bg-muted rounded"></div>
+              <div className="h-12 bg-gradient-to-r from-muted via-muted/50 to-muted rounded animate-pulse"></div>
+              <div className="h-12 bg-gradient-to-r from-muted via-muted/50 to-muted rounded animate-pulse"></div>
+              <div className="h-12 bg-gradient-to-r from-muted via-muted/50 to-muted rounded animate-pulse"></div>
             </div>
           </CardContent>
         </Card>
@@ -505,69 +527,115 @@ export function NewOrder() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Progress Header */}
-      <Card className="bg-gradient-to-r from-primary/10 to-secondary/10">
+    <div className="max-w-4xl mx-auto space-y-6 pb-12">
+      {/* Enhanced Progress Header with Glassmorphism */}
+      <Card className="bg-gradient-to-br from-yellow-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 border-2 border-yellow-200/50 dark:border-yellow-600/20 shadow-xl backdrop-blur-sm sticky top-4 z-40 animate-in slide-in-from-top duration-700">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Plus className="h-6 w-6" />
-            Create New Repair Order
+          <CardTitle className="flex items-center gap-3 text-2xl">
+            <div className="p-2 bg-yellow-400 rounded-lg shadow-md group-hover:shadow-lg transition-shadow">
+              <Sparkles className="h-6 w-6 text-gray-900 animate-pulse" />
+            </div>
+            <span className="bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent font-bold">
+              Create New Repair Order
+            </span>
           </CardTitle>
-          <CardDescription>
-            Follow the steps below to submit your device for repair
+          <CardDescription className="text-base">
+            Follow the guided steps to submit your device for professional repair
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              {[1, 2, 3, 4, 5].map((stepNumber) => (
-                <div key={stepNumber} className="flex items-center gap-2">
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-                    stepNumber <= step
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-muted bg-background'
-                  }`}>
-                    {getStepIcon(stepNumber)}
+          {/* Enhanced Step Indicators */}
+          <div className="flex items-center justify-between mb-6 overflow-x-auto pb-2">
+            {[1, 2, 3, 4, 5].map((stepNumber) => (
+              <div key={stepNumber} className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex flex-col items-center gap-2">
+                  <div
+                    className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-500 ${
+                      stepNumber < step
+                        ? 'border-green-500 bg-green-500 text-white shadow-lg shadow-green-500/50 scale-110'
+                        : stepNumber === step
+                        ? 'border-yellow-400 bg-yellow-400 text-gray-900 shadow-lg shadow-yellow-400/50 scale-125 animate-pulse'
+                        : 'border-gray-300 bg-white dark:bg-gray-800 text-gray-400 scale-100'
+                    }`}
+                  >
+                    {stepNumber < step ? (
+                      <Check className="h-5 w-5 animate-in zoom-in duration-300" />
+                    ) : (
+                      <span className="font-bold text-sm">{stepNumber}</span>
+                    )}
                   </div>
-                  <span className={`text-sm font-medium ${
-                    stepNumber <= step ? 'text-foreground' : 'text-muted-foreground'
-                  }`}>
-                    Step {stepNumber}
+                  <span
+                    className={`text-xs font-medium transition-all duration-300 ${
+                      stepNumber <= step
+                        ? 'text-gray-900 dark:text-white font-semibold'
+                        : 'text-gray-500 dark:text-gray-400'
+                    }`}
+                  >
+                    {getStepTitle(stepNumber)}
                   </span>
-                  {stepNumber < 5 && (
-                    <div className={`w-8 h-0.5 ${
-                      stepNumber < step ? 'bg-primary' : 'bg-muted'
-                    }`} />
-                  )}
                 </div>
-              ))}
-            </div>
+                {stepNumber < 5 && (
+                  <div className="relative w-12 h-1 mx-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                    <div
+                      className={`absolute inset-0 transition-all duration-700 ${
+                        stepNumber < step
+                          ? 'bg-gradient-to-r from-green-500 to-green-400 w-full'
+                          : 'bg-yellow-400 w-0'
+                      }`}
+                      style={{
+                        width: stepNumber < step ? '100%' : '0%'
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-          <Progress value={(step / 5) * 100} className="h-2" />
+
+          {/* Animated Progress Bar */}
+          <div className="relative">
+            <Progress
+              value={(step / 5) * 100}
+              className="h-3 shadow-inner overflow-hidden"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"
+                 style={{
+                   backgroundSize: '200% 100%',
+                   animation: 'shimmer 2s infinite'
+                 }}
+            />
+          </div>
+
+          {/* Step Progress Text */}
+          <p className="text-center text-sm text-muted-foreground mt-3 font-medium">
+            Step {step} of 5 - {getStepTitle(step)}
+          </p>
         </CardContent>
       </Card>
 
       <form onSubmit={handleSubmit(onSubmit)}>
-        {/* Step 1: Device Selection */}
+        {/* Step 1: Device Selection with Enhanced Animation */}
         {step === 1 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Select Your Device
+          <Card className="animate-in slide-in-from-right duration-500 border-2 shadow-lg hover:shadow-xl transition-all">
+            <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20">
+              <CardTitle className="flex items-center gap-3">
+                <div className="p-2 bg-blue-500 rounded-lg shadow-md">
+                  <Package className="h-5 w-5 text-white" />
+                </div>
+                <span>Select Your Device</span>
               </CardTitle>
-              <CardDescription>
-                Search for your device to get started
+              <CardDescription className="text-base">
+                Search for your device to get started on your repair journey
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Device Search with Autocomplete */}
+            <CardContent className="space-y-6 pt-6">
+              {/* Enhanced Device Search with Autocomplete */}
               <div className="space-y-2">
-                <Label htmlFor="deviceSearch">Search Device</Label>
+                <Label htmlFor="deviceSearch" className="text-base font-semibold">Search Device</Label>
                 <div className="relative">
-                  <div className="flex items-center gap-2 relative">
-                    <div className="absolute left-3 text-muted-foreground">
-                      <Search className="h-4 w-4" />
+                  <div className="flex items-center gap-2 relative group">
+                    <div className="absolute left-3 text-muted-foreground transition-colors group-focus-within:text-yellow-500">
+                      <Search className="h-5 w-5" />
                     </div>
                     <Input
                       id="deviceSearch"
@@ -576,7 +644,7 @@ export function NewOrder() {
                       value={deviceSearchQuery}
                       onChange={(e) => handleDeviceSearch(e.target.value)}
                       onFocus={() => deviceSearchResults.length > 0 && setShowSearchResults(true)}
-                      className="pl-10"
+                      className="pl-11 h-12 text-base border-2 focus:border-yellow-400 focus:ring-yellow-400/20 transition-all duration-300"
                       autoComplete="off"
                     />
                     {selectedDevice && (
@@ -592,61 +660,82 @@ export function NewOrder() {
                           setSelectedManufacturer("")
                           setSelectedModel("")
                         }}
-                        className="absolute right-3 text-muted-foreground hover:text-foreground"
+                        className="absolute right-3 text-muted-foreground hover:text-red-500 transition-colors duration-200"
                       >
-                        <X className="h-4 w-4" />
+                        <X className="h-5 w-5" />
                       </button>
                     )}
                   </div>
 
-                  {/* Search Results Dropdown */}
+                  {/* Enhanced Search Results Dropdown */}
                   {showSearchResults && deviceSearchQuery.length >= 2 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-popover border rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border-2 border-yellow-200 dark:border-yellow-600/20 rounded-xl shadow-2xl z-50 max-h-80 overflow-y-auto animate-in slide-in-from-top duration-300">
                       {searchingDevices ? (
-                        <div className="p-4 text-center text-muted-foreground">
-                          <div className="animate-pulse">Searching devices...</div>
+                        <div className="p-6 text-center">
+                          <div className="inline-flex items-center gap-3 text-muted-foreground">
+                            <div className="h-5 w-5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+                            <span className="animate-pulse">Searching devices...</span>
+                          </div>
                         </div>
                       ) : deviceSearchResults.length > 0 ? (
-                        <div className="py-1">
-                          {deviceSearchResults.map((device) => (
+                        <div className="py-2">
+                          {deviceSearchResults.map((device, index) => (
                             <button
                               key={device._id}
                               type="button"
                               onClick={() => handleSelectDevice(device)}
-                              className="w-full text-left px-4 py-2 hover:bg-accent transition-colors flex items-center justify-between"
+                              className="w-full text-left px-4 py-3 hover:bg-yellow-50 dark:hover:bg-yellow-900/10 transition-all duration-200 flex items-center justify-between group border-b last:border-b-0 animate-in slide-in-from-top"
+                              style={{ animationDelay: `${index * 50}ms` }}
                             >
-                              <div>
-                                <div className="font-medium text-sm">{device.name}</div>
-                                <div className="text-xs text-muted-foreground">
-                                  {device.displayName}
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-900/30 dark:to-yellow-800/30 rounded-lg group-hover:scale-110 transition-transform">
+                                  {getDeviceTypeIcon(device.deviceType)}
+                                </div>
+                                <div>
+                                  <div className="font-semibold text-sm group-hover:text-yellow-600 transition-colors">
+                                    {device.name}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {device.displayName}
+                                  </div>
                                 </div>
                               </div>
-                              {getDeviceTypeIcon(device.deviceType)}
+                              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-yellow-500 group-hover:translate-x-1 transition-all" />
                             </button>
                           ))}
                         </div>
                       ) : (
-                        <div className="p-4 text-center text-muted-foreground text-sm">
-                          No devices found
+                        <div className="p-6 text-center text-muted-foreground text-sm">
+                          <div className="inline-flex flex-col items-center gap-2">
+                            <Search className="h-8 w-8 text-gray-300" />
+                            <span>No devices found</span>
+                          </div>
                         </div>
                       )}
                     </div>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" />
                   Type at least 2 characters to search
                 </p>
               </div>
 
-              {/* Display selected device */}
+              {/* Enhanced Selected Device Display */}
               {selectedDevice && (
-                <div className="bg-muted/50 rounded-lg p-4 border border-primary/20">
-                  <div className="flex items-center gap-3">
-                    <div className="text-primary">
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 rounded-xl p-5 border-2 border-green-200 dark:border-green-800 shadow-md animate-in zoom-in duration-500">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl shadow-lg">
                       {getDeviceTypeIcon(selectedDevice.deviceType)}
                     </div>
-                    <div>
-                      <h4 className="font-medium">{selectedDevice.name}</h4>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Check className="h-4 w-4 text-green-600" />
+                        <span className="text-xs font-medium text-green-600 dark:text-green-400 uppercase tracking-wide">
+                          Device Selected
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-lg text-gray-900 dark:text-white">{selectedDevice.name}</h4>
                       <p className="text-sm text-muted-foreground">
                         {selectedDevice.deviceType} • {selectedDevice.manufacturer}
                       </p>
@@ -655,41 +744,51 @@ export function NewOrder() {
                 </div>
               )}
 
-              <div className="flex justify-end">
+              <div className="flex justify-end pt-4">
                 <Button
                   type="button"
                   onClick={nextStep}
                   disabled={!selectedDevice}
+                  size="lg"
+                  className="bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-semibold shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed group"
                 >
-                  Next Step
+                  <span>Continue to Services</span>
+                  <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Step 2: Service Selection with Category Filtering */}
+        {/* Step 2: Service Selection with Enhanced Animations */}
         {step === 2 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Select Repair Services
+          <Card className="animate-in slide-in-from-right duration-500 border-2 shadow-lg hover:shadow-xl transition-all">
+            <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20">
+              <CardTitle className="flex items-center gap-3">
+                <div className="p-2 bg-purple-500 rounded-lg shadow-md">
+                  <Package className="h-5 w-5 text-white" />
+                </div>
+                <span>Select Repair Services</span>
               </CardTitle>
-              <CardDescription>
-                Choose the services you need for your device. Filter by category to find services faster.
+              <CardDescription className="text-base">
+                Choose the services you need • {selectedServices.length} selected
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Category Filter Buttons */}
-              <div className="space-y-2">
-                <Label>Filter by Category</Label>
+            <CardContent className="space-y-6 pt-6">
+              {/* Enhanced Category Filter Buttons */}
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Filter by Category</Label>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
                     variant={selectedServiceCategory === "all" ? "default" : "outline"}
                     size="sm"
                     onClick={() => setSelectedServiceCategory("all")}
+                    className={`transition-all duration-300 ${
+                      selectedServiceCategory === "all"
+                        ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 shadow-md'
+                        : 'hover:border-yellow-400 hover:text-yellow-600'
+                    }`}
                   >
                     All Services
                   </Button>
@@ -700,6 +799,11 @@ export function NewOrder() {
                       variant={selectedServiceCategory === category ? "default" : "outline"}
                       size="sm"
                       onClick={() => setSelectedServiceCategory(category)}
+                      className={`transition-all duration-300 ${
+                        selectedServiceCategory === category
+                          ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 shadow-md'
+                          : 'hover:border-yellow-400 hover:text-yellow-600'
+                      }`}
                     >
                       {category}
                     </Button>
@@ -707,48 +811,52 @@ export function NewOrder() {
                 </div>
               </div>
 
-              {/* Services Grid */}
+              {/* Enhanced Services Grid */}
               <div className="grid gap-4 md:grid-cols-2">
-                {getFilteredServices().map((service) => (
+                {getFilteredServices().map((service, index) => (
                   <div
                     key={service._id}
-                    className={`p-4 rounded-lg border-2 transition-all ${
+                    className={`p-5 rounded-xl border-2 transition-all duration-300 cursor-pointer group animate-in slide-in-from-bottom ${
                       selectedServices.includes(service._id)
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
+                        ? 'border-yellow-400 bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 shadow-lg scale-105'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-yellow-300 hover:shadow-md hover:scale-102'
                     }`}
+                    style={{ animationDelay: `${index * 50}ms` }}
+                    onClick={() => handleServiceToggle(service._id, !selectedServices.includes(service._id))}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-3 mb-3">
                           <Checkbox
                             checked={selectedServices.includes(service._id)}
                             onCheckedChange={(checked) => handleServiceToggle(service._id, checked as boolean)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="border-2"
                           />
-                          <h3 className="font-semibold">{service.name}</h3>
+                          <h3 className="font-bold text-base group-hover:text-yellow-600 transition-colors">
+                            {service.name}
+                          </h3>
                           {service.popularity > 80 && (
-                            <Badge variant="secondary" className="text-xs">
-                              <Star className="h-3 w-3 mr-1" />
+                            <Badge variant="secondary" className="text-xs bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 border border-yellow-300">
+                              <Star className="h-3 w-3 mr-1 text-yellow-500 fill-yellow-500" />
                               Popular
                             </Badge>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="secondary" className="text-xs">
-                            {service.category}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-2">
+                        <Badge variant="secondary" className="text-xs mb-3">
+                          {service.category}
+                        </Badge>
+                        <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
                           {service.description}
                         </p>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {service.estimatedTime}
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                            <Clock className="h-4 w-4" />
+                            <span className="font-medium">{service.estimatedTime}</span>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <DollarSign className="h-3 w-3" />
-                            ${service.price}
+                          <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400 font-bold">
+                            <DollarSign className="h-4 w-4" />
+                            <span>{service.price}</span>
                           </div>
                         </div>
                       </div>
@@ -758,21 +866,32 @@ export function NewOrder() {
               </div>
 
               {getFilteredServices().length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  No services available in this category
+                <div className="text-center py-12 text-muted-foreground animate-in fade-in duration-300">
+                  <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-base">No services available in this category</p>
                 </div>
               )}
 
-              <div className="flex justify-between">
-                <Button type="button" variant="outline" onClick={prevStep}>
+              <div className="flex justify-between pt-6 border-t">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={prevStep}
+                  size="lg"
+                  className="group"
+                >
+                  <ChevronRight className="mr-2 h-5 w-5 rotate-180 group-hover:-translate-x-1 transition-transform" />
                   Previous
                 </Button>
                 <Button
                   type="button"
                   onClick={nextStep}
                   disabled={selectedServices.length === 0}
+                  size="lg"
+                  className="bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-semibold shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 group"
                 >
-                  Next Step
+                  <span>Continue ({selectedServices.length} services)</span>
+                  <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </div>
             </CardContent>
@@ -781,24 +900,26 @@ export function NewOrder() {
 
         {/* Step 3: Summary, Unlock Code, and Add-On Services */}
         {step === 3 && (
-          <div className="space-y-6">
-            {/* Order Summary Card */}
-            <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5">
+          <div className="space-y-6 animate-in slide-in-from-right duration-500">
+            {/* Enhanced Order Summary Card */}
+            <Card className="border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-blue-950/20 dark:via-gray-800 dark:to-indigo-950/20 shadow-xl">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Order Summary
+                <CardTitle className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg shadow-md">
+                    <Package className="h-5 w-5 text-white" />
+                  </div>
+                  <span>Order Summary</span>
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-base">
                   Review your device and service details
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Customer Information */}
                 <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-3">
+                  <div className="space-y-3 p-4 bg-white/50 dark:bg-gray-900/30 rounded-lg">
                     <h4 className="font-semibold text-sm flex items-center gap-2">
-                      <User className="h-4 w-4 text-primary" />
+                      <User className="h-4 w-4 text-blue-500" />
                       Customer Information
                     </h4>
                     <div className="space-y-2 text-sm">
@@ -818,9 +939,9 @@ export function NewOrder() {
                   </div>
 
                   {/* Selected Device Summary */}
-                  <div className="space-y-3">
+                  <div className="space-y-3 p-4 bg-white/50 dark:bg-gray-900/30 rounded-lg">
                     <h4 className="font-semibold text-sm flex items-center gap-2">
-                      <Smartphone className="h-4 w-4 text-primary" />
+                      <Smartphone className="h-4 w-4 text-blue-500" />
                       Device Details
                     </h4>
                     <div className="space-y-2 text-sm">
@@ -852,15 +973,22 @@ export function NewOrder() {
                 {/* Selected Services */}
                 {selectedServices.length > 0 && (
                   <div className="space-y-3 pt-4 border-t">
-                    <h4 className="font-semibold text-sm">Selected Services</h4>
+                    <h4 className="font-semibold text-sm flex items-center gap-2">
+                      <Check className="h-4 w-4 text-green-500" />
+                      Selected Services ({selectedServices.length})
+                    </h4>
                     <div className="space-y-2">
-                      {services.filter(s => selectedServices.includes(s._id)).map(service => (
-                        <div key={service._id} className="flex items-start justify-between p-2 rounded hover:bg-muted/50">
+                      {services.filter(s => selectedServices.includes(s._id)).map((service, index) => (
+                        <div
+                          key={service._id}
+                          className="flex items-start justify-between p-3 rounded-lg hover:bg-white/50 dark:hover:bg-gray-900/30 transition-all animate-in slide-in-from-left"
+                          style={{ animationDelay: `${index * 50}ms` }}
+                        >
                           <div className="flex-1">
-                            <p className="text-sm font-medium">{service.name}</p>
+                            <p className="text-sm font-semibold">{service.name}</p>
                             <p className="text-xs text-muted-foreground">{service.description}</p>
                           </div>
-                          <Badge variant="outline">${service.price}</Badge>
+                          <Badge variant="outline" className="ml-2 font-bold">${service.price}</Badge>
                         </div>
                       ))}
                     </div>
@@ -869,15 +997,15 @@ export function NewOrder() {
 
                 {/* Knowledge Base Articles */}
                 {selectedServices.length > 0 && (
-                  <div className="space-y-3 pt-4 border-t bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg">
+                  <div className="space-y-3 pt-4 border-t bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-950/40 dark:to-indigo-950/40 p-4 rounded-xl">
                     <h4 className="font-semibold text-sm flex items-center gap-2">
-                      <BookOpen className="h-4 w-4 text-primary" />
+                      <BookOpen className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                       Related Information
                     </h4>
                     <div className="space-y-2 text-sm">
                       {services.filter(s => selectedServices.includes(s._id)).map(service => (
                         <div key={service._id} className="flex items-start gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0 animate-pulse" />
                           <div className="flex-1">
                             <p className="font-medium text-blue-900 dark:text-blue-100">
                               {service.name} Guide
@@ -896,18 +1024,20 @@ export function NewOrder() {
               </CardContent>
             </Card>
 
-            {/* Unlock Code/Pattern Input Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Lock className="h-5 w-5" />
-                  Device Lock Information
+            {/* Enhanced Unlock Code/Pattern Input Card */}
+            <Card className="border-2 hover:shadow-lg transition-shadow duration-300">
+              <CardHeader className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20">
+                <CardTitle className="flex items-center gap-3">
+                  <div className="p-2 bg-orange-500 rounded-lg shadow-md">
+                    <Lock className="h-5 w-5 text-white" />
+                  </div>
+                  <span>Device Lock Information</span>
                 </CardTitle>
-                <CardDescription>
-                  Tell us about your device lock (pattern, PIN, or no lock)
+                <CardDescription className="text-base">
+                  Provide your device lock details for seamless repair service
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 <UnlockPatternInput
                   onPatternChange={setUnlockPattern}
                   onUnlockCodeChange={setUnlockCode}
@@ -919,62 +1049,69 @@ export function NewOrder() {
               </CardContent>
             </Card>
 
-            {/* Add-On Services Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
-                  Add-On Services
+            {/* Enhanced Add-On Services Card */}
+            <Card className="border-2 hover:shadow-lg transition-shadow duration-300">
+              <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20">
+                <CardTitle className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg shadow-md">
+                    <Shield className="h-5 w-5 text-white" />
+                  </div>
+                  <span>Add-On Services</span>
                 </CardTitle>
-                <CardDescription>
-                  Enhance your repair with additional services (optional)
+                <CardDescription className="text-base">
+                  Enhance your repair with premium services • {selectedAddOns.length} selected
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 pt-6">
                 {addOns.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No add-on services available
-                  </p>
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Shield className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                    <p className="text-base">No add-on services available</p>
+                  </div>
                 ) : (
                   <>
                     <div className="grid gap-4 md:grid-cols-2">
-                      {addOns.map((addOn) => (
+                      {addOns.map((addOn, index) => (
                         <div
                           key={addOn._id}
-                          className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
+                          className={`p-5 rounded-xl border-2 transition-all duration-300 cursor-pointer group animate-in slide-in-from-bottom ${
                             selectedAddOns.includes(addOn._id)
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:border-primary/50'
+                              ? 'border-green-400 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 shadow-lg scale-105'
+                              : 'border-gray-200 dark:border-gray-700 hover:border-green-300 hover:shadow-md hover:scale-102'
                           }`}
+                          style={{ animationDelay: `${index * 50}ms` }}
                           onClick={() => handleAddOnToggle(addOn._id, !selectedAddOns.includes(addOn._id))}
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
+                              <div className="flex items-center gap-3 mb-3">
                                 <Checkbox
                                   checked={selectedAddOns.includes(addOn._id)}
                                   onCheckedChange={(checked) => handleAddOnToggle(addOn._id, checked as boolean)}
                                   onClick={(e) => e.stopPropagation()}
+                                  className="border-2"
                                 />
-                                <h3 className="font-semibold text-sm">{addOn.name}</h3>
+                                <h3 className="font-bold text-sm group-hover:text-green-600 transition-colors">
+                                  {addOn.name}
+                                </h3>
                                 {addOn.category === 'Service' && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    <Zap className="h-3 w-3 mr-1" />
+                                  <Badge variant="secondary" className="text-xs bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 border border-yellow-300">
+                                    <Zap className="h-3 w-3 mr-1 text-yellow-500 fill-yellow-500" />
                                     Express
                                   </Badge>
                                 )}
                               </div>
-                              <p className="text-xs text-muted-foreground mb-3">
+                              <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
                                 {addOn.description}
                               </p>
-                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                <div className="flex items-center gap-1">
-                                  <Clock className="h-3 w-3" />
-                                  {addOn.estimatedTime || 'N/A'}
+                              <div className="flex items-center gap-4 text-sm">
+                                <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                                  <Clock className="h-4 w-4" />
+                                  <span className="font-medium">{addOn.estimatedTime || 'N/A'}</span>
                                 </div>
-                                <div className="flex items-center gap-1 font-semibold text-foreground">
-                                  <DollarSign className="h-3 w-3" />
-                                  {addOn.price}
+                                <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400 font-bold">
+                                  <DollarSign className="h-4 w-4" />
+                                  <span>{addOn.price}</span>
                                 </div>
                               </div>
                             </div>
@@ -983,19 +1120,24 @@ export function NewOrder() {
                       ))}
                     </div>
 
-                    {/* Selected Add-ons Summary */}
+                    {/* Enhanced Selected Add-ons Summary */}
                     {selectedAddOns.length > 0 && (
-                      <div className="mt-4 p-3 rounded-lg bg-muted/50 space-y-2">
-                        <p className="text-sm font-medium">Selected Add-ons:</p>
-                        {addOns.filter(a => selectedAddOns.includes(a._id)).map(addOn => (
-                          <div key={addOn._id} className="flex justify-between text-xs text-muted-foreground">
-                            <span>• {addOn.name}</span>
-                            <span>${addOn.price}</span>
-                          </div>
-                        ))}
-                        <div className="pt-2 border-t flex justify-between text-sm font-semibold">
+                      <div className="mt-6 p-5 rounded-xl bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 border-2 border-green-300 dark:border-green-700 space-y-3 animate-in zoom-in duration-300">
+                        <p className="text-sm font-bold flex items-center gap-2">
+                          <Check className="h-4 w-4 text-green-600" />
+                          Selected Add-ons:
+                        </p>
+                        <div className="space-y-2">
+                          {addOns.filter(a => selectedAddOns.includes(a._id)).map(addOn => (
+                            <div key={addOn._id} className="flex justify-between text-sm">
+                              <span className="font-medium">• {addOn.name}</span>
+                              <span className="font-bold text-green-600">${addOn.price}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="pt-3 border-t border-green-300 dark:border-green-700 flex justify-between font-bold">
                           <span>Add-ons Total:</span>
-                          <span>
+                          <span className="text-green-600 text-lg">
                             ${addOns.filter(a => selectedAddOns.includes(a._id)).reduce((sum, a) => sum + a.price, 0)}
                           </span>
                         </div>
@@ -1004,12 +1146,25 @@ export function NewOrder() {
                   </>
                 )}
 
-                <div className="flex justify-between pt-4">
-                  <Button type="button" variant="outline" onClick={prevStep}>
+                <div className="flex justify-between pt-6 border-t">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={prevStep}
+                    size="lg"
+                    className="group"
+                  >
+                    <ChevronRight className="mr-2 h-5 w-5 rotate-180 group-hover:-translate-x-1 transition-transform" />
                     Previous
                   </Button>
-                  <Button type="button" onClick={nextStep}>
-                    Review & Submit
+                  <Button
+                    type="button"
+                    onClick={nextStep}
+                    size="lg"
+                    className="bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-semibold shadow-lg hover:shadow-xl transition-all duration-300 group"
+                  >
+                    <span>Review & Submit</span>
+                    <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   </Button>
                 </div>
               </CardContent>
@@ -1019,98 +1174,113 @@ export function NewOrder() {
 
         {/* Step 4: Details & Submit */}
         {step === 4 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Upload className="h-5 w-5" />
-                Final Details & Submit
+          <Card className="animate-in slide-in-from-right duration-500 border-2 shadow-lg hover:shadow-xl transition-all">
+            <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/20 dark:to-purple-950/20">
+              <CardTitle className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg shadow-md">
+                  <Upload className="h-5 w-5 text-white" />
+                </div>
+                <span>Final Details & Submit</span>
               </CardTitle>
-              <CardDescription>
-                Add photos and notes, then review and submit your repair order
+              <CardDescription className="text-base">
+                Add photos and notes, then review your complete repair order
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="photos">Device Photos (Optional)</Label>
+            <CardContent className="space-y-6 pt-6">
+              <div className="space-y-3 p-5 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl">
+                <Label htmlFor="photos" className="text-base font-semibold flex items-center gap-2">
+                  <Upload className="h-4 w-4 text-blue-600" />
+                  Device Photos (Optional)
+                </Label>
                 <Input
                   id="photos"
                   type="file"
                   multiple
                   accept="image/*"
                   {...register("photos")}
-                  className="cursor-pointer"
+                  className="cursor-pointer h-12 border-2 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-gradient-to-r file:from-yellow-400 file:to-yellow-500 file:text-gray-900 file:font-semibold hover:file:from-yellow-500 hover:file:to-yellow-600"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Upload photos of your device to help us assess the damage
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" />
+                  Upload photos to help us assess the damage better
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="customerNotes">Additional Notes (Optional)</Label>
+              <div className="space-y-3">
+                <Label htmlFor="customerNotes" className="text-base font-semibold">Additional Notes (Optional)</Label>
                 <Textarea
                   id="customerNotes"
                   placeholder="Describe the issue, when it started, or any other relevant information..."
                   {...register("customerNotes")}
-                  rows={4}
+                  rows={5}
+                  className="border-2 focus:border-yellow-400 focus:ring-yellow-400/20 resize-none"
                 />
               </div>
 
-              {/* Unlock Information Review */}
+              {/* Enhanced Unlock Information Review */}
               {(unlockPattern.length > 0 || unlockCode || noDeviceLock) && (
-                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-3">
-                  <h4 className="font-semibold text-sm flex items-center gap-2">
-                    <Lock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <div className="bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-950/40 dark:to-indigo-950/40 border-2 border-blue-300 dark:border-blue-700 rounded-xl p-5 space-y-3 animate-in zoom-in duration-300">
+                  <h4 className="font-bold text-sm flex items-center gap-2">
+                    <Lock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     Device Lock Information
                   </h4>
                   <div className="text-sm space-y-2">
                     {noDeviceLock && (
-                      <p className="text-blue-900 dark:text-blue-100">
-                        ✓ Device has no lock
+                      <p className="text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                        <Check className="h-4 w-4 text-green-600" />
+                        Device has no lock
                       </p>
                     )}
                     {unlockPattern.length > 0 && (
-                      <p className="text-blue-900 dark:text-blue-100">
-                        ✓ Pattern lock: <span className="font-mono">{unlockPattern.join(' → ')}</span>
+                      <p className="text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                        <Check className="h-4 w-4 text-green-600" />
+                        Pattern lock: <span className="font-mono font-bold">{unlockPattern.join(' → ')}</span>
                       </p>
                     )}
                     {unlockCode && (
-                      <p className="text-blue-900 dark:text-blue-100">
-                        ✓ Unlock code provided (kept confidential)
+                      <p className="text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                        <Check className="h-4 w-4 text-green-600" />
+                        Unlock code provided (kept confidential)
                       </p>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* Selected Add-ons Review */}
+              {/* Enhanced Selected Add-ons Review */}
               {selectedAddOns.length > 0 && (
-                <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4 space-y-3">
-                  <h4 className="font-semibold text-sm flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <div className="bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-950/40 dark:to-emerald-950/40 border-2 border-green-300 dark:border-green-700 rounded-xl p-5 space-y-3 animate-in zoom-in duration-300">
+                  <h4 className="font-bold text-sm flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-green-600 dark:text-green-400" />
                     Selected Add-ons
                   </h4>
-                  <div className="space-y-1 text-sm">
+                  <div className="space-y-2 text-sm">
                     {addOns.filter(a => selectedAddOns.includes(a._id)).map(addOn => (
-                      <div key={addOn._id} className="flex justify-between text-green-900 dark:text-green-100">
-                        <span>✓ {addOn.name}</span>
-                        <span>${addOn.price}</span>
+                      <div key={addOn._id} className="flex justify-between items-center text-green-900 dark:text-green-100">
+                        <span className="flex items-center gap-2">
+                          <Check className="h-4 w-4 text-green-600" />
+                          {addOn.name}
+                        </span>
+                        <span className="font-bold">${addOn.price}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Complete Order Summary */}
-              <div className="bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg p-4 space-y-4 border-2 border-primary/20">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
-                  Order Summary
+              {/* Enhanced Complete Order Summary */}
+              <div className="bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 dark:from-yellow-900/20 dark:via-amber-900/20 dark:to-orange-900/20 rounded-xl p-6 space-y-4 border-2 border-yellow-300 dark:border-yellow-600/30 shadow-lg animate-in zoom-in duration-500">
+                <h3 className="font-bold text-lg flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-lg shadow-md">
+                    <DollarSign className="h-5 w-5 text-gray-900" />
+                  </div>
+                  <span>Order Summary</span>
                 </h3>
 
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Device:</span>
-                    <span className="font-medium">
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between items-center p-3 bg-white/50 dark:bg-gray-900/30 rounded-lg">
+                    <span className="text-muted-foreground font-medium">Device:</span>
+                    <span className="font-bold text-right">
                       {selectedDevice
                         ? `${selectedDevice.deviceType} • ${selectedDevice.manufacturer} • ${selectedDevice.name}`
                         : "Not selected"
@@ -1119,49 +1289,70 @@ export function NewOrder() {
                   </div>
 
                   {selectedServices.length > 0 && (
-                    <div className="pt-2 border-t space-y-1">
-                      <span className="text-muted-foreground block font-medium">Services:</span>
+                    <div className="pt-2 border-t space-y-2">
+                      <span className="text-muted-foreground block font-bold">Services:</span>
                       {services.filter(s => selectedServices.includes(s._id)).map(service => (
-                        <div key={service._id} className="flex justify-between ml-2">
-                          <span>• {service.name}</span>
-                          <span>${service.price}</span>
+                        <div key={service._id} className="flex justify-between ml-4 p-2 hover:bg-white/50 dark:hover:bg-gray-900/30 rounded-lg transition-colors">
+                          <span className="flex items-center gap-2">
+                            <Check className="h-3 w-3 text-green-600" />
+                            {service.name}
+                          </span>
+                          <span className="font-bold">${service.price}</span>
                         </div>
                       ))}
                     </div>
                   )}
 
                   {selectedAddOns.length > 0 && (
-                    <div className="pt-2 border-t space-y-1">
-                      <span className="text-muted-foreground block font-medium">Add-ons:</span>
+                    <div className="pt-2 border-t space-y-2">
+                      <span className="text-muted-foreground block font-bold">Add-ons:</span>
                       {addOns.filter(a => selectedAddOns.includes(a._id)).map(addOn => (
-                        <div key={addOn._id} className="flex justify-between ml-2">
-                          <span>• {addOn.name}</span>
-                          <span>${addOn.price}</span>
+                        <div key={addOn._id} className="flex justify-between ml-4 p-2 hover:bg-white/50 dark:hover:bg-gray-900/30 rounded-lg transition-colors">
+                          <span className="flex items-center gap-2">
+                            <Check className="h-3 w-3 text-green-600" />
+                            {addOn.name}
+                          </span>
+                          <span className="font-bold">${addOn.price}</span>
                         </div>
                       ))}
                     </div>
                   )}
 
-                  <div className="border-t pt-3 mt-3 flex justify-between font-bold text-base">
-                    <span>Total Cost:</span>
-                    <span className="text-primary">${calculateTotal()}</span>
+                  <div className="border-t-2 pt-4 mt-4 flex justify-between items-center">
+                    <span className="font-bold text-lg">Total Cost:</span>
+                    <span className="font-bold text-2xl bg-gradient-to-r from-yellow-600 to-amber-600 bg-clip-text text-transparent">
+                      ${calculateTotal()}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Terms Agreement */}
-              <div className="bg-muted/50 rounded-lg p-4">
+              {/* Enhanced Terms Agreement */}
+              <div className="bg-muted/50 rounded-xl p-5 border-2">
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  By submitting this order, you agree to our repair terms and conditions. Your device lock information will be kept confidential and used only by our authorized technicians. You will receive a confirmation email with your order number and expected repair timeline.
+                  🔒 By submitting this order, you agree to our repair terms and conditions. Your device lock information will be kept confidential and used only by our authorized technicians. You will receive a confirmation email with your order number and expected repair timeline.
                 </p>
               </div>
 
-              <div className="flex justify-between">
-                <Button type="button" variant="outline" onClick={prevStep}>
+              <div className="flex justify-between pt-6 border-t">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={prevStep}
+                  size="lg"
+                  className="group"
+                >
+                  <ChevronRight className="mr-2 h-5 w-5 rotate-180 group-hover:-translate-x-1 transition-transform" />
                   Previous
                 </Button>
-                <Button type="button" onClick={nextStep} size="lg" className="min-w-[200px]">
-                  Review Order in Cart
+                <Button
+                  type="button"
+                  onClick={nextStep}
+                  size="lg"
+                  className="min-w-[200px] bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-bold shadow-lg hover:shadow-xl transition-all duration-300 group"
+                >
+                  <span>Review in Cart</span>
+                  <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </div>
             </CardContent>
@@ -1170,28 +1361,32 @@ export function NewOrder() {
 
         {/* Step 5: Add to Cart Confirmation */}
         {step === 5 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ShoppingCartIcon className="h-5 w-5" />
-                Add to Cart
+          <Card className="animate-in slide-in-from-right duration-500 border-2 shadow-lg hover:shadow-xl transition-all">
+            <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20">
+              <CardTitle className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg shadow-md animate-pulse">
+                  <ShoppingCartIcon className="h-5 w-5 text-white" />
+                </div>
+                <span>Add to Cart</span>
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-base">
                 Review and add your repair order to your shopping cart
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Order Summary */}
-              <div className="bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg p-4 space-y-4 border-2 border-primary/20">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Order Details
+            <CardContent className="space-y-6 pt-6">
+              {/* Enhanced Order Summary */}
+              <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-purple-900/20 rounded-xl p-6 space-y-4 border-2 border-blue-300 dark:border-blue-700 shadow-lg animate-in zoom-in duration-300">
+                <h3 className="font-bold text-lg flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg shadow-md">
+                    <Package className="h-5 w-5 text-white" />
+                  </div>
+                  <span>Order Details</span>
                 </h3>
 
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Device:</span>
-                    <span className="font-medium">
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between items-center p-3 bg-white/50 dark:bg-gray-900/30 rounded-lg">
+                    <span className="text-muted-foreground font-medium">Device:</span>
+                    <span className="font-bold text-right">
                       {selectedDevice
                         ? `${selectedDevice.deviceType} • ${selectedDevice.manufacturer} • ${selectedDevice.name}`
                         : "Not selected"
@@ -1200,81 +1395,88 @@ export function NewOrder() {
                   </div>
 
                   {selectedServices.length > 0 && (
-                    <div className="pt-2 border-t space-y-1">
-                      <span className="text-muted-foreground block font-medium">Services:</span>
+                    <div className="pt-2 border-t space-y-2">
+                      <span className="text-muted-foreground block font-bold">Services:</span>
                       {services.filter(s => selectedServices.includes(s._id)).map(service => (
-                        <div key={service._id} className="flex justify-between ml-2">
-                          <span>• {service.name}</span>
-                          <span>${service.price}</span>
+                        <div key={service._id} className="flex justify-between ml-4 p-2 hover:bg-white/50 dark:hover:bg-gray-900/30 rounded-lg transition-colors">
+                          <span className="flex items-center gap-2">
+                            <Check className="h-3 w-3 text-green-600" />
+                            {service.name}
+                          </span>
+                          <span className="font-bold">${service.price}</span>
                         </div>
                       ))}
                     </div>
                   )}
 
                   {selectedAddOns.length > 0 && (
-                    <div className="pt-2 border-t space-y-1">
-                      <span className="text-muted-foreground block font-medium">Add-ons:</span>
+                    <div className="pt-2 border-t space-y-2">
+                      <span className="text-muted-foreground block font-bold">Add-ons:</span>
                       {addOns.filter(a => selectedAddOns.includes(a._id)).map(addOn => (
-                        <div key={addOn._id} className="flex justify-between ml-2">
-                          <span>• {addOn.name}</span>
-                          <span>${addOn.price}</span>
+                        <div key={addOn._id} className="flex justify-between ml-4 p-2 hover:bg-white/50 dark:hover:bg-gray-900/30 rounded-lg transition-colors">
+                          <span className="flex items-center gap-2">
+                            <Check className="h-3 w-3 text-green-600" />
+                            {addOn.name}
+                          </span>
+                          <span className="font-bold">${addOn.price}</span>
                         </div>
                       ))}
                     </div>
                   )}
 
-                  <div className="border-t pt-3 mt-3 flex justify-between font-bold text-base">
-                    <span>Total Cost:</span>
-                    <span className="text-primary">${calculateTotal()}</span>
+                  <div className="border-t-2 pt-4 mt-4 flex justify-between items-center">
+                    <span className="font-bold text-lg">Total Cost:</span>
+                    <span className="font-bold text-2xl bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                      ${calculateTotal()}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Information Message */}
-              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <h4 className="font-semibold text-sm mb-2 flex items-center gap-2 text-blue-900 dark:text-blue-100">
-                  <ShoppingCartIcon className="h-4 w-4" />
-                  Add to Cart
+              {/* Enhanced Information Message */}
+              <div className="bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-950/40 dark:to-indigo-950/40 border-2 border-blue-300 dark:border-blue-700 rounded-xl p-5 animate-in fade-in duration-500">
+                <h4 className="font-bold text-sm mb-3 flex items-center gap-2 text-blue-900 dark:text-blue-100">
+                  <ShoppingCartIcon className="h-5 w-5" />
+                  Shopping Cart Benefits
                 </h4>
                 <p className="text-sm text-blue-900 dark:text-blue-100 leading-relaxed">
                   Your repair order will be added to your shopping cart. You can review, modify, apply discount codes, and manage your orders before proceeding to checkout. This gives you flexibility to add multiple services, compare pricing, and manage your repairs all in one place.
                 </p>
               </div>
 
-              {/* Benefits */}
-              <div className="grid md:grid-cols-2 gap-3">
-                <div className="flex gap-3">
-                  <Check className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-sm">Review & Modify</p>
-                    <p className="text-xs text-muted-foreground">Make changes before checkout</p>
+              {/* Enhanced Benefits Grid */}
+              <div className="grid md:grid-cols-2 gap-4">
+                {[
+                  { title: "Review & Modify", desc: "Make changes before checkout", delay: 0 },
+                  { title: "Apply Discount Codes", desc: "Save with promo codes", delay: 100 },
+                  { title: "Multiple Orders", desc: "Add multiple repairs to cart", delay: 200 },
+                  { title: "Secure Checkout", desc: "Safe payment processing", delay: 300 }
+                ].map((benefit, index) => (
+                  <div
+                    key={index}
+                    className="flex gap-3 p-4 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border-2 border-green-200 dark:border-green-800 animate-in slide-in-from-bottom"
+                    style={{ animationDelay: `${benefit.delay}ms` }}
+                  >
+                    <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg h-fit">
+                      <Check className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm">{benefit.title}</p>
+                      <p className="text-xs text-muted-foreground">{benefit.desc}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex gap-3">
-                  <Check className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-sm">Apply Discount Codes</p>
-                    <p className="text-xs text-muted-foreground">Save with promo codes</p>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <Check className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-sm">Multiple Orders</p>
-                    <p className="text-xs text-muted-foreground">Add multiple repairs to cart</p>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <Check className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-sm">Secure Checkout</p>
-                    <p className="text-xs text-muted-foreground">Safe payment processing</p>
-                  </div>
-                </div>
+                ))}
               </div>
 
-              <div className="flex justify-between gap-3 pt-4">
-                <Button type="button" variant="outline" onClick={prevStep}>
+              <div className="flex justify-between gap-3 pt-6 border-t">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={prevStep}
+                  size="lg"
+                  className="group"
+                >
+                  <ChevronRight className="mr-2 h-5 w-5 rotate-180 group-hover:-translate-x-1 transition-transform" />
                   Previous
                 </Button>
                 <div className="flex gap-3">
@@ -1288,6 +1490,8 @@ export function NewOrder() {
                         description: "Add your repair order to the cart and continue shopping"
                       })
                     }}
+                    size="lg"
+                    className="hover:border-yellow-400 hover:text-yellow-600"
                   >
                     Continue Shopping
                   </Button>
@@ -1295,7 +1499,7 @@ export function NewOrder() {
                     type="button"
                     disabled={submitting}
                     size="lg"
-                    className="min-w-[250px]"
+                    className="min-w-[250px] bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50"
                     onClick={async () => {
                       try {
                         setSubmitting(true)
@@ -1362,12 +1566,12 @@ export function NewOrder() {
                   >
                     {submitting ? (
                       <span className="flex items-center gap-2">
-                        <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                        <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         Adding to Cart...
                       </span>
                     ) : (
                       <span className="flex items-center gap-2">
-                        <ShoppingCartIcon className="h-4 w-4" />
+                        <ShoppingCartIcon className="h-5 w-5" />
                         Add to Cart & Review
                       </span>
                     )}
@@ -1378,6 +1582,21 @@ export function NewOrder() {
           </Card>
         )}
       </form>
+
+      {/* Add custom CSS for shimmer animation */}
+      <style>{`
+        @keyframes shimmer {
+          0% {
+            background-position: -200% 0;
+          }
+          100% {
+            background-position: 200% 0;
+          }
+        }
+        .animate-shimmer {
+          animation: shimmer 2s infinite;
+        }
+      `}</style>
     </div>
   )
 }
