@@ -36,22 +36,10 @@ export function CustomerLayout() {
           animation: slideUp 0.8s ease-out 0.2s both;
         }
 
-        /* Enhanced footer styling */
+        /* Footer styling - positioned at the bottom */
         footer {
           position: relative;
           margin-top: auto;
-          border-top: 2px solid rgba(251, 191, 36, 0.1);
-        }
-
-        footer::before {
-          content: '';
-          position: absolute;
-          top: -1px;
-          left: 0;
-          right: 0;
-          height: 1px;
-          background: linear-gradient(90deg, transparent, rgb(251, 191, 36), transparent);
-          opacity: 0.5;
         }
       `}</style>
 
@@ -61,7 +49,7 @@ export function CustomerLayout() {
       </div>
 
       {/* Main content area with padding for navbar and footer */}
-      <main className="flex-1 overflow-y-auto pt-6 pb-24">
+      <main className="flex-1 overflow-y-auto pt-6 pb-12">
         <div className="container mx-auto px-4 animate-slide-up">
           <Outlet />
         </div>
