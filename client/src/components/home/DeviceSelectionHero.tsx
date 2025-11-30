@@ -121,8 +121,8 @@ export function DeviceSelectionHero({
       } catch (error) {
         console.error('Error fetching device types:', error);
         toast({
-          title: 'Error',
-          description: 'Failed to load device types',
+          title: t('common.error'),
+          description: t('home.deviceSelection.failedToLoadDeviceTypes'),
           variant: 'destructive'
         });
       } finally {
@@ -131,7 +131,7 @@ export function DeviceSelectionHero({
     };
 
     fetchDeviceTypes();
-  }, [toast]);
+  }, [toast, t]);
 
   // Handle device search
   const handleDeviceSearch = useCallback(async (query: string) => {
@@ -192,14 +192,14 @@ export function DeviceSelectionHero({
     } catch (error) {
       console.error('Error fetching manufacturers:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load manufacturers',
+        title: t('common.error'),
+        description: t('home.deviceSelection.failedToLoadManufacturers'),
         variant: 'destructive'
       });
     } finally {
       setLoadingManufacturers(false);
     }
-  }, [toast]);
+  }, [toast, t]);
 
   // Handle manufacturer selection
   const handleManufacturerSelect = useCallback(async (manufacturerId: string) => {
@@ -216,14 +216,14 @@ export function DeviceSelectionHero({
     } catch (error) {
       console.error('Error fetching models:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load models',
+        title: t('common.error'),
+        description: t('home.deviceSelection.failedToLoadModels'),
         variant: 'destructive'
       });
     } finally {
       setLoadingModels(false);
     }
-  }, [selectedDeviceType, toast]);
+  }, [selectedDeviceType, toast, t]);
 
   // Handle model selection
   const handleModelSelect = useCallback((modelId: string) => {
@@ -261,8 +261,8 @@ export function DeviceSelectionHero({
   const handleStartRepair = () => {
     if (!selectedDevice) {
       toast({
-        title: 'No device selected',
-        description: 'Please select your device first',
+        title: t('home.deviceSelection.noDeviceSelected'),
+        description: t('home.deviceSelection.pleaseSelectDevice'),
         variant: 'destructive'
       });
       return;
@@ -308,7 +308,7 @@ export function DeviceSelectionHero({
                 className="flex items-center gap-2"
               >
                 <Search className="h-4 w-4" />
-                Quick Search
+                {t('home.deviceSelection.quickSearch')}
               </Button>
               <Button
                 variant={selectionMethod === 'dropdown' ? 'default' : 'outline'}
@@ -317,7 +317,7 @@ export function DeviceSelectionHero({
                 className="flex items-center gap-2"
               >
                 <Package className="h-4 w-4" />
-                Browse by Category
+                {t('home.deviceSelection.browseByCategory')}
               </Button>
               <Button
                 variant={selectionMethod === 'filter' ? 'default' : 'outline'}
@@ -326,7 +326,7 @@ export function DeviceSelectionHero({
                 className="flex items-center gap-2"
               >
                 <Filter className="h-4 w-4" />
-                Advanced Filter
+                {t('home.deviceSelection.advancedFilter')}
               </Button>
             </div>
 
@@ -336,7 +336,7 @@ export function DeviceSelectionHero({
                 <div>
                   <Label htmlFor="deviceSearch" className="text-base font-semibold mb-2 flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-yellow-500" />
-                    Search Your Device
+                    {t('home.deviceSelection.searchYourDevice')}
                   </Label>
                   <div className="relative">
                     <div className="flex items-center gap-2 relative">
@@ -346,7 +346,7 @@ export function DeviceSelectionHero({
                       <Input
                         id="deviceSearch"
                         type="text"
-                        placeholder="Search by device name, brand, or model (e.g., iPhone 13, Samsung Galaxy)"
+                        placeholder={t('home.deviceSelection.searchPlaceholder')}
                         value={searchQuery}
                         onChange={(e) => handleDeviceSearch(e.target.value)}
                         onFocus={() => searchResults.length > 0 && setShowSearchResults(true)}
@@ -371,7 +371,7 @@ export function DeviceSelectionHero({
                           <div className="p-6 text-center text-muted-foreground">
                             <div className="animate-pulse flex items-center justify-center gap-2">
                               <Search className="h-5 w-5 animate-spin" />
-                              Searching devices...
+                              {t('home.deviceSelection.searchingDevices')}
                             </div>
                           </div>
                         ) : searchResults.length > 0 ? (
@@ -400,14 +400,14 @@ export function DeviceSelectionHero({
                           </div>
                         ) : (
                           <div className="p-6 text-center text-muted-foreground text-sm">
-                            No devices found. Try a different search term.
+                            {t('home.deviceSelection.noDevicesFound')}
                           </div>
                         )}
                       </div>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Type at least 2 characters to search
+                    {t('home.deviceSelection.searchMinChars')}
                   </p>
                 </div>
               </div>
@@ -418,11 +418,11 @@ export function DeviceSelectionHero({
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="deviceType" className="text-base font-semibold mb-2">
-                    Select Device Type
+                    {t('home.deviceSelection.selectDeviceType')}
                   </Label>
                   <Select value={selectedDeviceType} onValueChange={handleDeviceTypeSelect}>
                     <SelectTrigger className="h-12 text-base">
-                      <SelectValue placeholder="Choose device type" />
+                      <SelectValue placeholder={t('home.deviceSelection.chooseDeviceType')} />
                     </SelectTrigger>
                     <SelectContent>
                       {deviceTypes.map((type) => (
@@ -443,7 +443,7 @@ export function DeviceSelectionHero({
                 {selectedDeviceType && (
                   <div>
                     <Label htmlFor="manufacturer" className="text-base font-semibold mb-2">
-                      Select Brand
+                      {t('home.deviceSelection.selectBrand')}
                     </Label>
                     <Select
                       value={selectedManufacturer}
@@ -451,7 +451,7 @@ export function DeviceSelectionHero({
                       disabled={loadingManufacturers}
                     >
                       <SelectTrigger className="h-12 text-base">
-                        <SelectValue placeholder={loadingManufacturers ? "Loading brands..." : "Choose brand"} />
+                        <SelectValue placeholder={loadingManufacturers ? t('home.deviceSelection.loadingBrands') : t('home.deviceSelection.chooseBrand')} />
                       </SelectTrigger>
                       <SelectContent>
                         {manufacturers.map((manufacturer) => (
@@ -459,7 +459,7 @@ export function DeviceSelectionHero({
                             <div className="flex items-center gap-2">
                               <span>{manufacturer.name}</span>
                               <Badge variant="secondary" className="ml-2 text-xs">
-                                {manufacturer.count} models
+                                {manufacturer.count} {t('home.deviceSelection.models')}
                               </Badge>
                             </div>
                           </SelectItem>
@@ -472,7 +472,7 @@ export function DeviceSelectionHero({
                 {selectedManufacturer && (
                   <div>
                     <Label htmlFor="model" className="text-base font-semibold mb-2">
-                      Select Model
+                      {t('home.deviceSelection.selectModel')}
                     </Label>
                     <Select
                       value={selectedModel}
@@ -480,7 +480,7 @@ export function DeviceSelectionHero({
                       disabled={loadingModels}
                     >
                       <SelectTrigger className="h-12 text-base">
-                        <SelectValue placeholder={loadingModels ? "Loading models..." : "Choose model"} />
+                        <SelectValue placeholder={loadingModels ? t('home.deviceSelection.loadingModels') : t('home.deviceSelection.chooseModel')} />
                       </SelectTrigger>
                       <SelectContent>
                         {models.map((model) => (
@@ -501,7 +501,7 @@ export function DeviceSelectionHero({
                 {/* Device Type Filter Chips */}
                 <div>
                   <Label className="text-base font-semibold mb-3 block">
-                    Filter by Device Type
+                    {t('home.deviceSelection.filterByDeviceType')}
                   </Label>
                   <div className="flex flex-wrap gap-2">
                     {deviceTypes.map((type) => (
@@ -525,7 +525,7 @@ export function DeviceSelectionHero({
                 {selectedDeviceType && manufacturers.length > 0 && (
                   <div>
                     <Label className="text-base font-semibold mb-3 block">
-                      Filter by Brand
+                      {t('home.deviceSelection.filterByBrand')}
                     </Label>
                     <div className="flex flex-wrap gap-2">
                       {manufacturers.map((manufacturer) => (
@@ -546,7 +546,7 @@ export function DeviceSelectionHero({
                 {selectedManufacturer && models.length > 0 && (
                   <div>
                     <Label className="text-base font-semibold mb-3 block">
-                      Select Model
+                      {t('home.deviceSelection.selectModel')}
                     </Label>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-60 overflow-y-auto">
                       {models.map((model) => (
@@ -600,7 +600,7 @@ export function DeviceSelectionHero({
                 disabled={!selectedDevice}
               >
                 <Zap className="h-5 w-5 mr-2" />
-                Start Repair Order
+                {t('home.deviceSelection.startRepairOrder')}
                 <ArrowRight className="h-5 w-5 ml-2" />
               </Button>
               {!isAuthenticated && (
@@ -610,14 +610,14 @@ export function DeviceSelectionHero({
                   className="h-12 text-base font-semibold"
                   asChild
                 >
-                  <Link to="/login">Sign In</Link>
+                  <Link to="/login">{t('home.deviceSelection.signIn')}</Link>
                 </Button>
               )}
             </div>
 
             {/* Help Text */}
             <p className="text-xs text-center text-muted-foreground mt-4">
-              Can't find your device? <Link to="/new-order" className="underline hover:text-primary">Browse all devices</Link> or <Link to="/contact" className="underline hover:text-primary">contact us</Link> for help.
+              {t('home.deviceSelection.cantFindDevice')} <Link to="/new-order" className="underline hover:text-primary">{t('home.deviceSelection.browseAllDevices')}</Link> {t('home.deviceSelection.orText')} <Link to="/contact" className="underline hover:text-primary">{t('home.deviceSelection.contactUsForHelp')}</Link>.
             </p>
           </CardContent>
         </Card>
@@ -628,19 +628,19 @@ export function DeviceSelectionHero({
             <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
               <span className="text-white font-bold">✓</span>
             </div>
-            <span>Free Diagnostics</span>
+            <span>{t('home.deviceSelection.freeDiagnostics')}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
               <span className="text-white font-bold">✓</span>
             </div>
-            <span>90-Day Warranty</span>
+            <span>{t('home.deviceSelection.warranty90Days')}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
               <span className="text-white font-bold">✓</span>
             </div>
-            <span>Same-Day Service Available</span>
+            <span>{t('home.deviceSelection.sameDayService')}</span>
           </div>
         </div>
       </div>
