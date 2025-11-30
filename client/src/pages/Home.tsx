@@ -15,6 +15,7 @@ import { AboutUsSection } from '@/components/home/AboutUsSection';
 import { ContactSection } from '@/components/home/ContactSection';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { CartIcon } from '@/components/CartIcon';
+import { ProfileDropdown } from '@/components/ProfileDropdown';
 
 export function Home() {
   const { t } = useTranslation();
@@ -110,14 +111,9 @@ export function Home() {
             {/* Shopping Cart with item count and bounce animation */}
             <CartIcon />
 
-            {/* Auth buttons */}
+            {/* Auth-based navigation */}
             {isAuthenticated ? (
-              <Button
-                asChild
-                className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold shadow-md hover:shadow-lg transition-all duration-200"
-              >
-                <Link to="/dashboard">{t('navigation.dashboard')}</Link>
-              </Button>
+              <ProfileDropdown />
             ) : (
               <>
                 <Button

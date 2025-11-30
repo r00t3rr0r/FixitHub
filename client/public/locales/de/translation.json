@@ -42,6 +42,10 @@
     "messages": "Nachrichten",
     "notifications": "Benachrichtigungen",
     "profile": "Profil",
+    "account": "Konto",
+    "bookings": "Buchungen",
+    "invoices": "Rechnungen",
+    "settings": "Einstellungen",
     "webShop": "Webshop",
     "shop": "Shop",
     "browseProducts": "Produkte durchsuchen",
@@ -126,6 +130,7 @@
   },
   "header": {
     "languageSelector": "Sprache",
+    "profileMenu": "Profilmenü",
     "themeToggle": "Design wechseln",
     "notifications": "Benachrichtigungen",
     "profile": "Profil",
