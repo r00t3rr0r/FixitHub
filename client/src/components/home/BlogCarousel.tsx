@@ -1,0 +1,256 @@
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { ChevronLeft, ChevronRight, Calendar, User, Eye } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { getBlogPosts } from '@/api/blog';
+import { toast } from '@/hooks/useToast';
+
+interface BlogPost {
+  _id: string;
+  title: string;
+  excerpt?: string;
+  content?: string;
+  author?: {
+    name: string;
+    avatar?: string;
+  };
+  image?: string;
+  category?: string;
+  publishedAt?: string;
+  views?: number;
+  readTime?: number;
+}
+
+interface BlogCarouselProps {
+  title?: string;
+  maxItems?: number;
+  posts?: BlogPost[];
+}
+
+export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogCarouselProps) {
+  const { t } = useTranslation();
+  const [posts, setPosts] = useState<BlogPost[]>(initialPosts || []);
+  const [loading, setLoading] = useState(!initialPosts);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const { toast: showToast } = toast();
+
+  useEffect(() => {
+    if (!initialPosts) {
+      fetchBlogPosts();
+    }
+  }, [initialPosts]);
+
+  const fetchBlogPosts = async () => {
+    try {
+      setLoading(true);
+      const response = await getBlogPosts({ limit: maxItems, page: 1 });
+      setPosts(response.posts || []);
+    } catch (error) {
+      console.error('Error fetching blog posts:', error);
+      showToast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load blog posts'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const nextSlide = () => {
+    setCurrentIndex((prev) => (prev + 1) % Math.max(1, posts.length - 2));
+  };
+
+  const prevSlide = () => {
+    setCurrentIndex((prev) => (prev - 1 + Math.max(1, posts.length - 2)) % Math.max(1, posts.length - 2));
+  };
+
+  if (loading) {
+    return (
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-4 text-center">
+          <div className="animate-spin inline-block w-12 h-12 border-4 border-yellow-400 border-t-gray-900 rounded-full"></div>
+          <p className="text-gray-600 mt-4">{t('common.loading')}</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (posts.length === 0) {
+    return null;
+  }
+
+  const visiblePosts = posts.slice(currentIndex, currentIndex + 3);
+
+  return (
+    <section className="py-20 bg-white">
+      <div className="container mx-auto px-4">
+        {/* Section Header */}
+        <div className="text-center mb-12">
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            {title || t('home.blog.title')}
+          </h2>
+          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+            {t('home.blog.subtitle')}
+          </p>
+        </div>
+
+        {/* Carousel */}
+        <div className="relative">
+          {/* Posts Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+            {visiblePosts.map((post, index) => (
+              <div
+                key={post._id}
+                className="opacity-0 animate-fadeIn"
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
+                <Card className="h-full overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+                  {/* Featured Image */}
+                  {post.image && (
+                    <div className="relative h-40 bg-gray-200 overflow-hidden">
+                      <img
+                        src={post.image}
+                        alt={post.title}
+                        className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
+                      />
+                      {post.category && (
+                        <Badge className="absolute top-4 right-4 bg-yellow-400 text-gray-900">
+                          {post.category}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+
+                  <CardHeader>
+                    {/* Title */}
+                    <CardTitle className="line-clamp-2 hover:text-yellow-400 transition-colors">
+                      {post.title}
+                    </CardTitle>
+
+                    {/* Metadata */}
+                    <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-600">
+                      {post.publishedAt && (
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          <span>
+                            {new Date(post.publishedAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      )}
+                      {post.readTime && (
+                        <span>{post.readTime} {t('home.blog.minRead')}</span>
+                      )}
+                      {post.views && (
+                        <div className="flex items-center gap-1">
+                          <Eye className="w-4 h-4" />
+                          <span>{post.views}</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardHeader>
+
+                  <CardContent>
+                    {/* Excerpt */}
+                    {post.excerpt && (
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                        {post.excerpt}
+                      </p>
+                    )}
+
+                    {/* Author */}
+                    {post.author && (
+                      <div className="flex items-center gap-3 mb-4 pt-4 border-t">
+                        {post.author.avatar && (
+                          <img
+                            src={post.author.avatar}
+                            alt={post.author.name}
+                            className="w-8 h-8 rounded-full"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">
+                            {post.author.name}
+                          </p>
+                        </div>
+                        <User className="w-4 h-4 text-gray-400" />
+                      </div>
+                    )}
+
+                    {/* Read More Button */}
+                    <Button
+                      variant="outline"
+                      className="w-full border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-gray-900 font-semibold transition-all duration-300 hover:scale-105"
+                    >
+                      {t('home.blog.readMore')}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            ))}
+          </div>
+
+          {/* Navigation Arrows */}
+          {posts.length > 3 && (
+            <>
+              <button
+                onClick={prevSlide}
+                className="absolute -left-6 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-yellow-400 text-gray-900 hover:bg-yellow-500 transition-all duration-300 hover:scale-110 shadow-lg"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+              <button
+                onClick={nextSlide}
+                className="absolute -right-6 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-yellow-400 text-gray-900 hover:bg-yellow-500 transition-all duration-300 hover:scale-110 shadow-lg"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            </>
+          )}
+
+          {/* Indicators */}
+          <div className="flex justify-center gap-2 mt-8">
+            {Array.from({ length: Math.max(1, posts.length - 2) }).map((_, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentIndex(index)}
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  index === currentIndex ? 'bg-yellow-400 w-8' : 'bg-gray-300 w-2'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* View All Button */}
+        <div className="text-center mt-12">
+          <Button
+            size="lg"
+            variant="outline"
+            className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-gray-900 font-semibold"
+          >
+            {t('home.blog.viewAll')}
+          </Button>
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.5s ease-out forwards;
+        }
+      `}</style>
+    </section>
+  );
+}

@@ -7,6 +7,13 @@ import { Smartphone, Tablet, Laptop, Monitor, Star, ArrowRight, CheckCircle, Use
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
+import { HeroSection } from '@/components/home/HeroSection';
+import { ServicesOverview } from '@/components/home/ServicesOverview';
+import { ShopSection } from '@/components/home/ShopSection';
+import { BlogCarousel } from '@/components/home/BlogCarousel';
+import { TestimonialsCarousel } from '@/components/home/TestimonialsCarousel';
+import { AboutUsSection } from '@/components/home/AboutUsSection';
+import { ContactSection } from '@/components/home/ContactSection';
 
 export function Home() {
   const { t } = useTranslation();
@@ -58,7 +65,7 @@ export function Home() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b">
+      <header className="border-b sticky top-0 z-50 bg-white/95 backdrop-blur">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
@@ -67,9 +74,9 @@ export function Home() {
             <span className="text-xl font-bold">FixitHub</span>
           </div>
           <nav className="hidden md:flex items-center gap-6">
-            <a href="#services" className="text-muted-foreground hover:text-foreground">{t('home.nav.services')}</a>
-            <a href="#about" className="text-muted-foreground hover:text-foreground">{t('home.nav.about')}</a>
-            <a href="#contact" className="text-muted-foreground hover:text-foreground">{t('home.nav.contact')}</a>
+            <a href="#services" className="text-muted-foreground hover:text-foreground transition-colors">{t('home.nav.services')}</a>
+            <a href="#about" className="text-muted-foreground hover:text-foreground transition-colors">{t('home.nav.about')}</a>
+            <a href="#contact" className="text-muted-foreground hover:text-foreground transition-colors">{t('home.nav.contact')}</a>
           </nav>
           <div className="flex items-center gap-2">
             {isAuthenticated ? (
@@ -90,31 +97,14 @@ export function Home() {
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="py-20 bg-gradient-to-br from-primary/10 to-secondary/10">
-        <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-6xl font-bold mb-6">
-            {t('home.hero.title')}
-            <span className="text-primary block">{t('home.hero.titleHighlight')}</span>
-          </h1>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            {t('home.hero.subtitle')}
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" asChild>
-              <Link to={isAuthenticated ? "/new-order" : "/register"}>
-                {isAuthenticated ? t('home.hero.bookRepair') : t('home.hero.bookRepair')}
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline">
-              {t('home.hero.getQuote')}
-            </Button>
-          </div>
-        </div>
-      </section>
+      {/* Hero Section with Background Image */}
+      <HeroSection />
+
+      {/* Services Overview - Step by Step */}
+      <ServicesOverview />
 
       {/* Device Types */}
-      <section className="py-16">
+      <section className="py-16 bg-white">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-12">{t('home.devices.title')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -131,35 +121,11 @@ export function Home() {
         </div>
       </section>
 
-      {/* Services */}
-      <section id="services" className="py-16 bg-muted/50">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">{t('home.services.title')}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {services.map((service, index) => (
-              <Card key={index} className="relative">
-                {service.popular && (
-                  <Badge className="absolute -top-2 -right-2 bg-primary">{t('home.services.popular')}</Badge>
-                )}
-                <CardHeader>
-                  <CardTitle>{service.name}</CardTitle>
-                  <CardDescription className="text-2xl font-bold text-primary">
-                    {service.price}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button className="w-full">
-                    {t('home.services.learnMore')} <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Shop Section */}
+      <ShopSection />
 
       {/* Features */}
-      <section className="py-16">
+      <section className="py-16 bg-white">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-12">{t('home.features.title')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -174,96 +140,62 @@ export function Home() {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="py-16 bg-muted/50">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">{t('home.testimonials.title')}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {testimonials.map((testimonial, index) => (
-              <Card key={index}>
-                <CardHeader>
-                  <div className="flex items-center gap-1 mb-2">
-                    {[...Array(testimonial.rating)].map((_, i) => (
-                      <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    ))}
-                  </div>
-                  <CardDescription>"{testimonial.comment}"</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="font-semibold">{testimonial.name}</p>
-                  <p className="text-sm text-muted-foreground">{testimonial.device}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Blog Carousel */}
+      <BlogCarousel />
 
-      {/* CTA Section */}
-      <section className="py-16 bg-primary text-primary-foreground">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-4">{t('home.cta.title')}</h2>
-          <p className="text-xl mb-8 opacity-90">
-            {t('home.cta.subtitle')}
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
-            <Input
-              placeholder={t('home.cta.emailPlaceholder')}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="bg-background text-foreground"
-            />
-            <Button variant="secondary">
-              {t('home.cta.getStarted')}
-            </Button>
-          </div>
-        </div>
-      </section>
+      {/* Testimonials Carousel */}
+      <TestimonialsCarousel />
+
+      {/* About Us Section */}
+      <AboutUsSection />
+
+      {/* Contact Section */}
+      <ContactSection />
 
       {/* Footer */}
-      <footer className="py-12 border-t">
+      <footer className="py-12 border-t bg-gray-900 text-white">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                  <span className="text-primary-foreground font-bold text-sm">FH</span>
+                <div className="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center">
+                  <span className="text-gray-900 font-bold text-sm">FH</span>
                 </div>
                 <span className="text-xl font-bold">FixitHub</span>
               </div>
-              <p className="text-muted-foreground">
+              <p className="text-gray-400">
                 {t('home.footer.tagline')}
               </p>
             </div>
             <div>
               <h3 className="font-semibold mb-4">{t('home.footer.servicesTitle')}</h3>
-              <ul className="space-y-2 text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground">{t('home.services.screenRepair')}</a></li>
-                <li><a href="#" className="hover:text-foreground">{t('home.services.batteryReplacement')}</a></li>
-                <li><a href="#" className="hover:text-foreground">{t('home.services.waterDamage')}</a></li>
-                <li><a href="#" className="hover:text-foreground">{t('home.services.dataRecovery')}</a></li>
+              <ul className="space-y-2 text-gray-400">
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.services.screenRepair')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.services.batteryReplacement')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.services.waterDamage')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.services.dataRecovery')}</a></li>
               </ul>
             </div>
             <div>
               <h3 className="font-semibold mb-4">{t('home.footer.companyTitle')}</h3>
-              <ul className="space-y-2 text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground">{t('home.footer.aboutUs')}</a></li>
-                <li><a href="#" className="hover:text-foreground">{t('home.footer.contact')}</a></li>
-                <li><a href="#" className="hover:text-foreground">{t('home.footer.careers')}</a></li>
-                <li><a href="#" className="hover:text-foreground">{t('navigation.blog')}</a></li>
+              <ul className="space-y-2 text-gray-400">
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.footer.aboutUs')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.footer.contact')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.footer.careers')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('navigation.blog')}</a></li>
               </ul>
             </div>
             <div>
               <h3 className="font-semibold mb-4">{t('home.footer.supportTitle')}</h3>
-              <ul className="space-y-2 text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground">{t('home.footer.helpCenter')}</a></li>
-                <li><a href="#" className="hover:text-foreground">{t('home.footer.warranty')}</a></li>
-                <li><a href="#" className="hover:text-foreground">{t('home.footer.privacyPolicy')}</a></li>
-                <li><a href="#" className="hover:text-foreground">{t('home.footer.termsOfService')}</a></li>
+              <ul className="space-y-2 text-gray-400">
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.footer.helpCenter')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.footer.warranty')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.footer.privacyPolicy')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.footer.termsOfService')}</a></li>
               </ul>
             </div>
           </div>
-          <div className="mt-8 pt-8 border-t text-center text-muted-foreground">
+          <div className="pt-8 border-t border-gray-800 text-center text-gray-400">
             <p>{t('home.footer.copyright')}</p>
           </div>
         </div>

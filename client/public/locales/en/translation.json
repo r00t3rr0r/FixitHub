@@ -31,7 +31,8 @@
     "refresh": "Refresh",
     "actions": "Actions",
     "select": "Select",
-    "optional": "Optional"
+    "optional": "Optional",
+    "sending": "Sending..."
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -1110,7 +1111,10 @@
       "titleHighlight": "You Can Trust",
       "subtitle": "Expert repair services for smartphones, tablets, laptops, and more. Fast turnaround, quality guarantee, and transparent pricing.",
       "bookRepair": "Book Repair Now",
-      "getQuote": "Get Quote"
+      "getQuote": "Get Quote",
+      "mobileRepair": "Mobile Repair",
+      "tabletRepair": "Tablet Repair",
+      "notebookRepair": "Notebook Repair"
     },
     "nav": {
       "services": "Services",
@@ -1131,6 +1135,15 @@
     },
     "services": {
       "title": "Our Services",
+      "hoSoEinfachGehts": "So einfach geht's",
+      "step1Title": "Gerät und Reparatur auswählen",
+      "step1Desc": "Choose your device type and select the repair service you need",
+      "step2Title": "Gerät kostenlos einsenden oder vorbeibringen",
+      "step2Desc": "Send your device for free or bring it to our service center",
+      "step3Title": "Wir reparieren es schnell und zuverlässig (24h bei Express)",
+      "step3Desc": "Our expert technicians repair your device quickly and reliably",
+      "step4Title": "Sie erhalten Ihr Gerät repariert zurück (1 Jahr Qualitätsgarantie)",
+      "step4Desc": "Get your fully repaired device back with our 1-year quality guarantee",
       "screenRepair": "Screen Repair",
       "batteryReplacement": "Battery Replacement",
       "waterDamage": "Water Damage",
@@ -1138,6 +1151,62 @@
       "from": "From",
       "popular": "Popular",
       "learnMore": "Learn More"
+    },
+    "shop": {
+      "title": "Featured Products",
+      "subtitle": "Quality repair parts and accessories for your devices",
+      "allProducts": "All Products",
+      "featured": "Featured",
+      "inStock": "In Stock",
+      "outOfStock": "Out of Stock",
+      "addToCart": "Add to Cart",
+      "viewAll": "View All Products",
+      "noProducts": "No products available",
+      "reviews": "reviews"
+    },
+    "blog": {
+      "title": "Latest Blog Articles",
+      "subtitle": "Expert tips and repair guides to help maintain your devices",
+      "readMore": "Read More",
+      "viewAll": "View All Articles",
+      "minRead": "min read"
+    },
+    "testimonials": {
+      "title": "What Our Customers Say",
+      "subtitle": "Thousands of satisfied customers trust us with their device repairs",
+      "sarah": "Excellent service! My iPhone was repaired quickly and works perfectly. The staff was professional and the pricing was very reasonable.",
+      "mike": "Professional staff and fair pricing. Highly recommend!",
+      "emily": "Saved my laptop with water damage. Great work!",
+      "john": "Best repair experience I've had. Fast service and great warranty coverage.",
+      "lisa": "Amazing from start to finish. Great communication throughout the process.",
+      "of": "of"
+    },
+    "about": {
+      "title": "About Us",
+      "content": "McRepair.de is one of the leading online service providers for professional repair of smartphones, tablets, notebooks and smartwatches.",
+      "contentPart2": "Technicians with years of experience in the mobile industry and repair sector put defective or damaged mobile devices of all kinds back in working order quickly, competently and reliably.",
+      "keyPoint1": "Over 350 partner locations nationwide",
+      "keyPoint2": "10,000+ devices repaired successfully",
+      "keyPoint3": "Expert technicians with certification",
+      "keyPoint4": "1-year quality guarantee on all repairs",
+      "partnerLocations": "Partner Locations",
+      "devicesRepaired": "Devices Repaired",
+      "avgTurnaround": "Average Turnaround",
+      "satisfaction": "Satisfaction Rate"
+    },
+    "contact": {
+      "title": "Get in Touch",
+      "subtitle": "Have questions? Our support team is here to help",
+      "address": "Address",
+      "phone": "Phone",
+      "email": "Email",
+      "hours": "Hours",
+      "sendMessage": "Send us a Message",
+      "sendMessageDesc": "Our team will get back to you as soon as possible",
+      "newsletter": "Subscribe to Our Newsletter",
+      "emailPlaceholder": "Enter your email",
+      "subscribe": "Subscribe",
+      "newsletterPrivacy": "We respect your privacy. Unsubscribe at any time."
     },
     "features": {
       "title": "Why Choose FixitHub?",
