@@ -1325,7 +1325,9 @@
     "promoAppliedDesc": "Ihr Rabatt wurde auf den Warenkorb angewendet",
     "failedToLoad": "Fehler beim Laden des Warenkorbs",
     "failedToUpdate": "Fehler beim Aktualisieren des Warenkorbs",
-    "failedToApplyPromo": "Fehler beim Anwenden des Aktionscodes"
+    "failedToApplyPromo": "Fehler beim Anwenden des Aktionscodes",
+    "multipleOrders": "Mehrere Aufträge",
+    "orderQuantityBadge": "{{quantity}}x Aufträge"
   },
   "checkout": {
     "authenticationRequired": "Authentifizierung Erforderlich",
@@ -1669,6 +1671,12 @@
       "relatedInfo": "Verwandte Informationen",
       "guide": "{{service}} Anleitung",
       "articlesAvailable": "{{count}} Artikel verfügbar",
+      "quantityTitle": "Auftragsmenge",
+      "quantitySubtitle": "Wie viele identische Geräte benötigen diese Reparatur?",
+      "quantityLabel": "Menge:",
+      "quantityNote": "💡 <strong>Hinweis:</strong> Jedes Gerät wird als separater Auftrag erstellt. Dies ist nützlich, wenn Sie mehrere identische Geräte haben, die die gleichen Reparaturen benötigen (z.B. Firmenhandy-Flotte, Lagerbestand).",
+      "quantityOrders": "📦 Sie erstellen <strong>{{quantity}}</strong> separate Reparaturaufträge",
+      "quantityTotalCost": "Gesamtkosten: {{total}} €",
       "unlockTitle": "Gerätesperreinformationen",
       "unlockSubtitle": "Geben Sie Ihre Gerätesperrdetails für einen reibungslosen Reparaturservice an",
       "addOnsTitle": "Zusatzdienste",
@@ -1686,6 +1694,9 @@
       "photosHint": "Laden Sie Fotos hoch, um uns bei der besseren Schadensbewertung zu helfen",
       "notesLabel": "Zusätzliche Notizen (Optional)",
       "notesPlaceholder": "Beschreiben Sie das Problem, wann es begonnen hat oder andere relevante Informationen...",
+      "quantityInfo": "Auftragsmengeninformationen",
+      "multipleOrders": "Sie erstellen {{quantity}} identische Reparaturaufträge",
+      "totalForAll": "Gesamt für alle Aufträge: {{total}} €",
       "unlockInfoTitle": "Gerätesperreinformationen",
       "deviceNoLock": "Gerät hat keine Sperre",
       "patternLock": "Mustersperre:",

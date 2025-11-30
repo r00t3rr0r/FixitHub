@@ -1033,17 +1033,17 @@ export function NewOrder() {
                   <div className="p-2 bg-purple-500 rounded-lg shadow-md">
                     <Package className="h-5 w-5 text-white" />
                   </div>
-                  <span>Order Quantity</span>
+                  <span>{t('newOrder.detailsStep.quantityTitle')}</span>
                 </CardTitle>
                 <CardDescription className="text-base">
-                  How many identical devices need this repair?
+                  {t('newOrder.detailsStep.quantitySubtitle')}
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
                 <div className="space-y-4">
                   <div className="flex items-center gap-4">
                     <Label htmlFor="quantity" className="text-base font-semibold min-w-[100px]">
-                      Quantity:
+                      {t('newOrder.detailsStep.quantityLabel')}
                     </Label>
                     <div className="flex items-center gap-3">
                       <Button
@@ -1081,16 +1081,12 @@ export function NewOrder() {
                     </div>
                   </div>
                   <div className="bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 border-2 border-purple-300 dark:border-purple-700 rounded-xl p-4">
-                    <p className="text-sm text-purple-900 dark:text-purple-100 leading-relaxed">
-                      💡 <strong>Note:</strong> Each device will be created as a separate order. This is useful when you have multiple identical devices requiring the same repairs (e.g., company phone fleet, inventory stock).
-                    </p>
+                    <p className="text-sm text-purple-900 dark:text-purple-100 leading-relaxed" dangerouslySetInnerHTML={{ __html: t('newOrder.detailsStep.quantityNote') }} />
                     {quantity > 1 && (
                       <div className="mt-3 pt-3 border-t border-purple-300 dark:border-purple-700">
-                        <p className="text-sm font-bold text-purple-900 dark:text-purple-100">
-                          📦 You will create <span className="text-lg text-purple-600 dark:text-purple-400">{quantity}</span> separate repair orders
-                        </p>
+                        <p className="text-sm font-bold text-purple-900 dark:text-purple-100" dangerouslySetInnerHTML={{ __html: t('newOrder.detailsStep.quantityOrders', { quantity }) }} />
                         <p className="text-xs text-purple-700 dark:text-purple-200 mt-1">
-                          Total cost: ${calculateTotal() * quantity}
+                          {t('newOrder.detailsStep.quantityTotalCost', { total: (calculateTotal() * quantity).toFixed(2) })}
                         </p>
                       </div>
                     )}
@@ -1317,6 +1313,25 @@ export function NewOrder() {
                         {t('newOrder.reviewStep.unlockCodeProvided')}
                       </p>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Quantity Information Display */}
+              {quantity > 1 && (
+                <div className="bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-950/40 dark:to-pink-950/40 border-2 border-purple-300 dark:border-purple-700 rounded-xl p-5 space-y-3 animate-in zoom-in duration-300">
+                  <h4 className="font-bold text-sm flex items-center gap-2">
+                    <Package className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    {t('newOrder.reviewStep.quantityInfo')}
+                  </h4>
+                  <div className="text-sm space-y-2">
+                    <p className="text-purple-900 dark:text-purple-100 flex items-center gap-2 font-semibold">
+                      <Check className="h-4 w-4 text-purple-600" />
+                      {t('newOrder.reviewStep.multipleOrders', { quantity })}
+                    </p>
+                    <p className="text-purple-900 dark:text-purple-100 font-bold text-lg">
+                      {t('newOrder.reviewStep.totalForAll', { total: (calculateTotal() * quantity).toFixed(2) })}
+                    </p>
                   </div>
                 </div>
               )}

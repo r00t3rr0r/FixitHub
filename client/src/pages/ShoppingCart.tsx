@@ -432,78 +432,123 @@ export function ShoppingCartPage() {
             ))}
 
             {/* Repair Orders */}
-            {cart.repairOrders && cart.repairOrders.map((order: any, index: number) => (
-              <div
-                key={order._id}
-                className="group"
-                style={{
-                  animation: `fadeInUp 0.5s ease-out ${(cart.items.length + index) * 0.1}s both`
-                }}
-              >
-                <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 bg-gradient-to-br from-yellow-50/50 via-white to-white backdrop-blur-sm overflow-hidden group-hover:scale-[1.02]">
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600"></div>
-                  <CardContent className="p-6">
-                    <div className="flex gap-6">
-                      <div className="relative">
-                        <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/30 to-yellow-500/20 rounded-xl blur-xl animate-pulse"></div>
-                        <div className="relative w-24 h-24 flex items-center justify-center bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-xl shadow-lg group-hover:scale-105 transition-transform duration-300">
-                          <Wrench className="h-12 w-12 text-white drop-shadow-md" />
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="flex-1 min-w-0 pr-4">
-                            <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <h3 className="font-bold text-lg text-gray-900">Repair Order</h3>
-                              <Badge className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 border-0 shadow-sm">
-                                <Smartphone className="h-3 w-3 mr-1" />
-                                Device Repair
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-gray-600 font-medium">
-                              {order.deviceType} • {order.deviceBrand} • {order.deviceModel}
-                            </p>
-                            <div className="mt-3 flex gap-4 text-xs text-gray-500">
-                              <div className="flex items-center gap-1">
-                                <CheckCircle2 className="h-3 w-3 text-yellow-600" />
-                                <span><strong>{order.services?.length || 0}</strong> service(s)</span>
-                              </div>
-                              {order.addOns && order.addOns.length > 0 && (
-                                <div className="flex items-center gap-1">
-                                  <Zap className="h-3 w-3 text-yellow-600" />
-                                  <span><strong>{order.addOns.length}</strong> add-on(s)</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemoveRepairOrder(order._id)}
-                            disabled={updating === order._id}
-                            className="hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+            {cart.repairOrders && (() => {
+              // Group repair orders by identical specifications
+              const groupedOrders: { [key: string]: any[] } = {}
+              cart.repairOrders.forEach((order: any) => {
+                const key = `${order.deviceType}-${order.deviceBrand}-${order.deviceModel}-${order.services?.join(',')}-${order.addOns?.map((a: any) => a.name).join(',')}-${order.totalCost}`
+                if (!groupedOrders[key]) {
+                  groupedOrders[key] = []
+                }
+                groupedOrders[key].push(order)
+              })
 
-                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-yellow-200">
-                          <div className="text-xs text-gray-500 flex items-center gap-1">
-                            <Shield className="h-3 w-3 text-yellow-600" />
-                            Professional repair services included
+              let displayIndex = 0
+              return Object.values(groupedOrders).map((ordersGroup, groupIndex) => {
+                const order = ordersGroup[0] // Use first order as representative
+                const quantity = ordersGroup.length
+                const currentIndex = displayIndex
+                displayIndex++
+
+                return (
+                  <div
+                    key={`group-${groupIndex}`}
+                    className="group"
+                    style={{
+                      animation: `fadeInUp 0.5s ease-out ${(cart.items.length + currentIndex) * 0.1}s both`
+                    }}
+                  >
+                    <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 bg-gradient-to-br from-yellow-50/50 via-white to-white backdrop-blur-sm overflow-hidden group-hover:scale-[1.02]">
+                      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600"></div>
+                      <CardContent className="p-6">
+                        <div className="flex gap-6">
+                          <div className="relative">
+                            <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/30 to-yellow-500/20 rounded-xl blur-xl animate-pulse"></div>
+                            <div className="relative w-24 h-24 flex items-center justify-center bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-xl shadow-lg group-hover:scale-105 transition-transform duration-300">
+                              <Wrench className="h-12 w-12 text-white drop-shadow-md" />
+                            </div>
+                            {quantity > 1 && (
+                              <div className="absolute -top-2 -right-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm shadow-lg">
+                                {quantity}
+                              </div>
+                            )}
                           </div>
-                          <div className="text-right">
-                            <p className="font-bold text-2xl bg-gradient-to-r from-yellow-600 to-yellow-700 bg-clip-text text-transparent">
-                              ${order.totalCost.toFixed(2)}
-                            </p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start mb-3">
+                              <div className="flex-1 min-w-0 pr-4">
+                                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                  <h3 className="font-bold text-lg text-gray-900">Repair Order</h3>
+                                  <Badge className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 border-0 shadow-sm">
+                                    <Smartphone className="h-3 w-3 mr-1" />
+                                    Device Repair
+                                  </Badge>
+                                  {quantity > 1 && (
+                                    <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 shadow-sm">
+                                      <Package className="h-3 w-3 mr-1" />
+                                      {t('cart.orderQuantityBadge', { quantity })}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-600 font-medium">
+                                  {order.deviceType} • {order.deviceBrand} • {order.deviceModel}
+                                </p>
+                                <div className="mt-3 flex gap-4 text-xs text-gray-500 flex-wrap">
+                                  <div className="flex items-center gap-1">
+                                    <CheckCircle2 className="h-3 w-3 text-yellow-600" />
+                                    <span><strong>{order.services?.length || 0}</strong> service(s)</span>
+                                  </div>
+                                  {order.addOns && order.addOns.length > 0 && (
+                                    <div className="flex items-center gap-1">
+                                      <Zap className="h-3 w-3 text-yellow-600" />
+                                      <span><strong>{order.addOns.length}</strong> add-on(s)</span>
+                                    </div>
+                                  )}
+                                  {quantity > 1 && (
+                                    <div className="flex items-center gap-1">
+                                      <Package className="h-3 w-3 text-purple-600" />
+                                      <span className="text-purple-600 font-bold">{quantity} identical orders</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  // Remove all orders in this group
+                                  ordersGroup.forEach(o => handleRemoveRepairOrder(o._id))
+                                }}
+                                disabled={ordersGroup.some(o => updating === o._id)}
+                                className="hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+
+                            <div className="flex items-center justify-between mt-4 pt-4 border-t border-yellow-200">
+                              <div className="text-xs text-gray-500 flex items-center gap-1">
+                                <Shield className="h-3 w-3 text-yellow-600" />
+                                Professional repair services included
+                              </div>
+                              <div className="text-right">
+                                {quantity > 1 && (
+                                  <p className="text-xs text-gray-500 mb-1">
+                                    ${order.totalCost.toFixed(2)} each × {quantity}
+                                  </p>
+                                )}
+                                <p className="font-bold text-2xl bg-gradient-to-r from-yellow-600 to-yellow-700 bg-clip-text text-transparent">
+                                  ${(order.totalCost * quantity).toFixed(2)}
+                                </p>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            ))}
+                      </CardContent>
+                    </Card>
+                  </div>
+                )
+              })
+            })()}
           </div>
 
           {/* Order Summary - Right Column (1/3 width) */}
