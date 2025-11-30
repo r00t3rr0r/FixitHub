@@ -72,26 +72,46 @@ export function ShopSection({ title, maxItems = 6, products: initialProducts }: 
   const categories = ['all', ...new Set(products.map(p => p.category))];
 
   return (
-    <section className="py-20 bg-gradient-to-b from-gray-50 to-white">
-      <div className="container mx-auto px-4">
+    <section
+      className="relative py-24 overflow-hidden"
+      style={{
+        backgroundImage: 'url(https://www.mcrepair.de/bilder/home/banner/fakten_bg.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      {/* Overlay with gradient for better text readability */}
+      <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/60 to-black/70"></div>
+
+      {/* Animated particles background */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-10 left-10 w-72 h-72 bg-yellow-400/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-10 right-10 w-72 h-72 bg-yellow-400/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+      </div>
+
+      {/* Content */}
+      <div className="container mx-auto px-4 relative z-10">
         {/* Section Header */}
-        <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+        <div className="text-center mb-12 animate-fadeIn">
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
             {title || t('home.shop.title')}
           </h2>
-          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+          <div className="w-24 h-1 bg-gradient-to-r from-yellow-400 to-yellow-500 mx-auto rounded-full mb-4"></div>
+          <p className="text-xl text-gray-200 max-w-2xl mx-auto">
             {t('home.shop.subtitle')}
           </p>
         </div>
 
         {/* Filter Buttons */}
-        <div className="flex flex-wrap justify-center gap-3 mb-12">
-          {categories.map(category => (
+        <div className="flex flex-wrap justify-center gap-3 mb-12 animate-slideIn" style={{ animationDelay: '0.1s' }}>
+          {categories.map((category, idx) => (
             <Button
               key={category}
               variant={filter === category ? 'default' : 'outline'}
               onClick={() => setFilter(category)}
-              className="capitalize transition-all duration-300"
+              className="capitalize transition-all duration-300 bg-white/10 hover:bg-yellow-400 text-white hover:text-gray-900 border-white/30"
+              style={{ animationDelay: `${idx * 50}ms` }}
             >
               {category === 'all' ? t('home.shop.allProducts') : category}
             </Button>
@@ -109,12 +129,13 @@ export function ShopSection({ title, maxItems = 6, products: initialProducts }: 
         {/* Products Grid */}
         {!loading && filteredProducts.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-            {filteredProducts.map(product => (
+            {filteredProducts.map((product, idx) => (
               <div
                 key={product._id}
-                className="group"
+                className="group animate-scaleIn"
+                style={{ animationDelay: `${idx * 100}ms` }}
               >
-                <Card className="h-full overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+                <Card className="h-full overflow-hidden bg-white/10 backdrop-blur-md border border-white/20 hover:border-yellow-400/50 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
                   {/* Product Image */}
                   <div className="relative h-48 bg-gray-200 overflow-hidden">
                     {product.image ? (
@@ -153,7 +174,7 @@ export function ShopSection({ title, maxItems = 6, products: initialProducts }: 
 
                   <CardHeader>
                     {/* Product Title */}
-                    <CardTitle className="line-clamp-2 group-hover:text-yellow-400 transition-colors">
+                    <CardTitle className="line-clamp-2 group-hover:text-yellow-400 transition-colors text-white">
                       {product.name}
                     </CardTitle>
 
@@ -169,7 +190,7 @@ export function ShopSection({ title, maxItems = 6, products: initialProducts }: 
                           ))}
                         </div>
                         {product.reviews && (
-                          <span className="text-sm text-gray-600">
+                          <span className="text-sm text-gray-300">
                             ({product.reviews} {t('home.shop.reviews')})
                           </span>
                         )}
@@ -180,18 +201,18 @@ export function ShopSection({ title, maxItems = 6, products: initialProducts }: 
                   <CardContent>
                     {/* Description */}
                     {product.description && (
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                      <p className="text-gray-300 text-sm mb-4 line-clamp-2">
                         {product.description}
                       </p>
                     )}
 
                     {/* Pricing */}
                     <div className="flex items-baseline gap-2 mb-4">
-                      <span className="text-2xl font-bold text-yellow-400">
+                      <span className="text-2xl font-bold text-yellow-300">
                         ${product.price.toFixed(2)}
                       </span>
                       {product.originalPrice && (
-                        <span className="text-gray-400 line-through">
+                        <span className="text-gray-500 line-through">
                           ${product.originalPrice.toFixed(2)}
                         </span>
                       )}
@@ -222,7 +243,7 @@ export function ShopSection({ title, maxItems = 6, products: initialProducts }: 
 
         {/* View All Button */}
         {filteredProducts.length > 0 && (
-          <div className="text-center">
+          <div className="text-center animate-fadeInUp" style={{ animationDelay: '0.6s' }}>
             <Button
               size="lg"
               variant="outline"
@@ -233,6 +254,70 @@ export function ShopSection({ title, maxItems = 6, products: initialProducts }: 
           </div>
         )}
       </div>
+
+      <style jsx>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateX(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
+        @keyframes scaleIn {
+          from {
+            opacity: 0;
+            transform: scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .animate-fadeIn {
+          animation: fadeIn 0.6s ease-out;
+        }
+
+        .animate-slideIn {
+          animation: slideIn 0.5s ease-out forwards;
+          opacity: 0;
+        }
+
+        .animate-scaleIn {
+          animation: scaleIn 0.5s ease-out forwards;
+          opacity: 0;
+        }
+
+        .animate-fadeInUp {
+          animation: fadeInUp 0.6s ease-out;
+        }
+      `}</style>
     </section>
   );
 }

@@ -69,10 +69,19 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
 
   if (loading) {
     return (
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-4 text-center">
-          <div className="animate-spin inline-block w-12 h-12 border-4 border-yellow-400 border-t-gray-900 rounded-full"></div>
-          <p className="text-gray-600 mt-4">{t('common.loading')}</p>
+      <section
+        className="relative py-20 overflow-hidden"
+        style={{
+          backgroundImage: 'url(https://www.mcrepair.de/bilder/home/banner/counter_bg.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed'
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/60"></div>
+        <div className="container mx-auto px-4 text-center relative z-10">
+          <div className="animate-spin inline-block w-12 h-12 border-4 border-yellow-400 border-t-white rounded-full"></div>
+          <p className="text-gray-200 mt-4">{t('common.loading')}</p>
         </div>
       </section>
     );
@@ -85,14 +94,33 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
   const visiblePosts = posts.slice(currentIndex, currentIndex + 3);
 
   return (
-    <section className="py-20 bg-white">
-      <div className="container mx-auto px-4">
+    <section
+      className="relative py-24 overflow-hidden"
+      style={{
+        backgroundImage: 'url(https://www.mcrepair.de/bilder/home/banner/counter_bg.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      {/* Overlay with gradient for better text readability */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/60"></div>
+
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-20 left-1/4 w-96 h-96 bg-yellow-400/5 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute bottom-20 right-1/4 w-96 h-96 bg-yellow-400/5 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
+      </div>
+
+      {/* Content */}
+      <div className="container mx-auto px-4 relative z-10">
         {/* Section Header */}
-        <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+        <div className="text-center mb-12 animate-slideIn">
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
             {title || t('home.blog.title')}
           </h2>
-          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+          <div className="w-24 h-1 bg-gradient-to-r from-yellow-400 to-yellow-500 mx-auto rounded-full mb-4"></div>
+          <p className="text-xl text-gray-200 max-w-2xl mx-auto">
             {t('home.blog.subtitle')}
           </p>
         </div>
@@ -104,10 +132,10 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
             {visiblePosts.map((post, index) => (
               <div
                 key={post._id}
-                className="opacity-0 animate-fadeIn"
-                style={{ animationDelay: `${index * 100}ms` }}
+                className="animate-scaleIn group"
+                style={{ animationDelay: `${index * 150}ms` }}
               >
-                <Card className="h-full overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+                <Card className="h-full overflow-hidden bg-white/10 backdrop-blur-md border border-white/20 hover:border-yellow-400/50 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
                   {/* Featured Image */}
                   {post.image && (
                     <div className="relative h-40 bg-gray-200 overflow-hidden">
@@ -126,12 +154,12 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
 
                   <CardHeader>
                     {/* Title */}
-                    <CardTitle className="line-clamp-2 hover:text-yellow-400 transition-colors">
+                    <CardTitle className="line-clamp-2 hover:text-yellow-400 transition-colors text-white">
                       {post.title}
                     </CardTitle>
 
                     {/* Metadata */}
-                    <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-600">
+                    <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-300">
                       {post.publishedAt && (
                         <div className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
@@ -155,14 +183,14 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
                   <CardContent>
                     {/* Excerpt */}
                     {post.excerpt && (
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                      <p className="text-gray-300 text-sm mb-4 line-clamp-3">
                         {post.excerpt}
                       </p>
                     )}
 
                     {/* Author */}
                     {post.author && (
-                      <div className="flex items-center gap-3 mb-4 pt-4 border-t">
+                      <div className="flex items-center gap-3 mb-4 pt-4 border-t border-white/20">
                         {post.author.avatar && (
                           <img
                             src={post.author.avatar}
@@ -171,7 +199,7 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
                           />
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-gray-900 truncate">
+                          <p className="text-sm font-semibold text-white truncate">
                             {post.author.name}
                           </p>
                         </div>
@@ -211,13 +239,13 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
           )}
 
           {/* Indicators */}
-          <div className="flex justify-center gap-2 mt-8">
+          <div className="flex justify-center gap-2 mt-8 animate-fadeInUp" style={{ animationDelay: '0.3s' }}>
             {Array.from({ length: Math.max(1, posts.length - 2) }).map((_, index) => (
               <button
                 key={index}
                 onClick={() => setCurrentIndex(index)}
                 className={`h-2 rounded-full transition-all duration-300 ${
-                  index === currentIndex ? 'bg-yellow-400 w-8' : 'bg-gray-300 w-2'
+                  index === currentIndex ? 'bg-yellow-400 w-8' : 'bg-gray-400 w-2'
                 }`}
               />
             ))}
@@ -225,7 +253,7 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
         </div>
 
         {/* View All Button */}
-        <div className="text-center mt-12">
+        <div className="text-center mt-12 animate-fadeInUp" style={{ animationDelay: '0.5s' }}>
           <Button
             size="lg"
             variant="outline"
@@ -240,15 +268,71 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
         @keyframes fadeIn {
           from {
             opacity: 0;
-            transform: translateY(10px);
+            transform: translateY(20px);
           }
           to {
             opacity: 1;
             transform: translateY(0);
           }
         }
-        .animate-fadeIn {
-          animation: fadeIn 0.5s ease-out forwards;
+
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes scaleIn {
+          from {
+            opacity: 0;
+            transform: scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes float {
+          0%, 100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-30px);
+          }
+        }
+
+        .animate-slideIn {
+          animation: slideIn 0.6s ease-out;
+        }
+
+        .animate-scaleIn {
+          animation: scaleIn 0.5s ease-out forwards;
+          opacity: 0;
+        }
+
+        .animate-fadeInUp {
+          animation: fadeInUp 0.6s ease-out;
+        }
+
+        .animate-float {
+          animation: float 6s ease-in-out infinite;
         }
       `}</style>
     </section>
