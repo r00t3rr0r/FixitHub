@@ -107,7 +107,7 @@ function App() {
             <Route path="/notifications" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Notifications />} />
             </Route>
-            <Route path="/profile" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/profile" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
               <Route index element={<Profile />} />
             </Route>
             <Route path="/bookings" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
