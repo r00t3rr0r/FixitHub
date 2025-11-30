@@ -107,10 +107,10 @@ function App() {
             <Route path="/invoices" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
               <Route index element={<CustomerInvoices />} />
             </Route>
-            <Route path="/blog" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/blog" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
               <Route index element={<Blog />} />
             </Route>
-            <Route path="/blog/:id" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/blog/:id" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
               <Route index element={<BlogPostPage />} />
             </Route>
 

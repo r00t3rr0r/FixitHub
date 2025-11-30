@@ -16,7 +16,7 @@
 	"client/tsconfig.node.json": "TypeScript configuration for Node.js build tools and Vite configuration, enabling strict type checking, bundler module resolution, and ES2022+ language features.",
 	"client/vite.config.ts": "Vite configuration for React client with path aliasing, API/logs proxy routing to backend services, and development server settings for localhost and pythagora.ai hosts.",
 	"client/src/App.css": "Global stylesheet for the App component, defining layout constraints, logo animations with hover effects, card styling, and responsive motion preferences.",
-	"client/src/App.tsx": "Root application component with complete routing structure for public, customer, staff, and admin routes, wrapped with authentication, theme, and toast notification providers.",
+	"client/src/App.tsx": "Root application component defining the complete routing structure with public, customer, staff, and admin routes, wrapped with authentication, theme, and toast notification providers.",
 	"client/src/index.css": "Global stylesheet with Tailwind CSS directives, light/dark theme CSS variables, custom scrollbar utilities, and React-Quill editor styling.",
 	"client/src/main.tsx": "React application entry point that initializes the root DOM element, imports global styles and i18n configuration, and renders the App component with StrictMode.",
 	"client/src/vite-env.d.ts": "TypeScript ambient declaration file for Vite client-side type definitions and environment variables.",
@@ -127,8 +127,8 @@
 	"client/src/hooks/useToast.ts": "Custom React hook for managing toast notifications with state reducer pattern, exporting `useToast` and `toast` for adding, updating, dismissing, and removing toast messages with automatic cleanup.",
 	"client/src/lib/utils.ts": "Utility function for merging Tailwind CSS classes with clsx and twMerge, exports cn helper for conditional class composition.",
 	"client/src/pages/BlankPage.tsx": "Placeholder page component displaying a \"Under Construction\" message with gradient styling, featuring navigation buttons to return to dashboard or go back.",
-	"client/src/pages/Blog.tsx": "Blog listing page component with search and category filtering, displaying featured post and grid of blog articles with metadata including author, publication date, read time, views, and likes.",
-	"client/src/pages/BlogPost.tsx": "React page component that displays a single blog post with featured image, author details, metadata, and interactive features including like toggle and share functionality.",
+	"client/src/pages/Blog.tsx": "Blog listing page component with search and category filtering, displaying featured post and grid of blog articles with metadata, author info, and engagement metrics.",
+	"client/src/pages/BlogPost.tsx": "Blog post detail page component that fetches and displays individual articles with metadata, author information, like/share functionality, and enhanced UI styling with loading and error states.",
 	"client/src/pages/Dashboard.tsx": "Main dashboard page component displaying user overview with order statistics, recent orders with progress tracking, shopping cart summary, blog recommendations, notifications, and quick action buttons for common tasks.",
 	"client/src/pages/DebugLogin.tsx": "Deployment debugging page for FixitHub that provides diagnostic tools and quick actions to verify server/database health, seed test users, and validate login credentials with real-time status display.",
 	"client/src/pages/Home.tsx": "Landing page component featuring a sticky header with logo, navigation, and authentication controls, alongside hero section, services overview, devices section, shop, features, blog carousel, testimonials, about us, contact section, and footer with multi-column layout.",
@@ -606,5 +606,10 @@
 	"client/src/components/ProfileDropdown.tsx": "Dropdown menu component displaying authenticated user profile with avatar, name, email, and navigation links to profile, orders, bookings, invoices, settings, and logout functionality.",
 	"client/src/components/CustomerLayout.tsx": "Layout wrapper component for customer pages that renders CustomerNavbar, routed content via Outlet, and Footer with a gradient background and responsive spacing.",
 	"client/src/components/CustomerNavbar.tsx": "Navigation header component for customer-facing pages with logo, navigation links, language selector, shopping cart, and authentication controls; includes logo preloading, responsive design, and i18n support.",
-	"ORDER_DETAILS_REDESIGN_COMPLETE.md": "Documentation of the Order Details page redesign implementation, detailing routing changes from Layout to CustomerLayout component, integration of CustomerNavbar and Footer, design alignment with homepage aesthetics, UX improvements, technical specifications, and deployment status."
+	"ORDER_DETAILS_REDESIGN_COMPLETE.md": "Documentation of the Order Details page redesign implementation, detailing routing changes from Layout to CustomerLayout component, integration of CustomerNavbar and Footer, design alignment with homepage aesthetics, UX improvements, technical specifications, and deployment status.",
+	"client/dist/index.html": "Entry point HTML file for the FixitHub application, linking bundled JavaScript and CSS assets with a root DOM element for React mounting.",
+	"client/dist/locales/de/translation.json": "German translation file for FixitHub device repair management system, containing localized strings for admin panels, user management, order workflows, services, blog, shop, checkout, and customer-facing pages.",
+	"client/dist/locales/en/translation.json": "English translation file for the FixitHub application, containing localized strings for UI components, pages, dialogs, and system messages across admin, staff, customer, and public-facing interfaces.",
+	"client/dist/assets/index-DYF7XjcX.css": "Compiled Tailwind CSS stylesheet with utility classes, component styles, animations, and theme variables for the application's UI design system.",
+	"client/dist/assets/index.es-FXr_y3E4.js": "Minified and bundled JavaScript library containing SVG rendering engine with support for animations, gradients, filters, text rendering, and canvas-based drawing capabilities."
 }
