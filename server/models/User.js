@@ -44,6 +44,67 @@ const schema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  // Customer-specific fields
+  customerNumber: {
+    type: String,
+    default: '',
+  },
+  customerGroup: {
+    type: String,
+    default: '',
+  },
+  salutation: {
+    type: String,
+    default: '',
+    enum: ['', 'Mr', 'Ms', 'Mrs', 'Dr', 'Prof'],
+  },
+  title: {
+    type: String,
+    default: '',
+  },
+  addressAddition: {
+    type: String,
+    default: '',
+  },
+  customerOrigin: {
+    type: String,
+    default: '',
+  },
+  postId: {
+    type: String,
+    default: '',
+  },
+  newsletter: {
+    type: Boolean,
+    default: false,
+  },
+  comment: {
+    type: String,
+    default: '',
+  },
+  paymentMethod: {
+    type: String,
+    default: '',
+  },
+  paymentTerms: {
+    type: String,
+    default: '',
+  },
+  internalKey: {
+    type: String,
+    default: '',
+  },
+  status: {
+    type: String,
+    default: 'active',
+    enum: ['active', 'inactive', 'suspended', 'blocked'],
+  },
+  discount: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100,
+  },
   role: {
     type: String,
     enum: ['customer', 'staff', 'admin'],

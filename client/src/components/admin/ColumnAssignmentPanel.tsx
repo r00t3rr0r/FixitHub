@@ -20,13 +20,30 @@ export const ColumnAssignmentPanel: React.FC<ColumnAssignmentPanelProps> = ({
   const { t } = useTranslation();
 
   const systemFields = [
+    // Required fields
     { id: 'email', label: 'Email (Required)', required: true },
     { id: 'name', label: 'Name (Required)', required: true },
+    // Basic information
     { id: 'phone', label: 'Phone', required: false },
     { id: 'role', label: 'Role (customer/staff/admin)', required: false },
+    { id: 'isActive', label: 'Active Status (true/false)', required: false },
+    // Customer information
+    { id: 'customerNumber', label: 'Customer Number', required: false },
+    { id: 'customerGroup', label: 'Customer Group', required: false },
+    { id: 'salutation', label: 'Salutation (Mr/Ms/Mrs/Dr/Prof)', required: false },
+    { id: 'title', label: 'Title', required: false },
     { id: 'company', label: 'Company', required: false },
     { id: 'country', label: 'Country', required: false },
-    { id: 'isActive', label: 'Active Status (true/false)', required: false }
+    { id: 'addressAddition', label: 'Address Addition', required: false },
+    { id: 'customerOrigin', label: 'Customer Origin', required: false },
+    { id: 'postId', label: 'Post ID', required: false },
+    { id: 'paymentMethod', label: 'Payment Method', required: false },
+    { id: 'paymentTerms', label: 'Payment Terms (e.g., Net 30)', required: false },
+    { id: 'internalKey', label: 'Internal Key', required: false },
+    { id: 'discount', label: 'Discount (0-100)', required: false },
+    { id: 'status', label: 'Status (active/inactive/suspended/blocked)', required: false },
+    { id: 'newsletter', label: 'Newsletter Subscription (true/false)', required: false },
+    { id: 'comment', label: 'Internal Comment', required: false }
   ];
 
   const handleMappingChange = (fieldId: string, csvColumn: string) => {

@@ -4,6 +4,8 @@ export interface User {
   _id: string;
   email: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   phone: string;
   role: 'customer' | 'staff' | 'admin';
   avatar: string;
@@ -11,6 +13,22 @@ export interface User {
   createdAt: string;
   totalOrders: number;
   totalSpent: number;
+  // Customer-specific fields
+  customerNumber?: string;
+  customerGroup?: string;
+  salutation?: string;
+  title?: string;
+  company?: string;
+  addressAddition?: string;
+  customerOrigin?: string;
+  postId?: string;
+  newsletter?: boolean;
+  comment?: string;
+  paymentMethod?: string;
+  paymentTerms?: string;
+  internalKey?: string;
+  status?: string;
+  discount?: number;
 }
 
 export interface CreateUserData {
@@ -255,5 +273,46 @@ export const getUserDetails = async (userId: string) => {
   } catch (error) {
     console.error('getUserDetails API error:', error);
     throw new Error(error?.response?.data?.message || error.message);
+  }
+};
+
+// Description: Export users to CSV file (admin only)
+// Endpoint: GET /api/admin/users/export/csv
+// Request: { userIds?: string[], filters?: { search?: string, role?: string, status?: string } }
+// Response: CSV file as blob
+export const exportUsersToCSV = async (userIds?: string[], filters?: any) => {
+  console.log('exportUsersToCSV called with userIds:', userIds, 'and filters:', filters);
+
+  try {
+    const params = new URLSearchParams();
+    if (userIds && userIds.length > 0) {
+      params.append('userIds', JSON.stringify(userIds));
+    }
+    if (filters) {
+      if (filters.search) params.append('search', filters.search);
+      if (filters.role) params.append('role', filters.role);
+      if (filters.status) params.append('status', filters.status);
+    }
+
+    const response = await api.get(`/api/admin/users/export/csv?${params.toString()}`, {
+      responseType: 'blob'
+    });
+
+    console.log('exportUsersToCSV API response received');
+
+    // Create a download link for the CSV file
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `users_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    return { success: true, message: 'CSV export completed' };
+  } catch (error) {
+    console.error('exportUsersToCSV API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
   }
 };

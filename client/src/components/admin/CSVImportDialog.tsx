@@ -117,7 +117,21 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
           role: ['role', 'user_role', 'position'],
           company: ['company', 'organization', 'org'],
           country: ['country', 'nation'],
-          isActive: ['active', 'status', 'enabled', 'is_active']
+          isActive: ['active', 'status', 'enabled', 'is_active'],
+          customerNumber: ['customer_number', 'customernumber', 'kundennummer', 'cust_no'],
+          customerGroup: ['customer_group', 'customergroup', 'kundengruppe'],
+          salutation: ['salutation', 'anrede', 'title_prefix'],
+          title: ['title', 'titel'],
+          addressAddition: ['address_addition', 'addressaddition', 'adresszusatz'],
+          customerOrigin: ['customer_origin', 'customerorigin', 'kundenherkunft'],
+          postId: ['post_id', 'postid', 'post'],
+          paymentMethod: ['payment_method', 'paymentmethod', 'zahlungsart'],
+          paymentTerms: ['payment_terms', 'paymentterms', 'zahlungsziel'],
+          internalKey: ['internal_key', 'internalkey', 'interner_schlüssel'],
+          discount: ['discount', 'rabatt', 'discount_percent'],
+          status: ['status', 'user_status', 'account_status'],
+          newsletter: ['newsletter', 'newsletter_subscription', 'subscribe'],
+          comment: ['comment', 'comments', 'notes', 'kommentar']
         };
 
         Object.entries(commonMappings).forEach(([field, aliases]) => {

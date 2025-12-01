@@ -1,6 +1,7 @@
 const express = require('express');
 const { requireAdmin } = require('./middleware/auth');
 const CSVImportService = require('../services/csvImportService');
+const User = require('../models/User');
 
 const router = express.Router();
 
@@ -65,6 +66,68 @@ router.post('/import', requireAdmin, async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || 'Error importing users'
+    });
+  }
+});
+
+// Description: Export users to CSV file
+// Endpoint: GET /api/csv-import/export
+// Request: { userIds?: string[], search?: string, role?: string, status?: string }
+// Response: CSV file as text/csv
+router.get('/export', requireAdmin, async (req, res) => {
+  try {
+    const { userIds, search, role, status } = req.query;
+
+    console.log('CSV Export: Starting user export');
+
+    let query = {};
+
+    // Build query based on filters
+    if (userIds) {
+      try {
+        const idArray = JSON.parse(userIds);
+        if (Array.isArray(idArray) && idArray.length > 0) {
+          query._id = { $in: idArray };
+        }
+      } catch (e) {
+        console.warn('CSV Export: Invalid userIds format, proceeding without ID filter');
+      }
+    }
+
+    if (search) {
+      query.$or = [
+        { email: { $regex: search, $options: 'i' } },
+        { name: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    if (role) {
+      query.role = role;
+    }
+
+    if (status) {
+      query.status = status;
+    }
+
+    const users = await User.find(query)
+      .select('-password -refreshToken')
+      .lean();
+
+    console.log(`CSV Export: Found ${users.length} users to export`);
+
+    // Convert users to CSV format
+    const csvContent = CSVImportService.convertUsersToCSV(users);
+
+    // Set response headers
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="users_export_${new Date().toISOString().split('T')[0]}.csv"`);
+
+    res.send(csvContent);
+  } catch (error) {
+    console.error(`CSV Export error: ${error.message}`, error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Error exporting users'
     });
   }
 });

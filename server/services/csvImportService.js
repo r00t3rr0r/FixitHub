@@ -46,6 +46,29 @@ class CSVImportService {
       errors.push(`Invalid status value: ${user.isActive}. Must be true or false`);
     }
 
+    // Customer status field validation (if provided)
+    if (user.status && !['active', 'inactive', 'suspended', 'blocked'].includes(user.status)) {
+      errors.push(`Invalid status: ${user.status}. Must be active, inactive, suspended, or blocked`);
+    }
+
+    // Salutation validation (if provided)
+    if (user.salutation && !['', 'Mr', 'Ms', 'Mrs', 'Dr', 'Prof'].includes(user.salutation)) {
+      errors.push(`Invalid salutation: ${user.salutation}. Must be Mr, Ms, Mrs, Dr, or Prof`);
+    }
+
+    // Discount validation (if provided)
+    if (user.discount !== undefined) {
+      const discount = parseFloat(user.discount);
+      if (isNaN(discount) || discount < 0 || discount > 100) {
+        errors.push(`Invalid discount: ${user.discount}. Must be a number between 0 and 100`);
+      }
+    }
+
+    // Newsletter validation (if provided)
+    if (user.newsletter !== undefined && typeof user.newsletter !== 'boolean') {
+      errors.push(`Invalid newsletter value: ${user.newsletter}. Must be true or false`);
+    }
+
     return {
       isValid: errors.length === 0,
       errors
@@ -120,7 +143,7 @@ class CSVImportService {
         password: this.generateRandomPassword()
       };
 
-      // Map CSV columns to user fields
+      // Map required CSV columns to user fields
       if (columnMapping.email) {
         cleanedUser.email = (row[columnMapping.email] || '').trim().toLowerCase();
       }
@@ -152,6 +175,80 @@ class CSVImportService {
       if (columnMapping.isActive) {
         const statusValue = (row[columnMapping.isActive] || '').trim().toLowerCase();
         cleanedUser.isActive = !['false', '0', 'inactive', 'disabled'].includes(statusValue);
+      }
+
+      // Map optional customer information fields
+      if (columnMapping.customerNumber) {
+        cleanedUser.customerNumber = (row[columnMapping.customerNumber] || '').trim();
+      }
+
+      if (columnMapping.customerGroup) {
+        cleanedUser.customerGroup = (row[columnMapping.customerGroup] || '').trim();
+      }
+
+      if (columnMapping.salutation) {
+        const salutationValue = (row[columnMapping.salutation] || '').trim();
+        const validSalutations = ['Mr', 'Ms', 'Mrs', 'Dr', 'Prof', ''];
+        if (salutationValue && validSalutations.includes(salutationValue)) {
+          cleanedUser.salutation = salutationValue;
+        }
+      }
+
+      if (columnMapping.title) {
+        cleanedUser.title = (row[columnMapping.title] || '').trim();
+      }
+
+      if (columnMapping.addressAddition) {
+        cleanedUser.addressAddition = (row[columnMapping.addressAddition] || '').trim();
+      }
+
+      if (columnMapping.customerOrigin) {
+        cleanedUser.customerOrigin = (row[columnMapping.customerOrigin] || '').trim();
+      }
+
+      if (columnMapping.postId) {
+        cleanedUser.postId = (row[columnMapping.postId] || '').trim();
+      }
+
+      if (columnMapping.paymentMethod) {
+        cleanedUser.paymentMethod = (row[columnMapping.paymentMethod] || '').trim();
+      }
+
+      if (columnMapping.paymentTerms) {
+        cleanedUser.paymentTerms = (row[columnMapping.paymentTerms] || '').trim();
+      }
+
+      if (columnMapping.internalKey) {
+        cleanedUser.internalKey = (row[columnMapping.internalKey] || '').trim();
+      }
+
+      // Parse discount (numeric value, 0-100)
+      if (columnMapping.discount) {
+        const discountValue = parseFloat((row[columnMapping.discount] || '0').trim());
+        if (!isNaN(discountValue) && discountValue >= 0 && discountValue <= 100) {
+          cleanedUser.discount = discountValue;
+        }
+      }
+
+      // Parse status field
+      if (columnMapping.status) {
+        const statusValue = (row[columnMapping.status] || 'active').trim().toLowerCase();
+        const validStatuses = ['active', 'inactive', 'suspended', 'blocked'];
+        if (validStatuses.includes(statusValue)) {
+          cleanedUser.status = statusValue;
+        } else {
+          cleanedUser.status = 'active';
+        }
+      }
+
+      // Parse newsletter subscription (boolean)
+      if (columnMapping.newsletter) {
+        const newsletterValue = (row[columnMapping.newsletter] || 'false').trim().toLowerCase();
+        cleanedUser.newsletter = !['false', '0', 'no'].includes(newsletterValue);
+      }
+
+      if (columnMapping.comment) {
+        cleanedUser.comment = (row[columnMapping.comment] || '').trim();
       }
 
       cleanedData.push(cleanedUser);
@@ -191,6 +288,93 @@ class CSVImportService {
       password += charset.charAt(Math.floor(Math.random() * charset.length));
     }
     return password;
+  }
+
+  /**
+   * Escapes CSV field values
+   */
+  static escapeCSVField(field) {
+    if (field === null || field === undefined) {
+      return '';
+    }
+    const fieldStr = String(field);
+    if (fieldStr.includes(',') || fieldStr.includes('"') || fieldStr.includes('\n')) {
+      return `"${fieldStr.replace(/"/g, '""')}"`;
+    }
+    return fieldStr;
+  }
+
+  /**
+   * Converts user objects to CSV format
+   */
+  static convertUsersToCSV(users) {
+    console.log(`CSVImportService: Converting ${users.length} users to CSV format`);
+
+    // Define CSV headers - all available fields
+    const headers = [
+      'Email',
+      'Name',
+      'Phone',
+      'Role',
+      'Active',
+      'Customer Number',
+      'Customer Group',
+      'Salutation',
+      'Title',
+      'Company',
+      'Country',
+      'Address Addition',
+      'Customer Origin',
+      'Post ID',
+      'Payment Method',
+      'Payment Terms',
+      'Internal Key',
+      'Discount',
+      'Status',
+      'Newsletter',
+      'Comment',
+      'Created At',
+      'Last Login At'
+    ];
+
+    // Create CSV header row
+    const csvLines = [headers.map(h => this.escapeCSVField(h)).join(',')];
+
+    // Add data rows
+    for (const user of users) {
+      const row = [
+        this.escapeCSVField(user.email),
+        this.escapeCSVField(user.name),
+        this.escapeCSVField(user.phone || ''),
+        this.escapeCSVField(user.role || 'customer'),
+        this.escapeCSVField(user.isActive ? 'true' : 'false'),
+        this.escapeCSVField(user.customerNumber || ''),
+        this.escapeCSVField(user.customerGroup || ''),
+        this.escapeCSVField(user.salutation || ''),
+        this.escapeCSVField(user.title || ''),
+        this.escapeCSVField(user.company || ''),
+        this.escapeCSVField(user.country || ''),
+        this.escapeCSVField(user.addressAddition || ''),
+        this.escapeCSVField(user.customerOrigin || ''),
+        this.escapeCSVField(user.postId || ''),
+        this.escapeCSVField(user.paymentMethod || ''),
+        this.escapeCSVField(user.paymentTerms || ''),
+        this.escapeCSVField(user.internalKey || ''),
+        this.escapeCSVField(user.discount || 0),
+        this.escapeCSVField(user.status || 'active'),
+        this.escapeCSVField(user.newsletter ? 'true' : 'false'),
+        this.escapeCSVField(user.comment || ''),
+        this.escapeCSVField(user.createdAt ? new Date(user.createdAt).toISOString() : ''),
+        this.escapeCSVField(user.lastLoginAt ? new Date(user.lastLoginAt).toISOString() : '')
+      ];
+
+      csvLines.push(row.map(f => this.escapeCSVField(f)).join(','));
+    }
+
+    const csvContent = csvLines.join('\n');
+    console.log(`CSVImportService: CSV conversion complete, ${csvLines.length} rows including header`);
+
+    return csvContent;
   }
 
   /**
@@ -285,23 +469,42 @@ class CSVImportService {
         const hashedPassword = await generatePasswordHash(userData.password);
 
         const newUser = new User({
+          // Required fields
           email: userData.email,
           name: userData.name,
+          password: hashedPassword,
+          // Basic information
           phone: userData.phone,
-          company: userData.company,
-          country: userData.country,
           role: userData.role,
           isActive: userData.isActive,
-          password: hashedPassword
+          // Company information
+          company: userData.company,
+          country: userData.country,
+          // Customer-specific fields
+          customerNumber: userData.customerNumber || '',
+          customerGroup: userData.customerGroup || '',
+          salutation: userData.salutation || '',
+          title: userData.title || '',
+          addressAddition: userData.addressAddition || '',
+          customerOrigin: userData.customerOrigin || '',
+          postId: userData.postId || '',
+          paymentMethod: userData.paymentMethod || '',
+          paymentTerms: userData.paymentTerms || '',
+          internalKey: userData.internalKey || '',
+          discount: userData.discount || 0,
+          status: userData.status || 'active',
+          newsletter: userData.newsletter || false,
+          comment: userData.comment || ''
         });
 
         await newUser.save();
+        console.log(`CSVImportService: Successfully imported user: ${userData.email}`);
         results.successful.push({
           email: userData.email,
           message: 'User imported successfully'
         });
       } catch (error) {
-        console.error(`CSVImportService: Failed to import user ${userData.email}: ${error.message}`);
+        console.error(`CSVImportService: Failed to import user ${userData.email}: ${error.message}`, error);
         results.failed.push({
           email: userData.email,
           error: error.message
