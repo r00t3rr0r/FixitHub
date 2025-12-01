@@ -221,7 +221,13 @@ export function WebShopManagement() {
         length: product.dimensions?.length?.toString() || "",
         width: product.dimensions?.width?.toString() || "",
         height: product.dimensions?.height?.toString() || ""
-      }
+      },
+      // SEO Fields
+      searchKeywords: product.searchKeywords || "",
+      seoName: product.seoName || "",
+      seoTitleTag: product.seoTitleTag || "",
+      seoMetaKeywords: product.seoMetaKeywords || "",
+      seoMetaDescription: product.seoMetaDescription || ""
     })
     setShowEditDialog(true)
   }
@@ -265,7 +271,13 @@ export function WebShopManagement() {
           length: newProduct.dimensions.length ? parseFloat(newProduct.dimensions.length) : undefined,
           width: newProduct.dimensions.width ? parseFloat(newProduct.dimensions.width) : undefined,
           height: newProduct.dimensions.height ? parseFloat(newProduct.dimensions.height) : undefined
-        } : undefined
+        } : undefined,
+        // SEO Fields
+        searchKeywords: newProduct.searchKeywords || undefined,
+        seoName: newProduct.seoName || undefined,
+        seoTitleTag: newProduct.seoTitleTag || undefined,
+        seoMetaKeywords: newProduct.seoMetaKeywords || undefined,
+        seoMetaDescription: newProduct.seoMetaDescription || undefined
       }
 
       const response = await createProduct(productData)
@@ -330,7 +342,13 @@ export function WebShopManagement() {
           length: editProduct.dimensions.length ? parseFloat(editProduct.dimensions.length) : undefined,
           width: editProduct.dimensions.width ? parseFloat(editProduct.dimensions.width) : undefined,
           height: editProduct.dimensions.height ? parseFloat(editProduct.dimensions.height) : undefined
-        } : undefined
+        } : undefined,
+        // SEO Fields
+        searchKeywords: editProduct.searchKeywords || undefined,
+        seoName: editProduct.seoName || undefined,
+        seoTitleTag: editProduct.seoTitleTag || undefined,
+        seoMetaKeywords: editProduct.seoMetaKeywords || undefined,
+        seoMetaDescription: editProduct.seoMetaDescription || undefined
       }
 
       const response = await updateProduct(selectedProduct._id, productData)
@@ -416,7 +434,13 @@ export function WebShopManagement() {
         length: "",
         width: "",
         height: ""
-      }
+      },
+      // SEO Fields
+      searchKeywords: "",
+      seoName: "",
+      seoTitleTag: "",
+      seoMetaKeywords: "",
+      seoMetaDescription: ""
     })
   }
 
@@ -437,7 +461,13 @@ export function WebShopManagement() {
         length: "",
         width: "",
         height: ""
-      }
+      },
+      // SEO Fields
+      searchKeywords: "",
+      seoName: "",
+      seoTitleTag: "",
+      seoMetaKeywords: "",
+      seoMetaDescription: ""
     })
   }
 
@@ -1128,6 +1158,73 @@ export function WebShopManagement() {
                 />
               </div>
             </div>
+
+            {/* SEO Fields */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold mb-4">SEO Optimization</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="searchKeywords">Search Keywords (Suchbegriffe)</Label>
+                  <Textarea
+                    id="searchKeywords"
+                    value={newProduct.searchKeywords}
+                    onChange={(e) => setNewProduct(prev => ({ ...prev, searchKeywords: e.target.value }))}
+                    placeholder="Enter search keywords for product discovery"
+                    rows={2}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 500 characters. Used for internal search functionality.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="seoName">SEO Name (Suchmaschinenname)</Label>
+                  <Input
+                    id="seoName"
+                    value={newProduct.seoName}
+                    onChange={(e) => setNewProduct(prev => ({ ...prev, seoName: e.target.value }))}
+                    placeholder="Name optimized for search engines"
+                    maxLength={200}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 200 characters. How the product appears in search results.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="seoTitleTag">SEO Title Tag</Label>
+                  <Input
+                    id="seoTitleTag"
+                    value={newProduct.seoTitleTag}
+                    onChange={(e) => setNewProduct(prev => ({ ...prev, seoTitleTag: e.target.value }))}
+                    placeholder="Page title (50-60 characters recommended)"
+                    maxLength={60}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 60 characters. Displays in browser tab and search results.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="seoMetaKeywords">SEO Meta Keywords</Label>
+                  <Textarea
+                    id="seoMetaKeywords"
+                    value={newProduct.seoMetaKeywords}
+                    onChange={(e) => setNewProduct(prev => ({ ...prev, seoMetaKeywords: e.target.value }))}
+                    placeholder="Comma-separated keywords for search engines"
+                    rows={2}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 500 characters. Comma-separated relevant keywords.</p>
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="seoMetaDescription">SEO Meta Description</Label>
+                  <Textarea
+                    id="seoMetaDescription"
+                    value={newProduct.seoMetaDescription}
+                    onChange={(e) => setNewProduct(prev => ({ ...prev, seoMetaDescription: e.target.value }))}
+                    placeholder="Meta description (150-160 characters recommended)"
+                    rows={2}
+                    maxLength={160}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 160 characters. Displays under title in search results.</p>
+                </div>
+              </div>
+            </div>
           </div>
 
           <DialogFooter>
@@ -1430,6 +1527,73 @@ export function WebShopManagement() {
                   }))}
                   placeholder="Height"
                 />
+              </div>
+            </div>
+
+            {/* SEO Fields */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold mb-4">SEO Optimization</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-searchKeywords">Search Keywords (Suchbegriffe)</Label>
+                  <Textarea
+                    id="edit-searchKeywords"
+                    value={editProduct.searchKeywords}
+                    onChange={(e) => setEditProduct(prev => ({ ...prev, searchKeywords: e.target.value }))}
+                    placeholder="Enter search keywords for product discovery"
+                    rows={2}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 500 characters. Used for internal search functionality.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-seoName">SEO Name (Suchmaschinenname)</Label>
+                  <Input
+                    id="edit-seoName"
+                    value={editProduct.seoName}
+                    onChange={(e) => setEditProduct(prev => ({ ...prev, seoName: e.target.value }))}
+                    placeholder="Name optimized for search engines"
+                    maxLength={200}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 200 characters. How the product appears in search results.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-seoTitleTag">SEO Title Tag</Label>
+                  <Input
+                    id="edit-seoTitleTag"
+                    value={editProduct.seoTitleTag}
+                    onChange={(e) => setEditProduct(prev => ({ ...prev, seoTitleTag: e.target.value }))}
+                    placeholder="Page title (50-60 characters recommended)"
+                    maxLength={60}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 60 characters. Displays in browser tab and search results.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-seoMetaKeywords">SEO Meta Keywords</Label>
+                  <Textarea
+                    id="edit-seoMetaKeywords"
+                    value={editProduct.seoMetaKeywords}
+                    onChange={(e) => setEditProduct(prev => ({ ...prev, seoMetaKeywords: e.target.value }))}
+                    placeholder="Comma-separated keywords for search engines"
+                    rows={2}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 500 characters. Comma-separated relevant keywords.</p>
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="edit-seoMetaDescription">SEO Meta Description</Label>
+                  <Textarea
+                    id="edit-seoMetaDescription"
+                    value={editProduct.seoMetaDescription}
+                    onChange={(e) => setEditProduct(prev => ({ ...prev, seoMetaDescription: e.target.value }))}
+                    placeholder="Meta description (150-160 characters recommended)"
+                    rows={2}
+                    maxLength={160}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 160 characters. Displays under title in search results.</p>
+                </div>
               </div>
             </div>
           </div>
