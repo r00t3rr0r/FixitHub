@@ -3,16 +3,13 @@ const { generatePasswordHash } = require('../utils/password');
 
 class CSVImportService {
   /**
-   * Validates that all required fields are present in the column mapping
+   * Validates that column mapping is provided (at least one field mapped)
    */
   static validateColumnMapping(columnMapping) {
-    const requiredFields = ['email', 'name'];
     const mappedFields = Object.values(columnMapping).filter(f => f !== null && f !== '');
 
-    for (const field of requiredFields) {
-      if (!mappedFields.includes(field)) {
-        throw new Error(`Missing required field mapping: ${field}`);
-      }
+    if (mappedFields.length === 0) {
+      throw new Error('At least one column must be mapped to a system field');
     }
 
     return true;

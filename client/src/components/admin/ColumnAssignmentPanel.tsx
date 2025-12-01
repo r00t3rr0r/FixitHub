@@ -20,10 +20,9 @@ export const ColumnAssignmentPanel: React.FC<ColumnAssignmentPanelProps> = ({
   const { t } = useTranslation();
 
   const systemFields = [
-    // Required fields
-    { id: 'email', label: 'Email (Required)', required: true },
-    { id: 'name', label: 'Name (Required)', required: true },
     // Basic information
+    { id: 'email', label: 'Email', required: false },
+    { id: 'name', label: 'Name', required: false },
     { id: 'phone', label: 'Phone', required: false },
     { id: 'firstName', label: 'First Name', required: false },
     { id: 'lastName', label: 'Last Name', required: false },
@@ -77,18 +76,15 @@ export const ColumnAssignmentPanel: React.FC<ColumnAssignmentPanelProps> = ({
         <CardHeader>
           <CardTitle>Column Mapping</CardTitle>
           <CardDescription>
-            Assign CSV columns to the corresponding system fields. Fields marked as Required must be mapped.
+            Assign CSV columns to the corresponding system fields. At least one column must be mapped.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {!allRequiredFieldsMapped && (
+          {Object.values(columnMapping).filter(v => v).length === 0 && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Please map all required fields: {requiredFields
-                  .filter(f => !columnMapping[f.id])
-                  .map(f => f.label)
-                  .join(', ')}
+                Please map at least one CSV column to a system field to proceed.
               </AlertDescription>
             </Alert>
           )}

@@ -344,7 +344,7 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
 
               <Button
                 onClick={handleValidate}
-                disabled={isValidating || Object.values(columnMapping).filter(v => v).length < 2}
+                disabled={isValidating || Object.values(columnMapping).filter(v => v).length === 0}
                 className="w-full"
               >
                 {isValidating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
