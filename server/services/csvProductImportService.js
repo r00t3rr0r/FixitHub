@@ -94,6 +94,37 @@ class CSVProductImportService {
       }
     }
 
+    // Validate SEO fields (optional but must meet standards if provided)
+    if (productData.searchKeywords && productData.searchKeywords.length > 500) {
+      warnings.push(`Row ${rowIndex}: Search keywords exceed 500 characters limit`);
+    }
+
+    if (productData.seoName && productData.seoName.length > 200) {
+      warnings.push(`Row ${rowIndex}: SEO name exceeds 200 characters limit`);
+    }
+
+    if (productData.seoTitleTag) {
+      if (productData.seoTitleTag.length > 60) {
+        warnings.push(`Row ${rowIndex}: SEO title tag exceeds recommended 60 characters (${productData.seoTitleTag.length} chars)`);
+      }
+      if (productData.seoTitleTag.length < 30) {
+        warnings.push(`Row ${rowIndex}: SEO title tag should be at least 30 characters for better search visibility (${productData.seoTitleTag.length} chars)`);
+      }
+    }
+
+    if (productData.seoMetaKeywords && productData.seoMetaKeywords.length > 500) {
+      warnings.push(`Row ${rowIndex}: SEO meta keywords exceed 500 characters limit`);
+    }
+
+    if (productData.seoMetaDescription) {
+      if (productData.seoMetaDescription.length > 160) {
+        warnings.push(`Row ${rowIndex}: SEO meta description exceeds recommended 160 characters (${productData.seoMetaDescription.length} chars)`);
+      }
+      if (productData.seoMetaDescription.length < 120) {
+        warnings.push(`Row ${rowIndex}: SEO meta description should be at least 120 characters for better search visibility (${productData.seoMetaDescription.length} chars)`);
+      }
+    }
+
     return { errors, warnings };
   }
 
@@ -174,6 +205,12 @@ class CSVProductImportService {
       weight: productData.weight ? parseFloat(productData.weight) : undefined,
       dimensions: {},
       tags: [],
+      // SEO Fields
+      searchKeywords: productData.searchKeywords?.trim() || undefined,
+      seoName: productData.seoName?.trim() || undefined,
+      seoTitleTag: productData.seoTitleTag?.trim() || undefined,
+      seoMetaKeywords: productData.seoMetaKeywords?.trim() || undefined,
+      seoMetaDescription: productData.seoMetaDescription?.trim() || undefined,
       isActive: true
     };
 

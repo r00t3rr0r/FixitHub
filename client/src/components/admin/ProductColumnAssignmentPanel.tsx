@@ -36,6 +36,12 @@ const ProductColumnAssignmentPanel: React.FC<ProductColumnAssignmentPanelProps> 
     { key: 'dimensionWidth', label: 'Width (cm)', description: 'Product width in centimeters' },
     { key: 'dimensionHeight', label: 'Height (cm)', description: 'Product height in centimeters' },
     { key: 'tags', label: 'Tags', description: 'Comma-separated tags for searching' },
+    // SEO Fields
+    { key: 'searchKeywords', label: 'Search Keywords (Suchbegriffe)', description: 'Keywords for product discovery' },
+    { key: 'seoName', label: 'SEO Name (Suchmaschinenname)', description: 'Product name for search engines' },
+    { key: 'seoTitleTag', label: 'SEO Title Tag', description: 'Page title for search results (50-60 chars)' },
+    { key: 'seoMetaKeywords', label: 'SEO Meta Keywords', description: 'Comma-separated keywords for meta tags' },
+    { key: 'seoMetaDescription', label: 'SEO Meta Description', description: 'Meta description for search results (160 chars)' },
   ];
 
   const handleFieldChange = (field: string, value: string) => {
@@ -141,6 +147,10 @@ const ProductColumnAssignmentPanel: React.FC<ProductColumnAssignmentPanelProps> 
           <li><strong>Weight & Dimensions:</strong> Numeric values</li>
           <li><strong>Lists (Images, Features, etc.):</strong> Comma-separated values</li>
           <li><strong>SKU:</strong> Unique identifier for each product</li>
+          <li><strong>SEO Title Tag:</strong> Max 60 characters for optimal search results display</li>
+          <li><strong>SEO Meta Description:</strong> Max 160 characters for search results snippets</li>
+          <li><strong>SEO Meta Keywords:</strong> Comma-separated keywords (max 500 characters)</li>
+          <li><strong>Search Keywords:</strong> Keywords used for internal product search (max 500 characters)</li>
         </ul>
       </div>
     </div>

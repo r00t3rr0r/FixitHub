@@ -33,6 +33,12 @@ export interface Product {
     height: number;
   };
   isActive: boolean;
+  // SEO Fields
+  searchKeywords?: string;
+  seoName?: string;
+  seoTitleTag?: string;
+  seoMetaKeywords?: string;
+  seoMetaDescription?: string;
   createdAt: string;
   updatedAt: string;
 }

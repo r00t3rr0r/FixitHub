@@ -102,7 +102,13 @@ export function WebShopManagement() {
       length: "",
       width: "",
       height: ""
-    }
+    },
+    // SEO Fields
+    searchKeywords: "",
+    seoName: "",
+    seoTitleTag: "",
+    seoMetaKeywords: "",
+    seoMetaDescription: ""
   })
 
   // Form state for editing product
@@ -122,7 +128,13 @@ export function WebShopManagement() {
       length: "",
       width: "",
       height: ""
-    }
+    },
+    // SEO Fields
+    searchKeywords: "",
+    seoName: "",
+    seoTitleTag: "",
+    seoMetaKeywords: "",
+    seoMetaDescription: ""
   })
 
   // Fetch products with pagination, sorting, and filtering
