@@ -434,15 +434,22 @@ class CSVImportService {
         };
       }
 
-      // Step 6: Validate each user record
+      // Step 6: Validate each user record with detailed error tracking
       const validationResults = [];
-      for (const user of dataToImport) {
+      const validatedData = [];
+
+      for (let index = 0; index < dataToImport.length; index++) {
+        const user = dataToImport[index];
         const validation = this.validateUserData(user);
         if (!validation.isValid) {
           validationResults.push({
+            index,
             email: user.email,
-            errors: validation.errors
+            errors: validation.errors,
+            data: user
           });
+        } else {
+          validatedData.push(user);
         }
       }
 
@@ -451,7 +458,15 @@ class CSVImportService {
         return {
           success: false,
           validationErrors: validationResults,
-          message: `Validation failed for ${validationResults.length} record(s).`
+          validatedRecords: validatedData,
+          summary: {
+            totalRows: parsedData.length,
+            validRows: validatedData.length,
+            invalidRows: validationResults.length,
+            duplicateRows: duplicates.length,
+            skippedRows: uniqueData.length - dataToImport.length
+          },
+          message: `Validation failed for ${validationResults.length} record(s). You can skip these records or fix them.`
         };
       }
 

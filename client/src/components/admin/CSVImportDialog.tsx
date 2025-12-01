@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ColumnAssignmentPanel } from './ColumnAssignmentPanel';
 import { CSVPreviewTable } from './CSVPreviewTable';
+import { ValidationErrorsPanel } from './ValidationErrorsPanel';
 import { validateCSVImport, importUsersFromCSV } from '@/api/csvImport';
 import { useToast } from '@/hooks/useToast';
 import { useTranslation } from 'react-i18next';
@@ -46,9 +47,11 @@ interface ValidationResult {
     validRows: number;
     duplicateRows: number;
     skippedRows: number;
+    invalidRows?: number;
   };
   duplicates?: Array<{ email: string; type: string; message: string }>;
-  validationErrors?: Array<{ email: string; errors: string[] }>;
+  validationErrors?: Array<{ index: number; email: string; errors: string[]; data: any }>;
+  validatedRecords?: any[];
   message?: string;
 }
 
@@ -62,7 +65,7 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // State management
-  const [step, setStep] = useState<'upload' | 'mapping' | 'preview' | 'import'>('upload');
+  const [step, setStep] = useState<'upload' | 'mapping' | 'preview' | 'errors' | 'import'>('upload');
   const [csvData, setCSVData] = useState<any[]>([]);
   const [csvColumns, setCSVColumns] = useState<string[]>([]);
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
@@ -72,6 +75,7 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [skippedIndices, setSkippedIndices] = useState<Set<number>>(new Set());
 
   // Handle file upload
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -170,6 +174,7 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
   const handleValidate = async () => {
     setIsValidating(true);
     console.log('CSV Import: Starting validation');
+    setSkippedIndices(new Set());
 
     try {
       const result = await validateCSVImport(csvData, columnMapping, { skipDuplicates });
@@ -189,10 +194,12 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
           description: `${result.duplicates.length} duplicate emails detected. Enable "Skip Duplicates" to proceed.`
         });
       } else if (result.validationErrors && result.validationErrors.length > 0) {
+        console.log(`CSV Import: Found ${result.validationErrors.length} records with validation errors`);
+        setStep('errors');
         toast({
           variant: 'destructive',
-          title: 'Validation errors',
-          description: `${result.validationErrors.length} records have validation errors`
+          title: 'Validation errors found',
+          description: `${result.validationErrors.length} record(s) have validation errors. Review and select which to skip.`
         });
       }
     } catch (error) {
@@ -204,6 +211,35 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
       });
     } finally {
       setIsValidating(false);
+    }
+  };
+
+  // Handle skipping records with errors
+  const handleSkipRecords = (indices: number[]) => {
+    console.log('CSV Import: Marking records for skipping:', indices);
+    setSkippedIndices(new Set(indices));
+  };
+
+  // Handle proceeding with valid records
+  const handleProceedWithValidRecords = () => {
+    console.log('CSV Import: Proceeding with valid records, skipping', skippedIndices.size, 'records');
+
+    if (validationResult?.validatedRecords) {
+      // Set data to only the validated records
+      setValidationResult({
+        ...validationResult,
+        success: true,
+        data: validationResult.validatedRecords,
+        summary: {
+          ...validationResult.summary,
+          validRows: validationResult.validatedRecords.length
+        }
+      });
+      setStep('preview');
+      toast({
+        title: 'Errors skipped',
+        description: `Proceeding with ${validationResult.validatedRecords.length} valid record(s)`
+      });
     }
   };
 
@@ -243,6 +279,7 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
         setValidationResult(null);
         setSkipDuplicates(false);
         setImportProgress(0);
+        setSkippedIndices(new Set());
         onOpenChange(false);
         onImportSuccess?.();
       }, 2000);
@@ -270,12 +307,15 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
           </DialogHeader>
 
           <Tabs value={step} onValueChange={(value) => setStep(value as any)}>
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="upload" disabled={csvData.length === 0 && step !== 'upload'}>
                 Upload
               </TabsTrigger>
               <TabsTrigger value="mapping" disabled={csvData.length === 0}>
                 Mapping
+              </TabsTrigger>
+              <TabsTrigger value="errors" disabled={!validationResult?.validationErrors || validationResult.validationErrors.length === 0}>
+                Errors ({validationResult?.validationErrors?.length || 0})
               </TabsTrigger>
               <TabsTrigger value="preview" disabled={!validationResult?.success}>
                 Preview
@@ -352,7 +392,20 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
               </Button>
             </TabsContent>
 
-            {/* Step 3: Preview */}
+            {/* Step 3: Errors */}
+            <TabsContent value="errors" className="space-y-4">
+              {validationResult?.validationErrors && validationResult.validationErrors.length > 0 && (
+                <ValidationErrorsPanel
+                  errors={validationResult.validationErrors}
+                  onSkipRecords={handleSkipRecords}
+                  onProceedWithValidRecords={handleProceedWithValidRecords}
+                  validRecordsCount={validationResult.validatedRecords?.length || 0}
+                  totalRecords={validationResult.summary?.totalRows || 0}
+                />
+              )}
+            </TabsContent>
+
+            {/* Step 4: Preview */}
             <TabsContent value="preview" className="space-y-4">
               {validationResult && (
                 <>
@@ -406,7 +459,7 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
               </Button>
             </TabsContent>
 
-            {/* Step 4: Import */}
+            {/* Step 5: Import */}
             <TabsContent value="import" className="space-y-4">
               {!isImporting ? (
                 <>
