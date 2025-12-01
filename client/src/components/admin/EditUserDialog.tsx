@@ -46,6 +46,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
     isActive: true,
     firstName: "",
     lastName: "",
+    surname: "",
     department: "",
     specializations: [] as string[],
     skills: [] as Array<{ name: string; level: string }>,
@@ -55,6 +56,8 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
     salutation: "__none__",
     title: "",
     company: "",
+    country: "",
+    vatId: "",
     addressAddition: "",
     customerOrigin: "",
     postId: "",
@@ -108,6 +111,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
         isActive: user.isActive !== false,
         firstName: (user as any).firstName || "",
         lastName: (user as any).lastName || "",
+        surname: (user as any).surname || "",
         department: (user as any).department || "",
         specializations: (user as any).specializations || [],
         skills: (user as any).skills || [],
@@ -117,6 +121,8 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
         salutation: (user as any).salutation || "__none__",
         title: (user as any).title || "",
         company: (user as any).company || "",
+        country: (user as any).country || "",
+        vatId: (user as any).vatId || "",
         addressAddition: (user as any).addressAddition || "",
         customerOrigin: (user as any).customerOrigin || "",
         postId: (user as any).postId || "",
@@ -175,6 +181,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
         isActive: formData.isActive,
         firstName: formData.firstName,
         lastName: formData.lastName,
+        surname: formData.surname,
         department: formData.department,
         specializations: formData.specializations,
         skills: formData.skills,
@@ -184,6 +191,8 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
         salutation: formData.salutation === "__none__" ? "" : formData.salutation,
         title: formData.title,
         company: formData.company,
+        country: formData.country,
+        vatId: formData.vatId,
         addressAddition: formData.addressAddition,
         customerOrigin: formData.customerOrigin,
         postId: formData.postId,
@@ -293,6 +302,15 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
                       id="lastName"
                       value={formData.lastName}
                       onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="surname">Surname</Label>
+                    <Input
+                      id="surname"
+                      value={formData.surname}
+                      onChange={(e) => setFormData({ ...formData, surname: e.target.value })}
+                      placeholder="Surname"
                     />
                   </div>
                 </div>
@@ -408,6 +426,15 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
                       value={formData.company}
                       onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                       placeholder="Company name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="vatId">Ust-ID (VAT ID)</Label>
+                    <Input
+                      id="vatId"
+                      value={formData.vatId}
+                      onChange={(e) => setFormData({ ...formData, vatId: e.target.value })}
+                      placeholder="Umsatzsteuer-ID / VAT Number"
                     />
                   </div>
                   <div className="space-y-2">

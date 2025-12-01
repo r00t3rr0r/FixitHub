@@ -25,6 +25,9 @@ export const ColumnAssignmentPanel: React.FC<ColumnAssignmentPanelProps> = ({
     { id: 'name', label: 'Name (Required)', required: true },
     // Basic information
     { id: 'phone', label: 'Phone', required: false },
+    { id: 'firstName', label: 'First Name', required: false },
+    { id: 'lastName', label: 'Last Name', required: false },
+    { id: 'surname', label: 'Surname', required: false },
     { id: 'role', label: 'Role (customer/staff/admin)', required: false },
     { id: 'isActive', label: 'Active Status (true/false)', required: false },
     // Customer information
@@ -34,6 +37,7 @@ export const ColumnAssignmentPanel: React.FC<ColumnAssignmentPanelProps> = ({
     { id: 'title', label: 'Title', required: false },
     { id: 'company', label: 'Company', required: false },
     { id: 'country', label: 'Country', required: false },
+    { id: 'vatId', label: 'Ust-ID (VAT ID)', required: false },
     { id: 'addressAddition', label: 'Address Addition', required: false },
     { id: 'customerOrigin', label: 'Customer Origin', required: false },
     { id: 'postId', label: 'Post ID', required: false },

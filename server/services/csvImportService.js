@@ -152,6 +152,18 @@ class CSVImportService {
         cleanedUser.name = (row[columnMapping.name] || '').trim();
       }
 
+      if (columnMapping.firstName) {
+        cleanedUser.firstName = (row[columnMapping.firstName] || '').trim();
+      }
+
+      if (columnMapping.lastName) {
+        cleanedUser.lastName = (row[columnMapping.lastName] || '').trim();
+      }
+
+      if (columnMapping.surname) {
+        cleanedUser.surname = (row[columnMapping.surname] || '').trim();
+      }
+
       if (columnMapping.phone) {
         cleanedUser.phone = (row[columnMapping.phone] || '').trim();
       }
@@ -169,6 +181,10 @@ class CSVImportService {
 
       if (columnMapping.country) {
         cleanedUser.country = (row[columnMapping.country] || '').trim();
+      }
+
+      if (columnMapping.vatId) {
+        cleanedUser.vatId = (row[columnMapping.vatId] || '').trim();
       }
 
       // Parse isActive status
@@ -314,6 +330,9 @@ class CSVImportService {
     const headers = [
       'Email',
       'Name',
+      'First Name',
+      'Last Name',
+      'Surname',
       'Phone',
       'Role',
       'Active',
@@ -323,6 +342,7 @@ class CSVImportService {
       'Title',
       'Company',
       'Country',
+      'Ust-ID (VAT ID)',
       'Address Addition',
       'Customer Origin',
       'Post ID',
@@ -345,6 +365,9 @@ class CSVImportService {
       const row = [
         this.escapeCSVField(user.email),
         this.escapeCSVField(user.name),
+        this.escapeCSVField(user.firstName || ''),
+        this.escapeCSVField(user.lastName || ''),
+        this.escapeCSVField(user.surname || ''),
         this.escapeCSVField(user.phone || ''),
         this.escapeCSVField(user.role || 'customer'),
         this.escapeCSVField(user.isActive ? 'true' : 'false'),
@@ -354,6 +377,7 @@ class CSVImportService {
         this.escapeCSVField(user.title || ''),
         this.escapeCSVField(user.company || ''),
         this.escapeCSVField(user.country || ''),
+        this.escapeCSVField(user.vatId || ''),
         this.escapeCSVField(user.addressAddition || ''),
         this.escapeCSVField(user.customerOrigin || ''),
         this.escapeCSVField(user.postId || ''),
@@ -474,12 +498,16 @@ class CSVImportService {
           name: userData.name,
           password: hashedPassword,
           // Basic information
+          firstName: userData.firstName || '',
+          lastName: userData.lastName || '',
+          surname: userData.surname || '',
           phone: userData.phone,
           role: userData.role,
           isActive: userData.isActive,
           // Company information
           company: userData.company,
           country: userData.country,
+          vatId: userData.vatId || '',
           // Customer-specific fields
           customerNumber: userData.customerNumber || '',
           customerGroup: userData.customerGroup || '',

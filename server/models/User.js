@@ -24,6 +24,10 @@ const schema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  surname: {
+    type: String,
+    default: '',
+  },
   name: {
     type: String,
     default: '',
