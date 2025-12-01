@@ -52,7 +52,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
     // Customer-specific fields
     customerNumber: "",
     customerGroup: "",
-    salutation: "",
+    salutation: "__none__",
     title: "",
     company: "",
     addressAddition: "",
@@ -114,7 +114,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
         // Customer-specific fields
         customerNumber: (user as any).customerNumber || "",
         customerGroup: (user as any).customerGroup || "",
-        salutation: (user as any).salutation || "",
+        salutation: (user as any).salutation || "__none__",
         title: (user as any).title || "",
         company: (user as any).company || "",
         addressAddition: (user as any).addressAddition || "",
@@ -181,7 +181,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
         // Customer-specific fields
         customerNumber: formData.customerNumber,
         customerGroup: formData.customerGroup,
-        salutation: formData.salutation,
+        salutation: formData.salutation === "__none__" ? "" : formData.salutation,
         title: formData.title,
         company: formData.company,
         addressAddition: formData.addressAddition,
@@ -383,7 +383,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
                         <SelectValue placeholder="Select salutation" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="__none__">None</SelectItem>
                         <SelectItem value="Mr">Mr</SelectItem>
                         <SelectItem value="Ms">Ms</SelectItem>
                         <SelectItem value="Mrs">Mrs</SelectItem>
