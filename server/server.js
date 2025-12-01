@@ -139,18 +139,28 @@ app.enable('strict routing');
 
 console.log('Setting up middleware...');
 app.use(cors({}));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Increase payload size limits to handle large file uploads and data payloads
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Add request logging middleware
+// Add request logging middleware with payload size monitoring
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  // Get the content-length header to track request payload size
+  const contentLength = req.headers['content-length'];
+  if (contentLength) {
+    const sizeInMB = (parseInt(contentLength) / (1024 * 1024)).toFixed(2);
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url} - Payload: ${sizeInMB}MB`);
+  } else {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  }
   console.log('Request headers:', req.headers);
   if (req.body && Object.keys(req.body).length > 0) {
-    console.log('Request body:', req.body);
+    const bodySize = JSON.stringify(req.body).length;
+    const bodyMB = (bodySize / (1024 * 1024)).toFixed(2);
+    console.log(`Request body size: ${bodyMB}MB`);
   }
   next();
 });
@@ -397,11 +407,31 @@ app.use((req, res, next) => {
   res.status(404).send("Page not found.");
 });
 
-// Error handling
+// Error handling middleware with specific handling for payload too large errors
 app.use((err, req, res, next) => {
   console.error(`Unhandled application error: ${err.message}`);
-  console.error(err.stack);
-  res.status(500).send("There was an error serving your request.");
+  console.error('Full error stack trace:', err.stack);
+
+  // Handle specific error types
+  if (err.code === 'ENTITY_TOO_LARGE' || err.message.includes('entity too large')) {
+    console.error('Payload size exceeded - Request entity too large');
+    console.error(`Content-Length: ${req.headers['content-length']} bytes`);
+    return res.status(413).json({
+      error: 'Request entity too large. Maximum payload size is 50MB.',
+      details: err.message
+    });
+  }
+
+  if (err.code === 'PayloadTooLargeError' || err.type === 'entity.too.large') {
+    console.error('Payload size error detected during body parsing');
+    return res.status(413).json({
+      error: 'Request payload exceeds maximum size limit of 50MB.',
+      details: err.message
+    });
+  }
+
+  // Default error response
+  res.status(500).json({ error: "There was an error serving your request." });
 });
 
 console.log(`Attempting to start server on port ${port}...`);
