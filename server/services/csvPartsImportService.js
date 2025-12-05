@@ -389,6 +389,30 @@ class CSVPartsImportService {
   }
 
   /**
+   * Generate unique SKU for a part with retry logic
+   */
+  static async generateUniqueSKU(category, retryCount = 0) {
+    try {
+      const categoryPrefix = category.substring(0, 3).toUpperCase();
+      const count = await Inventory.countDocuments({ category: category });
+      const skuNumber = count + 1 + retryCount;
+      const sku = `${categoryPrefix}-${String(skuNumber).padStart(4, '0')}`;
+
+      // Check if SKU already exists
+      const existingSKU = await Inventory.findOne({ sku: sku });
+      if (existingSKU && retryCount < 1000) {
+        // If SKU exists, retry with incremented counter
+        return this.generateUniqueSKU(category, retryCount + 1);
+      }
+
+      return sku;
+    } catch (error) {
+      console.error('Error generating SKU:', error);
+      return `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    }
+  }
+
+  /**
    * Import parts into the database
    */
   static async importParts(parts) {
@@ -401,6 +425,12 @@ class CSVPartsImportService {
 
     for (const partData of parts) {
       try {
+        // Generate unique SKU before saving to avoid duplicate key errors
+        if (!partData.sku) {
+          partData.sku = await this.generateUniqueSKU(partData.category);
+          console.log(`CSVPartsImportService: Generated SKU ${partData.sku} for ${partData.itemName}`);
+        }
+
         // Create the inventory item
         const inventory = new Inventory(partData);
         const savedInventory = await inventory.save();
@@ -415,11 +445,21 @@ class CSVPartsImportService {
         console.log(`CSVPartsImportService: Successfully imported part: ${partData.itemName}`);
       } catch (error) {
         console.error(`CSVPartsImportService: Failed to import part: ${partData.itemName}`, error);
+
+        // Extract more meaningful error message
+        let errorMessage = error.message;
+        if (error.code === 11000) {
+          // Duplicate key error
+          const field = Object.keys(error.keyPattern || {})[0] || 'unknown';
+          const value = error.keyValue ? error.keyValue[field] : 'unknown';
+          errorMessage = `Duplicate ${field}: ${value}`;
+        }
+
         results.failed.push({
           itemName: partData.itemName,
           manufacturer: partData.manufacturer,
           model: partData.model,
-          error: error.message
+          error: errorMessage
         });
       }
     }
