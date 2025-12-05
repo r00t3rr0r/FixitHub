@@ -72,12 +72,12 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
       return;
     }
 
-    // Check file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
+    // Check file size (max 100MB)
+    if (file.size > 100 * 1024 * 1024) {
       toast({
         variant: 'destructive',
         title: 'File too large',
-        description: 'CSV file must be smaller than 10MB for optimal performance'
+        description: 'CSV file must be smaller than 100MB'
       });
       return;
     }
@@ -386,7 +386,7 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
                   <CardHeader>
                     <CardTitle>Upload CSV File</CardTitle>
                     <CardDescription>
-                      Select a CSV file containing parts data. Maximum file size: 10MB.
+                      Select a CSV file containing parts data. Maximum file size: 100MB.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -433,7 +433,7 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
                           <li>First row must contain column headers</li>
                           <li>Required columns: Item Name, Category, Manufacturer, Brand</li>
                           <li>Category values: display, battery, camera, speaker, microphone, charging-port, button, sensor, tool, adhesive, screw, other</li>
-                          <li>Maximum file size: 10MB</li>
+                          <li>Maximum file size: 100MB</li>
                         </ul>
                       </AlertDescription>
                     </Alert>
