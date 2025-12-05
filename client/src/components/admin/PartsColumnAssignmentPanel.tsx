@@ -18,7 +18,6 @@ export const PartsColumnAssignmentPanel: React.FC<PartsColumnAssignmentPanelProp
   onMappingChange
 }) => {
   const requiredFields = [
-    { id: 'itemName', label: 'Item Name', description: 'Required. The name of the part' },
     { id: 'category', label: 'Category', description: 'Required. Must be one of: display, battery, camera, speaker, microphone, charging-port, button, sensor, tool, adhesive, screw, USB-C Ladebuchse, Microfone Flex, Ladebuchse, microUSB Buchse, other' },
     { id: 'manufacturer', label: 'Manufacturer', description: 'Required. The manufacturer of the part' },
     { id: 'model', label: 'Model', description: 'Required. The model of the part' }
@@ -87,6 +86,14 @@ export const PartsColumnAssignmentPanel: React.FC<PartsColumnAssignmentPanelProp
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Auto-Generated Item Name Notice */}
+          <Alert className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30">
+            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <AlertDescription className="text-blue-800 dark:text-blue-200">
+              <strong>Item Name is Auto-Generated:</strong> The Item Name field will be automatically created by combining Manufacturer + Model + Category. You do not need to map this field.
+            </AlertDescription>
+          </Alert>
+
           {/* Required Fields */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">

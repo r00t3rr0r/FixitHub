@@ -102,9 +102,9 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
         setCSVColumns(columns);
 
         // Auto-map columns if they match common names
+        // Note: itemName is no longer in the mapping as it's auto-generated
         const autoMapping: Record<string, string> = {};
         const commonMappings = {
-          itemName: ['itemname', 'item_name', 'name', 'part_name', 'partname', 'part name'],
           itemDescription: ['itemdescription', 'item_description', 'description', 'desc'],
           category: ['category', 'type', 'part_category'],
           manufacturer: ['manufacturer', 'mfr', 'maker'],
@@ -153,8 +153,8 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
 
   // Handle validation
   const handleValidate = async () => {
-    // Check if all required fields are mapped
-    const requiredFields = ['itemName', 'category', 'manufacturer', 'model'];
+    // Check if all required fields are mapped (itemName is now auto-generated)
+    const requiredFields = ['category', 'manufacturer', 'model'];
     const unmappedRequired = requiredFields.filter(field => !columnMapping[field]);
 
     if (unmappedRequired.length > 0) {
@@ -276,7 +276,6 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
   const handleDownloadSample = () => {
     const sampleData = [
       {
-        itemName: 'iPhone 15 Pro Screen Assembly',
         itemDescription: 'High-quality OLED display replacement',
         category: 'display',
         manufacturer: 'Apple',
@@ -295,7 +294,6 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
         supplierPhone: '+1-555-0123'
       },
       {
-        itemName: 'Samsung Galaxy S24 Battery',
         itemDescription: 'High-capacity lithium battery',
         category: 'battery',
         manufacturer: 'Samsung',
@@ -434,7 +432,8 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
                         <ul className="list-disc list-inside text-sm mt-2 space-y-1">
                           <li>File must be in CSV format (.csv)</li>
                           <li>First row must contain column headers</li>
-                          <li>Required columns: Item Name, Category, Manufacturer, Model</li>
+                          <li>Required columns: Category, Manufacturer, Model</li>
+                          <li><strong>Item Name is auto-generated</strong> from Manufacturer + Model + Category</li>
                           <li>Category values: display, battery, camera, speaker, microphone, charging-port, button, sensor, tool, adhesive, screw, USB-C Ladebuchse, Microfone Flex, Ladebuchse, microUSB Buchse, other</li>
                           <li>Optional Date column: format YYYY-MM-DD (e.g., 2024-12-05)</li>
                           <li>Maximum file size: 100MB</li>

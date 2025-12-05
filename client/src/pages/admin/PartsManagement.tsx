@@ -65,6 +65,14 @@ export function PartsManagement() {
     versions: [] as Partial<PartVersion>[]
   });
 
+  // Auto-generate Item Name when manufacturer, model, or category changes
+  const generateItemName = (manufacturer: string, model: string, category: string) => {
+    if (manufacturer && model && category) {
+      return `${manufacturer} ${model} ${category}`;
+    }
+    return '';
+  };
+
   useEffect(() => {
     fetchParts();
   }, [currentPage, itemsPerPage, searchTerm, categoryFilter, modelFilter, sortBy, sortOrder]);
@@ -1174,6 +1182,21 @@ function AddEditPartForm({
   updateVersion: (index: number, field: string, value: any) => void;
   isEdit: boolean;
 }) {
+  // Auto-generate Item Name when manufacturer, model, or category changes
+  const handleFieldChange = (field: string, value: any) => {
+    const updatedFormData = { ...formData, [field]: value };
+
+    // Auto-generate itemName if manufacturer, model, and category are all present
+    if (['manufacturer', 'model', 'category'].includes(field)) {
+      const { manufacturer, model, category } = updatedFormData;
+      if (manufacturer && model && category) {
+        updatedFormData.itemName = `${manufacturer} ${model} ${category}`;
+      }
+    }
+
+    setFormData(updatedFormData);
+  };
+
   return (
     <div className="space-y-6">
       <Tabs defaultValue="basic" className="w-full">
@@ -1186,19 +1209,24 @@ function AddEditPartForm({
         <TabsContent value="basic" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="itemName">Item Name *</Label>
+              <Label htmlFor="itemName">Item Name * (Auto-generated)</Label>
               <Input
                 id="itemName"
                 value={formData.itemName}
-                onChange={(e) => setFormData(prev => ({ ...prev, itemName: e.target.value }))}
-                placeholder="Enter item name"
+                readOnly
+                disabled
+                placeholder="Auto-generated from Manufacturer + Model + Category"
+                className="bg-muted"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                This field is automatically generated from Manufacturer, Model, and Category
+              </p>
             </div>
             <div>
               <Label htmlFor="category">Category *</Label>
               <Select
                 value={formData.category}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+                onValueChange={(value) => handleFieldChange('category', value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
@@ -1217,7 +1245,7 @@ function AddEditPartForm({
               <Input
                 id="manufacturer"
                 value={formData.manufacturer}
-                onChange={(e) => setFormData(prev => ({ ...prev, manufacturer: e.target.value }))}
+                onChange={(e) => handleFieldChange('manufacturer', e.target.value)}
                 placeholder="Enter manufacturer"
               />
             </div>
@@ -1226,7 +1254,7 @@ function AddEditPartForm({
               <Input
                 id="model"
                 value={formData.model}
-                onChange={(e) => setFormData(prev => ({ ...prev, model: e.target.value }))}
+                onChange={(e) => handleFieldChange('model', e.target.value)}
                 placeholder="Enter model"
               />
             </div>

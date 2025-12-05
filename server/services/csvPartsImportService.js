@@ -6,7 +6,8 @@ class CSVPartsImportService {
    */
   static validateColumnMapping(columnMapping) {
     console.log('CSVPartsImportService: Validating column mapping');
-    const requiredFields = ['itemName', 'category', 'manufacturer', 'model'];
+    // itemName is no longer required as it's auto-generated from manufacturer + model + category
+    const requiredFields = ['category', 'manufacturer', 'model'];
     const mappedFields = Object.keys(columnMapping).filter(key => columnMapping[key]);
 
     const missingFields = [];
@@ -30,9 +31,9 @@ class CSVPartsImportService {
   static validatePartData(part) {
     const errors = [];
 
-    // Item Name validation
+    // Item Name validation - only check if auto-generation failed
     if (!part.itemName || part.itemName.trim() === '') {
-      errors.push('Item name is required');
+      errors.push('Item name could not be generated (manufacturer, model, or category missing)');
     }
 
     // Category validation
@@ -170,15 +171,19 @@ class CSVPartsImportService {
 
     for (const row of rawData) {
       // Extract basic fields
-      const itemName = (row[columnMapping.itemName] || '').trim();
       const category = (row[columnMapping.category] || '').trim();
       const manufacturer = (row[columnMapping.manufacturer] || '').trim();
       const model = (row[columnMapping.model] || '').trim();
 
       // Skip empty rows
-      if (!itemName && !category && !manufacturer && !model) {
+      if (!category && !manufacturer && !model) {
         continue;
       }
+
+      // Auto-generate itemName from Manufacturer + Model + Category
+      const itemName = manufacturer && model && category
+        ? `${manufacturer} ${model} ${category}`
+        : (row[columnMapping.itemName] || '').trim();
 
       const cleanedPart = {
         itemName,
