@@ -123,10 +123,10 @@ export function PartsManagement() {
     console.log('PartsManagement: Opening edit dialog for part:', part._id);
     setSelectedPart(part);
     setFormData({
-      itemName: part.name || '',
-      itemDescription: part.description || '',
+      itemName: part.itemName || part.name || '',
+      itemDescription: part.itemDescription || part.description || '',
       category: part.category || '',
-      manufacturer: part.supplier || '',
+      manufacturer: part.manufacturer || part.supplier || '',
       model: part.model || '',
       date: part.date ? new Date(part.date) : null,
       compatibleDevices: part.compatibleDevices || [],

@@ -219,6 +219,7 @@ class CSVPartsImportService {
       // Build version data
       const version = {
         versionType: 'original',
+        versionId: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         quantity: 0,
         minStockLevel: 5,
         reorderLevel: 10,
@@ -334,7 +335,8 @@ class CSVPartsImportService {
         } else {
           validationErrors.push({
             itemName: part.itemName || 'Unknown',
-            brand: part.brand || 'Unknown',
+            manufacturer: part.manufacturer || 'Unknown',
+            model: part.model || 'Unknown',
             errors: validation.errors
           });
         }
@@ -351,10 +353,10 @@ class CSVPartsImportService {
 
       if (options.skipDuplicates && duplicates.length > 0) {
         const duplicateKeys = new Set(
-          duplicates.map(d => `${d.itemName.toLowerCase()}-${d.brand.toLowerCase()}`)
+          duplicates.map(d => `${d.itemName.toLowerCase()}-${d.model.toLowerCase()}`)
         );
         finalParts = validatedParts.filter(part => {
-          const key = `${part.itemName.toLowerCase()}-${part.brand.toLowerCase()}`;
+          const key = `${part.itemName.toLowerCase()}-${part.model.toLowerCase()}`;
           return !duplicateKeys.has(key);
         });
         skippedCount = validatedParts.length - finalParts.length;
@@ -408,7 +410,8 @@ class CSVPartsImportService {
 
         results.successful.push({
           itemName: partData.itemName,
-          brand: partData.brand,
+          manufacturer: partData.manufacturer,
+          model: partData.model,
           sku: savedInventory.sku
         });
 
@@ -417,7 +420,8 @@ class CSVPartsImportService {
         console.error(`CSVPartsImportService: Failed to import part: ${partData.itemName}`, error);
         results.failed.push({
           itemName: partData.itemName,
-          brand: partData.brand,
+          manufacturer: partData.manufacturer,
+          model: partData.model,
           error: error.message
         });
       }

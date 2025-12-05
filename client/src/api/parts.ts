@@ -123,9 +123,14 @@ export const getParts = async (filters: any = {}) => {
       _id: item._id,
       partNumber: item.sku,
       name: item.itemName,
+      itemName: item.itemName,
       description: item.itemDescription,
+      itemDescription: item.itemDescription,
       category: item.category,
+      manufacturer: item.manufacturer,
       model: item.model,
+      sku: item.sku,
+      barcode: item.barcode,
       date: item.date,
       compatibleDevices: item.compatibleDevices,
       supplier: item.versions[0]?.supplierInfo?.name || 'Unknown',
@@ -138,7 +143,10 @@ export const getParts = async (filters: any = {}) => {
       warranty: 90,
       images: item.versions[0]?.images || [],
       specifications: item.specifications || {},
+      dateAdded: item.dateAdded,
       lastUpdated: item.lastUpdated,
+      lastOrderDate: item.lastOrderDate,
+      isActive: item.isActive,
       // Preserve the original versions data with proper IDs
       versions: item.versions || []
     }));
