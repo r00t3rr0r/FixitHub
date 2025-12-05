@@ -23,7 +23,7 @@ export function PartsManagement() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [brandFilter, setBrandFilter] = useState('all');
+  const [modelFilter, setModelFilter] = useState('all');
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -58,7 +58,8 @@ export function PartsManagement() {
     itemDescription: '',
     category: '',
     manufacturer: '',
-    brand: '',
+    model: '',
+    date: null as Date | null,
     compatibleDevices: [] as string[],
     specifications: {} as { [key: string]: string },
     versions: [] as Partial<PartVersion>[]
@@ -66,7 +67,7 @@ export function PartsManagement() {
 
   useEffect(() => {
     fetchParts();
-  }, [currentPage, itemsPerPage, searchTerm, categoryFilter, brandFilter, sortBy, sortOrder]);
+  }, [currentPage, itemsPerPage, searchTerm, categoryFilter, modelFilter, sortBy, sortOrder]);
 
   const fetchParts = async () => {
     try {
@@ -80,7 +81,7 @@ export function PartsManagement() {
         sortOrder,
         search: searchTerm || undefined,
         category: categoryFilter !== 'all' ? categoryFilter : undefined,
-        brand: brandFilter !== 'all' ? brandFilter : undefined
+        model: modelFilter !== 'all' ? modelFilter : undefined
       };
 
       const response = await getParts(filters);
@@ -118,7 +119,8 @@ export function PartsManagement() {
       itemDescription: part.description || '',
       category: part.category || '',
       manufacturer: part.supplier || '',
-      brand: part.brand || '',
+      model: part.model || '',
+      date: part.date ? new Date(part.date) : null,
       compatibleDevices: part.compatibleDevices || [],
       specifications: part.specifications || {},
       versions: part.versions || []
@@ -196,7 +198,8 @@ export function PartsManagement() {
       itemDescription: '',
       category: '',
       manufacturer: '',
-      brand: '',
+      model: '',
+      date: null,
       compatibleDevices: [],
       specifications: {},
       versions: []
@@ -417,8 +420,9 @@ export function PartsManagement() {
   };
 
   const categories = [
-    'display', 'battery', 'camera', 'speaker', 'microphone', 
-    'charging-port', 'button', 'sensor', 'tool', 'adhesive', 'screw', 'other'
+    'display', 'battery', 'camera', 'speaker', 'microphone',
+    'charging-port', 'button', 'sensor', 'tool', 'adhesive', 'screw',
+    'USB-C Ladebuchse', 'Microfone Flex', 'Ladebuchse', 'microUSB Buchse', 'other'
   ];
 
   const versionTypes = [
@@ -548,15 +552,15 @@ export function PartsManagement() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={brandFilter} onValueChange={setBrandFilter}>
+            <Select value={modelFilter} onValueChange={setModelFilter}>
               <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="Filter by brand" />
+                <SelectValue placeholder="Filter by model" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Brands</SelectItem>
-                {Array.from(new Set(parts.map(p => p.brand))).map(brand => (
-                  <SelectItem key={brand} value={brand}>
-                    {brand}
+                <SelectItem value="all">All Models</SelectItem>
+                {Array.from(new Set(parts.map(p => p.model))).filter(m => m).map(model => (
+                  <SelectItem key={model} value={model}>
+                    {model}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -616,11 +620,11 @@ export function PartsManagement() {
                   </TableHead>
                   <TableHead
                     className="cursor-pointer select-none hover:bg-muted/50"
-                    onClick={() => handleSort('brand')}
+                    onClick={() => handleSort('model')}
                   >
                     <div className="flex items-center">
-                      Brand
-                      {getSortIcon('brand')}
+                      Model
+                      {getSortIcon('model')}
                     </div>
                   </TableHead>
                   <TableHead>Stock</TableHead>
@@ -652,10 +656,10 @@ export function PartsManagement() {
                       <TableCell onClick={() => handleRowClick(part)}>{part.name}</TableCell>
                       <TableCell onClick={() => handleRowClick(part)}>
                         <Badge variant="outline">
-                          {part.category?.charAt(0).toUpperCase() + part.category?.slice(1)}
+                          {part.category}
                         </Badge>
                       </TableCell>
-                      <TableCell onClick={() => handleRowClick(part)}>{part.brand}</TableCell>
+                      <TableCell onClick={() => handleRowClick(part)}>{part.model}</TableCell>
                       <TableCell onClick={() => handleRowClick(part)}>{part.stockQuantity}</TableCell>
                       <TableCell onClick={() => handleRowClick(part)}>{getStockStatus(part)}</TableCell>
                       <TableCell onClick={() => handleRowClick(part)}>{part.location}</TableCell>
@@ -978,8 +982,8 @@ function PartDetailView({ part }: { part: Part }) {
               </Badge>
             </div>
             <div>
-              <Label className="text-sm font-medium text-muted-foreground">Brand</Label>
-              <p className="text-sm">{part.brand}</p>
+              <Label className="text-sm font-medium text-muted-foreground">Model</Label>
+              <p className="text-sm">{part.model}</p>
             </div>
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Supplier</Label>
@@ -1202,7 +1206,7 @@ function AddEditPartForm({
                 <SelectContent>
                   {categories.map(category => (
                     <SelectItem key={category} value={category}>
-                      {category.charAt(0).toUpperCase() + category.slice(1)}
+                      {category}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1218,12 +1222,21 @@ function AddEditPartForm({
               />
             </div>
             <div>
-              <Label htmlFor="brand">Brand *</Label>
+              <Label htmlFor="model">Model *</Label>
               <Input
-                id="brand"
-                value={formData.brand}
-                onChange={(e) => setFormData(prev => ({ ...prev, brand: e.target.value }))}
-                placeholder="Enter brand"
+                id="model"
+                value={formData.model}
+                onChange={(e) => setFormData(prev => ({ ...prev, model: e.target.value }))}
+                placeholder="Enter model"
+              />
+            </div>
+            <div>
+              <Label htmlFor="date">Date</Label>
+              <Input
+                id="date"
+                type="date"
+                value={formData.date ? formData.date.toISOString().split('T')[0] : ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value ? new Date(e.target.value) : null }))}
               />
             </div>
           </div>

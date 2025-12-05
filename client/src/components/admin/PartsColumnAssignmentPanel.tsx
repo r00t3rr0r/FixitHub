@@ -19,13 +19,14 @@ export const PartsColumnAssignmentPanel: React.FC<PartsColumnAssignmentPanelProp
 }) => {
   const requiredFields = [
     { id: 'itemName', label: 'Item Name', description: 'Required. The name of the part' },
-    { id: 'category', label: 'Category', description: 'Required. Must be one of: display, battery, camera, speaker, microphone, charging-port, button, sensor, tool, adhesive, screw, other' },
+    { id: 'category', label: 'Category', description: 'Required. Must be one of: display, battery, camera, speaker, microphone, charging-port, button, sensor, tool, adhesive, screw, USB-C Ladebuchse, Microfone Flex, Ladebuchse, microUSB Buchse, other' },
     { id: 'manufacturer', label: 'Manufacturer', description: 'Required. The manufacturer of the part' },
-    { id: 'brand', label: 'Brand', description: 'Required. The brand of the part' }
+    { id: 'model', label: 'Model', description: 'Required. The model of the part' }
   ];
 
   const optionalFields = [
     { id: 'itemDescription', label: 'Description', description: 'Optional. Detailed description of the part' },
+    { id: 'date', label: 'Date', description: 'Optional. Date field (format: YYYY-MM-DD)' },
     { id: 'compatibleDevices', label: 'Compatible Devices', description: 'Optional. Comma-separated list of compatible devices' },
     { id: 'versionType', label: 'Version Type', description: 'Optional. Type: original, cheap, or efficient' },
     { id: 'quantity', label: 'Quantity', description: 'Optional. Current stock quantity (default: 0)' },
@@ -195,10 +196,13 @@ export const PartsColumnAssignmentPanel: React.FC<PartsColumnAssignmentPanelProp
             </CardHeader>
             <CardContent className="text-xs space-y-2">
               <div>
-                <strong>Category values:</strong> display, battery, camera, speaker, microphone, charging-port, button, sensor, tool, adhesive, screw, other
+                <strong>Category values:</strong> display, battery, camera, speaker, microphone, charging-port, button, sensor, tool, adhesive, screw, USB-C Ladebuchse, Microfone Flex, Ladebuchse, microUSB Buchse, other
               </div>
               <div>
                 <strong>Version Type values:</strong> original, cheap, efficient
+              </div>
+              <div>
+                <strong>Date format:</strong> YYYY-MM-DD (e.g., "2024-12-05")
               </div>
               <div>
                 <strong>Numeric fields:</strong> quantity, minStockLevel, unitCost, sellingPrice (must be positive numbers)

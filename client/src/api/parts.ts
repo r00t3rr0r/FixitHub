@@ -9,7 +9,8 @@ export interface Part {
   sku: string;
   barcode: string;
   manufacturer: string;
-  brand: string;
+  model: string;
+  date?: string | Date | null;
   compatibleDevices: string[];
   versions: PartVersion[];
   specifications: { [key: string]: string };
@@ -110,7 +111,7 @@ export interface Supplier {
 
 // Description: Get all parts inventory
 // Endpoint: GET /api/inventory
-// Request: { category?: string, brand?: string, lowStock?: boolean, search?: string, page?: number, limit?: number, sortBy?: string, sortOrder?: 'asc' | 'desc' }
+// Request: { category?: string, model?: string, lowStock?: boolean, search?: string, page?: number, limit?: number, sortBy?: string, sortOrder?: 'asc' | 'desc' }
 // Response: { items: Part[], totalPages: number, currentPage: number, totalItems: number, totalValue: number, lowStockCount: number }
 export const getParts = async (filters: any = {}) => {
   try {
@@ -124,7 +125,8 @@ export const getParts = async (filters: any = {}) => {
       name: item.itemName,
       description: item.itemDescription,
       category: item.category,
-      brand: item.brand,
+      model: item.model,
+      date: item.date,
       compatibleDevices: item.compatibleDevices,
       supplier: item.versions[0]?.supplierInfo?.name || 'Unknown',
       cost: item.versions[0]?.unitCost || 0,

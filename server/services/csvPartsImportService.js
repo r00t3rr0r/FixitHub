@@ -6,7 +6,7 @@ class CSVPartsImportService {
    */
   static validateColumnMapping(columnMapping) {
     console.log('CSVPartsImportService: Validating column mapping');
-    const requiredFields = ['itemName', 'category', 'manufacturer', 'brand'];
+    const requiredFields = ['itemName', 'category', 'manufacturer', 'model'];
     const mappedFields = Object.keys(columnMapping).filter(key => columnMapping[key]);
 
     const missingFields = [];
@@ -36,10 +36,10 @@ class CSVPartsImportService {
     }
 
     // Category validation
-    const validCategories = ['display', 'battery', 'camera', 'speaker', 'microphone', 'charging-port', 'button', 'sensor', 'tool', 'adhesive', 'screw', 'other'];
+    const validCategories = ['display', 'battery', 'camera', 'speaker', 'microphone', 'charging-port', 'button', 'sensor', 'tool', 'adhesive', 'screw', 'USB-C Ladebuchse', 'Microfone Flex', 'Ladebuchse', 'microUSB Buchse', 'other'];
     if (!part.category) {
       errors.push('Category is required');
-    } else if (!validCategories.includes(part.category.toLowerCase())) {
+    } else if (!validCategories.includes(part.category)) {
       errors.push(`Invalid category: ${part.category}. Must be one of: ${validCategories.join(', ')}`);
     }
 
@@ -48,9 +48,17 @@ class CSVPartsImportService {
       errors.push('Manufacturer is required');
     }
 
-    // Brand validation
-    if (!part.brand || part.brand.trim() === '') {
-      errors.push('Brand is required');
+    // Model validation
+    if (!part.model || part.model.trim() === '') {
+      errors.push('Model is required');
+    }
+
+    // Date validation
+    if (part.date !== undefined && part.date !== '' && part.date !== null) {
+      const date = new Date(part.date);
+      if (isNaN(date.getTime())) {
+        errors.push(`Invalid date: ${part.date}. Must be a valid date format (YYYY-MM-DD)`);
+      }
     }
 
     // Version data validation
@@ -106,15 +114,15 @@ class CSVPartsImportService {
     const duplicates = [];
     const nameMap = new Map();
 
-    // Check for duplicates within the CSV data (by itemName + brand)
+    // Check for duplicates within the CSV data (by itemName + model)
     for (const part of parts) {
-      const key = `${part.itemName.toLowerCase()}-${part.brand.toLowerCase()}`;
+      const key = `${part.itemName.toLowerCase()}-${part.model.toLowerCase()}`;
       if (nameMap.has(key)) {
         duplicates.push({
           itemName: part.itemName,
-          brand: part.brand,
+          model: part.model,
           type: 'duplicate_in_csv',
-          message: `Duplicate part found in CSV: ${part.itemName} (${part.brand})`
+          message: `Duplicate part found in CSV: ${part.itemName} (${part.model})`
         });
       } else {
         nameMap.set(key, true);
@@ -123,26 +131,26 @@ class CSVPartsImportService {
 
     // Check for duplicates in the database
     const itemNames = parts.map(p => p.itemName);
-    const brands = parts.map(p => p.brand);
+    const models = parts.map(p => p.model);
 
     const existingParts = await Inventory.find({
       isActive: true,
       itemName: { $in: itemNames },
-      brand: { $in: brands }
-    }, { itemName: 1, brand: 1 });
+      model: { $in: models }
+    }, { itemName: 1, model: 1 });
 
     const existingMap = new Set(
-      existingParts.map(p => `${p.itemName.toLowerCase()}-${p.brand.toLowerCase()}`)
+      existingParts.map(p => `${p.itemName.toLowerCase()}-${p.model.toLowerCase()}`)
     );
 
     for (const part of parts) {
-      const key = `${part.itemName.toLowerCase()}-${part.brand.toLowerCase()}`;
+      const key = `${part.itemName.toLowerCase()}-${part.model.toLowerCase()}`;
       if (existingMap.has(key)) {
         duplicates.push({
           itemName: part.itemName,
-          brand: part.brand,
+          model: part.model,
           type: 'duplicate_in_database',
-          message: `Part already exists in database: ${part.itemName} (${part.brand})`
+          message: `Part already exists in database: ${part.itemName} (${part.model})`
         });
       }
     }
@@ -163,12 +171,12 @@ class CSVPartsImportService {
     for (const row of rawData) {
       // Extract basic fields
       const itemName = (row[columnMapping.itemName] || '').trim();
-      const category = (row[columnMapping.category] || '').trim().toLowerCase();
+      const category = (row[columnMapping.category] || '').trim();
       const manufacturer = (row[columnMapping.manufacturer] || '').trim();
-      const brand = (row[columnMapping.brand] || '').trim();
+      const model = (row[columnMapping.model] || '').trim();
 
       // Skip empty rows
-      if (!itemName && !category && !manufacturer && !brand) {
+      if (!itemName && !category && !manufacturer && !model) {
         continue;
       }
 
@@ -177,11 +185,23 @@ class CSVPartsImportService {
         itemDescription: columnMapping.itemDescription ? (row[columnMapping.itemDescription] || '').trim() : '',
         category,
         manufacturer,
-        brand,
+        model,
+        date: null,
         compatibleDevices: [],
         specifications: {},
         versions: []
       };
+
+      // Parse date field
+      if (columnMapping.date && row[columnMapping.date]) {
+        const dateValue = row[columnMapping.date].trim();
+        if (dateValue) {
+          const parsedDate = new Date(dateValue);
+          if (!isNaN(parsedDate.getTime())) {
+            cleanedPart.date = parsedDate;
+          }
+        }
+      }
 
       // Parse compatible devices (comma-separated)
       if (columnMapping.compatibleDevices && row[columnMapping.compatibleDevices]) {
