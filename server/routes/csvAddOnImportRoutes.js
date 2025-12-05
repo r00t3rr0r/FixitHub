@@ -11,7 +11,7 @@ const CSVAddOnImportService = require('../services/csvAddOnImportService');
 const upload = multer({
   dest: path.join(__dirname, '../uploads/csv'),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 100 * 1024 * 1024, // 100MB limit
   },
   fileFilter: (req, file, cb) => {
     if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
@@ -58,7 +58,8 @@ router.post('/validate', requireAdmin, upload.single('file'), async (req, res) =
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    console.log(`Processing CSV file: ${req.file.originalname} (${req.file.size} bytes)`);
+    const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
+    console.log(`Processing CSV file: ${req.file.originalname} (${req.file.size} bytes / ${fileSizeMB} MB)`);
 
     // Parse CSV file
     const csvData = await parseCSVFile(req.file.path);

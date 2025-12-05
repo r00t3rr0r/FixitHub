@@ -10,7 +10,7 @@ const CSVProductImportService = require('../services/csvProductImportService');
 const upload = multer({
   dest: 'server/uploads/csv/',
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
+    fileSize: 100 * 1024 * 1024 // 100MB limit
   },
   fileFilter: (req, file, cb) => {
     if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
@@ -36,7 +36,8 @@ router.post('/validate', auth, requireRole(['admin', 'staff']), upload.single('f
     }
 
     filePath = req.file.path;
-    console.log(`CSV file uploaded: ${filePath}`);
+    const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
+    console.log(`CSV file uploaded: ${filePath} (${req.file.size} bytes / ${fileSizeMB} MB)`);
 
     // Parse column mapping from request body
     let columnMapping = {};

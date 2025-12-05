@@ -19,7 +19,7 @@ const requireAdminOrStaff = (req, res, next) => {
 const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB limit
   fileFilter: (req, file, cb) => {
     if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
       cb(null, true);
@@ -106,7 +106,8 @@ router.post('/upload', requireUser, requireAdminOrStaff, upload.single('file'), 
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    console.log(`CSV Parts Import: Processing file: ${req.file.originalname} (${req.file.size} bytes)`);
+    const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
+    console.log(`CSV Parts Import: Processing file: ${req.file.originalname} (${req.file.size} bytes / ${fileSizeMB} MB)`);
 
     const results = [];
     const stream = Readable.from(req.file.buffer);
