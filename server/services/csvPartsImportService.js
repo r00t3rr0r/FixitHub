@@ -36,12 +36,9 @@ class CSVPartsImportService {
       errors.push('Item name could not be generated (manufacturer, model, or category missing)');
     }
 
-    // Category validation
-    const validCategories = ['display', 'battery', 'camera', 'speaker', 'microphone', 'charging-port', 'button', 'sensor', 'tool', 'adhesive', 'screw', 'USB-C Ladebuchse', 'Microfone Flex', 'Ladebuchse', 'microUSB Buchse', 'other'];
-    if (!part.category) {
+    // Category validation - accept any non-empty category value
+    if (!part.category || part.category.trim() === '') {
       errors.push('Category is required');
-    } else if (!validCategories.includes(part.category)) {
-      errors.push(`Invalid category: ${part.category}. Must be one of: ${validCategories.join(', ')}`);
     }
 
     // Manufacturer validation
