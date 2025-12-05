@@ -117,12 +117,13 @@ const inventorySchema = new mongoose.Schema({
   },
   itemDescription: {
     type: String,
-    required: true,
+    required: false,
+    default: '',
   },
   category: {
     type: String,
     required: true,
-    enum: ['display', 'battery', 'camera', 'speaker', 'microphone', 'charging-port', 'button', 'sensor', 'tool', 'adhesive', 'screw', 'USB-C Ladebuchse', 'Microfone Flex', 'Ladebuchse', 'microUSB Buchse', 'other'],
+    trim: true,
   },
   sku: {
     type: String,
