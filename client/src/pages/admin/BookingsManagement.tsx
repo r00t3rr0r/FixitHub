@@ -631,6 +631,7 @@ export function BookingsManagement() {
                     <TableHead>Customer</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Billing Status</TableHead>
+                    <TableHead>Shipping Status</TableHead>
                     <TableHead>Progress</TableHead>
                     <TableHead>Total Cost</TableHead>
                     <TableHead>Orders</TableHead>
@@ -683,6 +684,22 @@ export function BookingsManagement() {
                         <Badge className={getBillingStatusColor(booking.billingStatus)}>
                           {booking.billingStatus}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {booking.returnShipmentStatus ? (
+                          <Badge className={
+                            booking.returnShipmentStatus === 'delivered' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                            booking.returnShipmentStatus === 'in-transit' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                            booking.returnShipmentStatus === 'label-created' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                            booking.returnShipmentStatus === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                            'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                          }>
+                            <Truck className="h-3 w-3 mr-1" />
+                            {booking.returnShipmentStatus.replace('-', ' ')}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-foreground/50">No returns</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2 min-w-[120px]">
@@ -1223,10 +1240,11 @@ function BookingDetailDialog({
       </DialogHeader>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="repairs">Repair Jobs</TabsTrigger>
           <TabsTrigger value="items">Items</TabsTrigger>
+          <TabsTrigger value="shipping">Shipping</TabsTrigger>
           <TabsTrigger value="invoices">Invoices</TabsTrigger>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
         </TabsList>
@@ -1355,90 +1373,6 @@ function BookingDetailDialog({
               <div>Updated: {formatDateTime(booking.updatedAt)}</div>
             </div>
           </div>
-
-          {/* Return Shipping Information Section */}
-          {booking.returnTrackingNumber && (
-            <>
-              <Separator />
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-sm flex items-center gap-2">
-                    <Truck className="h-4 w-4" />
-                    Return Shipping
-                  </h3>
-                  {booking.returnShipmentStatus && (
-                    <Badge
-                      className={
-                        booking.returnShipmentStatus === 'delivered' ? 'bg-green-100 text-green-800' :
-                        booking.returnShipmentStatus === 'in-transit' ? 'bg-blue-100 text-blue-800' :
-                        booking.returnShipmentStatus === 'label-created' ? 'bg-yellow-100 text-yellow-800' :
-                        booking.returnShipmentStatus === 'failed' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
-                      }
-                    >
-                      {booking.returnShipmentStatus.replace('-', ' ')}
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="text-foreground/60">Tracking Number: </span>
-                      <span className="font-mono">{booking.returnTrackingNumber}</span>
-                    </div>
-                    {booking.returnCreatedAt && (
-                      <div>
-                        <span className="text-foreground/60">Label Created: </span>
-                        <span>{formatDateTime(booking.returnCreatedAt)}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {booking.returnReceivedAt && (
-                    <div className="text-sm">
-                      <span className="text-foreground/60">Received: </span>
-                      <span className="text-green-600 font-medium">{formatDateTime(booking.returnReceivedAt)}</span>
-                    </div>
-                  )}
-
-                  <div className="flex gap-2">
-                    {booking.returnLabelUrl && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const link = document.createElement('a');
-                          link.href = booking.returnLabelUrl!;
-                          link.download = `return-label-${booking.bookingNumber}.pdf`;
-                          link.click();
-                        }}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Download Label
-                      </Button>
-                    )}
-
-                    {booking.returnQRCodeUrl && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const link = document.createElement('a');
-                          link.href = booking.returnQRCodeUrl!;
-                          link.download = `return-qr-${booking.bookingNumber}.png`;
-                          link.click();
-                        }}
-                      >
-                        <QrCode className="h-4 w-4 mr-2" />
-                        Download QR
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
         </TabsContent>
 
         <TabsContent value="repairs" className="space-y-4 mt-4">
@@ -1524,6 +1458,151 @@ function BookingDetailDialog({
             </div>
           ) : (
             <p className="text-foreground/60 text-center py-4">No product items in this booking</p>
+          )}
+        </TabsContent>
+
+        <TabsContent value="shipping" className="space-y-4 mt-4">
+          {booking.returnTrackingNumber || booking.returnLabelUrl || booking.returnQRCodeUrl ? (
+            <div className="space-y-4">
+              <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                    <Truck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    Return Shipping Information
+                  </h3>
+                  {booking.returnShipmentStatus && (
+                    <Badge
+                      className={
+                        booking.returnShipmentStatus === 'delivered' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                        booking.returnShipmentStatus === 'in-transit' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                        booking.returnShipmentStatus === 'label-created' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                        booking.returnShipmentStatus === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                        'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                      }
+                    >
+                      {booking.returnShipmentStatus.replace('-', ' ')}
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  {booking.returnTrackingNumber && (
+                    <div className="border-b pb-3">
+                      <div className="flex items-start gap-3">
+                        <Package className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-1 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm text-foreground/60 mb-1">Tracking Number</p>
+                          <p className="font-mono font-semibold text-lg text-blue-900 dark:text-blue-200">
+                            {booking.returnTrackingNumber}
+                          </p>
+                          <p className="text-xs text-foreground/50 mt-1">
+                            Use this tracking number to monitor your return shipment with DHL
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {booking.returnLabelUrl && (
+                    <div className="border-b pb-3">
+                      <div className="flex items-start gap-3">
+                        <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-1 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm text-foreground/60 mb-2">Return Label (PDF)</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = booking.returnLabelUrl!;
+                              link.download = `return-label-${booking.bookingNumber}.pdf`;
+                              link.click();
+                            }}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Download Return Label
+                          </Button>
+                          <p className="text-xs text-foreground/50 mt-2">
+                            Print this label and attach it to your return package
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {booking.returnQRCodeUrl && (
+                    <div className="border-b pb-3">
+                      <div className="flex items-start gap-3">
+                        <QrCode className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-1 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm text-foreground/60 mb-2">QR Code for Label-Free Return</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = booking.returnQRCodeUrl!;
+                              link.download = `return-qr-${booking.bookingNumber}.png`;
+                              link.click();
+                            }}
+                          >
+                            <QrCode className="h-4 w-4 mr-2" />
+                            Download QR Code
+                          </Button>
+                          <p className="text-xs text-foreground/50 mt-2">
+                            Show this QR code at any DHL location for a label-free return
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {(booking.returnCreatedAt || booking.returnReceivedAt) && (
+                    <div>
+                      <div className="flex items-start gap-3">
+                        <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-1 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm text-foreground/60 mb-2">Timeline</p>
+                          <div className="space-y-2 text-sm">
+                            {booking.returnCreatedAt && (
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-blue-600"></div>
+                                <span className="text-foreground/60">Label Created:</span>
+                                <span className="font-semibold">{formatDateTime(booking.returnCreatedAt)}</span>
+                              </div>
+                            )}
+                            {booking.returnReceivedAt && (
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-green-600"></div>
+                                <span className="text-foreground/60">Package Received:</span>
+                                <span className="font-semibold">{formatDateTime(booking.returnReceivedAt)}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-muted/50 p-4 rounded-lg text-sm">
+                <h4 className="font-semibold mb-2">Return Instructions</h4>
+                <ol className="list-decimal list-inside space-y-1 text-foreground/70">
+                  <li>Print the return label or save the QR code to your phone</li>
+                  <li>Pack your item securely in a suitable box</li>
+                  <li>Attach the printed label to the package, or show the QR code at a DHL location</li>
+                  <li>Drop off the package at any DHL service point or arrange a pickup</li>
+                  <li>Track your return shipment using the tracking number above</li>
+                </ol>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Truck className="h-12 w-12 mx-auto mb-4 text-foreground/20" />
+              <p className="text-foreground/60">No return shipping information available for this booking</p>
+              <p className="text-sm text-foreground/50 mt-2">Return shipping details will appear here once generated</p>
+            </div>
           )}
         </TabsContent>
 
