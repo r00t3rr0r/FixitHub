@@ -622,22 +622,22 @@ export function BookingsManagement() {
               <p>No bookings found</p>
             </div>
           ) : (
-            <ScrollArea className="w-full">
-              <Table>
+            <div className="w-full overflow-x-auto">
+              <Table className="w-full min-w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-12"></TableHead>
-                    <TableHead>Booking ID</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Billing Status</TableHead>
-                    <TableHead>Shipping Status</TableHead>
-                    <TableHead>Progress</TableHead>
-                    <TableHead>Total Cost</TableHead>
-                    <TableHead>Orders</TableHead>
-                    <TableHead>Items</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="w-12 flex-shrink-0"></TableHead>
+                    <TableHead className="min-w-[100px]">Booking ID</TableHead>
+                    <TableHead className="min-w-[150px]">Customer</TableHead>
+                    <TableHead className="min-w-[90px]">Status</TableHead>
+                    <TableHead className="min-w-[100px]">Billing Status</TableHead>
+                    <TableHead className="min-w-[110px]">Shipping Status</TableHead>
+                    <TableHead className="min-w-[100px]">Progress</TableHead>
+                    <TableHead className="min-w-[90px]">Total Cost</TableHead>
+                    <TableHead className="min-w-[70px] text-center">Orders</TableHead>
+                    <TableHead className="min-w-[60px] text-center">Items</TableHead>
+                    <TableHead className="min-w-[100px]">Created</TableHead>
+                    <TableHead className="text-right min-w-[120px] flex-shrink-0">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -726,14 +726,14 @@ export function BookingsManagement() {
                       <TableCell className="text-sm text-foreground/60">
                         {formatDate(booking.createdAt)}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right sticky right-0 bg-background">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuContent align="end" className="w-56 z-50">
                             <DropdownMenuItem onClick={() => handleViewDetails(booking)}>
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
@@ -804,7 +804,7 @@ export function BookingsManagement() {
                     {/* Expanded Row with Orders/Repair Jobs */}
                     {expandedBookings.has(booking._id) && (
                       <TableRow className="bg-muted/30">
-                        <TableCell colSpan={11}>
+                        <TableCell colSpan={12}>
                           <div className="p-4 space-y-4">
                             {/* Booking Status Summary */}
                             <div className="bg-muted/50 p-3 rounded-lg border">
@@ -956,7 +956,7 @@ export function BookingsManagement() {
                   ))}
                 </TableBody>
               </Table>
-            </ScrollArea>
+            </div>
           )}
 
           {/* Pagination Controls */}
