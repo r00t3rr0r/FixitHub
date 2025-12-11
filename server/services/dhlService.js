@@ -57,8 +57,8 @@ class DHLService {
       // Get DHL configuration
       const dhlConfig = await this.getDHLConfig();
 
-      // Retrieve order details
-      const order = await Order.findById(orderId).populate('customerId', 'name email phone');
+      // Retrieve order details with full customer profile including invoice address
+      const order = await Order.findById(orderId).populate('customerId', 'name email phone invoiceAddress');
 
       if (!order) {
         console.error('DHLService: Order not found:', orderId);
@@ -67,11 +67,15 @@ class DHLService {
 
       console.log('DHLService: Order found:', order.orderNumber);
 
-      // Validate shipping address is complete
-      const receiverStreet = order.shippingAddress?.street || shipmentData.receiverAddress;
-      const receiverCity = order.shippingAddress?.city || shipmentData.receiverCity;
-      const receiverPostalCode = order.shippingAddress?.zipCode || shipmentData.receiverPostalCode;
-      const receiverCountry = order.shippingAddress?.country || shipmentData.receiverCountry || 'NL';
+      // Use invoice address as fallback if shipping address is not complete
+      const invoiceAddress = order.customerId?.invoiceAddress || {};
+      console.log('DHLService: Customer invoice address:', invoiceAddress);
+
+      // Validate shipping address is complete, fall back to invoice address if needed
+      const receiverStreet = order.shippingAddress?.street || shipmentData.receiverAddress || invoiceAddress.street;
+      const receiverCity = order.shippingAddress?.city || shipmentData.receiverCity || invoiceAddress.city;
+      const receiverPostalCode = order.shippingAddress?.zipCode || shipmentData.receiverPostalCode || invoiceAddress.zipCode;
+      const receiverCountry = order.shippingAddress?.country || shipmentData.receiverCountry || invoiceAddress.country || 'NL';
 
       // Check if required address fields are missing or empty
       if (!receiverStreet || receiverStreet.trim() === '') {
