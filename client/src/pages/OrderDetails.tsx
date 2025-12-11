@@ -27,7 +27,7 @@ import { OrderProgressTimeline } from "@/components/OrderProgressTimeline"
 import { UnlockInformationDisplay } from "@/components/inspection/UnlockInformationDisplay"
 import { ConfirmUnlockDialog } from "@/components/inspection/ConfirmUnlockDialog"
 import { DeviceChangeDialog } from "@/components/admin/DeviceChangeDialog"
-import TrackingPanel from "@/components/admin/TrackingPanel"
+import { TrackingPanel } from "@/components/admin/TrackingPanel"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -1721,7 +1721,7 @@ export function OrderDetails() {
             <TrackingPanel
               orderId={id || ''}
               orderData={order}
-              onUpdate={fetchOrder}
+              onUpdate={refreshOrder}
             />
           )}
 
