@@ -1,6 +1,7 @@
 const axios = require('axios');
 const SystemConfiguration = require('../models/SystemConfiguration');
 const Booking = require('../models/Booking');
+const User = require('../models/User');
 
 /**
  * DHL Parcel DE Returns Service
@@ -128,7 +129,7 @@ class DHLReturnsService {
 
     try {
       // Get booking details
-      const booking = await Booking.findById(bookingId).populate('customerId');
+      const booking = await Booking.findById(bookingId);
 
       if (!booking) {
         console.error('DHLReturnsService: Booking not found:', bookingId);
@@ -136,11 +137,21 @@ class DHLReturnsService {
       }
 
       console.log('DHLReturnsService: Booking found:', booking.bookingNumber);
-      console.log('DHLReturnsService: Customer:', booking.customerId?.email);
+      console.log('DHLReturnsService: Customer ID:', booking.customerId);
+
+      // Get full customer object directly from User model to ensure all fields are loaded
+      const customer = await User.findById(booking.customerId).select('firstName lastName name email phone invoiceAddress');
+
+      if (!customer) {
+        console.error('DHLReturnsService: Customer not found for booking');
+        throw new Error('Customer information not found');
+      }
+
+      console.log('DHLReturnsService: Customer:', customer.email);
+      console.log('DHLReturnsService: Customer has invoiceAddress:', !!customer.invoiceAddress);
 
       // Get customer address - use invoice address as shipper address for returns
-      const customer = booking.customerId;
-      const invoiceAddress = customer?.invoiceAddress || {};
+      const invoiceAddress = customer.invoiceAddress || {};
 
       console.log('DHLReturnsService: Customer invoice address:', JSON.stringify(invoiceAddress, null, 2));
 
