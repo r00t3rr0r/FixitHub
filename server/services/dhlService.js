@@ -1,10 +1,12 @@
 const axios = require('axios');
+const { v4: uuidv4 } = require('uuid');
 const SystemConfiguration = require('../models/SystemConfiguration');
 const Order = require('../models/Order');
 
 /**
- * DHL API Service
- * Handles shipment creation, tracking, and label generation via DHL API
+ * DHL Parcel API Service
+ * Handles shipment creation, tracking, and label generation via DHL Parcel API
+ * API Documentation: https://api-gw.dhlparcel.nl/docs/
  */
 class DHLService {
   /**
@@ -43,7 +45,7 @@ class DHLService {
   }
 
   /**
-   * Create a shipment and generate shipping label
+   * Create a shipment and generate shipping label using DHL Parcel API
    * @param {string} orderId - Order ID
    * @param {Object} shipmentData - Shipment details
    * @returns {Promise<Object>} Shipment creation result
@@ -59,115 +61,160 @@ class DHLService {
       const order = await Order.findById(orderId).populate('customerId', 'name email phone');
 
       if (!order) {
+        console.error('DHLService: Order not found:', orderId);
         throw new Error('Order not found');
       }
 
       console.log('DHLService: Order found:', order.orderNumber);
 
-      // Prepare shipment payload for DHL API
+      // Generate unique shipment ID (UUID v4 as required by DHL Parcel API)
+      const shipmentId = uuidv4();
+      console.log('DHLService: Generated shipment ID:', shipmentId);
+
+      // Get account ID from settings or use default
+      const accountId = dhlConfig.settings?.accountId || dhlConfig.settings?.accountNumber;
+
+      if (!accountId) {
+        console.error('DHLService: Account ID not configured');
+        throw new Error('DHL Account ID not configured in integration settings');
+      }
+
+      // Prepare shipment payload for DHL Parcel API
+      // According to: https://api-gw.dhlparcel.nl/docs/guide/chapters/04-labels.html
       const shipmentPayload = {
-        plannedShippingDateAndTime: new Date().toISOString(),
-        pickup: {
-          isRequested: false
-        },
-        productCode: shipmentData.serviceType || dhlConfig.settings?.defaultServiceType || 'P',
-        accounts: [{
-          typeCode: 'shipper',
-          number: dhlConfig.settings?.accountNumber || '123456789'
-        }],
-        customerDetails: {
-          shipperDetails: {
-            postalAddress: {
-              postalCode: shipmentData.shipperPostalCode || '10115',
-              cityName: shipmentData.shipperCity || 'Berlin',
-              countryCode: shipmentData.shipperCountry || 'DE',
-              addressLine1: shipmentData.shipperAddress || 'Company Street 1'
-            },
-            contactInformation: {
-              email: shipmentData.shipperEmail || dhlConfig.settings?.defaultEmail || 'info@fixithub.com',
-              phone: shipmentData.shipperPhone || '+49 30 1234567',
-              companyName: shipmentData.shipperCompany || 'FixitHub',
-              fullName: shipmentData.shipperName || 'FixitHub Logistics'
-            }
+        shipmentId: shipmentId,
+        receiver: {
+          name: {
+            firstName: (order.customerId?.name || 'Customer').split(' ')[0],
+            lastName: (order.customerId?.name || 'Customer').split(' ').slice(1).join(' ') || 'Customer'
           },
-          receiverDetails: {
-            postalAddress: {
-              postalCode: order.shippingAddress?.zipCode || shipmentData.receiverPostalCode,
-              cityName: order.shippingAddress?.city || shipmentData.receiverCity,
-              countryCode: order.shippingAddress?.country || shipmentData.receiverCountry || 'DE',
-              addressLine1: order.shippingAddress?.street || shipmentData.receiverAddress
-            },
-            contactInformation: {
-              email: order.customerId?.email || 'customer@example.com',
-              phone: order.customerId?.phone || '+49 30 9876543',
-              fullName: order.customerId?.name || 'Customer'
-            }
-          }
+          address: {
+            countryCode: order.shippingAddress?.country || shipmentData.receiverCountry || 'NL',
+            postalCode: order.shippingAddress?.zipCode || shipmentData.receiverPostalCode,
+            city: order.shippingAddress?.city || shipmentData.receiverCity,
+            street: order.shippingAddress?.street || shipmentData.receiverAddress,
+            number: order.shippingAddress?.number || shipmentData.receiverNumber || '1',
+            isBusiness: false
+          },
+          email: order.customerId?.email || shipmentData.receiverEmail,
+          phoneNumber: order.customerId?.phone || shipmentData.receiverPhone
         },
-        content: {
-          packages: [{
-            weight: shipmentData.weight || 1.0,
-            dimensions: {
-              length: shipmentData.length || 20,
-              width: shipmentData.width || 15,
-              height: shipmentData.height || 10
-            }
-          }],
-          isCustomsDeclarable: shipmentData.isCustomsDeclarable || false,
-          description: `Repair Order ${order.orderNumber} - ${order.deviceBrand} ${order.deviceModel}`,
-          incoterm: 'DAP',
-          unitOfMeasurement: 'metric'
+        shipper: {
+          name: {
+            firstName: 'FixitHub',
+            lastName: 'Logistics'
+          },
+          address: {
+            countryCode: shipmentData.shipperCountry || dhlConfig.settings?.shipperCountry || 'NL',
+            postalCode: shipmentData.shipperPostalCode || dhlConfig.settings?.shipperPostalCode || '1012AB',
+            city: shipmentData.shipperCity || dhlConfig.settings?.shipperCity || 'Amsterdam',
+            street: shipmentData.shipperStreet || dhlConfig.settings?.shipperStreet || 'Company Street',
+            number: shipmentData.shipperNumber || dhlConfig.settings?.shipperNumber || '1',
+            isBusiness: true
+          },
+          email: shipmentData.shipperEmail || dhlConfig.settings?.shipperEmail || 'info@fixithub.com',
+          phoneNumber: shipmentData.shipperPhone || dhlConfig.settings?.shipperPhone || '+31201234567'
         },
-        documentImages: [{
-          typeCode: 'label',
-          imageFormat: dhlConfig.settings?.labelFormat || 'PDF',
-          encodingFormat: 'base64'
-        }]
+        accountId: accountId,
+        returnLabel: false,
+        options: shipmentData.options || []
       };
 
-      console.log('DHLService: Sending shipment request to DHL API');
+      // Add pieces array with parcel information
+      shipmentPayload.pieces = [{
+        parcelType: shipmentData.parcelType || 'SMALL',
+        quantity: 1,
+        weight: Math.round((shipmentData.weight || 1.0) * 1000), // Convert kg to grams
+        dimensions: shipmentData.dimensions ? {
+          length: shipmentData.dimensions.length || 20,
+          width: shipmentData.dimensions.width || 15,
+          height: shipmentData.dimensions.height || 10
+        } : undefined
+      }];
 
-      // Make API request to DHL
+      console.log('DHLService: Sending shipment request to DHL Parcel API');
+      console.log('DHLService: Endpoint:', dhlConfig.endpoint || 'https://api-gw.dhlparcel.nl');
+      console.log('DHLService: Shipment payload:', JSON.stringify(shipmentPayload, null, 2));
+
+      // Make API request to DHL Parcel API
       const response = await axios.post(
-        `${dhlConfig.endpoint || 'https://express.api.dhl.com'}/mydhlapi/shipments`,
+        `${dhlConfig.endpoint || 'https://api-gw.dhlparcel.nl'}/shipments`,
         shipmentPayload,
         {
           headers: {
-            'Authorization': `Basic ${Buffer.from(`${dhlConfig.apiKey}:${dhlConfig.apiSecret}`).toString('base64')}`,
+            'Authorization': `Bearer ${dhlConfig.apiKey}`,
             'Content-Type': 'application/json'
-          }
+          },
+          timeout: 30000
         }
       );
 
       console.log('DHLService: Shipment created successfully');
+      console.log('DHLService: Response data:', JSON.stringify(response.data, null, 2));
 
-      // Extract tracking number and label from response
-      const trackingNumber = response.data.shipmentTrackingNumber || response.data.trackingNumber;
-      const labelData = response.data.documents?.[0]?.content || null;
+      // Extract tracking number and label information from response
+      const trackingNumber = response.data.shipmentTrackerCode || response.data.trackerCode;
+      const returnedShipmentId = response.data.shipmentId;
+      const pieces = response.data.pieces || [];
+
+      // Get label ID from first piece
+      const labelId = pieces[0]?.labelId;
+      const pieceTrackerCode = pieces[0]?.trackerCode;
+
+      console.log('DHLService: Tracking number:', trackingNumber);
+      console.log('DHLService: Label ID:', labelId);
+      console.log('DHLService: Piece tracker code:', pieceTrackerCode);
+
+      // Fetch the label PDF if labelId is available
+      let labelUrl = '';
+      if (labelId) {
+        try {
+          console.log('DHLService: Fetching label PDF for labelId:', labelId);
+          const labelResponse = await axios.get(
+            `${dhlConfig.endpoint || 'https://api-gw.dhlparcel.nl'}/labels/${labelId}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${dhlConfig.apiKey}`,
+                'Accept': 'application/pdf'
+              },
+              responseType: 'arraybuffer',
+              timeout: 30000
+            }
+          );
+
+          // Convert PDF buffer to base64
+          const base64Label = Buffer.from(labelResponse.data).toString('base64');
+          labelUrl = `data:application/pdf;base64,${base64Label}`;
+          console.log('DHLService: Label PDF fetched successfully');
+        } catch (labelError) {
+          console.error('DHLService: Error fetching label PDF:', labelError.response?.data || labelError.message);
+          // Continue without label URL - it can be fetched later
+        }
+      }
 
       // Update order with shipping information
-      order.trackingNumber = trackingNumber;
+      order.trackingNumber = trackingNumber || pieceTrackerCode || returnedShipmentId;
       order.carrier = 'DHL';
       order.shippingStatus = 'label-created';
-      order.shippingLabelUrl = labelData ? `data:application/pdf;base64,${labelData}` : '';
+      order.shippingLabelUrl = labelUrl;
       order.shippingCost = shipmentData.shippingCost || 0;
       order.estimatedDelivery = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days from now
 
       // Add tracking event
       order.trackingEvents.push({
         timestamp: new Date(),
-        location: shipmentData.shipperCity || 'Origin',
+        location: shipmentData.shipperCity || dhlConfig.settings?.shipperCity || 'Origin',
         status: 'label-created',
-        description: 'Shipping label created successfully'
+        description: 'Shipping label created successfully with DHL Parcel'
       });
 
       // Add timeline entry
       order.timeline.push({
         status: 'Shipping Label Created',
-        description: `DHL shipping label created. Tracking number: ${trackingNumber}`,
+        description: `DHL Parcel shipping label created. Tracking number: ${order.trackingNumber}`,
         completedAt: new Date(),
         staffId: 'system',
-        staffName: 'DHL Integration'
+        staffName: 'DHL Parcel Integration'
       });
 
       await order.save();
@@ -176,15 +223,26 @@ class DHLService {
 
       return {
         success: true,
-        trackingNumber,
+        trackingNumber: order.trackingNumber,
         labelUrl: order.shippingLabelUrl,
         estimatedDelivery: order.estimatedDelivery,
-        shipmentId: response.data.shipmentId || trackingNumber
+        shipmentId: returnedShipmentId,
+        labelId: labelId
       };
 
     } catch (error) {
-      console.error('DHLService: Error creating shipment:', error.response?.data || error.message);
-      throw new Error(error.response?.data?.detail || error.message || 'Failed to create shipment');
+      console.error('DHLService: Error creating shipment:', error);
+      console.error('DHLService: Error response data:', error.response?.data);
+      console.error('DHLService: Error response status:', error.response?.status);
+      console.error('DHLService: Error stack trace:', error.stack);
+
+      const errorMessage = error.response?.data?.message ||
+                          error.response?.data?.detail ||
+                          error.response?.data?.error ||
+                          error.message ||
+                          'Failed to create shipment';
+
+      throw new Error(errorMessage);
     }
   }
 
@@ -324,41 +382,66 @@ class DHLService {
   }
 
   /**
-   * Test DHL API connection
-   * @param {string} apiKey - DHL API key
-   * @param {string} apiSecret - DHL API secret
+   * Test DHL Parcel API connection
+   * @param {string} apiKey - DHL API key (Bearer token)
+   * @param {string} apiSecret - DHL API secret (not used for Parcel API)
    * @param {string} endpoint - API endpoint
    * @returns {Promise<Object>} Test result
    */
-  static async testConnection(apiKey, apiSecret, endpoint = 'https://express.api.dhl.com') {
-    console.log('DHLService: Testing DHL API connection');
+  static async testConnection(apiKey, apiSecret, endpoint = 'https://api-gw.dhlparcel.nl') {
+    console.log('DHLService: Testing DHL Parcel API connection');
+    console.log('DHLService: Endpoint:', endpoint);
 
     try {
-      // Try to authenticate with DHL API
+      // Try to authenticate with DHL Parcel API by accessing the shipments endpoint
+      // The DHL Parcel API uses Bearer token authentication, not Basic Auth
       const response = await axios.get(
-        `${endpoint}/mydhlapi/test/connectivity`,
+        `${endpoint}/parcel-shop-locations/NL/1012AB`,
         {
           headers: {
-            'Authorization': `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString('base64')}`
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
           },
           timeout: 10000
         }
       );
 
       console.log('DHLService: Connection test successful');
+      console.log('DHLService: Response status:', response.status);
 
       return {
         success: true,
-        message: 'Successfully connected to DHL API',
+        message: 'Successfully connected to DHL Parcel API',
         responseTime: response.headers['x-response-time'] || 'N/A'
       };
 
     } catch (error) {
       console.error('DHLService: Connection test failed:', error.message);
+      console.error('DHLService: Error response:', error.response?.data);
+      console.error('DHLService: Error status:', error.response?.status);
+
+      // If we get a 401, it means authentication failed
+      if (error.response?.status === 401) {
+        return {
+          success: false,
+          message: 'Authentication failed. Please check your API key.',
+          errorCode: '401_UNAUTHORIZED'
+        };
+      }
+
+      // If we get a 404, it might mean the endpoint is correct but the test query didn't work
+      // Still consider this a partial success as it means we can reach the API
+      if (error.response?.status === 404) {
+        return {
+          success: true,
+          message: 'Successfully connected to DHL Parcel API (endpoint reachable)',
+          errorCode: '404_NOT_FOUND'
+        };
+      }
 
       return {
         success: false,
-        message: error.response?.data?.detail || error.message || 'Failed to connect to DHL API',
+        message: error.response?.data?.message || error.response?.data?.detail || error.message || 'Failed to connect to DHL Parcel API',
         errorCode: error.response?.status || 'NETWORK_ERROR'
       };
     }
