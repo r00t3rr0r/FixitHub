@@ -9,7 +9,16 @@ const resources = {
   en: {
     translation: enTranslation
   },
+  'en-US': {
+    translation: enTranslation
+  },
+  'en-GB': {
+    translation: enTranslation
+  },
   de: {
+    translation: deTranslation
+  },
+  'de-DE': {
     translation: deTranslation
   }
 };
@@ -23,7 +32,13 @@ i18n
   .init({
     resources,
     fallbackLng: 'en',
-    debug: true, // Enable debug to see translation issues
+    debug: false, // Disable debug to reduce console noise
+
+    // Support language variants (en-US, en-GB, de-DE, etc.)
+    load: 'languageOnly', // Load only the language part (en from en-US)
+
+    // Fallback to base language if specific variant is not available
+    nonExplicitSupportedLngs: true,
 
     interpolation: {
       escapeValue: false // React already escapes values

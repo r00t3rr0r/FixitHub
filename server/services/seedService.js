@@ -1448,11 +1448,11 @@ class SeedService {
         console.log('SeedService.seedSystemConfiguration: System configuration already exists');
 
         // Check if DHL integration exists
-        const dhlIntegration = existingConfig.integrations?.find(
+        const dhlIntegrationIndex = existingConfig.integrations?.findIndex(
           integration => integration.provider === 'DHL' && integration.type === 'shipping'
         );
 
-        if (!dhlIntegration) {
+        if (dhlIntegrationIndex === -1 || dhlIntegrationIndex === undefined) {
           console.log('SeedService.seedSystemConfiguration: Adding DHL integration to existing configuration...');
 
           // Add DHL integration
@@ -1461,14 +1461,14 @@ class SeedService {
             name: 'DHL Shipping',
             type: 'shipping',
             provider: 'DHL',
-            apiKey: process.env.DHL_API_KEY || 'demo_api_key',
-            apiSecret: process.env.DHL_API_SECRET || 'demo_api_secret',
+            apiKey: process.env.DHL_API_KEY || 'FXeDS8NuE39knXv2wzjwvZTqLfRTMik1',
+            apiSecret: process.env.DHL_API_SECRET || 'LlLIqLo7v06IPc6G',
             endpoint: process.env.DHL_API_URL || 'https://api-sandbox.dhl.com/parcel/de/shipping/v2',
             settings: {
               accountNumber: process.env.DHL_ACCOUNT_NUMBER || '2222222222',
               billingNumber: process.env.DHL_BILLING_NUMBER || '22222222220101',
               defaultServiceType: 'P',
-              sandbox: true
+              sandbox: false
             },
             isActive: true,
             testStatus: 'pending'
@@ -1477,7 +1477,22 @@ class SeedService {
           await existingConfig.save();
           console.log('SeedService.seedSystemConfiguration: DHL integration added successfully');
         } else {
-          console.log('SeedService.seedSystemConfiguration: DHL integration already exists');
+          console.log('SeedService.seedSystemConfiguration: Updating existing DHL integration with new credentials...');
+
+          // Update existing DHL integration with new credentials
+          existingConfig.integrations[dhlIntegrationIndex].apiKey = process.env.DHL_API_KEY || 'FXeDS8NuE39knXv2wzjwvZTqLfRTMik1';
+          existingConfig.integrations[dhlIntegrationIndex].apiSecret = process.env.DHL_API_SECRET || 'LlLIqLo7v06IPc6G';
+          existingConfig.integrations[dhlIntegrationIndex].endpoint = process.env.DHL_API_URL || 'https://api-sandbox.dhl.com/parcel/de/shipping/v2';
+          existingConfig.integrations[dhlIntegrationIndex].settings = existingConfig.integrations[dhlIntegrationIndex].settings || {};
+          existingConfig.integrations[dhlIntegrationIndex].settings.accountNumber = process.env.DHL_ACCOUNT_NUMBER || '2222222222';
+          existingConfig.integrations[dhlIntegrationIndex].settings.billingNumber = process.env.DHL_BILLING_NUMBER || '22222222220101';
+          existingConfig.integrations[dhlIntegrationIndex].settings.defaultServiceType = 'P';
+          existingConfig.integrations[dhlIntegrationIndex].settings.sandbox = false;
+          existingConfig.integrations[dhlIntegrationIndex].isActive = true;
+
+          existingConfig.markModified('integrations');
+          await existingConfig.save();
+          console.log('SeedService.seedSystemConfiguration: DHL integration updated successfully with new API credentials');
         }
 
         return { message: 'System configuration verified' };
@@ -1496,14 +1511,14 @@ class SeedService {
             name: 'DHL Shipping',
             type: 'shipping',
             provider: 'DHL',
-            apiKey: process.env.DHL_API_KEY || 'demo_api_key',
-            apiSecret: process.env.DHL_API_SECRET || 'demo_api_secret',
+            apiKey: process.env.DHL_API_KEY || 'FXeDS8NuE39knXv2wzjwvZTqLfRTMik1',
+            apiSecret: process.env.DHL_API_SECRET || 'LlLIqLo7v06IPc6G',
             endpoint: process.env.DHL_API_URL || 'https://api-sandbox.dhl.com/parcel/de/shipping/v2',
             settings: {
               accountNumber: process.env.DHL_ACCOUNT_NUMBER || '2222222222',
               billingNumber: process.env.DHL_BILLING_NUMBER || '22222222220101',
               defaultServiceType: 'P',
-              sandbox: true
+              sandbox: false
             },
             isActive: true,
             testStatus: 'pending'
