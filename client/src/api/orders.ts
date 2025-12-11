@@ -54,6 +54,27 @@ export interface Order {
     confirmationStatus?: 'verified' | 'incorrect' | 'unable-to-verify';
     notes?: string;
   };
+  // Shipping and tracking information
+  shippingAddress?: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+  };
+  trackingNumber?: string;
+  carrier?: string;
+  shippingStatus?: 'pending' | 'label-created' | 'shipped' | 'in-transit' | 'out-for-delivery' | 'delivered' | 'failed';
+  estimatedDelivery?: string;
+  actualDelivery?: string;
+  shippingLabelUrl?: string;
+  shippingCost?: number;
+  trackingEvents?: Array<{
+    timestamp: string;
+    location: string;
+    status: string;
+    description: string;
+  }>;
 }
 
 export interface AddOnService {

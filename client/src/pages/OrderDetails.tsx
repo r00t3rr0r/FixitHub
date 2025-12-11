@@ -27,6 +27,7 @@ import { OrderProgressTimeline } from "@/components/OrderProgressTimeline"
 import { UnlockInformationDisplay } from "@/components/inspection/UnlockInformationDisplay"
 import { ConfirmUnlockDialog } from "@/components/inspection/ConfirmUnlockDialog"
 import { DeviceChangeDialog } from "@/components/admin/DeviceChangeDialog"
+import TrackingPanel from "@/components/admin/TrackingPanel"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -1714,6 +1715,15 @@ export function OrderDetails() {
               )}
             </CardContent>
           </Card>
+
+          {/* Shipping & Tracking Section - Only for Admin and Staff */}
+          {(user?.role === 'admin' || user?.role === 'staff') && (
+            <TrackingPanel
+              orderId={id || ''}
+              orderData={order}
+              onUpdate={fetchOrder}
+            />
+          )}
 
           {/* Device Change Dialog */}
           <Dialog open={deviceChangeDialogOpen} onOpenChange={setDeviceChangeDialogOpen}>
