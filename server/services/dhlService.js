@@ -111,8 +111,9 @@ class DHLService {
 
       // Prepare shipment payload for DHL Parcel API
       // According to: https://api-gw.dhlparcel.nl/docs/guide/chapters/04-labels.html
-      const customerName = customer?.name || 'Customer';
-      const nameParts = customerName.split(' ');
+      // Use receiver name from shipmentData if provided, otherwise use customer name
+      const receiverName = shipmentData.receiverName || customer?.name || 'Customer';
+      const nameParts = receiverName.split(' ');
 
       const shipmentPayload = {
         shipmentId: shipmentId,
@@ -129,8 +130,8 @@ class DHLService {
             number: order.shippingAddress?.number || shipmentData.receiverNumber || '1',
             isBusiness: false
           },
-          email: customer?.email || shipmentData.receiverEmail,
-          phoneNumber: customer?.phone || shipmentData.receiverPhone
+          email: shipmentData.receiverEmail || customer?.email,
+          phoneNumber: shipmentData.receiverPhone || customer?.phone
         },
         shipper: {
           name: {

@@ -14,10 +14,14 @@ export interface ShipmentData {
   shipperPhone?: string;
   shipperCompany?: string;
   shipperName?: string;
+  receiverName?: string;
   receiverAddress?: string;
   receiverCity?: string;
   receiverPostalCode?: string;
   receiverCountry?: string;
+  receiverEmail?: string;
+  receiverPhone?: string;
+  receiverNumber?: string;
   shippingCost?: number;
   isCustomsDeclarable?: boolean;
 }
