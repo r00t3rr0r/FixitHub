@@ -186,11 +186,25 @@ export function ShoppingCartPage() {
       navigate('/bookings')
     } catch (error: any) {
       console.error("Error during checkout:", error)
-      toast({
-        title: t('common.error'),
-        description: error.message || t('checkout.checkoutFailed'),
-        variant: "destructive"
-      })
+
+      // Check if error is about incomplete invoice address
+      if (error.message && error.message.includes('invoice address')) {
+        toast({
+          title: t('common.error'),
+          description: error.message,
+          variant: "destructive",
+          action: {
+            label: "Complete Profile",
+            onClick: () => navigate('/profile')
+          }
+        })
+      } else {
+        toast({
+          title: t('common.error'),
+          description: error.message || t('checkout.checkoutFailed'),
+          variant: "destructive"
+        })
+      }
     } finally {
       setCheckoutLoading(false)
     }
@@ -221,11 +235,25 @@ export function ShoppingCartPage() {
       navigate('/bookings')
     } catch (error: any) {
       console.error("Error during checkout after authentication:", error)
-      toast({
-        title: t('common.error'),
-        description: error.message || t('checkout.checkoutFailed'),
-        variant: "destructive"
-      })
+
+      // Check if error is about incomplete invoice address
+      if (error.message && error.message.includes('invoice address')) {
+        toast({
+          title: t('common.error'),
+          description: error.message,
+          variant: "destructive",
+          action: {
+            label: "Complete Profile",
+            onClick: () => navigate('/profile')
+          }
+        })
+      } else {
+        toast({
+          title: t('common.error'),
+          description: error.message || t('checkout.checkoutFailed'),
+          variant: "destructive"
+        })
+      }
     } finally {
       setCheckoutLoading(false)
     }

@@ -184,6 +184,34 @@ router.post('/complete', requireUser, async (req, res) => {
   try {
     console.log('CheckoutRoutes: Completing checkout for user:', req.user._id);
 
+    // Get user information to validate invoice address
+    const user = await UserService.get(req.user._id);
+
+    if (!user) {
+      console.log('CheckoutRoutes: User not found');
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Validate invoice address - required for return label generation
+    const invoiceAddress = user.invoiceAddress || {};
+    console.log('CheckoutRoutes: Validating invoice address:', JSON.stringify(invoiceAddress, null, 2));
+
+    if (!invoiceAddress.street || !invoiceAddress.city || !invoiceAddress.zipCode) {
+      console.log('CheckoutRoutes: Incomplete invoice address');
+      return res.status(400).json({
+        success: false,
+        error: 'Please complete your invoice address in your profile before checkout. Street, city, and postal code are required for return label generation.',
+        missingFields: {
+          street: !invoiceAddress.street,
+          city: !invoiceAddress.city,
+          zipCode: !invoiceAddress.zipCode
+        }
+      });
+    }
+
     // Get user's cart
     const cart = await CartService.getCart(req.user._id);
 
