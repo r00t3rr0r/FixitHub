@@ -367,6 +367,74 @@ const orderSchema = new mongoose.Schema({
     ref: 'Booking',
     default: null,
   },
+  // Shipping and tracking information
+  shippingAddress: {
+    street: {
+      type: String,
+      default: '',
+    },
+    city: {
+      type: String,
+      default: '',
+    },
+    state: {
+      type: String,
+      default: '',
+    },
+    zipCode: {
+      type: String,
+      default: '',
+    },
+    country: {
+      type: String,
+      default: '',
+    },
+  },
+  trackingNumber: {
+    type: String,
+    default: '',
+  },
+  carrier: {
+    type: String,
+    default: 'DHL',
+  },
+  shippingStatus: {
+    type: String,
+    enum: ['pending', 'label-created', 'shipped', 'in-transit', 'out-for-delivery', 'delivered', 'failed'],
+    default: 'pending',
+  },
+  estimatedDelivery: {
+    type: Date,
+  },
+  actualDelivery: {
+    type: Date,
+  },
+  shippingLabelUrl: {
+    type: String,
+    default: '',
+  },
+  shippingCost: {
+    type: Number,
+    default: 0,
+  },
+  trackingEvents: [{
+    timestamp: {
+      type: Date,
+      required: true,
+    },
+    location: {
+      type: String,
+      default: '',
+    },
+    status: {
+      type: String,
+      required: true,
+    },
+    description: {
+      type: String,
+      default: '',
+    },
+  }],
   createdAt: {
     type: Date,
     default: Date.now,

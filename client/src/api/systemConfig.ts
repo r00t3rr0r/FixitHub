@@ -19,7 +19,7 @@ export interface NotificationTemplate {
 export interface Integration {
   _id: string;
   name: string;
-  type: 'payment' | 'email' | 'sms' | 'storage' | 'analytics';
+  type: 'payment' | 'email' | 'sms' | 'storage' | 'analytics' | 'shipping';
   provider: string;
   apiKey: string;
   apiSecret?: string;

@@ -44,7 +44,7 @@ const integrationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['payment', 'email', 'sms', 'storage', 'analytics'],
+    enum: ['payment', 'email', 'sms', 'storage', 'analytics', 'shipping'],
     required: true
   },
   provider: {

@@ -45,7 +45,8 @@ export function IntegrationDialog({
     { value: 'sms', label: 'SMS Service' },
     { value: 'payment', label: 'Payment Gateway' },
     { value: 'storage', label: 'Cloud Storage' },
-    { value: 'analytics', label: 'Analytics' }
+    { value: 'analytics', label: 'Analytics' },
+    { value: 'shipping', label: 'Shipping & Tracking' }
   ]
 
   const providers = {
@@ -53,7 +54,8 @@ export function IntegrationDialog({
     sms: ['Twilio', 'Nexmo', 'Amazon SNS'],
     payment: ['Stripe', 'PayPal', 'Square'],
     storage: ['AWS S3', 'Google Cloud Storage', 'Azure Blob'],
-    analytics: ['Google Analytics', 'Mixpanel', 'Amplitude']
+    analytics: ['Google Analytics', 'Mixpanel', 'Amplitude'],
+    shipping: ['DHL', 'FedEx', 'UPS', 'USPS']
   }
 
   useEffect(() => {
