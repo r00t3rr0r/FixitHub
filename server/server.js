@@ -172,6 +172,15 @@ const initializeDatabase = async () => {
     await connectDB();
     console.log('Database connected successfully');
 
+    // Auto-seed system configuration if it doesn't exist
+    console.log('Checking if system configuration exists...');
+    try {
+      const configSeedResult = await SeedService.seedSystemConfiguration();
+      console.log('System configuration seeding result:', configSeedResult.message);
+    } catch (error) {
+      console.error('Error seeding system configuration:', error.message);
+    }
+
     // Auto-seed admin user if it doesn't exist
     console.log('Checking if admin user exists...');
     try {

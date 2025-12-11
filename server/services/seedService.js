@@ -11,6 +11,7 @@ const { HomepageSection, LayoutTemplate } = require('../models/Homepage');
 const { WorkflowTemplate } = require('../models/Workflow');
 const Invoice = require('../models/Invoice');
 const Language = require('../models/Language');
+const SystemConfiguration = require('../models/SystemConfiguration');
 const { generatePasswordHash } = require('../utils/password');
 
 class SeedService {
@@ -1437,6 +1438,104 @@ class SeedService {
     }
   }
 
+  static async seedSystemConfiguration() {
+    try {
+      console.log('SeedService.seedSystemConfiguration: Starting system configuration seeding...');
+
+      // Check if system configuration already exists
+      const existingConfig = await SystemConfiguration.findOne({});
+      if (existingConfig) {
+        console.log('SeedService.seedSystemConfiguration: System configuration already exists');
+
+        // Check if DHL integration exists
+        const dhlIntegration = existingConfig.integrations?.find(
+          integration => integration.provider === 'DHL' && integration.type === 'shipping'
+        );
+
+        if (!dhlIntegration) {
+          console.log('SeedService.seedSystemConfiguration: Adding DHL integration to existing configuration...');
+
+          // Add DHL integration
+          existingConfig.integrations = existingConfig.integrations || [];
+          existingConfig.integrations.push({
+            name: 'DHL Shipping',
+            type: 'shipping',
+            provider: 'DHL',
+            apiKey: process.env.DHL_API_KEY || 'demo_api_key',
+            apiSecret: process.env.DHL_API_SECRET || 'demo_api_secret',
+            endpoint: process.env.DHL_API_URL || 'https://api-sandbox.dhl.com/parcel/de/shipping/v2',
+            settings: {
+              accountNumber: process.env.DHL_ACCOUNT_NUMBER || '2222222222',
+              billingNumber: process.env.DHL_BILLING_NUMBER || '22222222220101',
+              defaultServiceType: 'P',
+              sandbox: true
+            },
+            isActive: true,
+            testStatus: 'pending'
+          });
+
+          await existingConfig.save();
+          console.log('SeedService.seedSystemConfiguration: DHL integration added successfully');
+        } else {
+          console.log('SeedService.seedSystemConfiguration: DHL integration already exists');
+        }
+
+        return { message: 'System configuration verified' };
+      }
+
+      console.log('SeedService.seedSystemConfiguration: Creating new system configuration...');
+
+      // Create new system configuration with DHL integration
+      const systemConfig = new SystemConfiguration({
+        siteName: 'FixitHub',
+        adminEmail: 'admin@fixithub.com',
+        timezone: 'UTC',
+        maintenanceMode: false,
+        integrations: [
+          {
+            name: 'DHL Shipping',
+            type: 'shipping',
+            provider: 'DHL',
+            apiKey: process.env.DHL_API_KEY || 'demo_api_key',
+            apiSecret: process.env.DHL_API_SECRET || 'demo_api_secret',
+            endpoint: process.env.DHL_API_URL || 'https://api-sandbox.dhl.com/parcel/de/shipping/v2',
+            settings: {
+              accountNumber: process.env.DHL_ACCOUNT_NUMBER || '2222222222',
+              billingNumber: process.env.DHL_BILLING_NUMBER || '22222222220101',
+              defaultServiceType: 'P',
+              sandbox: true
+            },
+            isActive: true,
+            testStatus: 'pending'
+          }
+        ],
+        notificationTemplates: [],
+        emailSettings: {
+          provider: 'SendGrid',
+          apiKey: process.env.SENDGRID_API_KEY || '',
+          fromEmail: 'noreply@fixithub.com',
+          fromName: 'FixitHub'
+        },
+        securitySettings: {
+          passwordMinLength: 8,
+          requireSpecialChar: true,
+          requireNumber: true,
+          requireUppercase: true,
+          sessionTimeout: 3600000,
+          maxLoginAttempts: 5,
+          lockoutDuration: 900000
+        }
+      });
+
+      await systemConfig.save();
+      console.log('SeedService.seedSystemConfiguration: System configuration created successfully');
+      return { message: 'System configuration created successfully' };
+    } catch (error) {
+      console.error('SeedService.seedSystemConfiguration: Error creating system configuration:', error);
+      throw error;
+    }
+  }
+
   static async seedAll() {
     try {
       console.log('SeedService.seedAll: Starting complete database seeding...');
@@ -1444,6 +1543,7 @@ class SeedService {
       const results = {};
 
       // Seed in order of dependencies
+      results.systemConfiguration = await this.seedSystemConfiguration();
       results.adminUser = await this.seedAdminUser();
       results.testUsers = await this.seedTestUsers();
       results.services = await this.seedServices();
