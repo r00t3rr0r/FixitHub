@@ -67,6 +67,30 @@ class DHLService {
 
       console.log('DHLService: Order found:', order.orderNumber);
 
+      // Validate shipping address is complete
+      const receiverStreet = order.shippingAddress?.street || shipmentData.receiverAddress;
+      const receiverCity = order.shippingAddress?.city || shipmentData.receiverCity;
+      const receiverPostalCode = order.shippingAddress?.zipCode || shipmentData.receiverPostalCode;
+      const receiverCountry = order.shippingAddress?.country || shipmentData.receiverCountry || 'NL';
+
+      // Check if required address fields are missing or empty
+      if (!receiverStreet || receiverStreet.trim() === '') {
+        console.error('DHLService: Missing receiver street address');
+        throw new Error('Shipping address is incomplete. Street address is required to create a shipping label.');
+      }
+
+      if (!receiverCity || receiverCity.trim() === '') {
+        console.error('DHLService: Missing receiver city');
+        throw new Error('Shipping address is incomplete. City is required to create a shipping label.');
+      }
+
+      if (!receiverPostalCode || receiverPostalCode.trim() === '') {
+        console.error('DHLService: Missing receiver postal code');
+        throw new Error('Shipping address is incomplete. Postal code is required to create a shipping label.');
+      }
+
+      console.log('DHLService: Shipping address validated successfully');
+
       // Generate unique shipment ID (UUID v4 as required by DHL Parcel API)
       const shipmentId = uuidv4();
       console.log('DHLService: Generated shipment ID:', shipmentId);
@@ -89,10 +113,10 @@ class DHLService {
             lastName: (order.customerId?.name || 'Customer').split(' ').slice(1).join(' ') || 'Customer'
           },
           address: {
-            countryCode: order.shippingAddress?.country || shipmentData.receiverCountry || 'NL',
-            postalCode: order.shippingAddress?.zipCode || shipmentData.receiverPostalCode,
-            city: order.shippingAddress?.city || shipmentData.receiverCity,
-            street: order.shippingAddress?.street || shipmentData.receiverAddress,
+            countryCode: receiverCountry,
+            postalCode: receiverPostalCode,
+            city: receiverCity,
+            street: receiverStreet,
             number: order.shippingAddress?.number || shipmentData.receiverNumber || '1',
             isBusiness: false
           },
