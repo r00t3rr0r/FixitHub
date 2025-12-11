@@ -68,8 +68,10 @@ class DHLService {
       console.log('DHLService: Order found:', order.orderNumber);
 
       // Use invoice address as fallback if shipping address is not complete
-      const invoiceAddress = order.customerId?.invoiceAddress || {};
-      console.log('DHLService: Customer invoice address:', invoiceAddress);
+      // Convert Mongoose subdocument to plain object to access properties
+      const customer = order.customerId?.toObject ? order.customerId.toObject() : order.customerId;
+      const invoiceAddress = customer?.invoiceAddress || {};
+      console.log('DHLService: Customer invoice address:', JSON.stringify(invoiceAddress, null, 2));
 
       // Validate shipping address is complete, fall back to invoice address if needed
       const receiverStreet = order.shippingAddress?.street || shipmentData.receiverAddress || invoiceAddress.street;
@@ -109,12 +111,15 @@ class DHLService {
 
       // Prepare shipment payload for DHL Parcel API
       // According to: https://api-gw.dhlparcel.nl/docs/guide/chapters/04-labels.html
+      const customerName = customer?.name || 'Customer';
+      const nameParts = customerName.split(' ');
+
       const shipmentPayload = {
         shipmentId: shipmentId,
         receiver: {
           name: {
-            firstName: (order.customerId?.name || 'Customer').split(' ')[0],
-            lastName: (order.customerId?.name || 'Customer').split(' ').slice(1).join(' ') || 'Customer'
+            firstName: nameParts[0] || 'Customer',
+            lastName: nameParts.slice(1).join(' ') || 'Customer'
           },
           address: {
             countryCode: receiverCountry,
@@ -124,8 +129,8 @@ class DHLService {
             number: order.shippingAddress?.number || shipmentData.receiverNumber || '1',
             isBusiness: false
           },
-          email: order.customerId?.email || shipmentData.receiverEmail,
-          phoneNumber: order.customerId?.phone || shipmentData.receiverPhone
+          email: customer?.email || shipmentData.receiverEmail,
+          phoneNumber: customer?.phone || shipmentData.receiverPhone
         },
         shipper: {
           name: {
