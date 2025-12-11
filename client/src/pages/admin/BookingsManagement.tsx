@@ -1132,6 +1132,7 @@ function BookingDetailDialog({
   const [newStatus, setNewStatus] = useState(booking.status)
   const [newBillingStatus, setNewBillingStatus] = useState(booking.billingStatus)
   const [description, setDescription] = useState("")
+  const [showReturnLabelDialog, setShowReturnLabelDialog] = useState(false)
   const { toast } = useToast()
 
   // Description: Navigate to the order details page for a specific order
@@ -1602,6 +1603,13 @@ function BookingDetailDialog({
               <Truck className="h-12 w-12 mx-auto mb-4 text-foreground/20" />
               <p className="text-foreground/60">No return shipping information available for this booking</p>
               <p className="text-sm text-foreground/50 mt-2">Return shipping details will appear here once generated</p>
+              <Button
+                onClick={() => setShowReturnLabelDialog(true)}
+                className="mt-4"
+              >
+                <Truck className="h-4 w-4 mr-2" />
+                Create Return Label
+              </Button>
             </div>
           )}
         </TabsContent>
@@ -1634,6 +1642,19 @@ function BookingDetailDialog({
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Return Label Dialog */}
+      {showReturnLabelDialog && (
+        <ReturnLabelDialog
+          booking={booking}
+          open={showReturnLabelDialog}
+          onClose={() => setShowReturnLabelDialog(false)}
+          onSuccess={() => {
+            setShowReturnLabelDialog(false)
+            onStatusUpdate()
+          }}
+        />
+      )}
     </DialogContent>
   )
 }
@@ -2289,6 +2310,138 @@ function ComplaintDialog({
           </Button>
           <Button onClick={handleCreate} disabled={loading}>
             File Complaint
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// Return Label Creation Dialog Component
+// Description: Dialog for creating return shipping labels via DHL integration
+// Allows admins to generate return labels for bookings that don't have return shipping set up
+function ReturnLabelDialog({
+  booking,
+  open,
+  onClose,
+  onSuccess
+}: {
+  booking: Booking;
+  open: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [loading, setLoading] = useState(false)
+  const [creatingLabel, setCreatingLabel] = useState(false)
+  const [labelData, setLabelData] = useState<any>(null)
+  const { toast } = useToast()
+
+  useEffect(() => {
+    if (open) {
+      // Initialize dialog when opened
+      setLabelData(null)
+    }
+  }, [open])
+
+  const handleCreateLabel = async () => {
+    try {
+      setCreatingLabel(true)
+      console.log(`Creating return label for booking: ${booking._id}`)
+
+      const response = await createReturnLabel(booking._id)
+
+      console.log('Return label created successfully:', response)
+
+      toast({
+        title: "Success",
+        description: "Return label created successfully"
+      })
+
+      onSuccess()
+    } catch (error) {
+      console.error('Error creating return label:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create return label",
+        variant: "destructive"
+      })
+    } finally {
+      setCreatingLabel(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Create Return Label</DialogTitle>
+          <DialogDescription>
+            Generate a DHL return shipping label for booking #{booking._id.slice(-8).toUpperCase()}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+            <h3 className="font-semibold text-sm mb-2">Booking Information</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-foreground/60">Booking ID:</span>
+                <span className="font-mono font-semibold">{booking._id}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-foreground/60">Customer:</span>
+                <span className="font-semibold">
+                  {booking.customerId.firstName ? `${booking.customerId.firstName} ${booking.customerId.lastName || ''}` : (booking.customerId.name || booking.customerId.email)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-foreground/60">Email:</span>
+                <span>{booking.customerId.email}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-foreground/60">Phone:</span>
+                <span>{booking.customerId.phone}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 dark:bg-amber-950/30 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
+            <h3 className="font-semibold text-sm mb-2 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              Important
+            </h3>
+            <ul className="text-sm space-y-1 text-foreground/70 list-disc list-inside">
+              <li>This will create a DHL return shipping label for this booking</li>
+              <li>A tracking number will be generated and displayed to the customer</li>
+              <li>The customer will receive email notification with the return label</li>
+              <li>The return label can be printed or shown as a QR code at DHL locations</li>
+            </ul>
+          </div>
+
+          <div className="bg-muted/50 p-4 rounded-lg">
+            <h3 className="font-semibold text-sm mb-2">What happens next?</h3>
+            <ol className="list-decimal list-inside space-y-1 text-sm text-foreground/70">
+              <li>A return label will be generated via DHL integration</li>
+              <li>The tracking number and label will be stored in the booking</li>
+              <li>The Shipping tab will be updated with the return information</li>
+              <li>An email will be sent to the customer with download links</li>
+            </ol>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={creatingLabel}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreateLabel}
+            disabled={creatingLabel}
+            className="gap-2"
+          >
+            {creatingLabel && (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            )}
+            {creatingLabel ? "Creating..." : "Create Return Label"}
           </Button>
         </DialogFooter>
       </DialogContent>
