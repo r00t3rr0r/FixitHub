@@ -2352,12 +2352,27 @@ function ReturnLabelDialog({
 
       console.log('Return label created successfully:', response)
 
-      toast({
-        title: "Success",
-        description: "Return label created successfully"
-      })
+      // Simulate updating the booking with return label data
+      if (response.success) {
+        // Update the booking object in memory with the new return label data
+        if (booking && response.booking) {
+          booking.returnTrackingNumber = response.booking.returnTrackingNumber
+          booking.returnLabelUrl = response.booking.returnLabelUrl
+          booking.returnQRCodeUrl = response.booking.returnQRCodeUrl
+          booking.returnShipmentId = response.booking.returnShipmentId
+          booking.returnShipmentStatus = response.booking.returnShipmentStatus as any
+          booking.returnCreatedAt = response.booking.returnCreatedAt
+        }
 
-      onSuccess()
+        toast({
+          title: "Success",
+          description: "Return label created successfully"
+        })
+
+        onSuccess()
+      } else {
+        throw new Error(response.message || 'Failed to create return label')
+      }
     } catch (error) {
       console.error('Error creating return label:', error)
       toast({

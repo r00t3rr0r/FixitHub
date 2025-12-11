@@ -220,14 +220,45 @@ export const createReturnLabel = async (
   bookingId: string,
   labelType?: 'PDF' | 'QR' | 'BOTH'
 ) => {
-  try {
-    const response = await api.post(`/api/bookings/${bookingId}/return-label`, {
-      labelType: labelType || 'BOTH',
-    });
-    return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
-  }
+  // Mocking the response with realistic DHL return label data
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      // Generate realistic mock data
+      const trackingNumber = `${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+      const shipmentId = `SHP${Date.now()}`;
+
+      resolve({
+        success: true,
+        returnId: shipmentId,
+        returnTrackingNumber: trackingNumber,
+        labelUrl: 'https://example.com/return-labels/label-' + bookingId + '.pdf',
+        qrCodeUrl: 'https://example.com/return-qrcodes/qr-' + bookingId + '.png',
+        qrLink: 'https://dhl.com/return?ref=' + trackingNumber,
+        message: 'Return label created successfully',
+        returnShipmentStatus: 'label-created',
+        returnCreatedAt: new Date().toISOString(),
+        booking: {
+          _id: bookingId,
+          returnTrackingNumber: trackingNumber,
+          returnLabelUrl: 'https://example.com/return-labels/label-' + bookingId + '.pdf',
+          returnQRCodeUrl: 'https://example.com/return-qrcodes/qr-' + bookingId + '.png',
+          returnShipmentId: shipmentId,
+          returnShipmentStatus: 'label-created',
+          returnCreatedAt: new Date().toISOString(),
+        }
+      });
+    }, 1500); // Simulate API delay
+  });
+
+  // Uncomment the below lines to make an actual API call
+  // try {
+  //   const response = await api.post(`/api/bookings/${bookingId}/return-label`, {
+  //     labelType: labelType || 'BOTH',
+  //   });
+  //   return response.data;
+  // } catch (error: any) {
+  //   throw new Error(error?.response?.data?.error || error.message);
+  // }
 };
 
 // Description: Get return tracking information for booking
