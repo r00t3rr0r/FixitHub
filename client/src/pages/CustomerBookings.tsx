@@ -595,14 +595,22 @@ export function CustomerBookings() {
                                     {t(`status.${booking.status}`)}
                                   </Badge>
                                 </div>
-                                <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                                <div className="grid grid-cols-3 gap-2 text-xs mb-3">
                                   <div>
                                     <span className="text-foreground/60">Billing Status:</span>
                                     <Badge className={`${getBillingStatusColor(booking.billingStatus)} ml-2`}>
                                       {t(`billingStatus.${booking.billingStatus}`)}
                                     </Badge>
                                   </div>
-                                  <div className="text-right">
+                                  {booking.returnShipmentStatus && (
+                                    <div>
+                                      <span className="text-foreground/60">Return Shipping:</span>
+                                      <Badge className={`${getReturnShipmentStatusColor(booking.returnShipmentStatus)} ml-2`}>
+                                        {booking.returnShipmentStatus}
+                                      </Badge>
+                                    </div>
+                                  )}
+                                  <div className={booking.returnShipmentStatus ? "text-right" : "col-span-2 text-right"}>
                                     <span className="text-foreground/60">Total: </span>
                                     <span className="font-semibold">{formatCurrency(booking.totalCost)}</span>
                                   </div>
