@@ -16,7 +16,10 @@ import {
   getBookingOrders,
   previewBookingInvoice,
   createBookingInvoice,
-  getBookingInvoices
+  getBookingInvoices,
+  createReturnLabel,
+  getReturnTracking,
+  updateReturnStatus
 } from "@/api/bookings"
 import {
   createComplaint,
@@ -52,7 +55,11 @@ import {
   MessageSquare,
   MoreVertical,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Truck,
+  Download,
+  QrCode,
+  RefreshCw
 } from "lucide-react"
 import {
   Select,
@@ -140,6 +147,14 @@ interface Booking {
     staffId?: string
   }>
   paymentStatus?: string
+  // DHL Returns information
+  returnLabelUrl?: string
+  returnQRCodeUrl?: string
+  returnTrackingNumber?: string
+  returnShipmentId?: string
+  returnShipmentStatus?: 'pending' | 'label-created' | 'in-transit' | 'delivered' | 'failed' | ''
+  returnCreatedAt?: string
+  returnReceivedAt?: string
 }
 
 interface ExpandedBooking extends Booking {
@@ -1340,6 +1355,90 @@ function BookingDetailDialog({
               <div>Updated: {formatDateTime(booking.updatedAt)}</div>
             </div>
           </div>
+
+          {/* Return Shipping Information Section */}
+          {booking.returnTrackingNumber && (
+            <>
+              <Separator />
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-sm flex items-center gap-2">
+                    <Truck className="h-4 w-4" />
+                    Return Shipping
+                  </h3>
+                  {booking.returnShipmentStatus && (
+                    <Badge
+                      className={
+                        booking.returnShipmentStatus === 'delivered' ? 'bg-green-100 text-green-800' :
+                        booking.returnShipmentStatus === 'in-transit' ? 'bg-blue-100 text-blue-800' :
+                        booking.returnShipmentStatus === 'label-created' ? 'bg-yellow-100 text-yellow-800' :
+                        booking.returnShipmentStatus === 'failed' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }
+                    >
+                      {booking.returnShipmentStatus.replace('-', ' ')}
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-foreground/60">Tracking Number: </span>
+                      <span className="font-mono">{booking.returnTrackingNumber}</span>
+                    </div>
+                    {booking.returnCreatedAt && (
+                      <div>
+                        <span className="text-foreground/60">Label Created: </span>
+                        <span>{formatDateTime(booking.returnCreatedAt)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {booking.returnReceivedAt && (
+                    <div className="text-sm">
+                      <span className="text-foreground/60">Received: </span>
+                      <span className="text-green-600 font-medium">{formatDateTime(booking.returnReceivedAt)}</span>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    {booking.returnLabelUrl && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const link = document.createElement('a');
+                          link.href = booking.returnLabelUrl!;
+                          link.download = `return-label-${booking.bookingNumber}.pdf`;
+                          link.click();
+                        }}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download Label
+                      </Button>
+                    )}
+
+                    {booking.returnQRCodeUrl && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const link = document.createElement('a');
+                          link.href = booking.returnQRCodeUrl!;
+                          link.download = `return-qr-${booking.bookingNumber}.png`;
+                          link.click();
+                        }}
+                      >
+                        <QrCode className="h-4 w-4 mr-2" />
+                        Download QR
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="repairs" className="space-y-4 mt-4">

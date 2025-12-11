@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { requireUser, requireAdmin } = require('./middleware/auth');
 const BookingService = require('../services/bookingService');
+const DHLReturnsService = require('../services/dhlReturnsService');
 
 // Description: Get all bookings (admin) or bookings for authenticated user (customer) with pagination
 // Endpoint: GET /api/bookings
@@ -419,6 +420,140 @@ router.get('/:id/invoices', requireUser, async (req, res) => {
     console.error('BookingRoutes: Error getting invoices:', error);
     res.status(500).json({
       success: false,
+      error: error.message,
+    });
+  }
+});
+
+// ============================================
+// DHL RETURNS & SHIPPING ROUTES
+// ============================================
+
+// Description: Create return label for booking (admin/staff only)
+// Endpoint: POST /api/bookings/:id/return-label
+// Request: { labelType?: 'PDF' | 'QR' | 'BOTH' }
+// Response: { success: boolean, returnId: string, returnTrackingNumber: string, labelUrl: string, qrCodeUrl: string, qrLink: string, message: string }
+router.post('/:id/return-label', requireAdmin, async (req, res) => {
+  try {
+    console.log('BookingRoutes: Creating return label for booking:', req.params.id);
+
+    const { labelType } = req.body;
+    const options = {};
+    if (labelType) {
+      options.labelType = labelType;
+    }
+
+    const result = await DHLReturnsService.createReturnLabel(req.params.id, options);
+
+    console.log('BookingRoutes: Return label created successfully');
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('BookingRoutes: Error creating return label:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// Description: Get return tracking information for booking
+// Endpoint: GET /api/bookings/:id/return-tracking
+// Request: {}
+// Response: { success: boolean, trackingNumber: string, status: string, statusDescription: string, estimatedDelivery?: string, events: Array }
+router.get('/:id/return-tracking', requireUser, async (req, res) => {
+  try {
+    console.log('BookingRoutes: Getting return tracking for booking:', req.params.id);
+
+    const booking = await BookingService.getById(req.params.id);
+
+    if (!booking) {
+      console.log('BookingRoutes: Booking not found');
+      return res.status(404).json({
+        success: false,
+        error: 'Booking not found',
+      });
+    }
+
+    // Verify ownership
+    if (booking.customerId._id.toString() !== req.user._id.toString() && req.user.role !== 'admin' && req.user.role !== 'staff') {
+      console.log('BookingRoutes: Unauthorized access to booking');
+      return res.status(403).json({
+        success: false,
+        error: 'You do not have permission to view this booking',
+      });
+    }
+
+    if (!booking.returnTrackingNumber) {
+      console.log('BookingRoutes: No return tracking number found');
+      return res.status(404).json({
+        success: false,
+        error: 'No return tracking number found for this booking',
+      });
+    }
+
+    const trackingInfo = await DHLReturnsService.getReturnTracking(booking.returnTrackingNumber);
+
+    console.log('BookingRoutes: Return tracking retrieved successfully');
+
+    res.json({
+      ...trackingInfo,
+      booking: {
+        bookingNumber: booking.bookingNumber,
+        returnShipmentStatus: booking.returnShipmentStatus,
+        returnCreatedAt: booking.returnCreatedAt,
+        returnReceivedAt: booking.returnReceivedAt,
+      },
+    });
+  } catch (error) {
+    console.error('BookingRoutes: Error getting return tracking:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// Description: Update return shipment status from DHL API (admin/staff only)
+// Endpoint: PUT /api/bookings/:id/return-status/update
+// Request: {}
+// Response: { success: boolean, booking: Booking, trackingInfo: Object }
+router.put('/:id/return-status/update', requireAdmin, async (req, res) => {
+  try {
+    console.log('BookingRoutes: Updating return status for booking:', req.params.id);
+
+    const result = await DHLReturnsService.updateReturnStatus(req.params.id);
+
+    console.log('BookingRoutes: Return status updated successfully');
+
+    res.json(result);
+  } catch (error) {
+    console.error('BookingRoutes: Error updating return status:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// Description: Test DHL Returns API connection (admin only)
+// Endpoint: GET /api/bookings/test-dhl-returns
+// Request: {}
+// Response: { success: boolean, message: string, environment?: string, receiverId?: string, error?: string }
+router.get('/test-dhl-returns', requireAdmin, async (req, res) => {
+  try {
+    console.log('BookingRoutes: Testing DHL Returns API connection');
+
+    const result = await DHLReturnsService.testConnection();
+
+    console.log('BookingRoutes: DHL Returns API connection test completed');
+
+    res.json(result);
+  } catch (error) {
+    console.error('BookingRoutes: Error testing DHL Returns API connection:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error testing DHL Returns API connection',
       error: error.message,
     });
   }

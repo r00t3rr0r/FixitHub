@@ -148,6 +148,34 @@ const bookingSchema = new mongoose.Schema({
     min: 0,
     max: 100,
   },
+  // Return shipping information for DHL Parcel DE Returns
+  returnLabelUrl: {
+    type: String,
+    default: '',
+  },
+  returnQRCodeUrl: {
+    type: String,
+    default: '',
+  },
+  returnTrackingNumber: {
+    type: String,
+    default: '',
+  },
+  returnShipmentId: {
+    type: String,
+    default: '',
+  },
+  returnShipmentStatus: {
+    type: String,
+    enum: ['pending', 'label-created', 'in-transit', 'delivered', 'failed', ''],
+    default: 'pending',
+  },
+  returnCreatedAt: {
+    type: Date,
+  },
+  returnReceivedAt: {
+    type: Date,
+  },
   timeline: [bookingTimelineSchema],
   createdAt: {
     type: Date,

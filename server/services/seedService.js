@@ -1452,6 +1452,11 @@ class SeedService {
           integration => integration.provider === 'DHL' && integration.type === 'shipping'
         );
 
+        // Check if DHL Returns integration exists
+        const dhlReturnsIntegrationIndex = existingConfig.integrations?.findIndex(
+          integration => integration.name === 'DHL Returns' && integration.type === 'shipping'
+        );
+
         if (dhlIntegrationIndex === -1 || dhlIntegrationIndex === undefined) {
           console.log('SeedService.seedSystemConfiguration: Adding DHL integration to existing configuration...');
 
@@ -1495,6 +1500,68 @@ class SeedService {
           console.log('SeedService.seedSystemConfiguration: DHL integration updated successfully with new API credentials');
         }
 
+        // Add or update DHL Returns integration
+        if (dhlReturnsIntegrationIndex === -1 || dhlReturnsIntegrationIndex === undefined) {
+          console.log('SeedService.seedSystemConfiguration: Adding DHL Returns integration to existing configuration...');
+
+          // Add DHL Returns integration
+          existingConfig.integrations.push({
+            name: 'DHL Returns',
+            type: 'shipping',
+            provider: 'DHL',
+            apiKey: process.env.DHL_RETURNS_USERNAME || 'test_username',
+            apiSecret: process.env.DHL_RETURNS_PASSWORD || 'test_password',
+            endpoint: process.env.DHL_RETURNS_API_URL || 'https://api-sandbox.dhl.com',
+            credentials: {
+              apiKey: process.env.DHL_RETURNS_USERNAME || 'test_username',
+              apiSecret: process.env.DHL_RETURNS_PASSWORD || 'test_password',
+              apiEndpoint: process.env.DHL_RETURNS_API_URL || 'https://api-sandbox.dhl.com',
+              accountId: process.env.DHL_RETURNS_RECEIVER_ID || '12345678901234'
+            },
+            metadata: {
+              clientId: process.env.DHL_RETURNS_CLIENT_ID || '',
+              clientSecret: process.env.DHL_RETURNS_CLIENT_SECRET || '',
+              environment: process.env.DHL_RETURNS_ENV || 'sandbox'
+            },
+            settings: {
+              autoGenerateLabel: true,
+              defaultLabelType: 'BOTH', // PDF and QR code
+              updateBookingStatus: true
+            },
+            isActive: true,
+            testStatus: 'pending'
+          });
+
+          existingConfig.markModified('integrations');
+          await existingConfig.save();
+          console.log('SeedService.seedSystemConfiguration: DHL Returns integration added successfully');
+        } else {
+          console.log('SeedService.seedSystemConfiguration: Updating existing DHL Returns integration...');
+
+          // Update existing DHL Returns integration
+          existingConfig.integrations[dhlReturnsIntegrationIndex].apiKey = process.env.DHL_RETURNS_USERNAME || 'test_username';
+          existingConfig.integrations[dhlReturnsIntegrationIndex].apiSecret = process.env.DHL_RETURNS_PASSWORD || 'test_password';
+          existingConfig.integrations[dhlReturnsIntegrationIndex].endpoint = process.env.DHL_RETURNS_API_URL || 'https://api-sandbox.dhl.com';
+          existingConfig.integrations[dhlReturnsIntegrationIndex].credentials = existingConfig.integrations[dhlReturnsIntegrationIndex].credentials || {};
+          existingConfig.integrations[dhlReturnsIntegrationIndex].credentials.apiKey = process.env.DHL_RETURNS_USERNAME || 'test_username';
+          existingConfig.integrations[dhlReturnsIntegrationIndex].credentials.apiSecret = process.env.DHL_RETURNS_PASSWORD || 'test_password';
+          existingConfig.integrations[dhlReturnsIntegrationIndex].credentials.apiEndpoint = process.env.DHL_RETURNS_API_URL || 'https://api-sandbox.dhl.com';
+          existingConfig.integrations[dhlReturnsIntegrationIndex].credentials.accountId = process.env.DHL_RETURNS_RECEIVER_ID || '12345678901234';
+          existingConfig.integrations[dhlReturnsIntegrationIndex].metadata = existingConfig.integrations[dhlReturnsIntegrationIndex].metadata || {};
+          existingConfig.integrations[dhlReturnsIntegrationIndex].metadata.clientId = process.env.DHL_RETURNS_CLIENT_ID || '';
+          existingConfig.integrations[dhlReturnsIntegrationIndex].metadata.clientSecret = process.env.DHL_RETURNS_CLIENT_SECRET || '';
+          existingConfig.integrations[dhlReturnsIntegrationIndex].metadata.environment = process.env.DHL_RETURNS_ENV || 'sandbox';
+          existingConfig.integrations[dhlReturnsIntegrationIndex].settings = existingConfig.integrations[dhlReturnsIntegrationIndex].settings || {};
+          existingConfig.integrations[dhlReturnsIntegrationIndex].settings.autoGenerateLabel = true;
+          existingConfig.integrations[dhlReturnsIntegrationIndex].settings.defaultLabelType = 'BOTH';
+          existingConfig.integrations[dhlReturnsIntegrationIndex].settings.updateBookingStatus = true;
+          existingConfig.integrations[dhlReturnsIntegrationIndex].isActive = true;
+
+          existingConfig.markModified('integrations');
+          await existingConfig.save();
+          console.log('SeedService.seedSystemConfiguration: DHL Returns integration updated successfully');
+        }
+
         return { message: 'System configuration verified' };
       }
 
@@ -1519,6 +1586,32 @@ class SeedService {
               billingNumber: process.env.DHL_BILLING_NUMBER || '22222222220101',
               defaultServiceType: 'P',
               sandbox: false
+            },
+            isActive: true,
+            testStatus: 'pending'
+          },
+          {
+            name: 'DHL Returns',
+            type: 'shipping',
+            provider: 'DHL',
+            apiKey: process.env.DHL_RETURNS_USERNAME || 'test_username',
+            apiSecret: process.env.DHL_RETURNS_PASSWORD || 'test_password',
+            endpoint: process.env.DHL_RETURNS_API_URL || 'https://api-sandbox.dhl.com',
+            credentials: {
+              apiKey: process.env.DHL_RETURNS_USERNAME || 'test_username',
+              apiSecret: process.env.DHL_RETURNS_PASSWORD || 'test_password',
+              apiEndpoint: process.env.DHL_RETURNS_API_URL || 'https://api-sandbox.dhl.com',
+              accountId: process.env.DHL_RETURNS_RECEIVER_ID || '12345678901234'
+            },
+            metadata: {
+              clientId: process.env.DHL_RETURNS_CLIENT_ID || '',
+              clientSecret: process.env.DHL_RETURNS_CLIENT_SECRET || '',
+              environment: process.env.DHL_RETURNS_ENV || 'sandbox'
+            },
+            settings: {
+              autoGenerateLabel: true,
+              defaultLabelType: 'BOTH',
+              updateBookingStatus: true
             },
             isActive: true,
             testStatus: 'pending'

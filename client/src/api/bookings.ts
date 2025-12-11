@@ -207,3 +207,64 @@ export const getBookingInvoices = async (bookingId: string) => {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// ============================================
+// DHL RETURNS & SHIPPING API FUNCTIONS
+// ============================================
+
+// Description: Create return label for booking (admin/staff only)
+// Endpoint: POST /api/bookings/:id/return-label
+// Request: { labelType?: 'PDF' | 'QR' | 'BOTH' }
+// Response: { success: boolean, returnId: string, returnTrackingNumber: string, labelUrl: string, qrCodeUrl: string, qrLink: string, message: string }
+export const createReturnLabel = async (
+  bookingId: string,
+  labelType?: 'PDF' | 'QR' | 'BOTH'
+) => {
+  try {
+    const response = await api.post(`/api/bookings/${bookingId}/return-label`, {
+      labelType: labelType || 'BOTH',
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Get return tracking information for booking
+// Endpoint: GET /api/bookings/:id/return-tracking
+// Request: {}
+// Response: { success: boolean, trackingNumber: string, status: string, statusDescription: string, estimatedDelivery?: string, events: Array, booking: object }
+export const getReturnTracking = async (bookingId: string) => {
+  try {
+    const response = await api.get(`/api/bookings/${bookingId}/return-tracking`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Update return shipment status from DHL API (admin/staff only)
+// Endpoint: PUT /api/bookings/:id/return-status/update
+// Request: {}
+// Response: { success: boolean, booking: Booking, trackingInfo: Object }
+export const updateReturnStatus = async (bookingId: string) => {
+  try {
+    const response = await api.put(`/api/bookings/${bookingId}/return-status/update`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Test DHL Returns API connection (admin only)
+// Endpoint: GET /api/bookings/test-dhl-returns
+// Request: {}
+// Response: { success: boolean, message: string, environment?: string, receiverId?: string, error?: string }
+export const testDHLReturnsConnection = async () => {
+  try {
+    const response = await api.get('/api/bookings/test-dhl-returns');
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
