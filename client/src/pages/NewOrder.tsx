@@ -47,8 +47,15 @@ import {
   Phone,
   ShoppingCart as ShoppingCartIcon,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Info
 } from "lucide-react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface OrderForm {
   deviceType: string
@@ -117,6 +124,9 @@ export function NewOrder() {
   const [noDeviceLock, setNoDeviceLock] = useState<boolean>(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [quantity, setQuantity] = useState<number>(1)
+
+  // Related Information checkbox state
+  const [relatedInfoAcknowledged, setRelatedInfoAcknowledged] = useState<boolean>(false)
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<OrderForm>()
   const { toast } = useToast()
@@ -477,6 +487,28 @@ export function NewOrder() {
   }
 
   const nextStep = () => {
+    // Special validation for Step 3: Check if Related Information is acknowledged
+    if (step === 3) {
+      const hasRelatedInfo = selectedServices.length > 0 &&
+        services.filter(s => selectedServices.includes(s._id)).some(s =>
+          s.externalRepairInfo || (s.linkedKnowledgeBaseArticles && s.linkedKnowledgeBaseArticles.length > 0)
+        )
+
+      if (hasRelatedInfo && !relatedInfoAcknowledged) {
+        toast({
+          title: t('common.error'),
+          description: "Please confirm that you have read and understood the related information before proceeding.",
+          variant: "destructive"
+        })
+        // Scroll to the checkbox
+        const checkboxElement = document.getElementById('related-info-checkbox')
+        if (checkboxElement) {
+          checkboxElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+        return
+      }
+    }
+
     if (step < 5) {
       setStep(step + 1)
       // Smooth scroll to top on step change
@@ -491,6 +523,18 @@ export function NewOrder() {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
+
+  // Reset checkbox when leaving step 3 or when selected services change
+  useEffect(() => {
+    if (step !== 3) {
+      setRelatedInfoAcknowledged(false)
+    }
+  }, [step])
+
+  useEffect(() => {
+    // Reset checkbox when services change
+    setRelatedInfoAcknowledged(false)
+  }, [selectedServices])
 
   const getStepIcon = (stepNumber: number) => {
     if (stepNumber < step) return <Check className="h-4 w-4" />
@@ -1066,6 +1110,39 @@ export function NewOrder() {
                           </div>
                         )
                       })}
+                    </div>
+
+                    {/* Acknowledgement Checkbox */}
+                    <div id="related-info-checkbox" className="flex items-start gap-3 mt-4 pt-4 border-t border-blue-300 dark:border-blue-700 bg-white/70 dark:bg-gray-900/50 p-4 rounded-lg">
+                      <Checkbox
+                        id="relatedInfoCheckbox"
+                        checked={relatedInfoAcknowledged}
+                        onCheckedChange={(checked) => setRelatedInfoAcknowledged(checked as boolean)}
+                        className="mt-0.5 border-2 border-blue-500 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                      />
+                      <div className="flex-1">
+                        <Label
+                          htmlFor="relatedInfoCheckbox"
+                          className="text-sm font-semibold text-blue-900 dark:text-blue-100 cursor-pointer flex items-center gap-2"
+                        >
+                          I confirm that I have read and understood the related information above
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-xs">
+                                  Please review all repair information and knowledge base articles provided above to ensure you understand the service details, warranty terms, and any important instructions before proceeding with your order.
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </Label>
+                        <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                          Required to proceed to the next step
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
