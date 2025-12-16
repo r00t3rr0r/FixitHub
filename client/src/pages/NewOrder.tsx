@@ -48,7 +48,11 @@ import {
   ShoppingCart as ShoppingCartIcon,
   ChevronRight,
   Sparkles,
-  Info
+  Info,
+  FileText,
+  AlertCircle,
+  Droplets,
+  Tool
 } from "lucide-react"
 import {
   Tooltip,
@@ -1691,6 +1695,96 @@ export function NewOrder() {
                         <span className="font-bold">${addOn.price}</span>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Additional Repair Information Review */}
+              {(errorDescription || waterDamage || previousRepairAttempts || itemCondition) && (
+                <div className="bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-950/40 dark:to-orange-950/40 border-2 border-amber-300 dark:border-amber-700 rounded-xl p-5 space-y-4 animate-in zoom-in duration-300">
+                  <h4 className="font-bold text-base flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                    {t('newOrder.repairInfo.title')}
+                  </h4>
+                  <div className="space-y-3 text-sm">
+                    {/* Error Description */}
+                    {errorDescription && (
+                      <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 space-y-1">
+                        <div className="font-semibold text-amber-900 dark:text-amber-100 flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4" />
+                          {t('newOrder.repairInfo.errorDescriptionLabel')}
+                        </div>
+                        <div className="text-amber-800 dark:text-amber-200 ml-6 whitespace-pre-wrap">
+                          {errorDescription}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Water Damage */}
+                    {waterDamage && (
+                      <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-amber-900 dark:text-amber-100 flex items-center gap-2">
+                            <Droplets className="h-4 w-4" />
+                            {t('newOrder.repairInfo.waterDamageLabel')}
+                          </span>
+                          <span className={`font-bold px-3 py-1 rounded-full text-xs ${
+                            waterDamage === 'yes'
+                              ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                              : waterDamage === 'no'
+                              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                          }`}>
+                            {t(`newOrder.repairInfo.waterDamage.${waterDamage}`)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Previous Repair Attempts */}
+                    {previousRepairAttempts && (
+                      <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-amber-900 dark:text-amber-100 flex items-center gap-2">
+                            <Tool className="h-4 w-4" />
+                            {t('newOrder.repairInfo.previousRepairLabel')}
+                          </span>
+                          <span className={`font-bold px-3 py-1 rounded-full text-xs ${
+                            previousRepairAttempts === 'yes'
+                              ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'
+                              : previousRepairAttempts === 'no'
+                              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                          }`}>
+                            {t(`newOrder.repairInfo.previousRepair.${previousRepairAttempts}`)}
+                          </span>
+                        </div>
+                        {previousRepairAttempts === 'yes' && previousRepairDetails && (
+                          <div className="ml-6 text-amber-800 dark:text-amber-200 border-l-2 border-amber-400 pl-3 whitespace-pre-wrap">
+                            {previousRepairDetails}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Item Condition */}
+                    {itemCondition && (
+                      <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-amber-900 dark:text-amber-100 flex items-center gap-2">
+                            <Package className="h-4 w-4" />
+                            {t('newOrder.repairInfo.itemConditionLabel')}
+                          </span>
+                          <span className={`font-bold px-3 py-1 rounded-full text-xs ${
+                            itemCondition === 'original'
+                              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                              : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+                          }`}>
+                            {t(`newOrder.repairInfo.itemCondition.${itemCondition}`)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
