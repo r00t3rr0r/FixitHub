@@ -1337,135 +1337,189 @@ export function OrderDetails() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Additional Repair Information */}
-          {(order.errorDescription || order.waterDamage || order.previousRepairAttempts || order.itemCondition) && (
-            <Card className="border-2 border-amber-300 dark:border-amber-700">
-              <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40">
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                  Additional Repair Information
-                </CardTitle>
-                <CardDescription>
-                  {t('orderDetails.repairInfo.description')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <div className="space-y-4">
-                  {/* Error Description */}
-                  {order.errorDescription && (
-                    <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
-                      <div className="flex items-start gap-3">
-                        <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100 mb-2">
-                            {t('orderDetails.repairInfo.errorDescriptionLabel')}
-                          </h4>
-                          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                            {order.errorDescription}
-                          </p>
-                        </div>
+          {/* Additional Repair Information - Always visible */}
+          <Card className="border-2 border-amber-300 dark:border-amber-700">
+            <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40">
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                Additional Repair Information
+              </CardTitle>
+              <CardDescription>
+                {t('orderDetails.repairInfo.description') || 'Customer-provided information about the device and repair requirements'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                {/* Error Description */}
+                {order.errorDescription && order.errorDescription.trim() ? (
+                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100 mb-2">
+                          {t('orderDetails.repairInfo.errorDescriptionLabel') || 'Error Description'}
+                        </h4>
+                        <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                          {order.errorDescription}
+                        </p>
                       </div>
                     </div>
-                  )}
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-4 border border-gray-200 dark:border-gray-800">
+                    <div className="flex items-center gap-3">
+                      <AlertCircle className="h-5 w-5 text-gray-400 dark:text-gray-600" />
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm text-gray-600 dark:text-gray-400 mb-1">
+                          {t('orderDetails.repairInfo.errorDescriptionLabel') || 'Error Description'}
+                        </h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-600 italic">
+                          {t('orderDetails.repairInfo.noInformationProvided') || 'No error description provided'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-                  {/* Water Damage */}
-                  {order.waterDamage && (
-                    <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+                {/* Water Damage */}
+                {order.waterDamage && order.waterDamage.trim() ? (
+                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Droplets className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                        <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100">
+                          {t('orderDetails.repairInfo.waterDamageLabel') || 'Water Damage'}
+                        </h4>
+                      </div>
+                      <Badge
+                        variant={order.waterDamage === 'yes' ? 'destructive' : order.waterDamage === 'no' ? 'default' : 'secondary'}
+                        className={
+                          order.waterDamage === 'yes'
+                            ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-300'
+                            : order.waterDamage === 'no'
+                            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                        }
+                      >
+                        {t(`orderDetails.repairInfo.waterDamage.${order.waterDamage}`) || order.waterDamage.charAt(0).toUpperCase() + order.waterDamage.slice(1)}
+                      </Badge>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-4 border border-gray-200 dark:border-gray-800">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Droplets className="h-5 w-5 text-gray-400 dark:text-gray-600" />
+                        <h4 className="font-semibold text-sm text-gray-600 dark:text-gray-400">
+                          {t('orderDetails.repairInfo.waterDamageLabel') || 'Water Damage'}
+                        </h4>
+                      </div>
+                      <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500">
+                        {t('orderDetails.repairInfo.notSpecified') || 'Not specified'}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+
+                {/* Previous Repair Attempts */}
+                {order.previousRepairAttempts && order.previousRepairAttempts.trim() ? (
+                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+                    <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <Droplets className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                          <Wrench className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                           <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100">
-                            {t('orderDetails.repairInfo.waterDamageLabel')}
+                            {t('orderDetails.repairInfo.previousRepairLabel') || 'Previous Repair Attempts'}
                           </h4>
                         </div>
                         <Badge
-                          variant={order.waterDamage === 'yes' ? 'destructive' : order.waterDamage === 'no' ? 'default' : 'secondary'}
+                          variant={order.previousRepairAttempts === 'yes' ? 'secondary' : 'default'}
                           className={
-                            order.waterDamage === 'yes'
-                              ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-300'
-                              : order.waterDamage === 'no'
+                            order.previousRepairAttempts === 'yes'
+                              ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-300'
+                              : order.previousRepairAttempts === 'no'
                               ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300'
                               : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
                           }
                         >
-                          {t(`orderDetails.repairInfo.waterDamage.${order.waterDamage}`)}
+                          {t(`orderDetails.repairInfo.previousRepair.${order.previousRepairAttempts}`) || order.previousRepairAttempts.charAt(0).toUpperCase() + order.previousRepairAttempts.slice(1)}
                         </Badge>
                       </div>
-                    </div>
-                  )}
-
-                  {/* Previous Repair Attempts */}
-                  {order.previousRepairAttempts && (
-                    <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <Wrench className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                            <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100">
-                              {t('orderDetails.repairInfo.previousRepairLabel')}
-                            </h4>
-                          </div>
-                          <Badge
-                            variant={order.previousRepairAttempts === 'yes' ? 'secondary' : 'default'}
-                            className={
-                              order.previousRepairAttempts === 'yes'
-                                ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-300'
-                                : order.previousRepairAttempts === 'no'
-                                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300'
-                                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                            }
-                          >
-                            {t(`orderDetails.repairInfo.previousRepair.${order.previousRepairAttempts}`)}
-                          </Badge>
+                      {order.previousRepairAttempts === 'yes' && order.previousRepairDetails && order.previousRepairDetails.trim() && (
+                        <div className="ml-8 pl-4 border-l-2 border-amber-400">
+                          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                            {order.previousRepairDetails}
+                          </p>
                         </div>
-                        {order.previousRepairAttempts === 'yes' && order.previousRepairDetails && (
-                          <div className="ml-8 pl-4 border-l-2 border-amber-400">
-                            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                              {order.previousRepairDetails}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Item Condition */}
-                  {order.itemCondition && (
-                    <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <Package className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                          <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100">
-                            {t('orderDetails.repairInfo.itemConditionLabel')}
-                          </h4>
-                        </div>
-                        <Badge
-                          variant="secondary"
-                          className={
-                            order.itemCondition === 'original'
-                              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300'
-                              : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-300'
-                          }
-                        >
-                          {t(`orderDetails.repairInfo.itemCondition.${order.itemCondition}`)}
-                        </Badge>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Information Notice */}
-                  <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                      <p className="text-sm text-blue-900 dark:text-blue-100 leading-relaxed">
-                        {t('orderDetails.repairInfo.infoNotice')}
-                      </p>
+                      )}
                     </div>
                   </div>
+                ) : (
+                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-4 border border-gray-200 dark:border-gray-800">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Wrench className="h-5 w-5 text-gray-400 dark:text-gray-600" />
+                        <h4 className="font-semibold text-sm text-gray-600 dark:text-gray-400">
+                          {t('orderDetails.repairInfo.previousRepairLabel') || 'Previous Repair Attempts'}
+                        </h4>
+                      </div>
+                      <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500">
+                        {t('orderDetails.repairInfo.notSpecified') || 'Not specified'}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+
+                {/* Item Condition */}
+                {order.itemCondition && order.itemCondition.trim() ? (
+                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Package className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                        <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100">
+                          {t('orderDetails.repairInfo.itemConditionLabel') || 'Item Condition'}
+                        </h4>
+                      </div>
+                      <Badge
+                        variant="secondary"
+                        className={
+                          order.itemCondition === 'original'
+                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300'
+                            : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-300'
+                        }
+                      >
+                        {t(`orderDetails.repairInfo.itemCondition.${order.itemCondition}`) || order.itemCondition.charAt(0).toUpperCase() + order.itemCondition.slice(1)}
+                      </Badge>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-4 border border-gray-200 dark:border-gray-800">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Package className="h-5 w-5 text-gray-400 dark:text-gray-600" />
+                        <h4 className="font-semibold text-sm text-gray-600 dark:text-gray-400">
+                          {t('orderDetails.repairInfo.itemConditionLabel') || 'Item Condition'}
+                        </h4>
+                      </div>
+                      <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500">
+                        {t('orderDetails.repairInfo.notSpecified') || 'Not specified'}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+
+                {/* Information Notice */}
+                <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-blue-900 dark:text-blue-100 leading-relaxed">
+                      {t('orderDetails.repairInfo.infoNotice') || 'This information helps our technicians better assess and repair your device. Additional details may be requested during the inspection process.'}
+                    </p>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Customer Information */}
           <Card>
