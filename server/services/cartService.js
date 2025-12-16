@@ -203,7 +203,25 @@ class CartService {
     console.log('CartService: Adding repair order to cart:', { userId, repairOrderData });
 
     try {
-      const { deviceType, deviceBrand, deviceModel, services, addOns, customerNotes, photos, totalCost, unlockPattern, unlockCode, noLock } = repairOrderData;
+      const {
+        deviceType,
+        deviceBrand,
+        deviceModel,
+        services,
+        addOns,
+        customerNotes,
+        photos,
+        totalCost,
+        unlockPattern,
+        unlockCode,
+        noLock,
+        // Additional repair information
+        errorDescription,
+        waterDamage,
+        previousRepairAttempts,
+        previousRepairDetails,
+        itemCondition
+      } = repairOrderData;
 
       // Validate required fields
       if (!deviceType || !deviceBrand || !deviceModel || !services || services.length === 0 || !totalCost) {
@@ -225,6 +243,12 @@ class CartService {
         unlockPattern: unlockPattern || [],
         unlockCode: unlockCode || '',
         noLock: noLock || false,
+        // Additional repair information
+        errorDescription: errorDescription || '',
+        waterDamage: waterDamage || '',
+        previousRepairAttempts: previousRepairAttempts || '',
+        previousRepairDetails: previousRepairDetails || '',
+        itemCondition: itemCondition || '',
         addedAt: new Date()
       };
 
@@ -238,7 +262,15 @@ class CartService {
       await cart.populate('repairOrders.services');
       await cart.populate('items.productId');
 
-      console.log('CartService: Repair order added to cart successfully with unlock data:', { unlockPattern, unlockCode, noLock });
+      console.log('CartService: Repair order added to cart successfully with unlock data and additional repair info:', {
+        unlockPattern,
+        unlockCode,
+        noLock,
+        errorDescription,
+        waterDamage,
+        previousRepairAttempts,
+        itemCondition
+      });
       return cart;
     } catch (error) {
       console.error('CartService: Error adding repair order to cart:', error);

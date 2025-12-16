@@ -149,7 +149,7 @@ router.delete('/clear', requireUser, async (req, res) => {
 
 // Description: Add repair order to cart
 // Endpoint: POST /api/cart/add-repair-order
-// Request: { deviceType: string, deviceBrand: string, deviceModel: string, services: string[], addOns: object[], customerNotes: string, photos: string[], totalCost: number, unlockPattern?: string[], unlockCode?: string, noLock?: boolean }
+// Request: { deviceType: string, deviceBrand: string, deviceModel: string, services: string[], addOns: object[], customerNotes: string, photos: string[], totalCost: number, unlockPattern?: string[], unlockCode?: string, noLock?: boolean, errorDescription?: string, waterDamage?: string, previousRepairAttempts?: string, previousRepairDetails?: string, itemCondition?: string }
 // Response: { success: boolean, message: string, cart: Cart }
 router.post('/add-repair-order', requireUser, async (req, res) => {
   try {

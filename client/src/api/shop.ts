@@ -404,11 +404,17 @@ export interface RepairOrderData {
   unlockPattern?: string[];
   unlockCode?: string;
   noLock?: boolean;
+  // Additional repair information
+  errorDescription?: string;
+  waterDamage?: string;
+  previousRepairAttempts?: string;
+  previousRepairDetails?: string;
+  itemCondition?: string;
 }
 
 // Description: Add repair order to cart (handles both authenticated and guest users)
 // Endpoint: POST /api/cart/add-repair-order (authenticated) or localStorage (guest)
-// Request: { deviceType: string, deviceBrand: string, deviceModel: string, services: string[], addOns: object[], customerNotes: string, photos: string[], totalCost: number, unlockPattern?: string[], unlockCode?: string, noLock?: boolean }
+// Request: { deviceType: string, deviceBrand: string, deviceModel: string, services: string[], addOns: object[], customerNotes: string, photos: string[], totalCost: number, unlockPattern?: string[], unlockCode?: string, noLock?: boolean, errorDescription?: string, waterDamage?: string, previousRepairAttempts?: string, previousRepairDetails?: string, itemCondition?: string }
 // Response: { success: boolean, message: string, cart: Cart }
 export const addRepairOrderToCart = async (repairOrderData: RepairOrderData) => {
   try {
