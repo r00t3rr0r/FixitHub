@@ -68,6 +68,30 @@ const repairOrderItemSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Additional repair information
+  errorDescription: {
+    type: String,
+    default: ''
+  },
+  waterDamage: {
+    type: String,
+    enum: ['yes', 'no', 'unknown', ''],
+    default: ''
+  },
+  previousRepairAttempts: {
+    type: String,
+    enum: ['yes', 'no', 'unknown', ''],
+    default: ''
+  },
+  previousRepairDetails: {
+    type: String,
+    default: ''
+  },
+  itemCondition: {
+    type: String,
+    enum: ['original', 'aftermarket', ''],
+    default: ''
+  },
   addedAt: {
     type: Date,
     default: Date.now

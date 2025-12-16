@@ -305,7 +305,13 @@ router.post('/complete', requireUser, async (req, res) => {
             // Device unlock information from cart
             unlockPattern: repairOrder.unlockPattern || [],
             unlockCode: repairOrder.unlockCode || '',
-            noLock: repairOrder.noLock || false
+            noLock: repairOrder.noLock || false,
+            // Additional repair information from cart
+            errorDescription: repairOrder.errorDescription || '',
+            waterDamage: repairOrder.waterDamage || '',
+            previousRepairAttempts: repairOrder.previousRepairAttempts || '',
+            previousRepairDetails: repairOrder.previousRepairDetails || '',
+            itemCondition: repairOrder.itemCondition || ''
           };
 
           console.log('CheckoutRoutes: Order data prepared:', orderData);
