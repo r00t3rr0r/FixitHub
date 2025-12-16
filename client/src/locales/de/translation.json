@@ -1653,6 +1653,45 @@
       "addOnsTotal": "Zusatzdienste Gesamt:",
       "reviewAndSubmit": "Überprüfen & Absenden"
     },
+    "repairInfo": {
+      "title": "Zusätzliche Reparaturinformationen",
+      "subtitle": "Helfen Sie uns, den Zustand Ihres Geräts besser zu verstehen",
+      "errorDescription": {
+        "label": "Fehlerbeschreibung",
+        "placeholder": "Bitte beschreiben Sie das Problem mit Ihrem Gerät im Detail...",
+        "hint": "Je mehr Details Sie angeben, desto besser können wir Ihr Gerät bewerten und reparieren",
+        "required": "Fehlerbeschreibung ist erforderlich"
+      },
+      "waterDamage": {
+        "label": "Wurde das Gerät Wasser oder Feuchtigkeit ausgesetzt?",
+        "hint": "Dies hilft uns zu bestimmen, ob spezielle Reinigung oder Behandlungen erforderlich sind",
+        "yes": "Ja, Wasserschaden ist aufgetreten",
+        "no": "Keine Wassereinwirkung",
+        "dontKnow": "Nicht sicher / Weiß nicht",
+        "required": "Bitte geben Sie an, ob ein Wasserschaden vorliegt"
+      },
+      "previousRepairAttempts": {
+        "label": "Gab es bereits frühere Reparaturversuche an diesem Gerät?",
+        "hint": "Das Wissen über frühere Reparaturen hilft uns, mögliche Komplikationen zu identifizieren",
+        "yes": "Ja, zuvor repariert",
+        "no": "Keine vorherigen Reparaturen",
+        "dontKnow": "Nicht sicher / Weiß nicht",
+        "required": "Bitte geben Sie an, ob es frühere Reparaturversuche gab"
+      },
+      "previousRepairDetails": {
+        "label": "Details zu früheren Reparaturen",
+        "placeholder": "Bitte beschreiben Sie, welche Reparaturen versucht wurden, wann und von wem...",
+        "hint": "Geben Sie Informationen darüber an, was repariert wurde und welche Probleme aufgetreten sind",
+        "required": "Bitte geben Sie Details zu früheren Reparaturen an"
+      },
+      "itemCondition": {
+        "label": "Was ist der Zustand Ihres Geräts?",
+        "hint": "Dies hilft uns, angemessene Erwartungen und Preise festzulegen",
+        "original": "Original / Nie repariert",
+        "refurbished": "Überholt / Zuvor repariert",
+        "required": "Bitte wählen Sie den Gerätezustand"
+      }
+    },
     "reviewStep": {
       "title": "Letzte Details & Absenden",
       "subtitle": "Fügen Sie Fotos und Notizen hinzu und überprüfen Sie dann Ihren vollständigen Reparaturauftrag",

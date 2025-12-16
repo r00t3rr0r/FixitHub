@@ -1714,6 +1714,45 @@
       "addOnsTotal": "Add-ons Total:",
       "reviewAndSubmit": "Review & Submit"
     },
+    "repairInfo": {
+      "title": "Additional Repair Information",
+      "subtitle": "Help us understand your device's condition better",
+      "errorDescription": {
+        "label": "Error Description",
+        "placeholder": "Please describe the issue with your device in detail...",
+        "hint": "The more details you provide, the better we can assess and repair your device",
+        "required": "Error description is required"
+      },
+      "waterDamage": {
+        "label": "Has the device been exposed to water or moisture?",
+        "hint": "This helps us determine if special cleaning or treatments are needed",
+        "yes": "Yes, water damage occurred",
+        "no": "No water exposure",
+        "dontKnow": "Not sure / Don't know",
+        "required": "Please indicate if there was water damage"
+      },
+      "previousRepairAttempts": {
+        "label": "Have there been previous repair attempts on this device?",
+        "hint": "Knowing about previous repairs helps us identify potential complications",
+        "yes": "Yes, previously repaired",
+        "no": "No previous repairs",
+        "dontKnow": "Not sure / Don't know",
+        "required": "Please indicate if there were previous repair attempts"
+      },
+      "previousRepairDetails": {
+        "label": "Previous Repair Details",
+        "placeholder": "Please describe what repairs were attempted, when, and by whom...",
+        "hint": "Include information about what was repaired and any issues that occurred",
+        "required": "Please provide details about previous repairs"
+      },
+      "itemCondition": {
+        "label": "What is the condition of your device?",
+        "hint": "This helps us set appropriate expectations and pricing",
+        "original": "Original / Never Repaired",
+        "refurbished": "Refurbished / Previously Repaired",
+        "required": "Please select the device condition"
+      }
+    },
     "reviewStep": {
       "title": "Final Details & Submit",
       "subtitle": "Add photos and notes, then review your complete repair order",
