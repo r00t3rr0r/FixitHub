@@ -198,7 +198,7 @@ inventorySchema.pre('save', async function(next) {
 // Index for better query performance
 inventorySchema.index({ category: 1 });
 inventorySchema.index({ brand: 1 });
-inventorySchema.index({ sku: 1 });
+// sku already has unique: true index at line 130, no need for duplicate
 inventorySchema.index({ 'versions.lowStockAlert': 1 });
 
 const Inventory = mongoose.model('Inventory', inventorySchema);

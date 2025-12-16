@@ -320,7 +320,7 @@ deviceInspectionSchema.pre('save', function(next) {
 });
 
 // Index for quick lookups
-deviceInspectionSchema.index({ orderId: 1 });
+// orderId already has unique: true index at line 226, no need for duplicate
 deviceInspectionSchema.index({ customerId: 1 });
 deviceInspectionSchema.index({ technicianId: 1 });
 deviceInspectionSchema.index({ status: 1 });

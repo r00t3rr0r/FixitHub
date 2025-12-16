@@ -67,7 +67,7 @@ languageSchema.pre('save', async function(next) {
 });
 
 // Index for faster queries
-languageSchema.index({ code: 1 });
+// code already has unique: true index at line 22, no need for duplicate
 languageSchema.index({ isActive: 1 });
 languageSchema.index({ isDefault: 1 });
 

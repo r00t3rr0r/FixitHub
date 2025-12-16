@@ -126,7 +126,7 @@ complaintSchema.index({ bookingId: 1 });
 complaintSchema.index({ customerId: 1 });
 complaintSchema.index({ status: 1 });
 complaintSchema.index({ createdAt: -1 });
-complaintSchema.index({ complaintNumber: 1 });
+// complaintNumber already has unique: true index at line 36, no need for duplicate
 
 // Populate customer and booking when querying
 complaintSchema.pre(/^find/, function(next) {

@@ -158,7 +158,7 @@ const SectionSchema = new mongoose.Schema({
 
 // Main page content schema
 const PageContentSchema = new mongoose.Schema({
-  pageId: { type: String, required: true, unique: true, index: true },
+  pageId: { type: String, required: true, unique: true },
   pageTitle: { type: String, required: true },
   pageSlug: { type: String, required: true },
 

@@ -231,7 +231,7 @@ bookingSchema.pre('save', function(next) {
 bookingSchema.index({ customerId: 1 });
 bookingSchema.index({ status: 1 });
 bookingSchema.index({ createdAt: -1 });
-bookingSchema.index({ bookingNumber: 1 });
+// bookingNumber already has unique: true index at line 81, no need for duplicate
 
 // Populate customer when querying
 bookingSchema.pre(/^find/, function(next) {

@@ -124,7 +124,7 @@ reminderSchema.index({ customerId: 1 });
 reminderSchema.index({ status: 1 });
 reminderSchema.index({ scheduledDate: 1 });
 reminderSchema.index({ createdAt: -1 });
-reminderSchema.index({ reminderNumber: 1 });
+// reminderNumber already has unique: true index at line 6, no need for duplicate
 
 // Populate customer and booking when querying
 reminderSchema.pre(/^find/, function(next) {
