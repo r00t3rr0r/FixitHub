@@ -1548,12 +1548,14 @@
       "title": "Additional Repair Information",
       "description": "Information collected during order creation to help with diagnosis and repair",
       "errorDescriptionLabel": "Error Description",
+      "noInformationProvided": "No error description provided",
       "waterDamageLabel": "Water Damage",
       "waterDamage": {
         "yes": "Yes",
         "no": "No",
         "dont-know": "Don't Know"
       },
+      "notSpecified": "Not specified",
       "previousRepairLabel": "Previous Repair Attempts",
       "previousRepair": {
         "yes": "Yes",

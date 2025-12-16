@@ -1501,7 +1501,31 @@
     "unlockConfirmationSuccess": "Unlock confirmation recorded successfully",
     "unlockConfirmationError": "Failed to confirm unlock",
     "updateConfirmation": "Update Confirmation",
-    "optional": "Optional"
+    "optional": "Optional",
+    "repairInfo": {
+      "description": "Information collected during order creation to help with diagnosis and repair",
+      "errorDescriptionLabel": "Error Description",
+      "noInformationProvided": "No error description provided",
+      "waterDamageLabel": "Water Damage",
+      "waterDamage": {
+        "yes": "Yes",
+        "no": "No",
+        "dont-know": "Don't Know"
+      },
+      "notSpecified": "Not specified",
+      "previousRepairLabel": "Previous Repair Attempts",
+      "previousRepair": {
+        "yes": "Yes",
+        "no": "No",
+        "dont-know": "Don't Know"
+      },
+      "itemConditionLabel": "Item Condition",
+      "itemCondition": {
+        "original": "Original",
+        "refurbished": "Refurbished"
+      },
+      "infoNotice": "This information helps our technicians better diagnose and repair your device. It will be reviewed before starting the repair process."
+    }
   },
   "deviceInspection": {
     "deviceInspection": "Device Inspection",

@@ -1547,12 +1547,14 @@
       "title": "Zusätzliche Reparaturinformationen",
       "description": "Während der Auftragserstellung gesammelte Informationen zur Unterstützung bei Diagnose und Reparatur",
       "errorDescriptionLabel": "Fehlerbeschreibung",
+      "noInformationProvided": "Keine Fehlerbeschreibung bereitgestellt",
       "waterDamageLabel": "Wasserschaden",
       "waterDamage": {
         "yes": "Ja",
         "no": "Nein",
         "dont-know": "Weiß nicht"
       },
+      "notSpecified": "Nicht angegeben",
       "previousRepairLabel": "Frühere Reparaturversuche",
       "previousRepair": {
         "yes": "Ja",

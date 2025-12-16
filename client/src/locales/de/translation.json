@@ -1440,7 +1440,31 @@
     "optional": "Optional",
     "customerSince": "Kunde seit",
     "more": "mehr",
-    "noElectronicParts": "Keine elektronischen Teile"
+    "noElectronicParts": "Keine elektronischen Teile",
+    "repairInfo": {
+      "description": "Während der Auftragserstellung gesammelte Informationen zur Unterstützung bei Diagnose und Reparatur",
+      "errorDescriptionLabel": "Fehlerbeschreibung",
+      "noInformationProvided": "Keine Fehlerbeschreibung bereitgestellt",
+      "waterDamageLabel": "Wasserschaden",
+      "waterDamage": {
+        "yes": "Ja",
+        "no": "Nein",
+        "dont-know": "Weiß nicht"
+      },
+      "notSpecified": "Nicht angegeben",
+      "previousRepairLabel": "Frühere Reparaturversuche",
+      "previousRepair": {
+        "yes": "Ja",
+        "no": "Nein",
+        "dont-know": "Weiß nicht"
+      },
+      "itemConditionLabel": "Artikelzustand",
+      "itemCondition": {
+        "original": "Original",
+        "refurbished": "Generalüberholt"
+      },
+      "infoNotice": "Diese Informationen helfen unseren Technikern, Ihr Gerät besser zu diagnostizieren und zu reparieren. Sie werden vor Beginn des Reparaturprozesses überprüft."
+    }
   },
   "deviceInspection": {
     "deviceInspection": "Geräteinspection",
