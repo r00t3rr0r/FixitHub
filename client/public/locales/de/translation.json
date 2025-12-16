@@ -1687,6 +1687,38 @@
       "addOnsTotal": "Zusatzdienste Gesamt:",
       "reviewAndSubmit": "Überprüfen & Absenden"
     },
+    "repairInfo": {
+      "title": "Zusätzliche Reparaturinformationen",
+      "subtitle": "Bitte geben Sie wichtige Details zu Ihrem Gerät an, damit wir es besser beurteilen und reparieren können",
+      "errorDescriptionLabel": "Fehlerbeschreibung",
+      "errorDescriptionPlaceholder": "Beschreiben Sie das Problem, das Sie mit dem Gerät haben (z.B. Bildschirm schaltet sich nicht ein, Akku entlädt sich schnell, defekte Kamera...)",
+      "errorDescriptionHint": "Seien Sie so detailliert wie möglich, um unseren Technikern bei der Diagnose zu helfen",
+      "errorDescriptionRequired": "Bitte beschreiben Sie den Fehler, den Sie erleben",
+      "waterDamageLabel": "Wasserschaden",
+      "waterDamageRequired": "Bitte geben Sie an, ob ein Wasserschaden vorliegt",
+      "waterDamage": {
+        "yes": "Ja",
+        "no": "Nein",
+        "dont-know": "Weiß nicht"
+      },
+      "previousRepairLabel": "Frühere Reparaturversuche",
+      "previousRepairRequired": "Bitte geben Sie an, ob es frühere Reparaturversuche gab",
+      "previousRepair": {
+        "yes": "Ja",
+        "no": "Nein",
+        "dont-know": "Weiß nicht"
+      },
+      "previousRepairDetailsLabel": "Bitte geben Sie Details zu früheren Reparaturversuchen an",
+      "previousRepairDetailsPlaceholder": "Wann und wo wurde es repariert? Was wurde gemacht? Was war das Ergebnis?",
+      "previousRepairDetailsHint": "Diese Informationen helfen uns, die Reparaturhistorie zu verstehen und erfolglose Reparaturen zu vermeiden",
+      "itemConditionLabel": "Artikelzustand",
+      "itemConditionRequired": "Bitte wählen Sie den Artikelzustand aus",
+      "itemCondition": {
+        "original": "Original",
+        "refurbished": "Generalüberholt"
+      },
+      "infoNotice": "Alle bereitgestellten Informationen werden in den Auftragsdetails gespeichert und auf der Auftragsdetailseite angezeigt. Alle Werte sind mit dem Übersetzungssystem verbunden, um Konsistenz über verschiedene Sprachen hinweg zu gewährleisten."
+    },
     "reviewStep": {
       "title": "Letzte Details & Absenden",
       "subtitle": "Fügen Sie Fotos und Notizen hinzu und überprüfen Sie dann Ihren vollständigen Reparaturauftrag",

@@ -1688,6 +1688,38 @@
       "addOnsTotal": "Add-ons Total:",
       "reviewAndSubmit": "Review & Submit"
     },
+    "repairInfo": {
+      "title": "Additional Repair Information",
+      "subtitle": "Please provide important details about your device to help us better assess and repair it",
+      "errorDescriptionLabel": "Error Description",
+      "errorDescriptionPlaceholder": "Describe the issue you are experiencing with the item (e.g., screen not turning on, battery draining fast, broken camera...)",
+      "errorDescriptionHint": "Be as detailed as possible to help our technicians diagnose the issue",
+      "errorDescriptionRequired": "Please describe the error you are experiencing",
+      "waterDamageLabel": "Water Damage",
+      "waterDamageRequired": "Please indicate if there is any water damage",
+      "waterDamage": {
+        "yes": "Yes",
+        "no": "No",
+        "dont-know": "Don't Know"
+      },
+      "previousRepairLabel": "Previous Repair Attempts",
+      "previousRepairRequired": "Please indicate if there were any previous repair attempts",
+      "previousRepair": {
+        "yes": "Yes",
+        "no": "No",
+        "dont-know": "Don't Know"
+      },
+      "previousRepairDetailsLabel": "Please provide details about previous repair attempts",
+      "previousRepairDetailsPlaceholder": "When and where was it repaired? What was done? What was the outcome?",
+      "previousRepairDetailsHint": "This information helps us understand the repair history and avoid repeating unsuccessful fixes",
+      "itemConditionLabel": "Item Condition",
+      "itemConditionRequired": "Please select the item condition",
+      "itemCondition": {
+        "original": "Original",
+        "refurbished": "Refurbished"
+      },
+      "infoNotice": "All information provided will be stored in the order details and displayed on the order details page. All values are connected to the translation system to ensure consistency across different languages."
+    },
     "reviewStep": {
       "title": "Final Details & Submit",
       "subtitle": "Add photos and notes, then review your complete repair order",

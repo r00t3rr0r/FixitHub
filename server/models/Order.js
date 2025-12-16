@@ -362,6 +362,30 @@ const orderSchema = new mongoose.Schema({
     default: false,
   },
   unlockConfirmation: unlockConfirmationSchema,
+  // Additional repair information
+  errorDescription: {
+    type: String,
+    default: '',
+  },
+  waterDamage: {
+    type: String,
+    enum: ['yes', 'no', 'dont-know', ''],
+    default: '',
+  },
+  previousRepairAttempts: {
+    type: String,
+    enum: ['yes', 'no', 'dont-know', ''],
+    default: '',
+  },
+  previousRepairDetails: {
+    type: String,
+    default: '',
+  },
+  itemCondition: {
+    type: String,
+    enum: ['original', 'refurbished', ''],
+    default: '',
+  },
   bookingId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Booking',

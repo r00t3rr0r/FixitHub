@@ -128,6 +128,13 @@ export function NewOrder() {
   // Related Information checkbox state
   const [relatedInfoAcknowledged, setRelatedInfoAcknowledged] = useState<boolean>(false)
 
+  // Additional repair information state
+  const [errorDescription, setErrorDescription] = useState<string>("")
+  const [waterDamage, setWaterDamage] = useState<string>("")
+  const [previousRepairAttempts, setPreviousRepairAttempts] = useState<string>("")
+  const [previousRepairDetails, setPreviousRepairDetails] = useState<string>("")
+  const [itemCondition, setItemCondition] = useState<string>("")
+
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<OrderForm>()
   const { toast } = useToast()
   const navigate = useNavigate()
@@ -459,7 +466,13 @@ export function NewOrder() {
         // Device unlock information
         unlockPattern: unlockPattern,
         unlockCode: unlockCode,
-        noLock: noDeviceLock
+        noLock: noDeviceLock,
+        // Additional repair information
+        errorDescription: errorDescription,
+        waterDamage: waterDamage,
+        previousRepairAttempts: previousRepairAttempts,
+        previousRepairDetails: previousRepairDetails,
+        itemCondition: itemCondition
       }
 
       console.log('Order data - Device Brand:', deviceBrandName, 'Device Model:', deviceModelName);
@@ -487,8 +500,47 @@ export function NewOrder() {
   }
 
   const nextStep = () => {
-    // Special validation for Step 3: Check if Related Information is acknowledged
+    // Special validation for Step 3: Check if Related Information is acknowledged and repair info is filled
     if (step === 3) {
+      // Validate required repair information fields
+      if (!errorDescription.trim()) {
+        toast({
+          title: t('common.error'),
+          description: t('newOrder.repairInfo.errorDescriptionRequired'),
+          variant: "destructive"
+        })
+        document.getElementById('errorDescription')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        return
+      }
+
+      if (!waterDamage) {
+        toast({
+          title: t('common.error'),
+          description: t('newOrder.repairInfo.waterDamageRequired'),
+          variant: "destructive"
+        })
+        return
+      }
+
+      if (!previousRepairAttempts) {
+        toast({
+          title: t('common.error'),
+          description: t('newOrder.repairInfo.previousRepairRequired'),
+          variant: "destructive"
+        })
+        return
+      }
+
+      if (!itemCondition) {
+        toast({
+          title: t('common.error'),
+          description: t('newOrder.repairInfo.itemConditionRequired'),
+          variant: "destructive"
+        })
+        return
+      }
+
+      // Check related information acknowledgement
       const hasRelatedInfo = selectedServices.length > 0 &&
         services.filter(s => selectedServices.includes(s._id)).some(s =>
           s.externalRepairInfo || (s.linkedKnowledgeBaseArticles && s.linkedKnowledgeBaseArticles.length > 0)
@@ -1149,6 +1201,169 @@ export function NewOrder() {
               </CardContent>
             </Card>
 
+            {/* Additional Repair Information Card */}
+            <Card className="border-2 hover:shadow-lg transition-shadow duration-300 border-blue-200 dark:border-blue-800">
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20">
+                <CardTitle className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-500 rounded-lg shadow-md">
+                    <Info className="h-5 w-5 text-white" />
+                  </div>
+                  <span>{t('newOrder.repairInfo.title')}</span>
+                </CardTitle>
+                <CardDescription className="text-base">
+                  {t('newOrder.repairInfo.subtitle')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-6">
+                {/* Error Description */}
+                <div className="space-y-2">
+                  <Label htmlFor="errorDescription" className="text-base font-semibold flex items-center gap-2">
+                    {t('newOrder.repairInfo.errorDescriptionLabel')}
+                    <span className="text-red-500">*</span>
+                  </Label>
+                  <Textarea
+                    id="errorDescription"
+                    placeholder={t('newOrder.repairInfo.errorDescriptionPlaceholder')}
+                    value={errorDescription}
+                    onChange={(e) => setErrorDescription(e.target.value)}
+                    rows={4}
+                    className="border-2 focus:border-blue-400 focus:ring-blue-400/20 resize-none"
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t('newOrder.repairInfo.errorDescriptionHint')}
+                  </p>
+                </div>
+
+                {/* Water Damage */}
+                <div className="space-y-3">
+                  <Label className="text-base font-semibold flex items-center gap-2">
+                    {t('newOrder.repairInfo.waterDamageLabel')}
+                    <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {['yes', 'no', 'dont-know'].map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setWaterDamage(option)}
+                        className={`p-4 rounded-xl border-2 transition-all duration-300 ${
+                          waterDamage === option
+                            ? 'border-blue-400 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 shadow-lg scale-105'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 hover:shadow-md'
+                        }`}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            waterDamage === option ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                          }`}>
+                            {waterDamage === option && <Check className="h-3 w-3 text-white" />}
+                          </div>
+                          <span className="font-medium text-sm">
+                            {t(`newOrder.repairInfo.waterDamage.${option}`)}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Previous Repair Attempts */}
+                <div className="space-y-3">
+                  <Label className="text-base font-semibold flex items-center gap-2">
+                    {t('newOrder.repairInfo.previousRepairLabel')}
+                    <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {['yes', 'no', 'dont-know'].map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setPreviousRepairAttempts(option)}
+                        className={`p-4 rounded-xl border-2 transition-all duration-300 ${
+                          previousRepairAttempts === option
+                            ? 'border-blue-400 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 shadow-lg scale-105'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 hover:shadow-md'
+                        }`}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            previousRepairAttempts === option ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                          }`}>
+                            {previousRepairAttempts === option && <Check className="h-3 w-3 text-white" />}
+                          </div>
+                          <span className="font-medium text-sm">
+                            {t(`newOrder.repairInfo.previousRepair.${option}`)}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Previous Repair Details (shown only if "yes" is selected) */}
+                  {previousRepairAttempts === 'yes' && (
+                    <div className="space-y-2 pt-3 animate-in slide-in-from-top duration-300">
+                      <Label htmlFor="previousRepairDetails" className="text-sm font-semibold">
+                        {t('newOrder.repairInfo.previousRepairDetailsLabel')}
+                      </Label>
+                      <Textarea
+                        id="previousRepairDetails"
+                        placeholder={t('newOrder.repairInfo.previousRepairDetailsPlaceholder')}
+                        value={previousRepairDetails}
+                        onChange={(e) => setPreviousRepairDetails(e.target.value)}
+                        rows={3}
+                        className="border-2 focus:border-blue-400 focus:ring-blue-400/20 resize-none"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {t('newOrder.repairInfo.previousRepairDetailsHint')}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Item Condition */}
+                <div className="space-y-3">
+                  <Label className="text-base font-semibold flex items-center gap-2">
+                    {t('newOrder.repairInfo.itemConditionLabel')}
+                    <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {['original', 'refurbished'].map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setItemCondition(option)}
+                        className={`p-4 rounded-xl border-2 transition-all duration-300 ${
+                          itemCondition === option
+                            ? 'border-blue-400 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 shadow-lg scale-105'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 hover:shadow-md'
+                        }`}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            itemCondition === option ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                          }`}>
+                            {itemCondition === option && <Check className="h-3 w-3 text-white" />}
+                          </div>
+                          <span className="font-medium text-sm">
+                            {t(`newOrder.repairInfo.itemCondition.${option}`)}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Information Notice */}
+                <div className="bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-950/40 dark:to-cyan-950/40 border-2 border-blue-300 dark:border-blue-700 rounded-xl p-4">
+                  <p className="text-sm text-blue-900 dark:text-blue-100 leading-relaxed flex items-start gap-2">
+                    <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <span>{t('newOrder.repairInfo.infoNotice')}</span>
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Enhanced Quantity Selection Card */}
             <Card className="border-2 hover:shadow-lg transition-shadow duration-300 border-purple-200 dark:border-purple-800">
               <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20">
@@ -1781,7 +1996,13 @@ export function NewOrder() {
                           totalCost: calculateTotal(),
                           unlockPattern: unlockPattern,
                           unlockCode: unlockCode,
-                          noLock: noDeviceLock
+                          noLock: noDeviceLock,
+                          // Additional repair information
+                          errorDescription: errorDescription,
+                          waterDamage: waterDamage,
+                          previousRepairAttempts: previousRepairAttempts,
+                          previousRepairDetails: previousRepairDetails,
+                          itemCondition: itemCondition
                         }
 
                         console.log("Repair order data template:", repairOrderData)
