@@ -1717,41 +1717,30 @@
     "repairInfo": {
       "title": "Additional Repair Information",
       "subtitle": "Help us understand your device's condition better",
-      "errorDescription": {
-        "label": "Error Description",
-        "placeholder": "Please describe the issue with your device in detail...",
-        "hint": "The more details you provide, the better we can assess and repair your device",
-        "required": "Error description is required"
-      },
+      "errorDescriptionLabel": "Error Description",
+      "errorDescriptionPlaceholder": "Please describe the issue with your device in detail...",
+      "errorDescriptionHint": "The more details you provide, the better we can assess and repair your device",
+      "waterDamageLabel": "Has the device been exposed to water or moisture?",
       "waterDamage": {
-        "label": "Has the device been exposed to water or moisture?",
-        "hint": "This helps us determine if special cleaning or treatments are needed",
         "yes": "Yes, water damage occurred",
         "no": "No water exposure",
-        "dontKnow": "Not sure / Don't know",
-        "required": "Please indicate if there was water damage"
+        "dont-know": "Not sure / Don't know"
       },
-      "previousRepairAttempts": {
-        "label": "Have there been previous repair attempts on this device?",
-        "hint": "Knowing about previous repairs helps us identify potential complications",
+      "previousRepairLabel": "Have there been previous repair attempts on this device?",
+      "previousRepair": {
         "yes": "Yes, previously repaired",
         "no": "No previous repairs",
-        "dontKnow": "Not sure / Don't know",
-        "required": "Please indicate if there were previous repair attempts"
+        "dont-know": "Not sure / Don't know"
       },
-      "previousRepairDetails": {
-        "label": "Previous Repair Details",
-        "placeholder": "Please describe what repairs were attempted, when, and by whom...",
-        "hint": "Include information about what was repaired and any issues that occurred",
-        "required": "Please provide details about previous repairs"
-      },
+      "previousRepairDetailsLabel": "Previous Repair Details",
+      "previousRepairDetailsPlaceholder": "Please describe what repairs were attempted, when, and by whom...",
+      "previousRepairDetailsHint": "Include information about what was repaired and any issues that occurred",
+      "itemConditionLabel": "What is the condition of your device?",
       "itemCondition": {
-        "label": "What is the condition of your device?",
-        "hint": "This helps us set appropriate expectations and pricing",
         "original": "Original / Never Repaired",
-        "refurbished": "Refurbished / Previously Repaired",
-        "required": "Please select the device condition"
-      }
+        "refurbished": "Refurbished / Previously Repaired"
+      },
+      "infoNotice": "💡 Providing detailed repair information helps us give you the most accurate service estimate and ensures the best repair outcome for your device."
     },
     "reviewStep": {
       "title": "Final Details & Submit",

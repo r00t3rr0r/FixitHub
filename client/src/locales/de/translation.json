@@ -1656,41 +1656,30 @@
     "repairInfo": {
       "title": "Zusätzliche Reparaturinformationen",
       "subtitle": "Helfen Sie uns, den Zustand Ihres Geräts besser zu verstehen",
-      "errorDescription": {
-        "label": "Fehlerbeschreibung",
-        "placeholder": "Bitte beschreiben Sie das Problem mit Ihrem Gerät im Detail...",
-        "hint": "Je mehr Details Sie angeben, desto besser können wir Ihr Gerät bewerten und reparieren",
-        "required": "Fehlerbeschreibung ist erforderlich"
-      },
+      "errorDescriptionLabel": "Fehlerbeschreibung",
+      "errorDescriptionPlaceholder": "Bitte beschreiben Sie das Problem mit Ihrem Gerät im Detail...",
+      "errorDescriptionHint": "Je mehr Details Sie angeben, desto besser können wir Ihr Gerät bewerten und reparieren",
+      "waterDamageLabel": "Wurde das Gerät Wasser oder Feuchtigkeit ausgesetzt?",
       "waterDamage": {
-        "label": "Wurde das Gerät Wasser oder Feuchtigkeit ausgesetzt?",
-        "hint": "Dies hilft uns zu bestimmen, ob spezielle Reinigung oder Behandlungen erforderlich sind",
         "yes": "Ja, Wasserschaden ist aufgetreten",
         "no": "Keine Wassereinwirkung",
-        "dontKnow": "Nicht sicher / Weiß nicht",
-        "required": "Bitte geben Sie an, ob ein Wasserschaden vorliegt"
+        "dont-know": "Nicht sicher / Weiß nicht"
       },
-      "previousRepairAttempts": {
-        "label": "Gab es bereits frühere Reparaturversuche an diesem Gerät?",
-        "hint": "Das Wissen über frühere Reparaturen hilft uns, mögliche Komplikationen zu identifizieren",
+      "previousRepairLabel": "Gab es bereits frühere Reparaturversuche an diesem Gerät?",
+      "previousRepair": {
         "yes": "Ja, zuvor repariert",
         "no": "Keine vorherigen Reparaturen",
-        "dontKnow": "Nicht sicher / Weiß nicht",
-        "required": "Bitte geben Sie an, ob es frühere Reparaturversuche gab"
+        "dont-know": "Nicht sicher / Weiß nicht"
       },
-      "previousRepairDetails": {
-        "label": "Details zu früheren Reparaturen",
-        "placeholder": "Bitte beschreiben Sie, welche Reparaturen versucht wurden, wann und von wem...",
-        "hint": "Geben Sie Informationen darüber an, was repariert wurde und welche Probleme aufgetreten sind",
-        "required": "Bitte geben Sie Details zu früheren Reparaturen an"
-      },
+      "previousRepairDetailsLabel": "Details zu früheren Reparaturen",
+      "previousRepairDetailsPlaceholder": "Bitte beschreiben Sie, welche Reparaturen versucht wurden, wann und von wem...",
+      "previousRepairDetailsHint": "Geben Sie Informationen darüber an, was repariert wurde und welche Probleme aufgetreten sind",
+      "itemConditionLabel": "Was ist der Zustand Ihres Geräts?",
       "itemCondition": {
-        "label": "Was ist der Zustand Ihres Geräts?",
-        "hint": "Dies hilft uns, angemessene Erwartungen und Preise festzulegen",
         "original": "Original / Nie repariert",
-        "refurbished": "Überholt / Zuvor repariert",
-        "required": "Bitte wählen Sie den Gerätezustand"
-      }
+        "refurbished": "Überholt / Zuvor repariert"
+      },
+      "infoNotice": "💡 Die Angabe detaillierter Reparaturinformationen hilft uns, Ihnen die genaueste Serviceschätzung zu geben und das beste Reparaturergebnis für Ihr Gerät zu gewährleisten."
     },
     "reviewStep": {
       "title": "Letzte Details & Absenden",
