@@ -54,6 +54,12 @@ export interface Order {
     confirmationStatus?: 'verified' | 'incorrect' | 'unable-to-verify';
     notes?: string;
   };
+  // Additional repair information from Step 3
+  errorDescription?: string;
+  waterDamage?: 'yes' | 'no' | 'dont-know' | '';
+  previousRepairAttempts?: 'yes' | 'no' | 'dont-know' | '';
+  previousRepairDetails?: string;
+  itemCondition?: 'original' | 'refurbished' | '';
   // Shipping and tracking information
   shippingAddress?: {
     street: string;

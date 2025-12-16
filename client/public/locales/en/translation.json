@@ -1543,7 +1543,30 @@
     "updateDevice": "Update Device",
     "deviceUpdatedSuccessfully": "Device information updated successfully",
     "customerSince": "Customer since",
-    "more": "more"
+    "more": "more",
+    "repairInfo": {
+      "title": "Additional Repair Information",
+      "description": "Information collected during order creation to help with diagnosis and repair",
+      "errorDescriptionLabel": "Error Description",
+      "waterDamageLabel": "Water Damage",
+      "waterDamage": {
+        "yes": "Yes",
+        "no": "No",
+        "dont-know": "Don't Know"
+      },
+      "previousRepairLabel": "Previous Repair Attempts",
+      "previousRepair": {
+        "yes": "Yes",
+        "no": "No",
+        "dont-know": "Don't Know"
+      },
+      "itemConditionLabel": "Item Condition",
+      "itemCondition": {
+        "original": "Original",
+        "refurbished": "Refurbished"
+      },
+      "infoNotice": "This information helps our technicians better diagnose and repair your device. It will be reviewed before starting the repair process."
+    }
   },
   "deviceInspection": {
     "deviceInspection": "Device Inspection",
