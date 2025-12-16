@@ -52,7 +52,7 @@ import {
   FileText,
   AlertCircle,
   Droplets,
-  Tool
+  Wrench
 } from "lucide-react"
 import {
   Tooltip,
@@ -1746,7 +1746,7 @@ export function NewOrder() {
                       <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="font-semibold text-amber-900 dark:text-amber-100 flex items-center gap-2">
-                            <Tool className="h-4 w-4" />
+                            <Wrench className="h-4 w-4" />
                             {t('newOrder.repairInfo.previousRepairLabel')}
                           </span>
                           <span className={`font-bold px-3 py-1 rounded-full text-xs ${
