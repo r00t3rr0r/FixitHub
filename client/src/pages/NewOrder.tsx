@@ -997,29 +997,75 @@ export function NewOrder() {
                   </div>
                 )}
 
-                {/* Knowledge Base Articles */}
-                {selectedServices.length > 0 && (
-                  <div className="space-y-3 pt-4 border-t bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-950/40 dark:to-indigo-950/40 p-4 rounded-xl">
-                    <h4 className="font-semibold text-sm flex items-center gap-2">
-                      <BookOpen className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                {/* Related Information: External Repair Info & Knowledge Base Articles */}
+                {selectedServices.length > 0 && services.filter(s => selectedServices.includes(s._id)).some(s => s.externalRepairInfo || (s.linkedKnowledgeBaseArticles && s.linkedKnowledgeBaseArticles.length > 0)) && (
+                  <div className="space-y-4 pt-4 border-t bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 p-5 rounded-xl border-2 border-blue-200 dark:border-blue-800">
+                    <h4 className="font-bold text-base flex items-center gap-2">
+                      <BookOpen className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                       {t('newOrder.detailsStep.relatedInfo')}
                     </h4>
-                    <div className="space-y-2 text-sm">
-                      {services.filter(s => selectedServices.includes(s._id)).map(service => (
-                        <div key={service._id} className="flex items-start gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-500 mt-1.5 flex-shrink-0 animate-pulse" />
-                          <div className="flex-1">
-                            <p className="font-medium text-blue-900 dark:text-blue-100">
-                              {t('newOrder.detailsStep.guide', { service: service.name })}
-                            </p>
-                            {service.knowledgeBaseArticles && service.knowledgeBaseArticles.length > 0 && (
-                              <p className="text-xs text-blue-700 dark:text-blue-200 mt-1">
-                                📚 {t('newOrder.detailsStep.articlesAvailable', { count: service.knowledgeBaseArticles.length })}
-                              </p>
+                    <div className="space-y-4">
+                      {services.filter(s => selectedServices.includes(s._id)).map((service) => {
+                        const hasExternalInfo = service.externalRepairInfo && service.externalRepairInfo.trim().length > 0
+                        const hasKnowledgeBase = service.linkedKnowledgeBaseArticles && service.linkedKnowledgeBaseArticles.length > 0
+
+                        if (!hasExternalInfo && !hasKnowledgeBase) return null
+
+                        return (
+                          <div key={service._id} className="space-y-3 bg-white/50 dark:bg-gray-900/30 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <div className="flex items-center gap-2 pb-2 border-b border-blue-200 dark:border-blue-700">
+                              <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                              <h5 className="font-semibold text-sm text-blue-900 dark:text-blue-100">
+                                {service.name}
+                              </h5>
+                            </div>
+
+                            {/* External Repair Information */}
+                            {hasExternalInfo && (
+                              <div className="space-y-2">
+                                <p className="text-xs font-semibold text-blue-800 dark:text-blue-300 flex items-center gap-1.5">
+                                  <span className="inline-block w-1 h-1 rounded-full bg-blue-600" />
+                                  Repair Information
+                                </p>
+                                <div className="text-sm text-blue-900 dark:text-blue-100 leading-relaxed pl-3 border-l-2 border-blue-300 dark:border-blue-700">
+                                  {service.externalRepairInfo}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Knowledge Base Articles */}
+                            {hasKnowledgeBase && (
+                              <div className="space-y-2">
+                                <p className="text-xs font-semibold text-blue-800 dark:text-blue-300 flex items-center gap-1.5">
+                                  <span className="inline-block w-1 h-1 rounded-full bg-blue-600" />
+                                  Knowledge Base Articles ({service.linkedKnowledgeBaseArticles.length})
+                                </p>
+                                <ul className="space-y-1.5 pl-3">
+                                  {service.linkedKnowledgeBaseArticles.map((article, idx) => (
+                                    <li key={idx} className="flex items-start gap-2 group">
+                                      <span className="text-blue-500 text-xs mt-0.5">📚</span>
+                                      {article.url ? (
+                                        <a
+                                          href={article.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-sm text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 hover:underline transition-colors flex-1 leading-relaxed"
+                                        >
+                                          {article.title}
+                                        </a>
+                                      ) : (
+                                        <span className="text-sm text-blue-700 dark:text-blue-300 flex-1 leading-relaxed">
+                                          {article.title}
+                                        </span>
+                                      )}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
                             )}
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 )}
