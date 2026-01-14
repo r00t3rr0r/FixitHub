@@ -117,12 +117,13 @@ const inventorySchema = new mongoose.Schema({
   },
   itemDescription: {
     type: String,
-    required: true,
+    required: false,
+    default: '',
   },
   category: {
     type: String,
     required: true,
-    enum: ['display', 'battery', 'camera', 'speaker', 'microphone', 'charging-port', 'button', 'sensor', 'tool', 'adhesive', 'screw', 'other'],
+    trim: true,
   },
   sku: {
     type: String,
@@ -137,9 +138,13 @@ const inventorySchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  brand: {
+  model: {
     type: String,
     required: true,
+  },
+  date: {
+    type: Date,
+    default: null,
   },
   compatibleDevices: [{
     type: String,
@@ -193,7 +198,7 @@ inventorySchema.pre('save', async function(next) {
 // Index for better query performance
 inventorySchema.index({ category: 1 });
 inventorySchema.index({ brand: 1 });
-inventorySchema.index({ sku: 1 });
+// sku already has unique: true index at line 130, no need for duplicate
 inventorySchema.index({ 'versions.lowStockAlert': 1 });
 
 const Inventory = mongoose.model('Inventory', inventorySchema);

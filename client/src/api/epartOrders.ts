@@ -54,6 +54,32 @@ export interface TimelineEntry {
   notes?: string;
 }
 
+export interface InvoiceFile {
+  filename: string;
+  originalName: string;
+  mimetype: string;
+  size: number;
+  uploadedAt: string;
+  uploadedBy?: { _id: string; name: string; email: string };
+}
+
+export interface ReturnExchange {
+  status: 'none' | 'requested' | 'approved' | 'in_transit' | 'completed' | 'rejected';
+  type?: 'return' | 'exchange';
+  reason?: string;
+  description?: string;
+  requestedAt?: string;
+  requestedBy?: { _id: string; name: string; email: string };
+  resolvedAt?: string;
+  resolvedBy?: { _id: string; name: string; email: string };
+  affectedItems?: Array<{
+    itemId: string;
+    quantity: number;
+    issueDescription?: string;
+  }>;
+  notes?: string;
+}
+
 export interface EPartOrder {
   _id: string;
   orderNumber: string;
@@ -70,6 +96,8 @@ export interface EPartOrder {
   paymentStatus: 'unpaid' | 'partial' | 'paid';
   paymentMethod: 'credit_card' | 'bank_transfer' | 'check' | 'cash' | 'account';
   trackingNumber?: string;
+  invoiceFile?: InvoiceFile;
+  returnExchange?: ReturnExchange;
   notes?: string;
   createdBy: string | { _id: string; name: string; email: string };
   receivedBy?: string | { _id: string; name: string; email: string };
@@ -300,6 +328,85 @@ export const receiveOrderItems = async (
 export const cancelEPartOrder = async (orderId: string, reason?: string) => {
   try {
     const response = await api.post(`/api/epart-orders/${orderId}/cancel`, { reason });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Upload invoice file for order
+// Endpoint: POST /api/epart-orders/:id/invoice
+// Request: FormData with file
+// Response: { order: EPartOrder }
+export const uploadInvoice = async (orderId: string, file: File) => {
+  try {
+    const formData = new FormData();
+    formData.append('invoice', file);
+
+    const response = await api.post(`/api/epart-orders/${orderId}/invoice`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Download invoice file
+// Endpoint: GET /api/epart-orders/:id/invoice
+// Request: {}
+// Response: File download
+export const downloadInvoice = async (orderId: string) => {
+  try {
+    const response = await api.get(`/api/epart-orders/${orderId}/invoice`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Request return or exchange for broken parts
+// Endpoint: POST /api/epart-orders/:id/return-exchange
+// Request: { type: 'return' | 'exchange', reason: string, description: string, affectedItems: Array }
+// Response: { order: EPartOrder }
+export const requestReturnExchange = async (
+  orderId: string,
+  data: {
+    type: 'return' | 'exchange';
+    reason: string;
+    description: string;
+    affectedItems: Array<{
+      itemId: string;
+      quantity: number;
+      issueDescription?: string;
+    }>;
+  }
+) => {
+  try {
+    const response = await api.post(`/api/epart-orders/${orderId}/return-exchange`, data);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Update return/exchange status
+// Endpoint: PUT /api/epart-orders/:id/return-exchange
+// Request: { status: string, notes?: string }
+// Response: { order: EPartOrder }
+export const updateReturnExchange = async (
+  orderId: string,
+  data: {
+    status: 'approved' | 'in_transit' | 'completed' | 'rejected';
+    notes?: string;
+  }
+) => {
+  try {
+    const response = await api.put(`/api/epart-orders/${orderId}/return-exchange`, data);
     return response.data;
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);

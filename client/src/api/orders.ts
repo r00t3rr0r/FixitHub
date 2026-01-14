@@ -31,6 +31,7 @@ export interface Order {
   customerId: CustomerInfo;
   deviceBrand: string;
   deviceModel: string;
+  deviceType?: string;
   services: string[];
   addOns: AddOnService[];
   status: 'pending' | 'in-progress' | 'quality-check' | 'completed' | 'ready-for-pickup';
@@ -42,6 +43,44 @@ export interface Order {
   staffNotes: string[];
   progress: number;
   paymentStatus: 'pending' | 'paid' | 'refunded' | 'partial';
+  // Device unlock information
+  unlockPattern?: string[];
+  unlockCode?: string;
+  noLock?: boolean;
+  unlockConfirmation?: {
+    confirmedBy?: string;
+    confirmedByName?: string;
+    confirmedAt?: string;
+    confirmationStatus?: 'verified' | 'incorrect' | 'unable-to-verify';
+    notes?: string;
+  };
+  // Additional repair information from Step 3
+  errorDescription?: string;
+  waterDamage?: 'yes' | 'no' | 'dont-know' | '';
+  previousRepairAttempts?: 'yes' | 'no' | 'dont-know' | '';
+  previousRepairDetails?: string;
+  itemCondition?: 'original' | 'refurbished' | '';
+  // Shipping and tracking information
+  shippingAddress?: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+  };
+  trackingNumber?: string;
+  carrier?: string;
+  shippingStatus?: 'pending' | 'label-created' | 'shipped' | 'in-transit' | 'out-for-delivery' | 'delivered' | 'failed';
+  estimatedDelivery?: string;
+  actualDelivery?: string;
+  shippingLabelUrl?: string;
+  shippingCost?: number;
+  trackingEvents?: Array<{
+    timestamp: string;
+    location: string;
+    status: string;
+    description: string;
+  }>;
 }
 
 export interface AddOnService {
@@ -51,6 +90,27 @@ export interface AddOnService {
   price: number;
   status: 'pending' | 'in-progress' | 'completed';
   estimatedTime: string;
+}
+
+export interface ShopProduct {
+  _id: string;
+  productId: {
+    _id: string;
+    name: string;
+    price: number;
+    images: string[];
+    category: string;
+    brand: string;
+    stock: number;
+  };
+  quantity: number;
+  priceAtOrder: number;
+  addedAt: string;
+  addedBy: {
+    _id: string;
+    name: string;
+    email: string;
+  };
 }
 
 // Description: Get all orders for the current user
@@ -93,13 +153,86 @@ export const createOrder = async (orderData: any) => {
 // Response: { order: Order }
 export const getOrderById = async (orderId: string) => {
   console.log('getOrderById called with ID:', orderId);
-  
+
   try {
     const response = await api.get(`/api/orders/${orderId}`);
     console.log('getOrderById API response:', response.data);
     return response.data;
   } catch (error) {
     console.error('getOrderById API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Get order progress timeline with milestone data
+// Endpoint: GET /api/orders/:id/progress-timeline
+// Request: {}
+// Response: { stages: Array<{ id: string, label: string, status: string, date?: string }>, currentStage: string }
+export const getOrderProgressTimeline = async (orderId: string) => {
+  console.log('getOrderProgressTimeline called with ID:', orderId);
+
+  try {
+    const response = await api.get(`/api/orders/${orderId}/progress-timeline`);
+    console.log('getOrderProgressTimeline API response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('getOrderProgressTimeline API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Add shop product to order
+// Endpoint: POST /api/admin/orders/:id/shop-products
+// Request: { productId: string, quantity: number }
+// Response: { success: boolean, message: string, order: Order }
+export const addShopProductToOrder = async (orderId: string, productId: string, quantity: number) => {
+  console.log('addShopProductToOrder called with:', { orderId, productId, quantity });
+
+  try {
+    const response = await api.post(`/api/admin/orders/${orderId}/shop-products`, {
+      productId,
+      quantity
+    });
+    console.log('addShopProductToOrder API response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('addShopProductToOrder API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Update shop product quantity in order
+// Endpoint: PUT /api/admin/orders/:id/shop-products/:productItemId
+// Request: { quantity: number }
+// Response: { success: boolean, message: string, order: Order }
+export const updateShopProductQuantity = async (orderId: string, productItemId: string, quantity: number) => {
+  console.log('updateShopProductQuantity called with:', { orderId, productItemId, quantity });
+
+  try {
+    const response = await api.put(`/api/admin/orders/${orderId}/shop-products/${productItemId}`, {
+      quantity
+    });
+    console.log('updateShopProductQuantity API response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('updateShopProductQuantity API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Remove shop product from order
+// Endpoint: DELETE /api/admin/orders/:id/shop-products/:productItemId
+// Request: {}
+// Response: { success: boolean, message: string, order: Order }
+export const removeShopProductFromOrder = async (orderId: string, productItemId: string) => {
+  console.log('removeShopProductFromOrder called with:', { orderId, productItemId });
+
+  try {
+    const response = await api.delete(`/api/admin/orders/${orderId}/shop-products/${productItemId}`);
+    console.log('removeShopProductFromOrder API response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('removeShopProductFromOrder API error:', error);
     throw new Error(error?.response?.data?.error || error.message);
   }
 };

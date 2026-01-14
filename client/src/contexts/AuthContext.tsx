@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 import { login as apiLogin, register as apiRegister } from "../api/auth";
+import { mergeGuestCartWithUserCart } from "../utils/guestCart";
+import { addToCart, addRepairOrderToCart } from "../api/shop";
 
 type AuthContextType = {
   isAuthenticated: boolean;
@@ -22,6 +24,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem("refreshToken", response.refreshToken);
         localStorage.setItem("accessToken", response.accessToken);
         setIsAuthenticated(true);
+
+        // Merge guest cart with user cart after successful login
+        console.log('AuthContext: Login successful, merging guest cart with user cart...');
+        try {
+          await mergeGuestCartWithUserCart({
+            addToCart,
+            addRepairOrderToCart
+          });
+          console.log('AuthContext: Guest cart merged successfully');
+        } catch (mergeError) {
+          console.error('AuthContext: Error merging guest cart:', mergeError);
+          // Don't throw error - cart merge is not critical for login success
+        }
       } else {
         throw new Error('Login failed');
       }

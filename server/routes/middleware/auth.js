@@ -64,4 +64,10 @@ const requireRole = (roles) => {
   };
 };
 
-module.exports = { auth, requireUser, requireRole };
+// Middleware to require admin role (composite: auth + role check)
+const requireAdmin = [auth, requireRole(['admin'])];
+
+// Middleware to require staff role (composite: auth + role check)
+const requireStaff = [auth, requireRole(['admin', 'staff'])];
+
+module.exports = { auth, requireUser, requireRole, requireAdmin, requireStaff };

@@ -44,7 +44,7 @@ const integrationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['payment', 'email', 'sms', 'storage', 'analytics'],
+    enum: ['payment', 'email', 'sms', 'storage', 'analytics', 'shipping'],
     required: true
   },
   provider: {
@@ -60,6 +60,26 @@ const integrationSchema = new mongoose.Schema({
   },
   endpoint: {
     type: String
+  },
+  // Flexible credentials object to support different integration requirements
+  credentials: {
+    apiKey: {
+      type: String
+    },
+    apiSecret: {
+      type: String
+    },
+    apiEndpoint: {
+      type: String
+    },
+    accountId: {
+      type: String
+    }
+  },
+  // Flexible metadata object for additional configuration
+  metadata: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
   },
   settings: {
     type: mongoose.Schema.Types.Mixed,

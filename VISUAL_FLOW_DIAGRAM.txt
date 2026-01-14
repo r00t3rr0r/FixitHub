@@ -1,0 +1,348 @@
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                    STEP 5 CART INTEGRATION - VISUAL FLOW                      ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+
+═══════════════════════════════════════════════════════════════════════════════
+NEW ORDER WORKFLOW - 5 STEPS (UPDATED)
+═══════════════════════════════════════════════════════════════════════════════
+
+
+STEP 1: DEVICE SELECTION
+──────────────────────────────────────────────────────────────────────────────
+
+  ┌─────────────────────────────────────────────────────┐
+  │  📱 Device Selection                      [20% ▌   ] │
+  ├─────────────────────────────────────────────────────┤
+  │  1. Select Device Type (Smartphone, Tablet, etc.)   │
+  │  2. Select Manufacturer (Apple, Samsung, etc.)      │
+  │  3. Select Model (iPhone 14, Galaxy S21, etc.)      │
+  │                                                      │
+  │  [Previous]                         [Next →]         │
+  └─────────────────────────────────────────────────────┘
+
+
+STEP 2: REPAIR SERVICES SELECTION
+──────────────────────────────────────────────────────────────────────────────
+
+  ┌─────────────────────────────────────────────────────┐
+  │  🔧 Select Services                    [40% ▌▌    ] │
+  ├─────────────────────────────────────────────────────┤
+  │  ☑ Screen Repair ($79.99)                           │
+  │  ☑ Battery Replacement ($49.99)                     │
+  │  ☐ Water Damage Repair ($89.99)                     │
+  │  ☐ Charging Port Repair ($39.99)                    │
+  │                                                      │
+  │  [← Previous]                    [Next →]            │
+  └─────────────────────────────────────────────────────┘
+
+
+STEP 3: ADD-ONS SELECTION
+──────────────────────────────────────────────────────────────────────────────
+
+  ┌─────────────────────────────────────────────────────┐
+  │  ➕ Select Add-ons                     [60% ▌▌▌   ] │
+  ├─────────────────────────────────────────────────────┤
+  │  ☑ Premium Protective Case ($19.99)                 │
+  │  ☐ Screen Protector ($9.99)                         │
+  │  ☐ Data Backup Service ($24.99)                     │
+  │                                                      │
+  │  [← Previous]                    [Next →]            │
+  └─────────────────────────────────────────────────────┘
+
+
+STEP 4: REVIEW & CONFIRM
+──────────────────────────────────────────────────────────────────────────────
+
+  ┌─────────────────────────────────────────────────────┐
+  │  ✓ Review Order                    [80% ▌▌▌▌    ] │
+  ├─────────────────────────────────────────────────────┤
+  │  Device: iPhone 14 • Apple • Model                   │
+  │  Services: Screen Repair, Battery Replacement       │
+  │  Add-ons: Premium Protective Case                   │
+  │  Total: $174.97                                     │
+  │                                                      │
+  │  Customer Notes: [Optional notes here...]           │
+  │  Upload Photos: [Optional photos here...]           │
+  │                                                      │
+  │  By submitting, you agree to our terms...          │
+  │                                                      │
+  │  [← Previous]              [Review in Cart →] ✨ NEW │
+  └─────────────────────────────────────────────────────┘
+         ↓
+         └──────────────────────────┐
+                                    ↓
+
+
+╔═════════════════════════════════════════════════════════════════════════════╗
+║                    🎉 NEW STEP 5 - CART INTEGRATION 🎉                      ║
+╚═════════════════════════════════════════════════════════════════════════════╝
+
+
+STEP 5: ADD TO CART & REVIEW
+──────────────────────────────────────────────────────────────────────────────
+
+  ┌─────────────────────────────────────────────────────┐
+  │  🛒 Add to Cart                   [100% ▌▌▌▌▌ ] │
+  │     Review and add your repair order...              │
+  ├─────────────────────────────────────────────────────┤
+  │                                                      │
+  │  ┌─────────────────────────────────────────────┐   │
+  │  │ 📦 Order Details                           │   │
+  │  ├─────────────────────────────────────────────┤   │
+  │  │ Device: iPhone 14 • Apple • Model           │   │
+  │  │                                             │   │
+  │  │ Services:                                  │   │
+  │  │   • Screen Repair                   $79.99 │   │
+  │  │   • Battery Replacement             $49.99 │   │
+  │  │                                             │   │
+  │  │ Add-ons:                                   │   │
+  │  │   • Premium Case                    $19.99 │   │
+  │  │                                             │   │
+  │  │ Total Cost:                       $149.97  │   │
+  │  └─────────────────────────────────────────────┘   │
+  │                                                      │
+  │  ┌─────────────────────────────────────────────┐   │
+  │  │ ℹ️  Add to Cart                              │   │
+  │  │ Your repair order will be added to your     │   │
+  │  │ shopping cart. You can review, modify,      │   │
+  │  │ apply discount codes, and manage your       │   │
+  │  │ orders before proceeding to checkout.       │   │
+  │  └─────────────────────────────────────────────┘   │
+  │                                                      │
+  │  Benefits of using cart:                           │
+  │  ✓ Review & Modify        ✓ Apply Discount Codes  │
+  │  ✓ Multiple Orders        ✓ Secure Checkout       │
+  │                                                      │
+  │  [← Previous] [Continue Shopping] [Add to Cart ✓]  │
+  └─────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+USER JOURNEY OPTIONS AT STEP 5
+═══════════════════════════════════════════════════════════════════════════════
+
+
+OPTION 1: CONTINUE SHOPPING
+──────────────────────────────────────────────────────────────────────────────
+
+  Step 5: Add to Cart
+        ↓
+  Click "Continue Shopping"
+        ↓
+  Navigate to Shop Page (/shop)
+        ↓
+  Browse and add products
+        ↓
+  Return to shopping cart later
+
+
+OPTION 2: ADD TO CART & REVIEW
+──────────────────────────────────────────────────────────────────────────────
+
+  Step 5: Add to Cart
+        ↓
+  Click "Add to Cart & Review"
+        ↓
+  Loading Spinner Shows...
+        ↓
+  Success Toast: "Order added to cart!"
+        ↓
+  Navigate to Shopping Cart Page (/cart)
+        ↓
+  Review repair order in cart
+        ↓
+  Can modify quantity, apply codes, add products
+        ↓
+  Proceed to checkout
+
+
+OPTION 3: MODIFY ORDER
+──────────────────────────────────────────────────────────────────────────────
+
+  Step 5: Add to Cart
+        ↓
+  Click "Previous"
+        ↓
+  Back to Step 4 (Review & Confirm)
+        ↓
+  Modify customer notes or other details
+        ↓
+  Click "Review in Cart"
+        ↓
+  Back to Step 5
+        ↓
+  Choose: Continue Shopping or Add to Cart
+
+
+═══════════════════════════════════════════════════════════════════════════════
+PROGRESS BAR VISUAL
+═══════════════════════════════════════════════════════════════════════════════
+
+
+Before (4 Steps):
+  ① ─── ② ─── ③ ─── ④
+  20%       40%      60%      80%
+
+
+After (5 Steps) ✨ NEW:
+  ① ─── ② ─── ③ ─── ④ ─── ⑤
+  20%      40%      60%      80%     100%
+
+
+Step Indicators:
+  ✓ (completed) • ● (current) • ◯ (pending)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+BUTTON CHANGES
+═══════════════════════════════════════════════════════════════════════════════
+
+
+STEP 4 BUTTON - BEFORE:
+  ┌─────────────────────────┐
+  │ Create Order & Submit   │
+  │ (Submits form directly) │
+  └─────────────────────────┘
+
+
+STEP 4 BUTTON - AFTER ✨:
+  ┌────────────────────────────┐
+  │ Review Order in Cart       │
+  │ (Goes to Step 5)          │
+  └────────────────────────────┘
+
+
+STEP 5 BUTTONS:
+  ┌───────────────┐  ┌──────────────────┐  ┌──────────────────┐
+  │ ← Previous    │  │ Continue Shopping│  │ Add to Cart & ✓  │
+  │ (to Step 4)   │  │ (to /shop)       │  │ (Main action)    │
+  └───────────────┘  └──────────────────┘  └──────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+RESPONSIVE DESIGN
+═══════════════════════════════════════════════════════════════════════════════
+
+
+DESKTOP (1920px):
+  ┌─────────────────────────────────────┐
+  │ Order Details | Benefits: 2 columns │
+  │               | ✓ Review & Modify   │
+  │               | ✓ Apply Codes       │
+  │               | ✓ Multiple Orders   │
+  │               | ✓ Secure Checkout   │
+  └─────────────────────────────────────┘
+
+
+TABLET (768px):
+  ┌──────────────────────────┐
+  │ Order Details            │
+  │ Benefits: 2 columns      │
+  │ ✓ Review  │ ✓ Apply      │
+  │ ✓ Multiple│ ✓ Secure     │
+  └──────────────────────────┘
+
+
+MOBILE (375px):
+  ┌──────────────┐
+  │ Order        │
+  │ Details      │
+  │              │
+  │ Benefits:    │
+  │ 1 column     │
+  │ ✓ Review     │
+  │ ✓ Apply      │
+  │ ✓ Multiple   │
+  │ ✓ Secure     │
+  └──────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+DATA FLOW
+═══════════════════════════════════════════════════════════════════════════════
+
+
+USER INPUT (Steps 1-4)
+      ↓
+  ┌─────────────────────┐
+  │ Form State (React)  │
+  │ - Device Type       │
+  │ - Device Brand      │
+  │ - Device Model      │
+  │ - Services (IDs)    │
+  │ - Add-ons (IDs)     │
+  │ - Customer Notes    │
+  │ - Photos            │
+  └─────────────────────┘
+      ↓
+  STEP 5: REVIEW & COLLECT
+      ↓
+  ┌─────────────────────┐
+  │ Order Data Object   │
+  │ - deviceType        │
+  │ - deviceBrand       │
+  │ - deviceModel       │
+  │ - services (array)  │
+  │ - addOns (array)    │
+  │ - customerNotes     │
+  │ - photos (array)    │
+  │ - totalCost         │
+  └─────────────────────┘
+      ↓
+  USER CLICKS "ADD TO CART"
+      ↓
+  ┌─────────────────────┐
+  │ Navigate to /cart   │
+  │ Pass state with     │
+  │ newOrder data       │
+  └─────────────────────┘
+      ↓
+  SHOPPING CART PAGE
+  (Receives order data via location.state)
+      ↓
+  FURTHER PROCESSING BY BACKEND (Future)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+TOAST NOTIFICATIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+
+CONTINUE SHOPPING:
+  ┌─────────────────────────────────────┐
+  │ ℹ️  Order ready!                     │
+  │ Add your repair order to the cart   │
+  │ and continue shopping               │
+  └─────────────────────────────────────┘
+
+
+ADD TO CART - SUCCESS:
+  ┌─────────────────────────────────────┐
+  │ ✓ Success!                          │
+  │ Your repair order has been added to │
+  │ your cart. You can now review it in │
+  │ your shopping cart.                 │
+  └─────────────────────────────────────┘
+
+
+ADD TO CART - ERROR:
+  ┌─────────────────────────────────────┐
+  │ ✗ Error                             │
+  │ Failed to add order to cart         │
+  │ [Error message details]             │
+  └─────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+KEY CHANGES SUMMARY:
+
+✅ 4 Steps → 5 Steps
+✅ Step 4: "Create Order & Submit" → "Review Order in Cart"
+✅ NEW Step 5: Cart review and order preparation interface
+✅ New navigation options: Continue Shopping or Add to Cart
+✅ Better UX: Users can modify orders in cart before checkout
+✅ Enhanced benefits: Clear communication of cart advantages
+
+═══════════════════════════════════════════════════════════════════════════════

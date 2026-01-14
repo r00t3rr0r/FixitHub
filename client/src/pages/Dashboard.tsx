@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -34,6 +35,7 @@ import {
 } from "lucide-react"
 
 export function Dashboard() {
+  const { t } = useTranslation()
   const [orders, setOrders] = useState<Order[]>([])
   const [cart, setCart] = useState<Cart | null>(null)
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([])
@@ -237,7 +239,7 @@ export function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">
-              ${orders.reduce((sum, order) => sum + order.totalCost, 0).toFixed(2)}
+              ${orders.reduce((sum, order) => sum + (Number(order.totalCost) || 0), 0).toFixed(2)}
             </div>
             <p className="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1 mt-1">
               <Calendar className="h-3 w-3" />
@@ -496,7 +498,7 @@ export function Dashboard() {
                   <div className="flex-1">
                     <p className="font-medium text-sm">{item.productId.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      Qty: {item.quantity} • ${(item.productId.price * item.quantity).toFixed(2)}
+                      Qty: {item.quantity} • ${((Number(item.productId.price) || 0) * (Number(item.quantity) || 0)).toFixed(2)}
                     </p>
                   </div>
                 </div>
@@ -510,10 +512,10 @@ export function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-purple-800 dark:text-purple-200">
-                  Subtotal: ${cart.subtotal.toFixed(2)}
+                  Subtotal: ${(Number(cart.subtotal) || 0).toFixed(2)}
                 </p>
                 <p className="text-lg font-bold text-purple-900 dark:text-purple-100">
-                  Total: ${cart.total.toFixed(2)}
+                  Total: ${(Number(cart.total) || 0).toFixed(2)}
                 </p>
               </div>
               <Button asChild className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">

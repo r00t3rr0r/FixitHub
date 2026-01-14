@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/useToast"
-import { getUsers, createUser, updateUserRole, updateUserStatus, bulkUpdateUserStatus, deleteUser, User, CreateUserData } from "@/api/users"
+import { getUsers, createUser, updateUserRole, updateUserStatus, bulkUpdateUserStatus, deleteUser, User, CreateUserData, GetUsersParams } from "@/api/users"
 import {
   Users,
   Search,
@@ -31,8 +32,12 @@ import {
   ArrowDown,
   MapPin,
   Clock,
-  Activity
+  Activity,
+  ChevronLeft,
+  ChevronRight,
+  Upload
 } from "lucide-react"
+import { CSVImportDialog } from "@/components/admin/CSVImportDialog"
 import {
   Select,
   SelectContent,
@@ -82,6 +87,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import { UserDetailsDialog } from "@/components/admin/UserDetailsDialog"
 import { EditUserDialog } from "@/components/admin/EditUserDialog"
 
@@ -89,8 +103,12 @@ type SortField = 'name' | 'email' | 'role' | 'status' | 'createdAt' | 'lastActiv
 type SortDirection = 'asc' | 'desc'
 
 export function UserManagement() {
+  const { t } = useTranslation()
   const [users, setUsers] = useState<User[]>([])
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([])
+  const [totalUsers, setTotalUsers] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
@@ -106,6 +124,7 @@ export function UserManagement() {
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [sortField, setSortField] = useState<SortField>('createdAt')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [showCSVImportDialog, setShowCSVImportDialog] = useState(false)
   const { toast } = useToast()
 
   // Form state
@@ -118,77 +137,70 @@ export function UserManagement() {
     sendWelcomeEmail: false
   })
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        console.log("Fetching users...")
-        const response = await getUsers()
-        const usersData = (response as any).users || []
-        setUsers(usersData)
-        setFilteredUsers(usersData)
-      } catch (error) {
-        console.error("Error fetching users:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load users",
-          variant: "destructive"
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
+  // Fetch users with pagination
+  const fetchUsers = async () => {
+    try {
+      setLoading(true)
+      console.log("Fetching users with pagination...", {
+        page: currentPage,
+        limit: pageSize,
+        search: searchTerm,
+        role: roleFilter,
+        status: statusFilter
+      })
 
+      const params: GetUsersParams = {
+        page: currentPage,
+        limit: pageSize,
+      }
+
+      if (searchTerm) {
+        params.search = searchTerm
+      }
+
+      if (roleFilter !== "all") {
+        params.role = roleFilter
+      }
+
+      if (statusFilter !== "all") {
+        params.status = statusFilter
+      }
+
+      const response = await getUsers(params)
+
+      console.log("Users fetched successfully:", {
+        usersCount: response.users.length,
+        totalUsers: response.totalUsers,
+        currentPage: response.currentPage,
+        totalPages: response.totalPages
+      })
+
+      setUsers(response.users)
+      setTotalUsers(response.totalUsers)
+      setTotalPages(response.totalPages)
+      setCurrentPage(response.currentPage)
+    } catch (error) {
+      console.error("Error fetching users:", error)
+      toast({
+        title: t('common.error'),
+        description: t('userManagement.failedToLoadUsers'),
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
     fetchUsers()
-  }, [toast])
+  }, [currentPage, pageSize, searchTerm, roleFilter, statusFilter])
 
+  // Reset to page 1 when filters change
   useEffect(() => {
-    let filtered = users
-
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter(user =>
-        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.phone.includes(searchTerm)
-      )
+    if (currentPage !== 1) {
+      setCurrentPage(1)
     }
-
-    // Filter by role
-    if (roleFilter !== "all") {
-      filtered = filtered.filter(user => user.role === roleFilter)
-    }
-
-    // Filter by status
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(user => user.status === statusFilter)
-    }
-
-    // Sort users
-    filtered.sort((a, b) => {
-      let aValue: any = a[sortField]
-      let bValue: any = b[sortField]
-
-      // Handle special cases
-      if (sortField === 'lastActivity') {
-        aValue = new Date(a.lastActivity || a.createdAt).getTime()
-        bValue = new Date(b.lastActivity || b.createdAt).getTime()
-      } else if (sortField === 'createdAt') {
-        aValue = new Date(a.createdAt).getTime()
-        bValue = new Date(b.createdAt).getTime()
-      } else if (typeof aValue === 'string') {
-        aValue = aValue.toLowerCase()
-        bValue = bValue.toLowerCase()
-      }
-
-      if (sortDirection === 'asc') {
-        return aValue > bValue ? 1 : -1
-      } else {
-        return aValue < bValue ? 1 : -1
-      }
-    })
-
-    setFilteredUsers(filtered)
-  }, [users, searchTerm, roleFilter, statusFilter, sortField, sortDirection])
+  }, [searchTerm, roleFilter, statusFilter])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -225,15 +237,12 @@ export function UserManagement() {
       const response = await createUser(userData)
 
       toast({
-        title: "Success!",
-        description: "User created successfully"
+        title: t('common.success'),
+        description: t('userManagement.userCreatedSuccess')
       })
 
       // Refresh users list
-      const usersResponse = await getUsers()
-      const usersData = (usersResponse as any).users || []
-      setUsers(usersData)
-      setFilteredUsers(usersData)
+      await fetchUsers()
 
       // Reset form and close dialog
       setFormData({
@@ -248,8 +257,8 @@ export function UserManagement() {
     } catch (error: any) {
       console.error("Error creating user:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to create user",
+        title: t('common.error'),
+        description: error.message || t('userManagement.failedToCreateUser'),
         variant: "destructive"
       })
     } finally {
@@ -269,14 +278,14 @@ export function UserManagement() {
       ))
 
       toast({
-        title: "Success!",
-        description: "User role updated successfully"
+        title: t('common.success'),
+        description: t('userManagement.userRoleUpdated')
       })
     } catch (error: any) {
       console.error("Error updating user role:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to update user role",
+        title: t('common.error'),
+        description: error.message || t('userManagement.failedToUpdateRole'),
         variant: "destructive"
       })
     } finally {
@@ -298,14 +307,14 @@ export function UserManagement() {
       ))
 
       toast({
-        title: "Success!",
-        description: `User ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`
+        title: t('common.success'),
+        description: t('userManagement.userStatusUpdated')
       })
     } catch (error: any) {
       console.error("Error updating user status:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to update user status",
+        title: t('common.error'),
+        description: error.message || t('userManagement.failedToUpdateStatus'),
         variant: "destructive"
       })
     } finally {
@@ -320,21 +329,19 @@ export function UserManagement() {
       console.log("Bulk updating user status:", selectedUsers, status)
       await bulkUpdateUserStatus(selectedUsers, status)
 
-      // Update local state
-      setUsers(users.map(user =>
-        selectedUsers.includes(user._id) ? { ...user, status: status as any } : user
-      ))
+      // Refresh users list to get updated data
+      await fetchUsers()
       setSelectedUsers([])
 
       toast({
-        title: "Success!",
+        title: t('common.success'),
         description: `${selectedUsers.length} users updated successfully`
       })
     } catch (error: any) {
       console.error("Error bulk updating users:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to update users",
+        title: t('common.error'),
+        description: error.message || t('common.error'),
         variant: "destructive"
       })
     }
@@ -346,18 +353,18 @@ export function UserManagement() {
       console.log("Deleting user:", userId)
       await deleteUser(userId)
 
-      // Remove user from local state
-      setUsers(users.filter(user => user._id !== userId))
+      // Refresh users list
+      await fetchUsers()
 
       toast({
-        title: "Success!",
-        description: "User deleted successfully"
+        title: t('common.success'),
+        description: t('toast.success.deleted')
       })
     } catch (error: any) {
       console.error("Error deleting user:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to delete user",
+        title: t('common.error'),
+        description: error.message || t('userManagement.failedToDeleteUser'),
         variant: "destructive"
       })
     } finally {
@@ -373,11 +380,9 @@ export function UserManagement() {
 
   const handleUserUpdated = (updatedUser: User) => {
     console.log("EditUser: User updated successfully:", updatedUser._id)
-    // Update the user in the local state
-    setUsers(users.map(user => 
-      user._id === updatedUser._id ? updatedUser : user
-    ))
-    
+    // Refresh users list to get updated data
+    fetchUsers()
+
     toast({
       title: "Success!",
       description: "User updated successfully"
@@ -393,10 +398,10 @@ export function UserManagement() {
   }
 
   const handleSelectAll = () => {
-    if (selectedUsers.length === filteredUsers.length) {
+    if (selectedUsers.length === users.length) {
       setSelectedUsers([])
     } else {
-      setSelectedUsers(filteredUsers.map(user => user._id))
+      setSelectedUsers(users.map(user => user._id))
     }
   }
 
@@ -431,7 +436,7 @@ export function UserManagement() {
     if ((e.target as HTMLElement).closest('button, input, select, [role="button"]')) {
       return
     }
-    
+
     console.log('Row clicked for user:', userId)
     setSelectedUserId(userId)
     setShowDetailsDialog(true)
@@ -455,7 +460,103 @@ export function UserManagement() {
     })
   }
 
-  if (loading) {
+  const handlePageChange = (page: number) => {
+    console.log("Changing to page:", page)
+    setCurrentPage(page)
+  }
+
+  const handlePageSizeChange = (newSize: string) => {
+    console.log("Changing page size to:", newSize)
+    setPageSize(parseInt(newSize))
+    setCurrentPage(1) // Reset to first page when changing page size
+  }
+
+  const renderPaginationItems = () => {
+    const items = []
+    const maxVisiblePages = 5
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
+
+    // Adjust start page if we're near the end
+    if (endPage - startPage < maxVisiblePages - 1) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1)
+    }
+
+    // Previous button
+    items.push(
+      <PaginationItem key="prev">
+        <PaginationPrevious
+          onClick={() => currentPage > 1 && handlePageChange(currentPage - 1)}
+          className={currentPage <= 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+        />
+      </PaginationItem>
+    )
+
+    // First page + ellipsis
+    if (startPage > 1) {
+      items.push(
+        <PaginationItem key={1}>
+          <PaginationLink onClick={() => handlePageChange(1)} className="cursor-pointer">
+            1
+          </PaginationLink>
+        </PaginationItem>
+      )
+      if (startPage > 2) {
+        items.push(
+          <PaginationItem key="ellipsis-start">
+            <PaginationEllipsis />
+          </PaginationItem>
+        )
+      }
+    }
+
+    // Page numbers
+    for (let i = startPage; i <= endPage; i++) {
+      items.push(
+        <PaginationItem key={i}>
+          <PaginationLink
+            onClick={() => handlePageChange(i)}
+            isActive={i === currentPage}
+            className="cursor-pointer"
+          >
+            {i}
+          </PaginationLink>
+        </PaginationItem>
+      )
+    }
+
+    // Last page + ellipsis
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        items.push(
+          <PaginationItem key="ellipsis-end">
+            <PaginationEllipsis />
+          </PaginationItem>
+        )
+      }
+      items.push(
+        <PaginationItem key={totalPages}>
+          <PaginationLink onClick={() => handlePageChange(totalPages)} className="cursor-pointer">
+            {totalPages}
+          </PaginationLink>
+        </PaginationItem>
+      )
+    }
+
+    // Next button
+    items.push(
+      <PaginationItem key="next">
+        <PaginationNext
+          onClick={() => currentPage < totalPages && handlePageChange(currentPage + 1)}
+          className={currentPage >= totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+        />
+      </PaginationItem>
+    )
+
+    return items
+  }
+
+  if (loading && users.length === 0) {
     return (
       <div className="space-y-6">
         <div className="h-8 bg-muted rounded w-48 animate-pulse"></div>
@@ -483,144 +584,153 @@ export function UserManagement() {
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-2">
               <Users className="h-8 w-8" />
-              User Management
+              {t('userManagement.title')}
             </h1>
             <p className="text-muted-foreground">
-              Manage users, roles, and permissions across the platform
+              {t('userManagement.description')}
             </p>
           </div>
-          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-            <DialogTrigger asChild>
-              <Button>
-                <UserPlus className="h-4 w-4 mr-2" />
-                Create User
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md bg-background">
-              <DialogHeader>
-                <DialogTitle>Create New User</DialogTitle>
-                <DialogDescription>
-                  Add a new user to the system with role and permissions
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleCreateUser} className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      required
-                    />
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowCSVImportDialog(true)}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Import from CSV
+            </Button>
+            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+              <DialogTrigger asChild>
+                <Button>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  {t('userManagement.createNewUser')}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md bg-background">
+                <DialogHeader>
+                  <DialogTitle>{t('userManagement.createNewUser')}</DialogTitle>
+                  <DialogDescription>
+                    {t('userManagement.description')}
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleCreateUser} className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">{t('userManagement.name')}</Label>
+                      <Input
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">{t('userManagement.email')}</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        required
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      required
-                    />
-                  </div>
-                </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">{t('userManagement.phone')}</Label>
+                      <Input
+                        id="phone"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="role">{t('userManagement.role')}</Label>
+                      <Select
+                        value={formData.role}
+                        onValueChange={(value: "customer" | "staff" | "admin") =>
+                          setFormData({ ...formData, role: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={t('common.select')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="customer">{t('userManagement.customer')}</SelectItem>
+                          <SelectItem value="staff">{t('userManagement.staff')}</SelectItem>
+                          <SelectItem value="admin">{t('userManagement.admin')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
+                    <Label htmlFor="password">{t('login.password')}</Label>
                     <Input
-                      id="phone"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      id="password"
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      required
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="role">Role</Label>
-                    <Select
-                      value={formData.role}
-                      onValueChange={(value: "customer" | "staff" | "admin") =>
-                        setFormData({ ...formData, role: value })
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="sendWelcomeEmail"
+                      checked={formData.sendWelcomeEmail}
+                      onCheckedChange={(checked) =>
+                        setFormData({ ...formData, sendWelcomeEmail: checked as boolean })
                       }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="customer">Customer</SelectItem>
-                        <SelectItem value="staff">Staff</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    />
+                    <Label htmlFor="sendWelcomeEmail">{t('userManagement.sendWelcomeEmail')}</Label>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="sendWelcomeEmail"
-                    checked={formData.sendWelcomeEmail}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, sendWelcomeEmail: checked as boolean })
-                    }
-                  />
-                  <Label htmlFor="sendWelcomeEmail">Send welcome email</Label>
-                </div>
-
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={creating}>
-                    {creating ? "Creating..." : "Create User"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
+                      {t('common.cancel')}
+                    </Button>
+                    <Button type="submit" disabled={creating}>
+                      {creating ? t('common.create') + "..." : t('common.create')}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Stats Cards */}
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('userManagement.users')}</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{users.length}</div>
+              <div className="text-2xl font-bold">{totalUsers}</div>
               <p className="text-xs text-muted-foreground">
-                +{users.filter(u => new Date(u.createdAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)).length} this month
+                Total registered users
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('userManagement.active')}</CardTitle>
               <Users className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {users.filter(u => u.status === 'active').length}
+                {users.filter(u => u.isActive).length}
               </div>
               <p className="text-xs text-muted-foreground">
-                {Math.round((users.filter(u => u.status === 'active').length / users.length) * 100)}% of total
+                On current page
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Staff Members</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('staffManagement.staff')}</CardTitle>
               <Shield className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
@@ -634,7 +744,7 @@ export function UserManagement() {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('orders.totalCost')}</CardTitle>
               <DollarSign className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
@@ -656,7 +766,7 @@ export function UserManagement() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search users by name, email, or phone..."
+                    placeholder={t('userManagement.name') + ", " + t('userManagement.email') + ", " + t('userManagement.phone')}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -667,25 +777,37 @@ export function UserManagement() {
                 <Select value={roleFilter} onValueChange={setRoleFilter}>
                   <SelectTrigger className="w-40">
                     <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="All Roles" />
+                    <SelectValue placeholder={t('userManagement.allRoles')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Roles</SelectItem>
-                    <SelectItem value="customer">Customer</SelectItem>
-                    <SelectItem value="staff">Staff</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="all">{t('userManagement.allRoles')}</SelectItem>
+                    <SelectItem value="customer">{t('userManagement.customer')}</SelectItem>
+                    <SelectItem value="staff">{t('userManagement.staff')}</SelectItem>
+                    <SelectItem value="admin">{t('userManagement.admin')}</SelectItem>
                   </SelectContent>
                 </Select>
 
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-40">
-                    <SelectValue placeholder="All Status" />
+                    <SelectValue placeholder={t('userManagement.allStatuses')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="all">{t('userManagement.allStatuses')}</SelectItem>
+                    <SelectItem value="active">{t('userManagement.active')}</SelectItem>
+                    <SelectItem value="inactive">{t('userManagement.inactive')}</SelectItem>
                     <SelectItem value="suspended">Suspended</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10 per page</SelectItem>
+                    <SelectItem value="25">25 per page</SelectItem>
+                    <SelectItem value="50">50 per page</SelectItem>
+                    <SelectItem value="100">100 per page</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -695,7 +817,7 @@ export function UserManagement() {
             {selectedUsers.length > 0 && (
               <div className="flex items-center gap-2 mt-4 p-3 bg-muted/50 rounded-lg">
                 <span className="text-sm font-medium">
-                  {selectedUsers.length} user{selectedUsers.length > 1 ? 's' : ''} selected
+                  {selectedUsers.length} {t('userManagement.selectedCount')}
                 </span>
                 <div className="flex gap-2 ml-auto">
                   <Button
@@ -703,21 +825,21 @@ export function UserManagement() {
                     variant="outline"
                     onClick={() => handleBulkStatusUpdate('active')}
                   >
-                    Activate
+                    {t('userManagement.active')}
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => handleBulkStatusUpdate('inactive')}
                   >
-                    Deactivate
+                    {t('userManagement.inactive')}
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setSelectedUsers([])}
                   >
-                    Clear Selection
+                    {t('common.close')}
                   </Button>
                 </div>
               </div>
@@ -728,9 +850,9 @@ export function UserManagement() {
         {/* Enhanced Users Table */}
         <Card>
           <CardHeader>
-            <CardTitle>User Directory</CardTitle>
+            <CardTitle>{t('userManagement.users')}</CardTitle>
             <CardDescription>
-              Comprehensive list of all users with management capabilities. Click on any row to view detailed information.
+              Showing {users.length} of {totalUsers} users (Page {currentPage} of {totalPages})
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -740,49 +862,49 @@ export function UserManagement() {
                   <TableRow>
                     <TableHead className="w-12">
                       <Checkbox
-                        checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
+                        checked={selectedUsers.length === users.length && users.length > 0}
                         onCheckedChange={handleSelectAll}
                       />
                     </TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
                       <div className="flex items-center gap-2">
-                        User Information
+                        {t('userManagement.name')}
                         {getSortIcon('name')}
                       </div>
                     </TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('role')}>
                       <div className="flex items-center gap-2">
-                        Role & Status
+                        {t('userManagement.role')} & {t('userManagement.status')}
                         {getSortIcon('role')}
                       </div>
                     </TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('createdAt')}>
                       <div className="flex items-center gap-2">
-                        Member Since
+                        {t('userManagement.createdAt')}
                         {getSortIcon('createdAt')}
                       </div>
                     </TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('lastActivity')}>
                       <div className="flex items-center gap-2">
-                        Last Activity
+                        {t('userManagement.lastActivity')}
                         {getSortIcon('lastActivity')}
                       </div>
                     </TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('totalOrders')}>
                       <div className="flex items-center gap-2">
-                        Orders & Spending
+                        {t('userManagement.totalOrders')} & {t('userManagement.totalSpent')}
                         {getSortIcon('totalOrders')}
                       </div>
                     </TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="text-right">{t('common.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsers.length === 0 ? (
+                  {users.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-8">
                         <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                        <p className="text-muted-foreground">No users found</p>
+                        <p className="text-muted-foreground">{t('userManagement.noUsersFound')}</p>
                         {searchTerm && (
                           <p className="text-sm text-muted-foreground mt-2">
                             Try adjusting your search or filters
@@ -791,7 +913,7 @@ export function UserManagement() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredUsers.map((user) => (
+                    users.map((user) => (
                       <TableRow
                         key={user._id}
                         className="cursor-pointer hover:bg-muted/50 transition-colors"
@@ -847,12 +969,12 @@ export function UserManagement() {
                               </SelectContent>
                             </Select>
                             <div className="flex items-center gap-2">
-                              <Badge className={getStatusColor(user.status)} variant="outline">
-                                {user.status}
+                              <Badge className={getStatusColor(user.isActive ? 'active' : 'inactive')} variant="outline">
+                                {user.isActive ? 'active' : 'inactive'}
                               </Badge>
                               <Switch
-                                checked={user.status === 'active'}
-                                onCheckedChange={() => handleStatusToggle(user._id, user.status)}
+                                checked={user.isActive}
+                                onCheckedChange={() => handleStatusToggle(user._id, user.isActive ? 'active' : 'inactive')}
                                 disabled={updating === user._id}
                                 size="sm"
                               />
@@ -870,11 +992,11 @@ export function UserManagement() {
                             <TooltipTrigger>
                               <div className="flex items-center gap-1 text-sm">
                                 <Activity className="h-3 w-3 text-muted-foreground" />
-                                <span>{formatDate(user.lastActivity || user.createdAt)}</span>
+                                <span>{formatDate(user.createdAt)}</span>
                               </div>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>{formatDateTime(user.lastActivity || user.createdAt)}</p>
+                              <p>{formatDateTime(user.createdAt)}</p>
                             </TooltipContent>
                           </Tooltip>
                         </TableCell>
@@ -904,17 +1026,17 @@ export function UserManagement() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuLabel>{t('common.actions')}</DropdownMenuLabel>
                               <DropdownMenuItem onClick={() => {
                                 setSelectedUserId(user._id)
                                 setShowDetailsDialog(true)
                               }}>
                                 <Eye className="mr-2 h-4 w-4" />
-                                View Details
+                                {t('userManagement.viewDetails')}
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleEditUser(user)}>
                                 <Edit className="mr-2 h-4 w-4" />
-                                Edit User
+                                {t('userManagement.editUser')}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <AlertDialog>
@@ -924,25 +1046,24 @@ export function UserManagement() {
                                     onSelect={(e) => e.preventDefault()}
                                   >
                                     <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete User
+                                    {t('userManagement.deleteUser')}
                                   </DropdownMenuItem>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                   <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogTitle>{t('common.confirm')}</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      This action cannot be undone. This will permanently delete the user
-                                      "{user.name}" and remove all their data from the system.
+                                      {t('userManagement.confirmDelete')} "{user.name}"
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                                     <AlertDialogAction
                                       onClick={() => handleDeleteUser(user._id)}
                                       disabled={deleting === user._id}
                                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                     >
-                                      {deleting === user._id ? "Deleting..." : "Delete"}
+                                      {deleting === user._id ? t('common.delete') + "..." : t('common.delete')}
                                     </AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
@@ -956,31 +1077,44 @@ export function UserManagement() {
                 </TableBody>
               </Table>
             </div>
-            
-            {filteredUsers.length > 0 && (
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
               <div className="flex items-center justify-between px-2 py-4">
                 <div className="text-sm text-muted-foreground">
-                  Showing {filteredUsers.length} of {users.length} users
+                  Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalUsers)} of {totalUsers} users
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  Click on any row to view detailed user information
-                </div>
+                <Pagination>
+                  <PaginationContent>
+                    {renderPaginationItems()}
+                  </PaginationContent>
+                </Pagination>
               </div>
             )}
           </CardContent>
         </Card>
 
-        <UserDetailsDialog
-          userId={selectedUserId}
-          open={showDetailsDialog}
-          onOpenChange={setShowDetailsDialog}
-        />
+        {showDetailsDialog && (
+          <UserDetailsDialog
+            userId={selectedUserId}
+            open={showDetailsDialog}
+            onOpenChange={setShowDetailsDialog}
+          />
+        )}
 
-        <EditUserDialog
-          user={editingUser}
-          open={showEditDialog}
-          onOpenChange={setShowEditDialog}
-          onUserUpdated={handleUserUpdated}
+        {showEditDialog && (
+          <EditUserDialog
+            user={editingUser}
+            open={showEditDialog}
+            onOpenChange={setShowEditDialog}
+            onUserUpdated={handleUserUpdated}
+          />
+        )}
+
+        <CSVImportDialog
+          open={showCSVImportDialog}
+          onOpenChange={setShowCSVImportDialog}
+          onImportSuccess={fetchUsers}
         />
       </div>
     </TooltipProvider>

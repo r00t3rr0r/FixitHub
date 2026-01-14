@@ -10,6 +10,9 @@ export interface RepairService {
   deviceTypes: string[];
   manufacturer: string;
   model: string;
+  internalRepairInfo?: string;
+  externalRepairInfo?: string;
+  linkedKnowledgeBaseArticles?: Array<{title: string, url: string}>;
   popularity: number;
   isActive: boolean;
   createdAt: string;
@@ -34,14 +37,30 @@ export interface AddOnService {
   updatedAt: string;
 }
 
-// Description: Get all repair services
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface PaginationResponse {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
+// Description: Get all repair services with pagination and sorting
 // Endpoint: GET /api/services
-// Request: {}
-// Response: { success: boolean, services: RepairService[] }
-export const getRepairServices = async () => {
-  console.log('getRepairServices called');
+// Request: { category?: string, deviceType?: string, page?: number, limit?: number, sortBy?: string, sortOrder?: 'asc' | 'desc' }
+// Response: { success: boolean, services: RepairService[], pagination: PaginationResponse }
+export const getRepairServices = async (params?: PaginationParams & { category?: string, deviceType?: string }) => {
+  console.log('getRepairServices called with params:', params);
   try {
-    const response = await api.get('/api/services');
+    const response = await api.get('/api/services', { params });
     console.log('getRepairServices API response:', response.data);
     return response.data;
   } catch (error) {
@@ -52,12 +71,12 @@ export const getRepairServices = async () => {
 
 // Description: Get all services (alias for getRepairServices for backward compatibility)
 // Endpoint: GET /api/services
-// Request: {}
-// Response: { success: boolean, services: RepairService[] }
-export const getServices = async () => {
-  console.log('getServices called');
+// Request: { category?: string, deviceType?: string, page?: number, limit?: number, sortBy?: string, sortOrder?: 'asc' | 'desc' }
+// Response: { success: boolean, services: RepairService[], pagination?: PaginationResponse }
+export const getServices = async (params?: PaginationParams & { category?: string, deviceType?: string }) => {
+  console.log('getServices called with params:', params);
   try {
-    const response = await api.get('/api/services');
+    const response = await api.get('/api/services', { params });
     console.log('getServices API response:', response.data);
     return response.data;
   } catch (error) {
@@ -68,7 +87,7 @@ export const getServices = async () => {
 
 // Description: Create a new repair service
 // Endpoint: POST /api/services
-// Request: { name: string, description: string, price: number, estimatedTime: string, category: string, deviceTypes: string[] }
+// Request: { name: string, description: string, price: number, estimatedTime: string, category: string, deviceTypes: string[], manufacturer?: string, model?: string, internalRepairInfo?: string, externalRepairInfo?: string, linkedKnowledgeBaseArticles?: Array<{title: string, url: string}>, popularity?: number }
 // Response: { success: boolean, service: RepairService, message: string }
 export const createRepairService = async (serviceData: Partial<RepairService>) => {
   console.log('createRepairService called with data:', serviceData);
@@ -84,7 +103,7 @@ export const createRepairService = async (serviceData: Partial<RepairService>) =
 
 // Description: Update a repair service
 // Endpoint: PUT /api/services/:id
-// Request: { name?: string, description?: string, price?: number, estimatedTime?: string, category?: string, deviceTypes?: string[] }
+// Request: { name?: string, description?: string, price?: number, estimatedTime?: string, category?: string, deviceTypes?: string[], manufacturer?: string, model?: string, internalRepairInfo?: string, externalRepairInfo?: string, linkedKnowledgeBaseArticles?: Array<{title: string, url: string}>, popularity?: number }
 // Response: { success: boolean, service: RepairService, message: string }
 export const updateRepairService = async (id: string, serviceData: Partial<RepairService>) => {
   console.log('updateRepairService called with ID:', id, 'and data:', serviceData);
@@ -114,14 +133,14 @@ export const deleteRepairService = async (id: string) => {
   }
 };
 
-// Description: Get all add-on services
+// Description: Get all add-on services with pagination and sorting
 // Endpoint: GET /api/addons
-// Request: {}
-// Response: { success: boolean, addOns: AddOnService[] }
-export const getAddOnServices = async () => {
-  console.log('getAddOnServices called');
+// Request: { category?: string, deviceType?: string, page?: number, limit?: number, sortBy?: string, sortOrder?: 'asc' | 'desc' }
+// Response: { success: boolean, addOns: AddOnService[], pagination: PaginationResponse }
+export const getAddOnServices = async (params?: PaginationParams & { category?: string, deviceType?: string }) => {
+  console.log('getAddOnServices called with params:', params);
   try {
-    const response = await api.get('/api/addons');
+    const response = await api.get('/api/addons', { params });
     console.log('getAddOnServices API response:', response.data);
     return response.data;
   } catch (error) {

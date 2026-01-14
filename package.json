@@ -16,7 +16,9 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "concurrently": "^9.1.0"
+    "concurrently": "^9.1.0",
+    "hover.css": "^2.3.2",
+    "papaparse": "^5.5.3"
   },
   "devDependencies": {
     "cross-env": "^7.0.3"

@@ -79,6 +79,42 @@ console.log('Loading security routes...');
 const securityRoutes = require("./routes/securityRoutes");
 console.log('Loading epart order routes...');
 const epartOrderRoutes = require("./routes/epartOrderRoutes");
+console.log('Loading need list routes...');
+const needListRoutes = require("./routes/needListRoutes");
+console.log('Loading device inspection routes...');
+const deviceInspectionRoutes = require("./routes/deviceInspectionRoutes");
+console.log('Loading inspection communication routes...');
+const inspectionCommunicationRoutes = require("./routes/inspectionCommunicationRoutes");
+console.log('Loading language routes...');
+const languageRoutes = require("./routes/languageRoutes");
+console.log('Loading checkout routes...');
+const checkoutRoutes = require("./routes/checkoutRoutes");
+console.log('Loading order service routes...');
+const orderServiceRoutes = require("./routes/orderServiceRoutes");
+console.log('Loading booking routes...');
+const bookingRoutes = require("./routes/bookingRoutes");
+console.log('Loading complaint routes...');
+const complaintRoutes = require("./routes/complaintRoutes");
+console.log('Loading reminder routes...');
+const reminderRoutes = require("./routes/reminderRoutes");
+console.log('Loading invoice routes...');
+const invoiceRoutes = require("./routes/invoiceRoutes");
+console.log('Loading website settings routes...');
+const websiteSettingsRoutes = require("./routes/websiteSettingsRoutes");
+console.log('Loading page content routes...');
+const pageContentRoutes = require("./routes/pageContentRoutes");
+console.log('Loading page template routes...');
+const pageTemplateRoutes = require("./routes/pageTemplateRoutes");
+console.log('Loading CSV import routes...');
+const csvImportRoutes = require("./routes/csvImportRoutes");
+console.log('Loading CSV service import routes...');
+const csvServiceImportRoutes = require("./routes/csvServiceImportRoutes");
+console.log('Loading CSV add-on import routes...');
+const csvAddOnImportRoutes = require("./routes/csvAddOnImportRoutes");
+console.log('Loading CSV parts import routes...');
+const csvPartsImportRoutes = require("./routes/csvPartsImportRoutes");
+console.log('Loading CSV product import routes...');
+const csvProductImportRoutes = require("./routes/csvProductImportRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -103,18 +139,28 @@ app.enable('strict routing');
 
 console.log('Setting up middleware...');
 app.use(cors({}));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Increase payload size limits to handle large file uploads and data payloads
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Add request logging middleware
+// Add request logging middleware with payload size monitoring
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  // Get the content-length header to track request payload size
+  const contentLength = req.headers['content-length'];
+  if (contentLength) {
+    const sizeInMB = (parseInt(contentLength) / (1024 * 1024)).toFixed(2);
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url} - Payload: ${sizeInMB}MB`);
+  } else {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  }
   console.log('Request headers:', req.headers);
   if (req.body && Object.keys(req.body).length > 0) {
-    console.log('Request body:', req.body);
+    const bodySize = JSON.stringify(req.body).length;
+    const bodyMB = (bodySize / (1024 * 1024)).toFixed(2);
+    console.log(`Request body size: ${bodyMB}MB`);
   }
   next();
 });
@@ -125,6 +171,15 @@ const initializeDatabase = async () => {
     console.log('Connecting to database...');
     await connectDB();
     console.log('Database connected successfully');
+
+    // Auto-seed system configuration if it doesn't exist
+    console.log('Checking if system configuration exists...');
+    try {
+      const configSeedResult = await SeedService.seedSystemConfiguration();
+      console.log('System configuration seeding result:', configSeedResult.message);
+    } catch (error) {
+      console.error('Error seeding system configuration:', error.message);
+    }
 
     // Auto-seed admin user if it doesn't exist
     console.log('Checking if admin user exists...');
@@ -196,6 +251,15 @@ const initializeDatabase = async () => {
       console.log('FAQ seeding result:', faqSeedResult.message);
     } catch (error) {
       console.error('Error seeding FAQ data:', error.message);
+    }
+
+    // Auto-seed languages if they don't exist
+    console.log('Checking if languages exist...');
+    try {
+      const languageSeedResult = await SeedService.seedLanguages();
+      console.log('Language seeding result:', languageSeedResult.message);
+    } catch (error) {
+      console.error('Error seeding languages:', error.message);
     }
 
     // Auto-seed homepage template if it doesn't exist
@@ -305,6 +369,42 @@ app.use('/api/database', databaseRoutes);
 app.use('/api/security', securityRoutes);
 // EPart Order Routes
 app.use('/api/epart-orders', epartOrderRoutes);
+// Need List Routes
+app.use('/api/need-lists', needListRoutes);
+// Device Inspection Routes
+app.use('/api/device-inspections', deviceInspectionRoutes);
+// Inspection Communication Routes
+app.use('/api/inspection-communication', inspectionCommunicationRoutes);
+// Language Routes
+app.use('/api/languages', languageRoutes);
+// Checkout Routes
+app.use('/api/checkout', checkoutRoutes);
+// Booking Routes
+app.use('/api/bookings', bookingRoutes);
+// Complaint Routes
+app.use('/api/complaints', complaintRoutes);
+// Reminder Routes
+app.use('/api/reminders', reminderRoutes);
+// Invoice Routes
+app.use('/api/invoices', invoiceRoutes);
+// Order Service Routes
+app.use('/api/order-services', orderServiceRoutes);
+// Website Settings Routes
+app.use('/api/website-settings', websiteSettingsRoutes);
+// Page Content Routes (Visual Builder)
+app.use('/api/page-content', pageContentRoutes);
+// Page Template Routes
+app.use('/api/page-templates', pageTemplateRoutes);
+// CSV Import Routes
+app.use('/api/csv-import', csvImportRoutes);
+// CSV Service Import Routes
+app.use('/api/csv-service-import', csvServiceImportRoutes);
+// CSV Add-On Import Routes
+app.use('/api/csv-addon-import', csvAddOnImportRoutes);
+// CSV Parts Import Routes
+app.use('/api/csv-parts-import', csvPartsImportRoutes);
+// CSV Product Import Routes
+app.use('/api/csv-product-import', csvProductImportRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 
@@ -316,11 +416,31 @@ app.use((req, res, next) => {
   res.status(404).send("Page not found.");
 });
 
-// Error handling
+// Error handling middleware with specific handling for payload too large errors
 app.use((err, req, res, next) => {
   console.error(`Unhandled application error: ${err.message}`);
-  console.error(err.stack);
-  res.status(500).send("There was an error serving your request.");
+  console.error('Full error stack trace:', err.stack);
+
+  // Handle specific error types
+  if (err.code === 'ENTITY_TOO_LARGE' || err.message.includes('entity too large')) {
+    console.error('Payload size exceeded - Request entity too large');
+    console.error(`Content-Length: ${req.headers['content-length']} bytes`);
+    return res.status(413).json({
+      error: 'Request entity too large. Maximum payload size is 50MB.',
+      details: err.message
+    });
+  }
+
+  if (err.code === 'PayloadTooLargeError' || err.type === 'entity.too.large') {
+    console.error('Payload size error detected during body parsing');
+    return res.status(413).json({
+      error: 'Request payload exceeds maximum size limit of 50MB.',
+      details: err.message
+    });
+  }
+
+  // Default error response
+  res.status(500).json({ error: "There was an error serving your request." });
 });
 
 console.log(`Attempting to start server on port ${port}...`);

@@ -17,10 +17,47 @@ class AddOnServiceService {
         query['compatibility.deviceType'] = filters.deviceType;
       }
 
-      const addOnServices = await AddOnService.find(query).sort({ popularity: -1, name: 1 });
-      console.log(`AddOnServiceService: Found ${addOnServices.length} add-on services`);
+      // Extract pagination parameters with defaults
+      const page = parseInt(filters.page) || 1;
+      const limit = parseInt(filters.limit) || 10;
+      const skip = (page - 1) * limit;
 
-      return addOnServices;
+      // Extract sorting parameters with defaults
+      const sortBy = filters.sortBy || 'createdAt';
+      const sortOrder = filters.sortOrder === 'asc' ? 1 : -1;
+      const sortObj = { [sortBy]: sortOrder };
+
+      console.log(`AddOnServiceService: Pagination - page: ${page}, limit: ${limit}, skip: ${skip}`);
+      console.log(`AddOnServiceService: Sorting - sortBy: ${sortBy}, sortOrder: ${sortOrder}`);
+
+      // Get total count for pagination
+      const total = await AddOnService.countDocuments(query);
+      console.log(`AddOnServiceService: Total matching documents: ${total}`);
+
+      // Fetch paginated and sorted results
+      const addOnServices = await AddOnService.find(query)
+        .sort(sortObj)
+        .skip(skip)
+        .limit(limit);
+
+      console.log(`AddOnServiceService: Returning ${addOnServices.length} add-on services`);
+
+      // Calculate pagination metadata
+      const totalPages = Math.ceil(total / limit);
+      const hasNextPage = page < totalPages;
+      const hasPrevPage = page > 1;
+
+      return {
+        addOnServices,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages,
+          hasNextPage,
+          hasPrevPage
+        }
+      };
     } catch (err) {
       console.error('AddOnServiceService: Error listing add-on services:', err);
       throw new Error(`Database error while listing add-on services: ${err.message}`);

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,7 +13,8 @@ import {
   createRepairService,
   updateRepairService,
   deleteRepairService,
-  RepairService
+  RepairService,
+  PaginationResponse
 } from "@/api/services"
 import {
   Wrench,
@@ -34,8 +36,15 @@ import {
   Tag,
   Smartphone,
   User,
-  FileText
+  FileText,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Upload
 } from "lucide-react"
+import ServiceCSVImportDialog from "@/components/admin/ServiceCSVImportDialog"
 import {
   Select,
   SelectContent,
@@ -77,16 +86,38 @@ import {
 } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 
+type SortField = 'name' | 'category' | 'manufacturer' | 'price' | 'estimatedTime' | 'popularity'
+type SortOrder = 'asc' | 'desc'
+
 export function ServiceManagement() {
+  const { t } = useTranslation()
   const [services, setServices] = useState<RepairService[]>([])
   const [filteredServices, setFilteredServices] = useState<RepairService[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [pagination, setPagination] = useState<PaginationResponse>({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPrevPage: false
+  })
+
+  // Sorting state
+  const [sortBy, setSortBy] = useState<SortField>('popularity')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
+
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
+  const [isCSVImportDialogOpen, setIsCSVImportDialogOpen] = useState(false)
   const [selectedService, setSelectedService] = useState<RepairService | null>(null)
   const [detailService, setDetailService] = useState<RepairService | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
@@ -112,35 +143,49 @@ export function ServiceManagement() {
 
   useEffect(() => {
     fetchServices()
-  }, [])
+  }, [currentPage, pageSize, sortBy, sortOrder, categoryFilter])
 
   useEffect(() => {
-    let filtered = services
-
+    // Apply client-side search filter
     if (searchTerm) {
-      filtered = filtered.filter(service =>
+      const filtered = services.filter(service =>
         service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         service.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
         service.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (service.manufacturer && service.manufacturer.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (service.model && service.model.toLowerCase().includes(searchTerm.toLowerCase()))
       )
+      setFilteredServices(filtered)
+    } else {
+      setFilteredServices(services)
     }
-
-    if (categoryFilter !== "all") {
-      filtered = filtered.filter(service => service.category === categoryFilter)
-    }
-
-    setFilteredServices(filtered)
-  }, [services, searchTerm, categoryFilter])
+  }, [services, searchTerm])
 
   const fetchServices = async () => {
     try {
-      console.log("Fetching repair services...")
-      const response = await getRepairServices()
+      setLoading(true)
+      console.log("Fetching repair services with pagination and sorting...")
+
+      const params: any = {
+        page: currentPage,
+        limit: pageSize,
+        sortBy,
+        sortOrder
+      }
+
+      if (categoryFilter !== "all") {
+        params.category = categoryFilter
+      }
+
+      const response = await getRepairServices(params)
       const servicesData = response.services || []
       setServices(servicesData)
       setFilteredServices(servicesData)
+
+      if (response.pagination) {
+        setPagination(response.pagination)
+        console.log(`Loaded ${servicesData.length} services (page ${response.pagination.page}/${response.pagination.totalPages})`)
+      }
     } catch (error: any) {
       console.error("Error fetching services:", error)
       toast({
@@ -157,11 +202,11 @@ export function ServiceManagement() {
     try {
       setLoadingDetail(true)
       console.log("Fetching service details for ID:", serviceId)
-      
+
       const response = await getRepairServiceById(serviceId)
       setDetailService(response.service)
       setIsDetailDialogOpen(true)
-      
+
       console.log("Service details fetched successfully:", response.service.name)
     } catch (error: any) {
       console.error("Error fetching service details:", error)
@@ -266,6 +311,29 @@ export function ServiceManagement() {
     }
   }
 
+  const handleSort = (field: SortField) => {
+    console.log(`Sorting by ${field}`)
+    if (sortBy === field) {
+      // Toggle sort order
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      // New sort field, default to ascending
+      setSortBy(field)
+      setSortOrder('asc')
+    }
+    // Reset to first page when sorting changes
+    setCurrentPage(1)
+  }
+
+  const getSortIcon = (field: SortField) => {
+    if (sortBy !== field) {
+      return <ChevronsUpDown className="h-4 w-4 ml-1 text-muted-foreground" />
+    }
+    return sortOrder === 'asc'
+      ? <ChevronUp className="h-4 w-4 ml-1" />
+      : <ChevronDown className="h-4 w-4 ml-1" />
+  }
+
   const openCreateDialog = () => {
     resetForm()
     setIsCreateDialogOpen(true)
@@ -344,7 +412,7 @@ export function ServiceManagement() {
     }))
   }
 
-  if (loading) {
+  if (loading && services.length === 0) {
     return (
       <div className="space-y-6">
         <div className="h-8 bg-muted rounded w-48 animate-pulse"></div>
@@ -377,10 +445,16 @@ export function ServiceManagement() {
             Manage repair services and pricing. Click on a service row to view detailed information.
           </p>
         </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Service
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setIsCSVImportDialogOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Import CSV
+          </Button>
+          <Button onClick={openCreateDialog}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Service
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -394,7 +468,7 @@ export function ServiceManagement() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-              {services.length}
+              {pagination.total}
             </div>
           </CardContent>
         </Card>
@@ -458,7 +532,10 @@ export function ServiceManagement() {
               </div>
             </div>
             <div className="flex gap-2">
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <Select value={categoryFilter} onValueChange={(value) => {
+                setCategoryFilter(value)
+                setCurrentPage(1) // Reset to first page when filter changes
+              }}>
                 <SelectTrigger className="w-40">
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="All Categories" />
@@ -472,6 +549,20 @@ export function ServiceManagement() {
                   ))}
                 </SelectContent>
               </Select>
+              <Select value={pageSize.toString()} onValueChange={(value) => {
+                setPageSize(parseInt(value))
+                setCurrentPage(1) // Reset to first page when page size changes
+              }}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5 per page</SelectItem>
+                  <SelectItem value="10">10 per page</SelectItem>
+                  <SelectItem value="25">25 per page</SelectItem>
+                  <SelectItem value="50">50 per page</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
@@ -482,26 +573,75 @@ export function ServiceManagement() {
         <CardHeader>
           <CardTitle>Repair Services</CardTitle>
           <CardDescription>
-            Manage your repair service catalog and pricing. Click on any row to view detailed information.
+            Manage your repair service catalog and pricing. Click on any row to view detailed information. Click column headers to sort.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Service</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Manufacturer/Model</TableHead>
-                <TableHead>Price</TableHead>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort('name')}
+                >
+                  <div className="flex items-center">
+                    Service
+                    {getSortIcon('name')}
+                  </div>
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort('category')}
+                >
+                  <div className="flex items-center">
+                    Category
+                    {getSortIcon('category')}
+                  </div>
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort('manufacturer')}
+                >
+                  <div className="flex items-center">
+                    Manufacturer/Model
+                    {getSortIcon('manufacturer')}
+                  </div>
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort('price')}
+                >
+                  <div className="flex items-center">
+                    Price
+                    {getSortIcon('price')}
+                  </div>
+                </TableHead>
                 <TableHead>Est. Time</TableHead>
                 <TableHead>Device Types</TableHead>
                 <TableHead>Knowledge Base</TableHead>
-                <TableHead>Popularity</TableHead>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort('popularity')}
+                >
+                  <div className="flex items-center">
+                    Popularity
+                    {getSortIcon('popularity')}
+                  </div>
+                </TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredServices.length === 0 ? (
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-8">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                      <span className="text-muted-foreground">Loading services...</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : filteredServices.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="text-center py-8">
                     <Wrench className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
@@ -510,8 +650,8 @@ export function ServiceManagement() {
                 </TableRow>
               ) : (
                 filteredServices.map((service) => (
-                  <TableRow 
-                    key={service._id} 
+                  <TableRow
+                    key={service._id}
                     className="cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => handleRowClick(service)}
                   >
@@ -608,6 +748,62 @@ export function ServiceManagement() {
               )}
             </TableBody>
           </Table>
+
+          {/* Pagination Controls */}
+          {!loading && pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, pagination.total)} of {pagination.total} services
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={!pagination.hasPrevPage || loading}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {[...Array(Math.min(5, pagination.totalPages))].map((_, idx) => {
+                    let pageNum: number
+                    if (pagination.totalPages <= 5) {
+                      pageNum = idx + 1
+                    } else if (currentPage <= 3) {
+                      pageNum = idx + 1
+                    } else if (currentPage >= pagination.totalPages - 2) {
+                      pageNum = pagination.totalPages - 4 + idx
+                    } else {
+                      pageNum = currentPage - 2 + idx
+                    }
+
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(pageNum)}
+                        disabled={loading}
+                        className="w-8 h-8 p-0"
+                      >
+                        {pageNum}
+                      </Button>
+                    )
+                  })}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(pagination.totalPages, prev + 1))}
+                  disabled={!pagination.hasNextPage || loading}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -824,9 +1020,9 @@ export function ServiceManagement() {
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-sm">{article.title || 'Untitled Article'}</p>
                               {article.url && (
-                                <a 
-                                  href={article.url} 
-                                  target="_blank" 
+                                <a
+                                  href={article.url}
+                                  target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-xs text-blue-600 hover:text-blue-800 break-all"
                                 >
@@ -1159,6 +1355,16 @@ export function ServiceManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* CSV Import Dialog */}
+      <ServiceCSVImportDialog
+        open={isCSVImportDialogOpen}
+        onOpenChange={setIsCSVImportDialogOpen}
+        onImportComplete={() => {
+          fetchServices()
+          setIsCSVImportDialogOpen(false)
+        }}
+      />
     </div>
   )
 }

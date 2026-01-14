@@ -209,7 +209,7 @@ class DeviceService {
   static async createModel(modelData) {
     try {
       console.log('DeviceService: Creating model:', modelData.name);
-      
+
       const model = new DeviceModel(modelData);
       const savedModel = await model.save();
 
@@ -217,6 +217,91 @@ class DeviceService {
       return savedModel;
     } catch (error) {
       console.error('DeviceService: Error creating model:', error);
+      throw error;
+    }
+  }
+
+  // Search devices by query string (searches across type, manufacturer, and model)
+  static async searchDevices(searchQuery) {
+    try {
+      if (!searchQuery || searchQuery.trim() === '') {
+        console.log('DeviceService: Empty search query, returning empty results');
+        return [];
+      }
+
+      const query = searchQuery.toLowerCase().trim();
+      console.log('DeviceService: Searching devices with query:', query);
+
+      // Search across device models and their brands
+      const results = await DeviceModel.find(
+        {
+          isActive: true,
+          $or: [
+            { name: { $regex: query, $options: 'i' } },
+            { deviceType: { $regex: query, $options: 'i' } }
+          ]
+        }
+      )
+        .limit(20)
+        .populate('brandId', 'name logo')
+        .sort({ name: 1 })
+        .lean();
+
+      // Also search by brand name
+      const brandMatches = await DeviceBrand.find(
+        { name: { $regex: query, $options: 'i' }, isActive: true }
+      )
+        .lean();
+
+      let brandModelResults = [];
+      if (brandMatches.length > 0) {
+        const brandIds = brandMatches.map(b => b._id);
+        brandModelResults = await DeviceModel.find(
+          { brandId: { $in: brandIds }, isActive: true }
+        )
+          .limit(20)
+          .populate('brandId', 'name logo')
+          .sort({ name: 1 })
+          .lean();
+      }
+
+      // Combine and deduplicate results
+      const allResults = [...results, ...brandModelResults];
+      const uniqueResults = Array.from(
+        new Map(allResults.map(r => [r._id.toString(), r])).values()
+      );
+
+      // Format results for frontend consumption
+      const formattedResults = uniqueResults
+        .filter(model => {
+          // Ensure we have required fields
+          if (!model.name || !model.deviceType) {
+            console.log('DeviceService: Filtering out incomplete model:', {
+              _id: model._id,
+              name: model.name,
+              deviceType: model.deviceType,
+              brandId: model.brandId
+            });
+            return false;
+          }
+          return true;
+        })
+        .map(model => ({
+          _id: model._id,
+          name: model.name || 'Unknown Device',
+          deviceType: model.deviceType || 'unknown',
+          manufacturer: (model.brandId && model.brandId.name) || 'Unknown',
+          manufacturerId: (model.brandId && model.brandId._id) || null,
+          displayName: `${model.deviceType || 'unknown'} • ${(model.brandId && model.brandId.name) || 'Unknown'} • ${model.name || 'Unknown Device'}`
+        }));
+
+      console.log(`DeviceService: Found ${formattedResults.length} matching devices after filtering`);
+      if (formattedResults.length > 0) {
+        console.log('DeviceService: First result sample:', formattedResults[0]);
+      }
+      return formattedResults;
+    } catch (error) {
+      console.error('DeviceService: Error searching devices:', error);
       throw error;
     }
   }

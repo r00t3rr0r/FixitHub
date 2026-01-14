@@ -1,16 +1,19 @@
 import { useState, useEffect } from "react"
 import { Link, useLocation } from "react-router-dom"
-import { 
-  Home, 
-  Plus, 
-  Package, 
-  MessageSquare, 
-  Bell, 
-  ShoppingCart, 
-  User, 
+import { useTranslation } from "react-i18next"
+import {
+  Home,
+  Plus,
+  Package,
+  MessageSquare,
+  Bell,
+  ShoppingCart,
+  User,
   BookOpen,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Calendar,
+  FileText
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -23,11 +26,13 @@ interface CustomerSidebarProps {
 }
 
 export function CustomerSidebar({ isCollapsed }: CustomerSidebarProps) {
+  const { t } = useTranslation()
   const location = useLocation()
   const [unreadNotifications, setUnreadNotifications] = useState(0)
   const [cartItemCount, setCartItemCount] = useState(0)
   const [ordersOpen, setOrdersOpen] = useState(false)
   const [shopOpen, setShopOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -143,52 +148,65 @@ export function CustomerSidebar({ isCollapsed }: CustomerSidebarProps) {
   return (
     <nav className="flex flex-col h-full p-4 space-y-1">
       <NavItem to="/" icon={Home}>
-        Dashboard
+        {t('navigation.dashboard')}
       </NavItem>
 
       <CollapsibleSection
-        title="Orders"
+        title={t('navigation.orders')}
         icon={Package}
         isOpen={ordersOpen}
         onToggle={() => setOrdersOpen(!ordersOpen)}
       >
         <NavItem to="/new-order" icon={Plus}>
-          New Order
+          {t('navigation.newOrder')}
         </NavItem>
         <NavItem to="/orders" icon={Package}>
-          Track Orders
+          {t('navigation.trackOrders')}
         </NavItem>
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Shop"
+        title={t('navigation.shop')}
         icon={ShoppingCart}
         isOpen={shopOpen}
         onToggle={() => setShopOpen(!shopOpen)}
       >
         <NavItem to="/shop" icon={ShoppingCart}>
-          Browse Products
+          {t('navigation.browseProducts')}
         </NavItem>
         <NavItem to="/cart" icon={ShoppingCart} badge={cartItemCount}>
-          Shopping Cart
+          {t('navigation.shoppingCart')}
         </NavItem>
       </CollapsibleSection>
 
       <NavItem to="/messages" icon={MessageSquare}>
-        Messages
+        {t('navigation.messages')}
       </NavItem>
 
       <NavItem to="/notifications" icon={Bell} badge={unreadNotifications}>
-        Notifications
+        {t('navigation.notifications')}
       </NavItem>
 
       <NavItem to="/blog" icon={BookOpen}>
-        Blog
+        {t('navigation.blog')}
       </NavItem>
 
-      <NavItem to="/profile" icon={User}>
-        Profile
-      </NavItem>
+      <CollapsibleSection
+        title={t('navigation.account')}
+        icon={User}
+        isOpen={accountOpen}
+        onToggle={() => setAccountOpen(!accountOpen)}
+      >
+        <NavItem to="/bookings" icon={Calendar}>
+          {t('navigation.bookings')}
+        </NavItem>
+        <NavItem to="/invoices" icon={FileText}>
+          {t('navigation.invoices')}
+        </NavItem>
+        <NavItem to="/profile" icon={User}>
+          {t('navigation.profile')}
+        </NavItem>
+      </CollapsibleSection>
     </nav>
   )
 }

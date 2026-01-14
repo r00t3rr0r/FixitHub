@@ -3,18 +3,21 @@ const router = express.Router();
 const { requireUser, requireRole } = require('./middleware/auth');
 const ProductService = require('../services/productService');
 
-// Get all products (public)
+// Description: Get all products with pagination and sorting
+// Endpoint: GET /api/products
+// Request: { page?: number, limit?: number, sortBy?: string, sortOrder?: 'asc'|'desc', category?: string, brand?: string, search?: string }
+// Response: { success: boolean, products: Product[], totalPages: number, currentPage: number, totalProducts: number, limit: number }
 router.get('/', async (req, res) => {
   try {
-    console.log('ProductRoutes: Getting products with filters:', req.query);
+    console.log('ProductRoutes: Getting products with filters and sorting:', req.query);
     const result = await ProductService.getProducts(req.query);
-    
+
     res.json({
       success: true,
       ...result
     });
   } catch (error) {
-    console.error('ProductRoutes: Error getting products:', error);
+    console.error('ProductRoutes: Error getting products:', error.message, error.stack);
     res.status(500).json({
       success: false,
       error: error.message

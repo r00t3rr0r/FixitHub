@@ -1,257 +1,230 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Smartphone, Tablet, Laptop, Monitor, Star, ArrowRight, CheckCircle, Users, Award, Clock, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '@/contexts/AuthContext';
+import { DeviceSelectionHero } from '@/components/home/DeviceSelectionHero';
+import { ServicesOverview } from '@/components/home/ServicesOverview';
+import { DevicesSection } from '@/components/home/DevicesSection';
+import { FeaturesSection } from '@/components/home/FeaturesSection';
+import { ShopSection } from '@/components/home/ShopSection';
+import { BlogCarousel } from '@/components/home/BlogCarousel';
+import { TestimonialsCarousel } from '@/components/home/TestimonialsCarousel';
+import { AboutUsSection } from '@/components/home/AboutUsSection';
+import { ContactSection } from '@/components/home/ContactSection';
+import { LanguageSelector } from '@/components/LanguageSelector';
+import { CartIcon } from '@/components/CartIcon';
+import { ProfileDropdown } from '@/components/ProfileDropdown';
+import { saveDeviceInfo } from '@/utils/deviceDetection';
 
 export function Home() {
+  const { t } = useTranslation();
+  const { isAuthenticated } = useAuth();
   const [email, setEmail] = useState('');
+  const [logoLoaded, setLogoLoaded] = useState(false);
 
-  const deviceTypes = [
-    { icon: Smartphone, name: 'Smartphones', description: 'iPhone, Samsung, Google Pixel' },
-    { icon: Tablet, name: 'Tablets', description: 'iPad, Android tablets' },
-    { icon: Laptop, name: 'Laptops', description: 'MacBook, Windows laptops' },
-    { icon: Monitor, name: 'Desktops', description: 'iMac, PC repairs' }
-  ];
+  // Preload logo image for fade-in effect
+  useEffect(() => {
+    const img = new Image();
+    img.src = 'https://www.mcrepair.de/bilder/intern/shoplogo/logo180.png';
+    img.onload = () => {
+      console.log('Home: Shop logo loaded successfully');
+      setLogoLoaded(true);
+    };
+    img.onerror = () => {
+      console.error('Home: Failed to load shop logo');
+      setLogoLoaded(true); // Show placeholder if image fails
+    };
+  }, []);
 
-  const services = [
-    { name: 'Screen Repair', price: 'From $89', popular: true },
-    { name: 'Battery Replacement', price: 'From $59', popular: false },
-    { name: 'Water Damage', price: 'From $129', popular: false },
-    { name: 'Data Recovery', price: 'From $99', popular: true }
-  ];
-
-  const features = [
-    { icon: CheckCircle, title: 'Quality Guarantee', description: '90-day warranty on all repairs' },
-    { icon: Clock, title: 'Fast Turnaround', description: 'Most repairs completed same day' },
-    { icon: Shield, title: 'Certified Technicians', description: 'Expert technicians with years of experience' },
-    { icon: Users, title: '24/7 Support', description: 'Customer support whenever you need it' }
-  ];
-
-  const testimonials = [
-    {
-      name: 'Sarah Johnson',
-      rating: 5,
-      comment: 'Excellent service! My iPhone was repaired quickly and works perfectly.',
-      device: 'iPhone 13 Pro'
-    },
-    {
-      name: 'Mike Chen',
-      rating: 5,
-      comment: 'Professional staff and fair pricing. Highly recommend!',
-      device: 'Samsung Galaxy S22'
-    },
-    {
-      name: 'Emily Davis',
-      rating: 5,
-      comment: 'Saved my laptop with water damage. Great work!',
-      device: 'MacBook Air'
-    }
-  ];
+  // Detect and save device information on homepage load
+  useEffect(() => {
+    console.log('Home: Detecting and saving device information...');
+    saveDeviceInfo();
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">FH</span>
+      {/* Enhanced Header with Animations */}
+      <header className="border-b sticky top-0 z-50 bg-white/95 backdrop-blur shadow-sm">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          {/* Logo with fade-in animation */}
+          <Link to="/" className="flex items-center gap-3 group">
+            <div
+              className="relative transition-all duration-300 group-hover:scale-105"
+              style={{
+                opacity: logoLoaded ? 1 : 0,
+                transform: logoLoaded ? 'translateY(0)' : 'translateY(-10px)',
+                transition: 'opacity 0.6s ease-out, transform 0.6s ease-out'
+              }}
+            >
+              <img
+                src="https://www.mcrepair.de/bilder/intern/shoplogo/logo180.png"
+                alt="FixitHub Logo"
+                className="h-12 w-auto object-contain"
+                onError={(e) => {
+                  console.error('Home: Logo image failed to load');
+                  // Show fallback
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+              {/* Fallback logo if image fails */}
+              <div
+                className="w-12 h-12 bg-yellow-400 rounded-lg flex items-center justify-center"
+                style={{ display: 'none' }}
+              >
+                <span className="text-gray-900 font-bold text-lg">FH</span>
+              </div>
+
+              {/* Subtle glow effect on hover */}
+              <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-30 transition-opacity duration-300 bg-yellow-400 blur-md -z-10" />
             </div>
-            <span className="text-xl font-bold">FixitHub</span>
-          </div>
+            <span className="text-xl font-bold text-gray-900 hidden sm:inline-block group-hover:text-yellow-600 transition-colors duration-200">
+              FixitHub
+            </span>
+          </Link>
+
+          {/* Navigation */}
           <nav className="hidden md:flex items-center gap-6">
-            <a href="#services" className="text-muted-foreground hover:text-foreground">Services</a>
-            <a href="#about" className="text-muted-foreground hover:text-foreground">About</a>
-            <a href="#contact" className="text-muted-foreground hover:text-foreground">Contact</a>
+            <a
+              href="#services"
+              className="text-gray-600 hover:text-yellow-600 transition-colors duration-200 font-medium relative group"
+            >
+              {t('home.nav.services')}
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-yellow-400 group-hover:w-full transition-all duration-300" />
+            </a>
+            <a
+              href="#about"
+              className="text-gray-600 hover:text-yellow-600 transition-colors duration-200 font-medium relative group"
+            >
+              {t('home.nav.about')}
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-yellow-400 group-hover:w-full transition-all duration-300" />
+            </a>
+            <a
+              href="#contact"
+              className="text-gray-600 hover:text-yellow-600 transition-colors duration-200 font-medium relative group"
+            >
+              {t('home.nav.contact')}
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-yellow-400 group-hover:w-full transition-all duration-300" />
+            </a>
           </nav>
+
+          {/* Right side actions */}
           <div className="flex items-center gap-2">
-            <Button variant="outline" asChild>
-              <Link to="/login">Login</Link>
-            </Button>
-            <Button asChild>
-              <Link to="/register">Get Started</Link>
-            </Button>
+            {/* Language Selector with hover effect */}
+            <LanguageSelector />
+
+            {/* Shopping Cart with item count and bounce animation */}
+            <CartIcon />
+
+            {/* Auth-based navigation */}
+            {isAuthenticated ? (
+              <ProfileDropdown />
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  asChild
+                  className="hidden sm:inline-flex border-gray-300 hover:border-yellow-400 hover:text-yellow-600 transition-all duration-200"
+                >
+                  <Link to="/login">{t('navigation.login')}</Link>
+                </Button>
+                <Button
+                  asChild
+                  className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold shadow-md hover:shadow-lg transition-all duration-200"
+                >
+                  <Link to="/register">{t('home.nav.getStarted')}</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="py-20 bg-gradient-to-br from-primary/10 to-secondary/10">
-        <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-6xl font-bold mb-6">
-            Professional Device Repair
-            <span className="text-primary block">You Can Trust</span>
-          </h1>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Expert repair services for smartphones, tablets, laptops, and more. 
-            Fast turnaround, quality guarantee, and transparent pricing.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" asChild>
-              <Link to="/register">Book Repair Now</Link>
-            </Button>
-            <Button size="lg" variant="outline">
-              Get Quote
-            </Button>
-          </div>
-        </div>
-      </section>
+      {/* Hero Section with Device Selection */}
+      <DeviceSelectionHero />
+
+      {/* Services Overview - Step by Step */}
+      <ServicesOverview />
 
       {/* Device Types */}
-      <section className="py-16">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">We Repair All Devices</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {deviceTypes.map((device, index) => (
-              <Card key={index} className="text-center hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <device.icon className="h-12 w-12 mx-auto text-primary mb-4" />
-                  <CardTitle>{device.name}</CardTitle>
-                  <CardDescription>{device.description}</CardDescription>
-                </CardHeader>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
+      <DevicesSection />
 
-      {/* Services */}
-      <section id="services" className="py-16 bg-muted/50">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">Our Services</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {services.map((service, index) => (
-              <Card key={index} className="relative">
-                {service.popular && (
-                  <Badge className="absolute -top-2 -right-2 bg-primary">Popular</Badge>
-                )}
-                <CardHeader>
-                  <CardTitle>{service.name}</CardTitle>
-                  <CardDescription className="text-2xl font-bold text-primary">
-                    {service.price}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button className="w-full">
-                    Learn More <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Shop Section */}
+      <ShopSection />
 
       {/* Features */}
-      <section className="py-16">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">Why Choose FixitHub?</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {features.map((feature, index) => (
-              <div key={index} className="text-center">
-                <feature.icon className="h-12 w-12 mx-auto text-primary mb-4" />
-                <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-                <p className="text-muted-foreground">{feature.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <FeaturesSection />
 
-      {/* Testimonials */}
-      <section className="py-16 bg-muted/50">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">What Our Customers Say</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {testimonials.map((testimonial, index) => (
-              <Card key={index}>
-                <CardHeader>
-                  <div className="flex items-center gap-1 mb-2">
-                    {[...Array(testimonial.rating)].map((_, i) => (
-                      <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    ))}
-                  </div>
-                  <CardDescription>"{testimonial.comment}"</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="font-semibold">{testimonial.name}</p>
-                  <p className="text-sm text-muted-foreground">{testimonial.device}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Blog Carousel */}
+      <BlogCarousel />
 
-      {/* CTA Section */}
-      <section className="py-16 bg-primary text-primary-foreground">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-4">Ready to Get Your Device Fixed?</h2>
-          <p className="text-xl mb-8 opacity-90">
-            Join thousands of satisfied customers who trust FixitHub with their device repairs.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
-            <Input
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="bg-background text-foreground"
-            />
-            <Button variant="secondary">
-              Get Started
-            </Button>
-          </div>
-        </div>
-      </section>
+      {/* Testimonials Carousel */}
+      <TestimonialsCarousel />
+
+      {/* About Us Section */}
+      <AboutUsSection />
+
+      {/* Contact Section */}
+      <ContactSection />
 
       {/* Footer */}
-      <footer className="py-12 border-t">
+      <footer className="py-12 border-t bg-gray-900 text-white">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                  <span className="text-primary-foreground font-bold text-sm">FH</span>
+              <div className="flex items-center gap-3 mb-4">
+                <img
+                  src="https://www.mcrepair.de/bilder/intern/shoplogo/logo180.png"
+                  alt="FixitHub Logo"
+                  className="h-10 w-auto object-contain brightness-0 invert"
+                  onError={(e) => {
+                    // Fallback to text logo
+                    (e.target as HTMLImageElement).style.display = 'none';
+                    const fallback = (e.target as HTMLImageElement).nextElementSibling as HTMLElement;
+                    if (fallback) fallback.style.display = 'flex';
+                  }}
+                />
+                <div className="w-10 h-10 bg-yellow-400 rounded-lg items-center justify-center hidden">
+                  <span className="text-gray-900 font-bold text-sm">FH</span>
                 </div>
                 <span className="text-xl font-bold">FixitHub</span>
               </div>
-              <p className="text-muted-foreground">
-                Professional device repair services you can trust.
+              <p className="text-gray-400">
+                {t('home.footer.tagline')}
               </p>
             </div>
             <div>
-              <h3 className="font-semibold mb-4">Services</h3>
-              <ul className="space-y-2 text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground">Screen Repair</a></li>
-                <li><a href="#" className="hover:text-foreground">Battery Replacement</a></li>
-                <li><a href="#" className="hover:text-foreground">Water Damage</a></li>
-                <li><a href="#" className="hover:text-foreground">Data Recovery</a></li>
+              <h3 className="font-semibold mb-4">{t('home.footer.servicesTitle')}</h3>
+              <ul className="space-y-2 text-gray-400">
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.services.screenRepair')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.services.batteryReplacement')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.services.waterDamage')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.services.dataRecovery')}</a></li>
               </ul>
             </div>
             <div>
-              <h3 className="font-semibold mb-4">Company</h3>
-              <ul className="space-y-2 text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground">About Us</a></li>
-                <li><a href="#" className="hover:text-foreground">Contact</a></li>
-                <li><a href="#" className="hover:text-foreground">Careers</a></li>
-                <li><a href="#" className="hover:text-foreground">Blog</a></li>
+              <h3 className="font-semibold mb-4">{t('home.footer.companyTitle')}</h3>
+              <ul className="space-y-2 text-gray-400">
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.footer.aboutUs')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.footer.contact')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.footer.careers')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('navigation.blog')}</a></li>
               </ul>
             </div>
             <div>
-              <h3 className="font-semibold mb-4">Support</h3>
-              <ul className="space-y-2 text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground">Help Center</a></li>
-                <li><a href="#" className="hover:text-foreground">Warranty</a></li>
-                <li><a href="#" className="hover:text-foreground">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-foreground">Terms of Service</a></li>
+              <h3 className="font-semibold mb-4">{t('home.footer.supportTitle')}</h3>
+              <ul className="space-y-2 text-gray-400">
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.footer.helpCenter')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.footer.warranty')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.footer.privacyPolicy')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('home.footer.termsOfService')}</a></li>
               </ul>
             </div>
           </div>
-          <div className="mt-8 pt-8 border-t text-center text-muted-foreground">
-            <p>&copy; 2024 FixitHub. All rights reserved.</p>
+          <div className="pt-8 border-t border-gray-800 text-center text-gray-400">
+            <p>{t('home.footer.copyright')}</p>
           </div>
         </div>
       </footer>

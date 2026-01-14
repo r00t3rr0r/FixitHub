@@ -4,20 +4,31 @@ const { requireUser } = require('./middleware/auth.js');
 
 const router = express.Router();
 
-// GET /api/addons - Get all add-on services
+// Description: Get all add-on services with pagination and sorting
+// Endpoint: GET /api/addons
+// Request: { category?: string, deviceType?: string, page?: number, limit?: number, sortBy?: string, sortOrder?: 'asc' | 'desc' }
+// Response: { success: boolean, addOns: AddOnService[], pagination: { total: number, page: number, limit: number, totalPages: number, hasNextPage: boolean, hasPrevPage: boolean } }
 router.get('/', async (req, res) => {
   try {
     console.log('GET /api/addons - Fetching add-on services with query:', req.query);
 
     const filters = {
       category: req.query.category,
-      deviceType: req.query.deviceType
+      deviceType: req.query.deviceType,
+      page: req.query.page,
+      limit: req.query.limit,
+      sortBy: req.query.sortBy,
+      sortOrder: req.query.sortOrder
     };
 
-    const addOnServices = await AddOnServiceService.list(filters);
+    const result = await AddOnServiceService.list(filters);
 
-    console.log(`GET /api/addons - Returning ${addOnServices.length} add-on services`);
-    res.json({ success: true, addOns: addOnServices });
+    console.log(`GET /api/addons - Returning ${result.addOnServices.length} add-on services with pagination`);
+    res.json({
+      success: true,
+      addOns: result.addOnServices,
+      pagination: result.pagination
+    });
   } catch (error) {
     console.error('GET /api/addons - Error:', error);
     res.status(500).json({

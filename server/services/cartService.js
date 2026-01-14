@@ -7,13 +7,16 @@ class CartService {
     console.log('CartService: Getting cart for user:', userId);
 
     try {
-      let cart = await Cart.findOne({ userId }).populate('items.productId');
+      let cart = await Cart.findOne({ userId })
+        .populate('items.productId')
+        .populate('repairOrders.services');
 
       if (!cart) {
         // Create empty cart if none exists
         cart = new Cart({
           userId,
           items: [],
+          repairOrders: [],
           subtotal: 0,
           tax: 0,
           total: 0
@@ -22,7 +25,7 @@ class CartService {
         console.log('CartService: Created new empty cart');
       }
 
-      console.log('CartService: Found cart with', cart.items.length, 'items');
+      console.log('CartService: Found cart with', cart.items.length, 'product items and', cart.repairOrders?.length || 0, 'repair orders');
       return cart;
     } catch (error) {
       console.error('CartService: Error getting cart:', error);
@@ -180,6 +183,7 @@ class CartService {
       }
 
       cart.items = [];
+      cart.repairOrders = [];
       cart.promoCode = undefined;
       cart.discountType = undefined;
       cart.discountValue = undefined;
@@ -190,6 +194,110 @@ class CartService {
       return cart;
     } catch (error) {
       console.error('CartService: Error clearing cart:', error);
+      throw error;
+    }
+  }
+
+  // Add repair order to cart
+  static async addRepairOrderToCart(userId, repairOrderData) {
+    console.log('CartService: Adding repair order to cart:', { userId, repairOrderData });
+
+    try {
+      const {
+        deviceType,
+        deviceBrand,
+        deviceModel,
+        services,
+        addOns,
+        customerNotes,
+        photos,
+        totalCost,
+        unlockPattern,
+        unlockCode,
+        noLock,
+        // Additional repair information
+        errorDescription,
+        waterDamage,
+        previousRepairAttempts,
+        previousRepairDetails,
+        itemCondition
+      } = repairOrderData;
+
+      // Validate required fields
+      if (!deviceType || !deviceBrand || !deviceModel || !services || services.length === 0 || !totalCost) {
+        throw new Error('Missing required repair order fields');
+      }
+
+      let cart = await this.getCart(userId);
+
+      // Add repair order to cart
+      const newRepairOrder = {
+        deviceType,
+        deviceBrand,
+        deviceModel,
+        services,
+        addOns: addOns || [],
+        customerNotes: customerNotes || '',
+        photos: photos || [],
+        totalCost,
+        unlockPattern: unlockPattern || [],
+        unlockCode: unlockCode || '',
+        noLock: noLock || false,
+        // Additional repair information
+        errorDescription: errorDescription || '',
+        waterDamage: waterDamage || '',
+        previousRepairAttempts: previousRepairAttempts || '',
+        previousRepairDetails: previousRepairDetails || '',
+        itemCondition: itemCondition || '',
+        addedAt: new Date()
+      };
+
+      if (!cart.repairOrders) {
+        cart.repairOrders = [];
+      }
+
+      cart.repairOrders.push(newRepairOrder);
+
+      await cart.save();
+      await cart.populate('repairOrders.services');
+      await cart.populate('items.productId');
+
+      console.log('CartService: Repair order added to cart successfully with unlock data and additional repair info:', {
+        unlockPattern,
+        unlockCode,
+        noLock,
+        errorDescription,
+        waterDamage,
+        previousRepairAttempts,
+        itemCondition
+      });
+      return cart;
+    } catch (error) {
+      console.error('CartService: Error adding repair order to cart:', error);
+      throw error;
+    }
+  }
+
+  // Remove repair order from cart
+  static async removeRepairOrderFromCart(userId, repairOrderId) {
+    console.log('CartService: Removing repair order from cart:', { userId, repairOrderId });
+
+    try {
+      const cart = await Cart.findOne({ userId })
+        .populate('items.productId')
+        .populate('repairOrders.services');
+
+      if (!cart) {
+        throw new Error('Cart not found');
+      }
+
+      cart.repairOrders = cart.repairOrders.filter(order => order._id.toString() !== repairOrderId);
+      await cart.save();
+
+      console.log('CartService: Repair order removed from cart successfully');
+      return cart;
+    } catch (error) {
+      console.error('CartService: Error removing repair order from cart:', error);
       throw error;
     }
   }

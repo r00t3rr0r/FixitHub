@@ -1,0 +1,692 @@
+const Booking = require('../models/Booking');
+const Order = require('../models/Order');
+const Product = require('../models/Product');
+const Service = require('../models/Service');
+const Invoice = require('../models/Invoice');
+const User = require('../models/User');
+const DHLReturnsService = require('./dhlReturnsService');
+const SystemConfiguration = require('../models/SystemConfiguration');
+
+class BookingService {
+  // Create a new booking from orders (consolidated from cart checkout)
+  static async create(bookingData) {
+    console.log('BookingService: Creating new booking with data:', bookingData);
+
+    try {
+      // Validate that at least one order exists
+      if (!bookingData.orderIds || bookingData.orderIds.length === 0) {
+        throw new Error('At least one order is required to create a booking');
+      }
+
+      // Calculate totals from orders
+      let totalCost = 0;
+      let subtotal = 0;
+      let tax = 0;
+      let discount = bookingData.discount || 0;
+      const items = [];
+      const repairOrderIds = [];
+      let shopProductOrderId = null;
+
+      // Fetch all orders and calculate totals
+      for (const orderId of bookingData.orderIds) {
+        const order = await Order.findById(orderId);
+        if (!order) {
+          console.warn('BookingService: Order not found:', orderId);
+          continue;
+        }
+
+        console.log('BookingService: Processing order:', order._id, 'Type:', order.deviceType);
+
+        // Determine order type and add to appropriate list
+        if (order.deviceType === 'Shop Products') {
+          shopProductOrderId = order._id;
+        } else {
+          repairOrderIds.push(order._id);
+        }
+
+        // Calculate costs
+        totalCost += order.totalCost;
+        subtotal += order.totalCost;
+
+        // Build booking item from order
+        let itemData = {
+          type: order.deviceType === 'Shop Products' ? 'product' : 'repair',
+          orderId: order._id,
+          orderNumber: order.orderNumber || order._id.toString().slice(-8).toUpperCase(),
+          status: order.status || 'pending',
+          progress: order.progress || 0,
+          cost: order.totalCost,
+        };
+
+        if (order.deviceType === 'Shop Products') {
+          // Shop product order
+          itemData.products = order.shopProducts.map(product => ({
+            name: product.productId?.name || 'Unknown Product',
+            quantity: product.quantity,
+            price: product.priceAtOrder,
+            totalPrice: product.priceAtOrder * product.quantity,
+          }));
+        } else {
+          // Repair order
+          itemData.device = `${order.deviceBrand} ${order.deviceModel}`;
+          itemData.services = order.services.map(service => ({
+            name: service.serviceId?.name || 'Unknown Service',
+            price: service.price,
+            estimatedTime: service.estimatedTime,
+          }));
+        }
+
+        items.push(itemData);
+      }
+
+      // Calculate tax (8% by default)
+      tax = subtotal * 0.08;
+
+      // Calculate final total
+      const finalTotal = subtotal + tax - discount;
+
+      // Create booking data
+      const booking = new Booking({
+        customerId: bookingData.customerId,
+        orderIds: bookingData.orderIds,
+        repairOrderIds: repairOrderIds,
+        shopProductOrderId: shopProductOrderId,
+        items: items,
+        status: bookingData.status || 'pending',
+        billingStatus: bookingData.billingStatus || 'unpaid',
+        paymentStatus: bookingData.paymentStatus || 'pending',
+        subtotal: subtotal,
+        tax: tax,
+        discount: discount,
+        totalCost: finalTotal,
+        appliedPromoCode: bookingData.appliedPromoCode || '',
+      });
+
+      const savedBooking = await booking.save();
+      console.log('BookingService: Booking created successfully with ID:', savedBooking._id, 'Number:', savedBooking.bookingNumber);
+
+      // Link booking to all orders
+      console.log('BookingService: Linking booking to orders');
+      for (const orderId of bookingData.orderIds) {
+        await Order.findByIdAndUpdate(
+          orderId,
+          { bookingId: savedBooking._id },
+          { new: true }
+        );
+      }
+
+      console.log('BookingService: Booking creation completed. Total orders:', savedBooking.orderIds.length);
+
+      // Automatically generate DHL return label if enabled in configuration
+      try {
+        console.log('BookingService: Checking if automatic return label generation is enabled');
+        const systemConfig = await SystemConfiguration.findOne({});
+
+        if (systemConfig && systemConfig.integrations) {
+          const dhlReturnsIntegration = systemConfig.integrations.find(
+            integration => integration.name === 'DHL Returns' &&
+                          integration.type === 'shipping' &&
+                          integration.isActive
+          );
+
+          if (dhlReturnsIntegration && dhlReturnsIntegration.settings?.autoGenerateLabel) {
+            console.log('BookingService: Automatic return label generation is enabled, creating return label...');
+
+            try {
+              const returnLabelResult = await DHLReturnsService.createReturnLabel(
+                savedBooking._id.toString(),
+                { labelType: dhlReturnsIntegration.settings.defaultLabelType || 'BOTH' }
+              );
+
+              console.log('BookingService: Return label created successfully:', returnLabelResult.returnId);
+
+              // Reload booking to get updated return information
+              const updatedBooking = await Booking.findById(savedBooking._id);
+              return updatedBooking;
+            } catch (labelError) {
+              console.error('BookingService: Error creating return label (non-fatal):', labelError.message);
+              console.error('BookingService: Booking created successfully but return label generation failed');
+              // Return original booking even if label generation fails
+              return savedBooking;
+            }
+          } else {
+            console.log('BookingService: Automatic return label generation is disabled or integration not found');
+          }
+        }
+      } catch (configError) {
+        console.error('BookingService: Error checking DHL Returns configuration (non-fatal):', configError.message);
+      }
+
+      return savedBooking;
+    } catch (error) {
+      console.error('BookingService: Error creating booking:', error);
+      throw error;
+    }
+  }
+
+  // Get booking by ID
+  static async getById(bookingId) {
+    console.log('BookingService: Getting booking:', bookingId);
+
+    try {
+      const booking = await Booking.findById(bookingId)
+        .populate('customerId', 'firstName lastName email phone avatar')
+        .populate('orderIds')
+        .populate('repairOrderIds')
+        .populate('shopProductOrderId');
+
+      if (!booking) {
+        console.log('BookingService: Booking not found:', bookingId);
+        return null;
+      }
+
+      console.log('BookingService: Booking retrieved successfully');
+      return booking;
+    } catch (error) {
+      console.error('BookingService: Error getting booking:', error);
+      throw error;
+    }
+  }
+
+  // Get total count of bookings matching filters
+  static async getBookingsCount(filters = {}) {
+    console.log('BookingService: Getting bookings count with filters:', filters);
+
+    try {
+      const query = {};
+
+      // Apply status filter if provided
+      if (filters.status) {
+        query.status = filters.status;
+      }
+
+      // Apply billing status filter if provided
+      if (filters.billingStatus) {
+        query.billingStatus = filters.billingStatus;
+      }
+
+      // Apply customer filter if provided
+      if (filters.customerId) {
+        query.customerId = filters.customerId;
+      }
+
+      const count = await Booking.countDocuments(query);
+      console.log('BookingService: Total bookings count:', count);
+
+      return count;
+    } catch (error) {
+      console.error('BookingService: Error getting bookings count:', error);
+      throw error;
+    }
+  }
+
+  // Get all bookings (admin view)
+  static async getAllBookings(filters = {}) {
+    console.log('BookingService: Getting all bookings with filters:', filters);
+
+    try {
+      const query = {};
+
+      // Apply status filter if provided
+      if (filters.status) {
+        query.status = filters.status;
+      }
+
+      // Apply billing status filter if provided
+      if (filters.billingStatus) {
+        query.billingStatus = filters.billingStatus;
+      }
+
+      const bookings = await Booking.find(query)
+        .populate('customerId', 'firstName lastName email phone avatar name')
+        .sort({ createdAt: -1 })
+        .limit(filters.limit || 50)
+        .skip(filters.skip || 0);
+
+      console.log('BookingService: Found', bookings.length, 'bookings on current page');
+
+      // Calculate real-time progress for all bookings from their associated orders
+      const bookingsWithProgress = await Promise.all(
+        bookings.map(async (booking) => {
+          try {
+            // Get all orders for this booking
+            const allOrders = await Order.find({ bookingId: booking._id });
+
+            if (allOrders.length === 0) {
+              return booking;
+            }
+
+            // Calculate overall progress from all orders
+            let totalProgress = 0;
+            allOrders.forEach(order => {
+              totalProgress += (order.progress || 0);
+            });
+            const averageProgress = Math.round(totalProgress / allOrders.length);
+
+            // Update booking document with calculated progress (in-memory only, not saved)
+            booking.overallProgress = averageProgress;
+
+            return booking;
+          } catch (error) {
+            console.error('BookingService: Error calculating progress for booking:', booking._id, error);
+            return booking;
+          }
+        })
+      );
+
+      console.log('BookingService: Calculated real-time progress for all bookings');
+      return bookingsWithProgress;
+    } catch (error) {
+      console.error('BookingService: Error getting all bookings:', error);
+      throw error;
+    }
+  }
+
+  // Get all bookings for a customer
+  static async getByCustomer(customerId, filters = {}) {
+    console.log('BookingService: Getting bookings for customer:', customerId);
+
+    try {
+      const query = { customerId };
+
+      // Apply status filter if provided
+      if (filters.status) {
+        query.status = filters.status;
+      }
+
+      // Apply billing status filter if provided
+      if (filters.billingStatus) {
+        query.billingStatus = filters.billingStatus;
+      }
+
+      const bookings = await Booking.find(query)
+        .sort({ createdAt: -1 })
+        .limit(filters.limit || 50)
+        .skip(filters.skip || 0);
+
+      console.log('BookingService: Found', bookings.length, 'bookings for customer on current page');
+      return bookings;
+    } catch (error) {
+      console.error('BookingService: Error getting bookings:', error);
+      throw error;
+    }
+  }
+
+  // Group existing orders into a new booking
+  static async groupOrders(orderIds, customerId) {
+    console.log('BookingService: Grouping orders:', orderIds, 'for customer:', customerId);
+
+    try {
+      // Validate all orders exist and belong to the customer
+      const orders = await Order.find({ _id: { $in: orderIds }, customerId: customerId });
+
+      if (orders.length !== orderIds.length) {
+        throw new Error('One or more orders not found or do not belong to this customer');
+      }
+
+      // Check if orders are already in a booking
+      const bookedOrders = orders.filter(o => o.bookingId);
+      if (bookedOrders.length > 0) {
+        console.warn('BookingService: Some orders already have bookings');
+        // Could optionally remove them from existing bookings first
+      }
+
+      // Create booking data
+      const bookingData = {
+        customerId: customerId,
+        orderIds: orderIds,
+        discount: 0,
+      };
+
+      return await this.create(bookingData);
+    } catch (error) {
+      console.error('BookingService: Error grouping orders:', error);
+      throw error;
+    }
+  }
+
+  // Update booking status
+  static async updateStatus(bookingId, newStatus, description = '') {
+    console.log('BookingService: Updating booking status:', bookingId, 'to:', newStatus);
+
+    try {
+      const booking = await Booking.findById(bookingId);
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      booking.status = newStatus;
+
+      // Add timeline entry
+      booking.timeline.push({
+        status: newStatus,
+        description: description || `Status updated to ${newStatus}`,
+        completedAt: new Date(),
+        staffId: 'system',
+        staffName: 'System',
+      });
+
+      const savedBooking = await booking.save();
+      console.log('BookingService: Booking status updated successfully');
+
+      return savedBooking;
+    } catch (error) {
+      console.error('BookingService: Error updating booking status:', error);
+      throw error;
+    }
+  }
+
+  // Update booking billing status
+  static async updateBillingStatus(bookingId, billingStatus, paymentStatus = null) {
+    console.log('BookingService: Updating billing status:', bookingId, 'to:', billingStatus);
+
+    try {
+      const booking = await Booking.findById(bookingId);
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      booking.billingStatus = billingStatus;
+      if (paymentStatus) {
+        booking.paymentStatus = paymentStatus;
+      }
+
+      // Add timeline entry
+      booking.timeline.push({
+        status: billingStatus,
+        description: `Billing status updated to ${billingStatus}`,
+        completedAt: new Date(),
+        staffId: 'system',
+        staffName: 'System',
+      });
+
+      const savedBooking = await booking.save();
+      console.log('BookingService: Billing status updated successfully');
+
+      return savedBooking;
+    } catch (error) {
+      console.error('BookingService: Error updating billing status:', error);
+      throw error;
+    }
+  }
+
+  // Get booking summary
+  static async getSummary(bookingId) {
+    console.log('BookingService: Getting booking summary:', bookingId);
+
+    try {
+      const booking = await Booking.findById(bookingId)
+        .populate('customerId', 'firstName lastName email phone')
+        .populate('orderIds');
+
+      if (!booking) {
+        console.log('BookingService: Booking not found');
+        return null;
+      }
+
+      const summary = {
+        bookingId: booking._id,
+        bookingNumber: booking.bookingNumber,
+        customer: {
+          name: `${booking.customerId.firstName} ${booking.customerId.lastName}`,
+          email: booking.customerId.email,
+          phone: booking.customerId.phone,
+        },
+        status: booking.status,
+        billingStatus: booking.billingStatus,
+        totalCost: booking.totalCost,
+        itemsCount: booking.items.length,
+        createdAt: booking.createdAt,
+        updatedAt: booking.updatedAt,
+      };
+
+      console.log('BookingService: Summary generated successfully');
+      return summary;
+    } catch (error) {
+      console.error('BookingService: Error getting summary:', error);
+      throw error;
+    }
+  }
+
+  // Cancel booking (soft delete/status change)
+  static async cancel(bookingId) {
+    console.log('BookingService: Cancelling booking:', bookingId);
+
+    try {
+      const booking = await Booking.findById(bookingId);
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      booking.status = 'cancelled';
+      booking.timeline.push({
+        status: 'cancelled',
+        description: 'Booking cancelled',
+        completedAt: new Date(),
+        staffId: 'system',
+        staffName: 'System',
+      });
+
+      const savedBooking = await booking.save();
+      console.log('BookingService: Booking cancelled successfully');
+
+      return savedBooking;
+    } catch (error) {
+      console.error('BookingService: Error cancelling booking:', error);
+      throw error;
+    }
+  }
+
+  // Get all orders associated with a booking with their current repair progress status
+  static async getBookingOrders(bookingId) {
+    console.log('BookingService: Getting orders for booking:', bookingId);
+
+    try {
+      const booking = await Booking.findById(bookingId);
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      // Fetch all orders with fresh data from database
+      const orders = await Order.find({ bookingId: bookingId })
+        .populate('services.serviceId', 'name')
+        .populate('shopProducts.productId', 'name');
+
+      console.log('BookingService: Found', orders.length, 'orders for booking');
+
+      // Transform orders to match expected structure with current repair progress status
+      const transformedOrders = orders.map(order => {
+        let orderData = {
+          orderId: order._id.toString(),
+          orderNumber: order.orderNumber || order._id.toString().slice(-8).toUpperCase(),
+          type: order.deviceType === 'Shop Products' ? 'product' : 'repair',
+          status: order.status || 'pending',
+          progress: order.progress || 0,
+          cost: order.totalCost,
+        };
+
+        if (order.deviceType === 'Shop Products') {
+          // Shop product order
+          orderData.products = order.shopProducts.map(product => ({
+            name: product.productId?.name || 'Unknown Product',
+            quantity: product.quantity,
+            price: product.priceAtOrder,
+            totalPrice: product.priceAtOrder * product.quantity,
+          }));
+          orderData.device = 'Shop Products';
+        } else {
+          // Repair order
+          orderData.device = `${order.deviceBrand} ${order.deviceModel}`;
+          orderData.services = order.services.map(service => ({
+            name: service.serviceId?.name || 'Unknown Service',
+            price: service.price,
+            estimatedTime: service.estimatedTime,
+            status: service.status || 'pending',
+          }));
+        }
+
+        return orderData;
+      });
+
+      console.log('BookingService: Transformed orders with current repair progress status');
+      return transformedOrders;
+    } catch (error) {
+      console.error('BookingService: Error getting booking orders:', error);
+      throw error;
+    }
+  }
+
+  // Preview invoice for a booking
+  static async previewInvoice(bookingId) {
+    console.log('BookingService: Previewing invoice for booking:', bookingId);
+
+    try {
+      const booking = await Booking.findById(bookingId)
+        .populate('customerId', 'firstName lastName email phone');
+
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      // Build invoice preview
+      const invoicePreview = {
+        customerName: `${booking.customerId.firstName} ${booking.customerId.lastName}`,
+        customerEmail: booking.customerId.email,
+        items: booking.items.map(item => ({
+          description: item.type === 'repair' ? item.device : 'Shop Products',
+          quantity: 1,
+          unitPrice: item.cost,
+          total: item.cost,
+        })),
+        subtotal: booking.subtotal || booking.totalCost,
+        tax: booking.tax || 0,
+        discount: booking.discount || 0,
+        total: booking.totalCost,
+      };
+
+      console.log('BookingService: Invoice preview generated successfully');
+      return invoicePreview;
+    } catch (error) {
+      console.error('BookingService: Error previewing invoice:', error);
+      throw error;
+    }
+  }
+
+  // Create invoice from booking
+  static async createInvoice(bookingId, invoiceData = {}) {
+    console.log('BookingService: Creating invoice for booking:', bookingId);
+
+    try {
+      const booking = await Booking.findById(bookingId)
+        .populate('customerId', 'firstName lastName email phone');
+
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      // Build invoice items from booking
+      const invoiceItems = booking.items.map(item => ({
+        description: item.type === 'repair' ? `${item.device} Repair` : 'Shop Products',
+        quantity: 1,
+        unitPrice: item.cost,
+        total: item.cost,
+      }));
+
+      // Create invoice
+      const invoice = new Invoice({
+        customerId: booking.customerId._id,
+        orderId: booking.orderIds[0], // Link to first order for reference
+        bookingId: booking._id,
+        items: invoiceItems,
+        subtotal: booking.subtotal || booking.totalCost,
+        tax: booking.tax || 0,
+        discount: booking.discount || 0,
+        total: booking.totalCost,
+        status: 'pending',
+        dueDate: invoiceData.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        notes: invoiceData.notes || '',
+      });
+
+      const savedInvoice = await invoice.save();
+      console.log('BookingService: Invoice created successfully:', savedInvoice._id);
+
+      // If sendImmediately is true, trigger notification (future implementation)
+      if (invoiceData.sendImmediately) {
+        console.log('BookingService: Sending invoice immediately to customer');
+        // TODO: Implement email notification
+      }
+
+      return savedInvoice;
+    } catch (error) {
+      console.error('BookingService: Error creating invoice:', error);
+      throw error;
+    }
+  }
+
+  // Get all invoices for a booking
+  static async getBookingInvoices(bookingId) {
+    console.log('BookingService: Getting invoices for booking:', bookingId);
+
+    try {
+      const invoices = await Invoice.find({ bookingId: bookingId })
+        .sort({ createdAt: -1 });
+
+      console.log('BookingService: Found', invoices.length, 'invoices for booking');
+      return invoices;
+    } catch (error) {
+      console.error('BookingService: Error getting invoices:', error);
+      throw error;
+    }
+  }
+
+  // Calculate and update booking progress and status based on orders
+  static async updateBookingProgressAndStatus(bookingId) {
+    console.log('BookingService: Updating booking progress and status:', bookingId);
+
+    try {
+      const booking = await Booking.findById(bookingId);
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      // Get all orders for this booking
+      const allOrders = await Order.find({ bookingId: bookingId });
+
+      if (allOrders.length === 0) {
+        console.log('BookingService: No orders found for booking');
+        return booking;
+      }
+
+      // Calculate overall progress from all orders
+      let totalProgress = 0;
+      let completedCount = 0;
+
+      allOrders.forEach(order => {
+        totalProgress += (order.progress || 0);
+        if (order.status === 'completed') {
+          completedCount++;
+        }
+      });
+
+      const averageProgress = Math.round(totalProgress / allOrders.length);
+      booking.overallProgress = averageProgress;
+
+      // Update booking status based on order statuses
+      if (completedCount === allOrders.length) {
+        booking.status = 'completed';
+      } else if (completedCount > 0 || averageProgress > 0) {
+        booking.status = 'processing';
+      }
+
+      const savedBooking = await booking.save();
+      console.log('BookingService: Booking progress and status updated:', averageProgress, '%', 'Status:', booking.status);
+
+      return savedBooking;
+    } catch (error) {
+      console.error('BookingService: Error updating booking progress:', error);
+      throw error;
+    }
+  }
+}
+
+module.exports = BookingService;

@@ -9,7 +9,8 @@ export interface Part {
   sku: string;
   barcode: string;
   manufacturer: string;
-  brand: string;
+  model: string;
+  date?: string | Date | null;
   compatibleDevices: string[];
   versions: PartVersion[];
   specifications: { [key: string]: string };
@@ -17,6 +18,18 @@ export interface Part {
   lastUpdated: string;
   lastOrderDate?: string;
   isActive: boolean;
+  // Additional fields for display
+  partNumber?: string;
+  name?: string;
+  description?: string;
+  supplier?: string;
+  cost?: number;
+  sellingPrice?: number;
+  minStockLevel?: number;
+  location?: string;
+  condition?: string;
+  warranty?: number;
+  images?: string[];
 }
 
 export interface PartVersion {
@@ -98,10 +111,11 @@ export interface Supplier {
 
 // Description: Get all parts inventory
 // Endpoint: GET /api/inventory
-// Request: { category?: string, brand?: string, lowStock?: boolean, search?: string, page?: number, limit?: number }
+// Request: { category?: string, model?: string, lowStock?: boolean, search?: string, page?: number, limit?: number, sortBy?: string, sortOrder?: 'asc' | 'desc' }
 // Response: { items: Part[], totalPages: number, currentPage: number, totalItems: number, totalValue: number, lowStockCount: number }
 export const getParts = async (filters: any = {}) => {
   try {
+    console.log('API: Fetching parts with filters:', filters);
     const response = await api.get('/api/inventory', { params: filters });
 
     // Transform inventory items to match Part interface
@@ -109,9 +123,15 @@ export const getParts = async (filters: any = {}) => {
       _id: item._id,
       partNumber: item.sku,
       name: item.itemName,
+      itemName: item.itemName,
       description: item.itemDescription,
+      itemDescription: item.itemDescription,
       category: item.category,
-      brand: item.brand,
+      manufacturer: item.manufacturer,
+      model: item.model,
+      sku: item.sku,
+      barcode: item.barcode,
+      date: item.date,
       compatibleDevices: item.compatibleDevices,
       supplier: item.versions[0]?.supplierInfo?.name || 'Unknown',
       cost: item.versions[0]?.unitCost || 0,
@@ -123,17 +143,26 @@ export const getParts = async (filters: any = {}) => {
       warranty: 90,
       images: item.versions[0]?.images || [],
       specifications: item.specifications || {},
+      dateAdded: item.dateAdded,
       lastUpdated: item.lastUpdated,
+      lastOrderDate: item.lastOrderDate,
+      isActive: item.isActive,
       // Preserve the original versions data with proper IDs
       versions: item.versions || []
     }));
 
+    console.log('API: Received', transformedParts.length, 'parts, page', response.data.currentPage, 'of', response.data.totalPages);
+
     return {
       parts: transformedParts,
+      totalPages: response.data.totalPages,
+      currentPage: response.data.currentPage,
+      totalItems: response.data.totalItems,
       totalValue: response.data.totalValue,
       lowStockCount: response.data.lowStockCount
     };
   } catch (error) {
+    console.error('API: Error fetching parts:', error);
     throw new Error(error?.response?.data?.error || error.message);
   }
 };

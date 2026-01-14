@@ -138,8 +138,8 @@ const timelineEntrySchema = new mongoose.Schema({
 const ePartOrderSchema = new mongoose.Schema({
   orderNumber: {
     type: String,
-    unique: true,
-    required: true
+    unique: true
+    // Note: Auto-generated in pre-save hook, so not marked as required
   },
   supplierId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -194,6 +194,48 @@ const ePartOrderSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  invoiceFile: {
+    filename: String,
+    originalName: String,
+    mimetype: String,
+    size: Number,
+    uploadedAt: Date,
+    uploadedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }
+  },
+  returnExchange: {
+    status: {
+      type: String,
+      enum: ['none', 'requested', 'approved', 'in_transit', 'completed', 'rejected'],
+      default: 'none'
+    },
+    type: {
+      type: String,
+      enum: ['return', 'exchange']
+    },
+    reason: String,
+    description: String,
+    requestedAt: Date,
+    requestedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    resolvedAt: Date,
+    resolvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    affectedItems: [{
+      itemId: {
+        type: mongoose.Schema.Types.ObjectId
+      },
+      quantity: Number,
+      issueDescription: String
+    }],
+    notes: String
+  },
   notes: {
     type: String
   },
@@ -223,7 +265,7 @@ ePartOrderSchema.pre('save', async function(next) {
 // Create indexes for faster queries
 supplierSchema.index({ name: 1, isActive: 1 });
 supplierSchema.index({ email: 1 });
-ePartOrderSchema.index({ orderNumber: 1 });
+// orderNumber already has unique: true index, no need for duplicate
 ePartOrderSchema.index({ supplierId: 1, status: 1 });
 ePartOrderSchema.index({ createdBy: 1 });
 ePartOrderSchema.index({ orderDate: 1 });

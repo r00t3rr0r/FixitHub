@@ -19,7 +19,7 @@ export interface NotificationTemplate {
 export interface Integration {
   _id: string;
   name: string;
-  type: 'payment' | 'email' | 'sms' | 'storage' | 'analytics';
+  type: 'payment' | 'email' | 'sms' | 'storage' | 'analytics' | 'shipping';
   provider: string;
   apiKey: string;
   apiSecret?: string;
@@ -91,75 +91,13 @@ export interface SystemConfig {
 // Request: {}
 // Response: { success: boolean, config: SystemConfig }
 export const getSystemConfig = async () => {
-  // Mocking the response
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        config: {
-          _id: '507f1f77bcf86cd799439011',
-          siteName: 'FixitHub',
-          adminEmail: 'admin@fixithub.com',
-          timezone: 'UTC',
-          maintenanceMode: false,
-          emailSettings: {
-            smtpHost: 'smtp.gmail.com',
-            smtpPort: 587,
-            smtpUsername: '',
-            smtpPassword: '',
-            enableNotifications: true
-          },
-          notificationSettings: {
-            orderNotifications: true,
-            paymentNotifications: true,
-            systemAlerts: true
-          },
-          workflowSettings: {
-            autoAssignment: false,
-            requireApproval: true,
-            defaultEstimatedTime: 60,
-            enableAutomation: true
-          },
-          securitySettings: {
-            passwordPolicy: {
-              minLength: 8,
-              requireUppercase: true,
-              requireLowercase: true,
-              requireNumbers: true,
-              requireSpecialChars: false
-            },
-            sessionTimeout: 3600,
-            maxLoginAttempts: 5,
-            lockoutDuration: 900,
-            enableTwoFactor: false
-          },
-          contentSettings: {
-            maxImageSize: 5242880,
-            maxFileSize: 10485760,
-            allowedImageTypes: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-            allowedFileTypes: ['pdf', 'doc', 'docx', 'txt'],
-            requireApproval: false,
-            autoOptimizeImages: true
-          },
-          cartSettings: {
-            sessionTimeout: 1800,
-            maxItems: 50,
-            enableGuestCheckout: true,
-            requirePhone: false,
-            enablePromoCode: true,
-            abandonmentEmailDelay: 3600
-          },
-          updatedAt: new Date().toISOString()
-        }
-      });
-    }, 500);
-  });
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.get('/api/system-config');
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.error || error.message);
-  // }
+  try {
+    const response = await api.get('/api/system-config');
+    return response.data;
+  } catch (error: any) {
+    console.error('Error getting system config:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Update system configuration
@@ -167,25 +105,13 @@ export const getSystemConfig = async () => {
 // Request: { config: SystemConfig }
 // Response: { success: boolean, config: SystemConfig, message: string }
 export const updateSystemConfig = async (config: SystemConfig) => {
-  // Mocking the response
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        config: {
-          ...config,
-          updatedAt: new Date().toISOString()
-        },
-        message: 'System configuration updated successfully'
-      });
-    }, 1000);
-  });
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.put('/api/system-config', config);
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.error || error.message);
-  // }
+  try {
+    const response = await api.put('/api/system-config', config);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error updating system config:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Get notification templates
@@ -193,36 +119,13 @@ export const updateSystemConfig = async (config: SystemConfig) => {
 // Request: {}
 // Response: { success: boolean, templates: NotificationTemplate[] }
 export const getNotificationTemplates = async () => {
-  // Mocking the response
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        templates: [
-          {
-            _id: '507f1f77bcf86cd799439012',
-            name: 'Order Confirmation',
-            type: 'email',
-            subject: 'Your order has been confirmed',
-            content: 'Hello {{customerName}}, your order {{orderNumber}} has been confirmed.',
-            variables: [
-              { name: 'customerName', description: 'Customer full name', required: true },
-              { name: 'orderNumber', description: 'Order number', required: true }
-            ],
-            isActive: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }
-        ]
-      });
-    }, 500);
-  });
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.get('/api/system-config/notification-templates');
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.error || error.message);
-  // }
+  try {
+    const response = await api.get('/api/system-config/notification-templates');
+    return response.data;
+  } catch (error: any) {
+    console.error('Error getting notification templates:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Create notification template
@@ -230,27 +133,13 @@ export const getNotificationTemplates = async () => {
 // Request: { template: Omit<NotificationTemplate, '_id'> }
 // Response: { success: boolean, template: NotificationTemplate, message: string }
 export const createNotificationTemplate = async (template: Omit<NotificationTemplate, '_id'>) => {
-  // Mocking the response
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        template: {
-          ...template,
-          _id: '507f1f77bcf86cd799439013',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        message: 'Notification template created successfully'
-      });
-    }, 1000);
-  });
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.post('/api/system-config/notification-templates', template);
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.error || error.message);
-  // }
+  try {
+    const response = await api.post('/api/system-config/notification-templates', template);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error creating notification template:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Update notification template
@@ -258,26 +147,13 @@ export const createNotificationTemplate = async (template: Omit<NotificationTemp
 // Request: { template: Omit<NotificationTemplate, '_id'> }
 // Response: { success: boolean, template: NotificationTemplate, message: string }
 export const updateNotificationTemplate = async (id: string, template: Omit<NotificationTemplate, '_id'>) => {
-  // Mocking the response
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        template: {
-          ...template,
-          _id: id,
-          updatedAt: new Date().toISOString()
-        },
-        message: 'Notification template updated successfully'
-      });
-    }, 1000);
-  });
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.put(`/api/system-config/notification-templates/${id}`, template);
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.error || error.message);
-  // }
+  try {
+    const response = await api.put(`/api/system-config/notification-templates/${id}`, template);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error updating notification template:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Delete notification template
@@ -285,21 +161,13 @@ export const updateNotificationTemplate = async (id: string, template: Omit<Noti
 // Request: {}
 // Response: { success: boolean, message: string }
 export const deleteNotificationTemplate = async (id: string) => {
-  // Mocking the response
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        message: 'Notification template deleted successfully'
-      });
-    }, 500);
-  });
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.delete(`/api/system-config/notification-templates/${id}`);
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.error || error.message);
-  // }
+  try {
+    const response = await api.delete(`/api/system-config/notification-templates/${id}`);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error deleting notification template:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Get integrations
@@ -307,34 +175,13 @@ export const deleteNotificationTemplate = async (id: string) => {
 // Request: {}
 // Response: { success: boolean, integrations: Integration[] }
 export const getIntegrations = async () => {
-  // Mocking the response
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        integrations: [
-          {
-            _id: '507f1f77bcf86cd799439014',
-            name: 'SendGrid Email',
-            type: 'email',
-            provider: 'SendGrid',
-            apiKey: 'sg.xxx',
-            endpoint: 'https://api.sendgrid.com/v3',
-            settings: {},
-            isActive: true,
-            testStatus: 'success',
-            lastTested: new Date().toISOString()
-          }
-        ]
-      });
-    }, 500);
-  });
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.get('/api/system-config/integrations');
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.error || error.message);
-  // }
+  try {
+    const response = await api.get('/api/system-config/integrations');
+    return response.data;
+  } catch (error: any) {
+    console.error('Error getting integrations:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Create integration
@@ -342,25 +189,13 @@ export const getIntegrations = async () => {
 // Request: { integration: Omit<Integration, '_id'> }
 // Response: { success: boolean, integration: Integration, message: string }
 export const createIntegration = async (integration: Omit<Integration, '_id'>) => {
-  // Mocking the response
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        integration: {
-          ...integration,
-          _id: '507f1f77bcf86cd799439015'
-        },
-        message: 'Integration created successfully'
-      });
-    }, 1000);
-  });
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.post('/api/system-config/integrations', integration);
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.error || error.message);
-  // }
+  try {
+    const response = await api.post('/api/system-config/integrations', integration);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error creating integration:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Update integration
@@ -368,25 +203,13 @@ export const createIntegration = async (integration: Omit<Integration, '_id'>) =
 // Request: { integration: Omit<Integration, '_id'> }
 // Response: { success: boolean, integration: Integration, message: string }
 export const updateIntegration = async (id: string, integration: Omit<Integration, '_id'>) => {
-  // Mocking the response
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        integration: {
-          ...integration,
-          _id: id
-        },
-        message: 'Integration updated successfully'
-      });
-    }, 1000);
-  });
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.put(`/api/system-config/integrations/${id}`, integration);
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.error || error.message);
-  // }
+  try {
+    const response = await api.put(`/api/system-config/integrations/${id}`, integration);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error updating integration:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Delete integration
@@ -394,21 +217,13 @@ export const updateIntegration = async (id: string, integration: Omit<Integratio
 // Request: {}
 // Response: { success: boolean, message: string }
 export const deleteIntegration = async (id: string) => {
-  // Mocking the response
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        message: 'Integration deleted successfully'
-      });
-    }, 500);
-  });
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.delete(`/api/system-config/integrations/${id}`);
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.error || error.message);
-  // }
+  try {
+    const response = await api.delete(`/api/system-config/integrations/${id}`);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error deleting integration:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Test integration
@@ -416,24 +231,13 @@ export const deleteIntegration = async (id: string) => {
 // Request: {}
 // Response: { success: boolean, result: { success: boolean, message: string } }
 export const testIntegration = async (id: string) => {
-  // Mocking the response
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        result: {
-          success: Math.random() > 0.3, // 70% success rate for demo
-          message: Math.random() > 0.3 ? 'Connection successful' : 'Email test failed: Invalid API key'
-        }
-      });
-    }, 2000);
-  });
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.post(`/api/system-config/integrations/${id}/test`);
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.error || error.message);
-  // }
+  try {
+    const response = await api.post(`/api/system-config/integrations/${id}/test`);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error testing integration:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Clear system cache
@@ -441,21 +245,13 @@ export const testIntegration = async (id: string) => {
 // Request: {}
 // Response: { success: boolean, message: string }
 export const clearCache = async () => {
-  // Mocking the response
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        message: 'System cache cleared successfully'
-      });
-    }, 2000);
-  });
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.post('/api/system-config/cache/clear');
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.error || error.message);
-  // }
+  try {
+    const response = await api.post('/api/system-config/cache/clear');
+    return response.data;
+  } catch (error: any) {
+    console.error('Error clearing cache:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Run security scan
@@ -463,26 +259,11 @@ export const clearCache = async () => {
 // Request: {}
 // Response: { success: boolean, message: string, results?: any }
 export const runSecurityScan = async () => {
-  // Mocking the response
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        message: 'Security scan completed successfully',
-        results: {
-          vulnerabilities: 0,
-          warnings: 2,
-          recommendations: 3,
-          lastScan: new Date().toISOString(),
-          status: 'passed'
-        }
-      });
-    }, 5000);
-  });
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.post('/api/system-config/security/scan');
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.error || error.message);
-  // }
+  try {
+    const response = await api.post('/api/system-config/security/scan');
+    return response.data;
+  } catch (error: any) {
+    console.error('Error running security scan:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };

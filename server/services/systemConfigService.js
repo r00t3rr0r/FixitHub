@@ -64,12 +64,13 @@ class SystemConfigService {
 
     try {
       const config = await this.getSystemConfiguration();
-      
+
       config.notificationTemplates.push(templateData);
+      config.markModified('notificationTemplates'); // Mark nested document as modified
       const savedConfig = await config.save();
-      
+
       const newTemplate = savedConfig.notificationTemplates[savedConfig.notificationTemplates.length - 1];
-      console.log('SystemConfigService: Notification template created successfully');
+      console.log('SystemConfigService: Notification template created successfully with ID:', newTemplate._id);
       return newTemplate;
     } catch (error) {
       console.error('SystemConfigService: Error creating notification template:', error);
@@ -84,15 +85,17 @@ class SystemConfigService {
     try {
       const config = await this.getSystemConfiguration();
       const template = config.notificationTemplates.id(templateId);
-      
+
       if (!template) {
+        console.error('SystemConfigService: Notification template not found:', templateId);
         throw new Error('Notification template not found');
       }
 
       Object.assign(template, updates);
+      config.markModified('notificationTemplates'); // Mark nested document as modified
       await config.save();
-      
-      console.log('SystemConfigService: Notification template updated successfully');
+
+      console.log('SystemConfigService: Notification template updated successfully:', template.name);
       return template;
     } catch (error) {
       console.error('SystemConfigService: Error updating notification template:', error);
@@ -107,8 +110,9 @@ class SystemConfigService {
     try {
       const config = await this.getSystemConfiguration();
       config.notificationTemplates.pull(templateId);
+      config.markModified('notificationTemplates'); // Mark nested document as modified
       await config.save();
-      
+
       console.log('SystemConfigService: Notification template deleted successfully');
       return { success: true, message: 'Notification template deleted successfully' };
     } catch (error) {
@@ -136,12 +140,13 @@ class SystemConfigService {
 
     try {
       const config = await this.getSystemConfiguration();
-      
+
       config.integrations.push(integrationData);
+      config.markModified('integrations'); // Mark nested document as modified
       const savedConfig = await config.save();
-      
+
       const newIntegration = savedConfig.integrations[savedConfig.integrations.length - 1];
-      console.log('SystemConfigService: Integration created successfully');
+      console.log('SystemConfigService: Integration created successfully with ID:', newIntegration._id);
       return newIntegration;
     } catch (error) {
       console.error('SystemConfigService: Error creating integration:', error);
@@ -156,15 +161,17 @@ class SystemConfigService {
     try {
       const config = await this.getSystemConfiguration();
       const integration = config.integrations.id(integrationId);
-      
+
       if (!integration) {
+        console.error('SystemConfigService: Integration not found:', integrationId);
         throw new Error('Integration not found');
       }
 
       Object.assign(integration, updates);
+      config.markModified('integrations'); // Mark nested document as modified
       await config.save();
-      
-      console.log('SystemConfigService: Integration updated successfully');
+
+      console.log('SystemConfigService: Integration updated successfully:', integration.name);
       return integration;
     } catch (error) {
       console.error('SystemConfigService: Error updating integration:', error);
@@ -179,8 +186,9 @@ class SystemConfigService {
     try {
       const config = await this.getSystemConfiguration();
       config.integrations.pull(integrationId);
+      config.markModified('integrations'); // Mark nested document as modified
       await config.save();
-      
+
       console.log('SystemConfigService: Integration deleted successfully');
       return { success: true, message: 'Integration deleted successfully' };
     } catch (error) {
@@ -196,10 +204,13 @@ class SystemConfigService {
     try {
       const config = await this.getSystemConfiguration();
       const integration = config.integrations.id(integrationId);
-      
+
       if (!integration) {
+        console.error('SystemConfigService: Integration not found:', integrationId);
         throw new Error('Integration not found');
       }
+
+      console.log('SystemConfigService: Testing integration type:', integration.type, 'provider:', integration.provider);
 
       let testResult = { success: false, message: 'Test not implemented for this integration type' };
 
@@ -214,6 +225,9 @@ class SystemConfigService {
         case 'sms':
           testResult = await this.testSMSIntegration(integration);
           break;
+        case 'shipping':
+          testResult = await this.testShippingIntegration(integration);
+          break;
         default:
           testResult = { success: true, message: 'Integration configuration saved successfully' };
       }
@@ -221,6 +235,7 @@ class SystemConfigService {
       // Update test status
       integration.lastTested = new Date();
       integration.testStatus = testResult.success ? 'success' : 'failed';
+      config.markModified('integrations'); // Mark nested document as modified
       await config.save();
 
       console.log('SystemConfigService: Integration test completed:', testResult);
@@ -278,10 +293,49 @@ class SystemConfigService {
 
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       return { success: true, message: 'SMS service connection successful' };
     } catch (error) {
       return { success: false, message: `SMS test failed: ${error.message}` };
+    }
+  }
+
+  // Test shipping integration
+  static async testShippingIntegration(integration) {
+    console.log('SystemConfigService: Testing shipping integration:', integration.provider);
+
+    try {
+      // Validate required fields
+      if (!integration.apiKey) {
+        console.error('SystemConfigService: Shipping integration missing API key');
+        return { success: false, message: 'API key is required for shipping integration' };
+      }
+
+      // Test based on provider
+      if (integration.provider === 'DHL') {
+        console.log('SystemConfigService: Testing DHL integration');
+
+        // Import DHL service for testing
+        const DHLService = require('./dhlService');
+
+        // Test DHL connection
+        const testResult = await DHLService.testConnection(
+          integration.apiKey,
+          integration.apiSecret || '',
+          integration.endpoint || 'https://express.api.dhl.com'
+        );
+
+        console.log('SystemConfigService: DHL test result:', testResult);
+        return testResult;
+      }
+
+      // Generic shipping integration test for other providers
+      console.log('SystemConfigService: Generic shipping integration test');
+      return { success: true, message: 'Shipping integration configuration saved successfully' };
+
+    } catch (error) {
+      console.error('SystemConfigService: Shipping integration test error:', error);
+      return { success: false, message: `Shipping test failed: ${error.message}` };
     }
   }
 

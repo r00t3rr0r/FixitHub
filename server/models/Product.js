@@ -78,6 +78,32 @@ const productSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // SEO Fields
+  searchKeywords: {
+    type: String,
+    trim: true,
+    maxlength: 500
+  },
+  seoName: {
+    type: String,
+    trim: true,
+    maxlength: 200
+  },
+  seoTitleTag: {
+    type: String,
+    trim: true,
+    maxlength: 60
+  },
+  seoMetaKeywords: {
+    type: String,
+    trim: true,
+    maxlength: 500
+  },
+  seoMetaDescription: {
+    type: String,
+    trim: true,
+    maxlength: 160
+  },
   createdAt: {
     type: Date,
     default: Date.now

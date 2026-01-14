@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -39,6 +41,8 @@ import {
 } from "@/components/ui/table"
 
 export function OrderManagement() {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
   const [orders, setOrders] = useState<AdminOrder[]>([])
   const [filteredOrders, setFilteredOrders] = useState<AdminOrder[]>([])
   const [loading, setLoading] = useState(true)
@@ -59,8 +63,8 @@ export function OrderManagement() {
       } catch (error) {
         console.error("Error fetching orders:", error)
         toast({
-          title: "Error",
-          description: "Failed to load orders",
+          title: t('common.error'),
+          description: t('orderManagement.failedToLoadOrders'),
           variant: "destructive"
         })
       } finally {
@@ -327,7 +331,14 @@ export function OrderManagement() {
                 </TableRow>
               ) : (
                 filteredOrders.map((order) => (
-                  <TableRow key={order._id}>
+                  <TableRow
+                    key={order._id}
+                    onClick={() => {
+                      console.log('Table row clicked, navigating to order details:', order._id);
+                      navigate(`/orders/${order._id}`);
+                    }}
+                    className="cursor-pointer hover:bg-muted/50"
+                  >
                     <TableCell>
                       <div>
                         <p className="font-medium">{order.orderNumber}</p>
@@ -361,7 +372,7 @@ export function OrderManagement() {
                         </p>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <Select
                         value={order.status}
                         onValueChange={(value) => handleStatusUpdate(order._id, value)}
@@ -413,12 +424,26 @@ export function OrderManagement() {
                         {new Date(order.createdAt).toLocaleDateString()}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="sm">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            console.log('Eye button clicked, navigating to order details:', order._id);
+                            navigate(`/orders/${order._id}`);
+                          }}
+                          title="View order details"
+                        >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Edit order"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
                       </div>

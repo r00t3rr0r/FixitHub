@@ -17,8 +17,13 @@ import {
   DollarSign,
   Star,
   TrendingUp,
-  X
+  X,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Upload
 } from "lucide-react"
+import ProductCSVImportDialog from "@/components/admin/ProductCSVImportDialog"
 import {
   Select,
   SelectContent,
@@ -57,11 +62,16 @@ import { Textarea } from "@/components/ui/textarea"
 
 export function WebShopManagement() {
   const [products, setProducts] = useState<Product[]>([])
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [stockFilter, setStockFilter] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalProducts, setTotalProducts] = useState(0)
+  const [sortBy, setSortBy] = useState("createdAt")
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showViewDialog, setShowViewDialog] = useState(false)
@@ -72,6 +82,7 @@ export function WebShopManagement() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [availableCategories, setAvailableCategories] = useState<string[]>([])
   const [availableBrands, setAvailableBrands] = useState<string[]>([])
+  const [showImportDialog, setShowImportDialog] = useState(false)
   const { toast } = useToast()
 
   // Form state for new product
@@ -91,7 +102,13 @@ export function WebShopManagement() {
       length: "",
       width: "",
       height: ""
-    }
+    },
+    // SEO Fields
+    searchKeywords: "",
+    seoName: "",
+    seoTitleTag: "",
+    seoMetaKeywords: "",
+    seoMetaDescription: ""
   })
 
   // Form state for editing product
@@ -111,22 +128,51 @@ export function WebShopManagement() {
       length: "",
       width: "",
       height: ""
-    }
+    },
+    // SEO Fields
+    searchKeywords: "",
+    seoName: "",
+    seoTitleTag: "",
+    seoMetaKeywords: "",
+    seoMetaDescription: ""
   })
 
+  // Fetch products with pagination, sorting, and filtering
   useEffect(() => {
     const fetchData = async () => {
       try {
-        console.log("Fetching products for admin...")
+        setLoading(true)
+        console.log("Fetching products with pagination, sorting, and filtering...", {
+          page: currentPage,
+          limit: itemsPerPage,
+          sortBy,
+          sortOrder,
+          search: searchTerm,
+          category: categoryFilter,
+          stockFilter
+        })
+
+        // Build filter object
+        const filters: any = {
+          page: currentPage,
+          limit: itemsPerPage,
+          sortBy,
+          sortOrder
+        }
+
+        if (searchTerm) filters.search = searchTerm
+        if (categoryFilter !== "all") filters.category = categoryFilter
+
         const [productsResponse, categoriesResponse, brandsResponse] = await Promise.all([
-          getProducts(),
+          getProducts(filters),
           getProductCategories(),
           getProductBrands()
         ])
 
         const productsData = productsResponse.products || []
         setProducts(productsData)
-        setFilteredProducts(productsData)
+        setTotalPages(productsResponse.totalPages || 1)
+        setTotalProducts(productsResponse.totalProducts || 0)
 
         const categories = categoriesResponse.categories?.map((cat: any) => cat.name) || []
         setAvailableCategories(categories)
@@ -134,6 +180,7 @@ export function WebShopManagement() {
         const brands = brandsResponse.brands?.map((brand: any) => brand.name) || []
         setAvailableBrands(brands)
 
+        console.log("Loaded", productsData.length, "products, total pages:", productsResponse.totalPages)
       } catch (error) {
         console.error("Error fetching data:", error)
         toast({
@@ -147,35 +194,7 @@ export function WebShopManagement() {
     }
 
     fetchData()
-  }, [toast])
-
-  useEffect(() => {
-    let filtered = products
-
-    if (searchTerm) {
-      filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.brand.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    }
-
-    if (categoryFilter !== "all") {
-      filtered = filtered.filter(product => product.category === categoryFilter)
-    }
-
-    if (stockFilter !== "all") {
-      if (stockFilter === "in-stock") {
-        filtered = filtered.filter(product => product.inStock && product.stockCount > 0)
-      } else if (stockFilter === "low-stock") {
-        filtered = filtered.filter(product => product.inStock && product.stockCount <= 5)
-      } else if (stockFilter === "out-of-stock") {
-        filtered = filtered.filter(product => !product.inStock || product.stockCount === 0)
-      }
-    }
-
-    setFilteredProducts(filtered)
-  }, [products, searchTerm, categoryFilter, stockFilter])
+  }, [currentPage, itemsPerPage, sortBy, sortOrder, searchTerm, categoryFilter, toast])
 
   const handleViewProduct = (product: Product) => {
     console.log("Viewing product:", product.name)
@@ -202,7 +221,13 @@ export function WebShopManagement() {
         length: product.dimensions?.length?.toString() || "",
         width: product.dimensions?.width?.toString() || "",
         height: product.dimensions?.height?.toString() || ""
-      }
+      },
+      // SEO Fields
+      searchKeywords: product.searchKeywords || "",
+      seoName: product.seoName || "",
+      seoTitleTag: product.seoTitleTag || "",
+      seoMetaKeywords: product.seoMetaKeywords || "",
+      seoMetaDescription: product.seoMetaDescription || ""
     })
     setShowEditDialog(true)
   }
@@ -246,7 +271,13 @@ export function WebShopManagement() {
           length: newProduct.dimensions.length ? parseFloat(newProduct.dimensions.length) : undefined,
           width: newProduct.dimensions.width ? parseFloat(newProduct.dimensions.width) : undefined,
           height: newProduct.dimensions.height ? parseFloat(newProduct.dimensions.height) : undefined
-        } : undefined
+        } : undefined,
+        // SEO Fields
+        searchKeywords: newProduct.searchKeywords || undefined,
+        seoName: newProduct.seoName || undefined,
+        seoTitleTag: newProduct.seoTitleTag || undefined,
+        seoMetaKeywords: newProduct.seoMetaKeywords || undefined,
+        seoMetaDescription: newProduct.seoMetaDescription || undefined
       }
 
       const response = await createProduct(productData)
@@ -257,8 +288,8 @@ export function WebShopManagement() {
           description: response.message || "Product created successfully"
         })
 
-        // Add the new product to the list
-        setProducts(prev => [response.product, ...prev])
+        // Reset to first page to see the new product
+        setCurrentPage(1)
 
         // Reset form and close dialog
         resetAddForm()
@@ -311,7 +342,13 @@ export function WebShopManagement() {
           length: editProduct.dimensions.length ? parseFloat(editProduct.dimensions.length) : undefined,
           width: editProduct.dimensions.width ? parseFloat(editProduct.dimensions.width) : undefined,
           height: editProduct.dimensions.height ? parseFloat(editProduct.dimensions.height) : undefined
-        } : undefined
+        } : undefined,
+        // SEO Fields
+        searchKeywords: editProduct.searchKeywords || undefined,
+        seoName: editProduct.seoName || undefined,
+        seoTitleTag: editProduct.seoTitleTag || undefined,
+        seoMetaKeywords: editProduct.seoMetaKeywords || undefined,
+        seoMetaDescription: editProduct.seoMetaDescription || undefined
       }
 
       const response = await updateProduct(selectedProduct._id, productData)
@@ -322,8 +359,8 @@ export function WebShopManagement() {
           description: response.message || "Product updated successfully"
         })
 
-        // Update the product in the list
-        setProducts(prev => prev.map(p => p._id === selectedProduct._id ? response.product : p))
+        // Refresh current page
+        setCurrentPage(currentPage)
 
         // Close dialog and reset
         setShowEditDialog(false)
@@ -357,8 +394,12 @@ export function WebShopManagement() {
           description: response.message || "Product deleted successfully"
         })
 
-        // Remove the product from the list
-        setProducts(prev => prev.filter(p => p._id !== selectedProduct._id))
+        // Refresh current page (or go back to first page if current is now empty)
+        if (products.length === 1 && currentPage > 1) {
+          setCurrentPage(currentPage - 1)
+        } else {
+          setCurrentPage(currentPage)
+        }
 
         // Close dialog and reset
         setShowDeleteDialog(false)
@@ -393,7 +434,13 @@ export function WebShopManagement() {
         length: "",
         width: "",
         height: ""
-      }
+      },
+      // SEO Fields
+      searchKeywords: "",
+      seoName: "",
+      seoTitleTag: "",
+      seoMetaKeywords: "",
+      seoMetaDescription: ""
     })
   }
 
@@ -414,7 +461,13 @@ export function WebShopManagement() {
         length: "",
         width: "",
         height: ""
-      }
+      },
+      // SEO Fields
+      searchKeywords: "",
+      seoName: "",
+      seoTitleTag: "",
+      seoMetaKeywords: "",
+      seoMetaDescription: ""
     })
   }
 
@@ -460,7 +513,38 @@ export function WebShopManagement() {
     }
   }
 
-  const categories = [...new Set(products.map(p => p.category))]
+  // Handle column header sorting
+  const handleColumnSort = (columnName: string) => {
+    console.log("Sorting by column:", columnName)
+    if (sortBy === columnName) {
+      // Toggle sort order if same column
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      // Change sort column and reset to ascending
+      setSortBy(columnName)
+      setSortOrder('asc')
+    }
+    // Reset to first page when sorting changes
+    setCurrentPage(1)
+  }
+
+  // Build sortable column header component
+  const SortableColumnHeader = ({ label, columnName }: { label: string; columnName: string }) => {
+    const isActive = sortBy === columnName
+    return (
+      <button
+        onClick={() => handleColumnSort(columnName)}
+        className="flex items-center gap-2 hover:text-primary transition-colors cursor-pointer"
+      >
+        {label}
+        <ArrowUpDown
+          className={`h-4 w-4 ${isActive ? 'text-primary font-bold' : 'text-muted-foreground'}`}
+        />
+      </button>
+    )
+  }
+
+  const categories = availableCategories
   const totalRevenue = products.reduce((sum, product) => sum + (product.price * (product.stockCount || 0)), 0)
   const lowStockProducts = products.filter(p => p.inStock && p.stockCount <= 5).length
   const outOfStockProducts = products.filter(p => !p.inStock || p.stockCount === 0).length
@@ -498,10 +582,16 @@ export function WebShopManagement() {
             Manage products, inventory, and shop settings
           </p>
         </div>
-        <Button onClick={() => setShowAddDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Product
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowImportDialog(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Import CSV
+          </Button>
+          <Button onClick={() => setShowAddDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Product
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -615,24 +705,24 @@ export function WebShopManagement() {
         <CardHeader>
           <CardTitle>Product Inventory</CardTitle>
           <CardDescription>
-            Manage your product catalog and inventory levels
+            Manage your product catalog and inventory levels ({totalProducts} total products)
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Stock</TableHead>
-                <TableHead>Rating</TableHead>
+                <TableHead><SortableColumnHeader label="Product" columnName="name" /></TableHead>
+                <TableHead><SortableColumnHeader label="Category" columnName="category" /></TableHead>
+                <TableHead><SortableColumnHeader label="Price" columnName="price" /></TableHead>
+                <TableHead><SortableColumnHeader label="Stock" columnName="stockCount" /></TableHead>
+                <TableHead><SortableColumnHeader label="Rating" columnName="rating" /></TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredProducts.length === 0 ? (
+              {products.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8">
                     <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
@@ -640,7 +730,7 @@ export function WebShopManagement() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredProducts.map((product) => (
+                products.map((product) => (
                   <TableRow key={product._id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -734,6 +824,52 @@ export function WebShopManagement() {
               )}
             </TableBody>
           </Table>
+
+          {/* Pagination Controls */}
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Items per page:</span>
+              <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+                setItemsPerPage(parseInt(value))
+                setCurrentPage(1)
+              }}>
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="text-sm text-muted-foreground">
+              Page {currentPage} of {totalPages} ({totalProducts} total products)
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1 || loading}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages || loading}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -1020,6 +1156,73 @@ export function WebShopManagement() {
                   }))}
                   placeholder="Height"
                 />
+              </div>
+            </div>
+
+            {/* SEO Fields */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold mb-4">SEO Optimization</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="searchKeywords">Search Keywords (Suchbegriffe)</Label>
+                  <Textarea
+                    id="searchKeywords"
+                    value={newProduct.searchKeywords}
+                    onChange={(e) => setNewProduct(prev => ({ ...prev, searchKeywords: e.target.value }))}
+                    placeholder="Enter search keywords for product discovery"
+                    rows={2}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 500 characters. Used for internal search functionality.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="seoName">SEO Name (Suchmaschinenname)</Label>
+                  <Input
+                    id="seoName"
+                    value={newProduct.seoName}
+                    onChange={(e) => setNewProduct(prev => ({ ...prev, seoName: e.target.value }))}
+                    placeholder="Name optimized for search engines"
+                    maxLength={200}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 200 characters. How the product appears in search results.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="seoTitleTag">SEO Title Tag</Label>
+                  <Input
+                    id="seoTitleTag"
+                    value={newProduct.seoTitleTag}
+                    onChange={(e) => setNewProduct(prev => ({ ...prev, seoTitleTag: e.target.value }))}
+                    placeholder="Page title (50-60 characters recommended)"
+                    maxLength={60}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 60 characters. Displays in browser tab and search results.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="seoMetaKeywords">SEO Meta Keywords</Label>
+                  <Textarea
+                    id="seoMetaKeywords"
+                    value={newProduct.seoMetaKeywords}
+                    onChange={(e) => setNewProduct(prev => ({ ...prev, seoMetaKeywords: e.target.value }))}
+                    placeholder="Comma-separated keywords for search engines"
+                    rows={2}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 500 characters. Comma-separated relevant keywords.</p>
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="seoMetaDescription">SEO Meta Description</Label>
+                  <Textarea
+                    id="seoMetaDescription"
+                    value={newProduct.seoMetaDescription}
+                    onChange={(e) => setNewProduct(prev => ({ ...prev, seoMetaDescription: e.target.value }))}
+                    placeholder="Meta description (150-160 characters recommended)"
+                    rows={2}
+                    maxLength={160}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 160 characters. Displays under title in search results.</p>
+                </div>
               </div>
             </div>
           </div>
@@ -1326,6 +1529,73 @@ export function WebShopManagement() {
                 />
               </div>
             </div>
+
+            {/* SEO Fields */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold mb-4">SEO Optimization</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-searchKeywords">Search Keywords (Suchbegriffe)</Label>
+                  <Textarea
+                    id="edit-searchKeywords"
+                    value={editProduct.searchKeywords}
+                    onChange={(e) => setEditProduct(prev => ({ ...prev, searchKeywords: e.target.value }))}
+                    placeholder="Enter search keywords for product discovery"
+                    rows={2}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 500 characters. Used for internal search functionality.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-seoName">SEO Name (Suchmaschinenname)</Label>
+                  <Input
+                    id="edit-seoName"
+                    value={editProduct.seoName}
+                    onChange={(e) => setEditProduct(prev => ({ ...prev, seoName: e.target.value }))}
+                    placeholder="Name optimized for search engines"
+                    maxLength={200}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 200 characters. How the product appears in search results.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-seoTitleTag">SEO Title Tag</Label>
+                  <Input
+                    id="edit-seoTitleTag"
+                    value={editProduct.seoTitleTag}
+                    onChange={(e) => setEditProduct(prev => ({ ...prev, seoTitleTag: e.target.value }))}
+                    placeholder="Page title (50-60 characters recommended)"
+                    maxLength={60}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 60 characters. Displays in browser tab and search results.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-seoMetaKeywords">SEO Meta Keywords</Label>
+                  <Textarea
+                    id="edit-seoMetaKeywords"
+                    value={editProduct.seoMetaKeywords}
+                    onChange={(e) => setEditProduct(prev => ({ ...prev, seoMetaKeywords: e.target.value }))}
+                    placeholder="Comma-separated keywords for search engines"
+                    rows={2}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 500 characters. Comma-separated relevant keywords.</p>
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="edit-seoMetaDescription">SEO Meta Description</Label>
+                  <Textarea
+                    id="edit-seoMetaDescription"
+                    value={editProduct.seoMetaDescription}
+                    onChange={(e) => setEditProduct(prev => ({ ...prev, seoMetaDescription: e.target.value }))}
+                    placeholder="Meta description (150-160 characters recommended)"
+                    rows={2}
+                    maxLength={160}
+                  />
+                  <p className="text-xs text-muted-foreground">Max 160 characters. Displays under title in search results.</p>
+                </div>
+              </div>
+            </div>
           </div>
 
           <DialogFooter>
@@ -1574,6 +1844,38 @@ export function WebShopManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* CSV Import Dialog */}
+      <ProductCSVImportDialog
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        onImportComplete={() => {
+          // Refresh the products list after import
+          setCurrentPage(1);
+          const fetchData = async () => {
+            try {
+              setLoading(true);
+              const filters: any = {
+                page: 1,
+                limit: itemsPerPage,
+                sortBy,
+                sortOrder
+              };
+              if (searchTerm) filters.search = searchTerm;
+              if (categoryFilter !== "all") filters.category = categoryFilter;
+              const productsResponse = await getProducts(filters);
+              setProducts(productsResponse.products || []);
+              setTotalPages(productsResponse.totalPages || 1);
+              setTotalProducts(productsResponse.totalProducts || 0);
+            } catch (error) {
+              console.error("Error refreshing products:", error);
+            } finally {
+              setLoading(false);
+            }
+          };
+          fetchData();
+        }}
+      />
     </div>
   )
 }

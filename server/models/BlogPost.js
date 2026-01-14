@@ -282,7 +282,7 @@ blogPostSchema.index({ status: 1, publishedAt: -1 });
 blogPostSchema.index({ author: 1 });
 blogPostSchema.index({ category: 1 });
 blogPostSchema.index({ tags: 1 });
-blogPostSchema.index({ slug: 1 });
+// slug already has unique: true index at line 78, no need for duplicate
 
 // Virtual for postCount in categories and tags
 blogCategorySchema.virtual('postCount', {

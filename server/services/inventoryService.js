@@ -63,8 +63,16 @@ class InventoryService {
       const limit = parseInt(filters.limit) || 20;
       const skip = (page - 1) * limit;
 
+      // Sorting
+      const sortBy = filters.sortBy || 'lastUpdated';
+      const sortOrder = filters.sortOrder === 'asc' ? 1 : -1;
+      const sortOptions = {};
+      sortOptions[sortBy] = sortOrder;
+
+      console.log('InventoryService: Sorting by', sortBy, 'in', sortOrder === 1 ? 'ascending' : 'descending', 'order');
+
       const items = await Inventory.find(query)
-        .sort({ lastUpdated: -1 })
+        .sort(sortOptions)
         .skip(skip)
         .limit(limit);
 

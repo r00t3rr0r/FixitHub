@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -26,6 +27,7 @@ import {
 } from "@/api/systemConfig"
 import { NotificationTemplateDialog } from "@/components/admin/NotificationTemplateDialog"
 import { IntegrationDialog } from "@/components/admin/IntegrationDialog"
+import { LanguageManagementTab } from "@/components/admin/LanguageManagementTab"
 import {
   Settings,
   Bell,
@@ -94,6 +96,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 
 export function SystemConfiguration() {
+  const { t } = useTranslation()
   const [config, setConfig] = useState<SystemConfig | null>(null)
   const [templates, setTemplates] = useState<NotificationTemplate[]>([])
   const [integrations, setIntegrations] = useState<Integration[]>([])
@@ -376,7 +379,7 @@ export function SystemConfiguration() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Settings className="h-8 w-8" />
-            System Configuration
+            {t('admin.systemConfig.title')}
           </h1>
           <p className="text-muted-foreground">
             Configure system settings, notifications, integrations, and security
@@ -399,12 +402,13 @@ export function SystemConfiguration() {
 
       <Tabs defaultValue="general" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="integrations">Integrations</TabsTrigger>
-          <TabsTrigger value="workflow">Workflow</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-          <TabsTrigger value="content">Content</TabsTrigger>
+          <TabsTrigger value="general">{t('admin.systemConfig.general')}</TabsTrigger>
+          <TabsTrigger value="notifications">{t('admin.systemConfig.notifications')}</TabsTrigger>
+          <TabsTrigger value="integrations">{t('admin.systemConfig.integrations')}</TabsTrigger>
+          <TabsTrigger value="workflow">{t('admin.systemConfig.workflows')}</TabsTrigger>
+          <TabsTrigger value="security">{t('admin.systemConfig.security')}</TabsTrigger>
+          <TabsTrigger value="content">{t('admin.systemConfig.content')}</TabsTrigger>
+          <TabsTrigger value="languages">{t('admin.systemConfig.languages')}</TabsTrigger>
         </TabsList>
 
         {/* General Tab */}
@@ -1965,6 +1969,24 @@ export function SystemConfiguration() {
                   </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Languages Tab */}
+        <TabsContent value="languages" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="h-5 w-5" />
+                Language Management
+              </CardTitle>
+              <CardDescription>
+                Manage system languages and translations
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LanguageManagementTab />
             </CardContent>
           </Card>
         </TabsContent>

@@ -46,9 +46,28 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
     isActive: true,
     firstName: "",
     lastName: "",
+    surname: "",
     department: "",
     specializations: [] as string[],
     skills: [] as Array<{ name: string; level: string }>,
+    // Customer-specific fields
+    customerNumber: "",
+    customerGroup: "",
+    salutation: "__none__",
+    title: "",
+    company: "",
+    country: "",
+    vatId: "",
+    addressAddition: "",
+    customerOrigin: "",
+    postId: "",
+    newsletter: false,
+    comment: "",
+    paymentMethod: "",
+    paymentTerms: "",
+    internalKey: "",
+    status: "active",
+    discount: 0,
     invoiceAddress: {
       street: "",
       city: "",
@@ -92,9 +111,28 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
         isActive: user.isActive !== false,
         firstName: (user as any).firstName || "",
         lastName: (user as any).lastName || "",
+        surname: (user as any).surname || "",
         department: (user as any).department || "",
         specializations: (user as any).specializations || [],
         skills: (user as any).skills || [],
+        // Customer-specific fields
+        customerNumber: (user as any).customerNumber || "",
+        customerGroup: (user as any).customerGroup || "",
+        salutation: (user as any).salutation || "__none__",
+        title: (user as any).title || "",
+        company: (user as any).company || "",
+        country: (user as any).country || "",
+        vatId: (user as any).vatId || "",
+        addressAddition: (user as any).addressAddition || "",
+        customerOrigin: (user as any).customerOrigin || "",
+        postId: (user as any).postId || "",
+        newsletter: (user as any).newsletter || false,
+        comment: (user as any).comment || "",
+        paymentMethod: (user as any).paymentMethod || "",
+        paymentTerms: (user as any).paymentTerms || "",
+        internalKey: (user as any).internalKey || "",
+        status: (user as any).status || "active",
+        discount: (user as any).discount || 0,
         invoiceAddress: (user as any).invoiceAddress || {
           street: "",
           city: "",
@@ -143,9 +181,28 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
         isActive: formData.isActive,
         firstName: formData.firstName,
         lastName: formData.lastName,
+        surname: formData.surname,
         department: formData.department,
         specializations: formData.specializations,
         skills: formData.skills,
+        // Customer-specific fields
+        customerNumber: formData.customerNumber,
+        customerGroup: formData.customerGroup,
+        salutation: formData.salutation === "__none__" ? "" : formData.salutation,
+        title: formData.title,
+        company: formData.company,
+        country: formData.country,
+        vatId: formData.vatId,
+        addressAddition: formData.addressAddition,
+        customerOrigin: formData.customerOrigin,
+        postId: formData.postId,
+        newsletter: formData.newsletter,
+        comment: formData.comment,
+        paymentMethod: formData.paymentMethod,
+        paymentTerms: formData.paymentTerms,
+        internalKey: formData.internalKey,
+        status: formData.status,
+        discount: formData.discount,
         invoiceAddress: formData.invoiceAddress,
         paymentAddress: formData.paymentAddress,
         preferences: formData.preferences
@@ -220,8 +277,9 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
 
         <form onSubmit={handleSubmit}>
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
+              <TabsTrigger value="customer">Customer Info</TabsTrigger>
               <TabsTrigger value="address">Address</TabsTrigger>
               <TabsTrigger value="staff">Staff Details</TabsTrigger>
               <TabsTrigger value="preferences">Preferences</TabsTrigger>
@@ -244,6 +302,15 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
                       id="lastName"
                       value={formData.lastName}
                       onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="surname">Surname</Label>
+                    <Input
+                      id="surname"
+                      value={formData.surname}
+                      onChange={(e) => setFormData({ ...formData, surname: e.target.value })}
+                      placeholder="Surname"
                     />
                   </div>
                 </div>
@@ -300,6 +367,180 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
                       />
                       <Label htmlFor="isActive">Active</Label>
                     </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="customer" className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="customerNumber">Customer Number</Label>
+                    <Input
+                      id="customerNumber"
+                      value={formData.customerNumber}
+                      onChange={(e) => setFormData({ ...formData, customerNumber: e.target.value })}
+                      placeholder="Customer number"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="customerGroup">Customer Group</Label>
+                    <Input
+                      id="customerGroup"
+                      value={formData.customerGroup}
+                      onChange={(e) => setFormData({ ...formData, customerGroup: e.target.value })}
+                      placeholder="Customer group"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="salutation">Salutation</Label>
+                    <Select
+                      value={formData.salutation}
+                      onValueChange={(value) => setFormData({ ...formData, salutation: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select salutation" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">None</SelectItem>
+                        <SelectItem value="Mr">Mr</SelectItem>
+                        <SelectItem value="Ms">Ms</SelectItem>
+                        <SelectItem value="Mrs">Mrs</SelectItem>
+                        <SelectItem value="Dr">Dr</SelectItem>
+                        <SelectItem value="Prof">Prof</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="title">Title</Label>
+                    <Input
+                      id="title"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      placeholder="Title/Position"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="company">Company</Label>
+                    <Input
+                      id="company"
+                      value={formData.company}
+                      onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                      placeholder="Company name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="vatId">Ust-ID (VAT ID)</Label>
+                    <Input
+                      id="vatId"
+                      value={formData.vatId}
+                      onChange={(e) => setFormData({ ...formData, vatId: e.target.value })}
+                      placeholder="Umsatzsteuer-ID / VAT Number"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="addressAddition">Address Addition</Label>
+                    <Input
+                      id="addressAddition"
+                      value={formData.addressAddition}
+                      onChange={(e) => setFormData({ ...formData, addressAddition: e.target.value })}
+                      placeholder="Address addition"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="customerOrigin">Customer Origin</Label>
+                    <Input
+                      id="customerOrigin"
+                      value={formData.customerOrigin}
+                      onChange={(e) => setFormData({ ...formData, customerOrigin: e.target.value })}
+                      placeholder="How customer found us"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="postId">Post ID</Label>
+                    <Input
+                      id="postId"
+                      value={formData.postId}
+                      onChange={(e) => setFormData({ ...formData, postId: e.target.value })}
+                      placeholder="Post ID"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="paymentMethod">Payment Method</Label>
+                    <Input
+                      id="paymentMethod"
+                      value={formData.paymentMethod}
+                      onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+                      placeholder="Preferred payment method"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="paymentTerms">Payment Terms</Label>
+                    <Input
+                      id="paymentTerms"
+                      value={formData.paymentTerms}
+                      onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
+                      placeholder="Payment terms (e.g., Net 30)"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="internalKey">Internal Key</Label>
+                    <Input
+                      id="internalKey"
+                      value={formData.internalKey}
+                      onChange={(e) => setFormData({ ...formData, internalKey: e.target.value })}
+                      placeholder="Internal reference key"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="discount">Discount (%)</Label>
+                    <Input
+                      id="discount"
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={formData.discount}
+                      onChange={(e) => setFormData({ ...formData, discount: parseInt(e.target.value) || 0 })}
+                      placeholder="Discount percentage"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Status</Label>
+                    <Select
+                      value={formData.status}
+                      onValueChange={(value) => setFormData({ ...formData, status: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                        <SelectItem value="suspended">Suspended</SelectItem>
+                        <SelectItem value="blocked">Blocked</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Newsletter Subscription</Label>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="newsletter"
+                        checked={formData.newsletter}
+                        onCheckedChange={(checked) =>
+                          setFormData({ ...formData, newsletter: checked as boolean })
+                        }
+                      />
+                      <Label htmlFor="newsletter">Subscribe to newsletter</Label>
+                    </div>
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="comment">Comment</Label>
+                    <Input
+                      id="comment"
+                      value={formData.comment}
+                      onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
+                      placeholder="Internal comment about this customer"
+                    />
                   </div>
                 </div>
               </TabsContent>

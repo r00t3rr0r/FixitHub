@@ -517,10 +517,51 @@ layoutTemplateSchema.index({ createdBy: 1 });
 abTestSchema.index({ status: 1 });
 abTestSchema.index({ createdBy: 1 });
 
+// Create standalone HomepageSection model for compatibility
+const homepageSectionStandaloneSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  type: {
+    type: String,
+    required: true,
+    enum: ['hero', 'about', 'services', 'blog', 'shop', 'testimonials', 'contact', 'cta', 'gallery', 'banner', 'features', 'stats', 'footer', 'html']
+  },
+  title: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  content: {
+    type: mongoose.Schema.Types.Mixed,
+    required: true
+  },
+  settings: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  order: {
+    type: Number,
+    required: true,
+    default: 0
+  }
+}, {
+  timestamps: true,
+  versionKey: false
+});
+
 const LayoutTemplate = mongoose.model('LayoutTemplate', layoutTemplateSchema);
 const ABTest = mongoose.model('ABTest', abTestSchema);
+const HomepageSection = mongoose.model('HomepageSection', homepageSectionStandaloneSchema);
 
 module.exports = {
   LayoutTemplate,
-  ABTest
+  ABTest,
+  HomepageSection
 };
