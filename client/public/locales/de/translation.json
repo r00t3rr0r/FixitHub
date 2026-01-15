@@ -1353,6 +1353,7 @@
     "vatId": "USt-IdNr.",
     "billingAddress": "Rechnungsadresse",
     "shippingAddress": "Lieferadresse",
+    "billingIsShippingAddress": "Rechnungsadresse ist identisch mit Lieferadresse",
     "street": "Straße",
     "city": "Stadt",
     "state": "Bundesland",

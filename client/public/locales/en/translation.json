@@ -1358,6 +1358,7 @@
     "vatId": "VAT ID",
     "billingAddress": "Billing Address",
     "shippingAddress": "Shipping Address",
+    "billingIsShippingAddress": "Billing address is the same as shipping address",
     "street": "Street Address",
     "city": "City",
     "state": "State/Province",

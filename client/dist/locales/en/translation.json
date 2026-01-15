@@ -1330,7 +1330,9 @@
     "promoAppliedDesc": "Your discount has been applied to the cart",
     "failedToLoad": "Failed to load cart",
     "failedToUpdate": "Failed to update cart",
-    "failedToApplyPromo": "Failed to apply promo code"
+    "failedToApplyPromo": "Failed to apply promo code",
+    "multipleOrders": "Multiple Orders",
+    "orderQuantityBadge": "{{quantity}}x Orders"
   },
   "checkout": {
     "authenticationRequired": "Authentication Required",
@@ -1356,6 +1358,7 @@
     "vatId": "VAT ID",
     "billingAddress": "Billing Address",
     "shippingAddress": "Shipping Address",
+    "billingIsShippingAddress": "Billing address is the same as shipping address",
     "street": "Street Address",
     "city": "City",
     "state": "State/Province",
@@ -1541,7 +1544,32 @@
     "updateDevice": "Update Device",
     "deviceUpdatedSuccessfully": "Device information updated successfully",
     "customerSince": "Customer since",
-    "more": "more"
+    "more": "more",
+    "repairInfo": {
+      "title": "Additional Repair Information",
+      "description": "Information collected during order creation to help with diagnosis and repair",
+      "errorDescriptionLabel": "Error Description",
+      "noInformationProvided": "No error description provided",
+      "waterDamageLabel": "Water Damage",
+      "waterDamage": {
+        "yes": "Yes",
+        "no": "No",
+        "dont-know": "Don't Know"
+      },
+      "notSpecified": "Not specified",
+      "previousRepairLabel": "Previous Repair Attempts",
+      "previousRepair": {
+        "yes": "Yes",
+        "no": "No",
+        "dont-know": "Don't Know"
+      },
+      "itemConditionLabel": "Item Condition",
+      "itemCondition": {
+        "original": "Original",
+        "refurbished": "Refurbished"
+      },
+      "infoNotice": "This information helps our technicians better diagnose and repair your device. It will be reviewed before starting the repair process."
+    }
   },
   "deviceInspection": {
     "deviceInspection": "Device Inspection",
@@ -1583,7 +1611,10 @@
     "continueInspection": "Continue Inspection",
     "inProgress": "In Progress",
     "continueWhereYouLeftOff": "Continue where you left off",
-    "loadingInspectionData": "Loading inspection data..."
+    "loadingInspectionData": "Loading inspection data...",
+    "inspectionBeingPerformed": "Inspection is being performed by our technicians",
+    "currentStep": "Current Step",
+    "inspectionWillBeCompletedShortly": "The inspection will be completed shortly. You'll be notified when the report is ready."
   },
   "communicationPanel": {
     "communicationAndFeedback": "Communication & Feedback",
@@ -1619,5 +1650,163 @@
     "successFeedbackSent": "Feedback request sent to customer",
     "successActionSent": "Quick action sent to customer",
     "successResponseRecorded": "Your response has been recorded"
+  },
+  "newOrder": {
+    "title": "Create New Repair Order",
+    "subtitle": "Follow the guided steps to submit your device for professional repair",
+    "stepOf": "Step {{current}} of {{total}}",
+    "step1": "Device",
+    "step2": "Services",
+    "step3": "Details",
+    "step4": "Review",
+    "step5": "Cart",
+    "deviceSelection": {
+      "title": "Select Your Device",
+      "subtitle": "Search for your device to get started on your repair journey",
+      "searchLabel": "Search Device",
+      "searchPlaceholder": "Search by device name, brand, or model (e.g., iPhone 13, Samsung Galaxy)",
+      "searchMinChars": "Type at least 2 characters to search",
+      "searching": "Searching devices...",
+      "noResults": "No devices found",
+      "deviceSelected": "Device Selected",
+      "continueToServices": "Continue to Services",
+      "preSelectedSuccess": "{{device}} has been pre-selected for your repair order.",
+      "loadError": "Failed to load form data"
+    },
+    "serviceSelection": {
+      "title": "Select Repair Services",
+      "subtitle": "Choose the services you need • {{count}} selected",
+      "filterLabel": "Filter by Category",
+      "allServices": "All Services",
+      "popular": "Popular",
+      "noServicesInCategory": "No services available in this category",
+      "continueButton": "Continue ({{count}} services)",
+      "previous": "Previous",
+      "loadManufacturersError": "Failed to load manufacturers",
+      "loadModelsError": "Failed to load models"
+    },
+    "detailsStep": {
+      "orderSummaryTitle": "Order Summary",
+      "orderSummarySubtitle": "Review your device and service details",
+      "customerInfo": "Customer Information",
+      "deviceDetails": "Device Details",
+      "device": "Device",
+      "brand": "Brand",
+      "model": "Model",
+      "noDeviceSelected": "No device selected",
+      "selectedServices": "Selected Services ({{count}})",
+      "relatedInfo": "Related Information",
+      "guide": "{{service}} Guide",
+      "articlesAvailable": "{{count}} article(s) available",
+      "quantityTitle": "Order Quantity",
+      "quantitySubtitle": "How many identical devices need this repair?",
+      "quantityLabel": "Quantity:",
+      "quantityNote": "💡 <strong>Note:</strong> Each device will be created as a separate order. This is useful when you have multiple identical devices requiring the same repairs (e.g., company phone fleet, inventory stock).",
+      "quantityOrders": "📦 You will create <strong>{{quantity}}</strong> separate repair orders",
+      "quantityTotalCost": "Total cost: ${{total}}",
+      "unlockTitle": "Device Lock Information",
+      "unlockSubtitle": "Provide your device lock details for seamless repair service",
+      "addOnsTitle": "Add-On Services",
+      "addOnsSubtitle": "Enhance your repair with premium services • {{count}} selected",
+      "noAddOnsAvailable": "No add-on services available",
+      "express": "Express",
+      "selectedAddOns": "Selected Add-ons:",
+      "addOnsTotal": "Add-ons Total:",
+      "reviewAndSubmit": "Review & Submit"
+    },
+    "repairInfo": {
+      "title": "Additional Repair Information",
+      "subtitle": "Please provide important details about your device to help us better assess and repair it",
+      "errorDescriptionLabel": "Error Description",
+      "errorDescriptionPlaceholder": "Describe the issue you are experiencing with the item (e.g., screen not turning on, battery draining fast, broken camera...)",
+      "errorDescriptionHint": "Be as detailed as possible to help our technicians diagnose the issue",
+      "errorDescriptionRequired": "Please describe the error you are experiencing",
+      "waterDamageLabel": "Water Damage",
+      "waterDamageRequired": "Please indicate if there is any water damage",
+      "waterDamage": {
+        "yes": "Yes",
+        "no": "No",
+        "dont-know": "Don't Know"
+      },
+      "previousRepairLabel": "Previous Repair Attempts",
+      "previousRepairRequired": "Please indicate if there were any previous repair attempts",
+      "previousRepair": {
+        "yes": "Yes",
+        "no": "No",
+        "dont-know": "Don't Know"
+      },
+      "previousRepairDetailsLabel": "Please provide details about previous repair attempts",
+      "previousRepairDetailsPlaceholder": "When and where was it repaired? What was done? What was the outcome?",
+      "previousRepairDetailsHint": "This information helps us understand the repair history and avoid repeating unsuccessful fixes",
+      "itemConditionLabel": "Item Condition",
+      "itemConditionRequired": "Please select the item condition",
+      "itemCondition": {
+        "original": "Original",
+        "refurbished": "Refurbished"
+      },
+      "infoNotice": "All information provided will be stored in the order details and displayed on the order details page. All values are connected to the translation system to ensure consistency across different languages."
+    },
+    "reviewStep": {
+      "title": "Final Details & Submit",
+      "subtitle": "Add photos and notes, then review your complete repair order",
+      "photosLabel": "Device Photos (Optional)",
+      "photosHint": "Upload photos to help us assess the damage better",
+      "notesLabel": "Additional Notes (Optional)",
+      "notesPlaceholder": "Describe the issue, when it started, or any other relevant information...",
+      "quantityInfo": "Order Quantity Information",
+      "multipleOrders": "You are creating {{quantity}} identical repair orders",
+      "totalForAll": "Total for all orders: ${{total}}",
+      "unlockInfoTitle": "Device Lock Information",
+      "deviceNoLock": "Device has no lock",
+      "patternLock": "Pattern lock:",
+      "unlockCodeProvided": "Unlock code provided (kept confidential)",
+      "selectedAddOns": "Selected Add-ons",
+      "orderSummary": "Order Summary",
+      "device": "Device",
+      "notSelected": "Not selected",
+      "services": "Services:",
+      "addOns": "Add-ons:",
+      "totalCost": "Total Cost:",
+      "costPerOrder": "Cost per order:",
+      "totalForAllOrders": "Total for All Orders:",
+      "termsAgreement": "🔒 By submitting this order, you agree to our repair terms and conditions. Your device lock information will be kept confidential and used only by our authorized technicians. You will receive a confirmation email with your order number and expected repair timeline.",
+      "reviewInCart": "Review in Cart",
+      "previous": "Previous"
+    },
+    "cartStep": {
+      "title": "Add to Cart",
+      "subtitle": "Review and add your repair order to your shopping cart",
+      "orderDetails": "Order Details",
+      "device": "Device",
+      "notSelected": "Not selected",
+      "services": "Services:",
+      "addOns": "Add-ons:",
+      "totalCost": "Total Cost:",
+      "cartBenefitsTitle": "Shopping Cart Benefits",
+      "cartBenefitsDesc": "Your repair order will be added to your shopping cart. You can review, modify, apply discount codes, and manage your orders before proceeding to checkout. This gives you flexibility to add multiple services, compare pricing, and manage your repairs all in one place.",
+      "benefit1Title": "Review & Modify",
+      "benefit1Desc": "Make changes before checkout",
+      "benefit2Title": "Apply Discount Codes",
+      "benefit2Desc": "Save with promo codes",
+      "benefit3Title": "Multiple Orders",
+      "benefit3Desc": "Add multiple repairs to cart",
+      "benefit4Title": "Secure Checkout",
+      "benefit4Desc": "Safe payment processing",
+      "previous": "Previous",
+      "continueShopping": "Continue Shopping",
+      "addToCart": "Add to Cart & Review",
+      "addingToCart": "Adding to Cart...",
+      "orderReady": "Order ready!",
+      "orderReadyDesc": "Add your repair order to the cart and continue shopping"
+    },
+    "errors": {
+      "searchDevices": "Failed to search devices",
+      "createOrder": "Failed to create order",
+      "addToCart": "Failed to add order to cart"
+    },
+    "success": {
+      "orderCreated": "Your repair order has been created successfully",
+      "addedToCart": "Your repair order has been added to your cart."
+    }
   }
 }
