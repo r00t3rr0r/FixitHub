@@ -174,9 +174,6 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
         isOpen={orderManagementOpen}
         onToggle={() => setOrderManagementOpen(!orderManagementOpen)}
       >
-        <NavItem to="/admin/orders" icon={Package}>
-          {t('navigation.orders')}
-        </NavItem>
         <NavItem to="/admin/bookings" icon={BookMarked}>
           {t('admin.menu.bookings')}
         </NavItem>
