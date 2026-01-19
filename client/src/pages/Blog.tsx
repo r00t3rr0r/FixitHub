@@ -438,24 +438,27 @@ export function Blog() {
                   icon: BookOpen,
                   title: t('blogPage.benefit1Title') || "Expert Insights",
                   description: t('blogPage.benefit1Desc') || "Professional device repair tips",
-                  color: "from-purple-500 to-purple-600"
+                  color: "from-yellow-500 to-yellow-600",
+                  bgColor: "bg-yellow-50"
                 },
                 {
                   icon: Sparkles,
                   title: t('blogPage.benefit2Title') || "Latest Updates",
                   description: t('blogPage.benefit2Desc') || "Stay informed about tech trends",
-                  color: "from-yellow-500 to-yellow-600"
+                  color: "from-yellow-500 to-yellow-600",
+                  bgColor: "bg-yellow-50"
                 },
                 {
                   icon: TrendingUp,
                   title: t('blogPage.benefit3Title') || "Trending Topics",
                   description: t('blogPage.benefit3Desc') || "Popular repair guides & news",
-                  color: "from-green-500 to-green-600"
+                  color: "from-green-500 to-green-600",
+                  bgColor: "bg-green-50"
                 }
               ].map((benefit, index) => (
                 <Card
                   key={index}
-                  className="border-0 shadow-md bg-white/96 backdrop-blur-md hover:shadow-yellow-500/20 transition-all duration-300 hover:-translate-y-1 overflow-hidden group"
+                  className={`border-0 shadow-md ${benefit.bgColor} hover:shadow-yellow-500/20 transition-all duration-300 hover:-translate-y-1 overflow-hidden group`}
                   style={{
                     animation: `fadeInUp 0.5s ease-out ${index * 0.1}s both`
                   }}
