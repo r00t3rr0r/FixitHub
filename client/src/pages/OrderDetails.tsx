@@ -1246,16 +1246,16 @@ export function OrderDetails() {
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto space-y-4">
         <Card className="animate-pulse">
           <CardHeader>
-            <div className="h-8 bg-muted rounded w-1/2"></div>
-            <div className="h-4 bg-muted rounded w-1/3"></div>
+            <div className="h-7 bg-muted rounded w-1/2"></div>
+            <div className="h-3 bg-muted rounded w-1/3 mt-2"></div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="h-32 bg-muted rounded"></div>
-              <div className="h-20 bg-muted rounded"></div>
+            <div className="space-y-3">
+              <div className="h-24 bg-muted rounded"></div>
+              <div className="h-16 bg-muted rounded"></div>
             </div>
           </CardContent>
         </Card>
@@ -1267,16 +1267,16 @@ export function OrderDetails() {
     return (
       <div className="max-w-6xl mx-auto">
         <Card>
-          <CardContent className="text-center py-12">
-            <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <h3 className="text-lg font-semibold mb-2">Order not found</h3>
-            <p className="text-muted-foreground mb-4">
+          <CardContent className="text-center py-8">
+            <Package className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+            <h3 className="text-base font-semibold mb-1">Order not found</h3>
+            <p className="text-xs text-muted-foreground mb-3">
               The order you're looking for doesn't exist
             </p>
-            <Button asChild>
-              <Link to="/orders">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                {t('orderDetails.backToOrders')}
+            <Button asChild size="sm">
+              <Link to="/bookings">
+                <ArrowLeft className="h-3 w-3 mr-1" />
+                {t('orderDetails.backToBookings')}
               </Link>
             </Button>
           </CardContent>
@@ -1286,40 +1286,40 @@ export function OrderDetails() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-4">
       {/* Back Button */}
-      <Button variant="ghost" asChild>
-        <Link to="/orders">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          {t('orderDetails.backToOrders')}
+      <Button variant="ghost" size="sm" asChild>
+        <Link to="/bookings">
+          <ArrowLeft className="h-3 w-3 mr-1" />
+          {t('orderDetails.backToBookings')}
         </Link>
       </Button>
 
       {/* Order Header */}
-      <Card className="bg-gradient-to-r from-primary/10 to-secondary/10">
-        <CardHeader>
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <div>
-              <CardTitle className="text-2xl flex items-center gap-2">
-                <Package className="h-6 w-6" />
+      <Card className="bg-gradient-to-r from-primary/10 to-secondary/10 shadow-md">
+        <CardHeader className="pb-3 pt-4 px-4">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
+            <div className="space-y-1">
+              <CardTitle className="text-xl flex items-center gap-2">
+                <Package className="h-5 w-5" />
                 Order #{order.orderNumber || order._id.slice(-6)}
               </CardTitle>
-              <CardDescription className="text-base mt-2">
-                {order.deviceBrand} {order.deviceModel} • Created {new Date(order.createdAt).toLocaleDateString()}
+              <CardDescription className="text-xs text-foreground/60">
+                {order.deviceBrand} {order.deviceModel} • {new Date(order.createdAt).toLocaleDateString()}
               </CardDescription>
             </div>
-            <div className="flex items-center gap-4">
-              <Badge className={`${getStatusColor(order.status)} text-lg px-4 py-2`}>
+            <div className="flex items-center gap-2">
+              <Badge className={`${getStatusColor(order.status)} text-xs px-3 py-1`}>
                 {getStatusIcon(order.status)}
-                <span className="ml-2">{order.status.replace('-', ' ')}</span>
+                <span className="ml-1">{order.status.replace('-', ' ')}</span>
               </Badge>
-              <Badge className={`${getPaymentStatusColor(order.paymentStatus)} text-sm px-3 py-1`}>
+              <Badge className={`${getPaymentStatusColor(order.paymentStatus)} text-xs px-2 py-1`}>
                 <CreditCard className="h-3 w-3 mr-1" />
                 {order.paymentStatus}
               </Badge>
               <div className="text-right">
-                <p className="text-2xl font-bold text-primary">${order.totalCost}</p>
-                <p className="text-sm text-muted-foreground">Total Cost</p>
+                <p className="text-lg font-bold text-primary">${order.totalCost}</p>
+                <p className="text-xs text-muted-foreground">Total</p>
               </div>
             </div>
           </div>
@@ -1334,46 +1334,45 @@ export function OrderDetails() {
         />
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3">
         {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4">
           {/* Additional Repair Information - Always visible */}
           <Card className="border-2 border-amber-300 dark:border-amber-700">
-            <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40">
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 pb-3 pt-3 px-4">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                 Additional Repair Information
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs mt-1">
                 {t('orderDetails.repairInfo.description') || 'Customer-provided information about the device and repair requirements'}
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
+            <CardContent className="pt-3 space-y-3">
                 {/* Error Description */}
                 {order.errorDescription && order.errorDescription.trim() ? (
-                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
                       <div className="flex-1">
-                        <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100 mb-2">
+                        <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100 mb-1">
                           {t('orderDetails.repairInfo.errorDescriptionLabel') || 'Error Description'}
                         </h4>
-                        <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                        <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                           {order.errorDescription}
                         </p>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-4 border border-gray-200 dark:border-gray-800">
-                    <div className="flex items-center gap-3">
-                      <AlertCircle className="h-5 w-5 text-gray-400 dark:text-gray-600" />
+                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-gray-400 dark:text-gray-600" />
                       <div className="flex-1">
-                        <h4 className="font-semibold text-sm text-gray-600 dark:text-gray-400 mb-1">
+                        <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
                           {t('orderDetails.repairInfo.errorDescriptionLabel') || 'Error Description'}
                         </h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-600 italic">
+                        <p className="text-xs text-gray-500 dark:text-gray-600 italic mt-1">
                           {t('orderDetails.repairInfo.noInformationProvided') || 'No error description provided'}
                         </p>
                       </div>
@@ -1383,38 +1382,38 @@ export function OrderDetails() {
 
                 {/* Water Damage */}
                 {order.waterDamage && order.waterDamage.trim() ? (
-                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Droplets className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                        <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100">
+                      <div className="flex items-center gap-2">
+                        <Droplets className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100">
                           {t('orderDetails.repairInfo.waterDamageLabel') || 'Water Damage'}
                         </h4>
                       </div>
                       <Badge
                         variant={order.waterDamage === 'yes' ? 'destructive' : order.waterDamage === 'no' ? 'default' : 'secondary'}
-                        className={
+                        className={`text-xs px-2 py-0.5 ${
                           order.waterDamage === 'yes'
                             ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-300'
                             : order.waterDamage === 'no'
                             ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300'
                             : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                        }
+                        }`}
                       >
                         {t(`orderDetails.repairInfo.waterDamage.${order.waterDamage}`) || order.waterDamage.charAt(0).toUpperCase() + order.waterDamage.slice(1)}
                       </Badge>
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-4 border border-gray-200 dark:border-gray-800">
+                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Droplets className="h-5 w-5 text-gray-400 dark:text-gray-600" />
-                        <h4 className="font-semibold text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center gap-2">
+                        <Droplets className="h-4 w-4 text-gray-400 dark:text-gray-600" />
+                        <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
                           {t('orderDetails.repairInfo.waterDamageLabel') || 'Water Damage'}
                         </h4>
                       </div>
-                      <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500">
+                      <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 text-xs px-2 py-0.5">
                         {t('orderDetails.repairInfo.notSpecified') || 'Not specified'}
                       </Badge>
                     </div>
@@ -1423,31 +1422,31 @@ export function OrderDetails() {
 
                 {/* Previous Repair Attempts */}
                 {order.previousRepairAttempts && order.previousRepairAttempts.trim() ? (
-                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
-                    <div className="space-y-3">
+                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
+                    <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <Wrench className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                          <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100">
+                        <div className="flex items-center gap-2">
+                          <Wrench className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                          <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100">
                             {t('orderDetails.repairInfo.previousRepairLabel') || 'Previous Repair Attempts'}
                           </h4>
                         </div>
                         <Badge
                           variant={order.previousRepairAttempts === 'yes' ? 'secondary' : 'default'}
-                          className={
+                          className={`text-xs px-2 py-0.5 ${
                             order.previousRepairAttempts === 'yes'
                               ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-300'
                               : order.previousRepairAttempts === 'no'
                               ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300'
                               : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                          }
+                          }`}
                         >
                           {t(`orderDetails.repairInfo.previousRepair.${order.previousRepairAttempts}`) || order.previousRepairAttempts.charAt(0).toUpperCase() + order.previousRepairAttempts.slice(1)}
                         </Badge>
                       </div>
                       {order.previousRepairAttempts === 'yes' && order.previousRepairDetails && order.previousRepairDetails.trim() && (
-                        <div className="ml-8 pl-4 border-l-2 border-amber-400">
-                          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                        <div className="ml-6 pl-3 border-l-2 border-amber-400">
+                          <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                             {order.previousRepairDetails}
                           </p>
                         </div>
@@ -1455,15 +1454,15 @@ export function OrderDetails() {
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-4 border border-gray-200 dark:border-gray-800">
+                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Wrench className="h-5 w-5 text-gray-400 dark:text-gray-600" />
-                        <h4 className="font-semibold text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center gap-2">
+                        <Wrench className="h-4 w-4 text-gray-400 dark:text-gray-600" />
+                        <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
                           {t('orderDetails.repairInfo.previousRepairLabel') || 'Previous Repair Attempts'}
                         </h4>
                       </div>
-                      <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500">
+                      <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 text-xs px-2 py-0.5">
                         {t('orderDetails.repairInfo.notSpecified') || 'Not specified'}
                       </Badge>
                     </div>
@@ -1472,36 +1471,36 @@ export function OrderDetails() {
 
                 {/* Item Condition */}
                 {order.itemCondition && order.itemCondition.trim() ? (
-                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Package className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                        <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100">
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100">
                           {t('orderDetails.repairInfo.itemConditionLabel') || 'Item Condition'}
                         </h4>
                       </div>
                       <Badge
                         variant="secondary"
-                        className={
+                        className={`text-xs px-2 py-0.5 ${
                           order.itemCondition === 'original'
                             ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300'
                             : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-300'
-                        }
+                        }`}
                       >
                         {t(`orderDetails.repairInfo.itemCondition.${order.itemCondition}`) || order.itemCondition.charAt(0).toUpperCase() + order.itemCondition.slice(1)}
                       </Badge>
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-4 border border-gray-200 dark:border-gray-800">
+                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Package className="h-5 w-5 text-gray-400 dark:text-gray-600" />
-                        <h4 className="font-semibold text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4 text-gray-400 dark:text-gray-600" />
+                        <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
                           {t('orderDetails.repairInfo.itemConditionLabel') || 'Item Condition'}
                         </h4>
                       </div>
-                      <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500">
+                      <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 text-xs px-2 py-0.5">
                         {t('orderDetails.repairInfo.notSpecified') || 'Not specified'}
                       </Badge>
                     </div>
@@ -1509,10 +1508,10 @@ export function OrderDetails() {
                 )}
 
                 {/* Information Notice */}
-                <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-blue-900 dark:text-blue-100 leading-relaxed">
+                <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-blue-900 dark:text-blue-100 leading-relaxed">
                       {t('orderDetails.repairInfo.infoNotice') || 'This information helps our technicians better assess and repair your device. Additional details may be requested during the inspection process.'}
                     </p>
                   </div>
@@ -1523,31 +1522,31 @@ export function OrderDetails() {
 
           {/* Customer Information */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
+            <CardHeader className="pb-3 pt-3 px-4">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <User className="h-4 w-4" />
                 {t('orderDetails.customerInformation')}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-4">
-                <Avatar className="w-16 h-16">
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Avatar className="w-12 h-12">
                   <AvatarImage src={order.customerId.avatar} />
-                  <AvatarFallback className="text-lg">
+                  <AvatarFallback className="text-sm">
                     {order.customerId.name.split(' ').map(n => n[0]).join('')}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                  <h3 className="text-xl font-semibold">{order.customerId.name}</h3>
-                  <p className="text-muted-foreground flex items-center gap-2 mt-1">
-                    <Mail className="h-4 w-4" />
+                  <h3 className="text-sm font-semibold">{order.customerId.name}</h3>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <Mail className="h-3 w-3" />
                     {order.customerId.email}
                   </p>
-                  <p className="text-muted-foreground flex items-center gap-2 mt-1">
-                    <Phone className="h-4 w-4" />
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <Phone className="h-3 w-3" />
                     {order.customerId.phone}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {t('orderDetails.customerSince')} {new Date(order.customerId.createdAt).toLocaleDateString()}
                   </p>
                 </div>
@@ -1555,12 +1554,12 @@ export function OrderDetails() {
 
               {/* Address Information */}
               {order.customerId.address && (
-                <div className="bg-muted/50 p-4 rounded-lg">
-                  <h4 className="font-medium mb-2 flex items-center gap-2">
-                    <Home className="h-4 w-4" />
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  <h4 className="font-medium mb-1 flex items-center gap-1 text-xs">
+                    <Home className="h-3 w-3" />
                     {t('orderDetails.address')}
                   </h4>
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-xs text-muted-foreground space-y-0.5">
                     <p>{order.customerId.address.street}</p>
                     <p>{order.customerId.address.city}, {order.customerId.address.state} {order.customerId.address.zipCode}</p>
                     <p>{order.customerId.address.country}</p>
@@ -1570,21 +1569,21 @@ export function OrderDetails() {
 
               {/* Payment Methods */}
               {order.customerId.paymentMethods && order.customerId.paymentMethods.length > 0 && (
-                <div className="bg-muted/50 p-4 rounded-lg">
-                  <h4 className="font-medium mb-2 flex items-center gap-2">
-                    <CreditCard className="h-4 w-4" />
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  <h4 className="font-medium mb-1 flex items-center gap-1 text-xs">
+                    <CreditCard className="h-3 w-3" />
                     {t('orderDetails.paymentMethods')}
                   </h4>
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     {order.customerId.paymentMethods.map((method) => (
-                      <div key={`${method.type}-${method.last4}`} className="flex items-center justify-between text-sm">
+                      <div key={`${method.type}-${method.last4}`} className="flex items-center justify-between text-xs">
                         <span className="capitalize">{method.type} ending in {method.last4}</span>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                           <span className="text-muted-foreground">
                             {method.expiryMonth}/{method.expiryYear}
                           </span>
                           {method.isDefault && (
-                            <Badge variant="secondary" className="text-xs">{t('orderDetails.default')}</Badge>
+                            <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{t('orderDetails.default')}</Badge>
                           )}
                         </div>
                       </div>
@@ -1601,52 +1600,52 @@ export function OrderDetails() {
           {/* Assigned Staff - Only visible to admin/staff */}
           {(user?.role === 'admin' || user?.role === 'staff') && (
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
+            <CardHeader className="pb-3 pt-3 px-4">
+              <CardTitle className="flex items-center justify-between text-base">
                 <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
+                  <Users className="h-4 w-4" />
                   {t('orderDetails.assignedStaff')}
                 </div>
                 <Dialog open={staffDialogOpen} onOpenChange={setStaffDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <UserPlus className="h-4 w-4 mr-2" />
+                    <Button variant="outline" size="sm" className="text-xs px-2 h-8">
+                      <UserPlus className="h-3 w-3 mr-1" />
                       {t('orderDetails.assignStaff')}
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                      <DialogTitle>{t('orderDetails.assignStaffToOrder')}</DialogTitle>
-                      <DialogDescription>
+                      <DialogTitle className="text-base">{t('orderDetails.assignStaffToOrder')}</DialogTitle>
+                      <DialogDescription className="text-xs">
                         {t('orderDetails.selectStaffMembers')}
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 max-h-64 overflow-y-auto">
+                    <div className="space-y-3 max-h-64 overflow-y-auto">
                       {availableStaff.map((staff) => (
-                        <div key={staff._id} className="flex items-center space-x-3">
+                        <div key={staff._id} className="flex items-center space-x-2">
                           <Checkbox
                             id={staff._id}
                             checked={selectedStaff.includes(staff._id)}
                             onCheckedChange={(checked) => handleStaffToggle(staff._id, checked as boolean)}
                           />
-                          <div className="flex items-center gap-3 flex-1">
-                            <Avatar className="w-8 h-8">
+                          <div className="flex items-center gap-2 flex-1">
+                            <Avatar className="w-7 h-7">
                               <AvatarImage src={staff.avatar} />
-                              <AvatarFallback>
+                              <AvatarFallback className="text-xs">
                                 {staff.name.split(' ').map(n => n[0]).join('')}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="font-medium">{staff.name}</p>
-                              <p className="text-sm text-muted-foreground">{staff.email}</p>
-                              <div className="flex flex-wrap gap-1 mt-1">
+                              <p className="font-medium text-sm">{staff.name}</p>
+                              <p className="text-xs text-muted-foreground">{staff.email}</p>
+                              <div className="flex flex-wrap gap-1 mt-0.5">
                                 {staff.specializations.slice(0, 2).map((spec) => (
-                                  <Badge key={spec} variant="secondary" className="text-xs">
+                                  <Badge key={spec} variant="secondary" className="text-xs px-1.5 py-0">
                                     {spec}
                                   </Badge>
                                 ))}
                                 {staff.specializations.length > 2 && (
-                                  <Badge variant="secondary" className="text-xs">
+                                  <Badge variant="secondary" className="text-xs px-1.5 py-0">
                                     +{staff.specializations.length - 2} {t('orderDetails.more')}
                                   </Badge>
                                 )}
@@ -1660,6 +1659,7 @@ export function OrderDetails() {
                       <Button
                         onClick={handleStaffAssignment}
                         disabled={selectedStaff.length === 0 || assigningStaff}
+                        size="sm"
                       >
                         {assigningStaff ? t('orderDetails.assigning') : t('orderDetails.assignStaff')}
                       </Button>
@@ -1668,29 +1668,29 @@ export function OrderDetails() {
                 </Dialog>
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-3">
               {order.assignedStaff && order.assignedStaff.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {order.assignedStaff.map((staff) => (
-                    <div key={staff._id} className="flex items-center gap-3 p-3 border rounded-lg">
-                      <Avatar className="w-10 h-10">
+                    <div key={staff._id} className="flex items-center gap-2 p-2 border rounded-lg">
+                      <Avatar className="w-8 h-8">
                         <AvatarImage src={staff.avatar} />
-                        <AvatarFallback>
+                        <AvatarFallback className="text-xs">
                           {staff.name.split(' ').map(n => n[0]).join('')}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium">{staff.name}</p>
-                        <p className="text-sm text-muted-foreground">{t('orderDetails.repairTechnician')}</p>
+                        <p className="font-medium text-sm">{staff.name}</p>
+                        <p className="text-xs text-muted-foreground">{t('orderDetails.repairTechnician')}</p>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>{t('orderDetails.noStaffAssigned')}</p>
-                  <p className="text-sm">{t('orderDetails.clickAssignStaff')}</p>
+                <div className="text-center py-6 text-muted-foreground">
+                  <Users className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">{t('orderDetails.noStaffAssigned')}</p>
+                  <p className="text-xs mt-1">{t('orderDetails.clickAssignStaff')}</p>
                 </div>
               )}
             </CardContent>
@@ -1699,10 +1699,10 @@ export function OrderDetails() {
 
           {/* Device Information */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
+            <CardHeader className="pb-3 pt-3 px-4">
+              <CardTitle className="flex items-center justify-between text-base">
                 <div className="flex items-center gap-2">
-                  <Camera className="h-5 w-5" />
+                  <Camera className="h-4 w-4" />
                   {t('orderDetails.deviceInformation')}
                 </div>
                 {(user?.role === 'admin' || user?.role === 'staff') && (
@@ -1715,20 +1715,21 @@ export function OrderDetails() {
                       setNewDeviceType(order?.deviceType || "Smartphone")
                       setDeviceChangeDialogOpen(true)
                     }}
+                    className="text-xs px-2 h-8"
                   >
-                    <Edit className="h-4 w-4 mr-2" />
+                    <Edit className="h-3 w-3 mr-1" />
                     {t('common.edit')}
                   </Button>
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-4">
+            <CardContent className="space-y-3 pt-3">
+              <div className="flex items-center gap-3">
                 {getDeviceImage(order) ? (
                   <img
                     src={getDeviceImage(order)}
                     alt={`${order.deviceBrand} ${order.deviceModel}`}
-                    className="w-24 h-24 rounded-lg object-cover border-2 border-primary/20"
+                    className="w-20 h-20 rounded-lg object-cover border-2 border-primary/20"
                     onError={(e) => {
                       // Replace with fallback on error
                       e.currentTarget.style.display = 'none'
@@ -1737,26 +1738,26 @@ export function OrderDetails() {
                     }}
                   />
                 ) : null}
-                <div className="w-24 h-24 rounded-lg border-2 border-primary/20 bg-primary/10 flex items-center justify-center" style={{ display: getDeviceImage(order) ? 'none' : 'flex' }}>
-                  <Smartphone className="h-8 w-8 text-primary" />
+                <div className="w-20 h-20 rounded-lg border-2 border-primary/20 bg-primary/10 flex items-center justify-center" style={{ display: getDeviceImage(order) ? 'none' : 'flex' }}>
+                  <Smartphone className="h-7 w-7 text-primary" />
                 </div>
                 <div className="flex-1">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-xl font-semibold">{order.deviceBrand} {order.deviceModel}</h3>
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-sm font-semibold">{order.deviceBrand} {order.deviceModel}</h3>
                     {(user?.role === 'admin' || user?.role === 'staff') && (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setDeviceChangeDialogOpen(true)}
-                        className="text-xs gap-1"
+                        className="text-xs gap-1 px-2 h-7"
                       >
                         <Edit className="w-3 h-3" />
-                        Change Device
+                        Change
                       </Button>
                     )}
                   </div>
-                  <p className="text-muted-foreground">Repair Services</p>
-                  <div className="flex flex-wrap gap-2 mt-2">
+                  <p className="text-xs text-muted-foreground">Repair Services</p>
+                  <div className="flex flex-wrap gap-1 mt-1">
                     {order.services && order.services.filter((s) => s && s._id).length > 0 ? (
                       order.services.filter((s) => s && s._id).map((service) => {
                         // Get service name from populated serviceId object or fallback to ID
@@ -1768,42 +1769,42 @@ export function OrderDetails() {
                           : service.price;
 
                         return (
-                          <Badge key={service._id} variant="outline" className="text-xs">
+                          <Badge key={service._id} variant="outline" className="text-xs px-2 py-0.5">
                             {serviceName}
-                            {servicePrice && <span className="ml-1 font-semibold">${servicePrice.toFixed(2)}</span>}
+                            {servicePrice && <span className="ml-0.5 font-semibold">${servicePrice.toFixed(2)}</span>}
                           </Badge>
                         );
                       })
                     ) : (
-                      <Badge variant="outline">{t('orderDetails.noServicesSelected')}</Badge>
+                      <Badge variant="outline" className="text-xs px-2 py-0.5">{t('orderDetails.noServicesSelected')}</Badge>
                     )}
                   </div>
                 </div>
               </div>
 
               {order.customerNotes && (
-                <div className="bg-muted/50 p-4 rounded-lg">
-                  <h4 className="font-medium mb-2">{t('orderDetails.yourNotes')}:</h4>
-                  <p className="text-sm text-muted-foreground">{order.customerNotes}</p>
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  <h4 className="font-medium mb-1 text-xs">{t('orderDetails.yourNotes')}:</h4>
+                  <p className="text-xs text-muted-foreground">{order.customerNotes}</p>
                 </div>
               )}
 
               {/* Unlock Information Display - Integrated into Device Information Section */}
               {(order?.unlockPattern?.length > 0 || order?.unlockCode || order?.noLock) && (
-                <div className="border-t pt-4 mt-4">
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Lock className="h-4 w-4" />
+                <div className="border-t pt-3 mt-3">
+                  <h4 className="font-semibold mb-2 flex items-center gap-2 text-sm">
+                    <Lock className="h-3 w-3" />
                     {t('orderDetails.deviceLockInformation', 'Device Lock Information')}
                   </h4>
 
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {/* Unlock Pattern Display */}
                     {order.unlockPattern && order.unlockPattern.length > 0 && (
                       <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
-                        <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                        <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-0.5">
                           {t('orderDetails.unlockPattern', 'Unlock Pattern')}
                         </p>
-                        <div className="text-sm font-mono font-bold text-blue-600 dark:text-blue-400">
+                        <div className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
                           {order.unlockPattern.join(' → ')}
                         </div>
                         <span className="text-xs text-slate-500">({order.unlockPattern.length} {t('orderDetails.dots', 'dots')})</span>
@@ -1813,14 +1814,14 @@ export function OrderDetails() {
                     {/* Unlock Code Display */}
                     {order.unlockCode && (
                       <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
-                        <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                        <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-0.5">
                           {t('orderDetails.unlockCode', 'Unlock Code')}
                         </p>
                         <input
                           type="password"
                           value={order.unlockCode}
                           readOnly
-                          className="w-full px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-mono text-sm"
+                          className="w-full px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-mono text-xs"
                         />
                       </div>
                     )}
@@ -1829,8 +1830,8 @@ export function OrderDetails() {
                     {order.noLock && (
                       <div className="p-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
                         <div className="flex items-center gap-2">
-                          <X className="h-4 w-4 text-green-600 dark:text-green-400" />
-                          <p className="text-sm font-medium text-green-700 dark:text-green-300">
+                          <X className="h-3 w-3 text-green-600 dark:text-green-400" />
+                          <p className="text-xs font-medium text-green-700 dark:text-green-300">
                             {t('orderDetails.unlockNoLock', 'Device has no lock')}
                           </p>
                         </div>
@@ -1843,35 +1844,35 @@ export function OrderDetails() {
                         <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
                           {t('orderDetails.confirmationStatus', 'Confirmation Status')}
                         </p>
-                        <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                        <div className="space-y-0.5 text-xs text-slate-600 dark:text-slate-400">
                           <div className="flex items-center gap-2">
                             {order.unlockConfirmation.confirmationStatus === 'verified' && (
-                              <Badge className="bg-green-100 border-green-300 text-green-800">
-                                <CheckCircle className="h-3 w-3 mr-1" />
+                              <Badge className="bg-green-100 border-green-300 text-green-800 text-xs px-1.5 py-0">
+                                <CheckCircle className="h-3 w-3 mr-0.5" />
                                 {t('orderDetails.unlockVerified', 'Verified')}
                               </Badge>
                             )}
                             {order.unlockConfirmation.confirmationStatus === 'incorrect' && (
-                              <Badge className="bg-red-100 border-red-300 text-red-800">
-                                <AlertCircle className="h-3 w-3 mr-1" />
+                              <Badge className="bg-red-100 border-red-300 text-red-800 text-xs px-1.5 py-0">
+                                <AlertCircle className="h-3 w-3 mr-0.5" />
                                 {t('orderDetails.unlockIncorrect', 'Incorrect')}
                               </Badge>
                             )}
                             {order.unlockConfirmation.confirmationStatus === 'unable-to-verify' && (
-                              <Badge variant="outline" className="bg-gray-50 border-gray-300 text-gray-800">
-                                <HelpCircle className="h-3 w-3 mr-1" />
+                              <Badge variant="outline" className="bg-gray-50 border-gray-300 text-gray-800 text-xs px-1.5 py-0">
+                                <HelpCircle className="h-3 w-3 mr-0.5" />
                                 {t('orderDetails.unlockUnableToVerify', 'Unable to Verify')}
                               </Badge>
                             )}
                           </div>
-                          <p>
+                          <p className="text-xs">
                             <span className="font-medium">
                               {t('orderDetails.confirmedBy', 'Confirmed by:')}
                             </span>{' '}
                             {order.unlockConfirmation.confirmedByName}
                           </p>
                           {order.unlockConfirmation.notes && (
-                            <p>
+                            <p className="text-xs">
                               <span className="font-medium">
                                 {t('orderDetails.notes', 'Notes:')}
                               </span>{' '}
@@ -1884,12 +1885,12 @@ export function OrderDetails() {
 
                     {/* Confirm Button for Staff/Admin - Only show if not confirmed or can re-confirm */}
                     {(user?.role === 'admin' || user?.role === 'staff') && (
-                      <div className="pt-2">
+                      <div className="pt-1">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setUnlockConfirmDialogOpen(true)}
-                          className="w-full text-xs"
+                          className="w-full text-xs px-2 h-8"
                         >
                           {order.unlockConfirmation
                             ? t('orderDetails.updateConfirmation', 'Update Confirmation')
@@ -2048,10 +2049,10 @@ export function OrderDetails() {
           {/* Repair Services - Only visible to admin/staff */}
           {(user?.role === 'admin' || user?.role === 'staff') && (
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
+              <CardHeader className="pb-3 pt-3 px-4">
+                <CardTitle className="flex items-center justify-between text-base">
                   <div className="flex items-center gap-2">
-                    <Wrench className="h-5 w-5" />
+                    <Wrench className="h-4 w-4" />
                     {t('orderDetails.repairServices')}
                   </div>
                   <Button
@@ -2061,54 +2062,55 @@ export function OrderDetails() {
                       setEditingService(null)
                       setServiceDialogOpen(true)
                     }}
+                    className="text-xs px-2 h-8"
                   >
-                    <Plus className="h-4 w-4 mr-2" />
+                    <Plus className="h-3 w-3 mr-1" />
                     {t('orderDetails.addService')}
                   </Button>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-3">
                 {repairServices && repairServices.filter((s) => s && s._id).length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-2">
                     {repairServices.filter((s) => s && s._id).map((service, index) => (
-                      <div key={service._id || `service-${index}`} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-3 flex-1">
-                          <div className="flex-1">
-                            <h4 className="font-medium">{service.serviceId?.name || 'Service'}</h4>
+                      <div key={service._id || `service-${index}`} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center gap-2 flex-1">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-sm">{service.serviceId?.name || 'Service'}</h4>
                             {service.serviceId?.description && (
-                              <p className="text-sm text-muted-foreground mt-1">{service.serviceId.description}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">{service.serviceId.description}</p>
                             )}
                             {service.notes && (
-                              <p className="text-sm text-muted-foreground italic">{service.notes}</p>
+                              <p className="text-xs text-muted-foreground italic">{service.notes}</p>
                             )}
                             {service.estimatedTime && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                <Clock className="h-3 w-3 inline mr-1" />
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                <Clock className="h-3 w-3 inline mr-0.5" />
                                 {service.estimatedTime} min
                               </p>
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 ml-2">
                           <div className="text-right">
                             <p className="text-sm font-medium">${service.price}</p>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex gap-1">
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => openEditServiceDialog(service)}
-                              className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                              className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 h-8 w-8"
                             >
-                              <Edit className="h-4 w-4" />
+                              <Edit className="h-3 w-3" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => service._id && handleDeleteRepairService(service._id)}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
                         </div>
@@ -2116,10 +2118,10 @@ export function OrderDetails() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    <Wrench className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>{t('orderDetails.noRepairServices')}</p>
-                    <p className="text-sm">{t('orderDetails.clickAddService')}</p>
+                  <div className="text-center text-muted-foreground py-6">
+                    <Wrench className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">{t('orderDetails.noRepairServices')}</p>
+                    <p className="text-xs mt-1">{t('orderDetails.clickAddService')}</p>
                   </div>
                 )}
               </CardContent>
@@ -2128,10 +2130,10 @@ export function OrderDetails() {
 
           {/* Add-On Services */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
+            <CardHeader className="pb-3 pt-3 px-4">
+              <CardTitle className="flex items-center justify-between text-base">
                 <div className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
+                  <Shield className="h-4 w-4" />
                   {t('orderDetails.addOnServices')}
                 </div>
                 {(user?.role === 'admin' || user?.role === 'staff') && (
@@ -2139,67 +2141,68 @@ export function OrderDetails() {
                     variant="outline"
                     size="sm"
                     onClick={() => setAddAddonDialogOpen(true)}
+                    className="text-xs px-2 h-8"
                   >
-                    <Plus className="h-4 w-4 mr-2" />
+                    <Plus className="h-3 w-3 mr-1" />
                     {t('orderDetails.addAddOn')}
                   </Button>
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-3">
               {order.addOns && order.addOns.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-2">
                   {order.addOns.map((addOn) => (
-                    <div key={addOn._id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className={`w-3 h-3 rounded-full ${
+                    <div key={addOn._id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-2 flex-1">
+                        <div className={`w-2 h-2 rounded-full ${
                           addOn.status === 'completed' ? 'bg-green-500' :
                           addOn.status === 'in-progress' ? 'bg-blue-500' :
                           'bg-gray-500'
                         }`} />
-                        <div className="flex-1">
-                          <h4 className="font-medium">{addOn.name}</h4>
-                          <p className="text-sm text-muted-foreground">{addOn.description}</p>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-sm">{addOn.name}</h4>
+                          <p className="text-xs text-muted-foreground">{addOn.description}</p>
                           {addOn.estimatedTime && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              <Clock className="h-3 w-3 inline mr-1" />
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              <Clock className="h-3 w-3 inline mr-0.5" />
                               {addOn.estimatedTime}
                             </p>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 ml-2">
                         <div className="text-right">
-                          <Badge className={getStatusColor(addOn.status)}>
+                          <Badge className={`${getStatusColor(addOn.status)} text-xs px-2 py-0.5`}>
                             {addOn.status}
                           </Badge>
-                          <p className="text-sm text-muted-foreground mt-1">+${addOn.price}</p>
+                          <p className="text-xs text-muted-foreground mt-1">+${addOn.price}</p>
                         </div>
                         {(user?.role === 'admin' || user?.role === 'staff') && (
-                          <div className="flex gap-2">
+                          <div className="flex gap-1">
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => openEditAddonDialog(addOn)}
-                              className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                              className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 h-8 w-8"
                             >
-                              <Edit className="h-4 w-4" />
+                              <Edit className="h-3 w-3" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => openAssignAddonStaffDialog(addOn)}
-                              className="text-green-500 hover:text-green-700 hover:bg-green-50"
+                              className="text-green-500 hover:text-green-700 hover:bg-green-50 h-8 w-8"
                             >
-                              <UserPlus className="h-4 w-4" />
+                              <UserPlus className="h-3 w-3" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => handleRemoveAddon(addOn._id)}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
                         )}
@@ -2208,11 +2211,11 @@ export function OrderDetails() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center text-muted-foreground py-8">
-                  <Shield className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>{t('orderDetails.noAddOnServices')}</p>
+                <div className="text-center text-muted-foreground py-6">
+                  <Shield className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">{t('orderDetails.noAddOnServices')}</p>
                   {(user?.role === 'admin' || user?.role === 'staff') && (
-                    <p className="text-sm">{t('orderDetails.clickAddAddOn')}</p>
+                    <p className="text-xs mt-1">{t('orderDetails.clickAddAddOn')}</p>
                   )}
                 </div>
               )}
@@ -2222,55 +2225,56 @@ export function OrderDetails() {
           {/* EParts - Only visible to admin/staff */}
           {(user?.role === 'admin' || user?.role === 'staff') && (
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
+              <CardHeader className="pb-3 pt-3 px-4">
+                <CardTitle className="flex items-center justify-between text-base">
                   <div className="flex items-center gap-2">
-                    <Wrench className="h-5 w-5" />
+                    <Wrench className="h-4 w-4" />
                     {t('orderDetails.electronicParts')}
                   </div>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setEPartDialogOpen(true)}
+                    className="text-xs px-2 h-8"
                   >
-                    <Plus className="h-4 w-4 mr-2" />
+                    <Plus className="h-3 w-3 mr-1" />
                     {t('orderDetails.addEPart')}
                   </Button>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-3">
                 {(order as any).eParts && (order as any).eParts.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-2">
                     {(order as any).eParts.map((ePart: any) => {
                       const version = ePart.partId?.versions?.find((v: any) => v._id === ePart.versionId);
 
                       return (
-                        <div key={ePart._id} className="flex items-center justify-between p-4 border rounded-lg">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h4 className="font-medium">{ePart.partId?.itemName || 'Unknown Part'}</h4>
+                        <div key={ePart._id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-medium text-sm">{ePart.partId?.itemName || 'Unknown Part'}</h4>
                               {version && (
-                                <Badge className={getVersionTypeColor(version.versionType)}>
+                                <Badge className={`${getVersionTypeColor(version.versionType)} text-xs px-2 py-0.5`}>
                                   {version.versionType.toUpperCase()}
                                 </Badge>
                               )}
-                              <Badge variant="outline" className={
+                              <Badge variant="outline" className={`text-xs px-2 py-0.5 ${
                                 ePart.status === 'used' ? 'bg-green-50 text-green-700' :
                                 ePart.status === 'allocated' ? 'bg-blue-50 text-blue-700' :
                                 'bg-gray-50 text-gray-700'
-                              }>
+                              }`}>
                                 {ePart.status}
                               </Badge>
                             </div>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                               {ePart.partId?.itemDescription || 'No description available'}
                             </p>
-                            <div className="flex gap-4 mt-2 text-sm">
+                            <div className="flex gap-3 mt-1 text-xs flex-wrap">
                               <span className="text-muted-foreground">
                                 SKU: <span className="font-medium text-foreground">{ePart.partId?.sku || 'N/A'}</span>
                               </span>
                               <span className="text-muted-foreground">
-                                Quantity: <span className="font-medium text-foreground">{ePart.quantity}</span>
+                                Qty: <span className="font-medium text-foreground">{ePart.quantity}</span>
                               </span>
                               {version && (
                                 <span className="text-muted-foreground">
@@ -2288,19 +2292,19 @@ export function OrderDetails() {
                             variant="ghost"
                             size="icon"
                             onClick={() => handleRemoveEPart(ePart._id)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 ml-2"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
                       );
                     })}
                   </div>
                 ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    <Wrench className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>{t('orderDetails.noElectronicParts')}</p>
-                    <p className="text-sm">{t('orderDetails.clickAddEPart')}</p>
+                  <div className="text-center text-muted-foreground py-6">
+                    <Wrench className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">{t('orderDetails.noElectronicParts')}</p>
+                    <p className="text-xs mt-1">{t('orderDetails.clickAddEPart')}</p>
                   </div>
                 )}
               </CardContent>
@@ -2310,57 +2314,58 @@ export function OrderDetails() {
           {/* Shop Products - Only visible to admin/staff */}
           {(user?.role === 'admin' || user?.role === 'staff') && (
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
+              <CardHeader className="pb-3 pt-3 px-4">
+                <CardTitle className="flex items-center justify-between text-base">
                   <div className="flex items-center gap-2">
-                    <ShoppingCart className="h-5 w-5" />
+                    <ShoppingCart className="h-4 w-4" />
                     Shop Products
                   </div>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setShopProductDialogOpen(true)}
+                    className="text-xs px-2 h-8"
                   >
-                    <Plus className="h-4 w-4 mr-2" />
+                    <Plus className="h-3 w-3 mr-1" />
                     Add Product
                   </Button>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-3">
                 {(order as any).shopProducts && (order as any).shopProducts.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-2">
                     {(order as any).shopProducts.map((shopProduct: any) => {
                       const product = shopProduct.productId;
                       const totalPrice = shopProduct.priceAtOrder * shopProduct.quantity;
 
                       return (
-                        <div key={shopProduct._id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50">
-                          <div className="flex items-start gap-4 flex-1">
+                        <div key={shopProduct._id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
                             {product?.images && product.images.length > 0 && (
                               <img
                                 src={product.images[0]}
                                 alt={product.name}
-                                className="w-16 h-16 object-cover rounded-md"
+                                className="w-14 h-14 object-cover rounded-md flex-shrink-0"
                               />
                             )}
-                            <div className="flex-1 space-y-2">
-                              <div className="flex items-center gap-3">
-                                <h4 className="font-medium">{product?.name || 'Unknown Product'}</h4>
-                                <Badge variant="outline">
+                            <div className="flex-1 space-y-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium text-sm">{product?.name || 'Unknown Product'}</h4>
+                                <Badge variant="outline" className="text-xs px-1.5 py-0">
                                   {product?.category}
                                 </Badge>
                               </div>
-                              <div className="flex gap-6 text-sm text-muted-foreground">
-                                <div className="flex items-center gap-2">
+                              <div className="flex gap-3 text-xs text-muted-foreground flex-wrap">
+                                <div className="flex items-center gap-1">
                                   <span>Brand:</span>
                                   <span className="font-medium text-foreground">{product?.brand || 'N/A'}</span>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1">
                                   <span>Price:</span>
                                   <span className="font-medium text-foreground">${shopProduct.priceAtOrder?.toFixed(2)}</span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <span>Quantity:</span>
+                                <div className="flex items-center gap-1">
+                                  <span>Qty:</span>
                                   <Input
                                     type="number"
                                     min="1"
@@ -2372,15 +2377,15 @@ export function OrderDetails() {
                                         handleUpdateShopProductQuantity(shopProduct._id, newQty);
                                       }
                                     }}
-                                    className="w-20 h-8"
+                                    className="w-16 h-7 text-xs"
                                   />
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1">
                                   <span>Total:</span>
                                   <span className="font-bold text-foreground">${totalPrice.toFixed(2)}</span>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <span>
                                   Added: {new Date(shopProduct.addedAt).toLocaleDateString()}
                                 </span>
@@ -2390,7 +2395,7 @@ export function OrderDetails() {
                                   </span>
                                 )}
                                 {product?.stock !== undefined && (
-                                  <Badge variant={product.stock > 10 ? 'default' : product.stock > 0 ? 'secondary' : 'destructive'}>
+                                  <Badge variant={product.stock > 10 ? 'default' : product.stock > 0 ? 'secondary' : 'destructive'} className="text-xs px-1.5 py-0">
                                     Stock: {product.stock}
                                   </Badge>
                                 )}
@@ -2401,19 +2406,19 @@ export function OrderDetails() {
                             variant="ghost"
                             size="icon"
                             onClick={() => handleRemoveShopProduct(shopProduct._id)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 ml-2 flex-shrink-0"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
                       );
                     })}
                   </div>
                 ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    <ShoppingCart className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>No shop products added</p>
-                    <p className="text-sm">Click "Add Product" to add products from the shop to this order</p>
+                  <div className="text-center text-muted-foreground py-6">
+                    <ShoppingCart className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No shop products added</p>
+                    <p className="text-xs mt-1">Click "Add Product" to add products from the shop to this order</p>
                   </div>
                 )}
               </CardContent>
@@ -2423,30 +2428,31 @@ export function OrderDetails() {
           {/* Workflows - Only visible to admin/staff */}
           {(user?.role === 'admin' || user?.role === 'staff') && (
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
+              <CardHeader className="pb-3 pt-3 px-4">
+                <CardTitle className="flex items-center justify-between text-base">
                   <div className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5" />
+                    <CheckCircle className="h-4 w-4" />
                     {t('orderDetails.workflows')}
                   </div>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setWorkflowDialogOpen(true)}
+                    className="text-xs px-2 h-8"
                   >
-                    <Plus className="h-4 w-4 mr-2" />
+                    <Plus className="h-3 w-3 mr-1" />
                     {t('orderDetails.assignWorkflow')}
                   </Button>
                 </CardTitle>
                 {workflows.length > 0 && (
-                  <CardDescription>
+                  <CardDescription className="text-xs mt-1">
                     {workflows.length} workflow{workflows.length !== 1 ? 's' : ''} assigned to this order
                   </CardDescription>
                 )}
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-3">
                 {workflows.length > 0 ? (
-                  <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
+                  <div className="grid gap-3 md:grid-cols-1 lg:grid-cols-2">
                     {workflows.map((workflow: any) => (
                       <WorkflowCard
                         key={workflow._id}
@@ -2465,10 +2471,10 @@ export function OrderDetails() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    <CheckCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>{t('orderDetails.noWorkflowsAssigned')}</p>
-                    <p className="text-sm">{t('orderDetails.clickAssignWorkflow')}</p>
+                  <div className="text-center text-muted-foreground py-6">
+                    <CheckCircle className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">{t('orderDetails.noWorkflowsAssigned')}</p>
+                    <p className="text-xs mt-1">{t('orderDetails.clickAssignWorkflow')}</p>
                   </div>
                 )}
               </CardContent>
@@ -2477,29 +2483,29 @@ export function OrderDetails() {
 
           {/* Progress Timeline */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
+            <CardHeader className="pb-3 pt-3 px-4">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Clock className="h-4 w-4" />
                 {t('orderDetails.repairProgress')}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
+            <CardContent className="space-y-4 pt-3">
+              <div className="space-y-1">
                 <div className="flex justify-between items-center">
-                  <span className="font-medium">{t('orderDetails.overallProgress')}</span>
-                  <span className="text-sm text-muted-foreground">{order.progress}%</span>
+                  <span className="font-medium text-sm">{t('orderDetails.overallProgress')}</span>
+                  <span className="text-xs text-muted-foreground">{order.progress}%</span>
                 </div>
-                <Progress value={order.progress} className="h-3" />
+                <Progress value={order.progress} className="h-2" />
                 {order.estimatedCompletion && order.status !== 'completed' && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {t('orderDetails.estimatedCompletion')}: {new Date(order.estimatedCompletion).toLocaleDateString()}
                   </p>
                 )}
               </div>
 
-              <div className="space-y-4">
-                <h4 className="font-medium">{t('orderDetails.repairTimeline')}</h4>
-                <div className="space-y-3">
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm">{t('orderDetails.repairTimeline')}</h4>
+                <div className="space-y-2">
                   {[
                     { step: "Order Received", completed: true, date: order.createdAt },
                     { step: "Diagnostic Assessment", completed: order.progress >= 25, date: order.createdAt },
@@ -2507,16 +2513,16 @@ export function OrderDetails() {
                     { step: "Quality Check", completed: order.progress >= 75, date: null },
                     { step: "Ready for Pickup", completed: order.progress >= 100, date: null }
                   ].map((step) => (
-                    <div key={step.step} className="flex items-center gap-3">
-                      <div className={`w-4 h-4 rounded-full border-2 ${
+                    <div key={step.step} className="flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded-full border-2 flex-shrink-0 ${
                         step.completed
                           ? 'bg-green-500 border-green-500'
                           : 'border-gray-300 bg-background'
                       }`}>
-                        {step.completed && <CheckCircle className="h-3 w-3 text-white" />}
+                        {step.completed && <CheckCircle className="h-2 w-2 text-white" />}
                       </div>
                       <div className="flex-1">
-                        <p className={`font-medium ${step.completed ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        <p className={`font-medium text-sm ${step.completed ? 'text-foreground' : 'text-muted-foreground'}`}>
                           {step.step}
                         </p>
                         {step.date && (
@@ -2534,50 +2540,50 @@ export function OrderDetails() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Order Summary */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
+            <CardHeader className="pb-3 pt-3 px-4">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <DollarSign className="h-4 w-4" />
                 {t('orderDetails.orderSummary')}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-2">
+            <CardContent className="space-y-2 pt-3">
+              <div className="space-y-1">
                 {order.services && order.services.filter((s) => s && s._id).length > 0 ? (
                   order.services.filter((s) => s && s._id).map((service) => (
-                    <div key={service._id} className="flex justify-between text-sm">
+                    <div key={service._id} className="flex justify-between text-xs">
                       <span>Service #{service._id.substring(0, 8)}</span>
                       <span>${service.price}</span>
                     </div>
                   ))
                 ) : (
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-xs">
                     <span>No services</span>
                     <span>$0</span>
                   </div>
                 )}
                 {order.addOns && order.addOns.map((addOn) => (
-                  <div key={addOn._id} className="flex justify-between text-sm">
+                  <div key={addOn._id} className="flex justify-between text-xs">
                     <span>{addOn.name}</span>
                     <span>${addOn.price}</span>
                   </div>
                 ))}
                 {(order as any).shopProducts && (order as any).shopProducts.map((shopProduct: any) => (
-                  <div key={shopProduct._id} className="flex justify-between text-sm">
+                  <div key={shopProduct._id} className="flex justify-between text-xs">
                     <span>{shopProduct.productId?.name || 'Product'} x{shopProduct.quantity}</span>
                     <span>${(shopProduct.priceAtOrder * shopProduct.quantity).toFixed(2)}</span>
                   </div>
                 ))}
               </div>
-              <div className="border-t pt-2 flex justify-between font-semibold">
+              <div className="border-t pt-1 flex justify-between font-semibold text-sm">
                 <span>Total</span>
                 <span>${order.totalCost}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-xs">
                 <span>Payment Status</span>
-                <Badge className={getPaymentStatusColor(order.paymentStatus)}>
+                <Badge className={`${getPaymentStatusColor(order.paymentStatus)} text-xs px-2 py-0.5`}>
                   {order.paymentStatus}
                 </Badge>
               </div>
@@ -2586,20 +2592,20 @@ export function OrderDetails() {
 
           {/* Quick Actions */}
           <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
+            <CardHeader className="pb-3 pt-3 px-4">
+              <CardTitle className="text-base">Quick Actions</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <Button className="w-full" variant="outline">
-                <MessageSquare className="h-4 w-4 mr-2" />
+            <CardContent className="space-y-2 pt-3">
+              <Button className="w-full" variant="outline" size="sm" className="text-xs h-8">
+                <MessageSquare className="h-3 w-3 mr-1" />
                 Contact Support
               </Button>
-              <Button className="w-full" variant="outline">
-                <Camera className="h-4 w-4 mr-2" />
+              <Button className="w-full" variant="outline" size="sm" className="text-xs h-8">
+                <Camera className="h-3 w-3 mr-1" />
                 Upload Photos
               </Button>
-              <Button className="w-full" variant="outline">
-                <Star className="h-4 w-4 mr-2" />
+              <Button className="w-full" variant="outline" size="sm" className="text-xs h-8">
+                <Star className="h-3 w-3 mr-1" />
                 Rate Service
               </Button>
             </CardContent>
@@ -2607,25 +2613,25 @@ export function OrderDetails() {
 
           {/* Communication */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
+            <CardHeader className="pb-3 pt-3 px-4">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <MessageSquare className="h-4 w-4" />
                 Messages
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="max-h-64 overflow-y-auto space-y-3">
+            <CardContent className="space-y-3 pt-3">
+              <div className="max-h-56 overflow-y-auto space-y-2">
                 {messages.map((message) => (
                   <div key={message._id} className={`flex gap-2 ${
                     message.senderRole === 'customer' ? 'justify-end' : 'justify-start'
                   }`}>
-                    <div className={`max-w-xs p-3 rounded-lg ${
+                    <div className={`max-w-xs p-2 rounded-lg text-xs ${
                       message.senderRole === 'customer'
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted'
                     }`}>
-                      <p className="text-sm">{message.content}</p>
-                      <p className="text-xs opacity-70 mt-1">
+                      <p className="text-xs">{message.content}</p>
+                      <p className="text-xs opacity-70 mt-0.5">
                         {new Date(message.timestamp).toLocaleTimeString()}
                       </p>
                     </div>
@@ -2637,14 +2643,15 @@ export function OrderDetails() {
                   placeholder="Type your message..."
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  className="min-h-[60px]"
+                  className="min-h-[50px] text-xs"
                 />
                 <Button
                   onClick={handleSendMessage}
                   disabled={!newMessage.trim() || sending}
                   size="sm"
+                  className="h-[50px]"
                 >
-                  <Send className="h-4 w-4" />
+                  <Send className="h-3 w-3" />
                 </Button>
               </div>
             </CardContent>
