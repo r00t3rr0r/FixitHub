@@ -83,7 +83,7 @@ export function AboutUsSection({ title, content }: AboutUsSectionProps) {
   }, []);
 
   return (
-    <section id="about" className="relative py-24 bg-white overflow-hidden">
+    <section id="about" className="relative py-16 bg-white overflow-hidden">
       {/* Animated background elements */}
       <div className="absolute inset-0 opacity-5">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-yellow-400 rounded-full blur-3xl animate-pulse"></div>
@@ -92,58 +92,58 @@ export function AboutUsSection({ title, content }: AboutUsSectionProps) {
 
       <div className="container mx-auto px-4 relative z-10">
         {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-20">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center mb-16">
           {/* Content */}
-          <div className="space-y-6 animate-fadeInLeft">
+          <div className="space-y-4 animate-fadeInLeft">
             <div>
-              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 animate-slideDown">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3 animate-slideDown">
                 {title || t('home.about.title')}
               </h2>
-              <div className="w-24 h-1 bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full animate-expandWidth"></div>
+              <div className="w-20 h-0.5 bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full animate-expandWidth"></div>
             </div>
 
-            <p className="text-lg text-gray-700 leading-relaxed animate-fadeInUp">
+            <p className="text-base text-gray-700 leading-relaxed animate-fadeInUp">
               {content || t('home.about.content')}
             </p>
 
-            <p className="text-lg text-gray-700 leading-relaxed animate-fadeInUp" style={{ animationDelay: '0.2s' }}>
+            <p className="text-base text-gray-700 leading-relaxed animate-fadeInUp" style={{ animationDelay: '0.2s' }}>
               {t('home.about.contentPart2')}
             </p>
 
             {/* Key Points */}
-            <ul className="space-y-3 mt-6 animate-fadeInUp" style={{ animationDelay: '0.4s' }}>
+            <ul className="space-y-2 mt-4 animate-fadeInUp" style={{ animationDelay: '0.4s' }}>
               {[
                 t('home.about.keyPoint1'),
                 t('home.about.keyPoint2'),
                 t('home.about.keyPoint3'),
                 t('home.about.keyPoint4')
               ].map((point, index) => (
-                <li key={index} className="flex items-start gap-3 transform transition-all duration-300 hover:translate-x-2" style={{ animationDelay: `${0.5 + index * 0.1}s` }}>
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 flex items-center justify-center font-bold flex-shrink-0 mt-1 shadow-md">
+                <li key={index} className="flex items-start gap-2 transform transition-all duration-300 hover:translate-x-2" style={{ animationDelay: `${0.5 + index * 0.1}s` }}>
+                  <div className="w-5 h-5 rounded-full bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 flex items-center justify-center font-bold flex-shrink-0 mt-0.5 shadow-md text-xs">
                     ✓
                   </div>
-                  <span className="text-gray-700">{point}</span>
+                  <span className="text-sm text-gray-700">{point}</span>
                 </li>
               ))}
             </ul>
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 gap-6 animate-fadeInRight">
+          <div className="grid grid-cols-2 gap-4 animate-fadeInRight">
             {stats.map((stat, index) => (
               <Card
                 key={index}
-                className="text-center shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 bg-white border border-gray-100 hover:border-yellow-400/50 group"
+                className="text-center shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-2 bg-white border border-gray-100 hover:border-yellow-400/50 group"
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
-                <CardContent className="pt-6">
-                  <div className="flex justify-center mb-4 transition-transform duration-300 group-hover:scale-110">
-                    {stat.icon}
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex justify-center mb-3 transition-transform duration-300 group-hover:scale-110">
+                    <div className="w-10 h-10 text-yellow-400">{stat.icon}</div>
                   </div>
-                  <div className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-2 transition-all duration-300 group-hover:from-yellow-600 group-hover:to-yellow-400">
+                  <div className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-1 transition-all duration-300 group-hover:from-yellow-600 group-hover:to-yellow-400">
                     {stat.value}
                   </div>
-                  <p className="text-gray-600 font-semibold group-hover:text-gray-900 transition-colors">{stat.label}</p>
+                  <p className="text-xs text-gray-600 font-semibold group-hover:text-gray-900 transition-colors">{stat.label}</p>
                 </CardContent>
               </Card>
             ))}
@@ -151,8 +151,8 @@ export function AboutUsSection({ title, content }: AboutUsSectionProps) {
         </div>
 
         {/* Customer Logos Section */}
-        <div className="border-t border-gray-200 pt-20">
-          <h3 className="text-2xl md:text-3xl font-bold text-gray-900 text-center mb-12 animate-slideDown">
+        <div className="border-t border-gray-200 pt-14">
+          <h3 className="text-2xl md:text-3xl font-bold text-gray-900 text-center mb-10 animate-slideDown">
             {t('home.about.trustedBy') || 'Zufriedene Kunden'}
           </h3>
 

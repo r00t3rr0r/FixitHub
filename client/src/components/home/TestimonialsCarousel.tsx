@@ -144,14 +144,14 @@ export function TestimonialsCarousel({
       {/* Content wrapper */}
       <div className="relative z-10 container mx-auto">
         {/* Section Header */}
-        <div className="text-center mb-16">
-          <div className="inline-block mb-4 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20 hover:bg-white/15 transition-all duration-300">
-            <span className="text-sm font-semibold text-white">⭐ {t('home.testimonials.featured') || 'Customer Reviews'}</span>
+        <div className="text-center mb-12">
+          <div className="inline-block mb-3 px-3 py-1.5 bg-white/10 backdrop-blur-md rounded-full border border-white/20 hover:bg-white/15 transition-all duration-300">
+            <span className="text-xs font-semibold text-white">⭐ {t('home.testimonials.featured') || 'Customer Reviews'}</span>
           </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-4 drop-shadow-lg">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 drop-shadow-lg">
             {title || t('home.testimonials.title')}
           </h2>
-          <p className="text-gray-100 text-lg max-w-2xl mx-auto drop-shadow-md">
+          <p className="text-gray-100 text-base max-w-2xl mx-auto drop-shadow-md">
             {t('home.testimonials.subtitle')}
           </p>
         </div>
@@ -159,8 +159,8 @@ export function TestimonialsCarousel({
         {/* Testimonials Carousel */}
         <div className="relative max-w-6xl mx-auto">
           {/* Main Testimonial Display */}
-          <div className="mb-12">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="mb-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {visibleTestimonials.map((testimonial, index) => (
                 <div
                   key={index}

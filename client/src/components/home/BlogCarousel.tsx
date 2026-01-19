@@ -86,7 +86,7 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
   const visiblePosts = posts.slice(currentIndex, currentIndex + 3);
 
   return (
-    <section className="relative py-24 overflow-hidden bg-white">
+    <section className="relative py-16 overflow-hidden bg-white">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-20 left-1/4 w-96 h-96 bg-yellow-400/5 rounded-full blur-3xl animate-float"></div>
@@ -96,12 +96,12 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
       {/* Content */}
       <div className="container mx-auto px-4 relative z-10">
         {/* Section Header */}
-        <div className="text-center mb-12 animate-slideIn">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+        <div className="text-center mb-10 animate-slideIn">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
             {title || t('home.blog.title')}
           </h2>
-          <div className="w-24 h-1 bg-gradient-to-r from-yellow-400 to-yellow-500 mx-auto rounded-full mb-4"></div>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          <div className="w-20 h-0.5 bg-gradient-to-r from-yellow-400 to-yellow-500 mx-auto rounded-full mb-3"></div>
+          <p className="text-base text-gray-600 max-w-2xl mx-auto">
             {t('home.blog.subtitle')}
           </p>
         </div>
@@ -109,7 +109,7 @@ export function BlogCarousel({ title, maxItems = 3, posts: initialPosts }: BlogC
         {/* Carousel */}
         <div className="relative">
           {/* Posts Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             {visiblePosts.map((post, index) => (
               <div
                 key={post._id}
