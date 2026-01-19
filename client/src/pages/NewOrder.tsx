@@ -631,44 +631,46 @@ export function NewOrder() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-4 pb-8">
-      {/* Enhanced Progress Header with Compact Design */}
+      {/* Enhanced Progress Header with Refined Design */}
       <Card className="bg-gradient-to-br from-yellow-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 border-2 border-yellow-200/50 dark:border-yellow-600/20 shadow-xl backdrop-blur-sm sticky top-4 z-40 animate-in slide-in-from-top duration-700">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-xl">
-            <div className="p-1.5 bg-yellow-400 rounded-lg shadow-md">
-              <Sparkles className="h-5 w-5 text-gray-900 animate-pulse" />
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+            <div className="p-1.5 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg shadow-md flex-shrink-0">
+              <Sparkles className="h-4 w-4 md:h-5 md:w-5 text-gray-900" />
             </div>
-            <span className="bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent font-bold">
+            <span className="bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent font-bold truncate">
               {t('newOrder.title')}
             </span>
           </CardTitle>
-          <CardDescription className="text-sm">
+          <CardDescription className="text-xs md:text-sm mt-1">
             {t('newOrder.subtitle')}
           </CardDescription>
         </CardHeader>
-        <CardContent className="pt-0">
-          {/* Compact Step Indicators */}
-          <div className="flex items-center justify-between mb-3 overflow-x-auto pb-2">
+        <CardContent className="pt-3">
+          {/* Enhanced Step Indicators with Better Visual Hierarchy */}
+          <div className="flex items-center justify-between mb-4 overflow-x-auto pb-2 gap-0.5">
             {[1, 2, 3, 4, 5].map((stepNumber) => (
-              <div key={stepNumber} className="flex items-center gap-1.5 flex-shrink-0">
-                <div className="flex flex-col items-center gap-1">
+              <div key={stepNumber} className="flex items-center gap-0.5 flex-shrink-0 w-full">
+                <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
+                  {/* Step Circle */}
                   <div
-                    className={`flex items-center justify-center w-9 h-9 rounded-full border-2 transition-all duration-500 ${
+                    className={`flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-full border-2 transition-all duration-500 flex-shrink-0 ${
                       stepNumber < step
-                        ? 'border-green-500 bg-green-500 text-white shadow-md shadow-green-500/50'
+                        ? 'border-green-500 bg-green-500 text-white shadow-md shadow-green-500/50 scale-100'
                         : stepNumber === step
-                        ? 'border-yellow-400 bg-yellow-400 text-gray-900 shadow-md shadow-yellow-400/50 scale-110 animate-pulse'
-                        : 'border-gray-300 bg-white dark:bg-gray-800 text-gray-400'
+                        ? 'border-yellow-400 bg-yellow-400 text-gray-900 shadow-lg shadow-yellow-400/50 scale-110 ring-2 ring-yellow-300/50'
+                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-400'
                     }`}
                   >
                     {stepNumber < step ? (
-                      <Check className="h-4 w-4 animate-in zoom-in duration-300" />
+                      <Check className="h-3.5 w-3.5 md:h-4 md:w-4 animate-in zoom-in duration-300" />
                     ) : (
-                      <span className="font-bold text-xs">{stepNumber}</span>
+                      <span className="font-bold text-xs md:text-sm">{stepNumber}</span>
                     )}
                   </div>
+                  {/* Step Label */}
                   <span
-                    className={`text-[10px] font-medium transition-all duration-300 text-center max-w-[60px] ${
+                    className={`text-[9px] md:text-[10px] font-medium transition-all duration-300 text-center max-w-[70px] leading-tight ${
                       stepNumber <= step
                         ? 'text-gray-900 dark:text-white font-semibold'
                         : 'text-gray-500 dark:text-gray-400'
@@ -678,15 +680,17 @@ export function NewOrder() {
                   </span>
                 </div>
                 {stepNumber < 5 && (
-                  <div className="relative w-8 h-0.5 mx-1 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                  <div className="relative h-0.5 flex-1 min-w-[4px] max-w-[12px] overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                     <div
-                      className={`absolute inset-0 transition-all duration-700 ${
+                      className={`absolute inset-0 transition-all duration-700 rounded-full ${
                         stepNumber < step
-                          ? 'bg-gradient-to-r from-green-500 to-green-400 w-full'
-                          : 'bg-yellow-400 w-0'
+                          ? 'bg-gradient-to-r from-green-500 to-green-400'
+                          : stepNumber === step - 1
+                          ? 'bg-gradient-to-r from-yellow-400 to-yellow-300'
+                          : 'bg-gray-200 dark:bg-gray-700'
                       }`}
                       style={{
-                        width: stepNumber < step ? '100%' : '0%'
+                        width: stepNumber < step ? '100%' : stepNumber === step - 1 ? '50%' : '0%'
                       }}
                     />
                   </div>
@@ -695,13 +699,13 @@ export function NewOrder() {
             ))}
           </div>
 
-          {/* Compact Progress Bar */}
-          <div className="relative">
+          {/* Enhanced Progress Bar */}
+          <div className="relative mb-2">
             <Progress
               value={(step / 5) * 100}
-              className="h-2 shadow-inner overflow-hidden"
+              className="h-2 shadow-inner overflow-hidden rounded-full"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer rounded-full"
                  style={{
                    backgroundSize: '200% 100%',
                    animation: 'shimmer 2s infinite'
@@ -709,29 +713,41 @@ export function NewOrder() {
             />
           </div>
 
-          {/* Compact Step Progress Text */}
-          <p className="text-center text-xs text-muted-foreground mt-2 font-medium">
-            {t('newOrder.stepOf', { current: step, total: 5 })} - {getStepTitle(step)}
-          </p>
+          {/* Step Progress Text - Compact */}
+          <div className="flex items-center justify-between gap-2 px-1">
+            <p className="text-xs text-muted-foreground font-medium">
+              <span className="text-yellow-600 dark:text-yellow-400 font-bold">{t('newOrder.stepOf', { current: step, total: 5 })}</span>
+            </p>
+            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 text-right">
+              {getStepTitle(step)}
+            </p>
+          </div>
         </CardContent>
       </Card>
 
       <form onSubmit={handleSubmit(onSubmit)}>
-        {/* Step 1: Device Selection with Compact Design */}
+        {/* Step 1: Device Selection with Enhanced Visual Hierarchy */}
         {step === 1 && (
           <Card className="animate-in slide-in-from-right duration-500 border-2 shadow-lg hover:shadow-xl transition-all">
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <div className="p-1.5 bg-blue-500 rounded-lg shadow-md">
-                  <Package className="h-4 w-4 text-white" />
+            <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 pb-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="flex items-center gap-2 text-base md:text-lg mb-1">
+                    <div className="p-1.5 bg-blue-500 rounded-lg shadow-md flex-shrink-0">
+                      <Package className="h-4 w-4 text-white" />
+                    </div>
+                    <span className="truncate">{t('newOrder.deviceSelection.title')}</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs md:text-sm leading-snug">
+                    {t('newOrder.deviceSelection.subtitle')}
+                  </CardDescription>
                 </div>
-                <span>{t('newOrder.deviceSelection.title')}</span>
-              </CardTitle>
-              <CardDescription className="text-sm">
-                {t('newOrder.deviceSelection.subtitle')}
-              </CardDescription>
+                <Badge variant="secondary" className="text-xs font-bold px-2 py-1 flex-shrink-0 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                  1/5
+                </Badge>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-5 pt-4">
+            <CardContent className="space-y-4 pt-4">
               {/* Compact Device Search with Autocomplete */}
               <div className="space-y-2">
                 <Label htmlFor="deviceSearch" className="text-sm font-semibold">{t('newOrder.deviceSelection.searchLabel')}</Label>
@@ -863,21 +879,35 @@ export function NewOrder() {
           </Card>
         )}
 
-        {/* Step 2: Service Selection with Compact Design */}
+        {/* Step 2: Service Selection with Enhanced Visual Hierarchy */}
         {step === 2 && (
           <Card className="animate-in slide-in-from-right duration-500 border-2 shadow-lg hover:shadow-xl transition-all">
-            <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <div className="p-1.5 bg-purple-500 rounded-lg shadow-md">
-                  <Package className="h-4 w-4 text-white" />
+            <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 pb-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="flex items-center gap-2 text-base md:text-lg mb-1">
+                    <div className="p-1.5 bg-purple-500 rounded-lg shadow-md flex-shrink-0">
+                      <Package className="h-4 w-4 text-white" />
+                    </div>
+                    <span className="truncate">{t('newOrder.serviceSelection.title')}</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs md:text-sm leading-snug">
+                    {selectedServices.length > 0 ? t('newOrder.serviceSelection.subtitle', { count: selectedServices.length }) : t('newOrder.serviceSelection.selectServices')}
+                  </CardDescription>
                 </div>
-                <span>{t('newOrder.serviceSelection.title')}</span>
-              </CardTitle>
-              <CardDescription className="text-sm">
-                {t('newOrder.serviceSelection.subtitle', { count: selectedServices.length })}
-              </CardDescription>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {selectedServices.length > 0 && (
+                    <Badge className="bg-purple-600 text-white text-xs font-bold">
+                      {selectedServices.length}
+                    </Badge>
+                  )}
+                  <Badge variant="secondary" className="text-xs font-bold px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                    2/5
+                  </Badge>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-5 pt-4">
+            <CardContent className="space-y-4 pt-4">
               {/* Compact Category Filter Buttons */}
               <div className="space-y-2">
                 <Label className="text-sm font-semibold">{t('newOrder.serviceSelection.filterLabel')}</Label>
@@ -1003,20 +1033,27 @@ export function NewOrder() {
         {/* Step 3: Compact Summary, Unlock Code, and Add-On Services */}
         {step === 3 && (
           <div className="space-y-4 animate-in slide-in-from-right duration-500">
-            {/* Compact Order Summary Card */}
+            {/* Enhanced Order Summary Card */}
             <Card className="border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-blue-950/20 dark:via-gray-800 dark:to-indigo-950/20 shadow-xl">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <div className="p-1.5 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg shadow-md">
-                    <Package className="h-4 w-4 text-white" />
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="flex items-center gap-2 text-base md:text-lg mb-1">
+                      <div className="p-1.5 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg shadow-md flex-shrink-0">
+                        <Package className="h-4 w-4 text-white" />
+                      </div>
+                      <span className="truncate">{t('newOrder.detailsStep.orderSummaryTitle')}</span>
+                    </CardTitle>
+                    <CardDescription className="text-xs md:text-sm leading-snug">
+                      {t('newOrder.detailsStep.orderSummarySubtitle')}
+                    </CardDescription>
                   </div>
-                  <span>{t('newOrder.detailsStep.orderSummaryTitle')}</span>
-                </CardTitle>
-                <CardDescription className="text-sm">
-                  {t('newOrder.detailsStep.orderSummarySubtitle')}
-                </CardDescription>
+                  <Badge variant="secondary" className="text-xs font-bold px-2 py-1 flex-shrink-0 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                    3/5
+                  </Badge>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4 pt-0">
+              <CardContent className="space-y-3 pt-3">
                 {/* Compact Customer Information */}
                 <div className="grid md:grid-cols-2 gap-3">
                   <div className="space-y-2 p-3 bg-white/50 dark:bg-gray-900/30 rounded-lg">
@@ -1205,20 +1242,27 @@ export function NewOrder() {
               </CardContent>
             </Card>
 
-            {/* Compact Additional Repair Information Card */}
+            {/* Enhanced Additional Repair Information Card */}
             <Card className="border-2 hover:shadow-lg transition-shadow duration-300 border-blue-200 dark:border-blue-800">
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <div className="p-1.5 bg-blue-500 rounded-lg shadow-md">
-                    <Info className="h-4 w-4 text-white" />
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 pb-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="flex items-center gap-2 text-base md:text-lg mb-1">
+                      <div className="p-1.5 bg-blue-500 rounded-lg shadow-md flex-shrink-0">
+                        <Info className="h-4 w-4 text-white" />
+                      </div>
+                      <span className="truncate">{t('newOrder.repairInfo.title')}</span>
+                    </CardTitle>
+                    <CardDescription className="text-xs md:text-sm leading-snug">
+                      {t('newOrder.repairInfo.subtitle')}
+                    </CardDescription>
                   </div>
-                  <span>{t('newOrder.repairInfo.title')}</span>
-                </CardTitle>
-                <CardDescription className="text-sm">
-                  {t('newOrder.repairInfo.subtitle')}
-                </CardDescription>
+                  <Badge variant="secondary" className="text-xs font-bold px-2 py-1 flex-shrink-0 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                    Info
+                  </Badge>
+                </div>
               </CardHeader>
-              <CardContent className="pt-4 space-y-4">
+              <CardContent className="pt-3 space-y-4">
                 {/* Compact Error Description */}
                 <div className="space-y-1.5">
                   <Label htmlFor="errorDescription" className="text-sm font-semibold flex items-center gap-1.5">
@@ -1368,20 +1412,29 @@ export function NewOrder() {
               </CardContent>
             </Card>
 
-            {/* Compact Quantity Selection Card */}
+            {/* Enhanced Quantity Selection Card */}
             <Card className="border-2 hover:shadow-lg transition-shadow duration-300 border-purple-200 dark:border-purple-800">
-              <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <div className="p-1.5 bg-purple-500 rounded-lg shadow-md">
-                    <Package className="h-4 w-4 text-white" />
+              <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 pb-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="flex items-center gap-2 text-base md:text-lg mb-1">
+                      <div className="p-1.5 bg-purple-500 rounded-lg shadow-md flex-shrink-0">
+                        <Package className="h-4 w-4 text-white" />
+                      </div>
+                      <span className="truncate">{t('newOrder.detailsStep.quantityTitle')}</span>
+                    </CardTitle>
+                    <CardDescription className="text-xs md:text-sm leading-snug">
+                      {t('newOrder.detailsStep.quantitySubtitle')}
+                    </CardDescription>
                   </div>
-                  <span>{t('newOrder.detailsStep.quantityTitle')}</span>
-                </CardTitle>
-                <CardDescription className="text-sm">
-                  {t('newOrder.detailsStep.quantitySubtitle')}
-                </CardDescription>
+                  {quantity > 1 && (
+                    <Badge className="bg-purple-600 text-white text-xs font-bold flex-shrink-0">
+                      {quantity}x
+                    </Badge>
+                  )}
+                </div>
               </CardHeader>
-              <CardContent className="pt-4">
+              <CardContent className="pt-3">
                 <div className="space-y-4">
                   <div className="flex items-center gap-4">
                     <Label htmlFor="quantity" className="text-base font-semibold min-w-[100px]">
@@ -1437,20 +1490,29 @@ export function NewOrder() {
               </CardContent>
             </Card>
 
-            {/* Compact Unlock Code/Pattern Input Card */}
+            {/* Enhanced Unlock Code/Pattern Input Card */}
             <Card className="border-2 hover:shadow-lg transition-shadow duration-300">
-              <CardHeader className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <div className="p-1.5 bg-orange-500 rounded-lg shadow-md">
-                    <Lock className="h-4 w-4 text-white" />
+              <CardHeader className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 pb-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="flex items-center gap-2 text-base md:text-lg mb-1">
+                      <div className="p-1.5 bg-orange-500 rounded-lg shadow-md flex-shrink-0">
+                        <Lock className="h-4 w-4 text-white" />
+                      </div>
+                      <span className="truncate">{t('newOrder.detailsStep.unlockTitle')}</span>
+                    </CardTitle>
+                    <CardDescription className="text-xs md:text-sm leading-snug">
+                      {t('newOrder.detailsStep.unlockSubtitle')}
+                    </CardDescription>
                   </div>
-                  <span>{t('newOrder.detailsStep.unlockTitle')}</span>
-                </CardTitle>
-                <CardDescription className="text-sm">
-                  {t('newOrder.detailsStep.unlockSubtitle')}
-                </CardDescription>
+                  {(noDeviceLock || unlockPattern.length > 0 || unlockCode) && (
+                    <Badge className="bg-orange-600 text-white text-xs font-bold flex-shrink-0">
+                      Set
+                    </Badge>
+                  )}
+                </div>
               </CardHeader>
-              <CardContent className="pt-4">
+              <CardContent className="pt-3">
                 <UnlockPatternInput
                   onPatternChange={setUnlockPattern}
                   onUnlockCodeChange={setUnlockCode}
@@ -1462,20 +1524,29 @@ export function NewOrder() {
               </CardContent>
             </Card>
 
-            {/* Compact Add-On Services Card */}
+            {/* Enhanced Add-On Services Card */}
             <Card className="border-2 hover:shadow-lg transition-shadow duration-300">
-              <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <div className="p-1.5 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg shadow-md">
-                    <Shield className="h-4 w-4 text-white" />
+              <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 pb-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="flex items-center gap-2 text-base md:text-lg mb-1">
+                      <div className="p-1.5 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg shadow-md flex-shrink-0">
+                        <Shield className="h-4 w-4 text-white" />
+                      </div>
+                      <span className="truncate">{t('newOrder.detailsStep.addOnsTitle')}</span>
+                    </CardTitle>
+                    <CardDescription className="text-xs md:text-sm leading-snug">
+                      {selectedAddOns.length > 0 ? t('newOrder.detailsStep.addOnsSubtitle', { count: selectedAddOns.length }) : 'Optional extras'}
+                    </CardDescription>
                   </div>
-                  <span>{t('newOrder.detailsStep.addOnsTitle')}</span>
-                </CardTitle>
-                <CardDescription className="text-sm">
-                  {t('newOrder.detailsStep.addOnsSubtitle', { count: selectedAddOns.length })}
-                </CardDescription>
+                  {selectedAddOns.length > 0 && (
+                    <Badge className="bg-green-600 text-white text-xs font-bold flex-shrink-0">
+                      {selectedAddOns.length}
+                    </Badge>
+                  )}
+                </div>
               </CardHeader>
-              <CardContent className="space-y-3 pt-4">
+              <CardContent className="space-y-3 pt-3">
                 {addOns.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Shield className="h-12 w-12 mx-auto mb-3 text-gray-300" />
@@ -1584,21 +1655,28 @@ export function NewOrder() {
           </div>
         )}
 
-        {/* Step 4: Compact Details & Submit */}
+        {/* Step 4: Enhanced Details & Review */}
         {step === 4 && (
           <Card className="animate-in slide-in-from-right duration-500 border-2 shadow-lg hover:shadow-xl transition-all">
-            <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/20 dark:to-purple-950/20 pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <div className="p-1.5 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg shadow-md">
-                  <Upload className="h-4 w-4 text-white" />
+            <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/20 dark:to-purple-950/20 pb-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="flex items-center gap-2 text-base md:text-lg mb-1">
+                    <div className="p-1.5 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg shadow-md flex-shrink-0">
+                      <Upload className="h-4 w-4 text-white" />
+                    </div>
+                    <span className="truncate">{t('newOrder.reviewStep.title')}</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs md:text-sm leading-snug">
+                    {t('newOrder.reviewStep.subtitle')}
+                  </CardDescription>
                 </div>
-                <span>{t('newOrder.reviewStep.title')}</span>
-              </CardTitle>
-              <CardDescription className="text-sm">
-                {t('newOrder.reviewStep.subtitle')}
-              </CardDescription>
+                <Badge variant="secondary" className="text-xs font-bold px-2 py-1 flex-shrink-0 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">
+                  4/5
+                </Badge>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-5 pt-4">
+            <CardContent className="space-y-4 pt-3">
               <div className="space-y-3 p-5 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl">
                 <Label htmlFor="photos" className="text-base font-semibold flex items-center gap-2">
                   <Upload className="h-4 w-4 text-blue-600" />
@@ -1888,21 +1966,28 @@ export function NewOrder() {
           </Card>
         )}
 
-        {/* Step 5: Compact Add to Cart Confirmation */}
+        {/* Step 5: Enhanced Add to Cart Confirmation */}
         {step === 5 && (
           <Card className="animate-in slide-in-from-right duration-500 border-2 shadow-lg hover:shadow-xl transition-all">
-            <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <div className="p-1.5 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg shadow-md animate-pulse">
-                  <ShoppingCartIcon className="h-4 w-4 text-white" />
+            <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 pb-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="flex items-center gap-2 text-base md:text-lg mb-1">
+                    <div className="p-1.5 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg shadow-md flex-shrink-0 animate-pulse">
+                      <ShoppingCartIcon className="h-4 w-4 text-white" />
+                    </div>
+                    <span className="truncate">{t('newOrder.cartStep.title')}</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs md:text-sm leading-snug">
+                    {t('newOrder.cartStep.subtitle')}
+                  </CardDescription>
                 </div>
-                <span>{t('newOrder.cartStep.title')}</span>
-              </CardTitle>
-              <CardDescription className="text-sm">
-                {t('newOrder.cartStep.subtitle')}
-              </CardDescription>
+                <Badge variant="secondary" className="text-xs font-bold px-2 py-1 flex-shrink-0 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                  5/5
+                </Badge>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-5 pt-4">
+            <CardContent className="space-y-4 pt-3">
               {/* Enhanced Order Summary */}
               <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-purple-900/20 rounded-xl p-6 space-y-4 border-2 border-blue-300 dark:border-blue-700 shadow-lg animate-in zoom-in duration-300">
                 <h3 className="font-bold text-lg flex items-center gap-3">
