@@ -1349,6 +1349,7 @@ export function OrderDetails() {
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-3 space-y-3">
+              <div>
                 {/* Error Description */}
                 {order.errorDescription && order.errorDescription.trim() ? (
                   <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
