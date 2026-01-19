@@ -350,7 +350,7 @@ export function BlogPostPage() {
               icon: TrendingUp,
               title: "Popular Posts",
               description: "Check out trending articles",
-              color: "from-blue-500 to-blue-600"
+              color: "from-purple-500 to-purple-600"
             },
             {
               icon: Sparkles,

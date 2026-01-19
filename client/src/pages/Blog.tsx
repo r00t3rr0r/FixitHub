@@ -438,7 +438,7 @@ export function Blog() {
                   icon: BookOpen,
                   title: t('blogPage.benefit1Title') || "Expert Insights",
                   description: t('blogPage.benefit1Desc') || "Professional device repair tips",
-                  color: "from-blue-500 to-blue-600"
+                  color: "from-purple-500 to-purple-600"
                 },
                 {
                   icon: Sparkles,
