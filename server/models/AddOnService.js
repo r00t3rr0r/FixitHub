@@ -22,7 +22,9 @@ const addOnServiceSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['Protection', 'Service', 'Warranty', 'Accessory', 'Data']
+    // Support both hardcoded categories and dynamic categories from ServiceCategory model
+    // No enum validation to allow dynamic categories
+    trim: true
   },
   compatibility: [{
     deviceType: {

@@ -29,6 +29,8 @@ console.log('Loading service routes...');
 const serviceRoutes = require("./routes/serviceRoutes");
 console.log('Loading addon service routes...');
 const addOnServiceRoutes = require("./routes/addOnServiceRoutes");
+console.log('Loading service category routes...');
+const serviceCategoryRoutes = require("./routes/serviceCategoryRoutes");
 console.log('Loading admin routes...');
 const adminRoutes = require("./routes/adminRoutes");
 console.log('Loading order routes...');
@@ -181,6 +183,15 @@ const initializeDatabase = async () => {
       console.error('Error seeding system configuration:', error.message);
     }
 
+    // Auto-seed service categories if they don't exist
+    console.log('Checking if service categories exist...');
+    try {
+      const categoriesSeedResult = await SeedService.seedServiceCategories();
+      console.log('Service categories seeding result:', categoriesSeedResult.message);
+    } catch (error) {
+      console.error('Error seeding service categories:', error.message);
+    }
+
     // Auto-seed admin user if it doesn't exist
     console.log('Checking if admin user exists...');
     try {
@@ -320,6 +331,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/services', serviceRoutes);
 // Add-on Service Routes
 app.use('/api/addons', addOnServiceRoutes);
+// Service Category Routes
+app.use('/api/service-categories', serviceCategoryRoutes);
 // Admin Routes
 app.use('/api/admin', adminRoutes);
 // Order Routes

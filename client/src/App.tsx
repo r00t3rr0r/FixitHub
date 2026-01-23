@@ -37,6 +37,7 @@ import { BookingsManagement } from "./pages/admin/BookingsManagement"
 import { WebShopManagement } from "./pages/admin/WebShopManagement"
 import { ServiceManagement } from "./pages/admin/ServiceManagement"
 import { AddOnServiceManagement } from "./pages/admin/AddOnServiceManagement"
+import ServiceCategoryManagement from "./pages/admin/ServiceCategoryManagement"
 import { Analytics } from "./pages/admin/Analytics"
 import { BlogManagement } from "./pages/admin/BlogManagement"
 import { FAQManagement } from "./pages/admin/FAQManagement"
@@ -161,6 +162,9 @@ function App() {
             </Route>
             <Route path="/admin/addons" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<AddOnServiceManagement />} />
+            </Route>
+            <Route path="/admin/service-categories" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<ServiceCategoryManagement />} />
             </Route>
             <Route path="/admin/devices" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<DeviceBrandsManagement />} />
