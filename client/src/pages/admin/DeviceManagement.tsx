@@ -1531,196 +1531,352 @@ export function DeviceManagement() {
           </DialogContent>
         </Dialog>
 
-        {/* View Model Dialog */}
+        {/* View Model Dialog - Enhanced with Color Coding and Card-Based Layout */}
         <Dialog open={showViewModel} onOpenChange={setShowViewModel}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Model Details</DialogTitle>
+              <DialogTitle className="text-2xl">Device Model Details</DialogTitle>
+              <DialogDescription>
+                Comprehensive specifications and information
+              </DialogDescription>
             </DialogHeader>
             {selectedModel && (
-              <div className="space-y-4">
-                {selectedModel.image && (
-                  <img src={selectedModel.image} alt={selectedModel.name} className="w-full h-48 object-cover rounded-lg" />
-                )}
-                <div>
-                  <h3 className="text-2xl font-bold">{selectedModel.name}</h3>
-                  <p className="text-muted-foreground">
-                    {(selectedModel as any).brand?.name || 'Unknown Brand'}
-                  </p>
+              <div className="space-y-6">
+                {/* Header Section with Image */}
+                <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-6 rounded-lg border">
+                  <div className="flex flex-col md:flex-row gap-6 items-start">
+                    {selectedModel.image ? (
+                      <img
+                        src={selectedModel.image}
+                        alt={selectedModel.name}
+                        className="w-32 h-32 object-contain rounded-lg border bg-white dark:bg-slate-950 p-2"
+                      />
+                    ) : (
+                      <div className="w-32 h-32 bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg flex items-center justify-center border">
+                        <Smartphone className="h-16 w-16 text-primary/40" />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <h3 className="text-3xl font-bold mb-2">{selectedModel.name}</h3>
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100">
+                          {(selectedModel as any).brand?.name || 'Unknown Brand'}
+                        </Badge>
+                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 capitalize">
+                          {selectedModel.deviceType}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        {(selectedModel as any).other?.releaseDate && (
+                          <div>
+                            <p className="text-muted-foreground">Release Date</p>
+                            <p className="font-medium">{(selectedModel as any).other.releaseDate}</p>
+                          </div>
+                        )}
+                        {(selectedModel as any).other?.price && (
+                          <div>
+                            <p className="text-muted-foreground">Price</p>
+                            <p className="font-medium">{(selectedModel as any).other.price}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <Tabs defaultValue="basic" className="w-full">
-                  <TabsList className="grid w-full grid-cols-7">
-                    <TabsTrigger value="basic">Basic</TabsTrigger>
-                    <TabsTrigger value="network">Network</TabsTrigger>
-                    <TabsTrigger value="physical">Physical</TabsTrigger>
-                    <TabsTrigger value="display">Display</TabsTrigger>
-                    <TabsTrigger value="platform">Platform</TabsTrigger>
-                    <TabsTrigger value="camera">Camera</TabsTrigger>
-                    <TabsTrigger value="other">Other</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="basic" className="space-y-2">
-                    <div className="p-3 rounded border">
-                      <Label>Device Type</Label>
-                      <p className="text-sm text-muted-foreground capitalize">{selectedModel.deviceType}</p>
-                    </div>
+                {/* Basic Information */}
+                <div>
+                  <h4 className="text-lg font-semibold mb-3 pb-2 border-b-2 border-blue-200 dark:border-blue-800 flex items-center gap-2">
+                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                    Basic Information
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                      <CardContent className="pt-6">
+                        <Label className="text-blue-700 dark:text-blue-300">Device Type</Label>
+                        <p className="text-sm font-medium capitalize mt-1">{selectedModel.deviceType}</p>
+                      </CardContent>
+                    </Card>
                     {(selectedModel as any).other?.releaseDate && (
-                      <div className="p-3 rounded border">
-                        <Label>Release Date</Label>
-                        <p className="text-sm text-muted-foreground">{(selectedModel as any).other.releaseDate}</p>
-                      </div>
+                      <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                        <CardContent className="pt-6">
+                          <Label className="text-blue-700 dark:text-blue-300">Release Date</Label>
+                          <p className="text-sm font-medium mt-1">{(selectedModel as any).other.releaseDate}</p>
+                        </CardContent>
+                      </Card>
                     )}
                     {(selectedModel as any).other?.price && (
-                      <div className="p-3 rounded border">
-                        <Label>Price</Label>
-                        <p className="text-sm text-muted-foreground">{(selectedModel as any).other.price}</p>
-                      </div>
+                      <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                        <CardContent className="pt-6">
+                          <Label className="text-blue-700 dark:text-blue-300">Price</Label>
+                          <p className="text-sm font-medium mt-1">{(selectedModel as any).other.price}</p>
+                        </CardContent>
+                      </Card>
                     )}
-                  </TabsContent>
+                  </div>
+                </div>
 
-                  <TabsContent value="network" className="space-y-2">
-                    {(selectedModel as any).network && Object.entries((selectedModel as any).network).map(([key, value]) => (
-                      value && (
-                        <div key={key} className="p-3 rounded border">
-                          <Label className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</Label>
-                          <p className="text-sm text-muted-foreground">{value as string}</p>
-                        </div>
-                      )
-                    ))}
-                  </TabsContent>
-
-                  <TabsContent value="physical" className="space-y-2">
-                    {(selectedModel as any).physical && Object.entries((selectedModel as any).physical).map(([key, value]) => (
-                      value && (
-                        <div key={key} className="p-3 rounded border">
-                          <Label className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</Label>
-                          <p className="text-sm text-muted-foreground">{value as string}</p>
-                        </div>
-                      )
-                    ))}
-                  </TabsContent>
-
-                  <TabsContent value="display" className="space-y-2">
-                    {(selectedModel as any).display && Object.entries((selectedModel as any).display).map(([key, value]) => (
-                      value && (
-                        <div key={key} className="p-3 rounded border">
-                          <Label className="capitalize">{key}</Label>
-                          <p className="text-sm text-muted-foreground">{value as string}</p>
-                        </div>
-                      )
-                    ))}
-                  </TabsContent>
-
-                  <TabsContent value="platform" className="space-y-2">
-                    {(selectedModel as any).platform && Object.entries((selectedModel as any).platform).map(([key, value]) => (
-                      value && (
-                        <div key={key} className="p-3 rounded border">
-                          <Label className="uppercase">{key}</Label>
-                          <p className="text-sm text-muted-foreground">{value as string}</p>
-                        </div>
-                      )
-                    ))}
-                    {(selectedModel as any).memory?.cardSlot && (
-                      <div className="p-3 rounded border">
-                        <Label>Card Slot</Label>
-                        <p className="text-sm text-muted-foreground">{(selectedModel as any).memory.cardSlot}</p>
-                      </div>
-                    )}
-                  </TabsContent>
-
-                  <TabsContent value="camera" className="space-y-4">
-                    <div>
-                      <h4 className="font-semibold mb-2">Rear Camera</h4>
-                      {(selectedModel as any).rearCamera && Object.entries((selectedModel as any).rearCamera).map(([key, value]) => (
+                {/* Network Section */}
+                {(selectedModel as any).network && Object.values((selectedModel as any).network).some(v => v) && (
+                  <div>
+                    <h4 className="text-lg font-semibold mb-3 pb-2 border-b-2 border-purple-200 dark:border-purple-800 flex items-center gap-2">
+                      <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                      Network & Connectivity
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {Object.entries((selectedModel as any).network).map(([key, value]) => (
                         value && (
-                          <div key={key} className="p-3 rounded border mb-2">
-                            <Label className="capitalize">{key}</Label>
-                            <p className="text-sm text-muted-foreground">{value as string}</p>
-                          </div>
+                          <Card key={key} className="bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800">
+                            <CardContent className="pt-6">
+                              <Label className="text-purple-700 dark:text-purple-300 capitalize">
+                                {key.replace(/([A-Z])/g, ' $1').trim()}
+                              </Label>
+                              <p className="text-sm font-medium mt-1">{value as string}</p>
+                            </CardContent>
+                          </Card>
                         )
                       ))}
                     </div>
-                    <div>
-                      <h4 className="font-semibold mb-2">Front Camera</h4>
-                      {(selectedModel as any).frontCamera && Object.entries((selectedModel as any).frontCamera).map(([key, value]) => (
+                  </div>
+                )}
+
+                {/* Physical Characteristics */}
+                {(selectedModel as any).physical && Object.values((selectedModel as any).physical).some(v => v) && (
+                  <div>
+                    <h4 className="text-lg font-semibold mb-3 pb-2 border-b-2 border-amber-200 dark:border-amber-800 flex items-center gap-2">
+                      <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
+                      Physical Characteristics
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {Object.entries((selectedModel as any).physical).map(([key, value]) => (
                         value && (
-                          <div key={key} className="p-3 rounded border mb-2">
-                            <Label className="capitalize">{key}</Label>
-                            <p className="text-sm text-muted-foreground">{value as string}</p>
-                          </div>
+                          <Card key={key} className="bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+                            <CardContent className="pt-6">
+                              <Label className="text-amber-700 dark:text-amber-300 capitalize">
+                                {key.replace(/([A-Z])/g, ' $1').trim()}
+                              </Label>
+                              <p className="text-sm font-medium mt-1">{value as string}</p>
+                            </CardContent>
+                          </Card>
                         )
                       ))}
                     </div>
-                  </TabsContent>
+                  </div>
+                )}
 
-                  <TabsContent value="other" className="space-y-4">
-                    {(selectedModel as any).audio && (
-                      <div>
-                        <h4 className="font-semibold mb-2">Audio</h4>
-                        {Object.entries((selectedModel as any).audio).map(([key, value]) => (
-                          value && (
-                            <div key={key} className="p-3 rounded border mb-2">
-                              <Label className="capitalize">{key.replace(/_/g, ' ')}</Label>
-                              <p className="text-sm text-muted-foreground">{value as string}</p>
-                            </div>
-                          )
-                        ))}
-                      </div>
-                    )}
-                    {(selectedModel as any).connectivity && (
-                      <div>
-                        <h4 className="font-semibold mb-2">Connectivity</h4>
-                        {Object.entries((selectedModel as any).connectivity).map(([key, value]) => (
-                          value && (
-                            <div key={key} className="p-3 rounded border mb-2">
-                              <Label className="uppercase">{key}</Label>
-                              <p className="text-sm text-muted-foreground">{value as string}</p>
-                            </div>
-                          )
-                        ))}
-                      </div>
-                    )}
-                    {(selectedModel as any).battery && (
-                      <div>
-                        <h4 className="font-semibold mb-2">Battery</h4>
-                        {Object.entries((selectedModel as any).battery).map(([key, value]) => (
-                          value && (
-                            <div key={key} className="p-3 rounded border mb-2">
-                              <Label className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</Label>
-                              <p className="text-sm text-muted-foreground">{value as string}</p>
-                            </div>
-                          )
-                        ))}
-                      </div>
-                    )}
-                    {(selectedModel as any).features && (
-                      <div>
-                        <h4 className="font-semibold mb-2">Features</h4>
-                        {Object.entries((selectedModel as any).features).map(([key, value]) => (
-                          value && (
-                            <div key={key} className="p-3 rounded border mb-2">
-                              <Label className="capitalize">{key}</Label>
-                              <p className="text-sm text-muted-foreground">
-                                {Array.isArray(value) ? value.join(', ') : value as string}
-                              </p>
-                            </div>
-                          )
-                        ))}
-                      </div>
-                    )}
-                  </TabsContent>
-                </Tabs>
+                {/* Display */}
+                {(selectedModel as any).display && Object.values((selectedModel as any).display).some(v => v) && (
+                  <div>
+                    <h4 className="text-lg font-semibold mb-3 pb-2 border-b-2 border-cyan-200 dark:border-cyan-800 flex items-center gap-2">
+                      <div className="w-3 h-3 bg-cyan-500 rounded-full"></div>
+                      Display
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {Object.entries((selectedModel as any).display).map(([key, value]) => (
+                        value && (
+                          <Card key={key} className="bg-cyan-50 dark:bg-cyan-950/20 border-cyan-200 dark:border-cyan-800">
+                            <CardContent className="pt-6">
+                              <Label className="text-cyan-700 dark:text-cyan-300 capitalize">
+                                {key}
+                              </Label>
+                              <p className="text-sm font-medium mt-1 line-clamp-2">{value as string}</p>
+                            </CardContent>
+                          </Card>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                )}
 
+                {/* Platform & Performance */}
+                {((selectedModel as any).platform || (selectedModel as any).memory) && (
+                  <div>
+                    <h4 className="text-lg font-semibold mb-3 pb-2 border-b-2 border-indigo-200 dark:border-indigo-800 flex items-center gap-2">
+                      <div className="w-3 h-3 bg-indigo-500 rounded-full"></div>
+                      Platform & Performance
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {(selectedModel as any).platform && Object.entries((selectedModel as any).platform).map(([key, value]) => (
+                        value && (
+                          <Card key={key} className="bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-800">
+                            <CardContent className="pt-6">
+                              <Label className="text-indigo-700 dark:text-indigo-300 uppercase">
+                                {key}
+                              </Label>
+                              <p className="text-sm font-medium mt-1">{value as string}</p>
+                            </CardContent>
+                          </Card>
+                        )
+                      ))}
+                      {(selectedModel as any).memory?.cardSlot && (
+                        <Card className="bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-800">
+                          <CardContent className="pt-6">
+                            <Label className="text-indigo-700 dark:text-indigo-300">Card Slot</Label>
+                            <p className="text-sm font-medium mt-1">{(selectedModel as any).memory.cardSlot}</p>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Camera */}
+                {((selectedModel as any).rearCamera || (selectedModel as any).frontCamera) && (
+                  <div>
+                    <h4 className="text-lg font-semibold mb-3 pb-2 border-b-2 border-rose-200 dark:border-rose-800 flex items-center gap-2">
+                      <div className="w-3 h-3 bg-rose-500 rounded-full"></div>
+                      Camera
+                    </h4>
+                    <div className="grid grid-cols-1 gap-6">
+                      {(selectedModel as any).rearCamera && Object.values((selectedModel as any).rearCamera).some(v => v) && (
+                        <div>
+                          <h5 className="font-medium text-rose-700 dark:text-rose-300 mb-3">Rear Camera</h5>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {Object.entries((selectedModel as any).rearCamera).map(([key, value]) => (
+                              value && (
+                                <Card key={key} className="bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800">
+                                  <CardContent className="pt-6">
+                                    <Label className="text-rose-700 dark:text-rose-300 capitalize">
+                                      {key}
+                                    </Label>
+                                    <p className="text-sm font-medium mt-1 line-clamp-3">{value as string}</p>
+                                  </CardContent>
+                                </Card>
+                              )
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {(selectedModel as any).frontCamera && Object.values((selectedModel as any).frontCamera).some(v => v) && (
+                        <div>
+                          <h5 className="font-medium text-rose-700 dark:text-rose-300 mb-3">Front Camera</h5>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {Object.entries((selectedModel as any).frontCamera).map(([key, value]) => (
+                              value && (
+                                <Card key={key} className="bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800">
+                                  <CardContent className="pt-6">
+                                    <Label className="text-rose-700 dark:text-rose-300 capitalize">
+                                      {key}
+                                    </Label>
+                                    <p className="text-sm font-medium mt-1 line-clamp-3">{value as string}</p>
+                                  </CardContent>
+                                </Card>
+                              )
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Other Features */}
+                {((selectedModel as any).audio || (selectedModel as any).connectivity || (selectedModel as any).battery || (selectedModel as any).features) && (
+                  <div>
+                    <h4 className="text-lg font-semibold mb-3 pb-2 border-b-2 border-emerald-200 dark:border-emerald-800 flex items-center gap-2">
+                      <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
+                      Features & Additional Info
+                    </h4>
+                    <div className="grid grid-cols-1 gap-6">
+                      {(selectedModel as any).audio && Object.values((selectedModel as any).audio).some(v => v) && (
+                        <div>
+                          <h5 className="font-medium text-emerald-700 dark:text-emerald-300 mb-3">Audio</h5>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {Object.entries((selectedModel as any).audio).map(([key, value]) => (
+                              value && (
+                                <Card key={key} className="bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
+                                  <CardContent className="pt-6">
+                                    <Label className="text-emerald-700 dark:text-emerald-300 capitalize">
+                                      {key.replace(/_/g, ' ')}
+                                    </Label>
+                                    <p className="text-sm font-medium mt-1">{value as string}</p>
+                                  </CardContent>
+                                </Card>
+                              )
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {(selectedModel as any).connectivity && Object.values((selectedModel as any).connectivity).some(v => v) && (
+                        <div>
+                          <h5 className="font-medium text-emerald-700 dark:text-emerald-300 mb-3">Connectivity</h5>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {Object.entries((selectedModel as any).connectivity).map(([key, value]) => (
+                              value && (
+                                <Card key={key} className="bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
+                                  <CardContent className="pt-6">
+                                    <Label className="text-emerald-700 dark:text-emerald-300 uppercase">
+                                      {key}
+                                    </Label>
+                                    <p className="text-sm font-medium mt-1">{value as string}</p>
+                                  </CardContent>
+                                </Card>
+                              )
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {(selectedModel as any).battery && Object.values((selectedModel as any).battery).some(v => v) && (
+                        <div>
+                          <h5 className="font-medium text-emerald-700 dark:text-emerald-300 mb-3">Battery</h5>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {Object.entries((selectedModel as any).battery).map(([key, value]) => (
+                              value && (
+                                <Card key={key} className="bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
+                                  <CardContent className="pt-6">
+                                    <Label className="text-emerald-700 dark:text-emerald-300 capitalize">
+                                      {key.replace(/([A-Z])/g, ' $1').trim()}
+                                    </Label>
+                                    <p className="text-sm font-medium mt-1">{value as string}</p>
+                                  </CardContent>
+                                </Card>
+                              )
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {(selectedModel as any).features && Object.values((selectedModel as any).features).some(v => v) && (
+                        <div>
+                          <h5 className="font-medium text-emerald-700 dark:text-emerald-300 mb-3">Features</h5>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {Object.entries((selectedModel as any).features).map(([key, value]) => (
+                              value && (
+                                <Card key={key} className="bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
+                                  <CardContent className="pt-6">
+                                    <Label className="text-emerald-700 dark:text-emerald-300 capitalize">
+                                      {key}
+                                    </Label>
+                                    <p className="text-sm font-medium mt-1">
+                                      {Array.isArray(value) ? value.join(', ') : value as string}
+                                    </p>
+                                  </CardContent>
+                                </Card>
+                              )
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Legacy Specifications */}
                 {selectedModel.specifications && Object.keys(selectedModel.specifications).length > 0 && (
-                  <div className="mt-4">
-                    <Label>Legacy Specifications</Label>
-                    <div className="mt-2 space-y-2">
+                  <div>
+                    <h4 className="text-lg font-semibold mb-3 pb-2 border-b-2 border-gray-200 dark:border-gray-800 flex items-center gap-2">
+                      <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
+                      Legacy Specifications
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {Object.entries(selectedModel.specifications).map(([key, value]) => (
-                        <div key={key} className="flex justify-between p-2 rounded border">
-                          <span className="text-sm font-medium capitalize">{key.replace(/_/g, ' ')}</span>
-                          <span className="text-sm text-muted-foreground">{value as string}</span>
-                        </div>
+                        <Card key={key} className="bg-gray-50 dark:bg-gray-950/20 border-gray-200 dark:border-gray-800">
+                          <CardContent className="pt-6">
+                            <Label className="text-gray-700 dark:text-gray-300 capitalize">
+                              {key.replace(/_/g, ' ')}
+                            </Label>
+                            <p className="text-sm font-medium mt-1">{value as string}</p>
+                          </CardContent>
+                        </Card>
                       ))}
                     </div>
                   </div>
