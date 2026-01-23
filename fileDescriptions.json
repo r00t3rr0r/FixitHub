@@ -16,7 +16,7 @@
 	"client/tsconfig.node.json": "TypeScript configuration for Node.js build tools and Vite configuration, enabling strict type checking, bundler module resolution, and ES2022+ language features.",
 	"client/vite.config.ts": "Vite configuration for React client with path aliasing, API/logs proxy routing to backend services, and development server settings for localhost and pythagora.ai hosts.",
 	"client/src/App.css": "Global stylesheet for the App component, defining layout constraints, logo animations with hover effects, card styling, and responsive motion preferences.",
-	"client/src/App.tsx": "Root application component defining the complete routing structure with public, customer, staff, and admin routes, wrapped with authentication, theme, and toast notification providers.",
+	"client/src/App.tsx": "Root application component defining the complete routing structure with public, protected customer, staff, and admin routes, wrapped with authentication, theme, and toast notification providers.",
 	"client/src/index.css": "Global stylesheet with Tailwind CSS directives, light/dark theme CSS variables, custom scrollbar utilities, and React-Quill editor styling.",
 	"client/src/main.tsx": "React application entry point that initializes the root DOM element, imports global styles and i18n configuration, and renders the App component with StrictMode.",
 	"client/src/vite-env.d.ts": "TypeScript ambient declaration file for Vite client-side type definitions and environment variables.",
@@ -632,5 +632,9 @@
 	"client/src/pages/admin/ServiceCategoryManagement.tsx": "Admin dashboard page for managing service categories with CRUD operations, filtering, statistics display, and status toggling for repair and add-on service types.",
 	"server/models/ServiceCategory.js": "Mongoose schema and model for service categories, defining document structure with name, type (repair/addon), icon, color, ordering, and active status, including pre-save hooks for timestamp updates and indexed queries.",
 	"server/routes/serviceCategoryRoutes.js": "Express router for service category CRUD operations, providing endpoints to retrieve, create, update, delete, and manage service categories with filtering, statistics, activation/deactivation, and reordering capabilities; requires admin/staff authentication for write operations.",
-	"server/services/serviceCategoryService.js": "Service business logic layer for managing service categories with CRUD operations, filtering, activation/deactivation, usage validation, and reordering functionality across repair and add-on service types."
+	"server/services/serviceCategoryService.js": "Service business logic layer for managing service categories with CRUD operations, filtering, activation/deactivation, usage validation, and reordering functionality across repair and add-on service types.",
+	"client/dist/index.html": "Entry point HTML file for the FixitHub client application, linking bundled JavaScript and CSS assets with a root DOM element for React mounting.",
+	"client/dist/assets/index-BxfuK8L1.css": "Compiled Tailwind CSS stylesheet with complete utility classes, component styles, animations, and theme variables for the application's UI design system.",
+	"client/dist/assets/index.es-DWoWYvAq.js": "Minified and bundled JavaScript library containing SVG rendering engine with support for animations, gradients, filters, text, paths, and canvas-based rendering capabilities.",
+	"client/src/pages/admin/DeviceManagement.tsx": "Admin page for managing device brands, models, and specifications with dashboard overview, CRUD operations, filtering, and search functionality across multiple tabs."
 }

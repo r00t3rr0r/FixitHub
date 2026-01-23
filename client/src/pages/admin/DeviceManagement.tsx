@@ -1,0 +1,1131 @@
+import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Label } from "@/components/ui/label"
+import { useToast } from "@/hooks/useToast"
+import {
+  getBrands,
+  getBrandById,
+  getModelsByBrand,
+  getModelById,
+  createBrand,
+  createModel,
+  Brand,
+  Model
+} from "@/api/brands"
+import {
+  getDeviceTypes,
+  getManufacturersByDeviceType,
+  getModelsByTypeAndManufacturer,
+  DeviceType,
+  Manufacturer,
+  DeviceModel
+} from "@/api/devices"
+import {
+  Smartphone,
+  Search,
+  Plus,
+  Edit,
+  Eye,
+  Trash2,
+  Package,
+  Users,
+  Grid3x3,
+  Filter,
+  Download,
+  Upload,
+  BarChart3,
+  TrendingUp,
+  Activity,
+  Info,
+  HelpCircle,
+  X
+} from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+
+export function DeviceManagement() {
+  const { t } = useTranslation()
+  const [brands, setBrands] = useState<Brand[]>([])
+  const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([])
+  const [manufacturers, setManufacturers] = useState<Manufacturer[]>([])
+  const [models, setModels] = useState<DeviceModel[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedDeviceType, setSelectedDeviceType] = useState("all")
+  const [selectedManufacturer, setSelectedManufacturer] = useState("all")
+  const [activeTab, setActiveTab] = useState("dashboard")
+
+  // Dashboard statistics
+  const [stats, setStats] = useState({
+    totalBrands: 0,
+    totalModels: 0,
+    totalDeviceTypes: 0,
+    recentlyAdded: 0
+  })
+
+  // Dialog states
+  const [showCreateBrand, setShowCreateBrand] = useState(false)
+  const [showCreateModel, setShowCreateModel] = useState(false)
+  const [showViewBrand, setShowViewBrand] = useState(false)
+  const [showViewModel, setShowViewModel] = useState(false)
+  const [showViewDeviceType, setShowViewDeviceType] = useState(false)
+  const [showDeleteBrand, setShowDeleteBrand] = useState(false)
+  const [showDeleteModel, setShowDeleteModel] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
+
+  // Selected items
+  const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null)
+  const [selectedModel, setSelectedModel] = useState<DeviceModel | null>(null)
+  const [selectedDeviceTypeDetails, setSelectedDeviceTypeDetails] = useState<DeviceType | null>(null)
+
+  // Form states
+  const [brandForm, setBrandForm] = useState({
+    name: '',
+    logo: ''
+  })
+
+  const [modelForm, setModelForm] = useState({
+    name: '',
+    brandId: '',
+    deviceType: '',
+    image: '',
+    specifications: {} as Record<string, string>
+  })
+
+  const { toast } = useToast()
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        console.log('DeviceManagement: Fetching initial data...')
+        const [brandsResponse, deviceTypesResponse] = await Promise.all([
+          getBrands(),
+          getDeviceTypes()
+        ])
+
+        setBrands(brandsResponse)
+        setDeviceTypes((deviceTypesResponse as any).deviceTypes || [])
+
+        // Calculate statistics
+        setStats({
+          totalBrands: brandsResponse.length,
+          totalModels: brandsResponse.reduce((sum: number, brand: any) => sum + (brand.modelCount || 0), 0),
+          totalDeviceTypes: ((deviceTypesResponse as any).deviceTypes || []).length,
+          recentlyAdded: brandsResponse.filter((b: any) => {
+            const createdAt = new Date(b.createdAt)
+            const weekAgo = new Date()
+            weekAgo.setDate(weekAgo.getDate() - 7)
+            return createdAt > weekAgo
+          }).length
+        })
+
+        console.log('DeviceManagement: Initial data loaded')
+      } catch (error) {
+        console.error('DeviceManagement: Error loading data:', error)
+        toast({
+          title: "Error",
+          description: "Failed to load device data",
+          variant: "destructive"
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [toast])
+
+  useEffect(() => {
+    const fetchManufacturers = async () => {
+      if (selectedDeviceType && selectedDeviceType !== "all") {
+        try {
+          console.log('DeviceManagement: Fetching manufacturers for device type:', selectedDeviceType)
+          const response = await getManufacturersByDeviceType(selectedDeviceType)
+          setManufacturers((response as any).manufacturers || [])
+        } catch (error) {
+          console.error('DeviceManagement: Error fetching manufacturers:', error)
+          setManufacturers([])
+        }
+      } else {
+        setManufacturers([])
+      }
+    }
+    fetchManufacturers()
+  }, [selectedDeviceType])
+
+  useEffect(() => {
+    const fetchModels = async () => {
+      if (selectedDeviceType && selectedDeviceType !== "all" &&
+          selectedManufacturer && selectedManufacturer !== "all") {
+        try {
+          console.log('DeviceManagement: Fetching models for type and manufacturer:', selectedDeviceType, selectedManufacturer)
+          const response = await getModelsByTypeAndManufacturer(selectedDeviceType, selectedManufacturer)
+          setModels((response as any).models || [])
+        } catch (error) {
+          console.error('DeviceManagement: Error fetching models:', error)
+          setModels([])
+        }
+      } else {
+        setModels([])
+      }
+    }
+    fetchModels()
+  }, [selectedDeviceType, selectedManufacturer])
+
+  const handleViewBrand = async (brand: Brand) => {
+    try {
+      console.log('DeviceManagement: Viewing brand:', brand._id)
+      const response = await getBrandById(brand._id)
+      setSelectedBrand(response)
+      setShowViewBrand(true)
+    } catch (error) {
+      console.error('DeviceManagement: Error viewing brand:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load brand details",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleViewDeviceType = async (deviceType: DeviceType) => {
+    try {
+      console.log('DeviceManagement: Viewing device type:', deviceType._id)
+      setSelectedDeviceTypeDetails(deviceType)
+      setSelectedDeviceType(deviceType._id)
+      setShowViewDeviceType(true)
+    } catch (error) {
+      console.error('DeviceManagement: Error viewing device type:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load device type details",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleViewModel = async (model: DeviceModel) => {
+    try {
+      console.log('DeviceManagement: Viewing model:', model._id)
+      setSelectedModel(model)
+      setShowViewModel(true)
+    } catch (error) {
+      console.error('DeviceManagement: Error viewing model:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load model details",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleCreateBrand = () => {
+    setBrandForm({ name: '', logo: '' })
+    setShowCreateBrand(true)
+  }
+
+  const handleCreateModel = () => {
+    setModelForm({
+      name: '',
+      brandId: '',
+      deviceType: '',
+      image: '',
+      specifications: {}
+    })
+    setShowCreateModel(true)
+  }
+
+  const handleSaveBrand = async () => {
+    try {
+      if (!brandForm.name) {
+        toast({
+          title: "Error",
+          description: "Brand name is required",
+          variant: "destructive"
+        })
+        return
+      }
+
+      console.log('DeviceManagement: Creating brand:', brandForm)
+      const response = await createBrand(brandForm)
+      console.log('DeviceManagement: Brand created, response:', response)
+
+      toast({
+        title: "Success",
+        description: "Brand created successfully",
+      })
+
+      setShowCreateBrand(false)
+      setBrandForm({ name: '', logo: '' })
+
+      const brandsResponse = await getBrands()
+      setBrands(brandsResponse)
+
+      // Update statistics
+      setStats(prev => ({
+        ...prev,
+        totalBrands: brandsResponse.length,
+        recentlyAdded: prev.recentlyAdded + 1
+      }))
+
+    } catch (error) {
+      console.error('DeviceManagement: Error saving brand:', error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save brand",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleSaveModel = async () => {
+    try {
+      if (!modelForm.name || !modelForm.brandId || !modelForm.deviceType) {
+        toast({
+          title: "Error",
+          description: "Model name, brand, and device type are required",
+          variant: "destructive"
+        })
+        return
+      }
+
+      console.log('DeviceManagement: Creating model:', modelForm)
+      const response = await createModel(modelForm)
+      console.log('DeviceManagement: Model created successfully, response:', response)
+
+      toast({
+        title: "Success",
+        description: "Model created successfully",
+      })
+
+      setShowCreateModel(false)
+      setModelForm({
+        name: '',
+        brandId: '',
+        deviceType: '',
+        image: '',
+        specifications: {}
+      })
+
+      // Refresh models list if filters are active
+      if (selectedDeviceType !== "all" && selectedManufacturer !== "all") {
+        const response = await getModelsByTypeAndManufacturer(selectedDeviceType, selectedManufacturer)
+        setModels((response as any).models || [])
+      }
+
+      // Update statistics
+      setStats(prev => ({
+        ...prev,
+        totalModels: prev.totalModels + 1
+      }))
+
+    } catch (error) {
+      console.error('DeviceManagement: Error saving model:', error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save model",
+        variant: "destructive"
+      })
+    }
+  }
+
+  // Filter functions
+  const filteredBrands = brands.filter(brand =>
+    brand.name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const filteredModels = models.filter(model =>
+    model.name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <Activity className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Loading device data...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <TooltipProvider>
+      <div className="space-y-6 p-6">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+              <Smartphone className="h-8 w-8" />
+              Device Management
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Manage device brands, models, and specifications
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" onClick={() => setShowHelp(true)}>
+                  <HelpCircle className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Help & Documentation</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Download className="h-4 w-4" />
+                  <span className="hidden sm:inline">Export</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Export device data to CSV</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Upload className="h-4 w-4" />
+                  <span className="hidden sm:inline">Import</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Import devices from CSV</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+
+        {/* Dashboard Overview */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+            <TabsTrigger value="dashboard">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="brands">
+              <Users className="h-4 w-4 mr-2" />
+              Brands
+            </TabsTrigger>
+            <TabsTrigger value="types">
+              <Grid3x3 className="h-4 w-4 mr-2" />
+              Device Types
+            </TabsTrigger>
+            <TabsTrigger value="models">
+              <Package className="h-4 w-4 mr-2" />
+              Models
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Dashboard Tab */}
+          <TabsContent value="dashboard" className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card className="hover:shadow-lg transition-shadow">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Total Brands
+                  </CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.totalBrands}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Active device manufacturers
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="hover:shadow-lg transition-shadow">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Total Models
+                  </CardTitle>
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.totalModels}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Device models in database
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="hover:shadow-lg transition-shadow">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Device Types
+                  </CardTitle>
+                  <Grid3x3 className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.totalDeviceTypes}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Categories available
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="hover:shadow-lg transition-shadow">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Recently Added
+                  </CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.recentlyAdded}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Added this week
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+                <CardDescription>
+                  Common tasks to manage your device database
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <Button onClick={handleCreateBrand} className="h-auto flex-col items-start p-4 gap-2">
+                  <Plus className="h-5 w-5" />
+                  <div className="text-left">
+                    <div className="font-semibold">Add New Brand</div>
+                    <div className="text-xs font-normal opacity-80">
+                      Create a new device manufacturer
+                    </div>
+                  </div>
+                </Button>
+
+                <Button onClick={handleCreateModel} variant="outline" className="h-auto flex-col items-start p-4 gap-2">
+                  <Plus className="h-5 w-5" />
+                  <div className="text-left">
+                    <div className="font-semibold">Add New Model</div>
+                    <div className="text-xs font-normal opacity-80">
+                      Create a new device model
+                    </div>
+                  </div>
+                </Button>
+
+                <Button variant="outline" className="h-auto flex-col items-start p-4 gap-2">
+                  <Filter className="h-5 w-5" />
+                  <div className="text-left">
+                    <div className="font-semibold">Advanced Search</div>
+                    <div className="text-xs font-normal opacity-80">
+                      Find specific devices quickly
+                    </div>
+                  </div>
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Recent Activity */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Activity</CardTitle>
+                <CardDescription>
+                  Latest additions to your device database
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {brands.slice(0, 5).map((brand: any) => (
+                    <div key={brand._id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition-colors">
+                      <div className="flex items-center gap-3">
+                        {brand.logo ? (
+                          <img src={brand.logo} alt={brand.name} className="w-10 h-10 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Users className="h-5 w-5 text-primary" />
+                          </div>
+                        )}
+                        <div>
+                          <div className="font-medium">{brand.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {brand.modelCount || 0} models
+                          </div>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => handleViewBrand(brand)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Brands Tab */}
+          <TabsContent value="brands" className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search brands..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Button onClick={handleCreateBrand} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Add Brand
+              </Button>
+            </div>
+
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Logo</TableHead>
+                    <TableHead>Brand Name</TableHead>
+                    <TableHead>Models Count</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredBrands.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        No brands found. Click "Add Brand" to create your first brand.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredBrands.map((brand: any) => (
+                      <TableRow key={brand._id} className="hover:bg-accent/50 transition-colors">
+                        <TableCell>
+                          {brand.logo ? (
+                            <img src={brand.logo} alt={brand.name} className="w-10 h-10 rounded-full object-cover" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <Users className="h-5 w-5 text-primary" />
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium">{brand.name}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{brand.modelCount || 0}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={brand.isActive ? "default" : "secondary"}>
+                            {brand.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" onClick={() => handleViewBrand(brand)}>
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>View Details</TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Edit Brand</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+
+          {/* Device Types Tab */}
+          <TabsContent value="types" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Device Categories</CardTitle>
+                <CardDescription>
+                  Browse by device type to find specific models
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {deviceTypes.map((type: any) => (
+                    <Card
+                      key={type._id}
+                      className="cursor-pointer hover:shadow-lg transition-all hover:scale-105"
+                      onClick={() => handleViewDeviceType(type)}
+                    >
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <Smartphone className="h-6 w-6 text-primary" />
+                          </div>
+                          <Badge variant="secondary">{type.count || 0}</Badge>
+                        </div>
+                        <CardTitle className="mt-4 capitalize">{type.name}</CardTitle>
+                        <CardDescription>
+                          {type.count || 0} models available
+                        </CardDescription>
+                      </CardHeader>
+                    </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Models Tab */}
+          <TabsContent value="models" className="space-y-4">
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search models..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Button onClick={handleCreateModel} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Model
+                </Button>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="deviceType" className="mb-2 block">Device Type</Label>
+                  <Select value={selectedDeviceType} onValueChange={setSelectedDeviceType}>
+                    <SelectTrigger id="deviceType">
+                      <SelectValue placeholder="Select device type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      {deviceTypes.map((type: any) => (
+                        <SelectItem key={type._id} value={type._id} className="capitalize">
+                          {type.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="manufacturer" className="mb-2 block">Manufacturer</Label>
+                  <Select
+                    value={selectedManufacturer}
+                    onValueChange={setSelectedManufacturer}
+                    disabled={selectedDeviceType === "all"}
+                  >
+                    <SelectTrigger id="manufacturer">
+                      <SelectValue placeholder="Select manufacturer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Manufacturers</SelectItem>
+                      {manufacturers.map((manufacturer: any) => (
+                        <SelectItem key={manufacturer._id} value={manufacturer._id}>
+                          {manufacturer.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {selectedDeviceType === "all" || selectedManufacturer === "all" ? (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Filter className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Select Filters</h3>
+                  <p className="text-muted-foreground text-center max-w-md">
+                    Please select both a device type and manufacturer to view available models
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {filteredModels.length === 0 ? (
+                  <Card className="md:col-span-2 lg:col-span-3 border-dashed">
+                    <CardContent className="flex flex-col items-center justify-center py-12">
+                      <Package className="h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">No Models Found</h3>
+                      <p className="text-muted-foreground text-center max-w-md mb-4">
+                        No models found for the selected filters. Try different criteria or add a new model.
+                      </p>
+                      <Button onClick={handleCreateModel} className="gap-2">
+                        <Plus className="h-4 w-4" />
+                        Add New Model
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  filteredModels.map((model: any) => (
+                    <Card
+                      key={model._id}
+                      className="cursor-pointer hover:shadow-lg transition-all"
+                      onClick={() => handleViewModel(model)}
+                    >
+                      <CardHeader>
+                        {model.image ? (
+                          <img src={model.image} alt={model.name} className="w-full h-40 object-cover rounded-lg mb-4" />
+                        ) : (
+                          <div className="w-full h-40 bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg mb-4 flex items-center justify-center">
+                            <Smartphone className="h-16 w-16 text-primary/40" />
+                          </div>
+                        )}
+                        <CardTitle className="line-clamp-1">{model.name}</CardTitle>
+                        <CardDescription className="capitalize">
+                          {model.brand?.name || 'Unknown Brand'}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center justify-between">
+                          <Badge variant="secondary" className="capitalize">
+                            {model.deviceType}
+                          </Badge>
+                          <Button variant="ghost" size="sm" onClick={(e) => {
+                            e.stopPropagation()
+                            handleViewModel(model)
+                          }}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+
+        {/* Create Brand Dialog */}
+        <Dialog open={showCreateBrand} onOpenChange={setShowCreateBrand}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Brand</DialogTitle>
+              <DialogDescription>
+                Create a new device manufacturer/brand
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="brandName">Brand Name *</Label>
+                <Input
+                  id="brandName"
+                  value={brandForm.name}
+                  onChange={(e) => setBrandForm({ ...brandForm, name: e.target.value })}
+                  placeholder="e.g., Apple, Samsung, Google"
+                />
+              </div>
+              <div>
+                <Label htmlFor="brandLogo">Logo URL</Label>
+                <Input
+                  id="brandLogo"
+                  value={brandForm.logo}
+                  onChange={(e) => setBrandForm({ ...brandForm, logo: e.target.value })}
+                  placeholder="https://example.com/logo.png"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowCreateBrand(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveBrand}>Save Brand</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Create Model Dialog */}
+        <Dialog open={showCreateModel} onOpenChange={setShowCreateModel}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Model</DialogTitle>
+              <DialogDescription>
+                Create a new device model
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="modelName">Model Name *</Label>
+                <Input
+                  id="modelName"
+                  value={modelForm.name}
+                  onChange={(e) => setModelForm({ ...modelForm, name: e.target.value })}
+                  placeholder="e.g., iPhone 15 Pro"
+                />
+              </div>
+              <div>
+                <Label htmlFor="modelBrand">Brand *</Label>
+                <Select value={modelForm.brandId} onValueChange={(value) => setModelForm({ ...modelForm, brandId: value })}>
+                  <SelectTrigger id="modelBrand">
+                    <SelectValue placeholder="Select brand" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {brands.map((brand: any) => (
+                      <SelectItem key={brand._id} value={brand._id}>
+                        {brand.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="modelDeviceType">Device Type *</Label>
+                <Select value={modelForm.deviceType} onValueChange={(value) => setModelForm({ ...modelForm, deviceType: value })}>
+                  <SelectTrigger id="modelDeviceType">
+                    <SelectValue placeholder="Select device type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {deviceTypes.map((type: any) => (
+                      <SelectItem key={type._id} value={type._id} className="capitalize">
+                        {type.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="modelImage">Image URL</Label>
+                <Input
+                  id="modelImage"
+                  value={modelForm.image}
+                  onChange={(e) => setModelForm({ ...modelForm, image: e.target.value })}
+                  placeholder="https://example.com/device.png"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowCreateModel(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveModel}>Save Model</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* View Brand Dialog */}
+        <Dialog open={showViewBrand} onOpenChange={setShowViewBrand}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Brand Details</DialogTitle>
+            </DialogHeader>
+            {selectedBrand && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  {selectedBrand.logo ? (
+                    <img src={selectedBrand.logo} alt={selectedBrand.name} className="w-20 h-20 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Users className="h-10 w-10 text-primary" />
+                    </div>
+                  )}
+                  <div>
+                    <h3 className="text-2xl font-bold">{selectedBrand.name}</h3>
+                    <Badge variant={selectedBrand.isActive ? "default" : "secondary"}>
+                      {selectedBrand.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="grid gap-4">
+                  <div>
+                    <Label>Models Count</Label>
+                    <p className="text-sm text-muted-foreground">{(selectedBrand as any).modelCount || 0} models</p>
+                  </div>
+                  <div>
+                    <Label>Created At</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(selectedBrand.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowViewBrand(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* View Model Dialog */}
+        <Dialog open={showViewModel} onOpenChange={setShowViewModel}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Model Details</DialogTitle>
+            </DialogHeader>
+            {selectedModel && (
+              <div className="space-y-4">
+                {selectedModel.image && (
+                  <img src={selectedModel.image} alt={selectedModel.name} className="w-full h-48 object-cover rounded-lg" />
+                )}
+                <div>
+                  <h3 className="text-2xl font-bold">{selectedModel.name}</h3>
+                  <p className="text-muted-foreground">
+                    {(selectedModel as any).brand?.name || 'Unknown Brand'}
+                  </p>
+                </div>
+                <div className="grid gap-4">
+                  <div>
+                    <Label>Device Type</Label>
+                    <p className="text-sm text-muted-foreground capitalize">{selectedModel.deviceType}</p>
+                  </div>
+                  {selectedModel.specifications && Object.keys(selectedModel.specifications).length > 0 && (
+                    <div>
+                      <Label>Specifications</Label>
+                      <div className="mt-2 space-y-2">
+                        {Object.entries(selectedModel.specifications).map(([key, value]) => (
+                          <div key={key} className="flex justify-between p-2 rounded border">
+                            <span className="text-sm font-medium capitalize">{key.replace(/_/g, ' ')}</span>
+                            <span className="text-sm text-muted-foreground">{value as string}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowViewModel(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Help Dialog */}
+        <Dialog open={showHelp} onOpenChange={setShowHelp}>
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <HelpCircle className="h-5 w-5" />
+                Device Management Help
+              </DialogTitle>
+              <DialogDescription>
+                Learn how to use the Device Management interface
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6">
+              <div>
+                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                  <Info className="h-4 w-4" />
+                  Dashboard Overview
+                </h4>
+                <p className="text-sm text-muted-foreground">
+                  The dashboard provides a quick overview of your device database with key metrics including total brands, models, device types, and recent additions.
+                </p>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-2">Managing Brands</h4>
+                <ul className="text-sm text-muted-foreground space-y-2 list-disc list-inside">
+                  <li>Click "Add Brand" to create a new device manufacturer</li>
+                  <li>Use the search bar to quickly find specific brands</li>
+                  <li>Click the eye icon to view detailed brand information</li>
+                  <li>Click the edit icon to modify brand details</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-2">Managing Models</h4>
+                <ul className="text-sm text-muted-foreground space-y-2 list-disc list-inside">
+                  <li>Select a device type and manufacturer to view available models</li>
+                  <li>Click "Add Model" to create a new device model</li>
+                  <li>Use search and filters to find specific models</li>
+                  <li>Click on any model card to view full specifications</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-2">Search & Filters</h4>
+                <ul className="text-sm text-muted-foreground space-y-2 list-disc list-inside">
+                  <li>Use the search bar to find devices by name</li>
+                  <li>Apply device type and manufacturer filters for refined results</li>
+                  <li>Filters are interactive and update results in real-time</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-2">Tips & Best Practices</h4>
+                <ul className="text-sm text-muted-foreground space-y-2 list-disc list-inside">
+                  <li>Keep brand and model names consistent for better organization</li>
+                  <li>Add logo/image URLs for better visual identification</li>
+                  <li>Use specifications to store detailed device information</li>
+                  <li>Regularly review and update device information</li>
+                </ul>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setShowHelp(false)}>Got it!</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </TooltipProvider>
+  )
+}

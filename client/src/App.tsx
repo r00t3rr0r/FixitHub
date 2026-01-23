@@ -54,7 +54,7 @@ import { PartsManagement } from "./pages/admin/PartsManagement"
 import { QualityControl } from "./pages/admin/QualityControl"
 import { StaffManagement } from "./pages/admin/StaffManagement"
 import { FinancialManagement } from "./pages/admin/FinancialManagement"
-import { DeviceBrandsManagement } from "./pages/admin/DeviceBrandsManagement"
+import { DeviceManagement } from "./pages/admin/DeviceManagement"
 import EPartOrderManagement from "./pages/admin/EPartOrderManagement"
 import { InspectionWorkflow } from "./pages/inspection/InspectionWorkflow"
 
@@ -167,7 +167,7 @@ function App() {
               <Route index element={<ServiceCategoryManagement />} />
             </Route>
             <Route path="/admin/devices" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-              <Route index element={<DeviceBrandsManagement />} />
+              <Route index element={<DeviceManagement />} />
             </Route>
             <Route path="/admin/analytics" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Analytics />} />
