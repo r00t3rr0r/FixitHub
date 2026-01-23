@@ -14,6 +14,97 @@ export interface Model {
   name: string
   brandId: string
   deviceType: string
+  image?: string
+  specifications?: Record<string, any>  // Legacy field for backward compatibility
+  // Comprehensive specification sections
+  images?: Array<{
+    url?: string
+    base64?: string
+    caption?: string
+  }>
+  network?: {
+    technology2G?: string
+    bands2G?: string
+    technology3G?: string
+    bands3G?: string
+    technology4G?: string
+    bands4G?: string
+    technology5G?: string
+    bands5G?: string
+    speed?: string
+  }
+  physical?: {
+    dimensions?: string
+    weight?: string
+    build?: string
+    simType?: string
+    simCount?: string
+  }
+  display?: {
+    type?: string
+    size?: string
+    resolution?: string
+    protection?: string
+    features?: string
+  }
+  platform?: {
+    os?: string
+    chipset?: string
+    cpu?: string
+    gpu?: string
+  }
+  memory?: {
+    internal?: Array<{
+      ram?: string
+      storage?: string
+    }>
+    cardSlot?: string
+  }
+  rearCamera?: {
+    modules?: string
+    features?: string
+    video?: string
+  }
+  frontCamera?: {
+    modules?: string
+    features?: string
+    video?: string
+  }
+  audio?: {
+    loudspeaker?: string
+    jack3_5mm?: string
+  }
+  connectivity?: {
+    wlan?: string
+    bluetooth?: string
+    positioning?: string
+    nfc?: string
+    radio?: string
+    usb?: string
+    infrared?: string
+    other?: string
+  }
+  features?: {
+    sensors?: string
+    special?: string[]
+  }
+  battery?: {
+    type?: string
+    charging?: string
+    standbyTime?: string
+    talkTime?: string
+    musicPlay?: string
+  }
+  other?: {
+    models?: string[]
+    sarValues?: {
+      head?: string
+      body?: string
+    }
+    price?: string
+    releaseDate?: string
+    colors?: string[]
+  }
   createdAt: string
   updatedAt: string
 }

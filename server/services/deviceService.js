@@ -179,7 +179,22 @@ class DeviceService {
         brandId: model.brandId._id,  // Include brandId for edit functionality
         deviceType: model.deviceType,
         image: model.image || '',
+        // Legacy specifications field (backward compatibility)
         specifications: model.specifications || {},
+        // Comprehensive specification sections
+        images: model.images || [],
+        network: model.network || {},
+        physical: model.physical || {},
+        display: model.display || {},
+        platform: model.platform || {},
+        memory: model.memory || { internal: [], cardSlot: '' },
+        rearCamera: model.rearCamera || {},
+        frontCamera: model.frontCamera || {},
+        audio: model.audio || {},
+        connectivity: model.connectivity || {},
+        features: model.features || { sensors: '', special: [] },
+        battery: model.battery || {},
+        other: model.other || { models: [], sarValues: {}, colors: [] },
         count: 1 // This could be enhanced to show actual usage count
       }));
 
