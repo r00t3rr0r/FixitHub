@@ -221,6 +221,60 @@ class DeviceService {
     }
   }
 
+  // Update model (admin only)
+  static async updateModel(modelId, updateData) {
+    try {
+      console.log('DeviceService: Updating model:', modelId);
+      console.log('DeviceService: Update data:', updateData);
+
+      const model = await DeviceModel.findOne({ _id: modelId, isActive: true });
+
+      if (!model) {
+        throw new Error('Model not found');
+      }
+
+      // Update fields
+      Object.keys(updateData).forEach(key => {
+        model[key] = updateData[key];
+      });
+
+      const updatedModel = await model.save();
+
+      console.log('DeviceService: Model updated successfully');
+      return updatedModel;
+    } catch (error) {
+      console.error('DeviceService: Error updating model:', error);
+      throw error;
+    }
+  }
+
+  // Update brand (admin only)
+  static async updateBrand(brandId, updateData) {
+    try {
+      console.log('DeviceService: Updating brand:', brandId);
+      console.log('DeviceService: Update data:', updateData);
+
+      const brand = await DeviceBrand.findOne({ _id: brandId, isActive: true });
+
+      if (!brand) {
+        throw new Error('Brand not found');
+      }
+
+      // Update fields
+      Object.keys(updateData).forEach(key => {
+        brand[key] = updateData[key];
+      });
+
+      const updatedBrand = await brand.save();
+
+      console.log('DeviceService: Brand updated successfully');
+      return updatedBrand;
+    } catch (error) {
+      console.error('DeviceService: Error updating brand:', error);
+      throw error;
+    }
+  }
+
   // Search devices by query string (searches across type, manufacturer, and model)
   static async searchDevices(searchQuery) {
     try {

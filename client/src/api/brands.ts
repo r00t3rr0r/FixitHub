@@ -106,3 +106,35 @@ export const createModel = async (modelData: { name: string; brandId: string; de
     throw new Error(error?.response?.data?.error || error.message || 'Failed to create model')
   }
 }
+
+// Description: Update an existing device model
+// Endpoint: PUT /api/devices/models/:id
+// Request: { name?: string, brandId?: string, deviceType?: string, image?: string, specifications?: Record<string, string> }
+// Response: { success: boolean, message: string, model: Model }
+export const updateModel = async (modelId: string, modelData: Partial<Model>): Promise<Model> => {
+  try {
+    console.log('API: Making request to PUT /api/devices/models/' + modelId, modelData)
+    const response = await api.put(`/api/devices/models/${modelId}`, modelData)
+    console.log('API: Received response from PUT /api/devices/models:', response.data)
+    return response.data.model
+  } catch (error) {
+    console.error('Error updating model:', error)
+    throw new Error(error?.response?.data?.error || error.message || 'Failed to update model')
+  }
+}
+
+// Description: Update an existing device brand
+// Endpoint: PUT /api/devices/brands/:id
+// Request: { name?: string, logo?: string }
+// Response: { success: boolean, message: string, brand: Brand }
+export const updateBrand = async (brandId: string, brandData: Partial<Brand>): Promise<Brand> => {
+  try {
+    console.log('API: Making request to PUT /api/devices/brands/' + brandId, brandData)
+    const response = await api.put(`/api/devices/brands/${brandId}`, brandData)
+    console.log('API: Received response from PUT /api/devices/brands:', response.data)
+    return response.data.brand
+  } catch (error) {
+    console.error('Error updating brand:', error)
+    throw new Error(error?.response?.data?.error || error.message || 'Failed to update brand')
+  }
+}

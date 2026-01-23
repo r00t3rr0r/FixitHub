@@ -12,6 +12,8 @@ import {
   getModelById,
   createBrand,
   createModel,
+  updateModel,
+  updateBrand,
   Brand,
   Model
 } from "@/api/brands"
@@ -84,6 +86,11 @@ export function DeviceBrandsManagement() {
   const [showViewDeviceType, setShowViewDeviceType] = useState(false)
   const [showDeleteBrand, setShowDeleteBrand] = useState(false)
   const [showDeleteModel, setShowDeleteModel] = useState(false)
+
+  // Edit mode states
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [editingModelId, setEditingModelId] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Selected items
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null)
@@ -228,12 +235,28 @@ export function DeviceBrandsManagement() {
   }
 
   const handleCreateModel = () => {
+    setIsEditMode(false)
+    setEditingModelId(null)
     setModelForm({
       name: '',
       brandId: '',
       deviceType: '',
       image: '',
       specifications: {}
+    })
+    setShowCreateModel(true)
+  }
+
+  const handleEditModel = (model: DeviceModel) => {
+    console.log('DeviceBrandsManagement: Editing model:', model)
+    setIsEditMode(true)
+    setEditingModelId(model._id)
+    setModelForm({
+      name: model.name || '',
+      brandId: model.brandId || '',
+      deviceType: model.deviceType || '',
+      image: model.image || '',
+      specifications: model.specifications || {}
     })
     setShowCreateModel(true)
   }
@@ -297,13 +320,23 @@ export function DeviceBrandsManagement() {
         return
       }
 
-      console.log('DeviceBrandsManagement: Creating model:', modelForm)
-      const response = await createModel(modelForm)
+      setIsSubmitting(true)
 
-      toast({
-        title: "Success",
-        description: "Model created successfully",
-      })
+      if (isEditMode && editingModelId) {
+        console.log('DeviceBrandsManagement: Updating model:', editingModelId, modelForm)
+        await updateModel(editingModelId, modelForm)
+        toast({
+          title: "Success",
+          description: "Model updated successfully",
+        })
+      } else {
+        console.log('DeviceBrandsManagement: Creating model:', modelForm)
+        await createModel(modelForm)
+        toast({
+          title: "Success",
+          description: "Model created successfully",
+        })
+      }
 
       // Refresh models list if we're viewing models
       if (selectedDeviceType !== "all" && selectedManufacturer !== "all") {
@@ -312,6 +345,8 @@ export function DeviceBrandsManagement() {
       }
 
       setShowCreateModel(false)
+      setIsEditMode(false)
+      setEditingModelId(null)
       setModelForm({
         name: '',
         brandId: '',
@@ -326,6 +361,8 @@ export function DeviceBrandsManagement() {
         description: error.message || "Failed to save model",
         variant: "destructive"
       })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -622,7 +659,7 @@ export function DeviceBrandsManagement() {
                       <Button variant="ghost" size="sm" onClick={() => handleViewModel(model)}>
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" onClick={() => handleEditModel(model)}>
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="sm">
@@ -701,67 +738,164 @@ export function DeviceBrandsManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* Create Model Dialog */}
+      {/* Create/Edit Model Dialog - Enhanced Single Page Layout */}
       <Dialog open={showCreateModel} onOpenChange={setShowCreateModel}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add New Model</DialogTitle>
+            <DialogTitle className="text-2xl">
+              {isEditMode ? 'Edit Model' : 'Add New Model'}
+            </DialogTitle>
             <DialogDescription>
-              Create a new device model
+              {isEditMode ? 'Update device model details' : 'Create a new device model'}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="modelName">Model Name</Label>
-              <Input
-                id="modelName"
-                value={modelForm.name}
-                onChange={(e) => setModelForm({ ...modelForm, name: e.target.value })}
-                placeholder="Enter model name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="modelBrand">Brand</Label>
-              <Select value={modelForm.brandId} onValueChange={(value) => setModelForm({ ...modelForm, brandId: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select brand" />
-                </SelectTrigger>
-                <SelectContent>
-                  {brands.map((brand) => (
-                    <SelectItem key={brand._id} value={brand._id}>{brand.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="modelDeviceType">Device Type</Label>
-              <Select value={modelForm.deviceType} onValueChange={(value) => setModelForm({ ...modelForm, deviceType: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select device type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {deviceTypes.map((type) => (
-                    <SelectItem key={type._id} value={type._id}>{type.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="modelImage">Image URL</Label>
-              <Input
-                id="modelImage"
-                value={modelForm.image}
-                onChange={(e) => setModelForm({ ...modelForm, image: e.target.value })}
-                placeholder="Enter image URL"
-              />
-            </div>
+
+          <div className="space-y-6 py-4">
+            {/* 📋 Basic Information Section */}
+            <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                  <Package className="h-5 w-5" />
+                  Basic Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="modelName" className="text-sm font-medium">
+                      Model Name <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="modelName"
+                      value={modelForm.name}
+                      onChange={(e) => setModelForm({ ...modelForm, name: e.target.value })}
+                      placeholder="e.g., iPhone 15 Pro"
+                      className="bg-background"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="modelImage" className="text-sm font-medium">
+                      Image URL
+                    </Label>
+                    <Input
+                      id="modelImage"
+                      value={modelForm.image}
+                      onChange={(e) => setModelForm({ ...modelForm, image: e.target.value })}
+                      placeholder="https://example.com/image.jpg"
+                      className="bg-background"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 🏭 Device Configuration Section */}
+            <Card className="border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2 text-green-700 dark:text-green-300">
+                  <Smartphone className="h-5 w-5" />
+                  Device Configuration
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="modelDeviceType" className="text-sm font-medium">
+                      Device Type <span className="text-destructive">*</span>
+                    </Label>
+                    <Select
+                      value={modelForm.deviceType}
+                      onValueChange={(value) => setModelForm({ ...modelForm, deviceType: value })}
+                    >
+                      <SelectTrigger id="modelDeviceType" className="bg-background">
+                        <SelectValue placeholder="Select device type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {deviceTypes.map((type) => (
+                          <SelectItem key={type._id} value={type._id}>
+                            {type.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="modelBrand" className="text-sm font-medium">
+                      Brand <span className="text-destructive">*</span>
+                    </Label>
+                    <Select
+                      value={modelForm.brandId}
+                      onValueChange={(value) => setModelForm({ ...modelForm, brandId: value })}
+                    >
+                      <SelectTrigger id="modelBrand" className="bg-background">
+                        <SelectValue placeholder="Select brand" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {brands.map((brand) => (
+                          <SelectItem key={brand._id} value={brand._id}>
+                            {brand.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* ⚙️ Technical Specifications Section */}
+            <Card className="border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2 text-purple-700 dark:text-purple-300">
+                  <Package className="h-5 w-5" />
+                  Technical Specifications
+                </CardTitle>
+                <CardDescription className="text-sm">
+                  Add key specifications as JSON format (e.g., {`{"screen": "6.1 inch", "storage": "256GB"}`})
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="modelSpecs" className="text-sm font-medium">
+                    Specifications (JSON)
+                  </Label>
+                  <Textarea
+                    id="modelSpecs"
+                    value={JSON.stringify(modelForm.specifications, null, 2)}
+                    onChange={(e) => {
+                      try {
+                        const specs = JSON.parse(e.target.value)
+                        setModelForm({ ...modelForm, specifications: specs })
+                      } catch (error) {
+                        // Allow typing invalid JSON temporarily
+                        console.log('DeviceBrandsManagement: Invalid JSON being typed:', error)
+                      }
+                    }}
+                    placeholder='{"screen": "6.1 inch", "storage": "256GB", "ram": "8GB"}'
+                    className="bg-background font-mono text-sm min-h-[120px]"
+                  />
+                </div>
+              </CardContent>
+            </Card>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateModel(false)}>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCreateModel(false)
+                setIsEditMode(false)
+                setEditingModelId(null)
+              }}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
-            <Button onClick={handleSaveModel}>
-              Save Model
+            <Button
+              onClick={handleSaveModel}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Saving...' : (isEditMode ? 'Update Model' : 'Create Model')}
             </Button>
           </DialogFooter>
         </DialogContent>
