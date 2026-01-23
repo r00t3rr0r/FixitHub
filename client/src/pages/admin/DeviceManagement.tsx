@@ -13,6 +13,8 @@ import {
   getModelById,
   createBrand,
   createModel,
+  updateBrand,
+  updateModel,
   Brand,
   Model
 } from "@/api/brands"
@@ -121,6 +123,12 @@ export function DeviceManagement() {
   const [showDeleteModel, setShowDeleteModel] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
 
+  // Edit mode states
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [editingBrandId, setEditingBrandId] = useState<string | null>(null)
+  const [editingModelId, setEditingModelId] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
   // Selected items
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null)
   const [selectedModel, setSelectedModel] = useState<DeviceModel | null>(null)
@@ -166,6 +174,9 @@ export function DeviceManagement() {
   })
 
   const [specTab, setSpecTab] = useState("basic")
+
+  // Scroll position for single-page layout
+  const [scrollToSection, setScrollToSection] = useState<string | null>(null)
 
   const { toast } = useToast()
 
@@ -294,11 +305,35 @@ export function DeviceManagement() {
   }
 
   const handleCreateBrand = () => {
+    setIsEditMode(false)
+    setEditingBrandId(null)
     setBrandForm({ name: '', logo: '' })
     setShowCreateBrand(true)
   }
 
+  const handleEditBrand = async (brand: Brand) => {
+    try {
+      console.log('DeviceManagement: Editing brand:', brand._id)
+      setIsEditMode(true)
+      setEditingBrandId(brand._id)
+      setBrandForm({
+        name: brand.name,
+        logo: brand.logo || ''
+      })
+      setShowCreateBrand(true)
+    } catch (error) {
+      console.error('DeviceManagement: Error loading brand for edit:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load brand details",
+        variant: "destructive"
+      })
+    }
+  }
+
   const handleCreateModel = () => {
+    setIsEditMode(false)
+    setEditingModelId(null)
     setModelForm({
       name: '',
       brandId: '',
@@ -334,6 +369,58 @@ export function DeviceManagement() {
     setShowCreateModel(true)
   }
 
+  const handleEditModel = async (model: DeviceModel) => {
+    try {
+      console.log('DeviceManagement: Editing model:', model._id)
+      setIsEditMode(true)
+      setEditingModelId(model._id)
+
+      // Load full model details
+      const fullModel: any = model
+
+      setModelForm({
+        name: fullModel.name || '',
+        brandId: fullModel.brand?._id || fullModel.brandId || '',
+        deviceType: fullModel.deviceType || '',
+        image: fullModel.image || '',
+        specifications: fullModel.specifications || {},
+        images: fullModel.images || [],
+        network: fullModel.network || {
+          technology2G: '', bands2G: '', technology3G: '', bands3G: '',
+          technology4G: '', bands4G: '', technology5G: '', bands5G: '', speed: ''
+        },
+        physical: fullModel.physical || { dimensions: '', weight: '', build: '', simType: '', simCount: '' },
+        display: fullModel.display || { type: '', size: '', resolution: '', protection: '', features: '' },
+        platform: fullModel.platform || { os: '', chipset: '', cpu: '', gpu: '' },
+        memory: fullModel.memory || { internal: [], cardSlot: '' },
+        rearCamera: fullModel.rearCamera || { modules: '', features: '', video: '' },
+        frontCamera: fullModel.frontCamera || { modules: '', features: '', video: '' },
+        audio: fullModel.audio || { loudspeaker: '', jack3_5mm: '' },
+        connectivity: fullModel.connectivity || {
+          wlan: '', bluetooth: '', positioning: '', nfc: '', radio: '', usb: '', infrared: '', other: ''
+        },
+        features: fullModel.features || { sensors: '', special: [] },
+        battery: fullModel.battery || { type: '', charging: '', standbyTime: '', talkTime: '', musicPlay: '' },
+        other: fullModel.other || {
+          models: [],
+          sarValues: { head: '', body: '' },
+          price: '',
+          releaseDate: '',
+          colors: []
+        }
+      })
+
+      setShowCreateModel(true)
+    } catch (error) {
+      console.error('DeviceManagement: Error loading model for edit:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load model details",
+        variant: "destructive"
+      })
+    }
+  }
+
   const handleSaveBrand = async () => {
     try {
       if (!brandForm.name) {
@@ -345,27 +432,43 @@ export function DeviceManagement() {
         return
       }
 
-      console.log('DeviceManagement: Creating brand:', brandForm)
-      const response = await createBrand(brandForm)
-      console.log('DeviceManagement: Brand created, response:', response)
+      setIsSubmitting(true)
 
-      toast({
-        title: "Success",
-        description: "Brand created successfully",
-      })
+      if (isEditMode && editingBrandId) {
+        console.log('DeviceManagement: Updating brand:', editingBrandId, brandForm)
+        await updateBrand(editingBrandId, brandForm)
+        console.log('DeviceManagement: Brand updated successfully')
+
+        toast({
+          title: "Success",
+          description: "Brand updated successfully",
+        })
+      } else {
+        console.log('DeviceManagement: Creating brand:', brandForm)
+        const response = await createBrand(brandForm)
+        console.log('DeviceManagement: Brand created, response:', response)
+
+        toast({
+          title: "Success",
+          description: "Brand created successfully",
+        })
+
+        // Update statistics for new brand
+        setStats(prev => ({
+          ...prev,
+          totalBrands: prev.totalBrands + 1,
+          recentlyAdded: prev.recentlyAdded + 1
+        }))
+      }
 
       setShowCreateBrand(false)
       setBrandForm({ name: '', logo: '' })
+      setIsEditMode(false)
+      setEditingBrandId(null)
 
+      // Refresh brands list
       const brandsResponse = await getBrands()
       setBrands(brandsResponse)
-
-      // Update statistics
-      setStats(prev => ({
-        ...prev,
-        totalBrands: brandsResponse.length,
-        recentlyAdded: prev.recentlyAdded + 1
-      }))
 
     } catch (error) {
       console.error('DeviceManagement: Error saving brand:', error)
@@ -374,6 +477,8 @@ export function DeviceManagement() {
         description: error.message || "Failed to save brand",
         variant: "destructive"
       })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -388,14 +493,33 @@ export function DeviceManagement() {
         return
       }
 
-      console.log('DeviceManagement: Creating model:', modelForm)
-      const response = await createModel(modelForm)
-      console.log('DeviceManagement: Model created successfully, response:', response)
+      setIsSubmitting(true)
 
-      toast({
-        title: "Success",
-        description: "Model created successfully",
-      })
+      if (isEditMode && editingModelId) {
+        console.log('DeviceManagement: Updating model:', editingModelId, modelForm)
+        await updateModel(editingModelId, modelForm)
+        console.log('DeviceManagement: Model updated successfully')
+
+        toast({
+          title: "Success",
+          description: "Model updated successfully",
+        })
+      } else {
+        console.log('DeviceManagement: Creating model:', modelForm)
+        const response = await createModel(modelForm)
+        console.log('DeviceManagement: Model created successfully, response:', response)
+
+        toast({
+          title: "Success",
+          description: "Model created successfully",
+        })
+
+        // Update statistics for new model
+        setStats(prev => ({
+          ...prev,
+          totalModels: prev.totalModels + 1
+        }))
+      }
 
       setShowCreateModel(false)
       setModelForm({
@@ -429,18 +553,14 @@ export function DeviceManagement() {
           colors: []
         }
       })
+      setIsEditMode(false)
+      setEditingModelId(null)
 
       // Refresh models list if filters are active
       if (selectedDeviceType !== "all" && selectedManufacturer !== "all") {
         const response = await getModelsByTypeAndManufacturer(selectedDeviceType, selectedManufacturer)
         setModels((response as any).models || [])
       }
-
-      // Update statistics
-      setStats(prev => ({
-        ...prev,
-        totalModels: prev.totalModels + 1
-      }))
 
     } catch (error) {
       console.error('DeviceManagement: Error saving model:', error)
@@ -449,6 +569,8 @@ export function DeviceManagement() {
         description: error.message || "Failed to save model",
         variant: "destructive"
       })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -749,8 +871,14 @@ export function DeviceManagement() {
                           <div className="flex justify-end gap-2">
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" onClick={() => handleViewBrand(brand)}>
-                                  <Eye className="h-4 w-4" />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleViewBrand(brand)}
+                                  className="hover:bg-blue-100 dark:hover:bg-blue-900 rounded"
+                                  title="View brand details"
+                                >
+                                  <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>View Details</TooltipContent>
@@ -758,8 +886,14 @@ export function DeviceManagement() {
 
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <Edit className="h-4 w-4" />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleEditBrand(brand)}
+                                  className="hover:bg-green-100 dark:hover:bg-green-900 rounded"
+                                  title="Edit brand"
+                                >
+                                  <Edit className="h-5 w-5 text-green-600 dark:text-green-400" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>Edit Brand</TooltipContent>
@@ -921,12 +1055,26 @@ export function DeviceManagement() {
                           <Badge variant="secondary" className="capitalize">
                             {model.deviceType}
                           </Badge>
-                          <Button variant="ghost" size="sm" onClick={(e) => {
-                            e.stopPropagation()
-                            handleViewModel(model)
-                          }}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewModel(model)}
+                              className="hover:bg-blue-100 dark:hover:bg-blue-900 rounded p-2"
+                              title="View model details"
+                            >
+                              <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditModel(model)}
+                              className="hover:bg-green-100 dark:hover:bg-green-900 rounded p-2"
+                              title="Edit model"
+                            >
+                              <Edit className="h-5 w-5 text-green-600 dark:text-green-400" />
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -937,13 +1085,13 @@ export function DeviceManagement() {
           </TabsContent>
         </Tabs>
 
-        {/* Create Brand Dialog */}
+        {/* Create/Edit Brand Dialog */}
         <Dialog open={showCreateBrand} onOpenChange={setShowCreateBrand}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add New Brand</DialogTitle>
+              <DialogTitle>{isEditMode ? 'Edit Brand' : 'Add New Brand'}</DialogTitle>
               <DialogDescription>
-                Create a new device manufacturer/brand
+                {isEditMode ? 'Update device manufacturer/brand information' : 'Create a new device manufacturer/brand'}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -954,6 +1102,7 @@ export function DeviceManagement() {
                   value={brandForm.name}
                   onChange={(e) => setBrandForm({ ...brandForm, name: e.target.value })}
                   placeholder="e.g., Apple, Samsung, Google"
+                  disabled={isSubmitting}
                 />
               </div>
               <div>
@@ -963,41 +1112,39 @@ export function DeviceManagement() {
                   value={brandForm.logo}
                   onChange={(e) => setBrandForm({ ...brandForm, logo: e.target.value })}
                   placeholder="https://example.com/logo.png"
+                  disabled={isSubmitting}
                 />
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCreateBrand(false)}>
+              <Button variant="outline" onClick={() => setShowCreateBrand(false)} disabled={isSubmitting}>
                 Cancel
               </Button>
-              <Button onClick={handleSaveBrand}>Save Brand</Button>
+              <Button onClick={handleSaveBrand} disabled={isSubmitting}>
+                {isSubmitting ? 'Saving...' : (isEditMode ? 'Update Brand' : 'Save Brand')}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
-        {/* Create Model Dialog */}
+        {/* Create/Edit Model Dialog - Single Page Layout */}
         <Dialog open={showCreateModel} onOpenChange={setShowCreateModel}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Add New Model</DialogTitle>
+              <DialogTitle>{isEditMode ? 'Edit Device Model' : 'Add New Device Model'}</DialogTitle>
               <DialogDescription>
-                Create a new device model with comprehensive specifications
+                {isEditMode ? 'Update device model information and specifications' : 'Create a new device model with comprehensive specifications'}
               </DialogDescription>
             </DialogHeader>
 
-            <Tabs value={specTab} onValueChange={setSpecTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-7">
-                <TabsTrigger value="basic">Basic</TabsTrigger>
-                <TabsTrigger value="specs1">Network</TabsTrigger>
-                <TabsTrigger value="specs2">Physical</TabsTrigger>
-                <TabsTrigger value="specs3">Display</TabsTrigger>
-                <TabsTrigger value="specs4">Platform</TabsTrigger>
-                <TabsTrigger value="specs5">Camera</TabsTrigger>
-                <TabsTrigger value="specs6">Other</TabsTrigger>
-              </TabsList>
+            <div className="space-y-6">
 
-              {/* Basic Information Tab */}
-              <TabsContent value="basic" className="space-y-4">
+              {/* Basic Information Section */}
+              <div className="bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-6 space-y-4">
+                <h3 className="text-lg font-semibold pb-2 border-b-2 border-blue-300 dark:border-blue-700 flex items-center gap-2">
+                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                  Basic Information
+                </h3>
                 <div>
                   <Label htmlFor="modelName">Model Name *</Label>
                   <Input
@@ -1005,11 +1152,12 @@ export function DeviceManagement() {
                     value={modelForm.name}
                     onChange={(e) => setModelForm({ ...modelForm, name: e.target.value })}
                     placeholder="e.g., iPhone 15 Pro"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
                   <Label htmlFor="modelBrand">Brand *</Label>
-                  <Select value={modelForm.brandId} onValueChange={(value) => setModelForm({ ...modelForm, brandId: value })}>
+                  <Select value={modelForm.brandId} onValueChange={(value) => setModelForm({ ...modelForm, brandId: value })} disabled={isSubmitting}>
                     <SelectTrigger id="modelBrand">
                       <SelectValue placeholder="Select brand" />
                     </SelectTrigger>
@@ -1024,7 +1172,7 @@ export function DeviceManagement() {
                 </div>
                 <div>
                   <Label htmlFor="modelDeviceType">Device Type *</Label>
-                  <Select value={modelForm.deviceType} onValueChange={(value) => setModelForm({ ...modelForm, deviceType: value })}>
+                  <Select value={modelForm.deviceType} onValueChange={(value) => setModelForm({ ...modelForm, deviceType: value })} disabled={isSubmitting}>
                     <SelectTrigger id="modelDeviceType">
                       <SelectValue placeholder="Select device type" />
                     </SelectTrigger>
@@ -1044,12 +1192,17 @@ export function DeviceManagement() {
                     value={modelForm.image}
                     onChange={(e) => setModelForm({ ...modelForm, image: e.target.value })}
                     placeholder="https://example.com/device.png"
+                    disabled={isSubmitting}
                   />
                 </div>
-              </TabsContent>
+              </div>
 
-              {/* Network Specifications Tab */}
-              <TabsContent value="specs1" className="space-y-4">
+              {/* Network Specifications Section */}
+              <div className="bg-purple-50 dark:bg-purple-950/20 border-2 border-purple-200 dark:border-purple-800 rounded-lg p-6 space-y-4">
+                <h3 className="text-lg font-semibold pb-2 border-b-2 border-purple-300 dark:border-purple-700 flex items-center gap-2">
+                  <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                  Network & Connectivity
+                </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="tech2G">2G Technology</Label>
@@ -1058,6 +1211,7 @@ export function DeviceManagement() {
                       value={modelForm.network.technology2G}
                       onChange={(e) => setModelForm({ ...modelForm, network: { ...modelForm.network, technology2G: e.target.value } })}
                       placeholder="e.g., GSM 850 / 900 / 1800 / 1900"
+                      disabled={isSubmitting}
                     />
                   </div>
                   <div>
@@ -1067,6 +1221,7 @@ export function DeviceManagement() {
                       value={modelForm.network.bands2G}
                       onChange={(e) => setModelForm({ ...modelForm, network: { ...modelForm.network, bands2G: e.target.value } })}
                       placeholder="e.g., GSM bands"
+                      disabled={isSubmitting}
                     />
                   </div>
                   <div>
@@ -1076,6 +1231,7 @@ export function DeviceManagement() {
                       value={modelForm.network.technology3G}
                       onChange={(e) => setModelForm({ ...modelForm, network: { ...modelForm.network, technology3G: e.target.value } })}
                       placeholder="e.g., HSDPA 850 / 900 / 1700(AWS) / 1900 / 2100"
+                      disabled={isSubmitting}
                     />
                   </div>
                   <div>
@@ -1085,6 +1241,7 @@ export function DeviceManagement() {
                       value={modelForm.network.bands3G}
                       onChange={(e) => setModelForm({ ...modelForm, network: { ...modelForm.network, bands3G: e.target.value } })}
                       placeholder="e.g., HSDPA bands"
+                      disabled={isSubmitting}
                     />
                   </div>
                   <div>
@@ -1094,6 +1251,7 @@ export function DeviceManagement() {
                       value={modelForm.network.technology4G}
                       onChange={(e) => setModelForm({ ...modelForm, network: { ...modelForm.network, technology4G: e.target.value } })}
                       placeholder="e.g., LTE"
+                      disabled={isSubmitting}
                     />
                   </div>
                   <div>
@@ -1103,6 +1261,7 @@ export function DeviceManagement() {
                       value={modelForm.network.bands4G}
                       onChange={(e) => setModelForm({ ...modelForm, network: { ...modelForm.network, bands4G: e.target.value } })}
                       placeholder="e.g., LTE bands"
+                      disabled={isSubmitting}
                     />
                   </div>
                   <div>
@@ -1112,6 +1271,7 @@ export function DeviceManagement() {
                       value={modelForm.network.technology5G}
                       onChange={(e) => setModelForm({ ...modelForm, network: { ...modelForm.network, technology5G: e.target.value } })}
                       placeholder="e.g., 5G NR"
+                      disabled={isSubmitting}
                     />
                   </div>
                   <div>
@@ -1121,6 +1281,7 @@ export function DeviceManagement() {
                       value={modelForm.network.bands5G}
                       onChange={(e) => setModelForm({ ...modelForm, network: { ...modelForm.network, bands5G: e.target.value } })}
                       placeholder="e.g., 5G bands"
+                      disabled={isSubmitting}
                     />
                   </div>
                   <div className="col-span-2">
@@ -1130,13 +1291,18 @@ export function DeviceManagement() {
                       value={modelForm.network.speed}
                       onChange={(e) => setModelForm({ ...modelForm, network: { ...modelForm.network, speed: e.target.value } })}
                       placeholder="e.g., HSPA, LTE-A"
+                      disabled={isSubmitting}
                     />
                   </div>
                 </div>
-              </TabsContent>
+              </div>
 
-              {/* Physical Characteristics Tab */}
-              <TabsContent value="specs2" className="space-y-4">
+              {/* Physical Characteristics Section */}
+              <div className="bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-200 dark:border-amber-800 rounded-lg p-6 space-y-4">
+                <h3 className="text-lg font-semibold pb-2 border-b-2 border-amber-300 dark:border-amber-700 flex items-center gap-2">
+                  <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
+                  Physical Characteristics
+                </h3>
                 <div>
                   <Label htmlFor="dimensions">Dimensions</Label>
                   <Input
@@ -1144,6 +1310,7 @@ export function DeviceManagement() {
                     value={modelForm.physical.dimensions}
                     onChange={(e) => setModelForm({ ...modelForm, physical: { ...modelForm.physical, dimensions: e.target.value } })}
                     placeholder="e.g., 146.7 x 71.5 x 7.8 mm"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -1153,6 +1320,7 @@ export function DeviceManagement() {
                     value={modelForm.physical.weight}
                     onChange={(e) => setModelForm({ ...modelForm, physical: { ...modelForm.physical, weight: e.target.value } })}
                     placeholder="e.g., 174 g"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -1162,6 +1330,7 @@ export function DeviceManagement() {
                     value={modelForm.physical.build}
                     onChange={(e) => setModelForm({ ...modelForm, physical: { ...modelForm.physical, build: e.target.value } })}
                     placeholder="e.g., Glass front (Gorilla Glass), glass back, aluminum frame"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -1171,6 +1340,7 @@ export function DeviceManagement() {
                     value={modelForm.physical.simType}
                     onChange={(e) => setModelForm({ ...modelForm, physical: { ...modelForm.physical, simType: e.target.value } })}
                     placeholder="e.g., Nano-SIM, eSIM"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -1180,12 +1350,17 @@ export function DeviceManagement() {
                     value={modelForm.physical.simCount}
                     onChange={(e) => setModelForm({ ...modelForm, physical: { ...modelForm.physical, simCount: e.target.value } })}
                     placeholder="e.g., Single SIM or Dual SIM"
+                    disabled={isSubmitting}
                   />
                 </div>
-              </TabsContent>
+              </div>
 
-              {/* Display Specifications Tab */}
-              <TabsContent value="specs3" className="space-y-4">
+              {/* Display Specifications Section */}
+              <div className="bg-cyan-50 dark:bg-cyan-950/20 border-2 border-cyan-200 dark:border-cyan-800 rounded-lg p-6 space-y-4">
+                <h3 className="text-lg font-semibold pb-2 border-b-2 border-cyan-300 dark:border-cyan-700 flex items-center gap-2">
+                  <div className="w-3 h-3 bg-cyan-500 rounded-full"></div>
+                  Display Specifications
+                </h3>
                 <div>
                   <Label htmlFor="displayType">Display Type</Label>
                   <Input
@@ -1193,6 +1368,7 @@ export function DeviceManagement() {
                     value={modelForm.display.type}
                     onChange={(e) => setModelForm({ ...modelForm, display: { ...modelForm.display, type: e.target.value } })}
                     placeholder="e.g., LTPO Super Retina XDR OLED"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -1202,6 +1378,7 @@ export function DeviceManagement() {
                     value={modelForm.display.size}
                     onChange={(e) => setModelForm({ ...modelForm, display: { ...modelForm.display, size: e.target.value } })}
                     placeholder="e.g., 6.1 inches"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -1211,6 +1388,7 @@ export function DeviceManagement() {
                     value={modelForm.display.resolution}
                     onChange={(e) => setModelForm({ ...modelForm, display: { ...modelForm.display, resolution: e.target.value } })}
                     placeholder="e.g., 1179 x 2556 pixels"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -1220,6 +1398,7 @@ export function DeviceManagement() {
                     value={modelForm.display.protection}
                     onChange={(e) => setModelForm({ ...modelForm, display: { ...modelForm.display, protection: e.target.value } })}
                     placeholder="e.g., Ceramic Shield glass"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -1229,12 +1408,17 @@ export function DeviceManagement() {
                     value={modelForm.display.features}
                     onChange={(e) => setModelForm({ ...modelForm, display: { ...modelForm.display, features: e.target.value } })}
                     placeholder="e.g., 120Hz, HDR10, Dolby Vision"
+                    disabled={isSubmitting}
                   />
                 </div>
-              </TabsContent>
+              </div>
 
-              {/* Platform Tab */}
-              <TabsContent value="specs4" className="space-y-4">
+              {/* Platform & Performance Section */}
+              <div className="bg-indigo-50 dark:bg-indigo-950/20 border-2 border-indigo-200 dark:border-indigo-800 rounded-lg p-6 space-y-4">
+                <h3 className="text-lg font-semibold pb-2 border-b-2 border-indigo-300 dark:border-indigo-700 flex items-center gap-2">
+                  <div className="w-3 h-3 bg-indigo-500 rounded-full"></div>
+                  Platform & Performance
+                </h3>
                 <div>
                   <Label htmlFor="os">Operating System</Label>
                   <Input
@@ -1242,6 +1426,7 @@ export function DeviceManagement() {
                     value={modelForm.platform.os}
                     onChange={(e) => setModelForm({ ...modelForm, platform: { ...modelForm.platform, os: e.target.value } })}
                     placeholder="e.g., iOS 17"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -1251,6 +1436,7 @@ export function DeviceManagement() {
                     value={modelForm.platform.chipset}
                     onChange={(e) => setModelForm({ ...modelForm, platform: { ...modelForm.platform, chipset: e.target.value } })}
                     placeholder="e.g., Apple A17 Pro (3 nm)"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -1260,6 +1446,7 @@ export function DeviceManagement() {
                     value={modelForm.platform.cpu}
                     onChange={(e) => setModelForm({ ...modelForm, platform: { ...modelForm.platform, cpu: e.target.value } })}
                     placeholder="e.g., Hexa-core"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -1269,6 +1456,7 @@ export function DeviceManagement() {
                     value={modelForm.platform.gpu}
                     onChange={(e) => setModelForm({ ...modelForm, platform: { ...modelForm.platform, gpu: e.target.value } })}
                     placeholder="e.g., Apple GPU (6-core graphics)"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -1278,12 +1466,17 @@ export function DeviceManagement() {
                     value={modelForm.memory.cardSlot}
                     onChange={(e) => setModelForm({ ...modelForm, memory: { ...modelForm.memory, cardSlot: e.target.value } })}
                     placeholder="e.g., No or microSDXC"
+                    disabled={isSubmitting}
                   />
                 </div>
-              </TabsContent>
+              </div>
 
-              {/* Camera Tab */}
-              <TabsContent value="specs5" className="space-y-4">
+              {/* Camera Section */}
+              <div className="bg-rose-50 dark:bg-rose-950/20 border-2 border-rose-200 dark:border-rose-800 rounded-lg p-6 space-y-4">
+                <h3 className="text-lg font-semibold pb-2 border-b-2 border-rose-300 dark:border-rose-700 flex items-center gap-2">
+                  <div className="w-3 h-3 bg-rose-500 rounded-full"></div>
+                  Camera System
+                </h3>
                 <div>
                   <h4 className="font-semibold mb-2">Rear Camera</h4>
                   <div className="space-y-4">
@@ -1294,6 +1487,7 @@ export function DeviceManagement() {
                         value={modelForm.rearCamera.modules}
                         onChange={(e) => setModelForm({ ...modelForm, rearCamera: { ...modelForm.rearCamera, modules: e.target.value } })}
                         placeholder="e.g., 48 MP (wide), 12 MP (telephoto), 12 MP (ultrawide)"
+                        disabled={isSubmitting}
                       />
                     </div>
                     <div>
@@ -1303,6 +1497,7 @@ export function DeviceManagement() {
                         value={modelForm.rearCamera.features}
                         onChange={(e) => setModelForm({ ...modelForm, rearCamera: { ...modelForm.rearCamera, features: e.target.value } })}
                         placeholder="e.g., Dual-LED dual-tone flash, HDR, panorama"
+                        disabled={isSubmitting}
                       />
                     </div>
                     <div>
@@ -1312,6 +1507,7 @@ export function DeviceManagement() {
                         value={modelForm.rearCamera.video}
                         onChange={(e) => setModelForm({ ...modelForm, rearCamera: { ...modelForm.rearCamera, video: e.target.value } })}
                         placeholder="e.g., 4K@24/30/60fps, 1080p@30/60/120/240fps"
+                        disabled={isSubmitting}
                       />
                     </div>
                   </div>
@@ -1326,6 +1522,7 @@ export function DeviceManagement() {
                         value={modelForm.frontCamera.modules}
                         onChange={(e) => setModelForm({ ...modelForm, frontCamera: { ...modelForm.frontCamera, modules: e.target.value } })}
                         placeholder="e.g., 12 MP (wide)"
+                        disabled={isSubmitting}
                       />
                     </div>
                     <div>
@@ -1335,6 +1532,7 @@ export function DeviceManagement() {
                         value={modelForm.frontCamera.features}
                         onChange={(e) => setModelForm({ ...modelForm, frontCamera: { ...modelForm.frontCamera, features: e.target.value } })}
                         placeholder="e.g., HDR, Dolby Vision HDR"
+                        disabled={isSubmitting}
                       />
                     </div>
                     <div>
@@ -1344,14 +1542,19 @@ export function DeviceManagement() {
                         value={modelForm.frontCamera.video}
                         onChange={(e) => setModelForm({ ...modelForm, frontCamera: { ...modelForm.frontCamera, video: e.target.value } })}
                         placeholder="e.g., 4K@24/25/30/60fps"
+                        disabled={isSubmitting}
                       />
                     </div>
                   </div>
                 </div>
-              </TabsContent>
+              </div>
 
-              {/* Other Specifications Tab */}
-              <TabsContent value="specs6" className="space-y-4">
+              {/* Other Features Section */}
+              <div className="bg-emerald-50 dark:bg-emerald-950/20 border-2 border-emerald-200 dark:border-emerald-800 rounded-lg p-6 space-y-4">
+                <h3 className="text-lg font-semibold pb-2 border-b-2 border-emerald-300 dark:border-emerald-700 flex items-center gap-2">
+                  <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
+                  Additional Features & Information
+                </h3>
                 <div>
                   <h4 className="font-semibold mb-2">Audio</h4>
                   <div className="grid grid-cols-2 gap-4">
@@ -1362,6 +1565,7 @@ export function DeviceManagement() {
                         value={modelForm.audio.loudspeaker}
                         onChange={(e) => setModelForm({ ...modelForm, audio: { ...modelForm.audio, loudspeaker: e.target.value } })}
                         placeholder="e.g., Yes, with stereo speakers"
+                        disabled={isSubmitting}
                       />
                     </div>
                     <div>
@@ -1371,6 +1575,7 @@ export function DeviceManagement() {
                         value={modelForm.audio.jack3_5mm}
                         onChange={(e) => setModelForm({ ...modelForm, audio: { ...modelForm.audio, jack3_5mm: e.target.value } })}
                         placeholder="e.g., No or Yes"
+                        disabled={isSubmitting}
                       />
                     </div>
                   </div>
@@ -1385,6 +1590,7 @@ export function DeviceManagement() {
                         value={modelForm.connectivity.wlan}
                         onChange={(e) => setModelForm({ ...modelForm, connectivity: { ...modelForm.connectivity, wlan: e.target.value } })}
                         placeholder="e.g., Wi-Fi 6E"
+                        disabled={isSubmitting}
                       />
                     </div>
                     <div>
@@ -1394,6 +1600,7 @@ export function DeviceManagement() {
                         value={modelForm.connectivity.bluetooth}
                         onChange={(e) => setModelForm({ ...modelForm, connectivity: { ...modelForm.connectivity, bluetooth: e.target.value } })}
                         placeholder="e.g., 5.3, A2DP, LE"
+                        disabled={isSubmitting}
                       />
                     </div>
                     <div>
@@ -1403,6 +1610,7 @@ export function DeviceManagement() {
                         value={modelForm.connectivity.nfc}
                         onChange={(e) => setModelForm({ ...modelForm, connectivity: { ...modelForm.connectivity, nfc: e.target.value } })}
                         placeholder="e.g., Yes or No"
+                        disabled={isSubmitting}
                       />
                     </div>
                     <div>
@@ -1412,6 +1620,7 @@ export function DeviceManagement() {
                         value={modelForm.connectivity.usb}
                         onChange={(e) => setModelForm({ ...modelForm, connectivity: { ...modelForm.connectivity, usb: e.target.value } })}
                         placeholder="e.g., USB Type-C 3.2"
+                        disabled={isSubmitting}
                       />
                     </div>
                   </div>
@@ -1426,6 +1635,7 @@ export function DeviceManagement() {
                         value={modelForm.battery.type}
                         onChange={(e) => setModelForm({ ...modelForm, battery: { ...modelForm.battery, type: e.target.value } })}
                         placeholder="e.g., Li-Ion 3200 mAh, non-removable"
+                        disabled={isSubmitting}
                       />
                     </div>
                     <div>
@@ -1435,6 +1645,7 @@ export function DeviceManagement() {
                         value={modelForm.battery.charging}
                         onChange={(e) => setModelForm({ ...modelForm, battery: { ...modelForm.battery, charging: e.target.value } })}
                         placeholder="e.g., 20W wired, 15W wireless"
+                        disabled={isSubmitting}
                       />
                     </div>
                   </div>
@@ -1448,6 +1659,7 @@ export function DeviceManagement() {
                       value={modelForm.features.sensors}
                       onChange={(e) => setModelForm({ ...modelForm, features: { ...modelForm.features, sensors: e.target.value } })}
                       placeholder="e.g., Face ID, accelerometer, gyro, proximity, compass, barometer"
+                      disabled={isSubmitting}
                     />
                   </div>
                 </div>
@@ -1461,6 +1673,7 @@ export function DeviceManagement() {
                         value={modelForm.other.price}
                         onChange={(e) => setModelForm({ ...modelForm, other: { ...modelForm.other, price: e.target.value } })}
                         placeholder="e.g., $999 / €1,099"
+                        disabled={isSubmitting}
                       />
                     </div>
                     <div>
@@ -1470,18 +1683,21 @@ export function DeviceManagement() {
                         value={modelForm.other.releaseDate}
                         onChange={(e) => setModelForm({ ...modelForm, other: { ...modelForm.other, releaseDate: e.target.value } })}
                         placeholder="e.g., Released 2023, September"
+                        disabled={isSubmitting}
                       />
                     </div>
                   </div>
                 </div>
-              </TabsContent>
-            </Tabs>
+              </div>
+            </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCreateModel(false)}>
+              <Button variant="outline" onClick={() => setShowCreateModel(false)} disabled={isSubmitting}>
                 Cancel
               </Button>
-              <Button onClick={handleSaveModel}>Save Model</Button>
+              <Button onClick={handleSaveModel} disabled={isSubmitting}>
+                {isSubmitting ? 'Saving...' : (isEditMode ? 'Update Model' : 'Save Model')}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
