@@ -233,9 +233,38 @@ class DeviceService {
         throw new Error('Model not found');
       }
 
-      // Update fields
+      // Helper function to deeply merge objects
+      const deepMerge = (target, source) => {
+        for (const key in source) {
+          if (source.hasOwnProperty(key)) {
+            if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+              // For nested objects, merge recursively
+              if (!target[key] || typeof target[key] !== 'object') {
+                target[key] = {};
+              }
+              deepMerge(target[key], source[key]);
+            } else {
+              // For primitive values and arrays, directly assign
+              target[key] = source[key];
+            }
+          }
+        }
+      };
+
+      // Update fields with deep merge for nested objects
       Object.keys(updateData).forEach(key => {
-        model[key] = updateData[key];
+        if (updateData[key] && typeof updateData[key] === 'object' && !Array.isArray(updateData[key]) &&
+            ['network', 'physical', 'display', 'platform', 'memory', 'rearCamera', 'frontCamera',
+             'audio', 'connectivity', 'features', 'battery', 'other'].includes(key)) {
+          // Deep merge for specification categories
+          if (!model[key]) {
+            model[key] = {};
+          }
+          deepMerge(model[key], updateData[key]);
+        } else {
+          // Direct assignment for simple fields and arrays
+          model[key] = updateData[key];
+        }
       });
 
       const updatedModel = await model.save();
