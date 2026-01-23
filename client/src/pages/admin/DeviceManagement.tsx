@@ -137,8 +137,35 @@ export function DeviceManagement() {
     brandId: '',
     deviceType: '',
     image: '',
-    specifications: {} as Record<string, string>
+    specifications: {} as Record<string, string>,
+    // Comprehensive specification categories
+    images: [] as Array<{ url: string; base64: string; caption: string }>,
+    network: {
+      technology2G: '', bands2G: '', technology3G: '', bands3G: '',
+      technology4G: '', bands4G: '', technology5G: '', bands5G: '', speed: ''
+    },
+    physical: { dimensions: '', weight: '', build: '', simType: '', simCount: '' },
+    display: { type: '', size: '', resolution: '', protection: '', features: '' },
+    platform: { os: '', chipset: '', cpu: '', gpu: '' },
+    memory: { internal: [] as Array<{ ram: string; storage: string }>, cardSlot: '' },
+    rearCamera: { modules: '', features: '', video: '' },
+    frontCamera: { modules: '', features: '', video: '' },
+    audio: { loudspeaker: '', jack3_5mm: '' },
+    connectivity: {
+      wlan: '', bluetooth: '', positioning: '', nfc: '', radio: '', usb: '', infrared: '', other: ''
+    },
+    features: { sensors: '', special: [] as string[] },
+    battery: { type: '', charging: '', standbyTime: '', talkTime: '', musicPlay: '' },
+    other: {
+      models: [] as string[],
+      sarValues: { head: '', body: '' },
+      price: '',
+      releaseDate: '',
+      colors: [] as string[]
+    }
   })
+
+  const [specTab, setSpecTab] = useState("basic")
 
   const { toast } = useToast()
 
@@ -277,8 +304,33 @@ export function DeviceManagement() {
       brandId: '',
       deviceType: '',
       image: '',
-      specifications: {}
+      specifications: {},
+      images: [],
+      network: {
+        technology2G: '', bands2G: '', technology3G: '', bands3G: '',
+        technology4G: '', bands4G: '', technology5G: '', bands5G: '', speed: ''
+      },
+      physical: { dimensions: '', weight: '', build: '', simType: '', simCount: '' },
+      display: { type: '', size: '', resolution: '', protection: '', features: '' },
+      platform: { os: '', chipset: '', cpu: '', gpu: '' },
+      memory: { internal: [], cardSlot: '' },
+      rearCamera: { modules: '', features: '', video: '' },
+      frontCamera: { modules: '', features: '', video: '' },
+      audio: { loudspeaker: '', jack3_5mm: '' },
+      connectivity: {
+        wlan: '', bluetooth: '', positioning: '', nfc: '', radio: '', usb: '', infrared: '', other: ''
+      },
+      features: { sensors: '', special: [] },
+      battery: { type: '', charging: '', standbyTime: '', talkTime: '', musicPlay: '' },
+      other: {
+        models: [],
+        sarValues: { head: '', body: '' },
+        price: '',
+        releaseDate: '',
+        colors: []
+      }
     })
+    setSpecTab("basic")
     setShowCreateModel(true)
   }
 
@@ -351,7 +403,31 @@ export function DeviceManagement() {
         brandId: '',
         deviceType: '',
         image: '',
-        specifications: {}
+        specifications: {},
+        images: [],
+        network: {
+          technology2G: '', bands2G: '', technology3G: '', bands3G: '',
+          technology4G: '', bands4G: '', technology5G: '', bands5G: '', speed: ''
+        },
+        physical: { dimensions: '', weight: '', build: '', simType: '', simCount: '' },
+        display: { type: '', size: '', resolution: '', protection: '', features: '' },
+        platform: { os: '', chipset: '', cpu: '', gpu: '' },
+        memory: { internal: [], cardSlot: '' },
+        rearCamera: { modules: '', features: '', video: '' },
+        frontCamera: { modules: '', features: '', video: '' },
+        audio: { loudspeaker: '', jack3_5mm: '' },
+        connectivity: {
+          wlan: '', bluetooth: '', positioning: '', nfc: '', radio: '', usb: '', infrared: '', other: ''
+        },
+        features: { sensors: '', special: [] },
+        battery: { type: '', charging: '', standbyTime: '', talkTime: '', musicPlay: '' },
+        other: {
+          models: [],
+          sarValues: { head: '', body: '' },
+          price: '',
+          releaseDate: '',
+          colors: []
+        }
       })
 
       // Refresh models list if filters are active
@@ -901,63 +977,506 @@ export function DeviceManagement() {
 
         {/* Create Model Dialog */}
         <Dialog open={showCreateModel} onOpenChange={setShowCreateModel}>
-          <DialogContent>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Model</DialogTitle>
               <DialogDescription>
-                Create a new device model
+                Create a new device model with comprehensive specifications
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="modelName">Model Name *</Label>
-                <Input
-                  id="modelName"
-                  value={modelForm.name}
-                  onChange={(e) => setModelForm({ ...modelForm, name: e.target.value })}
-                  placeholder="e.g., iPhone 15 Pro"
-                />
-              </div>
-              <div>
-                <Label htmlFor="modelBrand">Brand *</Label>
-                <Select value={modelForm.brandId} onValueChange={(value) => setModelForm({ ...modelForm, brandId: value })}>
-                  <SelectTrigger id="modelBrand">
-                    <SelectValue placeholder="Select brand" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {brands.map((brand: any) => (
-                      <SelectItem key={brand._id} value={brand._id}>
-                        {brand.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="modelDeviceType">Device Type *</Label>
-                <Select value={modelForm.deviceType} onValueChange={(value) => setModelForm({ ...modelForm, deviceType: value })}>
-                  <SelectTrigger id="modelDeviceType">
-                    <SelectValue placeholder="Select device type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {deviceTypes.map((type: any) => (
-                      <SelectItem key={type._id} value={type._id} className="capitalize">
-                        {type.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="modelImage">Image URL</Label>
-                <Input
-                  id="modelImage"
-                  value={modelForm.image}
-                  onChange={(e) => setModelForm({ ...modelForm, image: e.target.value })}
-                  placeholder="https://example.com/device.png"
-                />
-              </div>
-            </div>
+
+            <Tabs value={specTab} onValueChange={setSpecTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-7">
+                <TabsTrigger value="basic">Basic</TabsTrigger>
+                <TabsTrigger value="specs1">Network</TabsTrigger>
+                <TabsTrigger value="specs2">Physical</TabsTrigger>
+                <TabsTrigger value="specs3">Display</TabsTrigger>
+                <TabsTrigger value="specs4">Platform</TabsTrigger>
+                <TabsTrigger value="specs5">Camera</TabsTrigger>
+                <TabsTrigger value="specs6">Other</TabsTrigger>
+              </TabsList>
+
+              {/* Basic Information Tab */}
+              <TabsContent value="basic" className="space-y-4">
+                <div>
+                  <Label htmlFor="modelName">Model Name *</Label>
+                  <Input
+                    id="modelName"
+                    value={modelForm.name}
+                    onChange={(e) => setModelForm({ ...modelForm, name: e.target.value })}
+                    placeholder="e.g., iPhone 15 Pro"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="modelBrand">Brand *</Label>
+                  <Select value={modelForm.brandId} onValueChange={(value) => setModelForm({ ...modelForm, brandId: value })}>
+                    <SelectTrigger id="modelBrand">
+                      <SelectValue placeholder="Select brand" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {brands.map((brand: any) => (
+                        <SelectItem key={brand._id} value={brand._id}>
+                          {brand.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="modelDeviceType">Device Type *</Label>
+                  <Select value={modelForm.deviceType} onValueChange={(value) => setModelForm({ ...modelForm, deviceType: value })}>
+                    <SelectTrigger id="modelDeviceType">
+                      <SelectValue placeholder="Select device type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {deviceTypes.map((type: any) => (
+                        <SelectItem key={type._id} value={type._id} className="capitalize">
+                          {type.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="modelImage">Main Image URL</Label>
+                  <Input
+                    id="modelImage"
+                    value={modelForm.image}
+                    onChange={(e) => setModelForm({ ...modelForm, image: e.target.value })}
+                    placeholder="https://example.com/device.png"
+                  />
+                </div>
+              </TabsContent>
+
+              {/* Network Specifications Tab */}
+              <TabsContent value="specs1" className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="tech2G">2G Technology</Label>
+                    <Input
+                      id="tech2G"
+                      value={modelForm.network.technology2G}
+                      onChange={(e) => setModelForm({ ...modelForm, network: { ...modelForm.network, technology2G: e.target.value } })}
+                      placeholder="e.g., GSM 850 / 900 / 1800 / 1900"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="bands2G">2G Bands</Label>
+                    <Input
+                      id="bands2G"
+                      value={modelForm.network.bands2G}
+                      onChange={(e) => setModelForm({ ...modelForm, network: { ...modelForm.network, bands2G: e.target.value } })}
+                      placeholder="e.g., GSM bands"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="tech3G">3G Technology</Label>
+                    <Input
+                      id="tech3G"
+                      value={modelForm.network.technology3G}
+                      onChange={(e) => setModelForm({ ...modelForm, network: { ...modelForm.network, technology3G: e.target.value } })}
+                      placeholder="e.g., HSDPA 850 / 900 / 1700(AWS) / 1900 / 2100"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="bands3G">3G Bands</Label>
+                    <Input
+                      id="bands3G"
+                      value={modelForm.network.bands3G}
+                      onChange={(e) => setModelForm({ ...modelForm, network: { ...modelForm.network, bands3G: e.target.value } })}
+                      placeholder="e.g., HSDPA bands"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="tech4G">4G Technology</Label>
+                    <Input
+                      id="tech4G"
+                      value={modelForm.network.technology4G}
+                      onChange={(e) => setModelForm({ ...modelForm, network: { ...modelForm.network, technology4G: e.target.value } })}
+                      placeholder="e.g., LTE"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="bands4G">4G Bands</Label>
+                    <Input
+                      id="bands4G"
+                      value={modelForm.network.bands4G}
+                      onChange={(e) => setModelForm({ ...modelForm, network: { ...modelForm.network, bands4G: e.target.value } })}
+                      placeholder="e.g., LTE bands"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="tech5G">5G Technology</Label>
+                    <Input
+                      id="tech5G"
+                      value={modelForm.network.technology5G}
+                      onChange={(e) => setModelForm({ ...modelForm, network: { ...modelForm.network, technology5G: e.target.value } })}
+                      placeholder="e.g., 5G NR"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="bands5G">5G Bands</Label>
+                    <Input
+                      id="bands5G"
+                      value={modelForm.network.bands5G}
+                      onChange={(e) => setModelForm({ ...modelForm, network: { ...modelForm.network, bands5G: e.target.value } })}
+                      placeholder="e.g., 5G bands"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label htmlFor="speed">Network Speed</Label>
+                    <Input
+                      id="speed"
+                      value={modelForm.network.speed}
+                      onChange={(e) => setModelForm({ ...modelForm, network: { ...modelForm.network, speed: e.target.value } })}
+                      placeholder="e.g., HSPA, LTE-A"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Physical Characteristics Tab */}
+              <TabsContent value="specs2" className="space-y-4">
+                <div>
+                  <Label htmlFor="dimensions">Dimensions</Label>
+                  <Input
+                    id="dimensions"
+                    value={modelForm.physical.dimensions}
+                    onChange={(e) => setModelForm({ ...modelForm, physical: { ...modelForm.physical, dimensions: e.target.value } })}
+                    placeholder="e.g., 146.7 x 71.5 x 7.8 mm"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="weight">Weight</Label>
+                  <Input
+                    id="weight"
+                    value={modelForm.physical.weight}
+                    onChange={(e) => setModelForm({ ...modelForm, physical: { ...modelForm.physical, weight: e.target.value } })}
+                    placeholder="e.g., 174 g"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="build">Build</Label>
+                  <Input
+                    id="build"
+                    value={modelForm.physical.build}
+                    onChange={(e) => setModelForm({ ...modelForm, physical: { ...modelForm.physical, build: e.target.value } })}
+                    placeholder="e.g., Glass front (Gorilla Glass), glass back, aluminum frame"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="simType">SIM Type</Label>
+                  <Input
+                    id="simType"
+                    value={modelForm.physical.simType}
+                    onChange={(e) => setModelForm({ ...modelForm, physical: { ...modelForm.physical, simType: e.target.value } })}
+                    placeholder="e.g., Nano-SIM, eSIM"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="simCount">SIM Count</Label>
+                  <Input
+                    id="simCount"
+                    value={modelForm.physical.simCount}
+                    onChange={(e) => setModelForm({ ...modelForm, physical: { ...modelForm.physical, simCount: e.target.value } })}
+                    placeholder="e.g., Single SIM or Dual SIM"
+                  />
+                </div>
+              </TabsContent>
+
+              {/* Display Specifications Tab */}
+              <TabsContent value="specs3" className="space-y-4">
+                <div>
+                  <Label htmlFor="displayType">Display Type</Label>
+                  <Input
+                    id="displayType"
+                    value={modelForm.display.type}
+                    onChange={(e) => setModelForm({ ...modelForm, display: { ...modelForm.display, type: e.target.value } })}
+                    placeholder="e.g., LTPO Super Retina XDR OLED"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="displaySize">Display Size</Label>
+                  <Input
+                    id="displaySize"
+                    value={modelForm.display.size}
+                    onChange={(e) => setModelForm({ ...modelForm, display: { ...modelForm.display, size: e.target.value } })}
+                    placeholder="e.g., 6.1 inches"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="resolution">Resolution</Label>
+                  <Input
+                    id="resolution"
+                    value={modelForm.display.resolution}
+                    onChange={(e) => setModelForm({ ...modelForm, display: { ...modelForm.display, resolution: e.target.value } })}
+                    placeholder="e.g., 1179 x 2556 pixels"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="protection">Display Protection</Label>
+                  <Input
+                    id="protection"
+                    value={modelForm.display.protection}
+                    onChange={(e) => setModelForm({ ...modelForm, display: { ...modelForm.display, protection: e.target.value } })}
+                    placeholder="e.g., Ceramic Shield glass"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="displayFeatures">Display Features</Label>
+                  <Textarea
+                    id="displayFeatures"
+                    value={modelForm.display.features}
+                    onChange={(e) => setModelForm({ ...modelForm, display: { ...modelForm.display, features: e.target.value } })}
+                    placeholder="e.g., 120Hz, HDR10, Dolby Vision"
+                  />
+                </div>
+              </TabsContent>
+
+              {/* Platform Tab */}
+              <TabsContent value="specs4" className="space-y-4">
+                <div>
+                  <Label htmlFor="os">Operating System</Label>
+                  <Input
+                    id="os"
+                    value={modelForm.platform.os}
+                    onChange={(e) => setModelForm({ ...modelForm, platform: { ...modelForm.platform, os: e.target.value } })}
+                    placeholder="e.g., iOS 17"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="chipset">Chipset</Label>
+                  <Input
+                    id="chipset"
+                    value={modelForm.platform.chipset}
+                    onChange={(e) => setModelForm({ ...modelForm, platform: { ...modelForm.platform, chipset: e.target.value } })}
+                    placeholder="e.g., Apple A17 Pro (3 nm)"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="cpu">CPU</Label>
+                  <Input
+                    id="cpu"
+                    value={modelForm.platform.cpu}
+                    onChange={(e) => setModelForm({ ...modelForm, platform: { ...modelForm.platform, cpu: e.target.value } })}
+                    placeholder="e.g., Hexa-core"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="gpu">GPU</Label>
+                  <Input
+                    id="gpu"
+                    value={modelForm.platform.gpu}
+                    onChange={(e) => setModelForm({ ...modelForm, platform: { ...modelForm.platform, gpu: e.target.value } })}
+                    placeholder="e.g., Apple GPU (6-core graphics)"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="cardSlot">Card Slot</Label>
+                  <Input
+                    id="cardSlot"
+                    value={modelForm.memory.cardSlot}
+                    onChange={(e) => setModelForm({ ...modelForm, memory: { ...modelForm.memory, cardSlot: e.target.value } })}
+                    placeholder="e.g., No or microSDXC"
+                  />
+                </div>
+              </TabsContent>
+
+              {/* Camera Tab */}
+              <TabsContent value="specs5" className="space-y-4">
+                <div>
+                  <h4 className="font-semibold mb-2">Rear Camera</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="rearModules">Camera Modules</Label>
+                      <Textarea
+                        id="rearModules"
+                        value={modelForm.rearCamera.modules}
+                        onChange={(e) => setModelForm({ ...modelForm, rearCamera: { ...modelForm.rearCamera, modules: e.target.value } })}
+                        placeholder="e.g., 48 MP (wide), 12 MP (telephoto), 12 MP (ultrawide)"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="rearFeatures">Camera Features</Label>
+                      <Textarea
+                        id="rearFeatures"
+                        value={modelForm.rearCamera.features}
+                        onChange={(e) => setModelForm({ ...modelForm, rearCamera: { ...modelForm.rearCamera, features: e.target.value } })}
+                        placeholder="e.g., Dual-LED dual-tone flash, HDR, panorama"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="rearVideo">Video Recording</Label>
+                      <Input
+                        id="rearVideo"
+                        value={modelForm.rearCamera.video}
+                        onChange={(e) => setModelForm({ ...modelForm, rearCamera: { ...modelForm.rearCamera, video: e.target.value } })}
+                        placeholder="e.g., 4K@24/30/60fps, 1080p@30/60/120/240fps"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-2">Front Camera</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="frontModules">Camera Modules</Label>
+                      <Input
+                        id="frontModules"
+                        value={modelForm.frontCamera.modules}
+                        onChange={(e) => setModelForm({ ...modelForm, frontCamera: { ...modelForm.frontCamera, modules: e.target.value } })}
+                        placeholder="e.g., 12 MP (wide)"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="frontFeatures">Camera Features</Label>
+                      <Input
+                        id="frontFeatures"
+                        value={modelForm.frontCamera.features}
+                        onChange={(e) => setModelForm({ ...modelForm, frontCamera: { ...modelForm.frontCamera, features: e.target.value } })}
+                        placeholder="e.g., HDR, Dolby Vision HDR"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="frontVideo">Video Recording</Label>
+                      <Input
+                        id="frontVideo"
+                        value={modelForm.frontCamera.video}
+                        onChange={(e) => setModelForm({ ...modelForm, frontCamera: { ...modelForm.frontCamera, video: e.target.value } })}
+                        placeholder="e.g., 4K@24/25/30/60fps"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Other Specifications Tab */}
+              <TabsContent value="specs6" className="space-y-4">
+                <div>
+                  <h4 className="font-semibold mb-2">Audio</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="loudspeaker">Loudspeaker</Label>
+                      <Input
+                        id="loudspeaker"
+                        value={modelForm.audio.loudspeaker}
+                        onChange={(e) => setModelForm({ ...modelForm, audio: { ...modelForm.audio, loudspeaker: e.target.value } })}
+                        placeholder="e.g., Yes, with stereo speakers"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="jack">3.5mm Jack</Label>
+                      <Input
+                        id="jack"
+                        value={modelForm.audio.jack3_5mm}
+                        onChange={(e) => setModelForm({ ...modelForm, audio: { ...modelForm.audio, jack3_5mm: e.target.value } })}
+                        placeholder="e.g., No or Yes"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-2">Connectivity</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="wlan">WLAN</Label>
+                      <Input
+                        id="wlan"
+                        value={modelForm.connectivity.wlan}
+                        onChange={(e) => setModelForm({ ...modelForm, connectivity: { ...modelForm.connectivity, wlan: e.target.value } })}
+                        placeholder="e.g., Wi-Fi 6E"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="bluetooth">Bluetooth</Label>
+                      <Input
+                        id="bluetooth"
+                        value={modelForm.connectivity.bluetooth}
+                        onChange={(e) => setModelForm({ ...modelForm, connectivity: { ...modelForm.connectivity, bluetooth: e.target.value } })}
+                        placeholder="e.g., 5.3, A2DP, LE"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="nfc">NFC</Label>
+                      <Input
+                        id="nfc"
+                        value={modelForm.connectivity.nfc}
+                        onChange={(e) => setModelForm({ ...modelForm, connectivity: { ...modelForm.connectivity, nfc: e.target.value } })}
+                        placeholder="e.g., Yes or No"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="usb">USB</Label>
+                      <Input
+                        id="usb"
+                        value={modelForm.connectivity.usb}
+                        onChange={(e) => setModelForm({ ...modelForm, connectivity: { ...modelForm.connectivity, usb: e.target.value } })}
+                        placeholder="e.g., USB Type-C 3.2"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-2">Battery</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="batteryType">Battery Type</Label>
+                      <Input
+                        id="batteryType"
+                        value={modelForm.battery.type}
+                        onChange={(e) => setModelForm({ ...modelForm, battery: { ...modelForm.battery, type: e.target.value } })}
+                        placeholder="e.g., Li-Ion 3200 mAh, non-removable"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="charging">Charging</Label>
+                      <Input
+                        id="charging"
+                        value={modelForm.battery.charging}
+                        onChange={(e) => setModelForm({ ...modelForm, battery: { ...modelForm.battery, charging: e.target.value } })}
+                        placeholder="e.g., 20W wired, 15W wireless"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-2">Features</h4>
+                  <div>
+                    <Label htmlFor="sensors">Sensors</Label>
+                    <Textarea
+                      id="sensors"
+                      value={modelForm.features.sensors}
+                      onChange={(e) => setModelForm({ ...modelForm, features: { ...modelForm.features, sensors: e.target.value } })}
+                      placeholder="e.g., Face ID, accelerometer, gyro, proximity, compass, barometer"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-2">Other Information</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="price">Price</Label>
+                      <Input
+                        id="price"
+                        value={modelForm.other.price}
+                        onChange={(e) => setModelForm({ ...modelForm, other: { ...modelForm.other, price: e.target.value } })}
+                        placeholder="e.g., $999 / €1,099"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="releaseDate">Release Date</Label>
+                      <Input
+                        id="releaseDate"
+                        value={modelForm.other.releaseDate}
+                        onChange={(e) => setModelForm({ ...modelForm, other: { ...modelForm.other, releaseDate: e.target.value } })}
+                        placeholder="e.g., Released 2023, September"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowCreateModel(false)}>
                 Cancel
@@ -1014,7 +1533,7 @@ export function DeviceManagement() {
 
         {/* View Model Dialog */}
         <Dialog open={showViewModel} onOpenChange={setShowViewModel}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Model Details</DialogTitle>
             </DialogHeader>
@@ -1029,25 +1548,183 @@ export function DeviceManagement() {
                     {(selectedModel as any).brand?.name || 'Unknown Brand'}
                   </p>
                 </div>
-                <div className="grid gap-4">
-                  <div>
-                    <Label>Device Type</Label>
-                    <p className="text-sm text-muted-foreground capitalize">{selectedModel.deviceType}</p>
-                  </div>
-                  {selectedModel.specifications && Object.keys(selectedModel.specifications).length > 0 && (
+
+                <Tabs defaultValue="basic" className="w-full">
+                  <TabsList className="grid w-full grid-cols-7">
+                    <TabsTrigger value="basic">Basic</TabsTrigger>
+                    <TabsTrigger value="network">Network</TabsTrigger>
+                    <TabsTrigger value="physical">Physical</TabsTrigger>
+                    <TabsTrigger value="display">Display</TabsTrigger>
+                    <TabsTrigger value="platform">Platform</TabsTrigger>
+                    <TabsTrigger value="camera">Camera</TabsTrigger>
+                    <TabsTrigger value="other">Other</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="basic" className="space-y-2">
+                    <div className="p-3 rounded border">
+                      <Label>Device Type</Label>
+                      <p className="text-sm text-muted-foreground capitalize">{selectedModel.deviceType}</p>
+                    </div>
+                    {(selectedModel as any).other?.releaseDate && (
+                      <div className="p-3 rounded border">
+                        <Label>Release Date</Label>
+                        <p className="text-sm text-muted-foreground">{(selectedModel as any).other.releaseDate}</p>
+                      </div>
+                    )}
+                    {(selectedModel as any).other?.price && (
+                      <div className="p-3 rounded border">
+                        <Label>Price</Label>
+                        <p className="text-sm text-muted-foreground">{(selectedModel as any).other.price}</p>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="network" className="space-y-2">
+                    {(selectedModel as any).network && Object.entries((selectedModel as any).network).map(([key, value]) => (
+                      value && (
+                        <div key={key} className="p-3 rounded border">
+                          <Label className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</Label>
+                          <p className="text-sm text-muted-foreground">{value as string}</p>
+                        </div>
+                      )
+                    ))}
+                  </TabsContent>
+
+                  <TabsContent value="physical" className="space-y-2">
+                    {(selectedModel as any).physical && Object.entries((selectedModel as any).physical).map(([key, value]) => (
+                      value && (
+                        <div key={key} className="p-3 rounded border">
+                          <Label className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</Label>
+                          <p className="text-sm text-muted-foreground">{value as string}</p>
+                        </div>
+                      )
+                    ))}
+                  </TabsContent>
+
+                  <TabsContent value="display" className="space-y-2">
+                    {(selectedModel as any).display && Object.entries((selectedModel as any).display).map(([key, value]) => (
+                      value && (
+                        <div key={key} className="p-3 rounded border">
+                          <Label className="capitalize">{key}</Label>
+                          <p className="text-sm text-muted-foreground">{value as string}</p>
+                        </div>
+                      )
+                    ))}
+                  </TabsContent>
+
+                  <TabsContent value="platform" className="space-y-2">
+                    {(selectedModel as any).platform && Object.entries((selectedModel as any).platform).map(([key, value]) => (
+                      value && (
+                        <div key={key} className="p-3 rounded border">
+                          <Label className="uppercase">{key}</Label>
+                          <p className="text-sm text-muted-foreground">{value as string}</p>
+                        </div>
+                      )
+                    ))}
+                    {(selectedModel as any).memory?.cardSlot && (
+                      <div className="p-3 rounded border">
+                        <Label>Card Slot</Label>
+                        <p className="text-sm text-muted-foreground">{(selectedModel as any).memory.cardSlot}</p>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="camera" className="space-y-4">
                     <div>
-                      <Label>Specifications</Label>
-                      <div className="mt-2 space-y-2">
-                        {Object.entries(selectedModel.specifications).map(([key, value]) => (
-                          <div key={key} className="flex justify-between p-2 rounded border">
-                            <span className="text-sm font-medium capitalize">{key.replace(/_/g, ' ')}</span>
-                            <span className="text-sm text-muted-foreground">{value as string}</span>
+                      <h4 className="font-semibold mb-2">Rear Camera</h4>
+                      {(selectedModel as any).rearCamera && Object.entries((selectedModel as any).rearCamera).map(([key, value]) => (
+                        value && (
+                          <div key={key} className="p-3 rounded border mb-2">
+                            <Label className="capitalize">{key}</Label>
+                            <p className="text-sm text-muted-foreground">{value as string}</p>
                           </div>
+                        )
+                      ))}
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-2">Front Camera</h4>
+                      {(selectedModel as any).frontCamera && Object.entries((selectedModel as any).frontCamera).map(([key, value]) => (
+                        value && (
+                          <div key={key} className="p-3 rounded border mb-2">
+                            <Label className="capitalize">{key}</Label>
+                            <p className="text-sm text-muted-foreground">{value as string}</p>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="other" className="space-y-4">
+                    {(selectedModel as any).audio && (
+                      <div>
+                        <h4 className="font-semibold mb-2">Audio</h4>
+                        {Object.entries((selectedModel as any).audio).map(([key, value]) => (
+                          value && (
+                            <div key={key} className="p-3 rounded border mb-2">
+                              <Label className="capitalize">{key.replace(/_/g, ' ')}</Label>
+                              <p className="text-sm text-muted-foreground">{value as string}</p>
+                            </div>
+                          )
                         ))}
                       </div>
+                    )}
+                    {(selectedModel as any).connectivity && (
+                      <div>
+                        <h4 className="font-semibold mb-2">Connectivity</h4>
+                        {Object.entries((selectedModel as any).connectivity).map(([key, value]) => (
+                          value && (
+                            <div key={key} className="p-3 rounded border mb-2">
+                              <Label className="uppercase">{key}</Label>
+                              <p className="text-sm text-muted-foreground">{value as string}</p>
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    )}
+                    {(selectedModel as any).battery && (
+                      <div>
+                        <h4 className="font-semibold mb-2">Battery</h4>
+                        {Object.entries((selectedModel as any).battery).map(([key, value]) => (
+                          value && (
+                            <div key={key} className="p-3 rounded border mb-2">
+                              <Label className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</Label>
+                              <p className="text-sm text-muted-foreground">{value as string}</p>
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    )}
+                    {(selectedModel as any).features && (
+                      <div>
+                        <h4 className="font-semibold mb-2">Features</h4>
+                        {Object.entries((selectedModel as any).features).map(([key, value]) => (
+                          value && (
+                            <div key={key} className="p-3 rounded border mb-2">
+                              <Label className="capitalize">{key}</Label>
+                              <p className="text-sm text-muted-foreground">
+                                {Array.isArray(value) ? value.join(', ') : value as string}
+                              </p>
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+
+                {selectedModel.specifications && Object.keys(selectedModel.specifications).length > 0 && (
+                  <div className="mt-4">
+                    <Label>Legacy Specifications</Label>
+                    <div className="mt-2 space-y-2">
+                      {Object.entries(selectedModel.specifications).map(([key, value]) => (
+                        <div key={key} className="flex justify-between p-2 rounded border">
+                          <span className="text-sm font-medium capitalize">{key.replace(/_/g, ' ')}</span>
+                          <span className="text-sm text-muted-foreground">{value as string}</span>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             )}
             <DialogFooter>

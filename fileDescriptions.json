@@ -178,7 +178,7 @@
 	"server/models/BlogPost.js": "Mongoose schema models for blog functionality, exporting BlogPost, BlogCategory, BlogTag, and BlogComment with support for revisions, comments, performance tracking, SEO metadata, and automated slug generation via pre-save middleware.",
 	"server/models/Cart.js": "Mongoose schema for shopping cart management, supporting both product items and repair orders with automatic calculation of subtotals, taxes, and totals on save.",
 	"server/models/Conversation.js": "Mongoose schema for conversation documents with participant tracking, order references, and automatic population of related order and message data.",
-	"server/models/Device.js": "Mongoose schemas and models for device inventory management, defining DeviceModel (with brand reference, type, and specifications) and DeviceBrand entities with automatic timestamp updates and performance indexes.",
+	"server/models/Device.js": "Mongoose schemas for device and brand management, defining DeviceModel with comprehensive specifications across 13 categories (network, display, camera, battery, etc.) and DeviceBrand with branding details, including pre-save timestamp hooks and performance indexes.",
 	"server/models/Diagnostic.js": "Mongoose models for diagnostic testing system, exporting DiagnosticTest, DiagnosticForm, and DiagnosticResult with nested schemas for test steps, troubleshooting guides, form fields, and test result tracking.",
 	"server/models/FAQ.js": "Mongoose schema and model for FAQ documents with question-answer pairs, categorization, engagement metrics, and full-text search indexing.",
 	"server/models/Homepage.js": "Mongoose schemas for homepage layout templates and A/B testing, exporting LayoutTemplate and ABTest models with support for customizable content blocks, sections, styling, visual effects, and conversion tracking.",
@@ -633,8 +633,5 @@
 	"server/models/ServiceCategory.js": "Mongoose schema and model for service categories, defining document structure with name, type (repair/addon), icon, color, ordering, and active status, including pre-save hooks for timestamp updates and indexed queries.",
 	"server/routes/serviceCategoryRoutes.js": "Express router for service category CRUD operations, providing endpoints to retrieve, create, update, delete, and manage service categories with filtering, statistics, activation/deactivation, and reordering capabilities; requires admin/staff authentication for write operations.",
 	"server/services/serviceCategoryService.js": "Service business logic layer for managing service categories with CRUD operations, filtering, activation/deactivation, usage validation, and reordering functionality across repair and add-on service types.",
-	"client/dist/index.html": "Entry point HTML file for the FixitHub client application, linking bundled JavaScript and CSS assets with a root DOM element for React mounting.",
-	"client/dist/assets/index-BxfuK8L1.css": "Compiled Tailwind CSS stylesheet with complete utility classes, component styles, animations, and theme variables for the application's UI design system.",
-	"client/dist/assets/index.es-DWoWYvAq.js": "Minified and bundled JavaScript library containing SVG rendering engine with support for animations, gradients, filters, text, paths, and canvas-based rendering capabilities.",
 	"client/src/pages/admin/DeviceManagement.tsx": "Admin page for managing device brands, models, and specifications with dashboard overview, CRUD operations, filtering, and search functionality across multiple tabs."
 }
