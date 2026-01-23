@@ -547,14 +547,30 @@ export function DeviceBrandsManagement() {
                       </div>
                     </div>
                     <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="sm" onClick={() => handleViewBrand(brand)}>
-                        <Eye className="h-4 w-4" />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleViewBrand(brand)}
+                        className="hover:bg-blue-100 dark:hover:bg-blue-900 rounded p-2"
+                        title="View brand details"
+                      >
+                        <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                       </Button>
-                      <Button variant="ghost" size="sm">
-                        <Edit className="h-4 w-4" />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="hover:bg-green-100 dark:hover:bg-green-900 rounded p-2"
+                        title="Edit brand"
+                      >
+                        <Edit className="h-5 w-5 text-green-600 dark:text-green-400" />
                       </Button>
-                      <Button variant="ghost" size="sm">
-                        <Trash2 className="h-4 w-4" />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="hover:bg-red-100 dark:hover:bg-red-900 rounded p-2"
+                        title="Delete brand"
+                      >
+                        <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
                       </Button>
                     </div>
                   </div>
@@ -602,11 +618,22 @@ export function DeviceBrandsManagement() {
                       </CardDescription>
                     </div>
                     <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="sm" onClick={() => handleViewDeviceType(type)}>
-                        <Eye className="h-4 w-4" />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleViewDeviceType(type)}
+                        className="hover:bg-blue-100 dark:hover:bg-blue-900 rounded p-2"
+                        title="View device type details"
+                      >
+                        <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                       </Button>
-                      <Button variant="ghost" size="sm">
-                        <Edit className="h-4 w-4" />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="hover:bg-green-100 dark:hover:bg-green-900 rounded p-2"
+                        title="Edit device type"
+                      >
+                        <Edit className="h-5 w-5 text-green-600 dark:text-green-400" />
                       </Button>
                     </div>
                   </div>
@@ -656,14 +683,31 @@ export function DeviceBrandsManagement() {
                       </div>
                     </div>
                     <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="sm" onClick={() => handleViewModel(model)}>
-                        <Eye className="h-4 w-4" />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleViewModel(model)}
+                        className="hover:bg-blue-100 dark:hover:bg-blue-900 rounded p-2"
+                        title="View model details"
+                      >
+                        <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleEditModel(model)}>
-                        <Edit className="h-4 w-4" />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditModel(model)}
+                        className="hover:bg-green-100 dark:hover:bg-green-900 rounded p-2"
+                        title="Edit model"
+                      >
+                        <Edit className="h-5 w-5 text-green-600 dark:text-green-400" />
                       </Button>
-                      <Button variant="ghost" size="sm">
-                        <Trash2 className="h-4 w-4" />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="hover:bg-red-100 dark:hover:bg-red-900 rounded p-2"
+                        title="Delete model"
+                      >
+                        <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
                       </Button>
                     </div>
                   </div>
