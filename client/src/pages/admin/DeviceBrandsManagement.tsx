@@ -249,9 +249,18 @@ export function DeviceBrandsManagement() {
 
   const handleEditModel = (model: DeviceModel) => {
     console.log('DeviceBrandsManagement: Editing model:', model)
+    console.log('DeviceBrandsManagement: model.brandId value:', model.brandId)
+    console.log('DeviceBrandsManagement: model.brandId type:', typeof model.brandId)
     setIsEditMode(true)
     setEditingModelId(model._id)
     setModelForm({
+      name: model.name || '',
+      brandId: model.brandId || '',
+      deviceType: model.deviceType || '',
+      image: model.image || '',
+      specifications: model.specifications || {}
+    })
+    console.log('DeviceBrandsManagement: modelForm after setting:', {
       name: model.name || '',
       brandId: model.brandId || '',
       deviceType: model.deviceType || '',

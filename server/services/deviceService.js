@@ -176,7 +176,10 @@ class DeviceService {
         _id: model._id,
         name: model.name,
         manufacturer: model.brandId.name,
+        brandId: model.brandId._id,  // Include brandId for edit functionality
         deviceType: model.deviceType,
+        image: model.image || '',
+        specifications: model.specifications || {},
         count: 1 // This could be enhanced to show actual usage count
       }));
 
@@ -226,6 +229,19 @@ class DeviceService {
     try {
       console.log('DeviceService: Updating model:', modelId);
       console.log('DeviceService: Update data:', updateData);
+
+      // Validate required fields if they are being updated
+      if (updateData.brandId !== undefined && (!updateData.brandId || updateData.brandId === '')) {
+        throw new Error('Brand ID is required and cannot be empty');
+      }
+
+      if (updateData.deviceType !== undefined && (!updateData.deviceType || updateData.deviceType === '')) {
+        throw new Error('Device type is required and cannot be empty');
+      }
+
+      if (updateData.name !== undefined && (!updateData.name || updateData.name.trim() === '')) {
+        throw new Error('Model name is required and cannot be empty');
+      }
 
       const model = await DeviceModel.findOne({ _id: modelId, isActive: true });
 

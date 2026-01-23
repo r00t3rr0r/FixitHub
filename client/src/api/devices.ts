@@ -17,7 +17,10 @@ export interface DeviceModel {
   _id: string;
   name: string;
   manufacturer: string;
+  brandId: string;  // Added to support edit functionality
   deviceType: string;
+  image?: string;
+  specifications?: Record<string, any>;
   count: number;
 }
 
