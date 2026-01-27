@@ -336,6 +336,87 @@ export function WorkflowExecutionModal({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Pause Reason Dialog - for Execute Mode */}
+        <AlertDialog open={showPauseReasonDialog} onOpenChange={setShowPauseReasonDialog}>
+          <AlertDialogContent className="max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Pause Workflow</AlertDialogTitle>
+              <AlertDialogDescription>
+                Please provide a reason for pausing the workflow "{workflow.workflowName}". This reason will be recorded in the order details.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="pause-reason" className="text-sm font-medium">
+                  Reason for Pausing <span className="text-destructive">*</span>
+                </label>
+                <textarea
+                  id="pause-reason"
+                  value={pauseReason}
+                  onChange={(e) => setPauseReason(e.target.value)}
+                  placeholder="Enter the reason for pausing (e.g., waiting for parts, customer feedback, etc.)"
+                  className="w-full min-h-24 p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {!pauseReason.trim() && (
+                  <p className="text-sm text-destructive">Please provide a reason</p>
+                )}
+              </div>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                onClick={() => {
+                  setPauseReason('')
+                }}
+                disabled={isLoading}
+              >
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  if (!pauseReason.trim()) {
+                    toast({
+                      variant: "destructive",
+                      title: "Error",
+                      description: "Please provide a reason for pausing the workflow"
+                    })
+                    return
+                  }
+
+                  try {
+                    setShowPauseReasonDialog(false)
+                    // Call the API to pause workflow with reason
+                    const { updateWorkflowStatus } = await import('@/api/workflow')
+                    await updateWorkflowStatus(orderId || '', workflowId || '', 'on-hold', pauseReason)
+
+                    toast({
+                      title: "Success",
+                      description: `Workflow paused. Order status set to pending. Reason: ${pauseReason}`
+                    })
+
+                    setPauseReason('')
+                    onOpenChange(false)
+
+                    // Trigger refresh of order data
+                    if (onStepComplete) {
+                      await onStepComplete()
+                    }
+                  } catch (error: any) {
+                    console.error("Error pausing workflow:", error)
+                    toast({
+                      variant: "destructive",
+                      title: "Error",
+                      description: error.message || "Failed to pause workflow"
+                    })
+                  }
+                }}
+                disabled={isLoading || !pauseReason.trim()}
+              >
+                {isLoading ? 'Pausing...' : 'Pause Workflow'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </>
     )
   }
@@ -477,9 +558,13 @@ export function WorkflowExecutionModal({
             <Button
               variant="outline"
               onClick={() => {
-                if (workflow.status === 'in-progress' && mode !== 'view') {
+                // Show pause dialog only in execute mode when actively working on workflow
+                console.log('Close button clicked - workflow status:', workflow?.status, 'mode:', mode, 'tab:', tab)
+                if (mode === 'execute' && tab === 'execute') {
+                  console.log('Showing pause reason dialog')
                   setShowPauseReasonDialog(true)
                 } else {
+                  console.log('Closing modal directly')
                   onOpenChange(false)
                 }
               }}
@@ -547,86 +632,6 @@ export function WorkflowExecutionModal({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Pause Reason Dialog */}
-      <AlertDialog open={showPauseReasonDialog} onOpenChange={setShowPauseReasonDialog}>
-        <AlertDialogContent className="max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Pause Workflow</AlertDialogTitle>
-            <AlertDialogDescription>
-              Please provide a reason for pausing the workflow "{workflow.workflowName}". This reason will be recorded in the order details.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="pause-reason" className="text-sm font-medium">
-                Reason for Pausing <span className="text-destructive">*</span>
-              </label>
-              <textarea
-                id="pause-reason"
-                value={pauseReason}
-                onChange={(e) => setPauseReason(e.target.value)}
-                placeholder="Enter the reason for pausing (e.g., waiting for parts, customer feedback, etc.)"
-                className="w-full min-h-24 p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              {!pauseReason.trim() && (
-                <p className="text-sm text-destructive">Please provide a reason</p>
-              )}
-            </div>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={() => {
-                setPauseReason('')
-              }}
-              disabled={isLoading}
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={async () => {
-                if (!pauseReason.trim()) {
-                  toast({
-                    variant: "destructive",
-                    title: "Error",
-                    description: "Please provide a reason for pausing the workflow"
-                  })
-                  return
-                }
-
-                try {
-                  setShowPauseReasonDialog(false)
-                  // Call the API to pause workflow with reason
-                  const { updateWorkflowStatus } = await import('@/api/workflow')
-                  await updateWorkflowStatus(orderId || '', workflowId || '', 'on-hold', pauseReason)
-
-                  toast({
-                    title: "Success",
-                    description: `Workflow paused. Order status set to pending. Reason: ${pauseReason}`
-                  })
-
-                  setPauseReason('')
-                  onOpenChange(false)
-
-                  // Trigger refresh of order data
-                  if (onStepComplete) {
-                    await onStepComplete()
-                  }
-                } catch (error: any) {
-                  console.error("Error pausing workflow:", error)
-                  toast({
-                    variant: "destructive",
-                    title: "Error",
-                    description: error.message || "Failed to pause workflow"
-                  })
-                }
-              }}
-              disabled={isLoading || !pauseReason.trim()}
-            >
-              {isLoading ? 'Pausing...' : 'Pause Workflow'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   )
 }
