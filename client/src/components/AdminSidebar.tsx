@@ -28,6 +28,7 @@ import {
   User,
   ChevronDown,
   ChevronRight,
+  FolderTree,
   Boxes,
   BookMarked
 } from "lucide-react"
@@ -174,9 +175,6 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
         isOpen={orderManagementOpen}
         onToggle={() => setOrderManagementOpen(!orderManagementOpen)}
       >
-        <NavItem to="/admin/orders" icon={Package}>
-          {t('navigation.orders')}
-        </NavItem>
         <NavItem to="/admin/bookings" icon={BookMarked}>
           {t('admin.menu.bookings')}
         </NavItem>
@@ -185,6 +183,9 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
         </NavItem>
         <NavItem to="/admin/addons" icon={Plus}>
           {t('admin.menu.addOnServices')}
+        </NavItem>
+        <NavItem to="/admin/service-categories" icon={FolderTree}>
+          Service Categories
         </NavItem>
         <NavItem to="/admin/devices" icon={Smartphone}>
           {t('admin.menu.deviceBrands')}

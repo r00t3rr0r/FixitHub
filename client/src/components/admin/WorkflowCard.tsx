@@ -43,6 +43,7 @@ export function WorkflowCard({
   const { t } = useTranslation()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showReportModal, setShowReportModal] = useState(false)
+  const [showStartConfirm, setShowStartConfirm] = useState(false)
 
   // Calculate workflow progress
   const totalSteps = workflow.steps?.length || 0
@@ -94,6 +95,13 @@ export function WorkflowCard({
     onDelete(workflow._id)
   }
 
+  const handleStartConfirmation = () => {
+    setShowStartConfirm(false)
+    if (onStart) {
+      onStart(workflow._id)
+    }
+  }
+
   return (
     <>
       <Card className="overflow-hidden hover:shadow-md transition-shadow">
@@ -137,6 +145,21 @@ export function WorkflowCard({
             </div>
           )}
 
+          {/* Pause Reason */}
+          {workflow.status === 'on-hold' && workflow.pauseReason && (
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-amber-700">Pause Reason:</p>
+              <p className="text-sm text-amber-600 bg-amber-50/50 p-2 rounded border border-amber-200">
+                {workflow.pauseReason}
+              </p>
+              {workflow.pausedAt && (
+                <p className="text-xs text-muted-foreground">
+                  Paused at: {new Date(workflow.pausedAt).toLocaleString()}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Steps Overview */}
           {workflow.steps && workflow.steps.length > 0 && (
             <div className="space-y-2">
@@ -176,7 +199,7 @@ export function WorkflowCard({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => onStart(workflow._id)}
+                onClick={() => setShowStartConfirm(true)}
                 disabled={isActionInProgress}
                 className="flex-1"
               >
@@ -244,6 +267,28 @@ export function WorkflowCard({
         workflow={workflow}
         orderId={orderId}
       />
+
+      {/* Start Confirmation Dialog */}
+      <AlertDialog open={showStartConfirm} onOpenChange={setShowStartConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Start Workflow</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to start the workflow "{workflow.workflowName}"? This will update
+              the order status to "Repair in Progress" and assign you as the responsible staff member.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleStartConfirmation}
+              disabled={isActionInProgress}
+            >
+              {isActionInProgress && actionInProgressType === 'start' ? 'Starting...' : 'Start Workflow'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>

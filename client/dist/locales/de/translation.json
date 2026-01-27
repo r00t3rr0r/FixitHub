@@ -1325,7 +1325,9 @@
     "promoAppliedDesc": "Ihr Rabatt wurde auf den Warenkorb angewendet",
     "failedToLoad": "Fehler beim Laden des Warenkorbs",
     "failedToUpdate": "Fehler beim Aktualisieren des Warenkorbs",
-    "failedToApplyPromo": "Fehler beim Anwenden des Aktionscodes"
+    "failedToApplyPromo": "Fehler beim Anwenden des Aktionscodes",
+    "multipleOrders": "Mehrere Aufträge",
+    "orderQuantityBadge": "{{quantity}}x Aufträge"
   },
   "checkout": {
     "authenticationRequired": "Authentifizierung Erforderlich",
@@ -1351,6 +1353,7 @@
     "vatId": "USt-IdNr.",
     "billingAddress": "Rechnungsadresse",
     "shippingAddress": "Lieferadresse",
+    "billingIsShippingAddress": "Rechnungsadresse ist identisch mit Lieferadresse",
     "street": "Straße",
     "city": "Stadt",
     "state": "Bundesland",
@@ -1540,7 +1543,32 @@
     "updateDevice": "Gerät aktualisieren",
     "deviceUpdatedSuccessfully": "Geräteinformationen erfolgreich aktualisiert",
     "customerSince": "Kunde seit",
-    "more": "mehr"
+    "more": "mehr",
+    "repairInfo": {
+      "title": "Zusätzliche Reparaturinformationen",
+      "description": "Während der Auftragserstellung gesammelte Informationen zur Unterstützung bei Diagnose und Reparatur",
+      "errorDescriptionLabel": "Fehlerbeschreibung",
+      "noInformationProvided": "Keine Fehlerbeschreibung bereitgestellt",
+      "waterDamageLabel": "Wasserschaden",
+      "waterDamage": {
+        "yes": "Ja",
+        "no": "Nein",
+        "dont-know": "Weiß nicht"
+      },
+      "notSpecified": "Nicht angegeben",
+      "previousRepairLabel": "Frühere Reparaturversuche",
+      "previousRepair": {
+        "yes": "Ja",
+        "no": "Nein",
+        "dont-know": "Weiß nicht"
+      },
+      "itemConditionLabel": "Artikelzustand",
+      "itemCondition": {
+        "original": "Original",
+        "refurbished": "Generalüberholt"
+      },
+      "infoNotice": "Diese Informationen helfen unseren Technikern, Ihr Gerät besser zu diagnostizieren und zu reparieren. Sie werden vor Beginn des Reparaturprozesses überprüft."
+    }
   },
   "deviceInspection": {
     "deviceInspection": "Geräteinspection",
@@ -1582,7 +1610,10 @@
     "continueInspection": "Überprüfung fortfahren",
     "inProgress": "Läuft",
     "continueWhereYouLeftOff": "Fahren Sie dort fort, wo Sie stehen gelassen haben",
-    "loadingInspectionData": "Überprüfungsdaten werden geladen..."
+    "loadingInspectionData": "Überprüfungsdaten werden geladen...",
+    "inspectionBeingPerformed": "Die Überprüfung wird von unseren Technikern durchgeführt",
+    "currentStep": "Aktueller Schritt",
+    "inspectionWillBeCompletedShortly": "Die Überprüfung wird in Kürze abgeschlossen. Sie werden benachrichtigt, wenn der Bericht fertig ist."
   },
   "communicationPanel": {
     "communicationAndFeedback": "Kommunikation & Rückmeldung",
@@ -1618,5 +1649,163 @@
     "successFeedbackSent": "Rückmeldungsanfrage an Kunden gesendet",
     "successActionSent": "Schnellaktion an Kunden gesendet",
     "successResponseRecorded": "Ihre Antwort wurde aufgezeichnet"
+  },
+  "newOrder": {
+    "title": "Neuen Reparaturauftrag Erstellen",
+    "subtitle": "Folgen Sie den geführten Schritten, um Ihr Gerät zur professionellen Reparatur einzureichen",
+    "stepOf": "Schritt {{current}} von {{total}}",
+    "step1": "Gerät",
+    "step2": "Dienste",
+    "step3": "Details",
+    "step4": "Überprüfung",
+    "step5": "Warenkorb",
+    "deviceSelection": {
+      "title": "Wählen Sie Ihr Gerät",
+      "subtitle": "Suchen Sie nach Ihrem Gerät, um Ihre Reparaturreise zu beginnen",
+      "searchLabel": "Gerät Suchen",
+      "searchPlaceholder": "Suche nach Gerätename, Marke oder Modell (z.B. iPhone 13, Samsung Galaxy)",
+      "searchMinChars": "Geben Sie mindestens 2 Zeichen ein, um zu suchen",
+      "searching": "Geräte werden gesucht...",
+      "noResults": "Keine Geräte gefunden",
+      "deviceSelected": "Gerät Ausgewählt",
+      "continueToServices": "Weiter zu Diensten",
+      "preSelectedSuccess": "{{device}} wurde für Ihren Reparaturauftrag vorausgewählt.",
+      "loadError": "Fehler beim Laden der Formulardaten"
+    },
+    "serviceSelection": {
+      "title": "Reparaturdienste Auswählen",
+      "subtitle": "Wählen Sie die benötigten Dienste • {{count}} ausgewählt",
+      "filterLabel": "Nach Kategorie Filtern",
+      "allServices": "Alle Dienste",
+      "popular": "Beliebt",
+      "noServicesInCategory": "Keine Dienste in dieser Kategorie verfügbar",
+      "continueButton": "Weiter ({{count}} Dienste)",
+      "previous": "Zurück",
+      "loadManufacturersError": "Fehler beim Laden von Herstellern",
+      "loadModelsError": "Fehler beim Laden von Modellen"
+    },
+    "detailsStep": {
+      "orderSummaryTitle": "Auftragsübersicht",
+      "orderSummarySubtitle": "Überprüfen Sie Ihre Geräte- und Dienstdetails",
+      "customerInfo": "Kundeninformationen",
+      "deviceDetails": "Gerätedetails",
+      "device": "Gerät",
+      "brand": "Marke",
+      "model": "Modell",
+      "noDeviceSelected": "Kein Gerät ausgewählt",
+      "selectedServices": "Ausgewählte Dienste ({{count}})",
+      "relatedInfo": "Verwandte Informationen",
+      "guide": "{{service}} Anleitung",
+      "articlesAvailable": "{{count}} Artikel verfügbar",
+      "quantityTitle": "Auftragsmenge",
+      "quantitySubtitle": "Wie viele identische Geräte benötigen diese Reparatur?",
+      "quantityLabel": "Menge:",
+      "quantityNote": "💡 <strong>Hinweis:</strong> Jedes Gerät wird als separater Auftrag erstellt. Dies ist nützlich, wenn Sie mehrere identische Geräte haben, die die gleichen Reparaturen benötigen (z.B. Firmenhandy-Flotte, Lagerbestand).",
+      "quantityOrders": "📦 Sie erstellen <strong>{{quantity}}</strong> separate Reparaturaufträge",
+      "quantityTotalCost": "Gesamtkosten: {{total}} €",
+      "unlockTitle": "Gerätesperreinformationen",
+      "unlockSubtitle": "Geben Sie Ihre Gerätesperrdetails für einen reibungslosen Reparaturservice an",
+      "addOnsTitle": "Zusatzdienste",
+      "addOnsSubtitle": "Verbessern Sie Ihre Reparatur mit Premium-Diensten • {{count}} ausgewählt",
+      "noAddOnsAvailable": "Keine Zusatzdienste verfügbar",
+      "express": "Express",
+      "selectedAddOns": "Ausgewählte Zusatzdienste:",
+      "addOnsTotal": "Zusatzdienste Gesamt:",
+      "reviewAndSubmit": "Überprüfen & Absenden"
+    },
+    "repairInfo": {
+      "title": "Zusätzliche Reparaturinformationen",
+      "subtitle": "Bitte geben Sie wichtige Details zu Ihrem Gerät an, damit wir es besser beurteilen und reparieren können",
+      "errorDescriptionLabel": "Fehlerbeschreibung",
+      "errorDescriptionPlaceholder": "Beschreiben Sie das Problem, das Sie mit dem Gerät haben (z.B. Bildschirm schaltet sich nicht ein, Akku entlädt sich schnell, defekte Kamera...)",
+      "errorDescriptionHint": "Seien Sie so detailliert wie möglich, um unseren Technikern bei der Diagnose zu helfen",
+      "errorDescriptionRequired": "Bitte beschreiben Sie den Fehler, den Sie erleben",
+      "waterDamageLabel": "Wasserschaden",
+      "waterDamageRequired": "Bitte geben Sie an, ob ein Wasserschaden vorliegt",
+      "waterDamage": {
+        "yes": "Ja",
+        "no": "Nein",
+        "dont-know": "Weiß nicht"
+      },
+      "previousRepairLabel": "Frühere Reparaturversuche",
+      "previousRepairRequired": "Bitte geben Sie an, ob es frühere Reparaturversuche gab",
+      "previousRepair": {
+        "yes": "Ja",
+        "no": "Nein",
+        "dont-know": "Weiß nicht"
+      },
+      "previousRepairDetailsLabel": "Bitte geben Sie Details zu früheren Reparaturversuchen an",
+      "previousRepairDetailsPlaceholder": "Wann und wo wurde es repariert? Was wurde gemacht? Was war das Ergebnis?",
+      "previousRepairDetailsHint": "Diese Informationen helfen uns, die Reparaturhistorie zu verstehen und erfolglose Reparaturen zu vermeiden",
+      "itemConditionLabel": "Artikelzustand",
+      "itemConditionRequired": "Bitte wählen Sie den Artikelzustand aus",
+      "itemCondition": {
+        "original": "Original",
+        "refurbished": "Generalüberholt"
+      },
+      "infoNotice": "Alle bereitgestellten Informationen werden in den Auftragsdetails gespeichert und auf der Auftragsdetailseite angezeigt. Alle Werte sind mit dem Übersetzungssystem verbunden, um Konsistenz über verschiedene Sprachen hinweg zu gewährleisten."
+    },
+    "reviewStep": {
+      "title": "Letzte Details & Absenden",
+      "subtitle": "Fügen Sie Fotos und Notizen hinzu und überprüfen Sie dann Ihren vollständigen Reparaturauftrag",
+      "photosLabel": "Gerätefotos (Optional)",
+      "photosHint": "Laden Sie Fotos hoch, um uns bei der besseren Schadensbewertung zu helfen",
+      "notesLabel": "Zusätzliche Notizen (Optional)",
+      "notesPlaceholder": "Beschreiben Sie das Problem, wann es begonnen hat oder andere relevante Informationen...",
+      "quantityInfo": "Auftragsmengeninformationen",
+      "multipleOrders": "Sie erstellen {{quantity}} identische Reparaturaufträge",
+      "totalForAll": "Gesamt für alle Aufträge: {{total}} €",
+      "unlockInfoTitle": "Gerätesperreinformationen",
+      "deviceNoLock": "Gerät hat keine Sperre",
+      "patternLock": "Mustersperre:",
+      "unlockCodeProvided": "Entsperrcode bereitgestellt (wird vertraulich behandelt)",
+      "selectedAddOns": "Ausgewählte Zusatzdienste",
+      "orderSummary": "Auftragsübersicht",
+      "device": "Gerät",
+      "notSelected": "Nicht ausgewählt",
+      "services": "Dienste:",
+      "addOns": "Zusatzdienste:",
+      "totalCost": "Gesamtkosten:",
+      "costPerOrder": "Kosten pro Auftrag:",
+      "totalForAllOrders": "Gesamt für alle Aufträge:",
+      "termsAgreement": "🔒 Durch das Absenden dieser Bestellung stimmen Sie unseren Reparaturbedingungen zu. Ihre Gerätesperrinformationen werden vertraulich behandelt und nur von unseren autorisierten Technikern verwendet. Sie erhalten eine Bestätigungs-E-Mail mit Ihrer Auftragsnummer und der erwarteten Reparaturzeit.",
+      "reviewInCart": "Im Warenkorb Überprüfen",
+      "previous": "Zurück"
+    },
+    "cartStep": {
+      "title": "In Den Warenkorb",
+      "subtitle": "Überprüfen und fügen Sie Ihren Reparaturauftrag zu Ihrem Warenkorb hinzu",
+      "orderDetails": "Auftragsdetails",
+      "device": "Gerät",
+      "notSelected": "Nicht ausgewählt",
+      "services": "Dienste:",
+      "addOns": "Zusatzdienste:",
+      "totalCost": "Gesamtkosten:",
+      "cartBenefitsTitle": "Warenkorb-Vorteile",
+      "cartBenefitsDesc": "Ihr Reparaturauftrag wird zu Ihrem Warenkorb hinzugefügt. Sie können überprüfen, ändern, Rabattcodes anwenden und Ihre Bestellungen verwalten, bevor Sie zur Kasse gehen. Dies gibt Ihnen Flexibilität, mehrere Dienste hinzuzufügen, Preise zu vergleichen und Ihre Reparaturen an einem Ort zu verwalten.",
+      "benefit1Title": "Überprüfen & Ändern",
+      "benefit1Desc": "Änderungen vor der Kasse vornehmen",
+      "benefit2Title": "Rabattcodes Anwenden",
+      "benefit2Desc": "Mit Aktionscodes sparen",
+      "benefit3Title": "Mehrere Bestellungen",
+      "benefit3Desc": "Mehrere Reparaturen zum Warenkorb hinzufügen",
+      "benefit4Title": "Sichere Kasse",
+      "benefit4Desc": "Sichere Zahlungsabwicklung",
+      "previous": "Zurück",
+      "continueShopping": "Weiter Einkaufen",
+      "addToCart": "In Den Warenkorb & Überprüfen",
+      "addingToCart": "Wird Hinzugefügt...",
+      "orderReady": "Auftrag Bereit!",
+      "orderReadyDesc": "Fügen Sie Ihren Reparaturauftrag zum Warenkorb hinzu und kaufen Sie weiter ein"
+    },
+    "errors": {
+      "searchDevices": "Fehler beim Suchen von Geräten",
+      "createOrder": "Fehler beim Erstellen des Auftrags",
+      "addToCart": "Fehler beim Hinzufügen zum Warenkorb"
+    },
+    "success": {
+      "orderCreated": "Ihr Reparaturauftrag wurde erfolgreich erstellt",
+      "addedToCart": "Ihr Reparaturauftrag wurde zu Ihrem Warenkorb hinzugefügt."
+    }
   }
 }

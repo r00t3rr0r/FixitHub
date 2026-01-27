@@ -350,24 +350,27 @@ export function BlogPostPage() {
               icon: TrendingUp,
               title: "Popular Posts",
               description: "Check out trending articles",
-              color: "from-blue-500 to-blue-600"
+              color: "from-yellow-500 to-yellow-600",
+              bgColor: "bg-yellow-50"
             },
             {
               icon: Sparkles,
               title: "Latest Updates",
               description: "Stay informed with new content",
-              color: "from-yellow-500 to-yellow-600"
+              color: "from-yellow-500 to-yellow-600",
+              bgColor: "bg-yellow-50"
             },
             {
               icon: Heart,
               title: "Share & Like",
               description: "Support quality content",
-              color: "from-red-500 to-red-600"
+              color: "from-green-500 to-green-600",
+              bgColor: "bg-green-50"
             }
           ].map((info, index) => (
             <Card
               key={index}
-              className="border-0 shadow-2xl bg-white/95 backdrop-blur-md hover:shadow-yellow-500/30 transition-all duration-300 hover:scale-110 overflow-hidden group"
+              className={`border-0 shadow-2xl ${info.bgColor} hover:shadow-yellow-500/30 transition-all duration-300 hover:scale-110 overflow-hidden group`}
               style={{
                 animation: `fadeInUp 0.6s ease-out ${index * 0.15}s both`
               }}

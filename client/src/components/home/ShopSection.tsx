@@ -208,55 +208,56 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
   const brands = [...new Set(products.map(p => p.brand))];
 
   return (
-    <section className="relative py-24 overflow-hidden bg-white">
+    <section className="relative py-16 overflow-hidden bg-white">
       {/* Animated particles background */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-10 left-10 w-72 h-72 bg-yellow-400/5 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-10 right-10 w-72 h-72 bg-yellow-400/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute top-10 left-10 w-64 h-64 bg-yellow-400/5 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-10 right-10 w-64 h-64 bg-yellow-400/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
       </div>
 
       {/* Content */}
       <div className="container mx-auto px-4 relative z-10">
         {/* Section Header */}
-        <div className="text-center mb-12 animate-fadeIn">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+        <div className="text-center mb-8 animate-fadeIn">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
             {title || t('home.shop.title')}
           </h2>
-          <div className="w-24 h-1 bg-gradient-to-r from-yellow-400 to-yellow-500 mx-auto rounded-full mb-4"></div>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          <div className="w-20 h-1 bg-gradient-to-r from-yellow-400 to-yellow-500 mx-auto rounded-full mb-3"></div>
+          <p className="text-base text-gray-600 max-w-2xl mx-auto">
             {t('home.shop.subtitle')}
           </p>
         </div>
 
         {/* Enhanced Filters and Search */}
-        <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-md hover:shadow-yellow-500/20 transition-all duration-300 overflow-hidden mb-8">
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-400 shadow-lg"></div>
-          <CardContent className="pt-6">
+        <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-md hover:shadow-yellow-500/20 transition-all duration-300 overflow-hidden mb-6">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-400"></div>
+          <CardContent className="pt-4 pb-4">
             {/* Search and Quick Actions */}
-            <div className="flex flex-col lg:flex-row gap-4 mb-4">
+            <div className="flex flex-col lg:flex-row gap-3">
               <div className="flex-1">
                 <div className="relative group">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-500 group-hover:text-yellow-600 transition-colors duration-200" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500 group-hover:text-yellow-600 transition-colors duration-200" />
                   <Input
-                    placeholder="Search products by name, brand, or description..."
+                    placeholder="Search products..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 border-gray-300 focus:border-yellow-500 focus:ring-yellow-500 transition-all duration-200 bg-white shadow-sm"
+                    className="pl-9 h-9 text-sm border-gray-300 focus:border-yellow-500 focus:ring-yellow-500 transition-all duration-200 bg-white"
                   />
                 </div>
               </div>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => setShowFilters(!showFilters)}
-                  className="border-gray-300 hover:border-yellow-500 hover:bg-yellow-50 transition-colors duration-200"
+                  className="h-9 border-gray-300 hover:border-yellow-500 hover:bg-yellow-50 transition-colors duration-200 text-sm"
                 >
-                  <Filter className="h-4 w-4 mr-2 text-yellow-600" />
-                  {showFilters ? 'Hide Filters' : 'Show Filters'}
+                  <Filter className="h-3.5 w-3.5 mr-1.5 text-yellow-600" />
+                  {showFilters ? 'Hide' : 'Filters'}
                 </Button>
 
                 <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-40 border-gray-300 hover:border-yellow-500 transition-colors duration-200 bg-white shadow-sm">
+                  <SelectTrigger className="w-36 h-9 text-sm border-gray-300 hover:border-yellow-500 transition-colors duration-200 bg-white">
                     <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
                   <SelectContent>
@@ -267,22 +268,22 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
                   </SelectContent>
                 </Select>
 
-                <div className="flex border rounded-md border-gray-300 bg-white shadow-sm">
+                <div className="flex border rounded-md border-gray-300 bg-white">
                   <Button
                     variant={viewMode === "grid" ? "default" : "ghost"}
                     size="sm"
                     onClick={() => setViewMode("grid")}
-                    className={`rounded-r-none ${viewMode === "grid" ? "bg-yellow-500 hover:bg-yellow-600 text-white" : ""}`}
+                    className={`h-9 rounded-r-none ${viewMode === "grid" ? "bg-yellow-500 hover:bg-yellow-600 text-white" : ""}`}
                   >
-                    <Grid3X3 className="h-4 w-4" />
+                    <Grid3X3 className="h-3.5 w-3.5" />
                   </Button>
                   <Button
                     variant={viewMode === "list" ? "default" : "ghost"}
                     size="sm"
                     onClick={() => setViewMode("list")}
-                    className={`rounded-l-none ${viewMode === "list" ? "bg-yellow-500 hover:bg-yellow-600 text-white" : ""}`}
+                    className={`h-9 rounded-l-none ${viewMode === "list" ? "bg-yellow-500 hover:bg-yellow-600 text-white" : ""}`}
                   >
-                    <List className="h-4 w-4" />
+                    <List className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>
@@ -290,13 +291,13 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
 
             {/* Advanced Filters Panel */}
             {showFilters && (
-              <div className="pt-4 border-t border-gray-200 space-y-6 animate-slideDown">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="pt-3 mt-3 border-t border-gray-200 space-y-4 animate-slideDown">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                   {/* Category Filter */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-semibold text-gray-700">Category</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-gray-700">Category</Label>
                     <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                      <SelectTrigger className="border-gray-300 hover:border-yellow-500 transition-colors duration-200 bg-white shadow-sm">
+                      <SelectTrigger className="h-9 text-sm border-gray-300 hover:border-yellow-500 transition-colors duration-200 bg-white">
                         <SelectValue placeholder="Category" />
                       </SelectTrigger>
                       <SelectContent>
@@ -311,10 +312,10 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
                   </div>
 
                   {/* Brand Filter */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-semibold text-gray-700">Brand</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-gray-700">Brand</Label>
                     <Select value={brandFilter} onValueChange={setBrandFilter}>
-                      <SelectTrigger className="border-gray-300 hover:border-yellow-500 transition-colors duration-200 bg-white shadow-sm">
+                      <SelectTrigger className="h-9 text-sm border-gray-300 hover:border-yellow-500 transition-colors duration-200 bg-white">
                         <SelectValue placeholder="Brand" />
                       </SelectTrigger>
                       <SelectContent>
@@ -329,10 +330,10 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
                   </div>
 
                   {/* Stock Filter */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-semibold text-gray-700">Availability</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-gray-700">Availability</Label>
                     <Select value={stockFilter} onValueChange={setStockFilter}>
-                      <SelectTrigger className="border-gray-300 hover:border-yellow-500 transition-colors duration-200 bg-white shadow-sm">
+                      <SelectTrigger className="h-9 text-sm border-gray-300 hover:border-yellow-500 transition-colors duration-200 bg-white">
                         <SelectValue placeholder="Stock Status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -344,21 +345,21 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
                   </div>
 
                   {/* Price Range Filter */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-yellow-600" />
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                      <DollarSign className="h-3.5 w-3.5 text-yellow-600" />
                       Price Range
                     </Label>
-                    <div className="pt-2">
+                    <div className="pt-1">
                       <Slider
                         min={0}
                         max={maxPrice}
                         step={10}
                         value={priceRange}
                         onValueChange={(value) => setPriceRange(value as [number, number])}
-                        className="mb-2"
+                        className="mb-1.5"
                       />
-                      <div className="flex justify-between text-sm text-gray-600 font-medium">
+                      <div className="flex justify-between text-xs text-gray-600 font-medium">
                         <span>${priceRange[0]}</span>
                         <span>${priceRange[1]}</span>
                       </div>
@@ -367,29 +368,29 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
                 </div>
 
                 {/* Active Filters and Reset */}
-                <div className="flex items-center justify-between pt-2">
-                  <div className="flex flex-wrap gap-2">
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex flex-wrap gap-1.5">
                     {categoryFilter !== "all" && (
-                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-300">
-                        Category: {categoryFilter}
+                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs px-2 py-0.5">
+                        {categoryFilter}
                         <X className="h-3 w-3 ml-1 cursor-pointer" onClick={() => setCategoryFilter("all")} />
                       </Badge>
                     )}
                     {brandFilter !== "all" && (
-                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-300">
-                        Brand: {brandFilter}
+                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs px-2 py-0.5">
+                        {brandFilter}
                         <X className="h-3 w-3 ml-1 cursor-pointer" onClick={() => setBrandFilter("all")} />
                       </Badge>
                     )}
                     {stockFilter !== "all" && (
-                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-300">
-                        Stock: {stockFilter === "inStock" ? "In Stock" : "Low Stock"}
+                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs px-2 py-0.5">
+                        {stockFilter === "inStock" ? "In Stock" : "Low Stock"}
                         <X className="h-3 w-3 ml-1 cursor-pointer" onClick={() => setStockFilter("all")} />
                       </Badge>
                     )}
                     {(priceRange[0] !== 0 || priceRange[1] !== maxPrice) && (
-                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-300">
-                        Price: ${priceRange[0]} - ${priceRange[1]}
+                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs px-2 py-0.5">
+                        ${priceRange[0]} - ${priceRange[1]}
                         <X className="h-3 w-3 ml-1 cursor-pointer" onClick={() => setPriceRange([0, maxPrice])} />
                       </Badge>
                     )}
@@ -398,14 +399,14 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
                     variant="ghost"
                     size="sm"
                     onClick={resetFilters}
-                    className="text-gray-600 hover:text-yellow-600 hover:bg-yellow-50"
+                    className="h-7 text-xs text-gray-600 hover:text-yellow-600 hover:bg-yellow-50"
                   >
                     Reset All
                   </Button>
                 </div>
 
                 {/* Results Count */}
-                <div className="text-sm text-gray-600 font-medium">
+                <div className="text-xs text-gray-600 font-medium">
                   Showing {paginatedProducts.length} of {filteredProducts.length} products
                 </div>
               </div>
@@ -415,17 +416,17 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
 
         {/* Loading State */}
         {loading && (
-          <div className="text-center py-12">
-            <div className="animate-spin inline-block w-12 h-12 border-4 border-yellow-400 border-t-gray-900 rounded-full"></div>
-            <p className="text-gray-600 mt-4">{t('common.loading')}</p>
+          <div className="text-center py-8">
+            <div className="animate-spin inline-block w-10 h-10 border-3 border-yellow-400 border-t-gray-900 rounded-full"></div>
+            <p className="text-gray-600 text-sm mt-3">{t('common.loading')}</p>
           </div>
         )}
 
         {/* Products Grid/List */}
         {!loading && (
           <div className={viewMode === "grid"
-            ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12"
-            : "space-y-4 mb-12"
+            ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8"
+            : "space-y-3 mb-8"
           }>
             {paginatedProducts.length === 0 ? (
               <div className="col-span-full text-center py-12">
@@ -441,31 +442,31 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
               paginatedProducts.map((product, idx) => (
                 <Card
                   key={product._id}
-                  className={`group border-0 shadow-2xl bg-white/95 backdrop-blur-md hover:shadow-yellow-500/30 hover:scale-105 transition-all duration-300 overflow-hidden ${
+                  className={`group border-0 shadow-md bg-white hover:shadow-lg hover:shadow-yellow-500/20 hover:-translate-y-1 transition-all duration-300 overflow-hidden ${
                     viewMode === "list" ? "flex flex-row" : ""
                   }`}
-                  style={{ animation: `scaleIn 0.5s ease-out ${idx * 0.06}s both` }}
+                  style={{ animation: `scaleIn 0.4s ease-out ${idx * 0.04}s both` }}
                 >
-                  {/* Enhanced gradient top border */}
-                  <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-400 shadow-lg"></div>
+                  {/* Compact gradient top border */}
+                  <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-400"></div>
 
-                  <div className={viewMode === "list" ? "w-48 flex-shrink-0" : ""}>
+                  <div className={viewMode === "list" ? "w-40 flex-shrink-0" : ""}>
                     <div className="relative overflow-hidden">
                       <img
                         src={product.images[0]}
                         alt={product.name}
-                        className={`object-cover transition-all duration-700 group-hover:scale-125 ${
-                          viewMode === "list" ? "w-48 h-48" : "w-full h-48"
+                        className={`object-cover transition-transform duration-500 group-hover:scale-110 ${
+                          viewMode === "list" ? "w-40 h-40" : "w-full h-40"
                         }`}
                       />
                       {product.originalPrice && (
-                        <Badge className="absolute top-3 left-3 bg-gradient-to-r from-red-500 to-red-600 border-0 shadow-xl animate-pulse text-sm px-3 py-1">
+                        <Badge className="absolute top-2 left-2 bg-red-500 border-0 text-xs px-2 py-0.5">
                           Sale
                         </Badge>
                       )}
                       {!product.inStock && (
-                        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center">
-                          <Badge variant="destructive" className="text-base shadow-xl px-4 py-2">
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center">
+                          <Badge variant="destructive" className="text-xs px-3 py-1">
                             Out of Stock
                           </Badge>
                         </div>
@@ -473,9 +474,9 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="absolute top-3 right-3 bg-white/95 hover:bg-white backdrop-blur-sm shadow-xl hover:scale-125 transition-all duration-300"
+                        className="absolute top-2 right-2 h-7 w-7 bg-white/90 hover:bg-white backdrop-blur-sm shadow-md hover:scale-110 transition-all duration-300"
                       >
-                        <Heart className="h-5 w-5 text-gray-700 group-hover:text-red-500 transition-colors duration-300" />
+                        <Heart className="h-3.5 w-3.5 text-gray-700 group-hover:text-red-500 transition-colors duration-300" />
                       </Button>
 
                       {/* Quick View Button */}
@@ -483,53 +484,53 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
                         variant="ghost"
                         size="icon"
                         onClick={() => handleQuickView(product)}
-                        className="absolute bottom-3 right-3 bg-yellow-400/95 hover:bg-yellow-500 backdrop-blur-sm shadow-xl hover:scale-125 transition-all duration-300 opacity-0 group-hover:opacity-100"
+                        className="absolute bottom-2 right-2 h-7 w-7 bg-yellow-400/90 hover:bg-yellow-500 backdrop-blur-sm shadow-md hover:scale-110 transition-all duration-300 opacity-0 group-hover:opacity-100"
                       >
-                        <Eye className="h-5 w-5 text-gray-900" />
+                        <Eye className="h-3.5 w-3.5 text-gray-900" />
                       </Button>
                     </div>
                   </div>
 
                   <div className="flex-1">
-                    <CardHeader className={viewMode === "list" ? "pb-2" : ""}>
-                      <CardTitle className="text-lg group-hover:text-yellow-600 transition-colors duration-300 font-bold">
+                    <CardHeader className={`pb-2 ${viewMode === "list" ? "pt-3" : "pt-3"}`}>
+                      <CardTitle className="text-sm leading-tight group-hover:text-yellow-600 transition-colors duration-300 font-bold line-clamp-2">
                         {product.name}
                       </CardTitle>
-                      <CardDescription className="text-sm font-semibold mt-1 text-gray-700">
+                      <CardDescription className="text-xs font-medium mt-0.5 text-gray-600">
                         {product.brand}
                       </CardDescription>
 
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="flex items-center gap-1.5 mt-1.5">
                         <div className="flex items-center">
                           {[...Array(5)].map((_, i) => (
                             <Star
                               key={i}
-                              className={`h-5 w-5 transition-all duration-300 ${
+                              className={`h-3 w-3 ${
                                 i < Math.floor(product.rating)
-                                  ? "text-yellow-500 fill-current drop-shadow-md"
+                                  ? "text-yellow-500 fill-current"
                                   : "text-gray-300"
                               }`}
                             />
                           ))}
                         </div>
-                        <span className="text-sm text-gray-700 font-medium">
+                        <span className="text-xs text-gray-600 font-medium">
                           ({product.reviewCount})
                         </span>
                       </div>
                     </CardHeader>
 
-                    <CardContent className="space-y-3">
-                      <p className="text-sm text-gray-700 line-clamp-2 font-medium">
+                    <CardContent className="space-y-2 pt-0">
+                      <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">
                         {product.description}
                       </p>
 
-                      <div className="flex items-center justify-between pt-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-2xl font-bold text-gray-900 drop-shadow-sm">
+                      <div className="flex items-center justify-between pt-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-lg font-bold text-gray-900">
                             ${product.price.toFixed(2)}
                           </span>
                           {product.originalPrice && (
-                            <span className="text-sm text-gray-500 line-through font-medium">
+                            <span className="text-xs text-gray-500 line-through font-medium">
                               ${product.originalPrice.toFixed(2)}
                             </span>
                           )}
@@ -539,27 +540,28 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
                           onClick={() => handleAddToCart(product._id)}
                           disabled={!product.inStock || addingToCart === product._id}
                           size="sm"
-                          className="bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-bold shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 border border-yellow-300"
+                          className="h-8 text-xs bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-semibold shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                         >
                           {addingToCart === product._id ? (
-                            <span className="flex items-center gap-2">
-                              <div className="h-4 w-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin"></div>
-                              Adding...
+                            <span className="flex items-center gap-1.5">
+                              <div className="h-3 w-3 border-2 border-gray-900 border-t-transparent rounded-full animate-spin"></div>
+                              <span className="hidden sm:inline">Adding...</span>
                             </span>
                           ) : (
                             <>
-                              <Plus className="h-4 w-4 mr-1" />
-                              Add to Cart
+                              <Plus className="h-3.5 w-3.5 mr-1" />
+                              <span className="hidden sm:inline">Add</span>
+                              <ShoppingCart className="h-3.5 w-3.5 sm:hidden" />
                             </>
                           )}
                         </Button>
                       </div>
 
                       {product.stockCount <= 5 && product.inStock && (
-                        <div className="flex items-center gap-2 pt-1">
-                          <div className="h-2.5 w-2.5 bg-orange-500 rounded-full animate-pulse shadow-lg"></div>
-                          <p className="text-xs text-orange-600 font-bold">
-                            Only {product.stockCount} left in stock
+                        <div className="flex items-center gap-1.5 pt-0.5">
+                          <div className="h-1.5 w-1.5 bg-orange-500 rounded-full animate-pulse"></div>
+                          <p className="text-xs text-orange-600 font-semibold">
+                            Only {product.stockCount} left
                           </p>
                         </div>
                       )}
@@ -573,16 +575,16 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex justify-center items-center gap-2 mb-8">
+          <div className="flex justify-center items-center gap-1.5 mb-6">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="border-gray-300 hover:border-yellow-500 hover:bg-yellow-50 disabled:opacity-50"
+              className="h-8 text-xs border-gray-300 hover:border-yellow-500 hover:bg-yellow-50 disabled:opacity-50"
             >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Previous
+              <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+              <span className="hidden sm:inline">Previous</span>
             </Button>
 
             <div className="flex gap-1">
@@ -599,10 +601,10 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
                       variant={currentPage === pageNumber ? "default" : "outline"}
                       size="sm"
                       onClick={() => setCurrentPage(pageNumber)}
-                      className={currentPage === pageNumber
+                      className={`h-8 min-w-8 text-xs ${currentPage === pageNumber
                         ? "bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500"
                         : "border-gray-300 hover:border-yellow-500 hover:bg-yellow-50"
-                      }
+                      }`}
                     >
                       {pageNumber}
                     </Button>
@@ -611,7 +613,7 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
                   pageNumber === currentPage - 2 ||
                   pageNumber === currentPage + 2
                 ) {
-                  return <span key={pageNumber} className="px-2 text-gray-500">...</span>;
+                  return <span key={pageNumber} className="px-1 text-gray-400 text-xs">...</span>;
                 }
                 return null;
               })}
@@ -622,10 +624,10 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
               size="sm"
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className="border-gray-300 hover:border-yellow-500 hover:bg-yellow-50 disabled:opacity-50"
+              className="h-8 text-xs border-gray-300 hover:border-yellow-500 hover:bg-yellow-50 disabled:opacity-50"
             >
-              Next
-              <ChevronRight className="h-4 w-4 ml-1" />
+              <span className="hidden sm:inline">Next</span>
+              <ChevronRight className="h-3.5 w-3.5 ml-1" />
             </Button>
           </div>
         )}
@@ -763,11 +765,11 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
 
         {/* View All Products Link */}
         {filteredProducts.length > 0 && (
-          <div className="text-center animate-fadeInUp" style={{ animationDelay: '0.6s' }}>
+          <div className="text-center animate-fadeInUp" style={{ animationDelay: '0.4s' }}>
             <Button
-              size="lg"
+              size="default"
               variant="outline"
-              className="border-yellow-400 text-yellow-600 hover:bg-yellow-400 hover:text-gray-900 font-semibold"
+              className="border-yellow-400 text-yellow-600 hover:bg-yellow-400 hover:text-gray-900 font-semibold text-sm"
               asChild
             >
               <Link to="/shop">View Full Shop Page</Link>

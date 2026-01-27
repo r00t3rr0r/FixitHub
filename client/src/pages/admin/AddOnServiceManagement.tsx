@@ -15,6 +15,10 @@ import {
   AddOnService
 } from "@/api/services"
 import {
+  getServiceCategories,
+  ServiceCategory
+} from "@/api/serviceCategories"
+import {
   Plus,
   Search,
   Filter,
@@ -118,13 +122,38 @@ export function AddOnServiceManagement() {
   const [submitting, setSubmitting] = useState(false)
   const { toast } = useToast()
 
-  const categories = ['Protection', 'Service', 'Warranty', 'Accessory', 'Data']
+  const [categories, setCategories] = useState<ServiceCategory[]>([])
+  const [loadingCategories, setLoadingCategories] = useState(true)
   const deviceTypes = ['iPhone', 'Samsung', 'Google Pixel', 'iPad', 'Tablet', 'Laptop']
   const brands = ['Apple', 'Samsung', 'Google', 'Microsoft', 'Dell', 'HP', 'Lenovo']
 
   useEffect(() => {
+    fetchCategories()
+  }, [])
+
+  useEffect(() => {
     fetchAddOnServices()
   }, [currentPage, itemsPerPage, sortBy, sortOrder, categoryFilter])
+
+  const fetchCategories = async () => {
+    try {
+      setLoadingCategories(true)
+      console.log("Fetching add-on service categories...")
+
+      const response = await getServiceCategories({ type: 'addon', isActive: true })
+      setCategories(response.categories)
+      console.log(`Loaded ${response.categories.length} add-on categories`)
+    } catch (error: any) {
+      console.error("Error fetching categories:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load categories",
+        variant: "destructive"
+      })
+    } finally {
+      setLoadingCategories(false)
+    }
+  }
 
   const fetchAddOnServices = async () => {
     try {
@@ -525,8 +554,8 @@ export function AddOnServiceManagement() {
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
                   {categories.map(category => (
-                    <SelectItem key={category} value={category}>
-                      {category}
+                    <SelectItem key={category._id} value={category.name}>
+                      {category.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -989,11 +1018,17 @@ export function AddOnServiceManagement() {
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map(category => (
-                        <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>
-                      ))}
+                      {loadingCategories ? (
+                        <SelectItem value="loading" disabled>Loading categories...</SelectItem>
+                      ) : categories.length === 0 ? (
+                        <SelectItem value="none" disabled>No categories available</SelectItem>
+                      ) : (
+                        categories.map(category => (
+                          <SelectItem key={category._id} value={category.name}>
+                            {category.name}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>

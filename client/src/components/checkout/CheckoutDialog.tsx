@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { registerDuringCheckout } from "@/api/checkout";
 import { useToast } from "@/hooks/useToast";
@@ -56,6 +57,9 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess }: CheckoutDialog
   const [shippingState, setShippingState] = useState("");
   const [shippingZipCode, setShippingZipCode] = useState("");
   const [shippingCountry, setShippingCountry] = useState("");
+
+  // Checkbox to determine if billing address is same as shipping
+  const [billingIsShipping, setBillingIsShipping] = useState(true);
 
   const [registerLoading, setRegisterLoading] = useState(false);
 
@@ -128,6 +132,21 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess }: CheckoutDialog
     try {
       setRegisterLoading(true);
 
+      // If billing is shipping, use billing address for shipping
+      const finalShippingAddress = billingIsShipping ? {
+        street: billingStreet,
+        city: billingCity,
+        state: billingState,
+        zipCode: billingZipCode,
+        country: billingCountry
+      } : {
+        street: shippingStreet,
+        city: shippingCity,
+        state: shippingState,
+        zipCode: shippingZipCode,
+        country: shippingCountry
+      };
+
       const response = await registerDuringCheckout({
         email,
         password,
@@ -144,13 +163,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess }: CheckoutDialog
           zipCode: billingZipCode,
           country: billingCountry
         },
-        shippingAddress: {
-          street: shippingStreet,
-          city: shippingCity,
-          state: shippingState,
-          zipCode: shippingZipCode,
-          country: shippingCountry
-        }
+        shippingAddress: finalShippingAddress
       });
 
       // Store tokens and auto-login
@@ -440,54 +453,73 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess }: CheckoutDialog
                     </div>
                   </div>
 
-                  {/* Shipping Address */}
+                  {/* Shipping Address Checkbox */}
                   <div className="space-y-4">
-                    <h3 className="font-semibold text-sm">{t('checkout.shippingAddress')}</h3>
-                    <div className="space-y-2">
-                      <Label htmlFor="shippingStreet">{t('checkout.street')}</Label>
-                      <Input
-                        id="shippingStreet"
-                        value={shippingStreet}
-                        onChange={(e) => setShippingStreet(e.target.value)}
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="billingIsShipping"
+                        checked={billingIsShipping}
+                        onCheckedChange={(checked) => setBillingIsShipping(checked === true)}
                       />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="shippingCity">{t('checkout.city')}</Label>
-                        <Input
-                          id="shippingCity"
-                          value={shippingCity}
-                          onChange={(e) => setShippingCity(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="shippingState">{t('checkout.state')}</Label>
-                        <Input
-                          id="shippingState"
-                          value={shippingState}
-                          onChange={(e) => setShippingState(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="shippingZipCode">{t('checkout.zipCode')}</Label>
-                        <Input
-                          id="shippingZipCode"
-                          value={shippingZipCode}
-                          onChange={(e) => setShippingZipCode(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="shippingCountry">{t('checkout.country')}</Label>
-                        <Input
-                          id="shippingCountry"
-                          value={shippingCountry}
-                          onChange={(e) => setShippingCountry(e.target.value)}
-                        />
-                      </div>
+                      <Label
+                        htmlFor="billingIsShipping"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        {t('checkout.billingIsShippingAddress')}
+                      </Label>
                     </div>
                   </div>
+
+                  {/* Shipping Address - Only show when billing is NOT shipping */}
+                  {!billingIsShipping && (
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-sm">{t('checkout.shippingAddress')}</h3>
+                      <div className="space-y-2">
+                        <Label htmlFor="shippingStreet">{t('checkout.street')}</Label>
+                        <Input
+                          id="shippingStreet"
+                          value={shippingStreet}
+                          onChange={(e) => setShippingStreet(e.target.value)}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="shippingCity">{t('checkout.city')}</Label>
+                          <Input
+                            id="shippingCity"
+                            value={shippingCity}
+                            onChange={(e) => setShippingCity(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="shippingState">{t('checkout.state')}</Label>
+                          <Input
+                            id="shippingState"
+                            value={shippingState}
+                            onChange={(e) => setShippingState(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="shippingZipCode">{t('checkout.zipCode')}</Label>
+                          <Input
+                            id="shippingZipCode"
+                            value={shippingZipCode}
+                            onChange={(e) => setShippingZipCode(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="shippingCountry">{t('checkout.country')}</Label>
+                          <Input
+                            id="shippingCountry"
+                            value={shippingCountry}
+                            onChange={(e) => setShippingCountry(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <Button type="submit" className="w-full" disabled={registerLoading}>
                     {registerLoading ? t('common.loading') : t('checkout.createAccount')}

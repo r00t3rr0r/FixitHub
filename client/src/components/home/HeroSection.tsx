@@ -46,7 +46,7 @@ export function HeroSection({
 
   return (
     <section
-      className="relative py-32 px-4 text-center text-white overflow-hidden"
+      className="relative py-24 px-4 text-center text-white overflow-hidden"
       style={{
         backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${backgroundImage}')`,
         backgroundSize: 'cover',
@@ -56,23 +56,23 @@ export function HeroSection({
     >
       <div className="container mx-auto max-w-4xl">
         {/* Main Headline */}
-        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight drop-shadow-lg">
+        <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 leading-tight drop-shadow-lg">
           {title || defaultTitle}
         </h1>
 
         {/* Subtitle */}
-        <p className="text-lg md:text-xl lg:text-2xl mb-12 text-gray-100 drop-shadow-md leading-relaxed max-w-2xl mx-auto">
+        <p className="text-base md:text-lg lg:text-xl mb-8 text-gray-100 drop-shadow-md leading-relaxed max-w-2xl mx-auto">
           {subtitle || defaultSubtitle}
         </p>
 
         {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center flex-wrap">
+        <div className="flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
           {(ctaButtons || defaultButtons).map((button, index) => (
             <Button
               key={index}
-              size="lg"
+              size="sm"
               className={`
-                px-8 py-3 font-semibold text-lg
+                px-6 py-2 font-semibold text-base
                 transition-all duration-300 transform hover:scale-105
                 ${
                   button.variant === 'outline'

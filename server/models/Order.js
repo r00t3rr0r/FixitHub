@@ -179,6 +179,13 @@ const orderWorkflowSchema = new mongoose.Schema({
   completedAt: {
     type: Date,
   },
+  pausedAt: {
+    type: Date,
+  },
+  pauseReason: {
+    type: String,
+    default: '',
+  },
   estimatedCompletionTime: {
     type: Number, // in minutes
   },
@@ -298,7 +305,7 @@ const orderSchema = new mongoose.Schema({
   addOns: [addOnServiceSchema],
   status: {
     type: String,
-    enum: ['pending', 'in-progress', 'quality-check', 'completed', 'ready-for-pickup', 'cancelled'],
+    enum: ['pending', 'diagnostic-assessment', 'in-progress', 'quality-check', 'completed', 'ready-for-pickup', 'cancelled'],
     default: 'pending',
   },
   priority: {
@@ -557,7 +564,7 @@ orderSchema.post('save', async function(doc) {
 
     allOrders.forEach(order => {
       totalProgress += (order.progress || 0);
-      if (order.status === 'in-progress' || order.status === 'quality-check') {
+      if (order.status === 'diagnostic-assessment' || order.status === 'in-progress' || order.status === 'quality-check') {
         hasInProgressOrders = true;
       }
       if (order.status !== 'completed' && order.status !== 'cancelled') {

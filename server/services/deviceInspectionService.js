@@ -38,6 +38,33 @@ class DeviceInspectionService {
             throw saveError;
           }
         }
+
+        // Update the order status to diagnostic-assessment when inspection is initiated
+        try {
+          const order = await Order.findById(orderId);
+          if (order) {
+            const previousStatus = order.status;
+            order.status = 'diagnostic-assessment';
+
+            // Add timeline entry for inspection initialization
+            order.timeline.push({
+              status: 'Diagnostic Assessment',
+              description: 'Device inspection has been initiated by technician',
+              completedAt: new Date(),
+              staffId: technicianId.toString(),
+              staffName: 'Technician',
+              photos: []
+            });
+
+            await order.save();
+            console.log(`[DeviceInspection] Order status updated from '${previousStatus}' to 'diagnostic-assessment' for order: ${orderId}`);
+          } else {
+            console.warn(`[DeviceInspection] Order not found for status update: ${orderId}`);
+          }
+        } catch (orderError) {
+          console.error(`[DeviceInspection] Error updating order status:`, orderError);
+          // Don't throw - status update failure shouldn't block inspection initialization
+        }
       }
 
       return inspection;

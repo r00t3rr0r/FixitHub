@@ -537,7 +537,7 @@ export default function EPartOrderManagement() {
   };
 
   const getSupplierName = (supplierId: string | Supplier) => {
-    if (typeof supplierId === 'object') return supplierId.name;
+    if (typeof supplierId === 'object' && supplierId !== null) return supplierId.name;
     const supplier = suppliers.find((s) => s._id === supplierId);
     return supplier?.name || 'Unknown';
   };

@@ -326,42 +326,41 @@ export function Profile() {
         }
       `}</style>
 
-      <div className="max-w-5xl mx-auto space-y-8">
+      <div className="max-w-6xl mx-auto space-y-5">
         {/* Header with gradient background */}
         <div className="animate-fade-in-up">
-          <div className="profile-gradient rounded-xl p-8 shadow-lg mb-8">
-            <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+          <div className="profile-gradient rounded-lg p-6 shadow-md mb-6">
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-5">
               {/* Avatar Section */}
               <div className="relative group">
-                <Avatar className="w-32 h-32 border-4 border-white shadow-xl transition-transform duration-300 group-hover:scale-105">
+                <Avatar className="w-24 h-24 border-3 border-white shadow-lg transition-transform duration-300 group-hover:scale-105">
                   <AvatarImage src={profile.avatar} className="object-cover" />
-                  <AvatarFallback className="text-3xl bg-white text-yellow-600 font-bold">
+                  <AvatarFallback className="text-2xl bg-white text-yellow-600 font-bold">
                     {profile.firstName?.[0]}{profile.lastName?.[0]}
                   </AvatarFallback>
                 </Avatar>
-                <div className="absolute inset-0 rounded-full ring-4 ring-yellow-400 ring-offset-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </div>
 
               {/* User Info */}
               <div className="flex-1 text-center md:text-left">
-                <h1 className="text-4xl font-bold text-gray-900 mb-2">
+                <h1 className="text-2xl font-bold text-gray-900 mb-1.5">
                   {profile.firstName} {profile.lastName}
                 </h1>
-                <div className="flex flex-col md:flex-row gap-4 text-gray-700">
-                  <div className="flex items-center justify-center md:justify-start gap-2">
-                    <Mail className="h-5 w-5" />
+                <div className="flex flex-col md:flex-row gap-3 text-sm text-gray-700">
+                  <div className="flex items-center justify-center md:justify-start gap-1.5">
+                    <Mail className="h-4 w-4" />
                     <span>{profile.email}</span>
                   </div>
                   {profile.phone && (
-                    <div className="flex items-center justify-center md:justify-start gap-2">
-                      <Phone className="h-5 w-5" />
+                    <div className="flex items-center justify-center md:justify-start gap-1.5">
+                      <Phone className="h-4 w-4" />
                       <span>{profile.phone}</span>
                     </div>
                   )}
                 </div>
-                <div className="flex items-center justify-center md:justify-start gap-2 mt-3 text-gray-600">
-                  <Calendar className="h-4 w-4" />
-                  <span className="text-sm">
+                <div className="flex items-center justify-center md:justify-start gap-1.5 mt-2 text-gray-600 text-xs">
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span>
                     Member since {new Date(profile.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                   </span>
                 </div>
@@ -373,12 +372,13 @@ export function Profile() {
                   <Button
                     type="button"
                     variant="outline"
+                    size="sm"
                     disabled={uploadingAvatar}
-                    className="bg-white hover:bg-gray-50 border-2 hover:border-yellow-400 transition-all duration-200 shadow-md hover:shadow-lg"
+                    className="bg-white hover:bg-gray-50 border-2 hover:border-yellow-400 transition-all duration-200 shadow-sm hover:shadow-md"
                     asChild
                   >
                     <span>
-                      <Camera className="h-4 w-4 mr-2" />
+                      <Camera className="h-3.5 w-3.5 mr-1.5" />
                       {uploadingAvatar ? "Uploading..." : "Change Photo"}
                     </span>
                   </Button>
@@ -390,7 +390,7 @@ export function Profile() {
                   onChange={handleAvatarUpload}
                   className="hidden"
                 />
-                <p className="text-xs text-gray-600 mt-2 text-center">
+                <p className="text-[10px] text-gray-600 mt-1.5 text-center">
                   JPG, PNG or GIF. Max 5MB.
                 </p>
               </div>
@@ -399,46 +399,46 @@ export function Profile() {
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid gap-6 md:grid-cols-3 animate-scale-in" style={{ animationDelay: '0.1s' }}>
-          <Card className="hover-lift stat-card border-2 border-blue-100 bg-gradient-to-br from-blue-50 to-white">
-            <CardContent className="p-6">
+        <div className="grid gap-4 md:grid-cols-3 animate-scale-in" style={{ animationDelay: '0.1s' }}>
+          <Card className="hover-lift stat-card border border-blue-100 bg-gradient-to-br from-blue-50/50 to-white">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-blue-600 mb-1">Total Orders</p>
-                  <p className="text-3xl font-bold text-gray-900">{profile.totalOrders}</p>
+                  <p className="text-xs font-semibold text-blue-600 mb-0.5 uppercase tracking-wide">Total Orders</p>
+                  <p className="text-2xl font-bold text-gray-900">{profile.totalOrders}</p>
                 </div>
-                <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-white" />
+                <div className="w-10 h-10 bg-blue-500 rounded-md flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-white" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="hover-lift stat-card border-2 border-green-100 bg-gradient-to-br from-green-50 to-white">
-            <CardContent className="p-6">
+          <Card className="hover-lift stat-card border border-green-100 bg-gradient-to-br from-green-50/50 to-white">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-green-600 mb-1">Total Spent</p>
-                  <p className="text-3xl font-bold text-gray-900">${profile.totalSpent.toFixed(2)}</p>
+                  <p className="text-xs font-semibold text-green-600 mb-0.5 uppercase tracking-wide">Total Spent</p>
+                  <p className="text-2xl font-bold text-gray-900">${profile.totalSpent.toFixed(2)}</p>
                 </div>
-                <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center">
-                  <DollarSign className="h-6 w-6 text-white" />
+                <div className="w-10 h-10 bg-green-500 rounded-md flex items-center justify-center">
+                  <DollarSign className="h-5 w-5 text-white" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="hover-lift stat-card border-2 border-purple-100 bg-gradient-to-br from-purple-50 to-white">
-            <CardContent className="p-6">
+          <Card className="hover-lift stat-card border border-purple-100 bg-gradient-to-br from-purple-50/50 to-white">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-purple-600 mb-1">Member Since</p>
-                  <p className="text-3xl font-bold text-gray-900">
+                  <p className="text-xs font-semibold text-purple-600 mb-0.5 uppercase tracking-wide">Member Since</p>
+                  <p className="text-2xl font-bold text-gray-900">
                     {new Date(profile.createdAt).getFullYear()}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center">
-                  <Shield className="h-6 w-6 text-white" />
+                <div className="w-10 h-10 bg-purple-500 rounded-md flex items-center justify-center">
+                  <Shield className="h-5 w-5 text-white" />
                 </div>
               </div>
             </CardContent>
@@ -447,140 +447,140 @@ export function Profile() {
 
         {/* Current Device Information */}
         {deviceInfo && (
-          <Card className="hover-lift border-2 animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
-            <CardHeader className="bg-gradient-to-r from-indigo-50 to-white">
-              <CardTitle className="flex items-center gap-2 text-xl">
-                {deviceInfo.isMobile ? <Smartphone className="h-5 w-5 text-indigo-600" /> :
-                 deviceInfo.isTablet ? <Tablet className="h-5 w-5 text-indigo-600" /> :
-                 <Monitor className="h-5 w-5 text-indigo-600" />}
+          <Card className="hover-lift border animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
+            <CardHeader className="bg-gradient-to-r from-indigo-50/50 to-white py-4">
+              <CardTitle className="flex items-center gap-2 text-base font-bold">
+                {deviceInfo.isMobile ? <Smartphone className="h-4 w-4 text-indigo-600" /> :
+                 deviceInfo.isTablet ? <Tablet className="h-4 w-4 text-indigo-600" /> :
+                 <Monitor className="h-4 w-4 text-indigo-600" />}
                 Current Device Information
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs">
                 Details about the device you're currently using
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-6">
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <CardContent className="pt-4">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {/* Device Type */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                    {deviceInfo.isMobile ? <Smartphone className="h-4 w-4" /> :
-                     deviceInfo.isTablet ? <Tablet className="h-4 w-4" /> :
-                     <Monitor className="h-4 w-4" />}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase tracking-wide">
+                    {deviceInfo.isMobile ? <Smartphone className="h-3.5 w-3.5" /> :
+                     deviceInfo.isTablet ? <Tablet className="h-3.5 w-3.5" /> :
+                     <Monitor className="h-3.5 w-3.5" />}
                     Device Type
                   </div>
-                  <p className="text-base text-gray-900 font-medium">
+                  <p className="text-sm text-gray-900 font-semibold">
                     {deviceInfo.isMobile ? 'Mobile' : deviceInfo.isTablet ? 'Tablet' : 'Desktop'}
                   </p>
-                  <p className="text-sm text-gray-600">{deviceInfo.deviceModel}</p>
+                  <p className="text-xs text-gray-600">{deviceInfo.deviceModel}</p>
                 </div>
 
                 {/* Operating System */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                    <Globe className="h-4 w-4" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase tracking-wide">
+                    <Globe className="h-3.5 w-3.5" />
                     Operating System
                   </div>
-                  <p className="text-base text-gray-900 font-medium">{deviceInfo.os}</p>
-                  <p className="text-sm text-gray-600">Version {deviceInfo.osVersion}</p>
+                  <p className="text-sm text-gray-900 font-semibold">{deviceInfo.os}</p>
+                  <p className="text-xs text-gray-600">Version {deviceInfo.osVersion}</p>
                 </div>
 
                 {/* Browser */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                    <Globe className="h-4 w-4" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase tracking-wide">
+                    <Globe className="h-3.5 w-3.5" />
                     Browser
                   </div>
-                  <p className="text-base text-gray-900 font-medium">{deviceInfo.browser}</p>
-                  <p className="text-sm text-gray-600">Version {deviceInfo.browserVersion}</p>
+                  <p className="text-sm text-gray-900 font-semibold">{deviceInfo.browser}</p>
+                  <p className="text-xs text-gray-600">Version {deviceInfo.browserVersion}</p>
                 </div>
 
                 {/* Screen Resolution */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                    <Monitor className="h-4 w-4" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase tracking-wide">
+                    <Monitor className="h-3.5 w-3.5" />
                     Screen Resolution
                   </div>
-                  <p className="text-base text-gray-900 font-medium">
+                  <p className="text-sm text-gray-900 font-semibold">
                     {deviceInfo.screenWidth} × {deviceInfo.screenHeight}
                   </p>
-                  <p className="text-sm text-gray-600">
-                    {deviceInfo.screenOrientation} • {deviceInfo.pixelRatio}x pixel ratio
+                  <p className="text-xs text-gray-600">
+                    {deviceInfo.screenOrientation} • {deviceInfo.pixelRatio}x
                   </p>
                 </div>
 
                 {/* Touch Support */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                    <Smartphone className="h-4 w-4" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase tracking-wide">
+                    <Smartphone className="h-3.5 w-3.5" />
                     Touch Support
                   </div>
-                  <p className="text-base text-gray-900 font-medium">
+                  <p className="text-sm text-gray-900 font-semibold">
                     {deviceInfo.touchSupport ? 'Yes' : 'No'}
                   </p>
                   {deviceInfo.touchSupport && (
-                    <p className="text-sm text-gray-600">
+                    <p className="text-xs text-gray-600">
                       {deviceInfo.maxTouchPoints} touch points
                     </p>
                   )}
                 </div>
 
                 {/* Connection */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                    <Wifi className="h-4 w-4" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase tracking-wide">
+                    <Wifi className="h-3.5 w-3.5" />
                     Connection
                   </div>
-                  <p className="text-base text-gray-900 font-medium">
+                  <p className="text-sm text-gray-900 font-semibold">
                     {deviceInfo.effectiveType !== 'Unknown' ? deviceInfo.effectiveType.toUpperCase() : 'Unknown'}
                   </p>
                   {deviceInfo.connectionType !== 'Unknown' && (
-                    <p className="text-sm text-gray-600">{deviceInfo.connectionType}</p>
+                    <p className="text-xs text-gray-600">{deviceInfo.connectionType}</p>
                   )}
                 </div>
 
                 {/* Vendor */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                    <Info className="h-4 w-4" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase tracking-wide">
+                    <Info className="h-3.5 w-3.5" />
                     Vendor
                   </div>
-                  <p className="text-base text-gray-900 font-medium">{deviceInfo.vendor}</p>
-                  <p className="text-sm text-gray-600">{deviceInfo.platform}</p>
+                  <p className="text-sm text-gray-900 font-semibold">{deviceInfo.vendor}</p>
+                  <p className="text-xs text-gray-600">{deviceInfo.platform}</p>
                 </div>
 
                 {/* Language & Timezone */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                    <Globe className="h-4 w-4" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase tracking-wide">
+                    <Globe className="h-3.5 w-3.5" />
                     Language & Timezone
                   </div>
-                  <p className="text-base text-gray-900 font-medium">{deviceInfo.language}</p>
-                  <p className="text-sm text-gray-600">{deviceInfo.timezone}</p>
+                  <p className="text-sm text-gray-900 font-semibold">{deviceInfo.language}</p>
+                  <p className="text-xs text-gray-600">{deviceInfo.timezone}</p>
                 </div>
 
                 {/* Detection Time */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                    <Calendar className="h-4 w-4" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase tracking-wide">
+                    <Calendar className="h-3.5 w-3.5" />
                     Detected
                   </div>
-                  <p className="text-base text-gray-900 font-medium">
+                  <p className="text-sm text-gray-900 font-semibold">
                     {localStorage.getItem('deviceInfoTimestamp')
                       ? new Date(localStorage.getItem('deviceInfoTimestamp')!).toLocaleString()
                       : 'Recently'}
                   </p>
-                  <p className="text-sm text-gray-600">On homepage visit</p>
+                  <p className="text-xs text-gray-600">On homepage visit</p>
                 </div>
               </div>
 
               {/* Additional Info - User Agent */}
-              <div className="mt-6 p-4 bg-gray-50 rounded-lg border-2 border-gray-200">
-                <div className="flex items-start gap-2 mb-2">
-                  <Info className="h-4 w-4 text-gray-600 mt-0.5" />
-                  <span className="text-sm font-semibold text-gray-700">User Agent</span>
+              <div className="mt-4 p-3 bg-gray-50 rounded-md border border-gray-200">
+                <div className="flex items-start gap-1.5 mb-1.5">
+                  <Info className="h-3.5 w-3.5 text-gray-600 mt-0.5" />
+                  <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">User Agent</span>
                 </div>
-                <p className="text-xs text-gray-600 font-mono break-all">
+                <p className="text-[10px] text-gray-600 font-mono break-all leading-relaxed">
                   {deviceInfo.userAgent}
                 </p>
               </div>
@@ -588,65 +588,65 @@ export function Profile() {
           </Card>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* Personal Information */}
-          <Card className="hover-lift border-2 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-            <CardHeader className="bg-gradient-to-r from-yellow-50 to-white">
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <User className="h-5 w-5 text-yellow-600" />
+          <Card className="hover-lift border animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+            <CardHeader className="bg-gradient-to-r from-yellow-50/50 to-white py-4">
+              <CardTitle className="flex items-center gap-2 text-base font-bold">
+                <User className="h-4 w-4 text-yellow-600" />
                 Personal Information
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs">
                 Update your personal details and contact information
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 pt-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName" className="text-sm font-semibold">First Name</Label>
+            <CardContent className="space-y-3 pt-4">
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="firstName" className="text-xs font-bold uppercase tracking-wide">First Name</Label>
                   <Input
                     id="firstName"
                     {...register("firstName", { required: "First name is required" })}
-                    className="border-2 focus:border-yellow-400 transition-colors"
+                    className="border focus:border-yellow-400 transition-colors h-9"
                   />
                   {errors.firstName && (
-                    <p className="text-sm text-destructive">{errors.firstName.message as string}</p>
+                    <p className="text-xs text-destructive">{errors.firstName.message as string}</p>
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="lastName" className="text-sm font-semibold">Last Name</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="lastName" className="text-xs font-bold uppercase tracking-wide">Last Name</Label>
                   <Input
                     id="lastName"
                     {...register("lastName", { required: "Last name is required" })}
-                    className="border-2 focus:border-yellow-400 transition-colors"
+                    className="border focus:border-yellow-400 transition-colors h-9"
                   />
                   {errors.lastName && (
-                    <p className="text-sm text-destructive">{errors.lastName.message as string}</p>
+                    <p className="text-xs text-destructive">{errors.lastName.message as string}</p>
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-sm font-semibold">Email Address</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="email" className="text-xs font-bold uppercase tracking-wide">Email Address</Label>
                   <Input
                     id="email"
                     type="email"
                     {...register("email", { required: "Email is required" })}
                     disabled
-                    className="bg-gray-50"
+                    className="bg-gray-50 h-9"
                   />
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[10px] text-muted-foreground">
                     Contact support to change your email address
                   </p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-sm font-semibold">Phone Number</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="phone" className="text-xs font-bold uppercase tracking-wide">Phone Number</Label>
                   <Input
                     id="phone"
                     type="tel"
                     {...register("phone")}
-                    className="border-2 focus:border-yellow-400 transition-colors"
+                    className="border focus:border-yellow-400 transition-colors h-9"
                   />
                 </div>
               </div>
@@ -654,62 +654,62 @@ export function Profile() {
           </Card>
 
           {/* Invoice Address */}
-          <Card className="hover-lift border-2 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-white">
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <FileText className="h-5 w-5 text-blue-600" />
+          <Card className="hover-lift border animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+            <CardHeader className="bg-gradient-to-r from-blue-50/50 to-white py-4">
+              <CardTitle className="flex items-center gap-2 text-base font-bold">
+                <FileText className="h-4 w-4 text-blue-600" />
                 Invoice Address
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs">
                 Address used for billing and invoices
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 pt-6">
-              <div className="space-y-2">
-                <Label htmlFor="invoiceStreet" className="text-sm font-semibold">Street Address</Label>
+            <CardContent className="space-y-3 pt-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="invoiceStreet" className="text-xs font-bold uppercase tracking-wide">Street Address</Label>
                 <Input
                   id="invoiceStreet"
                   {...register("invoiceAddress.street")}
-                  className="border-2 focus:border-blue-400 transition-colors"
+                  className="border focus:border-blue-400 transition-colors h-9"
                 />
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="invoiceCity" className="text-sm font-semibold">City</Label>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="invoiceCity" className="text-xs font-bold uppercase tracking-wide">City</Label>
                   <Input
                     id="invoiceCity"
                     {...register("invoiceAddress.city")}
-                    className="border-2 focus:border-blue-400 transition-colors"
+                    className="border focus:border-blue-400 transition-colors h-9"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="invoiceState" className="text-sm font-semibold">State</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="invoiceState" className="text-xs font-bold uppercase tracking-wide">State</Label>
                   <Input
                     id="invoiceState"
                     {...register("invoiceAddress.state")}
-                    className="border-2 focus:border-blue-400 transition-colors"
+                    className="border focus:border-blue-400 transition-colors h-9"
                   />
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="invoiceZipCode" className="text-sm font-semibold">ZIP Code</Label>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="invoiceZipCode" className="text-xs font-bold uppercase tracking-wide">ZIP Code</Label>
                   <Input
                     id="invoiceZipCode"
                     {...register("invoiceAddress.zipCode")}
-                    className="border-2 focus:border-blue-400 transition-colors"
+                    className="border focus:border-blue-400 transition-colors h-9"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="invoiceCountry" className="text-sm font-semibold">Country</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="invoiceCountry" className="text-xs font-bold uppercase tracking-wide">Country</Label>
                   <Input
                     id="invoiceCountry"
                     {...register("invoiceAddress.country")}
-                    className="border-2 focus:border-blue-400 transition-colors"
+                    className="border focus:border-blue-400 transition-colors h-9"
                   />
                 </div>
               </div>
@@ -717,18 +717,18 @@ export function Profile() {
           </Card>
 
           {/* Payment Address */}
-          <Card className="hover-lift border-2 animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
-            <CardHeader className="bg-gradient-to-r from-green-50 to-white">
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <CreditCard className="h-5 w-5 text-green-600" />
+          <Card className="hover-lift border animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
+            <CardHeader className="bg-gradient-to-r from-green-50/50 to-white py-4">
+              <CardTitle className="flex items-center gap-2 text-base font-bold">
+                <CreditCard className="h-4 w-4 text-green-600" />
                 Payment Address
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs">
                 Address used for payment processing and shipping
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 pt-6">
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-yellow-50 to-white rounded-lg border-2 border-yellow-200">
+            <CardContent className="space-y-3 pt-4">
+              <div className="flex items-center justify-between p-3 bg-gradient-to-r from-yellow-50/50 to-white rounded-lg border border-yellow-200">
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="sameAsInvoice"
@@ -739,9 +739,9 @@ export function Profile() {
                         copyInvoiceToPayment()
                       }
                     }}
-                    className="border-2"
+                    className="border"
                   />
-                  <Label htmlFor="sameAsInvoice" className="text-sm font-semibold">
+                  <Label htmlFor="sameAsInvoice" className="text-xs font-bold">
                     Same as invoice address
                   </Label>
                 </div>
@@ -751,9 +751,9 @@ export function Profile() {
                     variant="outline"
                     size="sm"
                     onClick={copyInvoiceToPayment}
-                    className="hover:bg-yellow-100 border-2 hover:border-yellow-400 transition-all"
+                    className="hover:bg-yellow-100 border hover:border-yellow-400 transition-all h-8 text-xs"
                   >
-                    <Copy className="h-4 w-4 mr-2" />
+                    <Copy className="h-3.5 w-3.5 mr-1.5" />
                     Copy from invoice
                   </Button>
                 )}
@@ -761,51 +761,51 @@ export function Profile() {
 
               {!sameAsInvoice && (
                 <>
-                  <div className="space-y-2">
-                    <Label htmlFor="paymentStreet" className="text-sm font-semibold">Street Address</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="paymentStreet" className="text-xs font-bold uppercase tracking-wide">Street Address</Label>
                     <Input
                       id="paymentStreet"
                       {...register("paymentAddress.street")}
-                      className="border-2 focus:border-green-400 transition-colors"
+                      className="border focus:border-green-400 transition-colors h-9"
                     />
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="paymentCity" className="text-sm font-semibold">City</Label>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="paymentCity" className="text-xs font-bold uppercase tracking-wide">City</Label>
                       <Input
                         id="paymentCity"
                         {...register("paymentAddress.city")}
-                        className="border-2 focus:border-green-400 transition-colors"
+                        className="border focus:border-green-400 transition-colors h-9"
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="paymentState" className="text-sm font-semibold">State</Label>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="paymentState" className="text-xs font-bold uppercase tracking-wide">State</Label>
                       <Input
                         id="paymentState"
                         {...register("paymentAddress.state")}
-                        className="border-2 focus:border-green-400 transition-colors"
+                        className="border focus:border-green-400 transition-colors h-9"
                       />
                     </div>
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="paymentZipCode" className="text-sm font-semibold">ZIP Code</Label>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="paymentZipCode" className="text-xs font-bold uppercase tracking-wide">ZIP Code</Label>
                       <Input
                         id="paymentZipCode"
                         {...register("paymentAddress.zipCode")}
-                        className="border-2 focus:border-green-400 transition-colors"
+                        className="border focus:border-green-400 transition-colors h-9"
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="paymentCountry" className="text-sm font-semibold">Country</Label>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="paymentCountry" className="text-xs font-bold uppercase tracking-wide">Country</Label>
                       <Input
                         id="paymentCountry"
                         {...register("paymentAddress.country")}
-                        className="border-2 focus:border-green-400 transition-colors"
+                        className="border focus:border-green-400 transition-colors h-9"
                       />
                     </div>
                   </div>
@@ -815,21 +815,21 @@ export function Profile() {
           </Card>
 
           {/* Notification Preferences */}
-          <Card className="hover-lift border-2 animate-fade-in-up" style={{ animationDelay: '0.5s' }}>
-            <CardHeader className="bg-gradient-to-r from-purple-50 to-white">
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <Bell className="h-5 w-5 text-purple-600" />
+          <Card className="hover-lift border animate-fade-in-up" style={{ animationDelay: '0.5s' }}>
+            <CardHeader className="bg-gradient-to-r from-purple-50/50 to-white py-4">
+              <CardTitle className="flex items-center gap-2 text-base font-bold">
+                <Bell className="h-4 w-4 text-purple-600" />
                 Notification Preferences
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs">
                 Choose how you want to receive notifications
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 pt-6">
-              <div className="flex items-center justify-between p-4 rounded-lg border-2 hover:border-purple-300 transition-all">
+            <CardContent className="space-y-2.5 pt-4">
+              <div className="flex items-center justify-between p-3 rounded-lg border hover:border-purple-300 transition-all">
                 <div>
-                  <Label htmlFor="email-notifications" className="text-sm font-semibold">Email Notifications</Label>
-                  <p className="text-sm text-muted-foreground">
+                  <Label htmlFor="email-notifications" className="text-xs font-bold">Email Notifications</Label>
+                  <p className="text-[10px] text-muted-foreground">
                     Receive order updates via email
                   </p>
                 </div>
@@ -839,10 +839,10 @@ export function Profile() {
                 />
               </div>
 
-              <div className="flex items-center justify-between p-4 rounded-lg border-2 hover:border-purple-300 transition-all">
+              <div className="flex items-center justify-between p-3 rounded-lg border hover:border-purple-300 transition-all">
                 <div>
-                  <Label htmlFor="sms-notifications" className="text-sm font-semibold">SMS Notifications</Label>
-                  <p className="text-sm text-muted-foreground">
+                  <Label htmlFor="sms-notifications" className="text-xs font-bold">SMS Notifications</Label>
+                  <p className="text-[10px] text-muted-foreground">
                     Receive order updates via SMS
                   </p>
                 </div>
@@ -852,10 +852,10 @@ export function Profile() {
                 />
               </div>
 
-              <div className="flex items-center justify-between p-4 rounded-lg border-2 hover:border-purple-300 transition-all">
+              <div className="flex items-center justify-between p-3 rounded-lg border hover:border-purple-300 transition-all">
                 <div>
-                  <Label htmlFor="push-notifications" className="text-sm font-semibold">Push Notifications</Label>
-                  <p className="text-sm text-muted-foreground">
+                  <Label htmlFor="push-notifications" className="text-xs font-bold">Push Notifications</Label>
+                  <p className="text-[10px] text-muted-foreground">
                     Receive browser notifications
                   </p>
                 </div>
@@ -872,9 +872,9 @@ export function Profile() {
             <Button
               type="submit"
               disabled={saving}
-              className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold shadow-lg hover:shadow-xl transition-all duration-200 px-8 py-6 text-lg"
+              className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold shadow-md hover:shadow-lg transition-all duration-200 px-6 h-10 text-sm"
             >
-              <Save className="h-5 w-5 mr-2" />
+              <Save className="h-4 w-4 mr-2" />
               {saving ? "Saving..." : "Save Changes"}
             </Button>
           </div>

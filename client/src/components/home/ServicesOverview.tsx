@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Smartphone, Package, Wrench, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+const iconMap = { Smartphone, Package, Wrench, RotateCcw };
+
 interface ServiceStep {
   icon?: React.ReactNode;
   title: string;
@@ -45,47 +47,47 @@ export function ServicesOverview({ title, steps }: ServicesOverviewProps) {
   const displaySteps = steps || defaultSteps;
 
   return (
-    <section className="py-20 bg-gradient-to-b from-white to-gray-50">
+    <section className="py-16 bg-gradient-to-b from-white to-gray-50">
       <div className="container mx-auto px-4">
         {/* Section Title */}
-        <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
             {title || defaultTitle}
           </h2>
-          <div className="w-24 h-1 bg-yellow-400 mx-auto rounded-full"></div>
+          <div className="w-20 h-0.5 bg-yellow-400 mx-auto rounded-full"></div>
         </div>
 
         {/* Steps Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
           {displaySteps.map((step, index) => (
             <div key={index} className="relative">
               {/* Connecting Line */}
               {index < displaySteps.length - 1 && (
-                <div className="hidden lg:block absolute top-20 left-[60%] right-[-40%] h-1 bg-yellow-400 z-0" />
+                <div className="hidden lg:block absolute top-16 left-[60%] right-[-40%] h-0.5 bg-yellow-400 z-0" />
               )}
 
               {/* Step Card */}
-              <Card className="relative z-10 h-full border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
+              <Card className="relative z-10 h-full border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105">
                 <CardHeader className="pb-0">
                   {/* Step Number Badge */}
-                  <div className="w-12 h-12 bg-yellow-400 text-gray-900 rounded-full flex items-center justify-center text-2xl font-bold mb-4 mx-auto">
+                  <div className="w-10 h-10 bg-yellow-400 text-gray-900 rounded-full flex items-center justify-center text-xl font-bold mb-3 mx-auto">
                     {index + 1}
                   </div>
 
                   {/* Icon */}
-                  <div className="flex justify-center mb-4">
-                    {step.icon}
+                  <div className="flex justify-center mb-3">
+                    <Smartphone className="w-12 h-12 text-yellow-400 mx-auto" />
                   </div>
                 </CardHeader>
 
                 <CardContent className="text-center">
                   {/* Title */}
-                  <h3 className="text-xl font-bold text-gray-900 mb-3">
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">
                     {step.title}
                   </h3>
 
                   {/* Description */}
-                  <p className="text-gray-600 text-sm leading-relaxed">
+                  <p className="text-gray-600 text-xs leading-relaxed">
                     {step.description}
                   </p>
                 </CardContent>
@@ -95,11 +97,11 @@ export function ServicesOverview({ title, steps }: ServicesOverviewProps) {
         </div>
 
         {/* Mobile Step Indicators */}
-        <div className="flex justify-center gap-2 mt-12 lg:hidden">
+        <div className="flex justify-center gap-1.5 mt-10 lg:hidden">
           {displaySteps.map((_, index) => (
             <div
               key={index}
-              className="w-3 h-3 rounded-full bg-yellow-400 transition-all duration-300"
+              className="w-2 h-2 rounded-full bg-yellow-400 transition-all duration-300"
             />
           ))}
         </div>

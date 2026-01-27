@@ -53,14 +53,22 @@ export function Login() {
   const navigate = useNavigate()
   const { toast } = useToast()
 
-  // Check if user is already authenticated and redirect to dashboard
+  // Check if user is already authenticated and redirect to appropriate dashboard
+  const { user } = useAuth()
   useEffect(() => {
     console.log('Login page: Checking authentication status:', isAuthenticated)
     if (isAuthenticated) {
-      console.log('Login page: User already authenticated, redirecting to dashboard')
-      navigate("/")
+      console.log('Login page: User already authenticated with role:', user?.role)
+      // Redirect admin users to admin dashboard, others to home
+      if (user?.role === 'admin') {
+        console.log('Login page: User is admin, redirecting to admin dashboard')
+        navigate("/admin")
+      } else {
+        console.log('Login page: User is not admin, redirecting to home')
+        navigate("/")
+      }
     }
-  }, [isAuthenticated, navigate])
+  }, [isAuthenticated, user, navigate])
 
   // If user is authenticated, don't render the login form
   if (isAuthenticated) {
@@ -83,8 +91,21 @@ export function Login() {
       setIsLoading(true)
       console.log('Login form: Attempting login with email:', data.email)
       await login(data.email, data.password)
-      console.log('Login form: Login successful, navigating to dashboard')
-      navigate("/")
+      console.log('Login form: Login successful')
+
+      // Get the updated user from localStorage to check role
+      const userStr = localStorage.getItem('user')
+      const userData = userStr ? JSON.parse(userStr) : null
+      console.log('Login form: User role after login:', userData?.role)
+
+      // Redirect based on user role
+      if (userData?.role === 'admin') {
+        console.log('Login form: Redirecting admin user to admin dashboard')
+        navigate("/admin")
+      } else {
+        console.log('Login form: Redirecting user to home dashboard')
+        navigate("/")
+      }
     } catch (error: any) {
       console.error('Login form: Login failed with error:', error.message)
       toast({

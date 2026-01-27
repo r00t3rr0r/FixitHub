@@ -176,7 +176,25 @@ class DeviceService {
         _id: model._id,
         name: model.name,
         manufacturer: model.brandId.name,
+        brandId: model.brandId._id,  // Include brandId for edit functionality
         deviceType: model.deviceType,
+        image: model.image || '',
+        // Legacy specifications field (backward compatibility)
+        specifications: model.specifications || {},
+        // Comprehensive specification sections
+        images: model.images || [],
+        network: model.network || {},
+        physical: model.physical || {},
+        display: model.display || {},
+        platform: model.platform || {},
+        memory: model.memory || { internal: [], cardSlot: '' },
+        rearCamera: model.rearCamera || {},
+        frontCamera: model.frontCamera || {},
+        audio: model.audio || {},
+        connectivity: model.connectivity || {},
+        features: model.features || { sensors: '', special: [] },
+        battery: model.battery || {},
+        other: model.other || { models: [], sarValues: {}, colors: [] },
         count: 1 // This could be enhanced to show actual usage count
       }));
 
@@ -217,6 +235,102 @@ class DeviceService {
       return savedModel;
     } catch (error) {
       console.error('DeviceService: Error creating model:', error);
+      throw error;
+    }
+  }
+
+  // Update model (admin only)
+  static async updateModel(modelId, updateData) {
+    try {
+      console.log('DeviceService: Updating model:', modelId);
+      console.log('DeviceService: Update data:', updateData);
+
+      // Validate required fields if they are being updated
+      if (updateData.brandId !== undefined && (!updateData.brandId || updateData.brandId === '')) {
+        throw new Error('Brand ID is required and cannot be empty');
+      }
+
+      if (updateData.deviceType !== undefined && (!updateData.deviceType || updateData.deviceType === '')) {
+        throw new Error('Device type is required and cannot be empty');
+      }
+
+      if (updateData.name !== undefined && (!updateData.name || updateData.name.trim() === '')) {
+        throw new Error('Model name is required and cannot be empty');
+      }
+
+      const model = await DeviceModel.findOne({ _id: modelId, isActive: true });
+
+      if (!model) {
+        throw new Error('Model not found');
+      }
+
+      // Helper function to deeply merge objects
+      const deepMerge = (target, source) => {
+        for (const key in source) {
+          if (source.hasOwnProperty(key)) {
+            if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+              // For nested objects, merge recursively
+              if (!target[key] || typeof target[key] !== 'object') {
+                target[key] = {};
+              }
+              deepMerge(target[key], source[key]);
+            } else {
+              // For primitive values and arrays, directly assign
+              target[key] = source[key];
+            }
+          }
+        }
+      };
+
+      // Update fields with deep merge for nested objects
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] && typeof updateData[key] === 'object' && !Array.isArray(updateData[key]) &&
+            ['network', 'physical', 'display', 'platform', 'memory', 'rearCamera', 'frontCamera',
+             'audio', 'connectivity', 'features', 'battery', 'other'].includes(key)) {
+          // Deep merge for specification categories
+          if (!model[key]) {
+            model[key] = {};
+          }
+          deepMerge(model[key], updateData[key]);
+        } else {
+          // Direct assignment for simple fields and arrays
+          model[key] = updateData[key];
+        }
+      });
+
+      const updatedModel = await model.save();
+
+      console.log('DeviceService: Model updated successfully');
+      return updatedModel;
+    } catch (error) {
+      console.error('DeviceService: Error updating model:', error);
+      throw error;
+    }
+  }
+
+  // Update brand (admin only)
+  static async updateBrand(brandId, updateData) {
+    try {
+      console.log('DeviceService: Updating brand:', brandId);
+      console.log('DeviceService: Update data:', updateData);
+
+      const brand = await DeviceBrand.findOne({ _id: brandId, isActive: true });
+
+      if (!brand) {
+        throw new Error('Brand not found');
+      }
+
+      // Update fields
+      Object.keys(updateData).forEach(key => {
+        brand[key] = updateData[key];
+      });
+
+      const updatedBrand = await brand.save();
+
+      console.log('DeviceService: Brand updated successfully');
+      return updatedBrand;
+    } catch (error) {
+      console.error('DeviceService: Error updating brand:', error);
       throw error;
     }
   }

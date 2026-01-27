@@ -3,10 +3,10 @@ import api from './api';
 // Description: Login user functionality
 // Endpoint: POST /api/auth/login
 // Request: { email: string, password: string }
-// Response: { accessToken: string, refreshToken: string }
+// Response: { _id: string, email: string, firstName: string, lastName: string, role: string, accessToken: string, refreshToken: string }
 export const login = async (email: string, password: string) => {
   console.log('Making login request with email:', email);
-  
+
   try {
     const response = await api.post('/api/auth/login', { email, password });
     console.log('Login response received:', response.data);

@@ -56,32 +56,32 @@ export function ContactSection({ title, showMap = true }: ContactSectionProps) {
   ];
 
   return (
-    <section id="contact" className="py-20 bg-gradient-to-b from-gray-50 to-white">
+    <section id="contact" className="py-16 bg-gradient-to-b from-gray-50 to-white">
       <div className="container mx-auto px-4">
         {/* Section Header */}
-        <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
             {title || t('home.contact.title')}
           </h2>
-          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+          <p className="text-gray-600 text-base max-w-2xl mx-auto">
             {t('home.contact.subtitle')}
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
           {/* Contact Information Cards */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             {contactInfo.map((info, index) => (
               <Card
                 key={index}
-                className="shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105"
+                className="shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105"
               >
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 mt-1">{info.icon}</div>
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 mt-0.5 w-6 h-6 text-yellow-400">{info.icon}</div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900">{info.label}</h3>
-                      <p className="text-gray-600 text-sm break-words">{info.value}</p>
+                      <h3 className="font-semibold text-sm text-gray-900">{info.label}</h3>
+                      <p className="text-gray-600 text-xs break-words">{info.value}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -92,7 +92,7 @@ export function ContactSection({ title, showMap = true }: ContactSectionProps) {
           {/* Map or Quick Contact */}
           <div className="lg:col-span-2">
             {showMap ? (
-              <div className="bg-gray-200 rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300 h-96 relative">
+              <div className="bg-gray-200 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 h-80 relative">
                 <iframe
                   title="Location Map"
                   width="100%"
@@ -123,13 +123,13 @@ export function ContactSection({ title, showMap = true }: ContactSectionProps) {
         </div>
 
         {/* Newsletter Signup */}
-        <Card className="bg-gradient-to-r from-yellow-400 to-yellow-500 border-0 shadow-2xl">
-          <CardHeader>
-            <CardTitle className="text-2xl md:text-3xl text-gray-900 text-center">
+        <Card className="bg-gradient-to-r from-yellow-400 to-yellow-500 border-0 shadow-lg">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-xl md:text-2xl text-gray-900 text-center">
               {t('home.contact.newsletter')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="pb-8">
+          <CardContent className="pb-6">
             <form onSubmit={handleSubscribe} className="max-w-md mx-auto">
               <div className="flex gap-2">
                 <Input
@@ -138,12 +138,12 @@ export function ContactSection({ title, showMap = true }: ContactSectionProps) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="bg-white border-0 focus-visible:ring-gray-900"
+                  className="bg-white border-0 focus-visible:ring-gray-900 text-sm h-9"
                 />
                 <Button
                   type="submit"
                   disabled={submitting}
-                  className="bg-gray-900 text-white hover:bg-gray-800 font-semibold whitespace-nowrap"
+                  className="bg-gray-900 text-white hover:bg-gray-800 font-semibold whitespace-nowrap text-sm h-9"
                 >
                   {submitting ? t('common.sending') : t('home.contact.subscribe')}
                 </Button>

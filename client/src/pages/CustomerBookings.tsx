@@ -375,72 +375,72 @@ export function CustomerBookings() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">{t('bookings.myBookings')}</h1>
-        <p className="text-foreground/60">{t('bookings.manageYourBookings')}</p>
+    <div className="space-y-5">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-bold tracking-tight">{t('bookings.myBookings')}</h1>
+        <p className="text-sm text-foreground/60">{t('bookings.manageYourBookings')}</p>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-foreground/60">Total Bookings</CardTitle>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-xs font-medium text-foreground/60 uppercase tracking-wide">Total Bookings</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalBookings}</div>
+          <CardContent className="px-4 pb-3">
+            <div className="text-xl font-bold">{totalBookings}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-foreground/60">Pending</CardTitle>
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-xs font-medium text-foreground/60 uppercase tracking-wide">Pending</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{bookings.filter(b => b.status === 'pending').length}</div>
+          <CardContent className="px-4 pb-3">
+            <div className="text-xl font-bold">{bookings.filter(b => b.status === 'pending').length}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-foreground/60">Processing</CardTitle>
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-xs font-medium text-foreground/60 uppercase tracking-wide">Processing</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{bookings.filter(b => b.status === 'processing').length}</div>
+          <CardContent className="px-4 pb-3">
+            <div className="text-xl font-bold">{bookings.filter(b => b.status === 'processing').length}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-foreground/60">Completed</CardTitle>
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-xs font-medium text-foreground/60 uppercase tracking-wide">Completed</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{bookings.filter(b => b.status === 'completed').length}</div>
+          <CardContent className="px-4 pb-3">
+            <div className="text-xl font-bold">{bookings.filter(b => b.status === 'completed').length}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters and Search */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
+      <Card className="shadow-md">
+        <CardHeader className="pb-3 pt-4 px-4">
+          <CardTitle className="flex items-center gap-2 text-sm font-bold">
+            <Filter className="h-4 w-4" />
             {t('common.filter')}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col md:flex-row gap-4">
+        <CardContent className="space-y-3 px-4 pb-4">
+          <div className="flex flex-col md:flex-row gap-3">
             <div className="flex-1">
-              <label className="text-sm font-medium mb-2 block">{t('common.search')}</label>
+              <label className="text-xs font-medium mb-1.5 block text-foreground/70">{t('common.search')}</label>
               <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-foreground/40" />
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-foreground/40" />
                 <Input
                   placeholder={t('bookings.searchByBookingNumber')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 text-sm h-9"
                 />
               </div>
             </div>
             <div className="w-full md:w-48">
-              <label className="text-sm font-medium mb-2 block">{t('common.status')}</label>
+              <label className="text-xs font-medium mb-1.5 block text-foreground/70">{t('common.status')}</label>
               <Select
                 value={statusFilter}
                 onValueChange={(value) => {
@@ -448,7 +448,7 @@ export function CustomerBookings() {
                   setCurrentPage(1);
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-9 text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -466,17 +466,19 @@ export function CustomerBookings() {
       </Card>
 
       {/* Bookings Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Bookings List</CardTitle>
-          <CardDescription>{filteredBookings.length} bookings found</CardDescription>
+      <Card className="shadow-md">
+        <CardHeader className="pb-3 pt-4 px-4">
+          <div className="space-y-1">
+            <CardTitle className="text-sm font-bold">Bookings List</CardTitle>
+            <CardDescription className="text-xs text-foreground/60">{filteredBookings.length} bookings found</CardDescription>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 pb-4">
           {filteredBookings.length === 0 ? (
-            <div className="text-center py-8 text-foreground/60">
-              <Package className="h-12 w-12 mx-auto mb-4 opacity-40" />
-              <p>{t('bookings.noBookings')}</p>
-              <Button className="mt-4" onClick={() => navigate('/new-order')}>
+            <div className="text-center py-6 text-foreground/60">
+              <Package className="h-10 w-10 mx-auto mb-3 opacity-40" />
+              <p className="text-sm">{t('bookings.noBookings')}</p>
+              <Button className="mt-3 h-9 text-sm" onClick={() => navigate('/new-order')}>
                 {t('navigation.newOrder')}
               </Button>
             </div>
@@ -484,26 +486,27 @@ export function CustomerBookings() {
             <ScrollArea className="w-full">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12"></TableHead>
-                    <TableHead>Booking ID</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Billing</TableHead>
-                    <TableHead>Progress</TableHead>
-                    <TableHead>Total Cost</TableHead>
-                    <TableHead>Items</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="w-12 h-9 text-xs font-semibold text-foreground/70"></TableHead>
+                    <TableHead className="h-9 text-xs font-semibold text-foreground/70">Booking ID</TableHead>
+                    <TableHead className="h-9 text-xs font-semibold text-foreground/70">Status</TableHead>
+                    <TableHead className="h-9 text-xs font-semibold text-foreground/70">Billing</TableHead>
+                    <TableHead className="h-9 text-xs font-semibold text-foreground/70">Progress</TableHead>
+                    <TableHead className="h-9 text-xs font-semibold text-foreground/70">Total Cost</TableHead>
+                    <TableHead className="h-9 text-xs font-semibold text-foreground/70">Items</TableHead>
+                    <TableHead className="h-9 text-xs font-semibold text-foreground/70">Created</TableHead>
+                    <TableHead className="h-9 text-xs font-semibold text-foreground/70 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredBookings.map((booking) => (
                     <React.Fragment key={booking._id}>
-                      <TableRow className="hover:bg-muted/50">
-                        <TableCell className="w-12">
+                      <TableRow className="hover:bg-muted/40 h-10">
+                        <TableCell className="w-12 py-2">
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-7 w-7 p-0"
                             onClick={() => toggleExpandBooking(booking._id)}
                             disabled={loadingOrders.has(booking._id)}
                           >
@@ -514,65 +517,65 @@ export function CustomerBookings() {
                             )}
                           </Button>
                         </TableCell>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-medium text-sm py-2">
                           <div className="flex items-center gap-2">
-                            <Package className="h-4 w-4" />
+                            <Package className="h-3 w-3 text-foreground/60" />
                             <span>{booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`}</span>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <Badge className={getStatusColor(booking.status)}>
+                        <TableCell className="py-2">
+                          <Badge className={`${getStatusColor(booking.status)} text-xs`}>
                             {t(`status.${booking.status}`)}
                           </Badge>
                         </TableCell>
-                        <TableCell>
-                          <Badge className={getBillingStatusColor(booking.billingStatus)}>
+                        <TableCell className="py-2">
+                          <Badge className={`${getBillingStatusColor(booking.billingStatus)} text-xs`}>
                             {t(`billingStatus.${booking.billingStatus}`)}
                           </Badge>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2 min-w-[120px]">
-                            <div className="flex-1 bg-muted rounded-full h-2">
+                        <TableCell className="py-2">
+                          <div className="flex items-center gap-2 min-w-[100px]">
+                            <div className="flex-1 bg-muted rounded-full h-1.5">
                               <div
-                                className="bg-primary h-2 rounded-full transition-all"
+                                className="bg-primary h-1.5 rounded-full transition-all"
                                 style={{ width: `${getBookingProgress(booking._id, booking.overallProgress || 0)}%` }}
                               ></div>
                             </div>
-                            <span className="text-xs font-semibold whitespace-nowrap">
+                            <span className="text-xs font-semibold whitespace-nowrap text-foreground/70">
                               {getBookingProgress(booking._id, booking.overallProgress || 0)}%
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-medium text-sm py-2">
                           {formatCurrency(booking.totalCost)}
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-center text-sm py-2 text-foreground/70">
                           {booking.items.length}
                         </TableCell>
-                        <TableCell className="text-sm text-foreground/60">
+                        <TableCell className="text-xs text-foreground/60 py-2">
                           {formatDate(booking.createdAt)}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right py-2">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48">
-                              <DropdownMenuItem onClick={() => handleViewDetails(booking)}>
-                                <Eye className="h-4 w-4 mr-2" />
+                            <DropdownMenuContent align="end" className="w-40">
+                              <DropdownMenuItem onClick={() => handleViewDetails(booking)} className="text-sm">
+                                <Eye className="h-3 w-3 mr-2" />
                                 {t('common.viewDetails')}
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => toggleExpandBooking(booking._id)}>
+                              <DropdownMenuItem onClick={() => toggleExpandBooking(booking._id)} className="text-sm">
                                 {expandedBookings.has(booking._id) ? (
                                   <>
-                                    <ChevronUp className="h-4 w-4 mr-2" />
+                                    <ChevronUp className="h-3 w-3 mr-2" />
                                     {t('common.hide')} Orders
                                   </>
                                 ) : (
                                   <>
-                                    <ChevronDown className="h-4 w-4 mr-2" />
+                                    <ChevronDown className="h-3 w-3 mr-2" />
                                     {t('bookings.viewOrders')}
                                   </>
                                 )}
@@ -584,47 +587,47 @@ export function CustomerBookings() {
 
                       {/* Expanded Row with Orders/Repair Jobs */}
                       {expandedBookings.has(booking._id) && (
-                        <TableRow className="bg-muted/30">
+                        <TableRow className="bg-muted/20">
                           <TableCell colSpan={9}>
-                            <div className="p-4 space-y-4">
+                            <div className="p-3 space-y-3">
                               {/* Booking Status Summary */}
-                              <div className="bg-muted/50 p-3 rounded-lg border">
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-xs font-semibold text-foreground/60 uppercase">Booking Status</span>
-                                  <Badge className={getStatusColor(booking.status)}>
+                              <div className="bg-muted/40 p-2.5 rounded-lg border border-muted">
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className="text-xs font-semibold text-foreground/70 uppercase">Booking Status</span>
+                                  <Badge className={`${getStatusColor(booking.status)} text-xs`}>
                                     {t(`status.${booking.status}`)}
                                   </Badge>
                                 </div>
-                                <div className="grid grid-cols-3 gap-2 text-xs mb-3">
+                                <div className="grid grid-cols-3 gap-2 text-xs mb-2">
                                   <div>
-                                    <span className="text-foreground/60">Billing Status:</span>
-                                    <Badge className={`${getBillingStatusColor(booking.billingStatus)} ml-2`}>
+                                    <span className="text-foreground/60 text-xs">Billing:</span>
+                                    <Badge className={`${getBillingStatusColor(booking.billingStatus)} ml-2 text-xs`}>
                                       {t(`billingStatus.${booking.billingStatus}`)}
                                     </Badge>
                                   </div>
                                   {booking.returnShipmentStatus && (
                                     <div>
-                                      <span className="text-foreground/60">Return Shipping:</span>
-                                      <Badge className={`${getReturnShipmentStatusColor(booking.returnShipmentStatus)} ml-2`}>
+                                      <span className="text-foreground/60 text-xs">Return:</span>
+                                      <Badge className={`${getReturnShipmentStatusColor(booking.returnShipmentStatus)} ml-2 text-xs`}>
                                         {booking.returnShipmentStatus}
                                       </Badge>
                                     </div>
                                   )}
                                   <div className={booking.returnShipmentStatus ? "text-right" : "col-span-2 text-right"}>
-                                    <span className="text-foreground/60">Total: </span>
-                                    <span className="font-semibold">{formatCurrency(booking.totalCost)}</span>
+                                    <span className="text-foreground/60 text-xs">Total: </span>
+                                    <span className="font-semibold text-xs">{formatCurrency(booking.totalCost)}</span>
                                   </div>
                                 </div>
                                 <div>
-                                  <span className="text-xs text-foreground/60 mb-1 block">Overall Progress:</span>
+                                  <span className="text-xs text-foreground/60 mb-1 block">Progress:</span>
                                   <div className="flex items-center gap-2">
-                                    <div className="flex-1 bg-muted rounded-full h-3">
+                                    <div className="flex-1 bg-muted rounded-full h-1.5">
                                       <div
-                                        className="bg-primary h-3 rounded-full transition-all"
+                                        className="bg-primary h-1.5 rounded-full transition-all"
                                         style={{ width: `${getBookingProgress(booking._id, booking.overallProgress || 0)}%` }}
                                       ></div>
                                     </div>
-                                    <span className="text-sm font-semibold whitespace-nowrap">
+                                    <span className="text-xs font-semibold whitespace-nowrap text-foreground/70">
                                       {getBookingProgress(booking._id, booking.overallProgress || 0)}%
                                     </span>
                                   </div>
@@ -633,66 +636,66 @@ export function CustomerBookings() {
 
                               {/* Return Shipping Information */}
                               {(booking.returnTrackingNumber || booking.returnLabelUrl || booking.returnQRCodeUrl) && (
-                                <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
-                                  <div className="flex items-center justify-between mb-2">
+                                <div className="bg-blue-50 dark:bg-blue-950/30 p-2.5 rounded-lg border border-blue-200 dark:border-blue-800">
+                                  <div className="flex items-center justify-between mb-1.5">
                                     <span className="text-xs font-semibold text-blue-900 dark:text-blue-200 uppercase flex items-center gap-1">
                                       <Truck className="h-3 w-3" />
-                                      Return Shipping Information
+                                      Return Shipping
                                     </span>
                                     {booking.returnShipmentStatus && (
-                                      <Badge className={getReturnShipmentStatusColor(booking.returnShipmentStatus)}>
+                                      <Badge className={`${getReturnShipmentStatusColor(booking.returnShipmentStatus)} text-xs`}>
                                         {booking.returnShipmentStatus}
                                       </Badge>
                                     )}
                                   </div>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                                     {booking.returnTrackingNumber && (
                                       <div className="flex items-start gap-2">
-                                        <Package className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                                        <Package className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                                         <div>
-                                          <span className="text-foreground/60 block">Tracking Number:</span>
-                                          <span className="font-mono font-semibold text-blue-900 dark:text-blue-200">{booking.returnTrackingNumber}</span>
+                                          <span className="text-foreground/60 block text-xs">Tracking:</span>
+                                          <span className="font-mono font-semibold text-blue-900 dark:text-blue-200 text-xs">{booking.returnTrackingNumber}</span>
                                         </div>
                                       </div>
                                     )}
                                     {booking.returnLabelUrl && (
                                       <div className="flex items-start gap-2">
-                                        <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                                        <FileText className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                                         <div>
-                                          <span className="text-foreground/60 block">Return Label:</span>
+                                          <span className="text-foreground/60 block text-xs">Label:</span>
                                           <a
                                             href={booking.returnLabelUrl}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                                            className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 text-xs"
                                           >
-                                            Download PDF <ExternalLink className="h-3 w-3" />
+                                            Download <ExternalLink className="h-2.5 w-2.5" />
                                           </a>
                                         </div>
                                       </div>
                                     )}
                                     {booking.returnQRCodeUrl && (
                                       <div className="flex items-start gap-2">
-                                        <QrCode className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                                        <QrCode className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                                         <div>
-                                          <span className="text-foreground/60 block">QR Code:</span>
+                                          <span className="text-foreground/60 block text-xs">QR Code:</span>
                                           <a
                                             href={booking.returnQRCodeUrl}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                                            className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 text-xs"
                                           >
-                                            View QR Code <ExternalLink className="h-3 w-3" />
+                                            View <ExternalLink className="h-2.5 w-2.5" />
                                           </a>
                                         </div>
                                       </div>
                                     )}
                                     {booking.returnCreatedAt && (
                                       <div className="flex items-start gap-2">
-                                        <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                                        <Clock className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                                         <div>
-                                          <span className="text-foreground/60 block">Label Created:</span>
-                                          <span className="font-semibold">{formatDateTime(booking.returnCreatedAt)}</span>
+                                          <span className="text-foreground/60 block text-xs">Created:</span>
+                                          <span className="font-semibold text-xs">{formatDateTime(booking.returnCreatedAt)}</span>
                                         </div>
                                       </div>
                                     )}
@@ -701,98 +704,90 @@ export function CustomerBookings() {
                               )}
 
                               {loadingOrders.has(booking._id) ? (
-                                <div className="text-center py-4">
-                                  <p className="text-sm text-foreground/60">Loading orders...</p>
+                                <div className="text-center py-3">
+                                  <p className="text-xs text-foreground/60">Loading orders...</p>
                                 </div>
                               ) : expandedOrdersData[booking._id] && expandedOrdersData[booking._id].length > 0 ? (
-                                <div className="space-y-4">
-                                  <h4 className="font-semibold text-sm mb-3">Associated Orders & Repairs</h4>
+                                <div className="space-y-2.5">
+                                  <h4 className="font-semibold text-xs mb-2 text-foreground/70">ORDERS & REPAIRS</h4>
                                   <div className="border rounded-lg overflow-hidden">
-                                    <Table className="text-sm">
+                                    <Table className="text-xs">
                                       <TableHeader>
-                                        <TableRow className="bg-muted/50">
-                                          <TableHead>Order Number</TableHead>
-                                          <TableHead>Type</TableHead>
-                                          <TableHead>Device/Product</TableHead>
-                                          <TableHead>Services/Details</TableHead>
-                                          <TableHead className="text-center">Progress</TableHead>
-                                          <TableHead>Status</TableHead>
-                                          <TableHead className="text-right">Cost</TableHead>
+                                        <TableRow className="bg-muted/40">
+                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">Order #</TableHead>
+                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">Type</TableHead>
+                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">Device</TableHead>
+                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">Services</TableHead>
+                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-center">Prog</TableHead>
+                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">Status</TableHead>
+                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-right">Cost</TableHead>
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
                                         {expandedOrdersData[booking._id].map((item: any) => (
                                           <TableRow
                                             key={item.orderId || item._id}
-                                            className="hover:bg-muted/50 cursor-pointer transition-colors"
+                                            className="hover:bg-muted/30 cursor-pointer transition-colors h-8"
                                             onClick={() => item.orderId && handleViewOrder(item.orderId)}
                                           >
-                                            <TableCell className="font-medium">
-                                              <div className="text-sm font-semibold">
-                                                {item.orderNumber}
-                                              </div>
+                                            <TableCell className="font-medium py-1 text-xs">
+                                              {item.orderNumber}
                                             </TableCell>
-                                            <TableCell>
-                                              <Badge variant={item.type === 'repair' ? 'default' : 'secondary'}>
-                                                {item.type === 'repair' ? 'Repair' : 'Product'}
+                                            <TableCell className="py-1">
+                                              <Badge variant={item.type === 'repair' ? 'default' : 'secondary'} className="text-xs">
+                                                {item.type === 'repair' ? 'Repair' : 'Prod'}
                                               </Badge>
                                             </TableCell>
-                                            <TableCell>
-                                              <div className="text-sm">
+                                            <TableCell className="py-1">
+                                              <div className="text-xs text-foreground/80">
                                                 {item.type === 'repair' ? (
-                                                  <span>{item.device || 'Device Repair'}</span>
+                                                  <span>{item.device || 'Device'}</span>
                                                 ) : (
-                                                  <span>{item.products?.map((p: any) => p.name).join(', ') || 'Product Item'}</span>
+                                                  <span className="truncate">{item.products?.map((p: any) => p.name).join(', ') || 'Product'}</span>
                                                 )}
                                               </div>
                                             </TableCell>
-                                            <TableCell>
-                                              <div className="text-sm space-y-1">
+                                            <TableCell className="py-1">
+                                              <div className="text-xs space-y-0.5">
                                                 {item.type === 'repair' && item.services && item.services.length > 0 ? (
                                                   <div>
-                                                    {item.services.map((service: any, sidx: number) => (
-                                                      <div key={sidx} className="text-xs text-foreground/70 flex items-center justify-between gap-2">
-                                                        <span>• {service.name} {service.price && `($${service.price})`}</span>
-                                                        {service.status && (
-                                                          <span className="text-xs px-1 py-0 rounded bg-muted text-foreground/60">
-                                                            {service.status}
-                                                          </span>
-                                                        )}
+                                                    {item.services.slice(0, 2).map((service: any, sidx: number) => (
+                                                      <div key={sidx} className="text-xs text-foreground/70">
+                                                        {service.name}
                                                       </div>
                                                     ))}
+                                                    {item.services.length > 2 && (
+                                                      <div className="text-xs text-foreground/60">+{item.services.length - 2}</div>
+                                                    )}
                                                   </div>
                                                 ) : item.type === 'product' && item.products && item.products.length > 0 ? (
-                                                  <div>
-                                                    {item.products.map((product: any, pidx: number) => (
-                                                      <div key={pidx} className="text-xs text-foreground/70">
-                                                        • {product.name} × {product.quantity}
-                                                      </div>
-                                                    ))}
+                                                  <div className="text-xs text-foreground/70">
+                                                    {item.products.length} item(s)
                                                   </div>
                                                 ) : (
-                                                  <span className="text-xs text-foreground/50">No details</span>
+                                                  <span className="text-xs text-foreground/50">—</span>
                                                 )}
                                               </div>
                                             </TableCell>
-                                            <TableCell className="text-center">
-                                              <div className="flex items-center justify-center gap-2">
-                                                <div className="w-16 bg-muted rounded-full h-2">
+                                            <TableCell className="text-center py-1">
+                                              <div className="flex items-center justify-center gap-1">
+                                                <div className="w-12 bg-muted rounded-full h-1">
                                                   <div
-                                                    className="bg-primary h-2 rounded-full transition-all"
+                                                    className="bg-primary h-1 rounded-full transition-all"
                                                     style={{ width: `${item.progress || 0}%` }}
                                                   ></div>
                                                 </div>
-                                                <span className="text-xs font-semibold whitespace-nowrap">
+                                                <span className="text-xs font-semibold whitespace-nowrap text-foreground/70">
                                                   {item.progress || 0}%
                                                 </span>
                                               </div>
                                             </TableCell>
-                                            <TableCell>
-                                              <Badge className={getOrderStatusColor(item.status || 'pending')}>
+                                            <TableCell className="py-1">
+                                              <Badge className={`${getOrderStatusColor(item.status || 'pending')} text-xs`}>
                                                 {item.status || 'pending'}
                                               </Badge>
                                             </TableCell>
-                                            <TableCell className="text-right font-medium">
+                                            <TableCell className="text-right font-medium text-xs py-1">
                                               ${item.cost?.toFixed(2) || '0.00'}
                                             </TableCell>
                                           </TableRow>
@@ -802,8 +797,8 @@ export function CustomerBookings() {
                                   </div>
                                 </div>
                               ) : (
-                                <div className="text-center py-4">
-                                  <p className="text-sm text-foreground/60">No associated orders found</p>
+                                <div className="text-center py-3">
+                                  <p className="text-xs text-foreground/60">No associated orders found</p>
                                 </div>
                               )}
                             </div>
@@ -819,16 +814,16 @@ export function CustomerBookings() {
 
           {/* Pagination Controls */}
           {filteredBookings.length > 0 && totalBookings > itemsPerPage && (
-            <div className="flex items-center justify-between px-2 py-4 border-t">
+            <div className="flex items-center justify-between px-2 py-3 border-t">
               <div className="flex items-center gap-2">
-                <p className="text-sm text-foreground/60">
-                  Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalBookings)} of {totalBookings} bookings
+                <p className="text-xs text-foreground/60">
+                  {((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, totalBookings)} of {totalBookings}
                 </p>
               </div>
 
-              <div className="flex items-center gap-6">
+              <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <label className="text-sm text-foreground/60">Rows per page:</label>
+                  <label className="text-xs text-foreground/60">Per page:</label>
                   <Select
                     value={itemsPerPage.toString()}
                     onValueChange={(value) => {
@@ -836,7 +831,7 @@ export function CustomerBookings() {
                       setCurrentPage(1);
                     }}
                   >
-                    <SelectTrigger className="w-20">
+                    <SelectTrigger className="h-8 w-16 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -848,18 +843,19 @@ export function CustomerBookings() {
                   </Select>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                   <Button
                     variant="outline"
                     size="sm"
+                    className="h-8 px-2 text-xs"
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={currentPage === 1 || loading}
                   >
-                    <ChevronLeft className="h-4 w-4 mr-1" />
-                    Previous
+                    <ChevronLeft className="h-3 w-3 mr-1" />
+                    Prev
                   </Button>
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5">
                     {Array.from({ length: Math.ceil(totalBookings / itemsPerPage) }, (_, i) => i + 1)
                       .filter(page => {
                         const totalPages = Math.ceil(totalBookings / itemsPerPage);
@@ -876,14 +872,14 @@ export function CustomerBookings() {
                         return (
                           <React.Fragment key={page}>
                             {showEllipsis && (
-                              <span className="px-2 text-foreground/40">...</span>
+                              <span className="px-1 text-foreground/40 text-xs">…</span>
                             )}
                             <Button
                               variant={currentPage === page ? "default" : "outline"}
                               size="sm"
                               onClick={() => setCurrentPage(page)}
                               disabled={loading}
-                              className="w-10"
+                              className="h-8 w-8 p-0 text-xs"
                             >
                               {page}
                             </Button>
@@ -895,11 +891,12 @@ export function CustomerBookings() {
                   <Button
                     variant="outline"
                     size="sm"
+                    className="h-8 px-2 text-xs"
                     onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalBookings / itemsPerPage), prev + 1))}
                     disabled={currentPage >= Math.ceil(totalBookings / itemsPerPage) || loading}
                   >
                     Next
-                    <ChevronRight className="h-4 w-4 ml-1" />
+                    <ChevronRight className="h-3 w-3 ml-1" />
                   </Button>
                 </div>
               </div>
@@ -969,54 +966,54 @@ function BookingDetailDialog({
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Booking Details</DialogTitle>
-          <DialogDescription>
-            Booking: {booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`}
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-lg">Booking Details</DialogTitle>
+          <DialogDescription className="text-xs text-foreground/60">
+            {booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`}
           </DialogDescription>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="repairs">Repair Jobs</TabsTrigger>
-            <TabsTrigger value="items">Items</TabsTrigger>
-            <TabsTrigger value="shipping">Shipping</TabsTrigger>
-            <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-5 h-8">
+            <TabsTrigger value="overview" className="text-xs h-7">Overview</TabsTrigger>
+            <TabsTrigger value="repairs" className="text-xs h-7">Repairs</TabsTrigger>
+            <TabsTrigger value="items" className="text-xs h-7">Items</TabsTrigger>
+            <TabsTrigger value="shipping" className="text-xs h-7">Shipping</TabsTrigger>
+            <TabsTrigger value="timeline" className="text-xs h-7">Timeline</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-4 mt-4">
-            <div className="grid grid-cols-2 gap-4">
+          <TabsContent value="overview" className="space-y-3 mt-3">
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <h3 className="font-semibold text-sm mb-3">Customer Information</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <Avatar>
+                <h3 className="font-semibold text-xs mb-2 text-foreground/70 uppercase">Customer</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-8 w-8">
                       <AvatarImage src={booking.customerId.avatar} />
-                      <AvatarFallback>{(booking.customerId.firstName || booking.customerId.name || booking.customerId.email).charAt(0)}</AvatarFallback>
+                      <AvatarFallback className="text-xs">{(booking.customerId.firstName || booking.customerId.name || booking.customerId.email).charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium text-sm">{booking.customerId.firstName ? `${booking.customerId.firstName} ${booking.customerId.lastName || ''}` : (booking.customerId.name || booking.customerId.email)}</p>
+                      <p className="font-medium text-xs">{booking.customerId.firstName ? `${booking.customerId.firstName} ${booking.customerId.lastName || ''}` : (booking.customerId.name || booking.customerId.email)}</p>
                       <p className="text-xs text-foreground/60">{booking.customerId.email}</p>
                     </div>
                   </div>
-                  <div className="text-sm">
+                  <div className="text-xs">
                     <span className="text-foreground/60">Phone: </span>
-                    <span>{booking.customerId.phone}</span>
+                    <span className="font-medium">{booking.customerId.phone}</span>
                   </div>
                 </div>
               </div>
 
               <div>
-                <h3 className="font-semibold text-sm mb-3">Booking Status</h3>
-                <div className="space-y-3">
+                <h3 className="font-semibold text-xs mb-2 text-foreground/70 uppercase">Status</h3>
+                <div className="space-y-2">
                   <div>
-                    <p className="text-xs text-foreground/60 mb-1">Current Status</p>
-                    <Badge className={getStatusColor(booking.status)}>{booking.status}</Badge>
+                    <p className="text-xs text-foreground/60 mb-1">Current</p>
+                    <Badge className={`${getStatusColor(booking.status)} text-xs`}>{booking.status}</Badge>
                   </div>
                   <div>
-                    <p className="text-xs text-foreground/60 mb-1">Billing Status</p>
-                    <Badge className={getBillingStatusColor(booking.billingStatus)}>{booking.billingStatus}</Badge>
+                    <p className="text-xs text-foreground/60 mb-1">Billing</p>
+                    <Badge className={`${getBillingStatusColor(booking.billingStatus)} text-xs`}>{booking.billingStatus}</Badge>
                   </div>
                 </div>
               </div>
@@ -1024,91 +1021,84 @@ function BookingDetailDialog({
 
             <Separator />
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-muted/50 p-3 rounded">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-muted/40 p-2.5 rounded">
                 <p className="text-xs text-foreground/60">Total Cost</p>
-                <p className="text-lg font-bold">{formatCurrency(booking.totalCost)}</p>
+                <p className="text-base font-bold">{formatCurrency(booking.totalCost)}</p>
               </div>
-              <div className="bg-muted/50 p-3 rounded">
-                <p className="text-xs text-foreground/60">Items Count</p>
-                <p className="text-lg font-bold">{booking.items.length}</p>
+              <div className="bg-muted/40 p-2.5 rounded">
+                <p className="text-xs text-foreground/60">Items</p>
+                <p className="text-base font-bold">{booking.items.length}</p>
               </div>
             </div>
 
             <Separator />
 
             <div>
-              <p className="text-xs text-foreground/60 mb-2">Dates</p>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>Created: {formatDateTime(booking.createdAt)}</div>
-                <div>Updated: {formatDateTime(booking.updatedAt)}</div>
+              <p className="text-xs text-foreground/60 mb-1.5 font-medium">Dates</p>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="text-foreground/70">Created: <span className="font-medium">{formatDateTime(booking.createdAt)}</span></div>
+                <div className="text-foreground/70">Updated: <span className="font-medium">{formatDateTime(booking.updatedAt)}</span></div>
               </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="repairs" className="space-y-4 mt-4">
+          <TabsContent value="repairs" className="space-y-2.5 mt-3">
             {booking.items && booking.items.filter(item => item.type === 'repair').length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {booking.items.filter(item => item.type === 'repair').map((item) => (
                   <div
                     key={item._id || item.orderId}
-                    className="border p-4 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                    className="border p-3 rounded-lg hover:bg-muted/40 cursor-pointer transition-colors"
                     onClick={() => item.orderId && handleViewOrder(item.orderId)}
                   >
-                    <div className="flex justify-between items-start mb-3">
+                    <div className="flex justify-between items-start mb-2">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-semibold">{item.device || 'Device Repair'}</h4>
-                          <Badge className={getStatusColor(item.status || 'pending')}>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-semibold text-sm">{item.device || 'Device Repair'}</h4>
+                          <Badge className={`${getStatusColor(item.status || 'pending')} text-xs`}>
                             {item.status || 'pending'}
                           </Badge>
-                          {item.orderId && (
-                            <span className="text-xs text-foreground/50 flex items-center gap-1">
-                              <ExternalLink className="h-3 w-3" />
-                              Order: {item.orderId?.slice(-8)}
-                            </span>
-                          )}
                         </div>
                         {item.services && item.services.length > 0 && (
-                          <p className="text-sm text-foreground/60 mt-1">{item.services.map(s => s.name).join(', ')}</p>
+                          <p className="text-xs text-foreground/60 mt-1">{item.services.map(s => s.name).join(', ')}</p>
                         )}
                       </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>Item Cost: {formatCurrency(item.cost)}</div>
-                      {item.services && item.services[0]?.estimatedTime && (
-                        <div className="text-right">Est. Time: {item.services[0].estimatedTime} min</div>
+                      {item.orderId && (
+                        <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-0.5 ml-2">
+                          <ExternalLink className="h-3 w-3" />
+                        </span>
                       )}
                     </div>
-                    {item.orderId && (
-                      <div className="text-xs text-blue-600 dark:text-blue-400 mt-2 flex items-center gap-1">
-                        <ExternalLink className="h-3 w-3" />
-                        Click to view order details
-                      </div>
-                    )}
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>Cost: {formatCurrency(item.cost)}</div>
+                      {item.services && item.services[0]?.estimatedTime && (
+                        <div className="text-right">Est: {item.services[0].estimatedTime}m</div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-foreground/60 text-center py-4">No repair jobs in this booking</p>
+              <p className="text-foreground/60 text-center py-3 text-xs">No repair jobs</p>
             )}
           </TabsContent>
 
-          <TabsContent value="items" className="space-y-4 mt-4">
+          <TabsContent value="items" className="space-y-2.5 mt-3">
             {booking.items && booking.items.filter(item => item.type === 'product').length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {booking.items.filter(item => item.type === 'product').map((item) => (
-                  <div key={item._id || item.orderId} className="border p-4 rounded-lg">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-semibold">Product Item</h4>
-                      <Badge className={getStatusColor(item.status || 'pending')}>
+                  <div key={item._id || item.orderId} className="border p-3 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-semibold text-sm">Product</h4>
+                      <Badge className={`${getStatusColor(item.status || 'pending')} text-xs`}>
                         {item.status || 'pending'}
                       </Badge>
                     </div>
                     {item.products && item.products.length > 0 ? (
-                      <div className="space-y-2">
+                      <div className="space-y-1.5">
                         {item.products.map((product, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-sm pb-2 border-b last:border-0">
+                          <div key={idx} className="flex justify-between items-center text-xs pb-1.5 border-b last:border-0">
                             <div>
                               <p className="font-medium">{product.name}</p>
                               <p className="text-xs text-foreground/60">Qty: {product.quantity} × {formatCurrency(product.price)}</p>
@@ -1116,50 +1106,47 @@ function BookingDetailDialog({
                             <p className="font-semibold">{formatCurrency(product.totalPrice)}</p>
                           </div>
                         ))}
-                        <div className="flex justify-between items-center text-sm mt-2 pt-2 border-t font-semibold">
+                        <div className="flex justify-between items-center text-xs mt-1.5 pt-1.5 border-t font-semibold">
                           <span>Total:</span>
                           <span>{formatCurrency(item.cost)}</span>
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm text-foreground/60">No products</p>
+                      <p className="text-xs text-foreground/60">No products</p>
                     )}
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-foreground/60 text-center py-4">No product items in this booking</p>
+              <p className="text-foreground/60 text-center py-3 text-xs">No product items</p>
             )}
           </TabsContent>
 
-          <TabsContent value="shipping" className="space-y-4 mt-4">
+          <TabsContent value="shipping" className="space-y-3 mt-3">
             {(booking.returnTrackingNumber || booking.returnLabelUrl || booking.returnQRCodeUrl || booking.returnShipmentStatus) ? (
-              <div className="space-y-4">
-                <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-lg flex items-center gap-2">
-                      <Truck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                      Return Shipping Information
+              <div className="space-y-3">
+                <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold text-sm flex items-center gap-2">
+                      <Truck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      Return Shipping
                     </h3>
                     {booking.returnShipmentStatus && (
-                      <Badge className={getReturnShipmentStatusColor(booking.returnShipmentStatus)}>
+                      <Badge className={`${getReturnShipmentStatusColor(booking.returnShipmentStatus)} text-xs`}>
                         {booking.returnShipmentStatus}
                       </Badge>
                     )}
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-2.5">
                     {booking.returnTrackingNumber && (
-                      <div className="border-b pb-3">
-                        <div className="flex items-start gap-3">
-                          <Package className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-1 flex-shrink-0" />
+                      <div className="border-b pb-2">
+                        <div className="flex items-start gap-2">
+                          <Package className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                           <div className="flex-1">
-                            <p className="text-sm text-foreground/60 mb-1">Tracking Number</p>
-                            <p className="font-mono font-semibold text-lg text-blue-900 dark:text-blue-200">
+                            <p className="text-xs text-foreground/60 mb-1">Tracking Number</p>
+                            <p className="font-mono font-semibold text-sm text-blue-900 dark:text-blue-200">
                               {booking.returnTrackingNumber}
-                            </p>
-                            <p className="text-xs text-foreground/50 mt-1">
-                              Use this tracking number to monitor your return shipment with DHL
                             </p>
                           </div>
                         </div>
@@ -1167,50 +1154,42 @@ function BookingDetailDialog({
                     )}
 
                     {booking.returnLabelUrl && (
-                      <div className="border-b pb-3">
-                        <div className="flex items-start gap-3">
-                          <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-1 flex-shrink-0" />
+                      <div className="border-b pb-2">
+                        <div className="flex items-start gap-2">
+                          <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                           <div className="flex-1">
-                            <p className="text-sm text-foreground/60 mb-2">Return Label (PDF)</p>
+                            <p className="text-xs text-foreground/60 mb-1">Return Label</p>
                             <a
                               href={booking.returnLabelUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                              className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors"
                             >
-                              <FileText className="h-4 w-4" />
-                              Download Return Label
-                              <ExternalLink className="h-4 w-4" />
+                              <FileText className="h-3 w-3" />
+                              Download PDF
+                              <ExternalLink className="h-3 w-3" />
                             </a>
-                            <p className="text-xs text-foreground/50 mt-2">
-                              Print this label and attach it to your return package
-                            </p>
                           </div>
                         </div>
                       </div>
                     )}
 
                     {booking.returnQRCodeUrl && (
-                      <div className="border-b pb-3">
-                        <div className="flex items-start gap-3">
-                          <QrCode className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-1 flex-shrink-0" />
+                      <div className="border-b pb-2">
+                        <div className="flex items-start gap-2">
+                          <QrCode className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                           <div className="flex-1">
-                            <p className="text-sm text-foreground/60 mb-2">QR Code for Label-Free Return</p>
-                            <div className="space-y-2">
-                              <a
-                                href={booking.returnQRCodeUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                              >
-                                <QrCode className="h-4 w-4" />
-                                View QR Code
-                                <ExternalLink className="h-4 w-4" />
-                              </a>
-                              <p className="text-xs text-foreground/50">
-                                Show this QR code at any DHL location for a label-free return
-                              </p>
-                            </div>
+                            <p className="text-xs text-foreground/60 mb-1">QR Code</p>
+                            <a
+                              href={booking.returnQRCodeUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors"
+                            >
+                              <QrCode className="h-3 w-3" />
+                              View Code
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
                           </div>
                         </div>
                       </div>
@@ -1218,22 +1197,22 @@ function BookingDetailDialog({
 
                     {(booking.returnCreatedAt || booking.returnReceivedAt) && (
                       <div>
-                        <div className="flex items-start gap-3">
-                          <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-1 flex-shrink-0" />
+                        <div className="flex items-start gap-2">
+                          <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                           <div className="flex-1">
-                            <p className="text-sm text-foreground/60 mb-2">Timeline</p>
-                            <div className="space-y-2 text-sm">
+                            <p className="text-xs text-foreground/60 mb-1">Timeline</p>
+                            <div className="space-y-1 text-xs">
                               {booking.returnCreatedAt && (
                                 <div className="flex items-center gap-2">
-                                  <div className="w-2 h-2 rounded-full bg-blue-600"></div>
-                                  <span className="text-foreground/60">Label Created:</span>
+                                  <div className="w-1.5 h-1.5 rounded-full bg-blue-600"></div>
+                                  <span className="text-foreground/60">Created:</span>
                                   <span className="font-semibold">{formatDateTime(booking.returnCreatedAt)}</span>
                                 </div>
                               )}
                               {booking.returnReceivedAt && (
                                 <div className="flex items-center gap-2">
-                                  <div className="w-2 h-2 rounded-full bg-green-600"></div>
-                                  <span className="text-foreground/60">Package Received:</span>
+                                  <div className="w-1.5 h-1.5 rounded-full bg-green-600"></div>
+                                  <span className="text-foreground/60">Received:</span>
                                   <span className="font-semibold">{formatDateTime(booking.returnReceivedAt)}</span>
                                 </div>
                               )}
@@ -1245,47 +1224,46 @@ function BookingDetailDialog({
                   </div>
                 </div>
 
-                <div className="bg-muted/50 p-4 rounded-lg text-sm">
-                  <h4 className="font-semibold mb-2">Return Instructions</h4>
-                  <ol className="list-decimal list-inside space-y-1 text-foreground/70">
-                    <li>Print the return label or save the QR code to your phone</li>
-                    <li>Pack your item securely in a suitable box</li>
-                    <li>Attach the printed label to the package, or show the QR code at a DHL location</li>
-                    <li>Drop off the package at any DHL service point or arrange a pickup</li>
-                    <li>Track your return shipment using the tracking number above</li>
+                <div className="bg-muted/40 p-2.5 rounded-lg text-xs">
+                  <h4 className="font-semibold mb-1.5 text-foreground/80">Instructions</h4>
+                  <ol className="list-decimal list-inside space-y-0.5 text-foreground/70 text-xs">
+                    <li>Print label or save QR code</li>
+                    <li>Pack item securely</li>
+                    <li>Attach label or show QR code at DHL</li>
+                    <li>Drop off at DHL location</li>
+                    <li>Track your return</li>
                   </ol>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-8">
-                <Truck className="h-12 w-12 mx-auto mb-4 text-foreground/20" />
-                <p className="text-foreground/60">No return shipping information available for this booking</p>
-                <p className="text-sm text-foreground/50 mt-2">Return shipping details will appear here once generated</p>
+              <div className="text-center py-6">
+                <Truck className="h-10 w-10 mx-auto mb-3 text-foreground/20" />
+                <p className="text-foreground/60 text-sm">No return shipping</p>
               </div>
             )}
           </TabsContent>
 
-          <TabsContent value="timeline" className="space-y-4 mt-4">
+          <TabsContent value="timeline" className="space-y-2.5 mt-3">
             {booking.timeline && booking.timeline.length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {booking.timeline.map((event) => (
-                  <div key={event._id || event.completedAt} className="border p-4 rounded-lg flex gap-4">
+                  <div key={event._id || event.completedAt} className="border p-2.5 rounded-lg flex gap-2.5">
                     <div className="flex-shrink-0">
-                      <CheckCircle className="h-5 w-5 text-green-600 mt-1" />
+                      <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-semibold">{event.status}</h4>
-                      <p className="text-sm text-foreground/60 mt-1">{event.description}</p>
+                      <h4 className="font-semibold text-sm">{event.status}</h4>
+                      <p className="text-xs text-foreground/60 mt-0.5">{event.description}</p>
                       {event.staffName && (
-                        <p className="text-sm text-foreground/60 mt-2">By: {event.staffName}</p>
+                        <p className="text-xs text-foreground/60 mt-1">By: {event.staffName}</p>
                       )}
-                      <p className="text-xs text-foreground/60 mt-2">{formatDateTime(event.completedAt)}</p>
+                      <p className="text-xs text-foreground/50 mt-1">{formatDateTime(event.completedAt)}</p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-foreground/60 text-center py-4">No timeline events</p>
+              <p className="text-foreground/60 text-center py-4 text-xs">No timeline events</p>
             )}
           </TabsContent>
         </Tabs>

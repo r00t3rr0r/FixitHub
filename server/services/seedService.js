@@ -12,6 +12,7 @@ const { WorkflowTemplate } = require('../models/Workflow');
 const Invoice = require('../models/Invoice');
 const Language = require('../models/Language');
 const SystemConfiguration = require('../models/SystemConfiguration');
+const ServiceCategory = require('../models/ServiceCategory');
 const { generatePasswordHash } = require('../utils/password');
 
 class SeedService {
@@ -2987,6 +2988,138 @@ class SeedService {
     }
   }
   // —END_OF_GERMAN_WORKFLOWS_SEEDING—
+
+  static async seedServiceCategories() {
+    try {
+      console.log('SeedService.seedServiceCategories: Starting service categories seeding...');
+
+      // Check if categories already exist
+      const existingCategories = await ServiceCategory.countDocuments();
+      if (existingCategories > 0) {
+        console.log('SeedService.seedServiceCategories: Service categories already exist, skipping...');
+        return { message: 'Service categories already exist' };
+      }
+
+      console.log('SeedService.seedServiceCategories: Creating initial service categories...');
+
+      // Repair service categories (matching the old enum values)
+      const repairCategories = [
+        {
+          name: 'Display',
+          description: 'Screen and display related repairs including LCD, OLED, and touch digitizer replacements',
+          type: 'repair',
+          icon: 'Monitor',
+          color: '#3b82f6',
+          order: 1,
+          isActive: true
+        },
+        {
+          name: 'Power',
+          description: 'Battery, charging port, and power-related repairs',
+          type: 'repair',
+          icon: 'Battery',
+          color: '#10b981',
+          order: 2,
+          isActive: true
+        },
+        {
+          name: 'Camera',
+          description: 'Front and rear camera repairs and replacements',
+          type: 'repair',
+          icon: 'Camera',
+          color: '#8b5cf6',
+          order: 3,
+          isActive: true
+        },
+        {
+          name: 'Emergency',
+          description: 'Urgent repairs for critical device failures',
+          type: 'repair',
+          icon: 'AlertCircle',
+          color: '#ef4444',
+          order: 4,
+          isActive: true
+        },
+        {
+          name: 'Hardware',
+          description: 'Physical component repairs including buttons, speakers, and microphones',
+          type: 'repair',
+          icon: 'Cpu',
+          color: '#f59e0b',
+          order: 5,
+          isActive: true
+        },
+        {
+          name: 'Software',
+          description: 'Software-related services including OS updates and troubleshooting',
+          type: 'repair',
+          icon: 'Code',
+          color: '#06b6d4',
+          order: 6,
+          isActive: true
+        }
+      ];
+
+      // Add-on service categories (matching the old enum values)
+      const addonCategories = [
+        {
+          name: 'Protection',
+          description: 'Protective accessories like screen protectors and cases',
+          type: 'addon',
+          icon: 'Shield',
+          color: '#3b82f6',
+          order: 1,
+          isActive: true
+        },
+        {
+          name: 'Service',
+          description: 'Additional service options like express repair and priority support',
+          type: 'addon',
+          icon: 'Zap',
+          color: '#f59e0b',
+          order: 2,
+          isActive: true
+        },
+        {
+          name: 'Warranty',
+          description: 'Extended warranty and coverage options',
+          type: 'addon',
+          icon: 'FileCheck',
+          color: '#10b981',
+          order: 3,
+          isActive: true
+        },
+        {
+          name: 'Accessory',
+          description: 'Device accessories like chargers, cables, and adapters',
+          type: 'addon',
+          icon: 'Package',
+          color: '#8b5cf6',
+          order: 4,
+          isActive: true
+        },
+        {
+          name: 'Data',
+          description: 'Data backup, transfer, and recovery services',
+          type: 'addon',
+          icon: 'Database',
+          color: '#06b6d4',
+          order: 5,
+          isActive: true
+        }
+      ];
+
+      const allCategories = [...repairCategories, ...addonCategories];
+
+      const createdCategories = await ServiceCategory.insertMany(allCategories);
+      console.log(`SeedService.seedServiceCategories: Created ${createdCategories.length} service categories successfully`);
+
+      return { message: `Service categories created successfully, count: ${createdCategories.length}` };
+    } catch (error) {
+      console.error('SeedService.seedServiceCategories: Error creating service categories:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = SeedService;

@@ -22,7 +22,9 @@ const serviceSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['Display', 'Power', 'Camera', 'Emergency', 'Hardware', 'Software']
+    // Support both hardcoded categories and dynamic categories from ServiceCategory model
+    // No enum validation to allow dynamic categories
+    trim: true
   },
   deviceTypes: [{
     type: String,
