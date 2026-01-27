@@ -1107,8 +1107,8 @@ class OrderService {
   }
 
   // Pause/Resume workflow
-  static async updateWorkflowStatus(orderId, workflowId, status, staffId) {
-    console.log('OrderService: Updating workflow status:', { orderId, workflowId, status, staffId });
+  static async updateWorkflowStatus(orderId, workflowId, status, staffId, pauseReason = null) {
+    console.log('OrderService: Updating workflow status:', { orderId, workflowId, status, staffId, pauseReason });
 
     try {
       // Fetch order without auto-population to avoid validation issues when saving
@@ -1116,38 +1116,104 @@ class OrderService {
       const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
 
       if (!order) {
+        console.error('OrderService: Order not found:', orderId);
         throw new Error('Order not found');
       }
 
       const workflow = order.workflows.id(workflowId);
       if (!workflow) {
+        console.error('OrderService: Workflow not found in order:', workflowId);
         throw new Error('Workflow not found in order');
       }
 
       const validStatuses = ['not-started', 'in-progress', 'on-hold', 'completed'];
       if (!validStatuses.includes(status)) {
+        console.error('OrderService: Invalid workflow status:', status);
         throw new Error('Invalid workflow status');
       }
 
       const oldStatus = workflow.status;
+      const oldOrderStatus = order.status;
       workflow.status = status;
 
-      // Add timeline entry
+      console.log('OrderService: Workflow status updating from', oldStatus, 'to', status);
+
+      // If pausing workflow (status = 'on-hold'), handle pause reason and update order status
+      if (status === 'on-hold') {
+        console.log('OrderService: Pausing workflow with reason:', pauseReason);
+
+        // Record pause reason and timestamp
+        if (pauseReason) {
+          workflow.pauseReason = pauseReason;
+          console.log('OrderService: Pause reason recorded:', pauseReason);
+        }
+
+        workflow.pausedAt = new Date();
+        console.log('OrderService: Pause timestamp recorded');
+
+        // Update order status to 'pending'
+        order.status = 'pending';
+        console.log('OrderService: Order status changed from', oldOrderStatus, 'to pending');
+      }
+
+      // If resuming workflow (status = 'in-progress'), clear pause reason
+      if (status === 'in-progress' && oldStatus === 'on-hold') {
+        console.log('OrderService: Resuming workflow, clearing pause reason');
+        workflow.pauseReason = '';
+        workflow.pausedAt = null;
+        console.log('OrderService: Pause reason and timestamp cleared');
+      }
+
+      // Get staff details for timeline entry
       const staff = await User.findById(staffId);
+      const staffName = staff ? staff.name : 'Staff Member';
+
+      // Add timeline entry for workflow status change
+      let timelineDescription = `Workflow "${workflow.workflowName}" status changed from ${oldStatus} to ${status}`;
+      if (status === 'on-hold' && pauseReason) {
+        timelineDescription += ` - Reason: ${pauseReason}`;
+      }
+
       order.timeline.push({
-        status: 'Workflow Status Updated',
-        description: `Workflow "${workflow.workflowName}" status changed from ${oldStatus} to ${status}`,
+        status: status === 'on-hold' ? 'Workflow Paused' : (status === 'in-progress' ? 'Workflow Resumed' : 'Workflow Status Updated'),
+        description: timelineDescription,
         completedAt: new Date(),
         staffId: staffId || 'system',
-        staffName: staff ? staff.name : 'Staff Member'
+        staffName: staffName
       });
+      console.log('OrderService: Timeline entry added for workflow status change');
+
+      // If order status changed (pausing), add separate timeline entry
+      if (oldOrderStatus !== order.status) {
+        order.timeline.push({
+          status: 'Order Status Updated',
+          description: `Order status changed from ${oldOrderStatus} to ${order.status} due to workflow being paused`,
+          completedAt: new Date(),
+          staffId: staffId || 'system',
+          staffName: staffName
+        });
+        console.log('OrderService: Timeline entry added for order status change');
+      }
 
       const updatedOrder = await order.save();
 
-      console.log('OrderService: Workflow status updated successfully');
+      console.log('OrderService: Workflow status updated successfully:', {
+        workflowStatus: status,
+        orderStatus: updatedOrder.status,
+        pauseReason: pauseReason || 'N/A'
+      });
       return updatedOrder;
     } catch (error) {
       console.error('OrderService: Error updating workflow status:', error);
+      console.error('OrderService: Error details:', {
+        message: error.message,
+        stack: error.stack,
+        orderId,
+        workflowId,
+        status,
+        staffId,
+        pauseReason
+      });
       throw error;
     }
   }

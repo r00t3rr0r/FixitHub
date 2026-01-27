@@ -603,24 +603,36 @@ router.post('/:id/workflows/:workflowId/steps/:stepId/skip', requireUser, requir
 
 // Description: Update workflow status (pause/resume)
 // Endpoint: PUT /api/admin/orders/:id/workflows/:workflowId/status
-// Request: { status: 'in-progress' | 'on-hold' }
+// Request: { status: 'in-progress' | 'on-hold', pauseReason?: string }
 // Response: { success: boolean, message: string, order: Order }
 router.put('/:id/workflows/:workflowId/status', requireUser, requireAdminOrStaff, async (req, res) => {
   console.log('Update workflow status request received:', req.params.id, req.params.workflowId, req.body);
 
   try {
-    const { status } = req.body;
+    const { status, pauseReason } = req.body;
 
     if (!status) {
+      console.error('Update workflow status: Status is required');
       return res.status(400).json({ error: 'Status is required' });
     }
+
+    console.log('Update workflow status: Calling OrderService with:', {
+      orderId: req.params.id,
+      workflowId: req.params.workflowId,
+      status,
+      pauseReason: pauseReason || 'N/A',
+      staffId: req.user._id
+    });
 
     const order = await OrderService.updateWorkflowStatus(
       req.params.id,
       req.params.workflowId,
       status,
-      req.user._id
+      req.user._id,
+      pauseReason
     );
+
+    console.log('Update workflow status: Success. Order status:', order.status);
 
     return res.status(200).json({
       success: true,
@@ -629,6 +641,12 @@ router.put('/:id/workflows/:workflowId/status', requireUser, requireAdminOrStaff
     });
   } catch (error) {
     console.error('Error updating workflow status:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      orderId: req.params.id,
+      workflowId: req.params.workflowId
+    });
     if (error.message === 'Order not found' || error.message === 'Workflow not found in order') {
       return res.status(404).json({ error: error.message });
     }

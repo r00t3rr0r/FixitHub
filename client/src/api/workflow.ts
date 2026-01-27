@@ -535,23 +535,36 @@ export const skipWorkflowStep = async (
 
 // Description: Update workflow status (pause/resume)
 // Endpoint: PUT /api/admin/orders/:orderId/workflows/:workflowId/status
-// Request: { status: 'in-progress' | 'on-hold' }
+// Request: { status: 'in-progress' | 'on-hold', pauseReason?: string }
 // Response: { success: boolean, message: string, order: Order }
 export const updateWorkflowStatus = async (
   orderId: string,
   workflowId: string,
-  status: 'in-progress' | 'on-hold'
+  status: 'in-progress' | 'on-hold',
+  pauseReason?: string
 ) => {
   try {
-    console.log("OrderWorkflowAPI: Updating workflow status:", { orderId, workflowId, status });
+    console.log("OrderWorkflowAPI: Updating workflow status:", { orderId, workflowId, status, pauseReason });
     const response = await api.put(
       `/api/admin/orders/${orderId}/workflows/${workflowId}/status`,
-      { status }
+      {
+        status,
+        pauseReason: pauseReason || undefined
+      }
     );
-    console.log("OrderWorkflowAPI: Workflow status updated successfully:", response.data);
+    console.log("OrderWorkflowAPI: Workflow status updated successfully:", {
+      success: response.data.success,
+      orderStatus: response.data.order?.status,
+      workflowStatus: status
+    });
     return response.data;
   } catch (error: any) {
     console.error("OrderWorkflowAPI: Error updating workflow status:", error);
+    console.error("OrderWorkflowAPI: Error details:", {
+      message: error.message,
+      response: error?.response?.data,
+      status: error?.response?.status
+    });
     throw new Error(error?.response?.data?.error || error.message);
   }
 };

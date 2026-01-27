@@ -179,6 +179,13 @@ const orderWorkflowSchema = new mongoose.Schema({
   completedAt: {
     type: Date,
   },
+  pausedAt: {
+    type: Date,
+  },
+  pauseReason: {
+    type: String,
+    default: '',
+  },
   estimatedCompletionTime: {
     type: Number, // in minutes
   },

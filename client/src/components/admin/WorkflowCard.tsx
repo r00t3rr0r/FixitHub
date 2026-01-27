@@ -145,6 +145,21 @@ export function WorkflowCard({
             </div>
           )}
 
+          {/* Pause Reason */}
+          {workflow.status === 'on-hold' && workflow.pauseReason && (
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-amber-700">Pause Reason:</p>
+              <p className="text-sm text-amber-600 bg-amber-50/50 p-2 rounded border border-amber-200">
+                {workflow.pauseReason}
+              </p>
+              {workflow.pausedAt && (
+                <p className="text-xs text-muted-foreground">
+                  Paused at: {new Date(workflow.pausedAt).toLocaleString()}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Steps Overview */}
           {workflow.steps && workflow.steps.length > 0 && (
             <div className="space-y-2">
