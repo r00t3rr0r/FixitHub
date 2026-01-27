@@ -185,7 +185,13 @@ export function WorkflowExecutionModal({
     return (
       <>
         <Dialog open={open} onOpenChange={onOpenChange}>
-          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogContent
+            className="max-w-5xl max-h-[90vh] overflow-y-auto"
+            onInteractOutside={(e) => {
+              // Prevent closing when clicking outside
+              e.preventDefault()
+            }}
+          >
             <DialogHeader>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
@@ -425,7 +431,13 @@ export function WorkflowExecutionModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          className="max-w-2xl max-h-[90vh] overflow-y-auto"
+          onInteractOutside={(e) => {
+            // Prevent closing when clicking outside
+            e.preventDefault()
+          }}
+        >
           <DialogHeader>
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
