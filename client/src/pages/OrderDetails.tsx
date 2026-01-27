@@ -2051,15 +2051,15 @@ export function OrderDetails() {
             </>
           )}
 
-          {/* Repair Services - Only visible to admin/staff */}
-          {(user?.role === 'admin' || user?.role === 'staff') && (
-            <Card>
-              <CardHeader className="pb-3 pt-3 px-4">
-                <CardTitle className="flex items-center justify-between text-base">
-                  <div className="flex items-center gap-2">
-                    <Wrench className="h-4 w-4" />
-                    {t('orderDetails.repairServices')}
-                  </div>
+          {/* Repair Services - Visible to all users */}
+          <Card>
+            <CardHeader className="pb-3 pt-3 px-4">
+              <CardTitle className="flex items-center justify-between text-base">
+                <div className="flex items-center gap-2">
+                  <Wrench className="h-4 w-4" />
+                  {t('orderDetails.repairServices')}
+                </div>
+                {(user?.role === 'admin' || user?.role === 'staff') && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -2072,34 +2072,36 @@ export function OrderDetails() {
                     <Plus className="h-3 w-3 mr-1" />
                     {t('orderDetails.addService')}
                   </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-3">
-                {repairServices && repairServices.filter((s) => s && s._id).length > 0 ? (
-                  <div className="space-y-2">
-                    {repairServices.filter((s) => s && s._id).map((service, index) => (
-                      <div key={service._id || `service-${index}`} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-2 flex-1">
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-sm">{service.serviceId?.name || 'Service'}</h4>
-                            {service.serviceId?.description && (
-                              <p className="text-xs text-muted-foreground mt-0.5">{service.serviceId.description}</p>
-                            )}
-                            {service.notes && (
-                              <p className="text-xs text-muted-foreground italic">{service.notes}</p>
-                            )}
-                            {service.estimatedTime && (
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                <Clock className="h-3 w-3 inline mr-0.5" />
-                                {service.estimatedTime} min
-                              </p>
-                            )}
-                          </div>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-3">
+              {repairServices && repairServices.filter((s) => s && s._id).length > 0 ? (
+                <div className="space-y-2">
+                  {repairServices.filter((s) => s && s._id).map((service, index) => (
+                    <div key={service._id || `service-${index}`} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-2 flex-1">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-sm">{service.serviceId?.name || 'Service'}</h4>
+                          {service.serviceId?.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5">{service.serviceId.description}</p>
+                          )}
+                          {service.notes && (
+                            <p className="text-xs text-muted-foreground italic">{service.notes}</p>
+                          )}
+                          {service.estimatedTime && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              <Clock className="h-3 w-3 inline mr-0.5" />
+                              {service.estimatedTime} min
+                            </p>
+                          )}
                         </div>
-                        <div className="flex items-center gap-2 ml-2">
-                          <div className="text-right">
-                            <p className="text-sm font-medium">${service.price}</p>
-                          </div>
+                      </div>
+                      <div className="flex items-center gap-2 ml-2">
+                        <div className="text-right">
+                          <p className="text-sm font-medium">${service.price}</p>
+                        </div>
+                        {(user?.role === 'admin' || user?.role === 'staff') && (
                           <div className="flex gap-1">
                             <Button
                               variant="ghost"
@@ -2118,20 +2120,22 @@ export function OrderDetails() {
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
-                        </div>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center text-muted-foreground py-6">
-                    <Wrench className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">{t('orderDetails.noRepairServices')}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center text-muted-foreground py-6">
+                  <Wrench className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">{t('orderDetails.noRepairServices')}</p>
+                  {(user?.role === 'admin' || user?.role === 'staff') && (
                     <p className="text-xs mt-1">{t('orderDetails.clickAddService')}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Add-On Services */}
           <Card>
