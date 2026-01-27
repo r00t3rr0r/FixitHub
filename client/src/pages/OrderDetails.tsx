@@ -1193,6 +1193,8 @@ export function OrderDetails() {
     switch (status) {
       case 'completed':
         return 'bg-green-500 text-white'
+      case 'diagnostic-assessment':
+        return 'bg-orange-500 text-white'
       case 'in-progress':
         return 'bg-blue-500 text-white'
       case 'quality-check':
@@ -1210,6 +1212,8 @@ export function OrderDetails() {
     switch (status) {
       case 'completed':
         return <CheckCircle className="h-4 w-4" />
+      case 'diagnostic-assessment':
+        return <Smartphone className="h-4 w-4" />
       case 'in-progress':
         return <Clock className="h-4 w-4" />
       case 'quality-check':

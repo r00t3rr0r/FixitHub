@@ -76,7 +76,7 @@ export interface Order {
   deviceType: string
   services: string[]
   addOns: AddOn[]
-  status: 'pending' | 'in-progress' | 'quality-check' | 'ready-for-pickup' | 'completed' | 'cancelled'
+  status: 'pending' | 'diagnostic-assessment' | 'in-progress' | 'quality-check' | 'ready-for-pickup' | 'completed' | 'cancelled'
   priority: 'low' | 'normal' | 'high' | 'urgent'
   totalCost: number
   photos: string[]
