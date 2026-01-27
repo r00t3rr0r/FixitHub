@@ -872,6 +872,38 @@ class OrderService {
         throw new Error('Workflow has already been started');
       }
 
+      // Get staff details for assignment
+      const staff = await User.findById(staffId);
+      if (!staff) {
+        throw new Error('Staff member not found');
+      }
+
+      console.log('OrderService: Updating order status to in-progress and assigning staff');
+
+      // Update order status to 'in-progress' if it's not already
+      const previousStatus = order.status;
+      if (order.status !== 'in-progress') {
+        order.status = 'in-progress';
+        console.log(`OrderService: Order status changed from "${previousStatus}" to "in-progress"`);
+      }
+
+      // Assign staff member to order if not already assigned
+      const staffAssignmentExists = order.assignedStaff.some(
+        s => s.staffId.toString() === staffId.toString()
+      );
+
+      if (!staffAssignmentExists) {
+        console.log('OrderService: Assigning staff to order:', staff.name);
+        order.assignedStaff.push({
+          staffId: staffId,
+          name: staff.name,
+          avatar: staff.avatar || ''
+        });
+      } else {
+        console.log('OrderService: Staff already assigned to order');
+      }
+
+      // Update workflow status
       workflow.status = 'in-progress';
       workflow.startedAt = new Date();
 
@@ -882,22 +914,36 @@ class OrderService {
         workflow.steps[0].assignedStaffId = staffId;
       }
 
-      // Add timeline entry
-      const staff = await User.findById(staffId);
+      // Add timeline entries
+      // First entry for order status change
+      if (previousStatus !== 'in-progress') {
+        order.timeline.push({
+          status: 'Repair in Progress',
+          description: `Order status updated to "Repair in Progress" and assigned to ${staff.name} upon workflow initiation`,
+          completedAt: new Date(),
+          staffId: staffId,
+          staffName: staff.name
+        });
+        console.log('OrderService: Added timeline entry for order status change');
+      }
+
+      // Second entry for workflow start
       order.timeline.push({
         status: 'Workflow Started',
-        description: `Workflow "${workflow.workflowName}" started by ${staff ? staff.name : 'Staff'}`,
+        description: `Workflow "${workflow.workflowName}" started by ${staff.name}`,
         completedAt: new Date(),
-        staffId: staffId || 'system',
-        staffName: staff ? staff.name : 'Staff Member'
+        staffId: staffId,
+        staffName: staff.name
       });
+      console.log('OrderService: Added timeline entry for workflow start');
 
       const updatedOrder = await order.save();
 
-      console.log('OrderService: Workflow started successfully');
+      console.log('OrderService: Workflow started successfully with order status updated and staff assigned');
       return updatedOrder;
     } catch (error) {
       console.error('OrderService: Error starting workflow:', error);
+      console.error('OrderService: Error details:', error.message, error.stack);
       throw error;
     }
   }

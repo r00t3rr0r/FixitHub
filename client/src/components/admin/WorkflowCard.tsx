@@ -43,6 +43,7 @@ export function WorkflowCard({
   const { t } = useTranslation()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showReportModal, setShowReportModal] = useState(false)
+  const [showStartConfirm, setShowStartConfirm] = useState(false)
 
   // Calculate workflow progress
   const totalSteps = workflow.steps?.length || 0
@@ -92,6 +93,13 @@ export function WorkflowCard({
   const handleDelete = () => {
     setShowDeleteConfirm(false)
     onDelete(workflow._id)
+  }
+
+  const handleStartConfirmation = () => {
+    setShowStartConfirm(false)
+    if (onStart) {
+      onStart(workflow._id)
+    }
   }
 
   return (
@@ -176,7 +184,7 @@ export function WorkflowCard({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => onStart(workflow._id)}
+                onClick={() => setShowStartConfirm(true)}
                 disabled={isActionInProgress}
                 className="flex-1"
               >
@@ -244,6 +252,28 @@ export function WorkflowCard({
         workflow={workflow}
         orderId={orderId}
       />
+
+      {/* Start Confirmation Dialog */}
+      <AlertDialog open={showStartConfirm} onOpenChange={setShowStartConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Start Workflow</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to start the workflow "{workflow.workflowName}"? This will update
+              the order status to "Repair in Progress" and assign you as the responsible staff member.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleStartConfirmation}
+              disabled={isActionInProgress}
+            >
+              {isActionInProgress && actionInProgressType === 'start' ? 'Starting...' : 'Start Workflow'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
