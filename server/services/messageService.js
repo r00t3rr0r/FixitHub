@@ -176,6 +176,7 @@ class MessageService {
       }
 
       // Create message
+      // Messages sent by the user are automatically marked as read (they wrote it)
       const message = new Message({
         conversationId,
         senderId,
@@ -185,7 +186,7 @@ class MessageService {
         content,
         attachments,
         messageType,
-        isRead: false
+        isRead: true // User's own messages are marked as read immediately
       });
 
       const savedMessage = await message.save();
@@ -195,7 +196,7 @@ class MessageService {
       conversation.updatedAt = new Date();
       await conversation.save();
 
-      console.log('MessageService: Message sent successfully');
+      console.log('MessageService: Message sent successfully - Message marked as read for sender (isRead: true)');
 
       return {
         _id: savedMessage._id,
