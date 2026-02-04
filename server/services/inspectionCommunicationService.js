@@ -444,7 +444,7 @@ class InspectionCommunicationService {
 
       const communications = await InspectionCommunication.find({
         orderId: { $in: orderIds }
-      });
+      }).populate('messages.feedbackRequest.respondedBy', '_id');
 
       const unreadCounts = {};
 
@@ -466,6 +466,36 @@ class InspectionCommunicationService {
               // Track the sender type of the most recent unread message
               if (!lastUnreadSenderType) {
                 lastUnreadSenderType = message.senderType;
+              }
+            }
+          }
+
+          // Check for feedback responses from customers (admin view)
+          // When a customer responds to a feedback request, count it as an unread customer message for admins/staff
+          if (userRole && (userRole === 'admin' || userRole === 'staff')) {
+            if (message.feedbackRequest &&
+                message.feedbackRequest.status === 'responded' &&
+                message.feedbackRequest.respondedBy &&
+                message.feedbackRequest.respondedAt) {
+
+              // Check if this feedback response has been "read" by the current admin/staff user
+              // We consider a feedback response as read if the admin has viewed the message after the response was submitted
+              const hasReadAfterResponse = message.readBy.some(
+                readEntry => {
+                  if (!readEntry.userId || readEntry.userId.toString() !== userId.toString()) {
+                    return false;
+                  }
+                  const readAt = new Date(readEntry.readAt);
+                  const respondedAt = new Date(message.feedbackRequest.respondedAt);
+                  return readAt >= respondedAt;
+                }
+              );
+
+              if (!hasReadAfterResponse) {
+                unreadCount++;
+                // Feedback responses should be marked as customer messages
+                lastUnreadSenderType = 'customer';
+                console.log(`InspectionCommunicationService: Found unread feedback response for order ${comm.orderId} - message ${message._id}`);
               }
             }
           }
