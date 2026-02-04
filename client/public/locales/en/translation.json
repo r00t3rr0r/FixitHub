@@ -1834,5 +1834,14 @@
       "orderCreated": "Your repair order has been created successfully",
       "addedToCart": "Your repair order has been added to your cart."
     }
+  },
+  "bookings": {
+    "myBookings": "My Bookings",
+    "manageYourBookings": "Manage and track all your device repair bookings",
+    "noBookings": "No bookings yet. Start your first repair order!",
+    "searchByBookingNumber": "Search by booking number or ID...",
+    "viewOrders": "View Orders",
+    "orderCommunication": "Order Communication",
+    "communicateWithSupport": "Communicate with our support team about your repair order"
   }
 }

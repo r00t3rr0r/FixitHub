@@ -21,6 +21,7 @@ import {
   Truck,
   QrCode,
   FileText,
+  MessageSquare,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,6 +62,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { getBookings, getBookingOrders, getBooking } from "@/api/bookings";
 import { getUnreadMessageCounts } from "@/api/inspectionCommunication";
 import { useToast } from "@/hooks/useToast";
+import { CommunicationPanel } from "@/components/inspection/CommunicationPanel";
 
 interface Booking {
   _id: string;
@@ -140,6 +142,10 @@ export function CustomerBookings() {
   // Unread message counts state
   const [unreadCounts, setUnreadCounts] = useState<Record<string, { unread: number; senderType?: string }>>({});
   const [loadingUnreadCounts, setLoadingUnreadCounts] = useState(false);
+
+  // Communication panel state
+  const [showCommunicationPanel, setShowCommunicationPanel] = useState(false);
+  const [selectedOrderForCommunication, setSelectedOrderForCommunication] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBookings();
@@ -306,6 +312,12 @@ export function CustomerBookings() {
 
   const handleViewOrder = (orderId: string) => {
     navigate(`/orders/${orderId}`);
+  };
+
+  const handleOpenCommunication = (orderId: string) => {
+    console.log('Opening communication panel for order:', orderId);
+    setSelectedOrderForCommunication(orderId);
+    setShowCommunicationPanel(true);
   };
 
   const getBookingProgress = (bookingId: string, fallbackProgress: number = 0) => {
@@ -642,6 +654,11 @@ export function CustomerBookings() {
                                   title={`${unreadInfo.total} total unread message${unreadInfo.total > 1 ? 's' : ''} from ${unreadInfo.hasStaffMessages ? 'staff' : 'you'}`}
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    // Find the first order ID for this booking
+                                    const firstOrderId = booking.items[0]?.orderId;
+                                    if (firstOrderId) {
+                                      handleOpenCommunication(firstOrderId);
+                                    }
                                   }}
                                   >
                                     {unreadInfo.total > 99 ? '99+' : unreadInfo.total}
@@ -904,6 +921,12 @@ export function CustomerBookings() {
                                                     hover:scale-110 transition-transform cursor-pointer
                                                   `}
                                                   title={`${unreadCounts[item.orderId].unread} unread message${unreadCounts[item.orderId].unread > 1 ? 's' : ''} from ${unreadCounts[item.orderId].senderType || 'user'}`}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (item.orderId) {
+                                                      handleOpenCommunication(item.orderId);
+                                                    }
+                                                  }}
                                                   >
                                                     {unreadCounts[item.orderId].unread > 99 ? '99+' : unreadCounts[item.orderId].unread}
                                                   </div>
@@ -1047,6 +1070,29 @@ export function CustomerBookings() {
           getBillingStatusColor={getBillingStatusColor}
           getReturnShipmentStatusColor={getReturnShipmentStatusColor}
         />
+      )}
+
+      {/* Communication Panel Dialog */}
+      {selectedOrderForCommunication && (
+        <Dialog open={showCommunicationPanel} onOpenChange={(open) => {
+          setShowCommunicationPanel(open);
+          if (!open) {
+            setSelectedOrderForCommunication(null);
+          }
+        }}>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader className="pb-2">
+              <DialogTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                {t('bookings.orderCommunication')}
+              </DialogTitle>
+              <DialogDescription>
+                {t('bookings.communicateWithSupport')}
+              </DialogDescription>
+            </DialogHeader>
+            <CommunicationPanel orderId={selectedOrderForCommunication} />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

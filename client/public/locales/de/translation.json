@@ -1833,5 +1833,14 @@
       "orderCreated": "Ihr Reparaturauftrag wurde erfolgreich erstellt",
       "addedToCart": "Ihr Reparaturauftrag wurde zu Ihrem Warenkorb hinzugefügt."
     }
+  },
+  "bookings": {
+    "myBookings": "Meine Buchungen",
+    "manageYourBookings": "Verwalten und verfolgen Sie alle Ihre Reparaturbuchungen",
+    "noBookings": "Noch keine Buchungen. Starten Sie Ihren ersten Reparaturauftrag!",
+    "searchByBookingNumber": "Nach Buchungsnummer oder ID suchen...",
+    "viewOrders": "Aufträge anzeigen",
+    "orderCommunication": "Auftragskommunikation",
+    "communicateWithSupport": "Kommunizieren Sie mit unserem Support-Team über Ihren Reparaturauftrag"
   }
 }

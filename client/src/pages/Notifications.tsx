@@ -5,8 +5,16 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { useToast } from "@/hooks/useToast"
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead, Notification } from "@/api/notifications"
+import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import {
   Bell,
   Package,
@@ -25,6 +33,8 @@ export function Notifications() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const { toast } = useToast()
+  const [showCommunicationPanel, setShowCommunicationPanel] = useState(false)
+  const [selectedOrderForCommunication, setSelectedOrderForCommunication] = useState<string | null>(null)
 
   useEffect(() => {
     fetchNotifications()
@@ -121,6 +131,37 @@ export function Notifications() {
 
   const unreadCount = notifications.filter(n => !n.isRead).length
 
+  const handleOpenCommunication = (orderId: string) => {
+    console.log('Opening communication panel for order:', orderId)
+    setSelectedOrderForCommunication(orderId)
+    setShowCommunicationPanel(true)
+  }
+
+  const extractOrderIdFromMetadata = (notification: Notification): string | null => {
+    try {
+      if (notification.metadata && typeof notification.metadata === 'object') {
+        return (notification.metadata as any).orderId || null
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  const handleNotificationClick = (notification: Notification) => {
+    if (!notification.isRead) {
+      handleMarkAsRead(notification._id)
+    }
+
+    // If it's a message notification, open the communication panel
+    if (notification.type === 'message') {
+      const orderId = extractOrderIdFromMetadata(notification)
+      if (orderId) {
+        handleOpenCommunication(orderId)
+      }
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -211,11 +252,7 @@ export function Notifications() {
                       className={`p-4 hover:bg-accent transition-colors cursor-pointer ${
                         !notification.isRead ? 'bg-blue-50 dark:bg-blue-950/20' : ''
                       }`}
-                      onClick={() => {
-                        if (!notification.isRead) {
-                          handleMarkAsRead(notification._id)
-                        }
-                      }}
+                      onClick={() => handleNotificationClick(notification)}
                     >
                       <div className="flex items-start gap-4">
                         <div className="flex-shrink-0 mt-1">
@@ -276,6 +313,29 @@ export function Notifications() {
           )}
         </CardContent>
       </Card>
+
+      {/* Communication Panel Dialog */}
+      {selectedOrderForCommunication && (
+        <Dialog open={showCommunicationPanel} onOpenChange={(open) => {
+          setShowCommunicationPanel(open)
+          if (!open) {
+            setSelectedOrderForCommunication(null)
+          }
+        }}>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader className="pb-2">
+              <DialogTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Order Communication
+              </DialogTitle>
+              <DialogDescription>
+                Communicate with our support team about your repair order
+              </DialogDescription>
+            </DialogHeader>
+            <CommunicationPanel orderId={selectedOrderForCommunication} />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }
