@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { CartIcon } from '@/components/CartIcon';
+import { NotificationBell } from '@/components/NotificationBell';
 import { ProfileDropdown } from '@/components/ProfileDropdown';
 
 export function CustomerNavbar() {
@@ -97,6 +98,9 @@ export function CustomerNavbar() {
 
           {/* Shopping Cart with item count and bounce animation */}
           <CartIcon />
+
+          {/* Notifications Bell - only shown when authenticated */}
+          {isAuthenticated && <NotificationBell />}
 
           {/* Auth-based navigation */}
           {isAuthenticated ? (

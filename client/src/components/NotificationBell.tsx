@@ -27,11 +27,33 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [isOpen, setIsOpen] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
+    console.log('NotificationBell: Initializing notification polling');
     fetchNotifications()
+
+    // Set up polling to refresh notifications every 10 seconds
+    const pollInterval = setInterval(() => {
+      console.log('NotificationBell: Polling for new notifications');
+      fetchNotifications()
+    }, 10000)
+
+    return () => {
+      console.log('NotificationBell: Cleaning up notification polling');
+      clearInterval(pollInterval)
+    }
   }, [])
+
+  // Refresh notifications when dropdown is opened
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open)
+    if (open) {
+      console.log('NotificationBell: Dropdown opened, refreshing notifications');
+      fetchNotifications()
+    }
+  }
 
   const fetchNotifications = async () => {
     try {
@@ -93,7 +115,7 @@ export function NotificationBell() {
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={isOpen} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
