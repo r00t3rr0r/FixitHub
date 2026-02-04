@@ -458,6 +458,40 @@ class InspectionCommunicationService {
             readEntry => readEntry.userId && readEntry.userId.toString() === userId.toString()
           );
 
+          // Check if this is a feedback request message with a response (for admin/staff view)
+          const isFeedbackRequestWithResponse =
+            message.feedbackRequest &&
+            message.feedbackRequest.status === 'responded' &&
+            message.feedbackRequest.respondedBy &&
+            message.feedbackRequest.respondedAt;
+
+          // For admin/staff viewing feedback responses from customers
+          if (userRole && (userRole === 'admin' || userRole === 'staff') && isFeedbackRequestWithResponse) {
+            // Check if this feedback response has been "read" by the current admin/staff user
+            // We consider a feedback response as read if the admin has viewed the message after the response was submitted
+            const hasReadAfterResponse = message.readBy.some(
+              readEntry => {
+                if (!readEntry.userId || readEntry.userId.toString() !== userId.toString()) {
+                  return false;
+                }
+                const readAt = new Date(readEntry.readAt);
+                const respondedAt = new Date(message.feedbackRequest.respondedAt);
+                return readAt >= respondedAt;
+              }
+            );
+
+            if (!hasReadAfterResponse) {
+              // Count this as ONE unread customer message (the response)
+              unreadCount++;
+              // Feedback responses should be marked as customer messages
+              lastUnreadSenderType = 'customer';
+              console.log(`InspectionCommunicationService: Found unread feedback response for order ${comm.orderId} - message ${message._id}`);
+            }
+            // Skip counting this message again as a regular unread message
+            return;
+          }
+
+          // Count regular messages that haven't been read
           if (!hasUserRead) {
             // Only count messages not sent by the current user
             if (message.senderId && message.senderId.toString() !== userId.toString()) {
@@ -466,36 +500,6 @@ class InspectionCommunicationService {
               // Track the sender type of the most recent unread message
               if (!lastUnreadSenderType) {
                 lastUnreadSenderType = message.senderType;
-              }
-            }
-          }
-
-          // Check for feedback responses from customers (admin view)
-          // When a customer responds to a feedback request, count it as an unread customer message for admins/staff
-          if (userRole && (userRole === 'admin' || userRole === 'staff')) {
-            if (message.feedbackRequest &&
-                message.feedbackRequest.status === 'responded' &&
-                message.feedbackRequest.respondedBy &&
-                message.feedbackRequest.respondedAt) {
-
-              // Check if this feedback response has been "read" by the current admin/staff user
-              // We consider a feedback response as read if the admin has viewed the message after the response was submitted
-              const hasReadAfterResponse = message.readBy.some(
-                readEntry => {
-                  if (!readEntry.userId || readEntry.userId.toString() !== userId.toString()) {
-                    return false;
-                  }
-                  const readAt = new Date(readEntry.readAt);
-                  const respondedAt = new Date(message.feedbackRequest.respondedAt);
-                  return readAt >= respondedAt;
-                }
-              );
-
-              if (!hasReadAfterResponse) {
-                unreadCount++;
-                // Feedback responses should be marked as customer messages
-                lastUnreadSenderType = 'customer';
-                console.log(`InspectionCommunicationService: Found unread feedback response for order ${comm.orderId} - message ${message._id}`);
               }
             }
           }
