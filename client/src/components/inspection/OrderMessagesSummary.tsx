@@ -339,6 +339,10 @@ export function OrderMessagesSummary({
     }
   }
 
+  // User role checks - must be declared before functions that use them
+  const isStaffOrAdmin = userRole === "staff" || userRole === "admin"
+  const isCustomer = userRole === "customer"
+
   // Check if a message is unread by current user
   const isMessageUnread = (message: Message): boolean => {
     if (!currentUserId) return false
@@ -364,9 +368,6 @@ export function OrderMessagesSummary({
 
   // Count unread messages
   const unreadCount = communication?.messages?.filter(isMessageUnread).length || 0
-
-  const isStaffOrAdmin = userRole === "staff" || userRole === "admin"
-  const isCustomer = userRole === "customer"
 
   const hasMessages = communication?.messages && communication.messages.length > 0
   const lastMessage = hasMessages ? communication.messages[communication.messages.length - 1] : null
