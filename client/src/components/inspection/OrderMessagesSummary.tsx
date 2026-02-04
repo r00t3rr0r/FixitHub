@@ -92,44 +92,54 @@ export function OrderMessagesSummary({
 
   // Load communication thread
   useEffect(() => {
+    let isActive = true
+    let pollingInterval: NodeJS.Timeout | null = null
+
     const loadThread = async () => {
       try {
-        const thread = await getCommunicationThread(orderId)
-        setCommunication(thread)
-        console.log("OrderMessagesSummary: Communication thread loaded:", thread, {
-          hasMessages: thread?.messages?.length || 0,
-          pendingFeedback: thread?.pendingFeedbackCount || 0,
-          pendingActions: thread?.pendingActionsCount || 0,
-        })
+        if (!isActive) return
 
-        // Mark as read only when dialog is open
-        if (dialogOpen) {
-          await markMessagesAsRead(orderId).catch((error) =>
-            console.error("OrderMessagesSummary: Error marking messages as read:", error)
-          )
+        const thread = await getCommunicationThread(orderId)
+        if (isActive) {
+          setCommunication(thread)
+          console.log("OrderMessagesSummary: Communication thread loaded with", thread?.messages?.length || 0, "messages", {
+            pendingFeedback: thread?.pendingFeedbackCount || 0,
+            pendingActions: thread?.pendingActionsCount || 0,
+          })
+
+          // Mark as read only when dialog is open
+          if (dialogOpen) {
+            await markMessagesAsRead(orderId).catch((error) =>
+              console.error("OrderMessagesSummary: Error marking messages as read:", error)
+            )
+          }
         }
       } catch (error) {
-        console.error("OrderMessagesSummary: Error loading communication thread:", error)
+        if (isActive) {
+          console.error("OrderMessagesSummary: Error loading communication thread:", error)
+        }
       } finally {
-        if (loading) setLoading(false)
+        if (isActive && loading) setLoading(false)
       }
     }
 
     if (orderId) {
-      // Load immediately
-      if (loading) {
-        console.log("OrderMessagesSummary: Initial load for order:", orderId)
+      // Initial load
+      console.log("OrderMessagesSummary: Starting communication thread polling for order:", orderId)
+      loadThread()
+
+      // Set up polling to refresh every 2 seconds for real-time updates
+      pollingInterval = setInterval(() => {
+        console.log("OrderMessagesSummary: Polling for updates")
         loadThread()
-      } else {
-        // If already loaded, just poll for updates
-        const interval = setInterval(() => {
-          console.log("OrderMessagesSummary: Polling for updates")
-          loadThread()
-        }, 5000)
-        return () => clearInterval(interval)
-      }
+      }, 2000)
     }
-  }, [orderId, dialogOpen, loading])
+
+    return () => {
+      isActive = false
+      if (pollingInterval) clearInterval(pollingInterval)
+    }
+  }, [orderId, dialogOpen])
 
   // Handle sending message
   const handleSendMessage = async () => {
@@ -144,7 +154,9 @@ export function OrderMessagesSummary({
 
     try {
       setSending(true)
+      console.log("OrderMessagesSummary: Sending message:", newMessage)
       const updated = await sendMessage(orderId, newMessage)
+      console.log("OrderMessagesSummary: Message sent successfully, updated communication with", updated?.messages?.length || 0, "messages")
       setCommunication(updated)
       setNewMessage("")
       toast({
@@ -152,7 +164,7 @@ export function OrderMessagesSummary({
         description: t("communicationPanel.successMessageSent"),
       })
     } catch (error: any) {
-      console.error("Error sending message:", error)
+      console.error("OrderMessagesSummary: Error sending message:", error)
       toast({
         title: t("common.error"),
         description: error.message || t("communicationPanel.errorSendingMessage"),
@@ -172,8 +184,9 @@ export function OrderMessagesSummary({
       setRespondingTo(messageId)
       console.log("OrderMessagesSummary: Responding to feedback:", { messageId, response })
       const updated = await respondToFeedback(orderId, messageId, response)
+      console.log("OrderMessagesSummary: Received updated communication with", updated?.messages?.length || 0, "messages")
       setCommunication(updated)
-      console.log("OrderMessagesSummary: Feedback response recorded successfully")
+      console.log("OrderMessagesSummary: Feedback response recorded successfully, state updated")
       toast({
         title: t("common.success"),
         description: t("communicationPanel.successResponseRecorded"),
@@ -213,12 +226,14 @@ export function OrderMessagesSummary({
 
     try {
       setSending(true)
+      console.log("OrderMessagesSummary: Sending feedback request with question:", feedbackQuestion)
       const updated = await sendFeedbackRequest(
         orderId,
         "",
         feedbackQuestion,
         validOptions
       )
+      console.log("OrderMessagesSummary: Feedback request sent successfully, updated communication with", updated?.messages?.length || 0, "messages")
       setCommunication(updated)
       setFeedbackQuestion("")
       setFeedbackOptions([
@@ -231,7 +246,7 @@ export function OrderMessagesSummary({
         description: t("communicationPanel.successFeedbackSent"),
       })
     } catch (error: any) {
-      console.error("Error sending feedback:", error)
+      console.error("OrderMessagesSummary: Error sending feedback:", error)
       toast({
         title: t("common.error"),
         description: error.message,
@@ -255,12 +270,14 @@ export function OrderMessagesSummary({
 
     try {
       setSending(true)
+      console.log("OrderMessagesSummary: Sending quick action:", { type: quickActionType, description: quickActionDescription })
       const updated = await createQuickAction(
         orderId,
         "",
         quickActionType,
         quickActionDescription
       )
+      console.log("OrderMessagesSummary: Quick action sent successfully, updated communication with", updated?.messages?.length || 0, "messages")
       setCommunication(updated)
       setQuickActionDescription("")
       setShowQuickActionDialog(false)
@@ -269,7 +286,7 @@ export function OrderMessagesSummary({
         description: t("communicationPanel.successActionSent"),
       })
     } catch (error: any) {
-      console.error("Error sending quick action:", error)
+      console.error("OrderMessagesSummary: Error sending quick action:", error)
       toast({
         title: t("common.error"),
         description: error.message,
