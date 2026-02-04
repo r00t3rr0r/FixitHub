@@ -315,8 +315,9 @@ export function CommunicationPanel({
 
         {/* Communication Messages - Scrollable History */}
         {communicationMessages.length > 0 && (
-          <ScrollArea className="h-80 border rounded-lg p-3 w-full">
-            <div className="space-y-2">
+          <div className="border rounded-lg overflow-hidden">
+            <ScrollArea className="h-96 w-full">
+              <div className="p-3 space-y-2">
               {communicationMessages.map((message) => (
                 <div key={message._id} className="space-y-2">
                   {/* Feedback Requests */}
@@ -384,8 +385,9 @@ export function CommunicationPanel({
                   )}
                 </div>
               ))}
-            </div>
-          </ScrollArea>
+              </div>
+            </ScrollArea>
+          </div>
         )}
 
         {communicationMessages.length === 0 && isStaffOrAdmin && (
