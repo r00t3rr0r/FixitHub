@@ -212,7 +212,7 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
       {/* Animated particles background */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-10 left-10 w-64 h-64 bg-yellow-400/5 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-10 right-10 w-64 h-64 bg-yellow-400/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute bottom-10 right-10 w-64 h-64 bg-yellow-400/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' } as React.CSSProperties}></div>
       </div>
 
       {/* Content */}
