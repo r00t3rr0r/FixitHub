@@ -225,4 +225,27 @@ router.get('/:orderId/pending-actions', requireUser, async (req, res) => {
   }
 });
 
+// Description: Get unread message counts for multiple orders
+// Endpoint: POST /api/inspection-communication/unread-counts
+// Request: { orderIds: Array<string> }
+// Response: { unreadCounts: Record<string, { unread: number, senderType?: string }> }
+router.post('/unread-counts', requireUser, async (req, res) => {
+  try {
+    const { orderIds } = req.body;
+
+    if (!orderIds || !Array.isArray(orderIds)) {
+      return res.status(400).json({ error: 'orderIds array is required' });
+    }
+
+    console.log(`InspectionCommunicationRoutes: POST /unread-counts - Getting unread counts for ${orderIds.length} orders`);
+
+    const unreadCounts = await InspectionCommunicationService.getUnreadMessageCounts(orderIds, req.user._id, req.user.role);
+
+    res.status(200).json({ unreadCounts });
+  } catch (error) {
+    console.error(`InspectionCommunicationRoutes: Error getting unread message counts: ${error}`);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

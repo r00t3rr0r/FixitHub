@@ -154,3 +154,19 @@ export const getPendingActionsCount = async (orderId: string) => {
     throw new Error((error as any)?.response?.data?.error || (error as any).message);
   }
 };
+
+// Description: Get unread message counts for multiple orders
+// Endpoint: POST /api/inspection-communication/unread-counts
+// Request: { orderIds: Array<string> }
+// Response: { unreadCounts: Record<string, { unread: number, senderType?: string }> }
+export const getUnreadMessageCounts = async (orderIds: string[]) => {
+  try {
+    const response = await api.post(`/api/inspection-communication/unread-counts`, {
+      orderIds,
+    });
+    return response.data.unreadCounts;
+  } catch (error) {
+    console.error('getUnreadMessageCounts error:', error);
+    throw new Error((error as any)?.response?.data?.error || (error as any).message);
+  }
+};

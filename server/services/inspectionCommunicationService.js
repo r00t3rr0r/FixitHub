@@ -436,6 +436,56 @@ class InspectionCommunicationService {
       throw error;
     }
   }
+
+  // Get unread message counts for multiple orders
+  static async getUnreadMessageCounts(orderIds, userId, userRole) {
+    try {
+      console.log(`InspectionCommunicationService: Getting unread counts for ${orderIds.length} orders for user ${userId}`);
+
+      const communications = await InspectionCommunication.find({
+        orderId: { $in: orderIds }
+      });
+
+      const unreadCounts = {};
+
+      communications.forEach(comm => {
+        let unreadCount = 0;
+        let lastUnreadSenderType = null;
+
+        // Count messages that haven't been read by the current user
+        comm.messages.forEach(message => {
+          const hasUserRead = message.readBy.some(
+            readEntry => readEntry.userId && readEntry.userId.toString() === userId.toString()
+          );
+
+          if (!hasUserRead) {
+            // Only count messages not sent by the current user
+            if (message.senderId && message.senderId.toString() !== userId.toString()) {
+              unreadCount++;
+
+              // Track the sender type of the most recent unread message
+              if (!lastUnreadSenderType) {
+                lastUnreadSenderType = message.senderType;
+              }
+            }
+          }
+        });
+
+        if (unreadCount > 0) {
+          unreadCounts[comm.orderId.toString()] = {
+            unread: unreadCount,
+            senderType: lastUnreadSenderType
+          };
+        }
+      });
+
+      console.log(`InspectionCommunicationService: Found unread messages in ${Object.keys(unreadCounts).length} orders`);
+      return unreadCounts;
+    } catch (error) {
+      console.error(`InspectionCommunicationService: Error getting unread message counts: ${error}`);
+      throw error;
+    }
+  }
 }
 
 module.exports = InspectionCommunicationService;
