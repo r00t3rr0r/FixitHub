@@ -161,6 +161,16 @@ export function CommunicationPanel({
       console.log("CommunicationPanel: Received updated communication after feedback response:", updated)
       setCommunication(updated)
       console.log("CommunicationPanel: Feedback response recorded successfully, state updated with", updated?.messages?.length || 0, "messages")
+
+      // Mark messages as read after responding to feedback
+      try {
+        await markMessagesAsRead(orderId)
+        console.log("CommunicationPanel: Messages marked as read after feedback response")
+      } catch (readError) {
+        console.error("CommunicationPanel: Error marking messages as read after feedback response:", readError)
+        // Don't throw, as the main operation succeeded
+      }
+
       toast({
         title: t('common.success'),
         description: t('communicationPanel.successResponseRecorded'),

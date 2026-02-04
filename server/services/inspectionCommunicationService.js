@@ -190,6 +190,16 @@ class InspectionCommunicationService {
       communication.pendingFeedbackCount = Math.max(0, communication.pendingFeedbackCount - 1);
       communication.lastMessageAt = new Date();
 
+      // Mark the message as read by the responder (the customer who responded already knows about this message)
+      const hasResponderRead = message.readBy.some(read => read.userId.toString() === responderId.toString());
+      if (!hasResponderRead) {
+        message.readBy.push({
+          userId: responderId,
+          readAt: new Date(),
+        });
+        console.log(`InspectionCommunicationService: Marked feedback request message as read for responder ${respondedByName}`);
+      }
+
       await communication.save();
 
       // Refetch to ensure all nested documents are properly populated
