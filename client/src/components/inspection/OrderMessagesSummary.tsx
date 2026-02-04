@@ -521,8 +521,8 @@ export function OrderMessagesSummary({
             {/* Messages Area */}
             <ScrollArea className="overflow-hidden border rounded-md">
               <div className="space-y-4 p-4">
-                {communication?.messages?.map((message) => (
-                  <div key={message._id} className="space-y-2">
+                {communication?.messages?.map((message, messageIndex) => (
+                  <div key={`${message._id}-${messageIndex}`} className="space-y-2">
                     {/* Text Messages */}
                     {message.messageType === "text" && (
                       <div
@@ -615,9 +615,9 @@ export function OrderMessagesSummary({
 
                         {message.feedbackRequest.status === "pending" && isCustomer && (
                           <div className="space-y-2 mt-3">
-                            {message.feedbackRequest.options.map((option) => (
+                            {message.feedbackRequest.options.map((option, optionIndex) => (
                               <Button
-                                key={option.value}
+                                key={`${message._id}-option-${optionIndex}`}
                                 variant="outline"
                                 size="sm"
                                 onClick={() =>
@@ -770,7 +770,7 @@ export function OrderMessagesSummary({
                 <label className="text-sm font-medium">{t("communicationPanel.options")}</label>
                 {feedbackOptions.map((option, index) => (
                   <Input
-                    key={index}
+                    key={`feedback-option-${index}`}
                     placeholder={t("communicationPanel.option", { number: index + 1 })}
                     value={option.label}
                     onChange={(e) => {
