@@ -2720,15 +2720,15 @@ export function OrderDetails() {
               <CardTitle className="text-base">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 pt-3">
-              <Button className="w-full" variant="outline" size="sm" className="text-xs h-8">
+              <Button className="w-full text-xs h-8" variant="outline" size="sm">
                 <MessageSquare className="h-3 w-3 mr-1" />
                 Contact Support
               </Button>
-              <Button className="w-full" variant="outline" size="sm" className="text-xs h-8">
+              <Button className="w-full text-xs h-8" variant="outline" size="sm">
                 <Camera className="h-3 w-3 mr-1" />
                 Upload Photos
               </Button>
-              <Button className="w-full" variant="outline" size="sm" className="text-xs h-8">
+              <Button className="w-full text-xs h-8" variant="outline" size="sm">
                 <Star className="h-3 w-3 mr-1" />
                 Rate Service
               </Button>
