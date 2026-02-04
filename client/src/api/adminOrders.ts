@@ -7,6 +7,12 @@ export interface StaffMember {
   avatar: string;
   role: string;
   specializations: string[];
+  currentWorkload?: {
+    assignedOrders: number;
+    assignedTasks?: number;
+    capacity: number;
+    utilizationRate: number;
+  };
 }
 
 export interface OrderEPart {
@@ -303,51 +309,36 @@ export const updateOrderStatus = async (orderId: string, status: string, note?: 
   }
 };
 
-// Description: Get available staff members for assignment
+// Description: Get available staff members for assignment with workload information
 // Endpoint: GET /api/admin/staff
 // Request: {}
 // Response: { staff: StaffMember[] }
-export const getAvailableStaff = () => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        staff: [
-          {
-            _id: 'staff1',
-            name: 'Mike Chen',
-            email: 'mike.chen@fixithub.com',
-            avatar: 'https://via.placeholder.com/100x100/3b82f6/ffffff?text=MC',
-            role: 'staff',
-            specializations: ['Samsung Repair', 'Water Damage', 'Advanced Diagnostics']
-          },
-          {
-            _id: 'staff2',
-            name: 'Sarah Johnson',
-            email: 'sarah.johnson@fixithub.com',
-            avatar: 'https://via.placeholder.com/100x100/10b981/ffffff?text=SJ',
-            role: 'staff',
-            specializations: ['iPhone Repair', 'Screen Replacement', 'Battery Replacement']
-          },
-          {
-            _id: 'staff3',
-            name: 'Emily Rodriguez',
-            email: 'emily.rodriguez@fixithub.com',
-            avatar: 'https://via.placeholder.com/100x100/8b5cf6/ffffff?text=ER',
-            role: 'staff',
-            specializations: ['Google Pixel Repair', 'Camera Repair', 'Software Issues']
-          },
-          {
-            _id: 'staff4',
-            name: 'David Wilson',
-            email: 'david.wilson@fixithub.com',
-            avatar: 'https://via.placeholder.com/100x100/f59e0b/ffffff?text=DW',
-            role: 'staff',
-            specializations: ['Tablet Repair', 'Laptop Repair', 'Hardware Diagnostics']
-          }
-        ]
-      });
-    }, 300);
-  });
+export const getAvailableStaff = async () => {
+  try {
+    console.log('getAvailableStaff: Fetching staff members with workload from API');
+    const response = await api.get('/api/admin/staff');
+    console.log('getAvailableStaff API response:', response.data);
+
+    // Ensure workload information is present
+    const staff = response.data.staff || [];
+    console.log('getAvailableStaff: Staff members retrieved:', staff.length, 'members');
+
+    return {
+      ...response.data,
+      staff: staff.map((member: any) => ({
+        ...member,
+        currentWorkload: member.currentWorkload || {
+          assignedOrders: 0,
+          assignedTasks: 0,
+          capacity: 10,
+          utilizationRate: 0
+        }
+      }))
+    };
+  } catch (error: any) {
+    console.error('getAvailableStaff API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Assign staff to order
@@ -355,22 +346,15 @@ export const getAvailableStaff = () => {
 // Request: { staffIds: string[] }
 // Response: { success: boolean, message: string }
 export const assignStaffToOrder = async (orderId: string, staffIds: string[]) => {
-  // Mocking the response
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        message: 'Staff assigned successfully'
-      });
-    }, 800);
-  });
-  
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.put(`/api/admin/orders/${orderId}/assign`, { staffIds });
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.error || error.message);
-  // }
+  console.log('assignStaffToOrder called:', { orderId, staffIds });
+  try {
+    const response = await api.put(`/api/admin/orders/${orderId}/assign`, { staffIds });
+    console.log('assignStaffToOrder API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('assignStaffToOrder API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 // Description: Add note to order

@@ -1742,7 +1742,7 @@ export function OrderDetails() {
                     </DialogHeader>
                     <div className="space-y-3 max-h-64 overflow-y-auto">
                       {availableStaff.map((staff) => (
-                        <div key={staff._id} className="flex items-center space-x-2">
+                        <div key={staff._id} className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
                           <Checkbox
                             id={staff._id}
                             checked={selectedStaff.includes(staff._id)}
@@ -1755,7 +1755,7 @@ export function OrderDetails() {
                                 {staff.name.split(' ').map(n => n[0]).join('')}
                               </AvatarFallback>
                             </Avatar>
-                            <div>
+                            <div className="flex-1">
                               <p className="font-medium text-sm">{staff.name}</p>
                               <p className="text-xs text-muted-foreground">{staff.email}</p>
                               <div className="flex flex-wrap gap-1 mt-0.5">
@@ -1770,6 +1770,24 @@ export function OrderDetails() {
                                   </Badge>
                                 )}
                               </div>
+                              {/* Workload Information */}
+                              {staff.currentWorkload && (
+                                <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span>Active Orders: {staff.currentWorkload.assignedOrders}/{staff.currentWorkload.capacity}</span>
+                                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                      staff.currentWorkload.utilizationRate > 80 ? 'bg-red-100 text-red-800' :
+                                      staff.currentWorkload.utilizationRate > 60 ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-green-100 text-green-800'
+                                    }`}>
+                                      {staff.currentWorkload.utilizationRate}% utilized
+                                    </span>
+                                  </div>
+                                  {staff.currentWorkload.assignedTasks !== undefined && (
+                                    <div>Active Tasks: {staff.currentWorkload.assignedTasks}</div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
