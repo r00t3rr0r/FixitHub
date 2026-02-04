@@ -389,12 +389,13 @@ class InspectionCommunicationService {
     try {
       console.log(`InspectionCommunicationService: Marking messages as read for user ${userId} in order ${orderId}`);
 
-      const communication = await InspectionCommunication.findOne({ orderId });
+      let communication = await InspectionCommunication.findOne({ orderId });
 
       if (!communication) {
         throw new Error('Communication thread not found');
       }
 
+      let markedCount = 0;
       communication.messages.forEach(message => {
         const hasUserRead = message.readBy.some(read => read.userId.toString() === userId.toString());
         if (!hasUserRead) {
@@ -402,12 +403,29 @@ class InspectionCommunicationService {
             userId,
             readAt: new Date(),
           });
+          markedCount++;
         }
       });
 
       await communication.save();
 
-      console.log(`InspectionCommunicationService: Messages marked as read`);
+      console.log(`InspectionCommunicationService: ${markedCount} messages marked as read`);
+
+      // Refetch to ensure all nested documents have proper IDs and timestamps, and populate sender info
+      communication = await InspectionCommunication.findOne({ orderId })
+        .populate('messages.senderId', 'name email role avatar')
+        .populate('messages.feedbackRequest.respondedBy', 'name email');
+
+      // Sort messages by createdAt
+      if (communication && communication.messages && communication.messages.length > 0) {
+        communication.messages.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateA - dateB;
+        });
+        console.log(`InspectionCommunicationService: Sorted ${communication.messages.length} messages by createdAt`);
+      }
+
       return communication;
     } catch (error) {
       console.error(`InspectionCommunicationService: Error marking messages as read: ${error}`);
