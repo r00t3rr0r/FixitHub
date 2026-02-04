@@ -94,9 +94,9 @@ export function CommunicationPanel({
       try {
         const userResponse = await getUserProfile()
         setUser(userResponse.user || userResponse)
-        console.log("User profile loaded:", userResponse)
+        console.log("CommunicationPanel: User profile loaded:", userResponse)
       } catch (error) {
-        console.error("Error loading user profile:", error)
+        console.error("CommunicationPanel: Error loading user profile:", error)
       }
     }
 
@@ -110,15 +110,20 @@ export function CommunicationPanel({
         setLoading(true)
         const thread = await getCommunicationThread(orderId)
         setCommunication(thread)
-        console.log("Communication thread loaded:", thread)
+        console.log("CommunicationPanel: Communication thread loaded:", thread)
       } catch (error) {
-        console.error("Error loading communication thread:", error)
+        console.error("CommunicationPanel: Error loading communication thread:", error)
       } finally {
         setLoading(false)
       }
     }
 
-    loadCommunication()
+    if (orderId) {
+      loadCommunication()
+      // Set up polling for updates every 5 seconds
+      const interval = setInterval(loadCommunication, 5000)
+      return () => clearInterval(interval)
+    }
   }, [orderId])
 
   // Mark messages as read
@@ -133,14 +138,16 @@ export function CommunicationPanel({
   const handleFeedbackResponse = async (messageId: string, response: { label: string; value: string }) => {
     try {
       setResponding(true)
+      console.log("CommunicationPanel: Responding to feedback:", { messageId, response })
       const updated = await respondToFeedback(orderId, messageId, response)
       setCommunication(updated)
+      console.log("CommunicationPanel: Feedback response recorded successfully")
       toast({
         title: t('common.success'),
         description: t('communicationPanel.successResponseRecorded'),
       })
     } catch (error: any) {
-      console.error("Error responding to feedback:", error)
+      console.error("CommunicationPanel: Error responding to feedback:", error)
       toast({
         title: t('common.error'),
         description: error.message || t('communicationPanel.errorEnterDescription'),
@@ -167,8 +174,10 @@ export function CommunicationPanel({
         { label: feedbackOption1Label, value: feedbackOption1Value || feedbackOption1Label.toLowerCase() },
         { label: feedbackOption2Label, value: feedbackOption2Value || feedbackOption2Label.toLowerCase() },
       ]
+      console.log("CommunicationPanel: Sending feedback request:", { orderId, question: feedbackQuestion, options })
       const updated = await sendFeedbackRequest(orderId, inspectionId || "", feedbackQuestion, options)
       setCommunication(updated)
+      console.log("CommunicationPanel: Feedback request sent successfully")
       toast({
         title: t('common.success'),
         description: t('communicationPanel.successFeedbackSent'),
@@ -181,7 +190,7 @@ export function CommunicationPanel({
       setFeedbackOption2Value("")
       setShowFeedbackDialog(false)
     } catch (error: any) {
-      console.error("Error sending feedback:", error)
+      console.error("CommunicationPanel: Error sending feedback:", error)
       toast({
         title: t('common.error'),
         description: error.message || t('communicationPanel.errorFillAllFields'),
@@ -204,8 +213,10 @@ export function CommunicationPanel({
 
     try {
       setSendingQuickAction(true)
+      console.log("CommunicationPanel: Sending quick action:", { orderId, actionType: quickActionType, description: quickActionDescription })
       const updated = await createQuickAction(orderId, inspectionId || "", quickActionType, quickActionDescription)
       setCommunication(updated)
+      console.log("CommunicationPanel: Quick action sent successfully")
       toast({
         title: t('common.success'),
         description: t('communicationPanel.successActionSent'),
@@ -215,7 +226,7 @@ export function CommunicationPanel({
       setQuickActionType('part_replacement')
       setShowQuickActionDialog(false)
     } catch (error: any) {
-      console.error("Error sending quick action:", error)
+      console.error("CommunicationPanel: Error sending quick action:", error)
       toast({
         title: t('common.error'),
         description: error.message || t('communicationPanel.errorEnterDescription'),

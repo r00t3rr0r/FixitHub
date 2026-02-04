@@ -40,6 +40,18 @@ interface Message {
   senderType: "staff" | "customer" | "system"
   messageType: "text" | "feedback_request" | "quick_action" | "system_notification"
   content: string
+  feedbackRequest?: {
+    question: string
+    options: Array<{ label: string; value: string }>
+    response?: { label: string; value: string }
+    status: "pending" | "responded" | "expired"
+  }
+  quickAction?: {
+    actionType: string
+    actionLabel: string
+    description: string
+    status: "pending" | "completed" | "cancelled"
+  }
   createdAt: string
   readBy: Array<{ userId: string; readAt: string }>
 }
@@ -82,29 +94,42 @@ export function OrderMessagesSummary({
   useEffect(() => {
     const loadThread = async () => {
       try {
-        setLoading(true)
         const thread = await getCommunicationThread(orderId)
         setCommunication(thread)
-        console.log("Order messages summary loaded:", thread)
+        console.log("OrderMessagesSummary: Communication thread loaded:", thread, {
+          hasMessages: thread?.messages?.length || 0,
+          pendingFeedback: thread?.pendingFeedbackCount || 0,
+          pendingActions: thread?.pendingActionsCount || 0,
+        })
 
-        // Mark as read
-        await markMessagesAsRead(orderId).catch((error) =>
-          console.error("Error marking messages as read:", error)
-        )
+        // Mark as read only when dialog is open
+        if (dialogOpen) {
+          await markMessagesAsRead(orderId).catch((error) =>
+            console.error("OrderMessagesSummary: Error marking messages as read:", error)
+          )
+        }
       } catch (error) {
-        console.error("Error loading communication thread:", error)
+        console.error("OrderMessagesSummary: Error loading communication thread:", error)
       } finally {
-        setLoading(false)
+        if (loading) setLoading(false)
       }
     }
 
     if (orderId) {
-      loadThread()
-      // Set up polling for new messages every 10 seconds
-      const interval = setInterval(loadThread, 10000)
-      return () => clearInterval(interval)
+      // Load immediately
+      if (loading) {
+        console.log("OrderMessagesSummary: Initial load for order:", orderId)
+        loadThread()
+      } else {
+        // If already loaded, just poll for updates
+        const interval = setInterval(() => {
+          console.log("OrderMessagesSummary: Polling for updates")
+          loadThread()
+        }, 5000)
+        return () => clearInterval(interval)
+      }
     }
-  }, [orderId])
+  }, [orderId, dialogOpen, loading])
 
   // Handle sending message
   const handleSendMessage = async () => {
@@ -145,17 +170,19 @@ export function OrderMessagesSummary({
   ) => {
     try {
       setRespondingTo(messageId)
+      console.log("OrderMessagesSummary: Responding to feedback:", { messageId, response })
       const updated = await respondToFeedback(orderId, messageId, response)
       setCommunication(updated)
+      console.log("OrderMessagesSummary: Feedback response recorded successfully")
       toast({
         title: t("common.success"),
         description: t("communicationPanel.successResponseRecorded"),
       })
     } catch (error: any) {
-      console.error("Error responding to feedback:", error)
+      console.error("OrderMessagesSummary: Error responding to feedback:", error)
       toast({
         title: t("common.error"),
-        description: error.message,
+        description: error.message || t("communicationPanel.errorRespondingToFeedback"),
         variant: "destructive",
       })
     } finally {

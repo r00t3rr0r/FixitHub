@@ -34,11 +34,11 @@ export function NotificationBell() {
     console.log('NotificationBell: Initializing notification polling');
     fetchNotifications()
 
-    // Set up polling to refresh notifications every 10 seconds
+    // Set up polling to refresh notifications every 5 seconds
     const pollInterval = setInterval(() => {
       console.log('NotificationBell: Polling for new notifications');
       fetchNotifications()
-    }, 10000)
+    }, 5000)
 
     return () => {
       console.log('NotificationBell: Cleaning up notification polling');
@@ -62,8 +62,12 @@ export function NotificationBell() {
       const data = response as any
       setNotifications(data.notifications || [])
       setUnreadCount(data.unreadCount || 0)
+      console.log('NotificationBell: Notifications fetched:', {
+        count: data.notifications?.length || 0,
+        unreadCount: data.unreadCount || 0
+      })
     } catch (error) {
-      console.error("Error fetching notifications:", error)
+      console.error("NotificationBell: Error fetching notifications:", error)
     } finally {
       setLoading(false)
     }
@@ -71,6 +75,7 @@ export function NotificationBell() {
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {
+      console.log('NotificationBell: Marking notification as read:', notificationId)
       await markNotificationAsRead(notificationId)
       setNotifications(prev =>
         prev.map(notif =>
@@ -78,7 +83,9 @@ export function NotificationBell() {
         )
       )
       setUnreadCount(prev => Math.max(0, prev - 1))
+      console.log('NotificationBell: Notification marked as read successfully')
     } catch (error: any) {
+      console.error('NotificationBell: Error marking notification as read:', error)
       toast({
         title: "Error",
         description: error.message || "Failed to mark notification as read",

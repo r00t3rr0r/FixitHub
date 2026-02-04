@@ -115,14 +115,14 @@ export function OrderMessagesPanel({
         setLoading(true)
         const thread = await getCommunicationThread(orderId)
         setCommunication(thread)
-        console.log("Order messages thread loaded:", thread)
+        console.log("OrderMessagesPanel: Communication thread loaded:", thread)
 
         // Mark as read
         await markMessagesAsRead(orderId).catch((error) =>
-          console.error("Error marking messages as read:", error)
+          console.error("OrderMessagesPanel: Error marking messages as read:", error)
         )
       } catch (error) {
-        console.error("Error loading communication thread:", error)
+        console.error("OrderMessagesPanel: Error loading communication thread:", error)
       } finally {
         setLoading(false)
       }
@@ -130,8 +130,8 @@ export function OrderMessagesPanel({
 
     if (orderId) {
       loadThread()
-      // Set up polling for new messages every 10 seconds
-      const interval = setInterval(loadThread, 10000)
+      // Set up polling for new messages every 5 seconds
+      const interval = setInterval(loadThread, 5000)
       return () => clearInterval(interval)
     }
   }, [orderId])
@@ -145,6 +145,7 @@ export function OrderMessagesPanel({
 
   // Handle sending message
   const handleSendMessage = async () => {
+    console.log("OrderMessagesPanel: Handling send message")
     if (!newMessage.trim()) {
       toast({
         title: t("common.error"),
