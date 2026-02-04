@@ -796,6 +796,11 @@ export function BookingsManagement() {
                       </TableCell>
                       <TableCell className="text-center">
                         {(() => {
+                          // Only show messages if booking is expanded and has order data
+                          if (!expandedBookings.has(booking._id) || !expandedOrdersData[booking._id]) {
+                            return <span className="text-xs text-foreground/40">—</span>
+                          }
+
                           const unreadInfo = getBookingUnreadCount(booking._id)
                           if (unreadInfo.total > 0) {
                             return (
@@ -812,12 +817,9 @@ export function BookingsManagement() {
                                   animate-pulse
                                   hover:scale-110 transition-transform cursor-pointer
                                 `}
-                                title={`${unreadInfo.total} total unread message${unreadInfo.total > 1 ? 's' : ''}`}
+                                title={`${unreadInfo.total} total unread message${unreadInfo.total > 1 ? 's' : ''} from ${unreadInfo.hasCustomerMessages ? 'customer' : 'staff'}`}
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  if (!expandedBookings.has(booking._id)) {
-                                    toggleExpandBooking(booking._id)
-                                  }
                                 }}
                                 >
                                   {unreadInfo.total > 99 ? '99+' : unreadInfo.total}
