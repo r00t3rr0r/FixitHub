@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
 import { getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct } from "@/api/orders"
 import { getConversations, getConversationMessages, sendMessage, startConversation } from "@/api/messages"
-import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, updateOrderDevice } from "@/api/adminOrders"
+import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, updateOrderDevice, updateOrderStatus } from "@/api/adminOrders"
 import { getUserProfile, UserProfile } from "@/api/user"
 import { getAddOnServices, AddOnService as AddOnServiceType, getServices } from "@/api/services"
 import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder, deleteWorkflowFromOrder, startWorkflow, updateWorkflowStatus } from "@/api/workflow"
@@ -51,6 +51,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu"
+import {
   ArrowLeft,
   Package,
   ShoppingCart,
@@ -83,7 +91,8 @@ import {
   HelpCircle,
   FileText,
   Droplets,
-  Info
+  Info,
+  ChevronDown
 } from "lucide-react"
 
 export function OrderDetails() {
@@ -143,6 +152,8 @@ export function OrderDetails() {
   const [deviceSearchResults, setDeviceSearchResults] = useState<SearchResult[]>([])
   const [showDeviceResults, setShowDeviceResults] = useState(false)
   const [selectedDeviceForChange, setSelectedDeviceForChange] = useState<SearchResult | null>(null)
+  const [updatingStatus, setUpdatingStatus] = useState(false)
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
   const { toast } = useToast()
 
   // Fetch user profile
@@ -447,6 +458,35 @@ export function OrderDetails() {
       setOrder((orderResponse as any).order)
     } catch (error) {
       console.error("Error refreshing order:", error)
+    }
+  }
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!id || !order) return
+
+    try {
+      setUpdatingStatus(true)
+      setStatusDropdownOpen(false)
+
+      console.log('OrderDetails: Updating order status to:', newStatus)
+      await updateOrderStatus(id, newStatus)
+
+      toast({
+        title: "Success",
+        description: `Order status updated to ${newStatus.replace('-', ' ')}`
+      })
+
+      // Refresh order data
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("OrderDetails: Error updating order status:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update order status",
+        variant: "destructive"
+      })
+    } finally {
+      setUpdatingStatus(false)
     }
   }
 
@@ -1315,10 +1355,83 @@ export function OrderDetails() {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Badge className={`${getStatusColor(order.status)} text-xs px-3 py-1`}>
-                {getStatusIcon(order.status)}
-                <span className="ml-1">{order.status.replace('-', ' ')}</span>
-              </Badge>
+              {/* Status Dropdown for Admin/Staff, Badge for Customers */}
+              {(user?.role === 'admin' || user?.role === 'staff') ? (
+                <DropdownMenu open={statusDropdownOpen} onOpenChange={setStatusDropdownOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={`${getStatusColor(order.status)} text-xs px-3 py-1 cursor-pointer border-none flex items-center gap-1`}
+                      disabled={updatingStatus}
+                    >
+                      {getStatusIcon(order.status)}
+                      <span>{order.status.replace('-', ' ')}</span>
+                      <ChevronDown className="h-3 w-3 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel className="text-xs font-semibold">
+                      Change Order Status
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => handleStatusChange('pending')}
+                      disabled={updatingStatus || order.status === 'pending'}
+                      className="text-xs cursor-pointer"
+                    >
+                      <span className="inline-block w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                      Pending
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleStatusChange('in-progress')}
+                      disabled={updatingStatus || order.status === 'in-progress'}
+                      className="text-xs cursor-pointer"
+                    >
+                      <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                      In Progress
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleStatusChange('quality-check')}
+                      disabled={updatingStatus || order.status === 'quality-check'}
+                      className="text-xs cursor-pointer"
+                    >
+                      <span className="inline-block w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                      Quality Check
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleStatusChange('ready-for-pickup')}
+                      disabled={updatingStatus || order.status === 'ready-for-pickup'}
+                      className="text-xs cursor-pointer"
+                    >
+                      <span className="inline-block w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+                      Ready for Pickup
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleStatusChange('completed')}
+                      disabled={updatingStatus || order.status === 'completed'}
+                      className="text-xs cursor-pointer"
+                    >
+                      <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                      Completed
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => handleStatusChange('cancelled')}
+                      disabled={updatingStatus || order.status === 'cancelled'}
+                      className="text-xs cursor-pointer text-destructive"
+                    >
+                      <span className="inline-block w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                      Cancelled
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Badge className={`${getStatusColor(order.status)} text-xs px-3 py-1`}>
+                  {getStatusIcon(order.status)}
+                  <span className="ml-1">{order.status.replace('-', ' ')}</span>
+                </Badge>
+              )}
               <Badge className={`${getPaymentStatusColor(order.paymentStatus)} text-xs px-2 py-1`}>
                 <CreditCard className="h-3 w-3 mr-1" />
                 {order.paymentStatus}
