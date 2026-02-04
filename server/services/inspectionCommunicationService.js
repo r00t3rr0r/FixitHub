@@ -280,11 +280,20 @@ class InspectionCommunicationService {
 
       const communication = await InspectionCommunication.findOne({ orderId })
         .populate('messages.senderId', 'name email role avatar')
-        .populate('messages.feedbackRequest.respondedBy', 'name email')
-        .sort({ 'messages.createdAt': 1 });
+        .populate('messages.feedbackRequest.respondedBy', 'name email');
 
       if (!communication) {
         return await this.getOrCreateCommunicationThread(orderId);
+      }
+
+      // Sort messages by createdAt in ascending order (oldest to newest)
+      if (communication.messages && communication.messages.length > 0) {
+        communication.messages.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateA - dateB;
+        });
+        console.log(`InspectionCommunicationService: Sorted ${communication.messages.length} messages by createdAt`);
       }
 
       return communication;
