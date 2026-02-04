@@ -205,12 +205,12 @@ export function BookingsManagement() {
     fetchBookings()
   }, [currentPage, itemsPerPage, statusFilter, billingStatusFilter])
 
-  // Fetch unread counts when expanded orders change
+  // Fetch unread counts when bookings change
   useEffect(() => {
-    if (Object.keys(expandedOrdersData).length > 0) {
+    if (bookings.length > 0) {
       fetchUnreadCounts()
     }
-  }, [expandedOrdersData])
+  }, [bookings])
 
   const fetchBookings = async () => {
     try {
@@ -252,17 +252,17 @@ export function BookingsManagement() {
     }
   }
 
-  // Fetch unread message counts for all visible orders
+  // Fetch unread message counts for all visible bookings
   const fetchUnreadCounts = async () => {
     try {
       setLoadingUnreadCounts(true)
 
-      // Collect all order IDs from expanded orders data
+      // Collect all order IDs from all bookings' items
       const allOrderIds: string[] = []
-      Object.values(expandedOrdersData).forEach((orders: any[]) => {
-        orders.forEach(order => {
-          if (order.orderId) {
-            allOrderIds.push(order.orderId)
+      bookings.forEach((booking) => {
+        booking.items.forEach(item => {
+          if (item.orderId) {
+            allOrderIds.push(item.orderId)
           }
         })
       })
@@ -271,7 +271,7 @@ export function BookingsManagement() {
         return
       }
 
-      console.log(`Fetching unread counts for ${allOrderIds.length} orders`)
+      console.log(`Fetching unread counts for ${allOrderIds.length} orders from all bookings`)
       const counts = await getUnreadMessageCounts(allOrderIds)
       console.log('Received unread counts:', counts)
       setUnreadCounts(counts || {})
@@ -461,16 +461,16 @@ export function BookingsManagement() {
   }
 
   // Helper function to get total unread count for a booking
-  const getBookingUnreadCount = (bookingId: string) => {
-    const orders = expandedOrdersData[bookingId] || []
+  const getBookingUnreadCount = (booking: Booking) => {
     let totalUnread = 0
     let hasCustomerMessages = false
     let hasStaffMessages = false
 
-    orders.forEach((order: any) => {
-      if (order.orderId && unreadCounts[order.orderId]) {
-        totalUnread += unreadCounts[order.orderId].unread
-        if (unreadCounts[order.orderId].senderType === 'customer') {
+    // Check all items in the booking
+    booking.items.forEach((item) => {
+      if (item.orderId && unreadCounts[item.orderId]) {
+        totalUnread += unreadCounts[item.orderId].unread
+        if (unreadCounts[item.orderId].senderType === 'customer') {
           hasCustomerMessages = true
         } else {
           hasStaffMessages = true
@@ -796,12 +796,7 @@ export function BookingsManagement() {
                       </TableCell>
                       <TableCell className="text-center">
                         {(() => {
-                          // Only show messages if booking is expanded and has order data
-                          if (!expandedBookings.has(booking._id) || !expandedOrdersData[booking._id]) {
-                            return <span className="text-xs text-foreground/40">—</span>
-                          }
-
-                          const unreadInfo = getBookingUnreadCount(booking._id)
+                          const unreadInfo = getBookingUnreadCount(booking)
                           if (unreadInfo.total > 0) {
                             return (
                               <div className="flex items-center justify-center">
