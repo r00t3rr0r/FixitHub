@@ -1,7 +1,7 @@
 {
   "common": {
     "welcome": "Willkommen",
-    "loading": "Lädt...",
+    "loading": "Lädt",
     "error": "Fehler",
     "success": "Erfolgreich",
     "save": "Speichern",
@@ -33,7 +33,8 @@
     "select": "Auswählen",
     "hide": "Ausblenden",
     "selectStatus": "Status auswählen",
-    "all": "Alle"
+    "all": "Alle",
+    "new": "neu"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -43,6 +44,7 @@
     "trackOrders": "Aufträge verfolgen",
     "messages": "Nachrichten",
     "notifications": "Benachrichtigungen",
+    "viewAllNotifications": "Alle Benachrichtigungen anzeigen",
     "profile": "Profil",
     "account": "Konto",
     "bookings": "Buchungen",

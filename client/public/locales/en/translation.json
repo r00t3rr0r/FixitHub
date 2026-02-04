@@ -1,7 +1,7 @@
 {
   "common": {
     "welcome": "Welcome",
-    "loading": "Loading...",
+    "loading": "Loading",
     "error": "Error",
     "success": "Success",
     "save": "Save",
@@ -32,7 +32,8 @@
     "actions": "Actions",
     "select": "Select",
     "optional": "Optional",
-    "sending": "Sending..."
+    "sending": "Sending...",
+    "new": "new"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -42,6 +43,7 @@
     "trackOrders": "Track Orders",
     "messages": "Messages",
     "notifications": "Notifications",
+    "viewAllNotifications": "View All Notifications",
     "profile": "Profile",
     "account": "Account",
     "bookings": "Bookings",

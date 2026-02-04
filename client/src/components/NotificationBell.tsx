@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { Button } from "./ui/button"
 import { Badge } from "./ui/badge"
 import { useToast } from "@/hooks/useToast"
@@ -24,6 +25,7 @@ import {
 import { ScrollArea } from "./ui/scroll-area"
 
 export function NotificationBell() {
+  const { t } = useTranslation()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -124,12 +126,18 @@ export function NotificationBell() {
   return (
     <DropdownMenu open={isOpen} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative hover:bg-accent/50 transition-colors duration-200"
+          aria-label={`${t('navigation.notifications')} ${unreadCount > 0 ? `(${unreadCount} ${t('common.new')})` : ''}`}
+          title={`${t('navigation.notifications')} ${unreadCount > 0 ? `- ${unreadCount} new` : ''}`}
+        >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <Badge
               variant="destructive"
-              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-bold shadow-lg"
             >
               {unreadCount > 9 ? '9+' : unreadCount}
             </Badge>
@@ -138,10 +146,10 @@ export function NotificationBell() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80 bg-background">
         <DropdownMenuLabel className="flex items-center justify-between">
-          <span>Notifications</span>
+          <span>{t('navigation.notifications')}</span>
           {unreadCount > 0 && (
             <Badge variant="secondary" className="text-xs">
-              {unreadCount} new
+              {unreadCount} {t('common.new')}
             </Badge>
           )}
         </DropdownMenuLabel>
@@ -149,11 +157,11 @@ export function NotificationBell() {
         
         {loading ? (
           <div className="p-4 text-center text-sm text-muted-foreground">
-            Loading notifications...
+            {t('common.loading')}...
           </div>
         ) : notifications.length === 0 ? (
           <div className="p-4 text-center text-sm text-muted-foreground">
-            No notifications yet
+            {t('notifications.noNotifications')}
           </div>
         ) : (
           <ScrollArea className="h-80">
@@ -212,8 +220,8 @@ export function NotificationBell() {
         
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link to="/notifications" className="w-full text-center text-sm">
-            View All Notifications
+          <Link to="/notifications" className="w-full text-center text-sm hover:bg-accent">
+            {t('navigation.viewAllNotifications')}
           </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>
