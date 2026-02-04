@@ -371,7 +371,7 @@ export function ShoppingCartPage() {
           {/* Cart Items - Left Column (2/3 width) */}
           <div className="lg:col-span-2 space-y-4">
             {/* Product Items */}
-            {cart.items.map((item, index) => (
+            {cart.items.filter((item) => item.productId).map((item, index) => (
               <div
                 key={item._id}
                 className="group"
@@ -386,8 +386,8 @@ export function ShoppingCartPage() {
                       <div className="relative flex-shrink-0">
                         <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/20 to-transparent rounded-lg blur-lg opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         <img
-                          src={item.productId.images[0]}
-                          alt={item.productId.name}
+                          src={item.productId.images?.[0] || '/placeholder-product.png'}
+                          alt={item.productId.name || 'Product'}
                           className="relative w-20 h-20 object-cover rounded-lg shadow-sm group-hover:scale-105 transition-transform duration-300"
                         />
                       </div>
