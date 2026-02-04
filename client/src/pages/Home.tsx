@@ -15,6 +15,7 @@ import { AboutUsSection } from '@/components/home/AboutUsSection';
 import { ContactSection } from '@/components/home/ContactSection';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { CartIcon } from '@/components/CartIcon';
+import { NotificationBell } from '@/components/NotificationBell';
 import { ProfileDropdown } from '@/components/ProfileDropdown';
 import { saveDeviceInfo } from '@/utils/deviceDetection';
 
@@ -117,6 +118,9 @@ export function Home() {
 
             {/* Shopping Cart with item count and bounce animation */}
             <CartIcon />
+
+            {/* Notifications Bell - only shown when authenticated */}
+            {isAuthenticated && <NotificationBell />}
 
             {/* Auth-based navigation */}
             {isAuthenticated ? (
