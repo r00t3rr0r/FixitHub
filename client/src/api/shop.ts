@@ -196,37 +196,99 @@ const isAuthenticated = () => {
 // Request: {}
 // Response: { success: boolean, cart: Cart }
 export const getCart = async () => {
-  try {
-    if (isAuthenticated()) {
-      const response = await api.get('/api/cart');
-      return response.data;
-    } else {
-      // Return guest cart from localStorage
-      const guestCart = getGuestCartFromStorage();
-      return {
-        success: true,
-        cart: {
-          _id: 'guest-cart',
-          user: 'guest',
-          items: guestCart.items.map(item => ({
-            _id: item._id,
-            productId: item.product,
-            quantity: item.quantity,
-            price: item.product.price
-          })),
-          repairOrders: guestCart.repairOrders,
-          subtotal: guestCart.totalCost,
-          tax: 0,
-          total: guestCart.totalCost,
-          totalItems: guestCart.itemCount,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      };
-    }
-  } catch (error) {
-    throw new Error(error?.response?.data?.error || error.message);
-  }
+  // Mocking the response
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      if (isAuthenticated()) {
+        // Return mock cart for authenticated users
+        resolve({
+          success: true,
+          cart: {
+            _id: 'cart_12345',
+            user: 'user_authenticated',
+            items: [
+              {
+                _id: 'item_1',
+                productId: {
+                  _id: 'prod_1',
+                  name: 'Screen Protector',
+                  price: 15.99,
+                  image: '',
+                  category: 'accessories',
+                  brand: 'Generic'
+                } as any,
+                quantity: 1,
+                price: 15.99
+              }
+            ],
+            repairOrders: [],
+            subtotal: 15.99,
+            tax: 1.60,
+            total: 17.59,
+            totalItems: 1,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+        });
+      } else {
+        // Return guest cart from localStorage
+        const guestCart = getGuestCartFromStorage();
+        resolve({
+          success: true,
+          cart: {
+            _id: 'guest-cart',
+            user: 'guest',
+            items: guestCart.items.map(item => ({
+              _id: item._id,
+              productId: item.product,
+              quantity: item.quantity,
+              price: item.product.price
+            })),
+            repairOrders: guestCart.repairOrders,
+            subtotal: guestCart.totalCost,
+            tax: 0,
+            total: guestCart.totalCost,
+            totalItems: guestCart.itemCount,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+        });
+      }
+    }, 300);
+  });
+
+  // Uncomment the below lines to make an actual API call
+  // try {
+  //   if (isAuthenticated()) {
+  //     const response = await api.get('/api/cart');
+  //     return response.data;
+  //   } else {
+  //     // Return guest cart from localStorage
+  //     const guestCart = getGuestCartFromStorage();
+  //     return {
+  //       success: true,
+  //       cart: {
+  //         _id: 'guest-cart',
+  //         user: 'guest',
+  //         items: guestCart.items.map(item => ({
+  //           _id: item._id,
+  //           productId: item.product,
+  //           quantity: item.quantity,
+  //           price: item.product.price
+  //         })),
+  //         repairOrders: guestCart.repairOrders,
+  //         subtotal: guestCart.totalCost,
+  //         tax: 0,
+  //         total: guestCart.totalCost,
+  //         totalItems: guestCart.itemCount,
+  //         createdAt: new Date().toISOString(),
+  //         updatedAt: new Date().toISOString()
+  //       }
+  //     };
+  //   }
+  // } catch (error) {
+  //   throw new Error(error?.response?.data?.error || error.message);
+  // }
 };
 
 // Description: Add item to cart (handles both authenticated and guest users)

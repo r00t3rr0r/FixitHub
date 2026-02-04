@@ -385,7 +385,7 @@ export function OrderMessagesSummary({
               {t("communicationPanel.viewHistory")} ({messageCount})
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+          <DialogContent className="max-w-3xl max-h-[80vh] !grid-rows-[auto_1fr_auto] grid grid-rows-3 gap-0">
             <DialogHeader>
               <div className="flex items-center justify-between pr-6">
                 <div className="flex-1">
@@ -430,11 +430,11 @@ export function OrderMessagesSummary({
               </div>
             </DialogHeader>
 
-            <Separator />
+            <Separator className="my-0" />
 
             {/* Messages Area */}
-            <ScrollArea className="flex-1 min-h-[300px] pr-4">
-              <div className="space-y-4 pl-4">
+            <ScrollArea className="overflow-hidden border rounded-md">
+              <div className="space-y-4 p-4">
                 {communication?.messages?.map((message) => (
                   <div key={message._id} className="space-y-2">
                     {/* Text Messages */}
@@ -589,7 +589,7 @@ export function OrderMessagesSummary({
               </div>
             </ScrollArea>
 
-            <Separator />
+            <Separator className="my-0" />
 
             {/* Message Input */}
             <div className="pt-4 space-y-3">
