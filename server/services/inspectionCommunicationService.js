@@ -100,17 +100,18 @@ class InspectionCommunicationService {
       try {
         const order = await Order.findById(orderId);
         if (order && order.customerId) {
-          await NotificationService.createNotification(
-            order.customerId,
-            'inspection_feedback_required',
-            'Feedback Required on Your Repair Inspection',
-            question,
-            { orderId, messageId: message._id },
-            'inspection'
-          );
+          await NotificationService.createNotification({
+            userId: order.customerId,
+            title: 'Feedback Required on Your Repair Inspection',
+            message: question,
+            type: 'message',
+            orderId,
+            actionUrl: `/orders/${orderId}`,
+            metadata: { messageId: message._id, inspectionId, messageType: 'feedback_request' }
+          });
         }
       } catch (notificationError) {
-        console.error(`InspectionCommunicationService: Error creating notification: ${notificationError}`);
+        console.error(`InspectionCommunicationService: Error creating notification for feedback request: ${notificationError.message || notificationError}`, notificationError.stack);
         // Don't throw, as the main operation succeeded
       }
 
@@ -209,17 +210,18 @@ class InspectionCommunicationService {
       try {
         const order = await Order.findById(orderId);
         if (order && order.customerId) {
-          await NotificationService.createNotification(
-            order.customerId,
-            'inspection_quick_action',
-            `${actionLabels[actionType] || actionType}`,
-            description || actionLabels[actionType] || actionType,
-            { orderId, messageId: message._id, actionType },
-            'inspection'
-          );
+          await NotificationService.createNotification({
+            userId: order.customerId,
+            title: `${actionLabels[actionType] || actionType}`,
+            message: description || actionLabels[actionType] || actionType,
+            type: 'message',
+            orderId,
+            actionUrl: `/orders/${orderId}`,
+            metadata: { messageId: message._id, actionType, inspectionId, messageType: 'quick_action' }
+          });
         }
       } catch (notificationError) {
-        console.error(`InspectionCommunicationService: Error creating notification: ${notificationError}`);
+        console.error(`InspectionCommunicationService: Error creating notification for quick action: ${notificationError.message || notificationError}`, notificationError.stack);
         // Don't throw, as the main operation succeeded
       }
 
