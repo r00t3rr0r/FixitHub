@@ -25,7 +25,7 @@ import {
   respondToFeedback,
   markMessagesAsRead,
 } from "@/api/inspectionCommunication"
-import { MessageCircle, ChevronDown, Settings, Plus, Send, CheckCircle2, AlertCircle, Clock } from "lucide-react"
+import { MessageCircle, ChevronDown, Settings, Plus, Send, CheckCircle2, AlertCircle, Clock, Check } from "lucide-react"
 
 interface OrderMessagesSummaryProps {
   orderId: string
@@ -89,6 +89,28 @@ export function OrderMessagesSummary({
   >("part_replacement")
   const [quickActionDescription, setQuickActionDescription] = useState("")
   const [respondingTo, setRespondingTo] = useState<string | null>(null)
+  const [markingAsRead, setMarkingAsRead] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
+  // Get current user ID from auth context or API
+  useEffect(() => {
+    const fetchUserId = async () => {
+      try {
+        const response = await fetch('/api/users/me', {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('accessToken')}`
+          }
+        })
+        if (response.ok) {
+          const data = await response.json()
+          setCurrentUserId(data.user?._id)
+        }
+      } catch (error) {
+        console.error("Error fetching user ID:", error)
+      }
+    }
+    fetchUserId()
+  }, [])
 
   // Load communication thread
   useEffect(() => {
@@ -106,13 +128,6 @@ export function OrderMessagesSummary({
             pendingFeedback: thread?.pendingFeedbackCount || 0,
             pendingActions: thread?.pendingActionsCount || 0,
           })
-
-          // Mark as read only when dialog is open
-          if (dialogOpen) {
-            await markMessagesAsRead(orderId).catch((error) =>
-              console.error("OrderMessagesSummary: Error marking messages as read:", error)
-            )
-          }
         }
       } catch (error) {
         if (isActive) {
@@ -139,7 +154,7 @@ export function OrderMessagesSummary({
       isActive = false
       if (pollingInterval) clearInterval(pollingInterval)
     }
-  }, [orderId, dialogOpen])
+  }, [orderId])
 
   // Handle sending message
   const handleSendMessage = async () => {
@@ -297,6 +312,59 @@ export function OrderMessagesSummary({
     }
   }
 
+  // Handle marking all messages as read
+  const handleMarkAllAsRead = async () => {
+    try {
+      setMarkingAsRead(true)
+      console.log("OrderMessagesSummary: Marking all messages as read")
+      await markMessagesAsRead(orderId)
+
+      // Reload the thread to get updated read status
+      const thread = await getCommunicationThread(orderId)
+      setCommunication(thread)
+
+      toast({
+        title: t("common.success"),
+        description: "All messages marked as read",
+      })
+    } catch (error: any) {
+      console.error("OrderMessagesSummary: Error marking messages as read:", error)
+      toast({
+        title: t("common.error"),
+        description: error.message || "Failed to mark messages as read",
+        variant: "destructive",
+      })
+    } finally {
+      setMarkingAsRead(false)
+    }
+  }
+
+  // Check if a message is unread by current user
+  const isMessageUnread = (message: Message): boolean => {
+    if (!currentUserId) return false
+
+    // Check if current user has read this message
+    const hasRead = message.readBy?.some(
+      (readEntry) => readEntry.userId === currentUserId
+    )
+
+    // For feedback responses, check if admin/staff has read after response was submitted
+    if (isStaffOrAdmin && message.feedbackRequest?.status === 'responded' && message.feedbackRequest?.respondedAt) {
+      const hasReadAfterResponse = message.readBy?.some((readEntry) => {
+        if (readEntry.userId !== currentUserId) return false
+        const readAt = new Date(readEntry.readAt)
+        const respondedAt = new Date(message.feedbackRequest!.respondedAt!)
+        return readAt >= respondedAt
+      })
+      return !hasReadAfterResponse
+    }
+
+    return !hasRead
+  }
+
+  // Count unread messages
+  const unreadCount = communication?.messages?.filter(isMessageUnread).length || 0
+
   const isStaffOrAdmin = userRole === "staff" || userRole === "admin"
   const isCustomer = userRole === "customer"
 
@@ -392,6 +460,11 @@ export function OrderMessagesSummary({
                   <DialogTitle className="flex items-center gap-2">
                     <MessageCircle className="h-5 w-5" />
                     {t("communicationPanel.communicationHistory")}
+                    {unreadCount > 0 && (
+                      <Badge variant="destructive" className="ml-2">
+                        {unreadCount} unread
+                      </Badge>
+                    )}
                   </DialogTitle>
                   <DialogDescription className="mt-1">
                     {communication?.pendingFeedbackCount! > 0 || communication?.pendingActionsCount! > 0
@@ -407,6 +480,18 @@ export function OrderMessagesSummary({
                 {/* Staff/Admin Action Buttons */}
                 {isStaffOrAdmin && (
                   <div className="flex gap-1">
+                    {unreadCount > 0 && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={handleMarkAllAsRead}
+                        disabled={markingAsRead}
+                        title="Mark all messages as read"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span className="hidden sm:inline ml-1">Mark Read</span>
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="outline"
@@ -466,31 +551,53 @@ export function OrderMessagesSummary({
                                 ? t("common.staff")
                                 : t("common.system")}
                             </Badge>
+                            {isMessageUnread(message) && (
+                              <Badge variant="destructive" className="text-xs">
+                                NEW
+                              </Badge>
+                            )}
                           </div>
                           <div
-                            className={`rounded-lg p-3 max-w-md ${
+                            className={`rounded-lg p-3 max-w-md relative ${
                               message.senderType === "customer"
                                 ? "bg-blue-100 dark:bg-blue-950 text-blue-900 dark:text-blue-100"
                                 : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                            }`}
+                            } ${isMessageUnread(message) ? 'ring-2 ring-red-500 ring-offset-2' : ''}`}
                           >
                             <p className="text-sm">{message.content}</p>
                           </div>
-                          <span className="text-xs text-muted-foreground mt-1">
-                            {new Date(message.createdAt).toLocaleString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(message.createdAt).toLocaleString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                            {!isMessageUnread(message) && isStaffOrAdmin && message.senderType === "customer" && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                <Check className="w-3 h-3" />
+                                Read
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )}
 
                     {/* Feedback Requests */}
                     {message.messageType === "feedback_request" && message.feedbackRequest && (
-                      <div className="border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-950 p-4 rounded">
+                      <div className={`border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-950 p-4 rounded relative ${
+                        isMessageUnread(message) ? 'ring-2 ring-red-500 ring-offset-2' : ''
+                      }`}>
+                        {isMessageUnread(message) && (
+                          <div className="absolute -top-2 -right-2">
+                            <Badge variant="destructive" className="text-xs px-2">
+                              NEW
+                            </Badge>
+                          </div>
+                        )}
                         <div className="flex items-start justify-between gap-3 mb-3">
                           <div>
                             <p className="font-semibold text-sm text-amber-900 dark:text-amber-100">
@@ -538,6 +645,14 @@ export function OrderMessagesSummary({
                                 {message.feedbackRequest.response?.label}
                               </span>
                             </span>
+                          </div>
+                        )}
+
+                        {/* Read status for admin/staff */}
+                        {isStaffOrAdmin && message.feedbackRequest.status === "responded" && !isMessageUnread(message) && (
+                          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mt-3 text-xs">
+                            <Check className="w-3 h-3" />
+                            <span>Marked as read</span>
                           </div>
                         )}
                       </div>
