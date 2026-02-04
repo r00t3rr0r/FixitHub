@@ -25,45 +25,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { UnifiedMessage, UnifiedCommunication } from "./CommunicationHistoryDialog"
 
 interface CommunicationPanelProps {
   orderId: string
   inspectionId?: string
 }
 
-interface Message {
-  _id: string
-  senderId: {
-    name: string
-    email: string
-    avatar?: string
-  }
-  senderName: string
-  senderType: "staff" | "customer" | "system"
-  messageType: "text" | "feedback_request" | "quick_action" | "system_notification"
-  content: string
-  feedbackRequest?: {
-    question: string
-    options: Array<{ label: string; value: string }>
-    response?: { label: string; value: string }
-    status: "pending" | "responded" | "expired"
-  }
-  quickAction?: {
-    actionType: string
-    actionLabel: string
-    description: string
-    status: "pending" | "completed" | "cancelled"
-  }
-  createdAt: string
-  readBy: Array<{ userId: string; readAt: string }>
-}
-
-interface Communication {
-  _id: string
-  messages: Message[]
-  pendingFeedbackCount: number
-  pendingActionsCount: number
-}
+// Use unified message and communication interfaces
+type Message = UnifiedMessage
+type Communication = UnifiedCommunication
 
 // Helper function to format timestamps
 const formatMessageTime = (dateString: string): string => {

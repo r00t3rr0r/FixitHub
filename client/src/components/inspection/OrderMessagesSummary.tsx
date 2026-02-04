@@ -26,6 +26,7 @@ import {
   markMessagesAsRead,
 } from "@/api/inspectionCommunication"
 import { MessageCircle, ChevronDown, Settings, Plus, Send, CheckCircle2, AlertCircle, Clock, Check } from "lucide-react"
+import { UnifiedMessage, UnifiedCommunication } from "./CommunicationHistoryDialog"
 
 interface OrderMessagesSummaryProps {
   orderId: string
@@ -33,37 +34,9 @@ interface OrderMessagesSummaryProps {
   customer?: { name: string; email: string; avatar?: string }
 }
 
-interface Message {
-  _id: string
-  senderId: { name: string; email: string; avatar?: string }
-  senderName: string
-  senderType: "staff" | "customer" | "system"
-  messageType: "text" | "feedback_request" | "quick_action" | "system_notification"
-  content: string
-  feedbackRequest?: {
-    question: string
-    options: Array<{ label: string; value: string }>
-    response?: { label: string; value: string }
-    status: "pending" | "responded" | "expired"
-  }
-  quickAction?: {
-    actionType: string
-    actionLabel: string
-    description: string
-    status: "pending" | "completed" | "cancelled"
-  }
-  createdAt: string
-  readBy: Array<{ userId: string; readAt: string }>
-}
-
-interface Communication {
-  _id: string
-  messages: Message[]
-  pendingFeedbackCount: number
-  pendingActionsCount: number
-  status: "active" | "archived" | "resolved"
-  lastMessageAt: string
-}
+// Use unified message and communication interfaces
+type Message = UnifiedMessage
+type Communication = UnifiedCommunication
 
 export function OrderMessagesSummary({
   orderId,
