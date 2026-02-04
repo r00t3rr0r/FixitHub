@@ -804,7 +804,7 @@ export function BookingsManagement() {
                                   relative inline-flex items-center justify-center
                                   w-8 h-8 rounded-full
                                   ${unreadInfo.hasCustomerMessages
-                                    ? 'bg-blue-500 dark:bg-blue-600'
+                                    ? 'bg-red-500 dark:bg-red-600'
                                     : 'bg-orange-500 dark:bg-orange-600'
                                   }
                                   text-white font-semibold text-xs
