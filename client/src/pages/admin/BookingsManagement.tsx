@@ -165,6 +165,7 @@ interface ExpandedBooking extends Booking {
 }
 
 export function BookingsManagement() {
+  console.log('BookingsManagement: Component rendered/mounted')
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [bookings, setBookings] = useState<ExpandedBooking[]>([])
@@ -202,13 +203,15 @@ export function BookingsManagement() {
   const { toast } = useToast()
 
   useEffect(() => {
+    console.log('BookingsManagement: useEffect - Fetching bookings (pagination/filter changed)')
     fetchBookings()
   }, [currentPage, itemsPerPage, statusFilter, billingStatusFilter])
 
   // Fetch unread counts when bookings change and set up periodic refresh
   useEffect(() => {
+    console.log(`BookingsManagement: useEffect - Bookings changed, length: ${bookings.length}`)
     if (bookings.length > 0) {
-      console.log('BookingsManagement: Bookings changed, fetching unread counts')
+      console.log('BookingsManagement: Bookings available, fetching unread counts')
       fetchUnreadCounts()
 
       // Set up periodic refresh every 10 seconds
@@ -218,8 +221,12 @@ export function BookingsManagement() {
       }, 10000) // 10 seconds
 
       return () => {
+        console.log('BookingsManagement: Cleaning up interval on bookings change')
         clearInterval(intervalId)
       }
+    } else {
+      console.log('BookingsManagement: No bookings, clearing unread counts')
+      setUnreadCounts({})
     }
   }, [bookings])
 
@@ -268,42 +275,60 @@ export function BookingsManagement() {
     try {
       setLoadingUnreadCounts(true)
 
+      console.log(`BookingsManagement: fetchUnreadCounts called with ${bookings.length} bookings`)
+
       // Collect all order IDs from all bookings' items
       const allOrderIds: string[] = []
+      const bookingToOrderMapping: Record<string, string[]> = {}
+
       bookings.forEach((booking) => {
+        const orderIds: string[] = []
         booking.items.forEach(item => {
           if (item.orderId) {
             allOrderIds.push(item.orderId)
+            orderIds.push(item.orderId)
           }
         })
+        if (orderIds.length > 0) {
+          bookingToOrderMapping[booking._id] = orderIds
+        }
       })
 
+      console.log(`BookingsManagement: Collected ${allOrderIds.length} order IDs from ${bookings.length} bookings`)
+      console.log('BookingsManagement: Booking to order mapping:', bookingToOrderMapping)
+
       if (allOrderIds.length === 0) {
-        console.log('BookingsManagement: No order IDs found in bookings')
+        console.log('BookingsManagement: No order IDs found in bookings, clearing unread counts')
+        setUnreadCounts({})
         return
       }
 
-      console.log(`BookingsManagement: Fetching unread counts for ${allOrderIds.length} orders from ${bookings.length} bookings`)
+      console.log(`BookingsManagement: Calling API to fetch unread counts for ${allOrderIds.length} orders`)
       const counts = await getUnreadMessageCounts(allOrderIds)
-      console.log('BookingsManagement: Received unread counts:', counts)
+      console.log('BookingsManagement: Received unread counts from API:', counts)
+      console.log('BookingsManagement: Unread counts type:', typeof counts, 'Keys:', Object.keys(counts || {}))
 
       // Ensure we have an object to work with
       const countsToSet = counts && typeof counts === 'object' ? counts : {}
+      console.log('BookingsManagement: Setting unread counts state:', countsToSet)
       setUnreadCounts(countsToSet)
 
       // Log booking-to-order mapping for debugging
-      if (Object.keys(countsToSet).length > 0) {
-        bookings.forEach(booking => {
-          const bookingUnread = booking.items.reduce((sum, item) => {
-            return sum + (countsToSet[item.orderId]?.unread || 0)
-          }, 0)
-          if (bookingUnread > 0) {
-            console.log(`BookingsManagement: Booking ${booking._id} - orders: ${booking.items.map(i => i.orderId).join(', ')} - total unread: ${bookingUnread}`)
-          }
-        })
-      }
+      let totalUnreadAcrossAllBookings = 0
+      bookings.forEach(booking => {
+        const bookingUnread = booking.items.reduce((sum, item) => {
+          const itemUnread = countsToSet[item.orderId]?.unread || 0
+          return sum + itemUnread
+        }, 0)
+        totalUnreadAcrossAllBookings += bookingUnread
+        if (bookingUnread > 0) {
+          console.log(`BookingsManagement: Booking ${booking._id.slice(-8)} - orders: [${booking.items.map(i => i.orderId.slice(-8)).join(', ')}] - total unread: ${bookingUnread}`)
+        }
+      })
+      console.log(`BookingsManagement: Total unread messages across all bookings: ${totalUnreadAcrossAllBookings}`)
     } catch (error) {
       console.error("BookingsManagement: Error fetching unread counts:", error)
+      console.error("BookingsManagement: Error details:", (error as any).message, (error as any).stack)
       // Don't show error toast as this is a non-critical feature
     } finally {
       setLoadingUnreadCounts(false)
@@ -506,9 +531,9 @@ export function BookingsManagement() {
       }
     })
 
-    // Debug logging
+    // Debug logging only if there are unread messages
     if (totalUnread > 0) {
-      console.log(`BookingsManagement: Booking ${booking._id} has ${totalUnread} unread messages (customer: ${hasCustomerMessages}, staff: ${hasStaffMessages})`)
+      console.log(`BookingsManagement: Booking ${booking._id.slice(-8)} has ${totalUnread} unread messages (customer: ${hasCustomerMessages}, staff: ${hasStaffMessages})`)
     }
 
     return {
