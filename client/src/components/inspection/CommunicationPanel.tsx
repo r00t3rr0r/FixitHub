@@ -105,24 +105,41 @@ export function CommunicationPanel({
 
   // Load communication thread
   useEffect(() => {
+    let isActive = true;
+    let loadTimeout: NodeJS.Timeout | null = null;
+
     const loadCommunication = async () => {
       try {
+        if (!isActive) return;
         setLoading(true)
         const thread = await getCommunicationThread(orderId)
-        setCommunication(thread)
-        console.log("CommunicationPanel: Communication thread loaded:", thread)
+        if (isActive) {
+          setCommunication(thread)
+          console.log("CommunicationPanel: Communication thread loaded with", thread?.messages?.length || 0, "messages")
+        }
       } catch (error) {
-        console.error("CommunicationPanel: Error loading communication thread:", error)
+        if (isActive) {
+          console.error("CommunicationPanel: Error loading communication thread:", error)
+        }
       } finally {
-        setLoading(false)
+        if (isActive) {
+          setLoading(false)
+        }
       }
     }
 
     if (orderId) {
+      // Initial load
       loadCommunication()
-      // Set up polling for updates every 5 seconds
-      const interval = setInterval(loadCommunication, 5000)
-      return () => clearInterval(interval)
+      // Set up polling for updates every 3 seconds
+      const interval = setInterval(() => {
+        loadCommunication()
+      }, 3000)
+      return () => {
+        isActive = false
+        clearInterval(interval)
+        if (loadTimeout) clearTimeout(loadTimeout)
+      }
     }
   }, [orderId])
 
@@ -140,8 +157,9 @@ export function CommunicationPanel({
       setResponding(true)
       console.log("CommunicationPanel: Responding to feedback:", { messageId, response })
       const updated = await respondToFeedback(orderId, messageId, response)
+      console.log("CommunicationPanel: Received updated communication after feedback response:", updated)
       setCommunication(updated)
-      console.log("CommunicationPanel: Feedback response recorded successfully")
+      console.log("CommunicationPanel: Feedback response recorded successfully, state updated with", updated?.messages?.length || 0, "messages")
       toast({
         title: t('common.success'),
         description: t('communicationPanel.successResponseRecorded'),
@@ -176,8 +194,9 @@ export function CommunicationPanel({
       ]
       console.log("CommunicationPanel: Sending feedback request:", { orderId, question: feedbackQuestion, options })
       const updated = await sendFeedbackRequest(orderId, inspectionId || "", feedbackQuestion, options)
+      console.log("CommunicationPanel: Received updated communication after sending feedback:", updated)
       setCommunication(updated)
-      console.log("CommunicationPanel: Feedback request sent successfully")
+      console.log("CommunicationPanel: Feedback request sent successfully, state updated with", updated?.messages?.length || 0, "messages")
       toast({
         title: t('common.success'),
         description: t('communicationPanel.successFeedbackSent'),
@@ -215,8 +234,9 @@ export function CommunicationPanel({
       setSendingQuickAction(true)
       console.log("CommunicationPanel: Sending quick action:", { orderId, actionType: quickActionType, description: quickActionDescription })
       const updated = await createQuickAction(orderId, inspectionId || "", quickActionType, quickActionDescription)
+      console.log("CommunicationPanel: Received updated communication after sending quick action:", updated)
       setCommunication(updated)
-      console.log("CommunicationPanel: Quick action sent successfully")
+      console.log("CommunicationPanel: Quick action sent successfully, state updated with", updated?.messages?.length || 0, "messages")
       toast({
         title: t('common.success'),
         description: t('communicationPanel.successActionSent'),

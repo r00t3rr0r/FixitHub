@@ -46,11 +46,26 @@ class InspectionCommunicationService {
         messageType: 'text',
         content,
         readBy: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
       communication.messages.push(message);
       communication.lastMessageAt = new Date();
       await communication.save();
+
+      // Refetch to ensure all nested documents have proper IDs and timestamps
+      communication = await InspectionCommunication.findOne({ orderId })
+        .populate('messages.senderId', 'name email role avatar')
+        .populate('messages.feedbackRequest.respondedBy', 'name email');
+
+      if (communication && communication.messages && communication.messages.length > 0) {
+        communication.messages.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateA - dateB;
+        });
+      }
 
       console.log(`InspectionCommunicationService: Message sent successfully`);
       return communication;
@@ -89,6 +104,8 @@ class InspectionCommunicationService {
           expiresAt: expirationTime,
         },
         readBy: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
       communication.messages.push(message);
@@ -96,10 +113,28 @@ class InspectionCommunicationService {
       communication.pendingFeedbackCount = (communication.pendingFeedbackCount || 0) + 1;
       await communication.save();
 
+      // Refetch to ensure all nested documents have proper IDs and timestamps
+      communication = await InspectionCommunication.findOne({ orderId })
+        .populate('messages.senderId', 'name email role avatar')
+        .populate('messages.feedbackRequest.respondedBy', 'name email');
+
+      if (communication && communication.messages && communication.messages.length > 0) {
+        communication.messages.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateA - dateB;
+        });
+      }
+
       // Create notification for customer
       try {
         const order = await Order.findById(orderId);
         if (order && order.customerId) {
+          // Get the last message to access the generated _id
+          const lastMessage = communication && communication.messages && communication.messages.length > 0
+            ? communication.messages[communication.messages.length - 1]
+            : null;
+
           await NotificationService.createNotification({
             userId: order.customerId,
             title: 'Feedback Required on Your Repair Inspection',
@@ -107,7 +142,7 @@ class InspectionCommunicationService {
             type: 'message',
             orderId,
             actionUrl: `/orders/${orderId}`,
-            metadata: { messageId: message._id, inspectionId, messageType: 'feedback_request' }
+            metadata: { messageId: lastMessage?._id, inspectionId, messageType: 'feedback_request' }
           });
         }
       } catch (notificationError) {
@@ -128,7 +163,7 @@ class InspectionCommunicationService {
     try {
       console.log(`InspectionCommunicationService: Recording feedback response from ${respondedByName}`);
 
-      const communication = await InspectionCommunication.findOne({ orderId });
+      let communication = await InspectionCommunication.findOne({ orderId });
 
       if (!communication) {
         throw new Error('Communication thread not found');
@@ -156,6 +191,19 @@ class InspectionCommunicationService {
       communication.lastMessageAt = new Date();
 
       await communication.save();
+
+      // Refetch to ensure all nested documents are properly populated
+      communication = await InspectionCommunication.findOne({ orderId })
+        .populate('messages.senderId', 'name email role avatar')
+        .populate('messages.feedbackRequest.respondedBy', 'name email');
+
+      if (communication && communication.messages && communication.messages.length > 0) {
+        communication.messages.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateA - dateB;
+        });
+      }
 
       console.log(`InspectionCommunicationService: Feedback response recorded successfully`);
       return communication;
@@ -199,6 +247,8 @@ class InspectionCommunicationService {
           status: 'pending',
         },
         readBy: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
       communication.messages.push(message);
@@ -206,10 +256,28 @@ class InspectionCommunicationService {
       communication.pendingActionsCount = (communication.pendingActionsCount || 0) + 1;
       await communication.save();
 
+      // Refetch to ensure all nested documents have proper IDs and timestamps
+      communication = await InspectionCommunication.findOne({ orderId })
+        .populate('messages.senderId', 'name email role avatar')
+        .populate('messages.feedbackRequest.respondedBy', 'name email');
+
+      if (communication && communication.messages && communication.messages.length > 0) {
+        communication.messages.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateA - dateB;
+        });
+      }
+
       // Create notification for customer
       try {
         const order = await Order.findById(orderId);
         if (order && order.customerId) {
+          // Get the last message to access the generated _id
+          const lastMessage = communication && communication.messages && communication.messages.length > 0
+            ? communication.messages[communication.messages.length - 1]
+            : null;
+
           await NotificationService.createNotification({
             userId: order.customerId,
             title: `${actionLabels[actionType] || actionType}`,
@@ -217,7 +285,7 @@ class InspectionCommunicationService {
             type: 'message',
             orderId,
             actionUrl: `/orders/${orderId}`,
-            metadata: { messageId: message._id, actionType, inspectionId, messageType: 'quick_action' }
+            metadata: { messageId: lastMessage?._id, actionType, inspectionId, messageType: 'quick_action' }
           });
         }
       } catch (notificationError) {
@@ -238,7 +306,7 @@ class InspectionCommunicationService {
     try {
       console.log(`InspectionCommunicationService: Completing quick action in order ${orderId}`);
 
-      const communication = await InspectionCommunication.findOne({ orderId });
+      let communication = await InspectionCommunication.findOne({ orderId });
 
       if (!communication) {
         throw new Error('Communication thread not found');
@@ -264,6 +332,19 @@ class InspectionCommunicationService {
       communication.lastMessageAt = new Date();
 
       await communication.save();
+
+      // Refetch to ensure all nested documents are properly populated
+      communication = await InspectionCommunication.findOne({ orderId })
+        .populate('messages.senderId', 'name email role avatar')
+        .populate('messages.feedbackRequest.respondedBy', 'name email');
+
+      if (communication && communication.messages && communication.messages.length > 0) {
+        communication.messages.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateA - dateB;
+        });
+      }
 
       console.log(`InspectionCommunicationService: Quick action completed successfully`);
       return communication;
