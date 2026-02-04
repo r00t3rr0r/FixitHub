@@ -28,6 +28,7 @@ import { UnlockInformationDisplay } from "@/components/inspection/UnlockInformat
 import { ConfirmUnlockDialog } from "@/components/inspection/ConfirmUnlockDialog"
 import { DeviceChangeDialog } from "@/components/admin/DeviceChangeDialog"
 import { TrackingPanel } from "@/components/admin/TrackingPanel"
+import { OrderMessagesPanel } from "@/components/inspection/OrderMessagesPanel"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -1601,6 +1602,21 @@ export function OrderDetails() {
 
           {/* Device Inspection Section - visible to all roles when inspection is completed */}
           <InspectionResultsDisplay orderId={id!} userRole={user?.role} />
+
+          {/* Customer Messages Panel - Integrated communication system for customers and staff */}
+          {id && (
+            <OrderMessagesPanel
+              orderId={id}
+              inspectionId={undefined}
+              customer={{
+                name: order?.customerId?.name || "Customer",
+                email: order?.customerId?.email || "",
+                avatar: order?.customerId?.avatar,
+              }}
+              userRole={user?.role}
+              isReadOnly={false}
+            />
+          )}
 
           {/* Assigned Staff - Only visible to admin/staff */}
           {(user?.role === 'admin' || user?.role === 'staff') && (
