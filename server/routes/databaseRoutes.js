@@ -128,4 +128,25 @@ router.post('/cleanup', requireUser, requireRole(['admin']), async (req, res) =>
   }
 });
 
+// Delete all bookings and orders (admin only)
+// Description: Delete all bookings and orders from the database
+// Endpoint: POST /api/database/delete-bookings-orders
+// Request: {}
+// Response: { success: boolean, message: string, results: { orders: { before: number, deleted: number, after: number }, bookings: { before: number, deleted: number, after: number } }, timestamp: string }
+router.post('/delete-bookings-orders', requireUser, requireRole(['admin']), async (req, res) => {
+  console.log('DatabaseRoutes: Delete all bookings and orders request');
+
+  try {
+    const result = await DatabaseService.deleteAllBookingsAndOrders();
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('DatabaseRoutes: Error deleting bookings and orders:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete bookings and orders'
+    });
+  }
+});
+
 module.exports = router;

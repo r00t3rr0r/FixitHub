@@ -140,3 +140,15 @@ export const cleanupOldData = async (options = {}) => {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// Description: Delete all bookings and orders from the database
+// Endpoint: POST /api/database/delete-bookings-orders
+// Request: {}
+// Response: { success: boolean, message: string, results: { orders: { before: number, deleted: number, after: number }, bookings: { before: number, deleted: number, after: number } }, timestamp: string }
+export const deleteAllBookingsAndOrders = async () => {
+  try {
+    return await api.post('/api/database/delete-bookings-orders');
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
