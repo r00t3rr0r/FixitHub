@@ -29,6 +29,7 @@ import { ConfirmUnlockDialog } from "@/components/inspection/ConfirmUnlockDialog
 import { DeviceChangeDialog } from "@/components/admin/DeviceChangeDialog"
 import { TrackingPanel } from "@/components/admin/TrackingPanel"
 import { OrderMessagesPanel } from "@/components/inspection/OrderMessagesPanel"
+import { OrderMessagesSummary } from "@/components/inspection/OrderMessagesSummary"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -1603,21 +1604,6 @@ export function OrderDetails() {
           {/* Device Inspection Section - visible to all roles when inspection is completed */}
           <InspectionResultsDisplay orderId={id!} userRole={user?.role} />
 
-          {/* Customer Messages Panel - Integrated communication system for customers and staff */}
-          {id && (
-            <OrderMessagesPanel
-              orderId={id}
-              inspectionId={undefined}
-              customer={{
-                name: order?.customerId?.name || "Customer",
-                email: order?.customerId?.email || "",
-                avatar: order?.customerId?.avatar,
-              }}
-              userRole={user?.role}
-              isReadOnly={false}
-            />
-          )}
-
           {/* Assigned Staff - Only visible to admin/staff */}
           {(user?.role === 'admin' || user?.role === 'staff') && (
           <Card>
@@ -2636,51 +2622,18 @@ export function OrderDetails() {
             </CardContent>
           </Card>
 
-          {/* Communication */}
-          <Card>
-            <CardHeader className="pb-3 pt-3 px-4">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <MessageSquare className="h-4 w-4" />
-                Messages
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-3">
-              <div className="max-h-56 overflow-y-auto space-y-2">
-                {messages.map((message) => (
-                  <div key={message._id} className={`flex gap-2 ${
-                    message.senderRole === 'customer' ? 'justify-end' : 'justify-start'
-                  }`}>
-                    <div className={`max-w-xs p-2 rounded-lg text-xs ${
-                      message.senderRole === 'customer'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted'
-                    }`}>
-                      <p className="text-xs">{message.content}</p>
-                      <p className="text-xs opacity-70 mt-0.5">
-                        {new Date(message.timestamp).toLocaleTimeString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <Textarea
-                  placeholder="Type your message..."
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  className="min-h-[50px] text-xs"
-                />
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!newMessage.trim() || sending}
-                  size="sm"
-                  className="h-[50px]"
-                >
-                  <Send className="h-3 w-3" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Customer Messages Summary - Shows last message with option to expand history */}
+          {id && (
+            <OrderMessagesSummary
+              orderId={id}
+              userRole={user?.role}
+              customer={{
+                name: order?.customerId?.name || "Customer",
+                email: order?.customerId?.email || "",
+                avatar: order?.customerId?.avatar,
+              }}
+            />
+          )}
         </div>
       </div>
 

@@ -1671,7 +1671,11 @@
     "successActionSent": "Quick action sent to customer",
     "successResponseRecorded": "Your response has been recorded",
     "successMessageSent": "Message sent successfully",
-    "sending": "Sending..."
+    "sending": "Sending...",
+    "message": "message",
+    "messages": "messages",
+    "viewHistory": "View History",
+    "communicationHistory": "Communication History"
   },
   "newOrder": {
     "title": "Create New Repair Order",

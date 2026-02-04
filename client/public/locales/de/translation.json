@@ -1670,7 +1670,11 @@
     "successActionSent": "Schnellaktion an Kunden gesendet",
     "successResponseRecorded": "Ihre Antwort wurde aufgezeichnet",
     "successMessageSent": "Nachricht erfolgreich gesendet",
-    "sending": "Wird gesendet..."
+    "sending": "Wird gesendet...",
+    "message": "Nachricht",
+    "messages": "Nachrichten",
+    "viewHistory": "Verlauf Anzeigen",
+    "communicationHistory": "Kommunikationsverlauf"
   },
   "newOrder": {
     "title": "Neuen Reparaturauftrag Erstellen",
