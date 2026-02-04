@@ -50,7 +50,7 @@ class MessageService {
 
           return {
             _id: conv._id,
-            orderId: conv.orderId._id,
+            orderId: conv.orderId ? conv.orderId._id : null,
             orderNumber: conv.orderNumber,
             deviceInfo: conv.deviceInfo,
             participants: conv.participants,
@@ -130,7 +130,7 @@ class MessageService {
       return {
         conversation: {
           _id: conversation._id,
-          orderId: conversation.orderId._id,
+          orderId: conversation.orderId ? conversation.orderId._id : null,
           orderNumber: conversation.orderNumber,
           deviceInfo: conversation.deviceInfo,
           participants: conversation.participants,
@@ -311,7 +311,7 @@ class MessageService {
         success: true,
         conversation: {
           _id: savedConversation._id,
-          orderId: savedConversation.orderId,
+          orderId: savedConversation.orderId ? savedConversation.orderId._id : null,
           orderNumber: savedConversation.orderNumber,
           deviceInfo: savedConversation.deviceInfo,
           participants: savedConversation.participants,
