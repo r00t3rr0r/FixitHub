@@ -205,10 +205,21 @@ export function BookingsManagement() {
     fetchBookings()
   }, [currentPage, itemsPerPage, statusFilter, billingStatusFilter])
 
-  // Fetch unread counts when bookings change
+  // Fetch unread counts when bookings change and set up periodic refresh
   useEffect(() => {
     if (bookings.length > 0) {
+      console.log('BookingsManagement: Bookings changed, fetching unread counts')
       fetchUnreadCounts()
+
+      // Set up periodic refresh every 10 seconds
+      const intervalId = setInterval(() => {
+        console.log('BookingsManagement: Auto-refreshing unread counts (periodic)')
+        fetchUnreadCounts()
+      }, 10000) // 10 seconds
+
+      return () => {
+        clearInterval(intervalId)
+      }
     }
   }, [bookings])
 
@@ -268,15 +279,31 @@ export function BookingsManagement() {
       })
 
       if (allOrderIds.length === 0) {
+        console.log('BookingsManagement: No order IDs found in bookings')
         return
       }
 
-      console.log(`Fetching unread counts for ${allOrderIds.length} orders from all bookings`)
+      console.log(`BookingsManagement: Fetching unread counts for ${allOrderIds.length} orders from ${bookings.length} bookings`)
       const counts = await getUnreadMessageCounts(allOrderIds)
-      console.log('Received unread counts:', counts)
-      setUnreadCounts(counts || {})
+      console.log('BookingsManagement: Received unread counts:', counts)
+
+      // Ensure we have an object to work with
+      const countsToSet = counts && typeof counts === 'object' ? counts : {}
+      setUnreadCounts(countsToSet)
+
+      // Log booking-to-order mapping for debugging
+      if (Object.keys(countsToSet).length > 0) {
+        bookings.forEach(booking => {
+          const bookingUnread = booking.items.reduce((sum, item) => {
+            return sum + (countsToSet[item.orderId]?.unread || 0)
+          }, 0)
+          if (bookingUnread > 0) {
+            console.log(`BookingsManagement: Booking ${booking._id} - orders: ${booking.items.map(i => i.orderId).join(', ')} - total unread: ${bookingUnread}`)
+          }
+        })
+      }
     } catch (error) {
-      console.error("Error fetching unread counts:", error)
+      console.error("BookingsManagement: Error fetching unread counts:", error)
       // Don't show error toast as this is a non-critical feature
     } finally {
       setLoadingUnreadCounts(false)
@@ -469,7 +496,8 @@ export function BookingsManagement() {
     // Check all items in the booking
     booking.items.forEach((item) => {
       if (item.orderId && unreadCounts[item.orderId]) {
-        totalUnread += unreadCounts[item.orderId].unread
+        const unreadCount = unreadCounts[item.orderId].unread || 0
+        totalUnread += unreadCount
         if (unreadCounts[item.orderId].senderType === 'customer') {
           hasCustomerMessages = true
         } else {
@@ -477,6 +505,11 @@ export function BookingsManagement() {
         }
       }
     })
+
+    // Debug logging
+    if (totalUnread > 0) {
+      console.log(`BookingsManagement: Booking ${booking._id} has ${totalUnread} unread messages (customer: ${hasCustomerMessages}, staff: ${hasStaffMessages})`)
+    }
 
     return {
       total: totalUnread,
@@ -681,9 +714,23 @@ export function BookingsManagement() {
 
       {/* Bookings Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Bookings List</CardTitle>
-          <CardDescription>{filteredBookings.length} bookings found</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div>
+            <CardTitle>Bookings List</CardTitle>
+            <CardDescription>{filteredBookings.length} bookings found</CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              console.log('BookingsManagement: Manually refreshing unread counts')
+              fetchUnreadCounts()
+            }}
+            disabled={loadingUnreadCounts}
+            title="Refresh message counts"
+          >
+            <RefreshCw className={`h-4 w-4 ${loadingUnreadCounts ? 'animate-spin' : ''}`} />
+          </Button>
         </CardHeader>
         <CardContent>
           {filteredBookings.length === 0 ? (
@@ -799,18 +846,18 @@ export function BookingsManagement() {
                           const unreadInfo = getBookingUnreadCount(booking)
                           if (unreadInfo.total > 0) {
                             return (
-                              <div className="flex items-center justify-center">
+                              <div className="flex items-center justify-center gap-2">
                                 <div className={`
                                   relative inline-flex items-center justify-center
                                   w-8 h-8 rounded-full
+                                  font-semibold text-xs
+                                  shadow-md
+                                  ring-2 ring-offset-2
+                                  transition-all duration-200
                                   ${unreadInfo.hasCustomerMessages
-                                    ? 'bg-red-500 dark:bg-red-600'
-                                    : 'bg-orange-500 dark:bg-orange-600'
+                                    ? 'bg-red-500 dark:bg-red-600 text-white ring-red-200 dark:ring-red-800 hover:scale-110 hover:shadow-lg animate-pulse'
+                                    : 'bg-orange-500 dark:bg-orange-600 text-white ring-orange-200 dark:ring-orange-800 hover:scale-110 hover:shadow-lg animate-pulse'
                                   }
-                                  text-white font-semibold text-xs
-                                  shadow-lg
-                                  animate-pulse
-                                  hover:scale-110 transition-transform cursor-pointer
                                 `}
                                 title={`${unreadInfo.total} total unread message${unreadInfo.total > 1 ? 's' : ''} from ${unreadInfo.hasCustomerMessages ? 'customer' : 'staff'}`}
                                 onClick={(e) => {
@@ -819,6 +866,7 @@ export function BookingsManagement() {
                                 >
                                   {unreadInfo.total > 99 ? '99+' : unreadInfo.total}
                                 </div>
+                                <MessageSquare className="h-3 w-3 text-foreground/60 hidden sm:inline" />
                               </div>
                             )
                           }
