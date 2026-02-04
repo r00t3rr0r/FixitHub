@@ -618,7 +618,7 @@ class BookingService {
         customerId: booking.customerId._id,
         customerName: customerName,
         customerEmail: customerEmail,
-        orderId: booking.orderIds[0], // Link to first order for reference
+        orderId: booking.orderIds && booking.orderIds.length > 0 ? booking.orderIds[0] : null, // Link to first order for reference
         bookingId: booking._id,
         items: invoiceItems,
         subtotal: booking.subtotal || booking.totalCost,
