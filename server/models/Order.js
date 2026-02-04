@@ -320,6 +320,10 @@ const orderSchema = new mongoose.Schema({
     },
     name: String,
     avatar: String,
+    assignedAt: {
+      type: Date,
+      default: Date.now,
+    },
   }],
   estimatedCompletion: {
     type: Date,

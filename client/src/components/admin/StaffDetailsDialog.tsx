@@ -19,9 +19,11 @@ import {
   User,
   Briefcase,
   TrendingUp,
-  MapPin
+  MapPin,
+  ExternalLink
 } from "lucide-react"
-import { format } from "date-fns"
+import { format, formatDistanceToNow } from "date-fns"
+import { useNavigate } from "react-router-dom"
 
 interface StaffDetailsDialogProps {
   open: boolean
@@ -33,6 +35,7 @@ export function StaffDetailsDialog({ open, onOpenChange, staffId }: StaffDetails
   const [staffDetails, setStaffDetails] = useState<StaffMemberDetails | null>(null)
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (open && staffId) {
@@ -141,17 +144,36 @@ export function StaffDetailsDialog({ open, onOpenChange, staffId }: StaffDetails
   // Helper function to safely render any value
   const safeRender = (value: any, fallback: string = 'N/A') => {
     console.log("Safe rendering value:", value, "type:", typeof value)
-    
+
     if (value === null || value === undefined) {
       return fallback
     }
-    
+
     if (typeof value === 'object') {
       console.warn("Attempting to render object:", value)
       return JSON.stringify(value)
     }
-    
+
     return String(value)
+  }
+
+  // Helper function to calculate assignment duration
+  const getAssignmentDuration = (assignedAt: string) => {
+    if (!assignedAt) return 'N/A'
+
+    try {
+      return formatDistanceToNow(new Date(assignedAt), { addSuffix: true })
+    } catch (error) {
+      console.error('Error calculating assignment duration:', error)
+      return 'N/A'
+    }
+  }
+
+  // Handle order click navigation
+  const handleOrderClick = (orderId: string) => {
+    console.log('Navigating to order details:', orderId)
+    onOpenChange(false) // Close the dialog
+    navigate(`/admin/orders/${orderId}`)
   }
 
   if (loading) {
@@ -350,9 +372,16 @@ export function StaffDetailsDialog({ open, onOpenChange, staffId }: StaffDetails
                   {(staffDetails.assignedOrders || []).length > 0 ? (
                     <div className="space-y-3 max-h-64 overflow-y-auto">
                       {(staffDetails.assignedOrders || []).map((order) => (
-                        <div key={order._id} className="p-3 border rounded-lg space-y-2">
+                        <div
+                          key={order._id}
+                          onClick={() => handleOrderClick(order._id)}
+                          className="p-3 border rounded-lg space-y-2 cursor-pointer hover:bg-accent hover:shadow-md transition-all duration-200"
+                        >
                           <div className="flex items-center justify-between">
-                            <div className="font-medium">{safeRender(order.orderNumber)}</div>
+                            <div className="font-medium flex items-center gap-2">
+                              {safeRender(order.orderNumber)}
+                              <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                            </div>
                             <div className="flex gap-2">
                               <Badge className={getPriorityColor(order.priority)} size="sm">
                                 {safeRender(order.priority)}
@@ -369,8 +398,14 @@ export function StaffDetailsDialog({ open, onOpenChange, staffId }: StaffDetails
                             <Progress value={order.progress || 0} className="flex-1" />
                             <span className="text-xs text-muted-foreground">{safeRender(order.progress || 0)}%</span>
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            Due: {formatDate(order.estimatedCompletion, 'MMM dd, yyyy')}
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Assigned {getAssignmentDuration(order.assignedAt)}
+                            </span>
+                            <span>
+                              Due: {formatDate(order.estimatedCompletion, 'MMM dd, yyyy')}
+                            </span>
                           </div>
                         </div>
                       ))}

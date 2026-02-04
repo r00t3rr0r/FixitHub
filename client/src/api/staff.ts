@@ -436,6 +436,7 @@ export interface StaffMemberDetails extends StaffMember {
     createdAt: string;
     estimatedCompletion: string;
     progress: number;
+    assignedAt: string;
   }>;
   assignedTasks: Array<{
     _id: string;
