@@ -3,6 +3,30 @@ const router = express.Router();
 const InspectionCommunicationService = require('../services/inspectionCommunicationService');
 const { auth, requireUser } = require('./middleware/auth');
 
+// Description: Get unread message counts for multiple orders
+// Endpoint: POST /api/inspection-communication/unread-counts
+// Request: { orderIds: Array<string> }
+// Response: { unreadCounts: Record<string, { unread: number, senderType?: string }> }
+// NOTE: This route MUST be defined before /:orderId routes to avoid route collision
+router.post('/unread-counts', requireUser, async (req, res) => {
+  try {
+    const { orderIds } = req.body;
+
+    if (!orderIds || !Array.isArray(orderIds)) {
+      return res.status(400).json({ error: 'orderIds array is required' });
+    }
+
+    console.log(`InspectionCommunicationRoutes: POST /unread-counts - Getting unread counts for ${orderIds.length} orders`);
+
+    const unreadCounts = await InspectionCommunicationService.getUnreadMessageCounts(orderIds, req.user._id, req.user.role);
+
+    res.status(200).json({ unreadCounts });
+  } catch (error) {
+    console.error(`InspectionCommunicationRoutes: Error getting unread message counts: ${error}`);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Description: Get communication thread for an order
 // Endpoint: GET /api/inspection-communication/:orderId
 // Request: {}
@@ -221,29 +245,6 @@ router.get('/:orderId/pending-actions', requireUser, async (req, res) => {
     res.status(200).json({ count });
   } catch (error) {
     console.error(`InspectionCommunicationRoutes: Error getting pending actions count: ${error}`);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Description: Get unread message counts for multiple orders
-// Endpoint: POST /api/inspection-communication/unread-counts
-// Request: { orderIds: Array<string> }
-// Response: { unreadCounts: Record<string, { unread: number, senderType?: string }> }
-router.post('/unread-counts', requireUser, async (req, res) => {
-  try {
-    const { orderIds } = req.body;
-
-    if (!orderIds || !Array.isArray(orderIds)) {
-      return res.status(400).json({ error: 'orderIds array is required' });
-    }
-
-    console.log(`InspectionCommunicationRoutes: POST /unread-counts - Getting unread counts for ${orderIds.length} orders`);
-
-    const unreadCounts = await InspectionCommunicationService.getUnreadMessageCounts(orderIds, req.user._id, req.user.role);
-
-    res.status(200).json({ unreadCounts });
-  } catch (error) {
-    console.error(`InspectionCommunicationRoutes: Error getting unread message counts: ${error}`);
     res.status(500).json({ error: error.message });
   }
 });
