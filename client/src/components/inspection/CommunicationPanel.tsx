@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,6 +24,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface CommunicationPanelProps {
   orderId: string
@@ -312,77 +313,79 @@ export function CommunicationPanel({
           )}
         </div>
 
-        {/* Communication Messages */}
+        {/* Communication Messages - Scrollable History */}
         {communicationMessages.length > 0 && (
-          <div className="space-y-2">
-            {communicationMessages.map((message) => (
-              <div key={message._id} className="space-y-2">
-                {/* Feedback Requests */}
-                {message.messageType === "feedback_request" && message.feedbackRequest && (
-                  <div className="border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-950 p-4 rounded">
-                    <p className="font-medium text-sm mb-3 text-amber-900 dark:text-amber-100">
-                      {message.feedbackRequest.question}
-                    </p>
-                    {message.feedbackRequest.status === "pending" ? (
-                      <div className="space-y-2">
-                        {message.feedbackRequest.options.map((option) => (
-                          <Button
-                            key={option.value}
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              handleFeedbackResponse(message._id, {
-                                label: option.label,
-                                value: option.value,
-                              })
-                            }
-                            disabled={responding}
-                            className="w-full justify-start text-left h-auto py-2"
-                          >
-                            {option.label}
-                          </Button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span className="text-sm">
-                          {t('communicationPanel.youResponded')} <span className="font-medium">{message.feedbackRequest.response?.label}</span>
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Quick Actions */}
-                {message.messageType === "quick_action" && message.quickAction && (
-                  <div className="border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-950 p-4 rounded">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1">
-                        <p className="font-medium text-sm text-blue-900 dark:text-blue-100">
-                          {message.quickAction.actionLabel}
-                        </p>
-                        {message.quickAction.description && (
-                          <p className="text-xs text-blue-800 dark:text-blue-200 mt-1">
-                            {message.quickAction.description}
-                          </p>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {t('communicationPanel.from')} <span className="font-medium">{message.senderName}</span>
-                        </p>
-                      </div>
-                      {message.quickAction.status === "completed" && (
-                        <Badge variant="default" className="gap-1 flex-shrink-0">
-                          <CheckCircle2 className="w-3 h-3" />
-                          {t('communicationPanel.completed')}
-                        </Badge>
+          <ScrollArea className="h-80 border rounded-lg p-3 w-full">
+            <div className="space-y-2">
+              {communicationMessages.map((message) => (
+                <div key={message._id} className="space-y-2">
+                  {/* Feedback Requests */}
+                  {message.messageType === "feedback_request" && message.feedbackRequest && (
+                    <div className="border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-950 p-4 rounded">
+                      <p className="font-medium text-sm mb-3 text-amber-900 dark:text-amber-100">
+                        {message.feedbackRequest.question}
+                      </p>
+                      {message.feedbackRequest.status === "pending" ? (
+                        <div className="space-y-2">
+                          {message.feedbackRequest.options.map((option) => (
+                            <Button
+                              key={option.value}
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                handleFeedbackResponse(message._id, {
+                                  label: option.label,
+                                  value: option.value,
+                                })
+                              }
+                              disabled={responding}
+                              className="w-full justify-start text-left h-auto py-2"
+                            >
+                              {option.label}
+                            </Button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span className="text-sm">
+                            {t('communicationPanel.youResponded')} <span className="font-medium">{message.feedbackRequest.response?.label}</span>
+                          </span>
+                        </div>
                       )}
                     </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+                  )}
+
+                  {/* Quick Actions */}
+                  {message.messageType === "quick_action" && message.quickAction && (
+                    <div className="border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-950 p-4 rounded">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <p className="font-medium text-sm text-blue-900 dark:text-blue-100">
+                            {message.quickAction.actionLabel}
+                          </p>
+                          {message.quickAction.description && (
+                            <p className="text-xs text-blue-800 dark:text-blue-200 mt-1">
+                              {message.quickAction.description}
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {t('communicationPanel.from')} <span className="font-medium">{message.senderName}</span>
+                          </p>
+                        </div>
+                        {message.quickAction.status === "completed" && (
+                          <Badge variant="default" className="gap-1 flex-shrink-0">
+                            <CheckCircle2 className="w-3 h-3" />
+                            {t('communicationPanel.completed')}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
         )}
 
         {communicationMessages.length === 0 && isStaffOrAdmin && (
