@@ -310,13 +310,13 @@ export const updateOrderStatus = async (orderId: string, status: string, note?: 
 };
 
 // Description: Get available staff members for assignment with workload information
-// Endpoint: GET /api/admin/staff
+// Endpoint: GET /api/admin/staff-management/staff
 // Request: {}
 // Response: { staff: StaffMember[] }
 export const getAvailableStaff = async () => {
   try {
     console.log('getAvailableStaff: Fetching staff members with workload from API');
-    const response = await api.get('/api/admin/staff');
+    const response = await api.get('/api/admin/staff-management/staff');
     console.log('getAvailableStaff API response:', response.data);
 
     // Ensure workload information is present
