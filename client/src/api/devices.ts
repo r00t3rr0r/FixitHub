@@ -119,6 +119,7 @@ export interface SearchResult {
   deviceType: string;
   manufacturer: string;
   manufacturerId: string;
+  image?: string;
   displayName: string;
 }
 

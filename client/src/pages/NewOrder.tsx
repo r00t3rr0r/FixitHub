@@ -142,6 +142,9 @@ export function NewOrder() {
   const [previousRepairDetails, setPreviousRepairDetails] = useState<string>("")
   const [itemCondition, setItemCondition] = useState<string>("")
 
+  // Track broken device images
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set())
+
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<OrderForm>()
   const { toast } = useToast()
   const navigate = useNavigate()
@@ -828,9 +831,23 @@ export function NewOrder() {
                               style={{ animationDelay: `${index * 50}ms` }}
                             >
                               <div className="flex items-center gap-3">
-                                <div className="p-2 bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-900/30 dark:to-yellow-800/30 rounded-lg group-hover:scale-110 transition-transform">
-                                  {getDeviceTypeIcon(device.deviceType)}
-                                </div>
+                                {device.image && !brokenImages.has(device._id) ? (
+                                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-yellow-100 dark:bg-yellow-900/30 flex-shrink-0 group-hover:scale-110 transition-transform border border-yellow-200 dark:border-yellow-800 flex items-center justify-center">
+                                    <img
+                                      src={device.image}
+                                      alt={device.name}
+                                      className="w-full h-full object-cover"
+                                      onError={() => {
+                                        console.log(`Device image failed to load for: ${device.name}`);
+                                        setBrokenImages(prev => new Set([...prev, device._id]));
+                                      }}
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="p-2 bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-900/30 dark:to-yellow-800/30 rounded-lg group-hover:scale-110 transition-transform">
+                                    {getDeviceTypeIcon(device.deviceType)}
+                                  </div>
+                                )}
                                 <div>
                                   <div className="font-semibold text-sm group-hover:text-yellow-600 transition-colors">
                                     {device.name}

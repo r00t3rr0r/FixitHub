@@ -187,7 +187,7 @@ router.get('/models', async (req, res) => {
 // Description: Search devices by query string (autocomplete)
 // Endpoint: GET /api/devices/search?q=iphone
 // Request: { q: string }
-// Response: { success: boolean, devices: Array<{ _id, name, deviceType, manufacturer, manufacturerId, displayName }> }
+// Response: { success: boolean, devices: Array<{ _id, name, deviceType, manufacturer, manufacturerId, image?, displayName }> }
 router.get('/search', async (req, res) => {
   try {
     const { q } = req.query;
