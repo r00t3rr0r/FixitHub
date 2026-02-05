@@ -1,7 +1,7 @@
 {
   "common": {
     "welcome": "Willkommen",
-    "loading": "Lädt...",
+    "loading": "Lädt",
     "error": "Fehler",
     "success": "Erfolgreich",
     "save": "Speichern",
@@ -32,7 +32,8 @@
     "actions": "Aktionen",
     "select": "Auswählen",
     "optional": "Optional",
-    "sending": "Wird gesendet..."
+    "sending": "Wird gesendet...",
+    "new": "neu"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -42,6 +43,7 @@
     "trackOrders": "Aufträge verfolgen",
     "messages": "Nachrichten",
     "notifications": "Benachrichtigungen",
+    "viewAllNotifications": "Alle Benachrichtigungen anzeigen",
     "profile": "Profil",
     "account": "Konto",
     "bookings": "Buchungen",
@@ -1151,7 +1153,30 @@
       "sameDayService": "Service am selben Tag verfügbar",
       "failedToLoadDeviceTypes": "Fehler beim Laden von Gerätetypen",
       "failedToLoadManufacturers": "Fehler beim Laden von Herstellern",
-      "failedToLoadModels": "Fehler beim Laden von Modellen"
+      "failedToLoadModels": "Fehler beim Laden von Modellen",
+      "viewDetails": "Details Anzeigen",
+      "failedToLoadDeviceDetails": "Fehler beim Laden der Gerätedetails",
+      "basicInformation": "Grundinformationen",
+      "releaseDate": "Veröffentlichungsdatum",
+      "price": "Preis",
+      "availableColors": "Verfügbare Farben",
+      "display": "Display",
+      "type": "Typ",
+      "size": "Größe",
+      "resolution": "Auflösung",
+      "protection": "Schutz",
+      "deviceType": "Gerätetyp",
+      "dimensions": "Abmessungen",
+      "weight": "Gewicht",
+      "build": "Konstruktion",
+      "platformPerformance": "Plattform & Leistung",
+      "chipset": "Chipset",
+      "camera": "Kamera",
+      "rearCamera": "Rückkamera",
+      "frontCamera": "Frontkamera",
+      "features": "Funktionen",
+      "sensors": "Sensoren",
+      "specialFeatures": "Spezielle Funktionen"
     },
     "nav": {
       "services": "Dienstleistungen",
