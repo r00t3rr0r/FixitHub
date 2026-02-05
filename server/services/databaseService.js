@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const Order = require('../models/Order');
+const Booking = require('../models/Booking');
 const Service = require('../models/Service');
 const AddOnService = require('../models/AddOnService');
 const Product = require('../models/Product');
@@ -264,6 +265,50 @@ class DatabaseService {
     } catch (error) {
       console.error('DatabaseService: Error during cleanup:', error);
       throw new Error('Failed to cleanup old data');
+    }
+  }
+
+  // Delete all bookings and orders
+  async deleteAllBookingsAndOrders() {
+    console.log('DatabaseService: Deleting all bookings and orders');
+
+    try {
+      // Get counts before deletion
+      const orderCountBefore = await Order.countDocuments();
+      const bookingCountBefore = await Booking.countDocuments();
+
+      // Delete all orders
+      const ordersDeleteResult = await Order.deleteMany({});
+      console.log(`DatabaseService: Deleted ${ordersDeleteResult.deletedCount} orders`);
+
+      // Delete all bookings
+      const bookingsDeleteResult = await Booking.deleteMany({});
+      console.log(`DatabaseService: Deleted ${bookingsDeleteResult.deletedCount} bookings`);
+
+      // Verify deletion
+      const orderCountAfter = await Order.countDocuments();
+      const bookingCountAfter = await Booking.countDocuments();
+
+      return {
+        success: true,
+        message: 'All bookings and orders deleted successfully',
+        results: {
+          orders: {
+            before: orderCountBefore,
+            deleted: ordersDeleteResult.deletedCount,
+            after: orderCountAfter
+          },
+          bookings: {
+            before: bookingCountBefore,
+            deleted: bookingsDeleteResult.deletedCount,
+            after: bookingCountAfter
+          }
+        },
+        timestamp: new Date()
+      };
+    } catch (error) {
+      console.error('DatabaseService: Error deleting bookings and orders:', error);
+      throw new Error(`Failed to delete bookings and orders: ${error.message}`);
     }
   }
 }

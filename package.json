@@ -21,6 +21,7 @@
     "papaparse": "^5.5.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.1",
     "cross-env": "^7.0.3"
   }
 }

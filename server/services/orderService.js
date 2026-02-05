@@ -320,7 +320,8 @@ class OrderService {
       order.assignedStaff = staffMembers.map(staff => ({
         staffId: staff._id,
         name: staff.name,
-        avatar: staff.avatar || ''
+        avatar: staff.avatar || '',
+        assignedAt: new Date()
       }));
 
       // Add timeline entry

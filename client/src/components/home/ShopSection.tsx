@@ -212,7 +212,7 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
       {/* Animated particles background */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-10 left-10 w-64 h-64 bg-yellow-400/5 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-10 right-10 w-64 h-64 bg-yellow-400/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute bottom-10 right-10 w-64 h-64 bg-yellow-400/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }}></div>
       </div>
 
       {/* Content */}
@@ -445,8 +445,9 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
                   className={`group border-0 shadow-md bg-white hover:shadow-lg hover:shadow-yellow-500/20 hover:-translate-y-1 transition-all duration-300 overflow-hidden ${
                     viewMode === "list" ? "flex flex-row" : ""
                   }`}
-                  style={{ animation: `scaleIn 0.4s ease-out ${idx * 0.04}s both` }}
+                  style={{ animation: `scaleIn 0.4s ease-out ${idx * 0.04}s both` } as React.CSSProperties}
                 >
+
                   {/* Compact gradient top border */}
                   <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-400"></div>
 

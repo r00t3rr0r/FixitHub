@@ -19,6 +19,7 @@ import {
   optimizeDatabase,
   getDatabaseHealth,
   cleanupOldData,
+  deleteAllBookingsAndOrders,
   type DatabaseStats,
   type DatabaseOperation,
   type DatabaseBackup,
@@ -34,6 +35,7 @@ export function DatabaseManagement() {
   const [backupLoading, setBackupLoading] = useState(false);
   const [optimizeLoading, setOptimizeLoading] = useState(false);
   const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [cleanupDays, setCleanupDays] = useState(90);
   const [cleanupCollections, setCleanupCollections] = useState(['logs', 'sessions', 'notifications']);
   const { toast } = useToast();
@@ -121,12 +123,12 @@ export function DatabaseManagement() {
         olderThanDays: cleanupDays,
         collections: cleanupCollections
       });
-      
+
       toast({
         title: "Success",
         description: response.data.message,
       });
-      
+
       fetchDatabaseData();
     } catch (error) {
       console.error('Error cleaning up data:', error);
@@ -137,6 +139,29 @@ export function DatabaseManagement() {
       });
     } finally {
       setCleanupLoading(false);
+    }
+  };
+
+  const handleDeleteBookingsAndOrders = async () => {
+    try {
+      setDeleteLoading(true);
+      const response = await deleteAllBookingsAndOrders();
+
+      toast({
+        title: "Success",
+        description: `Deleted ${response.data.results.orders.deleted} orders and ${response.data.results.bookings.deleted} bookings`,
+      });
+
+      fetchDatabaseData();
+    } catch (error) {
+      console.error('Error deleting bookings and orders:', error);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -492,6 +517,47 @@ export function DatabaseManagement() {
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction onClick={handleCleanupData} className="bg-red-600 hover:bg-red-700">
                         Delete Data
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trash2 className="h-5 w-5" />
+                  Delete Bookings & Orders
+                </CardTitle>
+                <CardDescription>
+                  Permanently delete all bookings and orders from the database
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" disabled={deleteLoading}>
+                      {deleteLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                      Delete All Bookings & Orders
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete All Bookings and Orders?</AlertDialogTitle>
+                      <AlertDialogDescription className="space-y-3 mt-4">
+                        <p>
+                          This will permanently delete ALL bookings and orders from the database. This action cannot be undone.
+                        </p>
+                        <p className="font-semibold text-red-600">
+                          ⚠️ Warning: This is a destructive operation. Make sure you have a backup before proceeding.
+                        </p>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteBookingsAndOrders} className="bg-red-600 hover:bg-red-700">
+                        Delete All
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>

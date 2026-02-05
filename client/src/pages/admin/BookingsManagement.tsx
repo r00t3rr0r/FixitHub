@@ -30,6 +30,9 @@ import {
   getRemindersByBooking
 } from "@/api/reminders"
 import {
+  getUnreadMessageCounts
+} from "@/api/inspectionCommunication"
+import {
   Search,
   Filter,
   Eye,
@@ -162,6 +165,7 @@ interface ExpandedBooking extends Booking {
 }
 
 export function BookingsManagement() {
+  console.log('BookingsManagement: Component rendered/mounted')
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [bookings, setBookings] = useState<ExpandedBooking[]>([])
@@ -192,11 +196,39 @@ export function BookingsManagement() {
   const [itemsPerPage, setItemsPerPage] = useState(20)
   const [totalBookings, setTotalBookings] = useState(0)
 
+  // Unread message counts state
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, { unread: number; senderType?: string }>>({})
+  const [loadingUnreadCounts, setLoadingUnreadCounts] = useState(false)
+
   const { toast } = useToast()
 
   useEffect(() => {
+    console.log('BookingsManagement: useEffect - Fetching bookings (pagination/filter changed)')
     fetchBookings()
   }, [currentPage, itemsPerPage, statusFilter, billingStatusFilter])
+
+  // Fetch unread counts when bookings change and set up periodic refresh
+  useEffect(() => {
+    console.log(`BookingsManagement: useEffect - Bookings changed, length: ${bookings.length}`)
+    if (bookings.length > 0) {
+      console.log('BookingsManagement: Bookings available, fetching unread counts')
+      fetchUnreadCounts()
+
+      // Set up periodic refresh every 10 seconds
+      const intervalId = setInterval(() => {
+        console.log('BookingsManagement: Auto-refreshing unread counts (periodic)')
+        fetchUnreadCounts()
+      }, 10000) // 10 seconds
+
+      return () => {
+        console.log('BookingsManagement: Cleaning up interval on bookings change')
+        clearInterval(intervalId)
+      }
+    } else {
+      console.log('BookingsManagement: No bookings, clearing unread counts')
+      setUnreadCounts({})
+    }
+  }, [bookings])
 
   const fetchBookings = async () => {
     try {
@@ -235,6 +267,71 @@ export function BookingsManagement() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Fetch unread message counts for all visible bookings
+  const fetchUnreadCounts = async () => {
+    try {
+      setLoadingUnreadCounts(true)
+
+      console.log(`BookingsManagement: fetchUnreadCounts called with ${bookings.length} bookings`)
+
+      // Collect all order IDs from all bookings' items
+      const allOrderIds: string[] = []
+      const bookingToOrderMapping: Record<string, string[]> = {}
+
+      bookings.forEach((booking) => {
+        const orderIds: string[] = []
+        booking.items.forEach(item => {
+          if (item.orderId) {
+            allOrderIds.push(item.orderId)
+            orderIds.push(item.orderId)
+          }
+        })
+        if (orderIds.length > 0) {
+          bookingToOrderMapping[booking._id] = orderIds
+        }
+      })
+
+      console.log(`BookingsManagement: Collected ${allOrderIds.length} order IDs from ${bookings.length} bookings`)
+      console.log('BookingsManagement: Booking to order mapping:', bookingToOrderMapping)
+
+      if (allOrderIds.length === 0) {
+        console.log('BookingsManagement: No order IDs found in bookings, clearing unread counts')
+        setUnreadCounts({})
+        return
+      }
+
+      console.log(`BookingsManagement: Calling API to fetch unread counts for ${allOrderIds.length} orders`)
+      const counts = await getUnreadMessageCounts(allOrderIds)
+      console.log('BookingsManagement: Received unread counts from API:', counts)
+      console.log('BookingsManagement: Unread counts type:', typeof counts, 'Keys:', Object.keys(counts || {}))
+
+      // Ensure we have an object to work with
+      const countsToSet = counts && typeof counts === 'object' ? counts : {}
+      console.log('BookingsManagement: Setting unread counts state:', countsToSet)
+      setUnreadCounts(countsToSet)
+
+      // Log booking-to-order mapping for debugging
+      let totalUnreadAcrossAllBookings = 0
+      bookings.forEach(booking => {
+        const bookingUnread = booking.items.reduce((sum, item) => {
+          const itemUnread = countsToSet[item.orderId]?.unread || 0
+          return sum + itemUnread
+        }, 0)
+        totalUnreadAcrossAllBookings += bookingUnread
+        if (bookingUnread > 0) {
+          console.log(`BookingsManagement: Booking ${booking._id.slice(-8)} - orders: [${booking.items.map(i => i.orderId.slice(-8)).join(', ')}] - total unread: ${bookingUnread}`)
+        }
+      })
+      console.log(`BookingsManagement: Total unread messages across all bookings: ${totalUnreadAcrossAllBookings}`)
+    } catch (error) {
+      console.error("BookingsManagement: Error fetching unread counts:", error)
+      console.error("BookingsManagement: Error details:", (error as any).message, (error as any).stack)
+      // Don't show error toast as this is a non-critical feature
+    } finally {
+      setLoadingUnreadCounts(false)
     }
   }
 
@@ -413,6 +510,37 @@ export function BookingsManagement() {
     }
     // Otherwise use the fallback (booking's overallProgress from database)
     return fallbackProgress
+  }
+
+  // Helper function to get total unread count for a booking
+  const getBookingUnreadCount = (booking: Booking) => {
+    let totalUnread = 0
+    let hasCustomerMessages = false
+    let hasStaffMessages = false
+
+    // Check all items in the booking
+    booking.items.forEach((item) => {
+      if (item.orderId && unreadCounts[item.orderId]) {
+        const unreadCount = unreadCounts[item.orderId].unread || 0
+        totalUnread += unreadCount
+        if (unreadCounts[item.orderId].senderType === 'customer') {
+          hasCustomerMessages = true
+        } else {
+          hasStaffMessages = true
+        }
+      }
+    })
+
+    // Debug logging only if there are unread messages
+    if (totalUnread > 0) {
+      console.log(`BookingsManagement: Booking ${booking._id.slice(-8)} has ${totalUnread} unread messages (customer: ${hasCustomerMessages}, staff: ${hasStaffMessages})`)
+    }
+
+    return {
+      total: totalUnread,
+      hasCustomerMessages,
+      hasStaffMessages
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -611,9 +739,23 @@ export function BookingsManagement() {
 
       {/* Bookings Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Bookings List</CardTitle>
-          <CardDescription>{filteredBookings.length} bookings found</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div>
+            <CardTitle>Bookings List</CardTitle>
+            <CardDescription>{filteredBookings.length} bookings found</CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              console.log('BookingsManagement: Manually refreshing unread counts')
+              fetchUnreadCounts()
+            }}
+            disabled={loadingUnreadCounts}
+            title="Refresh message counts"
+          >
+            <RefreshCw className={`h-4 w-4 ${loadingUnreadCounts ? 'animate-spin' : ''}`} />
+          </Button>
         </CardHeader>
         <CardContent>
           {filteredBookings.length === 0 ? (
@@ -636,6 +778,7 @@ export function BookingsManagement() {
                     <TableHead className="min-w-[90px]">Total Cost</TableHead>
                     <TableHead className="min-w-[70px] text-center">Orders</TableHead>
                     <TableHead className="min-w-[60px] text-center">Items</TableHead>
+                    <TableHead className="min-w-[70px] text-center">Msgs</TableHead>
                     <TableHead className="min-w-[100px]">Created</TableHead>
                     <TableHead className="text-right min-w-[120px] flex-shrink-0">Actions</TableHead>
                   </TableRow>
@@ -722,6 +865,38 @@ export function BookingsManagement() {
                       </TableCell>
                       <TableCell className="text-center">
                         {booking.items.length}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {(() => {
+                          const unreadInfo = getBookingUnreadCount(booking)
+                          if (unreadInfo.total > 0) {
+                            return (
+                              <div className="flex items-center justify-center gap-2">
+                                <div className={`
+                                  relative inline-flex items-center justify-center
+                                  w-8 h-8 rounded-full
+                                  font-semibold text-xs
+                                  shadow-md
+                                  ring-2 ring-offset-2
+                                  transition-all duration-200
+                                  ${unreadInfo.hasCustomerMessages
+                                    ? 'bg-red-500 dark:bg-red-600 text-white ring-red-200 dark:ring-red-800 hover:scale-110 hover:shadow-lg animate-pulse'
+                                    : 'bg-orange-500 dark:bg-orange-600 text-white ring-orange-200 dark:ring-orange-800 hover:scale-110 hover:shadow-lg animate-pulse'
+                                  }
+                                `}
+                                title={`${unreadInfo.total} total unread message${unreadInfo.total > 1 ? 's' : ''} from ${unreadInfo.hasCustomerMessages ? 'customer' : 'staff'}`}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                }}
+                                >
+                                  {unreadInfo.total > 99 ? '99+' : unreadInfo.total}
+                                </div>
+                                <MessageSquare className="h-3 w-3 text-foreground/60 hidden sm:inline" />
+                              </div>
+                            )
+                          }
+                          return <span className="text-xs text-foreground/40">—</span>
+                        })()}
                       </TableCell>
                       <TableCell className="text-sm text-foreground/60">
                         {formatDate(booking.createdAt)}
@@ -859,6 +1034,7 @@ export function BookingsManagement() {
                                         <TableHead>Services/Details</TableHead>
                                         <TableHead className="text-center">Progress</TableHead>
                                         <TableHead>Status</TableHead>
+                                        <TableHead className="text-center">Messages</TableHead>
                                         <TableHead className="text-right">Cost</TableHead>
                                       </TableRow>
                                     </TableHeader>
@@ -933,6 +1109,30 @@ export function BookingsManagement() {
                                             <Badge className={getOrderStatusColor(item.status || 'pending')}>
                                               {item.status || 'pending'}
                                             </Badge>
+                                          </TableCell>
+                                          <TableCell className="text-center">
+                                            {item.orderId && unreadCounts[item.orderId] ? (
+                                              <div className="flex items-center justify-center">
+                                                <div className={`
+                                                  relative inline-flex items-center justify-center
+                                                  w-8 h-8 rounded-full
+                                                  ${unreadCounts[item.orderId].senderType === 'customer'
+                                                    ? 'bg-blue-500 dark:bg-blue-600'
+                                                    : 'bg-orange-500 dark:bg-orange-600'
+                                                  }
+                                                  text-white font-semibold text-xs
+                                                  shadow-lg
+                                                  animate-pulse
+                                                  hover:scale-110 transition-transform cursor-pointer
+                                                `}
+                                                title={`${unreadCounts[item.orderId].unread} unread message${unreadCounts[item.orderId].unread > 1 ? 's' : ''} from ${unreadCounts[item.orderId].senderType || 'user'}`}
+                                                >
+                                                  {unreadCounts[item.orderId].unread > 99 ? '99+' : unreadCounts[item.orderId].unread}
+                                                </div>
+                                              </div>
+                                            ) : (
+                                              <span className="text-xs text-foreground/40">—</span>
+                                            )}
                                           </TableCell>
                                           <TableCell className="text-right font-medium">
                                             ${item.cost?.toFixed(2) || '0.00'}

@@ -36,6 +36,11 @@ const invoiceSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Order'
   },
+  bookingId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Booking',
+    required: true
+  },
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -143,6 +148,7 @@ invoiceSchema.pre(/^find/, function(next) {
 
 // Index for efficient queries
 invoiceSchema.index({ customerId: 1, createdAt: -1 });
+invoiceSchema.index({ bookingId: 1, createdAt: -1 });
 invoiceSchema.index({ status: 1 });
 // invoiceNumber already has unique: true index, no need for duplicate
 invoiceSchema.index({ dueDate: 1 });

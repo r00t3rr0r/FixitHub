@@ -21,6 +21,7 @@ import {
   Truck,
   QrCode,
   FileText,
+  MessageSquare,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,7 +60,9 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getBookings, getBookingOrders, getBooking } from "@/api/bookings";
+import { getUnreadMessageCounts } from "@/api/inspectionCommunication";
 import { useToast } from "@/hooks/useToast";
+import { CommunicationPanel } from "@/components/inspection/CommunicationPanel";
 
 interface Booking {
   _id: string;
@@ -136,9 +139,24 @@ export function CustomerBookings() {
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [totalBookings, setTotalBookings] = useState(0);
 
+  // Unread message counts state
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, { unread: number; senderType?: string }>>({});
+  const [loadingUnreadCounts, setLoadingUnreadCounts] = useState(false);
+
+  // Communication panel state
+  const [showCommunicationPanel, setShowCommunicationPanel] = useState(false);
+  const [selectedOrderForCommunication, setSelectedOrderForCommunication] = useState<string | null>(null);
+
   useEffect(() => {
     fetchBookings();
   }, [statusFilter, currentPage, itemsPerPage]);
+
+  // Fetch unread counts when bookings change
+  useEffect(() => {
+    if (bookings.length > 0) {
+      fetchUnreadCounts();
+    }
+  }, [bookings]);
 
   const fetchBookings = async () => {
     try {
@@ -171,6 +189,37 @@ export function CustomerBookings() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch unread message counts for all visible bookings
+  const fetchUnreadCounts = async () => {
+    try {
+      setLoadingUnreadCounts(true);
+
+      // Collect all order IDs from all bookings' items
+      const allOrderIds: string[] = [];
+      bookings.forEach((booking) => {
+        booking.items.forEach(item => {
+          if (item.orderId) {
+            allOrderIds.push(item.orderId);
+          }
+        });
+      });
+
+      if (allOrderIds.length === 0) {
+        return;
+      }
+
+      console.log(`CustomerBookings: Fetching unread counts for ${allOrderIds.length} orders`);
+      const counts = await getUnreadMessageCounts(allOrderIds);
+      console.log('CustomerBookings: Received unread counts:', counts);
+      setUnreadCounts(counts || {});
+    } catch (error) {
+      console.error("CustomerBookings: Error fetching unread counts:", error);
+      // Don't show error toast as this is a non-critical feature
+    } finally {
+      setLoadingUnreadCounts(false);
     }
   };
 
@@ -265,11 +314,42 @@ export function CustomerBookings() {
     navigate(`/orders/${orderId}`);
   };
 
+  const handleOpenCommunication = (orderId: string) => {
+    console.log('Opening communication panel for order:', orderId);
+    setSelectedOrderForCommunication(orderId);
+    setShowCommunicationPanel(true);
+  };
+
   const getBookingProgress = (bookingId: string, fallbackProgress: number = 0) => {
     if (calculatedProgress[bookingId] !== undefined) {
       return calculatedProgress[bookingId];
     }
     return fallbackProgress;
+  };
+
+  // Helper function to get total unread count for a booking
+  const getBookingUnreadCount = (booking: Booking) => {
+    let totalUnread = 0;
+    let hasCustomerMessages = false;
+    let hasStaffMessages = false;
+
+    // Check all items in the booking
+    booking.items.forEach((item) => {
+      if (item.orderId && unreadCounts[item.orderId]) {
+        totalUnread += unreadCounts[item.orderId].unread;
+        if (unreadCounts[item.orderId].senderType === 'customer') {
+          hasCustomerMessages = true;
+        } else {
+          hasStaffMessages = true;
+        }
+      }
+    });
+
+    return {
+      total: totalUnread,
+      hasCustomerMessages,
+      hasStaffMessages
+    };
   };
 
   const getStatusColor = (status: string) => {
@@ -494,6 +574,7 @@ export function CustomerBookings() {
                     <TableHead className="h-9 text-xs font-semibold text-foreground/70">Progress</TableHead>
                     <TableHead className="h-9 text-xs font-semibold text-foreground/70">Total Cost</TableHead>
                     <TableHead className="h-9 text-xs font-semibold text-foreground/70">Items</TableHead>
+                    <TableHead className="h-9 text-xs font-semibold text-foreground/70 text-center">Msgs</TableHead>
                     <TableHead className="h-9 text-xs font-semibold text-foreground/70">Created</TableHead>
                     <TableHead className="h-9 text-xs font-semibold text-foreground/70 text-right">Actions</TableHead>
                   </TableRow>
@@ -552,6 +633,42 @@ export function CustomerBookings() {
                         <TableCell className="text-center text-sm py-2 text-foreground/70">
                           {booking.items.length}
                         </TableCell>
+                        <TableCell className="text-center py-2">
+                          {(() => {
+                            const unreadInfo = getBookingUnreadCount(booking);
+                            if (unreadInfo.total > 0) {
+                              return (
+                                <div className="flex items-center justify-center">
+                                  <div className={`
+                                    relative inline-flex items-center justify-center
+                                    w-8 h-8 rounded-full
+                                    ${unreadInfo.hasStaffMessages
+                                      ? 'bg-orange-500 dark:bg-orange-600'
+                                      : 'bg-blue-500 dark:bg-blue-600'
+                                    }
+                                    text-white font-semibold text-xs
+                                    shadow-lg
+                                    animate-pulse
+                                    hover:scale-110 transition-transform cursor-pointer
+                                  `}
+                                  title={`${unreadInfo.total} total unread message${unreadInfo.total > 1 ? 's' : ''} from ${unreadInfo.hasStaffMessages ? 'staff' : 'you'}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    // Find the first order ID for this booking
+                                    const firstOrderId = booking.items[0]?.orderId;
+                                    if (firstOrderId) {
+                                      handleOpenCommunication(firstOrderId);
+                                    }
+                                  }}
+                                  >
+                                    {unreadInfo.total > 99 ? '99+' : unreadInfo.total}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return <span className="text-xs text-foreground/40">—</span>;
+                          })()}
+                        </TableCell>
                         <TableCell className="text-xs text-foreground/60 py-2">
                           {formatDate(booking.createdAt)}
                         </TableCell>
@@ -588,7 +705,7 @@ export function CustomerBookings() {
                       {/* Expanded Row with Orders/Repair Jobs */}
                       {expandedBookings.has(booking._id) && (
                         <TableRow className="bg-muted/20">
-                          <TableCell colSpan={9}>
+                          <TableCell colSpan={10}>
                             <div className="p-3 space-y-3">
                               {/* Booking Status Summary */}
                               <div className="bg-muted/40 p-2.5 rounded-lg border border-muted">
@@ -720,6 +837,7 @@ export function CustomerBookings() {
                                           <TableHead className="h-7 text-xs font-semibold text-foreground/70">Services</TableHead>
                                           <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-center">Prog</TableHead>
                                           <TableHead className="h-7 text-xs font-semibold text-foreground/70">Status</TableHead>
+                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-center">Msgs</TableHead>
                                           <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-right">Cost</TableHead>
                                         </TableRow>
                                       </TableHeader>
@@ -786,6 +904,36 @@ export function CustomerBookings() {
                                               <Badge className={`${getOrderStatusColor(item.status || 'pending')} text-xs`}>
                                                 {item.status || 'pending'}
                                               </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-center py-1">
+                                              {item.orderId && unreadCounts[item.orderId] ? (
+                                                <div className="flex items-center justify-center">
+                                                  <div className={`
+                                                    relative inline-flex items-center justify-center
+                                                    w-7 h-7 rounded-full
+                                                    ${unreadCounts[item.orderId].senderType === 'staff'
+                                                      ? 'bg-orange-500 dark:bg-orange-600'
+                                                      : 'bg-blue-500 dark:bg-blue-600'
+                                                    }
+                                                    text-white font-semibold text-xs
+                                                    shadow-lg
+                                                    animate-pulse
+                                                    hover:scale-110 transition-transform cursor-pointer
+                                                  `}
+                                                  title={`${unreadCounts[item.orderId].unread} unread message${unreadCounts[item.orderId].unread > 1 ? 's' : ''} from ${unreadCounts[item.orderId].senderType || 'user'}`}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (item.orderId) {
+                                                      handleOpenCommunication(item.orderId);
+                                                    }
+                                                  }}
+                                                  >
+                                                    {unreadCounts[item.orderId].unread > 99 ? '99+' : unreadCounts[item.orderId].unread}
+                                                  </div>
+                                                </div>
+                                              ) : (
+                                                <span className="text-xs text-foreground/40">—</span>
+                                              )}
                                             </TableCell>
                                             <TableCell className="text-right font-medium text-xs py-1">
                                               ${item.cost?.toFixed(2) || '0.00'}
@@ -922,6 +1070,29 @@ export function CustomerBookings() {
           getBillingStatusColor={getBillingStatusColor}
           getReturnShipmentStatusColor={getReturnShipmentStatusColor}
         />
+      )}
+
+      {/* Communication Panel Dialog */}
+      {selectedOrderForCommunication && (
+        <Dialog open={showCommunicationPanel} onOpenChange={(open) => {
+          setShowCommunicationPanel(open);
+          if (!open) {
+            setSelectedOrderForCommunication(null);
+          }
+        }}>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader className="pb-2">
+              <DialogTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                {t('bookings.orderCommunication')}
+              </DialogTitle>
+              <DialogDescription>
+                {t('bookings.communicateWithSupport')}
+              </DialogDescription>
+            </DialogHeader>
+            <CommunicationPanel orderId={selectedOrderForCommunication} />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

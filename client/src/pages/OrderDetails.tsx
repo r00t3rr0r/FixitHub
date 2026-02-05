@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
 import { getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct } from "@/api/orders"
 import { getConversations, getConversationMessages, sendMessage, startConversation } from "@/api/messages"
-import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, updateOrderDevice } from "@/api/adminOrders"
+import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, updateOrderDevice, updateOrderStatus } from "@/api/adminOrders"
 import { getUserProfile, UserProfile } from "@/api/user"
 import { getAddOnServices, AddOnService as AddOnServiceType, getServices } from "@/api/services"
 import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder, deleteWorkflowFromOrder, startWorkflow, updateWorkflowStatus } from "@/api/workflow"
@@ -28,6 +28,8 @@ import { UnlockInformationDisplay } from "@/components/inspection/UnlockInformat
 import { ConfirmUnlockDialog } from "@/components/inspection/ConfirmUnlockDialog"
 import { DeviceChangeDialog } from "@/components/admin/DeviceChangeDialog"
 import { TrackingPanel } from "@/components/admin/TrackingPanel"
+import { OrderMessagesPanel } from "@/components/inspection/OrderMessagesPanel"
+import { OrderMessagesSummary } from "@/components/inspection/OrderMessagesSummary"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -48,6 +50,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu"
 import {
   ArrowLeft,
   Package,
@@ -81,7 +91,8 @@ import {
   HelpCircle,
   FileText,
   Droplets,
-  Info
+  Info,
+  ChevronDown
 } from "lucide-react"
 
 export function OrderDetails() {
@@ -141,6 +152,8 @@ export function OrderDetails() {
   const [deviceSearchResults, setDeviceSearchResults] = useState<SearchResult[]>([])
   const [showDeviceResults, setShowDeviceResults] = useState(false)
   const [selectedDeviceForChange, setSelectedDeviceForChange] = useState<SearchResult | null>(null)
+  const [updatingStatus, setUpdatingStatus] = useState(false)
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
   const { toast } = useToast()
 
   // Fetch user profile
@@ -445,6 +458,35 @@ export function OrderDetails() {
       setOrder((orderResponse as any).order)
     } catch (error) {
       console.error("Error refreshing order:", error)
+    }
+  }
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!id || !order) return
+
+    try {
+      setUpdatingStatus(true)
+      setStatusDropdownOpen(false)
+
+      console.log('OrderDetails: Updating order status to:', newStatus)
+      await updateOrderStatus(id, newStatus)
+
+      toast({
+        title: "Success",
+        description: `Order status updated to ${newStatus.replace('-', ' ')}`
+      })
+
+      // Refresh order data
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("OrderDetails: Error updating order status:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update order status",
+        variant: "destructive"
+      })
+    } finally {
+      setUpdatingStatus(false)
     }
   }
 
@@ -1313,10 +1355,83 @@ export function OrderDetails() {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Badge className={`${getStatusColor(order.status)} text-xs px-3 py-1`}>
-                {getStatusIcon(order.status)}
-                <span className="ml-1">{order.status.replace('-', ' ')}</span>
-              </Badge>
+              {/* Status Dropdown for Admin/Staff, Badge for Customers */}
+              {(user?.role === 'admin' || user?.role === 'staff') ? (
+                <DropdownMenu open={statusDropdownOpen} onOpenChange={setStatusDropdownOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={`${getStatusColor(order.status)} text-xs px-3 py-1 cursor-pointer border-none flex items-center gap-1`}
+                      disabled={updatingStatus}
+                    >
+                      {getStatusIcon(order.status)}
+                      <span>{order.status.replace('-', ' ')}</span>
+                      <ChevronDown className="h-3 w-3 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel className="text-xs font-semibold">
+                      Change Order Status
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => handleStatusChange('pending')}
+                      disabled={updatingStatus || order.status === 'pending'}
+                      className="text-xs cursor-pointer"
+                    >
+                      <span className="inline-block w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                      Pending
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleStatusChange('in-progress')}
+                      disabled={updatingStatus || order.status === 'in-progress'}
+                      className="text-xs cursor-pointer"
+                    >
+                      <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                      In Progress
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleStatusChange('quality-check')}
+                      disabled={updatingStatus || order.status === 'quality-check'}
+                      className="text-xs cursor-pointer"
+                    >
+                      <span className="inline-block w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                      Quality Check
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleStatusChange('ready-for-pickup')}
+                      disabled={updatingStatus || order.status === 'ready-for-pickup'}
+                      className="text-xs cursor-pointer"
+                    >
+                      <span className="inline-block w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+                      Ready for Pickup
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleStatusChange('completed')}
+                      disabled={updatingStatus || order.status === 'completed'}
+                      className="text-xs cursor-pointer"
+                    >
+                      <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                      Completed
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => handleStatusChange('cancelled')}
+                      disabled={updatingStatus || order.status === 'cancelled'}
+                      className="text-xs cursor-pointer text-destructive"
+                    >
+                      <span className="inline-block w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                      Cancelled
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Badge className={`${getStatusColor(order.status)} text-xs px-3 py-1`}>
+                  {getStatusIcon(order.status)}
+                  <span className="ml-1">{order.status.replace('-', ' ')}</span>
+                </Badge>
+              )}
               <Badge className={`${getPaymentStatusColor(order.paymentStatus)} text-xs px-2 py-1`}>
                 <CreditCard className="h-3 w-3 mr-1" />
                 {order.paymentStatus}
@@ -1627,7 +1742,7 @@ export function OrderDetails() {
                     </DialogHeader>
                     <div className="space-y-3 max-h-64 overflow-y-auto">
                       {availableStaff.map((staff) => (
-                        <div key={staff._id} className="flex items-center space-x-2">
+                        <div key={staff._id} className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
                           <Checkbox
                             id={staff._id}
                             checked={selectedStaff.includes(staff._id)}
@@ -1640,7 +1755,7 @@ export function OrderDetails() {
                                 {staff.name.split(' ').map(n => n[0]).join('')}
                               </AvatarFallback>
                             </Avatar>
-                            <div>
+                            <div className="flex-1">
                               <p className="font-medium text-sm">{staff.name}</p>
                               <p className="text-xs text-muted-foreground">{staff.email}</p>
                               <div className="flex flex-wrap gap-1 mt-0.5">
@@ -1655,6 +1770,24 @@ export function OrderDetails() {
                                   </Badge>
                                 )}
                               </div>
+                              {/* Workload Information */}
+                              {staff.currentWorkload && (
+                                <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span>Active Orders: {staff.currentWorkload.assignedOrders}/{staff.currentWorkload.capacity}</span>
+                                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                      staff.currentWorkload.utilizationRate > 80 ? 'bg-red-100 text-red-800' :
+                                      staff.currentWorkload.utilizationRate > 60 ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-green-100 text-green-800'
+                                    }`}>
+                                      {staff.currentWorkload.utilizationRate}% utilized
+                                    </span>
+                                  </div>
+                                  {staff.currentWorkload.assignedTasks !== undefined && (
+                                    <div>Active Tasks: {staff.currentWorkload.assignedTasks}</div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -2605,66 +2738,33 @@ export function OrderDetails() {
               <CardTitle className="text-base">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 pt-3">
-              <Button className="w-full" variant="outline" size="sm" className="text-xs h-8">
+              <Button className="w-full text-xs h-8" variant="outline" size="sm">
                 <MessageSquare className="h-3 w-3 mr-1" />
                 Contact Support
               </Button>
-              <Button className="w-full" variant="outline" size="sm" className="text-xs h-8">
+              <Button className="w-full text-xs h-8" variant="outline" size="sm">
                 <Camera className="h-3 w-3 mr-1" />
                 Upload Photos
               </Button>
-              <Button className="w-full" variant="outline" size="sm" className="text-xs h-8">
+              <Button className="w-full text-xs h-8" variant="outline" size="sm">
                 <Star className="h-3 w-3 mr-1" />
                 Rate Service
               </Button>
             </CardContent>
           </Card>
 
-          {/* Communication */}
-          <Card>
-            <CardHeader className="pb-3 pt-3 px-4">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <MessageSquare className="h-4 w-4" />
-                Messages
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-3">
-              <div className="max-h-56 overflow-y-auto space-y-2">
-                {messages.map((message) => (
-                  <div key={message._id} className={`flex gap-2 ${
-                    message.senderRole === 'customer' ? 'justify-end' : 'justify-start'
-                  }`}>
-                    <div className={`max-w-xs p-2 rounded-lg text-xs ${
-                      message.senderRole === 'customer'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted'
-                    }`}>
-                      <p className="text-xs">{message.content}</p>
-                      <p className="text-xs opacity-70 mt-0.5">
-                        {new Date(message.timestamp).toLocaleTimeString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <Textarea
-                  placeholder="Type your message..."
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  className="min-h-[50px] text-xs"
-                />
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!newMessage.trim() || sending}
-                  size="sm"
-                  className="h-[50px]"
-                >
-                  <Send className="h-3 w-3" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Customer Messages Summary - Shows last message with option to expand history */}
+          {id && (
+            <OrderMessagesSummary
+              orderId={id}
+              userRole={user?.role}
+              customer={{
+                name: order?.customerId?.name || "Customer",
+                email: order?.customerId?.email || "",
+                avatar: order?.customerId?.avatar,
+              }}
+            />
+          )}
         </div>
       </div>
 

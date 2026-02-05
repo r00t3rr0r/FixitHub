@@ -301,7 +301,7 @@ class StaffService {
         'assignedStaff.staffId': staffId,
         status: { $in: ['pending', 'in-progress', 'quality-check', 'awaiting_parts'] }
       })
-      .select('orderNumber deviceBrand deviceModel status priority createdAt estimatedCompletion progress')
+      .select('orderNumber deviceBrand deviceModel status priority createdAt estimatedCompletion progress assignedStaff')
       .lean();
 
       console.log('StaffService: Found assigned orders:', assignedOrders.length);
@@ -315,6 +315,28 @@ class StaffService {
       .lean();
 
       console.log('StaffService: Found assigned tasks:', assignedTasks.length);
+
+      // Transform assigned orders to include assignedAt timestamp for this staff member
+      const transformedAssignedOrders = assignedOrders.map(order => {
+        const staffAssignment = order.assignedStaff.find(
+          staff => staff.staffId.toString() === staffId
+        );
+
+        return {
+          _id: order._id,
+          orderNumber: order.orderNumber,
+          deviceBrand: order.deviceBrand,
+          deviceModel: order.deviceModel,
+          status: order.status,
+          priority: order.priority,
+          createdAt: order.createdAt,
+          estimatedCompletion: order.estimatedCompletion,
+          progress: order.progress,
+          assignedAt: staffAssignment?.assignedAt || order.createdAt // Fallback to order creation date
+        };
+      });
+
+      console.log('StaffService: Transformed assigned orders with assignedAt timestamps');
 
       // Calculate time tracking data (mock data for now - in real app this would come from time tracking system)
       const timeTracking = {
@@ -411,7 +433,7 @@ class StaffService {
           utilizationRate: Math.round(utilizationRate)
         },
         teams: teamMemberships,
-        assignedOrders,
+        assignedOrders: transformedAssignedOrders,
         assignedTasks,
         timeTracking,
         activityLog,

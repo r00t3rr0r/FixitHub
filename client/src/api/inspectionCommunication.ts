@@ -9,6 +9,7 @@ export const getCommunicationThread = async (orderId: string) => {
     const response = await api.get(`/api/inspection-communication/${orderId}`);
     return response.data.communication;
   } catch (error) {
+    console.error('getCommunicationThread error:', error);
     throw new Error((error as any)?.response?.data?.error || (error as any).message);
   }
 };
@@ -24,6 +25,7 @@ export const sendMessage = async (orderId: string, content: string) => {
     });
     return response.data.communication;
   } catch (error) {
+    console.error('sendMessage error:', error);
     throw new Error((error as any)?.response?.data?.error || (error as any).message);
   }
 };
@@ -46,6 +48,7 @@ export const sendFeedbackRequest = async (
     });
     return response.data.communication;
   } catch (error) {
+    console.error('sendFeedbackRequest error:', error);
     throw new Error((error as any)?.response?.data?.error || (error as any).message);
   }
 };
@@ -66,6 +69,7 @@ export const respondToFeedback = async (
     });
     return response_obj.data.communication;
   } catch (error) {
+    console.error('respondToFeedback error:', error);
     throw new Error((error as any)?.response?.data?.error || (error as any).message);
   }
 };
@@ -90,6 +94,7 @@ export const createQuickAction = async (
     });
     return response.data.communication;
   } catch (error) {
+    console.error('createQuickAction error:', error);
     throw new Error((error as any)?.response?.data?.error || (error as any).message);
   }
 };
@@ -103,6 +108,7 @@ export const completeQuickAction = async (orderId: string, messageId: string) =>
     const response = await api.put(`/api/inspection-communication/${orderId}/quick-action/${messageId}/complete`, {});
     return response.data.communication;
   } catch (error) {
+    console.error('completeQuickAction error:', error);
     throw new Error((error as any)?.response?.data?.error || (error as any).message);
   }
 };
@@ -116,6 +122,7 @@ export const markMessagesAsRead = async (orderId: string) => {
     const response = await api.put(`/api/inspection-communication/${orderId}/mark-read`, {});
     return response.data.communication;
   } catch (error) {
+    console.error('markMessagesAsRead error:', error);
     throw new Error((error as any)?.response?.data?.error || (error as any).message);
   }
 };
@@ -129,6 +136,7 @@ export const getPendingFeedbackCount = async (orderId: string) => {
     const response = await api.get(`/api/inspection-communication/${orderId}/pending-feedback`);
     return response.data.count;
   } catch (error) {
+    console.error('getPendingFeedbackCount error:', error);
     throw new Error((error as any)?.response?.data?.error || (error as any).message);
   }
 };
@@ -142,6 +150,23 @@ export const getPendingActionsCount = async (orderId: string) => {
     const response = await api.get(`/api/inspection-communication/${orderId}/pending-actions`);
     return response.data.count;
   } catch (error) {
+    console.error('getPendingActionsCount error:', error);
+    throw new Error((error as any)?.response?.data?.error || (error as any).message);
+  }
+};
+
+// Description: Get unread message counts for multiple orders
+// Endpoint: POST /api/inspection-communication/unread-counts
+// Request: { orderIds: Array<string> }
+// Response: { unreadCounts: Record<string, { unread: number, senderType?: string }> }
+export const getUnreadMessageCounts = async (orderIds: string[]) => {
+  try {
+    const response = await api.post(`/api/inspection-communication/unread-counts`, {
+      orderIds,
+    });
+    return response.data.unreadCounts;
+  } catch (error) {
+    console.error('getUnreadMessageCounts error:', error);
     throw new Error((error as any)?.response?.data?.error || (error as any).message);
   }
 };

@@ -50,7 +50,7 @@ class MessageService {
 
           return {
             _id: conv._id,
-            orderId: conv.orderId._id,
+            orderId: conv.orderId ? conv.orderId._id : null,
             orderNumber: conv.orderNumber,
             deviceInfo: conv.deviceInfo,
             participants: conv.participants,
@@ -130,7 +130,7 @@ class MessageService {
       return {
         conversation: {
           _id: conversation._id,
-          orderId: conversation.orderId._id,
+          orderId: conversation.orderId ? conversation.orderId._id : null,
           orderNumber: conversation.orderNumber,
           deviceInfo: conversation.deviceInfo,
           participants: conversation.participants,
@@ -176,6 +176,7 @@ class MessageService {
       }
 
       // Create message
+      // Messages sent by the user are automatically marked as read (they wrote it)
       const message = new Message({
         conversationId,
         senderId,
@@ -185,7 +186,7 @@ class MessageService {
         content,
         attachments,
         messageType,
-        isRead: false
+        isRead: true // User's own messages are marked as read immediately
       });
 
       const savedMessage = await message.save();
@@ -195,7 +196,7 @@ class MessageService {
       conversation.updatedAt = new Date();
       await conversation.save();
 
-      console.log('MessageService: Message sent successfully');
+      console.log('MessageService: Message sent successfully - Message marked as read for sender (isRead: true)');
 
       return {
         _id: savedMessage._id,
@@ -310,7 +311,7 @@ class MessageService {
         success: true,
         conversation: {
           _id: savedConversation._id,
-          orderId: savedConversation.orderId,
+          orderId: savedConversation.orderId ? savedConversation.orderId._id : null,
           orderNumber: savedConversation.orderNumber,
           deviceInfo: savedConversation.deviceInfo,
           participants: savedConversation.participants,

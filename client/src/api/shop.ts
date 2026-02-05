@@ -198,10 +198,13 @@ const isAuthenticated = () => {
 export const getCart = async () => {
   try {
     if (isAuthenticated()) {
+      console.log('ShoppingCart: Fetching authenticated user cart from API');
       const response = await api.get('/api/cart');
+      console.log('ShoppingCart: Cart fetched successfully', response.data);
       return response.data;
     } else {
       // Return guest cart from localStorage
+      console.log('ShoppingCart: Fetching guest cart from localStorage');
       const guestCart = getGuestCartFromStorage();
       return {
         success: true,
@@ -225,6 +228,7 @@ export const getCart = async () => {
       };
     }
   } catch (error) {
+    console.error('ShoppingCart: Error fetching cart', error);
     throw new Error(error?.response?.data?.error || error.message);
   }
 };

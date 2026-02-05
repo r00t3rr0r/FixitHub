@@ -584,31 +584,54 @@ class BookingService {
         throw new Error('Booking not found');
       }
 
-      // Build invoice items from booking
-      const invoiceItems = booking.items.map(item => ({
-        description: item.type === 'repair' ? `${item.device} Repair` : 'Shop Products',
-        quantity: 1,
-        unitPrice: item.cost,
-        total: item.cost,
-      }));
+      // Extract customer information
+      const customerFirstName = booking.customerId?.firstName || 'N/A';
+      const customerLastName = booking.customerId?.lastName || 'N/A';
+      const customerEmail = booking.customerId?.email || 'N/A';
+      const customerName = `${customerFirstName} ${customerLastName}`.trim();
+
+      console.log('BookingService: Creating invoice with customer:', customerName, 'Email:', customerEmail);
+
+      // Build invoice items from booking with required type field
+      const invoiceItems = booking.items.map(item => {
+        // Determine item type based on booking item
+        let itemType = 'service'; // default
+        if (item.type === 'product') {
+          itemType = 'product';
+        } else if (item.type === 'repair') {
+          itemType = 'service';
+        }
+
+        return {
+          description: item.type === 'repair' ? `${item.device} Repair` : 'Shop Products',
+          quantity: 1,
+          unitPrice: item.cost,
+          total: item.cost,
+          type: itemType,
+        };
+      });
+
+      console.log('BookingService: Created', invoiceItems.length, 'invoice items with types');
 
       // Create invoice
       const invoice = new Invoice({
         customerId: booking.customerId._id,
-        orderId: booking.orderIds[0], // Link to first order for reference
+        customerName: customerName,
+        customerEmail: customerEmail,
+        orderId: booking.orderIds && booking.orderIds.length > 0 ? booking.orderIds[0] : null, // Link to first order for reference
         bookingId: booking._id,
         items: invoiceItems,
         subtotal: booking.subtotal || booking.totalCost,
         tax: booking.tax || 0,
         discount: booking.discount || 0,
         total: booking.totalCost,
-        status: 'pending',
+        status: 'draft',
         dueDate: invoiceData.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
         notes: invoiceData.notes || '',
       });
 
       const savedInvoice = await invoice.save();
-      console.log('BookingService: Invoice created successfully:', savedInvoice._id);
+      console.log('BookingService: Invoice created successfully:', savedInvoice._id, 'Number:', savedInvoice.invoiceNumber);
 
       // If sendImmediately is true, trigger notification (future implementation)
       if (invoiceData.sendImmediately) {
@@ -618,7 +641,8 @@ class BookingService {
 
       return savedInvoice;
     } catch (error) {
-      console.error('BookingService: Error creating invoice:', error);
+      console.error('BookingService: Error creating invoice:', error.message);
+      console.error('BookingService: Full error details:', error);
       throw error;
     }
   }
