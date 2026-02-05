@@ -184,3 +184,19 @@ export const searchDevices = async (query: string) => {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// Description: Get complete model details by model ID
+// Endpoint: GET /api/devices/models/:modelId
+// Request: { modelId: string }
+// Response: { model: DeviceModel }
+export const getModelById = async (modelId: string) => {
+  console.log('API: Fetching model details for ID:', modelId);
+
+  try {
+    const response = await api.get(`/api/devices/models/${modelId}`);
+    console.log('API: Model details fetched:', response.data.model);
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};

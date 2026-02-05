@@ -12,10 +12,11 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/useToast"
 import { getRepairServices, getAddOnServices, RepairService } from "@/api/services"
-import { getDeviceTypes, getManufacturersByDeviceType, getModelsByTypeAndManufacturer, DeviceType, Manufacturer, DeviceModel, searchDevices, SearchResult } from "@/api/devices"
+import { getDeviceTypes, getManufacturersByDeviceType, getModelsByTypeAndManufacturer, DeviceType, Manufacturer, DeviceModel, searchDevices, SearchResult, getModelById } from "@/api/devices"
 import { createOrder } from "@/api/orders"
 import { addRepairOrderToCart } from "@/api/shop"
 import { UnlockPatternInput } from "@/components/inspection/UnlockPatternInput"
+import { DeviceModelDetailsPanel } from "@/components/DeviceModelDetailsPanel"
 import {
   Select,
   SelectContent,
@@ -121,6 +122,8 @@ export function NewOrder() {
   const [searchingDevices, setSearchingDevices] = useState(false)
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [selectedDevice, setSelectedDevice] = useState<SelectedDevice | null>(null)
+  const [selectedModelDetails, setSelectedModelDetails] = useState<DeviceModel | null>(null)
+  const [loadingModelDetails, setLoadingModelDetails] = useState(false)
 
   // Unlock code/pattern state
   const [unlockPattern, setUnlockPattern] = useState<string[]>([])
@@ -270,6 +273,24 @@ export function NewOrder() {
     setSelectedDeviceType(device.deviceType)
     setSelectedManufacturer(device.manufacturerId)
     setSelectedModel(device._id)
+
+    // Fetch full model details
+    const fetchModelDetails = async () => {
+      try {
+        setLoadingModelDetails(true)
+        console.log("Fetching full model details for:", device._id)
+        const response = await getModelById(device._id)
+        setSelectedModelDetails((response as any).model || null)
+        console.log("Model details loaded:", (response as any).model)
+      } catch (error) {
+        console.error("Error fetching model details:", error)
+        setSelectedModelDetails(null)
+      } finally {
+        setLoadingModelDetails(false)
+      }
+    }
+
+    fetchModelDetails()
   }, [setValue])
 
   // Handle device type selection (skip if device was selected from search)
@@ -860,6 +881,27 @@ export function NewOrder() {
                       </p>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Device Model Details Panel */}
+              {selectedDevice && (
+                <div className="mt-6 animate-in fade-in duration-500">
+                  {loadingModelDetails ? (
+                    <Card className="border-2 shadow-lg">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center justify-center gap-3 py-12">
+                          <div className="h-6 w-6 border-3 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                          <span className="text-muted-foreground animate-pulse">Loading device specifications...</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : selectedModelDetails ? (
+                    <DeviceModelDetailsPanel
+                      model={selectedModelDetails}
+                      deviceType={selectedDevice.deviceType}
+                    />
+                  ) : null}
                 </div>
               )}
 
