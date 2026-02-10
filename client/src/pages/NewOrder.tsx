@@ -195,6 +195,20 @@ export function NewOrder() {
               setSelectedModel(preSelectedDevice._id)
             }
 
+            // Fetch full model details for the pre-selected device
+            try {
+              setLoadingModelDetails(true)
+              console.log("Fetching full model details for pre-selected device:", preSelectedDevice._id)
+              const response = await getModelById(preSelectedDevice._id)
+              setSelectedModelDetails((response as any).model || null)
+              console.log("Pre-selected device model details loaded:", (response as any).model)
+            } catch (error) {
+              console.error("Error fetching model details for pre-selected device:", error)
+              setSelectedModelDetails(null)
+            } finally {
+              setLoadingModelDetails(false)
+            }
+
             // Clear the session storage
             sessionStorage.removeItem('selectedDevice')
 
