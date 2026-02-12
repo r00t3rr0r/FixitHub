@@ -186,8 +186,8 @@ const repairRequestSchema = new mongoose.Schema({
   versionKey: false
 });
 
-// Auto-generate request number
-repairRequestSchema.pre('save', async function(next) {
+// Auto-generate request number BEFORE validation
+repairRequestSchema.pre('validate', async function(next) {
   if (this.isNew && !this.requestNumber) {
     try {
       const count = await this.constructor.countDocuments();
@@ -198,11 +198,14 @@ repairRequestSchema.pre('save', async function(next) {
       return next(error);
     }
   }
+  next();
+});
 
+// Update timestamp on save
+repairRequestSchema.pre('save', function(next) {
   if (!this.isNew) {
     this.updatedAt = Date.now();
   }
-
   next();
 });
 
