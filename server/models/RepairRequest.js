@@ -201,7 +201,8 @@ repairRequestSchema.pre('save', async function(next) {
 });
 
 // Index for faster queries
-repairRequestSchema.index({ requestNumber: 1 });
+// Note: requestNumber already has a unique index from schema definition (line 8)
+// repairRequestSchema.index({ requestNumber: 1 }); // Removed to avoid duplicate index warning
 repairRequestSchema.index({ customerId: 1 });
 repairRequestSchema.index({ status: 1 });
 repairRequestSchema.index({ createdAt: -1 });
