@@ -981,6 +981,75 @@ export function NewOrder() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
+              {/* Request Repair Service Option */}
+              <Card className="border-2 border-blue-300 dark:border-blue-700 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950/30 dark:via-indigo-950/30 dark:to-purple-950/30 shadow-lg hover:shadow-xl transition-all duration-300 animate-in slide-in-from-top">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl shadow-lg">
+                          <FileText className="h-6 w-6 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-lg text-blue-900 dark:text-blue-100">
+                            Request Repair Service
+                          </h3>
+                          <p className="text-sm text-blue-700 dark:text-blue-300">
+                            Not sure what service you need? Let us evaluate your device
+                          </p>
+                        </div>
+                      </div>
+                      <div className="ml-14 space-y-2">
+                        <div className="flex items-start gap-2">
+                          <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                          <p className="text-sm text-muted-foreground">
+                            Provide details about your issue and we'll recommend the right repair
+                          </p>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                          <p className="text-sm text-muted-foreground">
+                            Get a free quote and expert diagnosis from our technicians
+                          </p>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                          <p className="text-sm text-muted-foreground">
+                            No commitment required - review the quote before proceeding
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        // Navigate to repair request questionnaire with device info
+                        navigate("/repair-request", {
+                          state: {
+                            device: selectedDevice
+                          }
+                        })
+                      }}
+                      className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all px-8 py-6 text-base group"
+                    >
+                      <span>Request Service</span>
+                      <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Or select specific services
+                  </span>
+                </div>
+              </div>
+
               {/* Compact Category Filter Buttons */}
               <div className="space-y-2">
                 <Label className="text-sm font-semibold">{t('newOrder.serviceSelection.filterLabel')}</Label>

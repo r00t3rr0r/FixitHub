@@ -57,6 +57,8 @@ import { FinancialManagement } from "./pages/admin/FinancialManagement"
 import { DeviceManagement } from "./pages/admin/DeviceManagement"
 import EPartOrderManagement from "./pages/admin/EPartOrderManagement"
 import { InspectionWorkflow } from "./pages/inspection/InspectionWorkflow"
+import { RepairRequestQuestionnaire } from "./pages/RepairRequestQuestionnaire"
+import { RepairRequestsManagement } from "./pages/admin/RepairRequestsManagement"
 
 function App() {
   return (
@@ -81,6 +83,9 @@ function App() {
             {/* Public access routes - no authentication required */}
             <Route path="/new-order" element={<CustomerLayout />}>
               <Route index element={<NewOrder />} />
+            </Route>
+            <Route path="/repair-request" element={<CustomerLayout />}>
+              <Route index element={<RepairRequestQuestionnaire />} />
             </Route>
             <Route path="/shop" element={<CustomerLayout />}>
               <Route index element={<WebShop />} />
@@ -217,6 +222,9 @@ function App() {
             </Route>
             <Route path="/admin/epart-orders" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<EPartOrderManagement />} />
+            </Route>
+            <Route path="/admin/repair-requests" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<RepairRequestsManagement />} />
             </Route>
 
             {/* Inspection route */}
