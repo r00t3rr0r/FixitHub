@@ -1,6 +1,7 @@
 const RepairRequest = require('../models/RepairRequest');
 const Order = require('../models/Order');
 const User = require('../models/User');
+const Service = require('../models/Service');
 const mongoose = require('mongoose');
 
 class RepairRequestService {
@@ -367,6 +368,7 @@ class RepairRequestService {
   static async convertToOrder(requestId, orderData, staffId, staffName) {
     try {
       console.log(`RepairRequestService: Converting request ${requestId} to order`);
+      console.log('Order data received:', JSON.stringify(orderData));
 
       const request = await RepairRequest.findById(requestId);
       if (!request) {
@@ -377,13 +379,37 @@ class RepairRequestService {
         throw new Error('Repair request has already been converted to an order');
       }
 
-      // Create the order with provided data
+      // Transform service IDs into proper service objects
+      let formattedServices = [];
+      if (orderData.services && orderData.services.length > 0) {
+        console.log(`RepairRequestService: Fetching ${orderData.services.length} services`);
+
+        // Fetch all services in one query
+        const serviceIds = orderData.services;
+        const services = await Service.find({ _id: { $in: serviceIds } });
+
+        if (services.length !== serviceIds.length) {
+          console.warn(`RepairRequestService: Found ${services.length} services out of ${serviceIds.length} requested`);
+        }
+
+        // Transform services into the format expected by Order model
+        formattedServices = services.map(service => ({
+          serviceId: service._id,
+          price: service.price || 0,
+          estimatedTime: service.estimatedTime || 0,
+          notes: ''
+        }));
+
+        console.log(`RepairRequestService: Formatted ${formattedServices.length} services for order`);
+      }
+
+      // Create the order with formatted services
       const order = new Order({
         customerId: request.customerId,
         deviceType: request.deviceType,
         deviceBrand: request.deviceBrand,
         deviceModel: request.deviceModel,
-        services: orderData.services || [],
+        services: formattedServices,
         addOns: orderData.addOns || [],
         customerNotes: `Converted from Repair Request: ${request.requestNumber}\n\nIssue: ${request.issueDescription}`,
         photos: request.images,
