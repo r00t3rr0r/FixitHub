@@ -37,7 +37,8 @@ const setupInterceptors = (apiInstance: typeof axios) => {
       if (!accessToken) {
         accessToken = localStorage.getItem('accessToken');
       }
-      if (accessToken && config.headers) {
+      // Only add Authorization header if token is valid (not null, undefined, or string "null")
+      if (accessToken && accessToken !== 'null' && accessToken !== 'undefined' && config.headers) {
         config.headers.Authorization = `Bearer ${accessToken}`;
       }
 
@@ -59,7 +60,7 @@ const setupInterceptors = (apiInstance: typeof axios) => {
 
         try {
           const refreshToken = localStorage.getItem('refreshToken');
-          if (!refreshToken) {
+          if (!refreshToken || refreshToken === 'null' || refreshToken === 'undefined') {
             throw new Error('No refresh token available');
           }
 
