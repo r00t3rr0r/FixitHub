@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/useToast"
 import {
   getRepairRequests,
@@ -48,7 +49,8 @@ import {
   Phone,
   Calendar,
   FileCheck,
-  AlertCircle
+  AlertCircle,
+  Info
 } from "lucide-react"
 import {
   Select,
