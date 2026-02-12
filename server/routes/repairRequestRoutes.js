@@ -7,7 +7,7 @@ const { requireUser, requireAdmin, requireStaff } = require('./middleware/auth')
 // Endpoint: POST /api/repair-requests
 // Request: { deviceType, deviceBrand, deviceModel, deviceModelId, issueDescription, issueOccurredDate, repairAttempts, additionalInfo, images }
 // Response: { success: true, request: RepairRequest }
-router.post('/', requireUser(), async (req, res) => {
+router.post('/', requireUser, async (req, res) => {
   try {
     console.log('POST /api/repair-requests - Create repair request');
     console.log('Request body:', req.body);
@@ -33,7 +33,7 @@ router.post('/', requireUser(), async (req, res) => {
 // Endpoint: GET /api/repair-requests
 // Request: { status?, priority?, customerId?, assignedStaffId?, search?, page?, limit?, sortBy?, sortOrder? }
 // Response: { success: true, requests: RepairRequest[], pagination: Pagination }
-router.get('/', requireStaff(), async (req, res) => {
+router.get('/', requireStaff, async (req, res) => {
   try {
     console.log('GET /api/repair-requests - Get all repair requests');
     console.log('Query params:', req.query);
@@ -72,7 +72,7 @@ router.get('/', requireStaff(), async (req, res) => {
 // Endpoint: GET /api/repair-requests/my-requests
 // Request: {}
 // Response: { success: true, requests: RepairRequest[] }
-router.get('/my-requests', requireUser(), async (req, res) => {
+router.get('/my-requests', requireUser, async (req, res) => {
   try {
     console.log('GET /api/repair-requests/my-requests - Get customer repair requests');
 
@@ -99,7 +99,7 @@ router.get('/my-requests', requireUser(), async (req, res) => {
 // Endpoint: GET /api/repair-requests/statistics
 // Request: {}
 // Response: { success: true, statistics: Statistics }
-router.get('/statistics', requireStaff(), async (req, res) => {
+router.get('/statistics', requireStaff, async (req, res) => {
   try {
     console.log('GET /api/repair-requests/statistics - Get statistics');
 
@@ -122,7 +122,7 @@ router.get('/statistics', requireStaff(), async (req, res) => {
 // Endpoint: GET /api/repair-requests/:id
 // Request: {}
 // Response: { success: true, request: RepairRequest }
-router.get('/:id', requireUser(), async (req, res) => {
+router.get('/:id', requireUser, async (req, res) => {
   try {
     console.log(`GET /api/repair-requests/${req.params.id} - Get repair request`);
 
@@ -157,7 +157,7 @@ router.get('/:id', requireUser(), async (req, res) => {
 // Endpoint: PUT /api/repair-requests/:id/status
 // Request: { status: string }
 // Response: { success: true, request: RepairRequest }
-router.put('/:id/status', requireStaff(), async (req, res) => {
+router.put('/:id/status', requireStaff, async (req, res) => {
   try {
     console.log(`PUT /api/repair-requests/${req.params.id}/status - Update status`);
     console.log('Request body:', req.body);
@@ -199,7 +199,7 @@ router.put('/:id/status', requireStaff(), async (req, res) => {
 // Endpoint: PUT /api/repair-requests/:id/assign
 // Request: { staffId: string }
 // Response: { success: true, request: RepairRequest }
-router.put('/:id/assign', requireAdmin(), async (req, res) => {
+router.put('/:id/assign', requireAdmin, async (req, res) => {
   try {
     console.log(`PUT /api/repair-requests/${req.params.id}/assign - Assign staff`);
     console.log('Request body:', req.body);
@@ -241,7 +241,7 @@ router.put('/:id/assign', requireAdmin(), async (req, res) => {
 // Endpoint: POST /api/repair-requests/:id/messages
 // Request: { message: string }
 // Response: { success: true, request: RepairRequest }
-router.post('/:id/messages', requireUser(), async (req, res) => {
+router.post('/:id/messages', requireUser, async (req, res) => {
   try {
     console.log(`POST /api/repair-requests/${req.params.id}/messages - Add message`);
     console.log('Request body:', req.body);
@@ -285,7 +285,7 @@ router.post('/:id/messages', requireUser(), async (req, res) => {
 // Endpoint: PUT /api/repair-requests/:id/messages/read
 // Request: {}
 // Response: { success: true, request: RepairRequest }
-router.put('/:id/messages/read', requireUser(), async (req, res) => {
+router.put('/:id/messages/read', requireUser, async (req, res) => {
   try {
     console.log(`PUT /api/repair-requests/${req.params.id}/messages/read - Mark messages as read`);
 
@@ -309,7 +309,7 @@ router.put('/:id/messages/read', requireUser(), async (req, res) => {
 // Endpoint: POST /api/repair-requests/:id/admin-notes
 // Request: { note: string }
 // Response: { success: true, request: RepairRequest }
-router.post('/:id/admin-notes', requireStaff(), async (req, res) => {
+router.post('/:id/admin-notes', requireStaff, async (req, res) => {
   try {
     console.log(`POST /api/repair-requests/${req.params.id}/admin-notes - Add admin note`);
     console.log('Request body:', req.body);
@@ -351,7 +351,7 @@ router.post('/:id/admin-notes', requireStaff(), async (req, res) => {
 // Endpoint: PUT /api/repair-requests/:id/priority
 // Request: { priority: string }
 // Response: { success: true, request: RepairRequest }
-router.put('/:id/priority', requireStaff(), async (req, res) => {
+router.put('/:id/priority', requireStaff, async (req, res) => {
   try {
     console.log(`PUT /api/repair-requests/${req.params.id}/priority - Update priority`);
     console.log('Request body:', req.body);
@@ -393,7 +393,7 @@ router.put('/:id/priority', requireStaff(), async (req, res) => {
 // Endpoint: PUT /api/repair-requests/:id/estimated-cost
 // Request: { estimatedCost: number }
 // Response: { success: true, request: RepairRequest }
-router.put('/:id/estimated-cost', requireStaff(), async (req, res) => {
+router.put('/:id/estimated-cost', requireStaff, async (req, res) => {
   try {
     console.log(`PUT /api/repair-requests/${req.params.id}/estimated-cost - Update estimated cost`);
     console.log('Request body:', req.body);
@@ -435,7 +435,7 @@ router.put('/:id/estimated-cost', requireStaff(), async (req, res) => {
 // Endpoint: POST /api/repair-requests/:id/convert
 // Request: { services: string[], addOns: AddOn[], totalCost: number }
 // Response: { success: true, request: RepairRequest, order: Order }
-router.post('/:id/convert', requireStaff(), async (req, res) => {
+router.post('/:id/convert', requireStaff, async (req, res) => {
   try {
     console.log(`POST /api/repair-requests/${req.params.id}/convert - Convert to order`);
     console.log('Request body:', req.body);
@@ -469,7 +469,7 @@ router.post('/:id/convert', requireStaff(), async (req, res) => {
 // Endpoint: DELETE /api/repair-requests/:id
 // Request: {}
 // Response: { success: true }
-router.delete('/:id', requireAdmin(), async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     console.log(`DELETE /api/repair-requests/${req.params.id} - Delete repair request`);
 
