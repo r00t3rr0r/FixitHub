@@ -188,9 +188,15 @@ const repairRequestSchema = new mongoose.Schema({
 
 // Auto-generate request number
 repairRequestSchema.pre('save', async function(next) {
-  if (this.isNew) {
-    const count = await mongoose.model('RepairRequest').countDocuments();
-    this.requestNumber = `RR-${Date.now()}-${(count + 1).toString().padStart(5, '0')}`;
+  if (this.isNew && !this.requestNumber) {
+    try {
+      const count = await this.constructor.countDocuments();
+      this.requestNumber = `RR-${Date.now()}-${(count + 1).toString().padStart(5, '0')}`;
+      console.log(`Generated request number: ${this.requestNumber}`);
+    } catch (error) {
+      console.error('Error generating request number:', error);
+      return next(error);
+    }
   }
 
   if (!this.isNew) {
