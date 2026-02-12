@@ -53,7 +53,8 @@ import {
   FileText,
   AlertCircle,
   Droplets,
-  Wrench
+  Wrench,
+  CheckCircle
 } from "lucide-react"
 import {
   Tooltip,
