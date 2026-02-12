@@ -2,9 +2,57 @@ const RepairRequest = require('../models/RepairRequest');
 const Order = require('../models/Order');
 const User = require('../models/User');
 const Service = require('../models/Service');
+const BookingService = require('./bookingService');
 const mongoose = require('mongoose');
 
 class RepairRequestService {
+  /**
+   * Helper function to parse estimatedTime string to numeric minutes
+   * Examples: "2-3 hours" -> 150, "1-2 hours" -> 90, "30-60 minutes" -> 45
+   */
+  static parseEstimatedTime(timeString) {
+    try {
+      if (!timeString || typeof timeString !== 'string') {
+        console.warn('RepairRequestService: Invalid time string:', timeString);
+        return 0;
+      }
+
+      // Convert to lowercase for consistent matching
+      const lowerTime = timeString.toLowerCase().trim();
+
+      // Extract numbers from the string
+      const numbers = lowerTime.match(/\d+/g);
+      if (!numbers || numbers.length === 0) {
+        console.warn('RepairRequestService: No numbers found in time string:', timeString);
+        return 0;
+      }
+
+      // Calculate average of range (e.g., "2-3" -> 2.5)
+      let averageValue = 0;
+      if (numbers.length === 1) {
+        averageValue = parseInt(numbers[0]);
+      } else {
+        // Take average of first two numbers
+        averageValue = (parseInt(numbers[0]) + parseInt(numbers[1])) / 2;
+      }
+
+      // Check if it's in hours or minutes
+      if (lowerTime.includes('hour')) {
+        // Convert hours to minutes
+        return Math.round(averageValue * 60);
+      } else if (lowerTime.includes('minute') || lowerTime.includes('min')) {
+        return Math.round(averageValue);
+      } else {
+        // Default to minutes if no unit specified
+        console.warn('RepairRequestService: No time unit found, assuming minutes:', timeString);
+        return Math.round(averageValue);
+      }
+    } catch (error) {
+      console.error('RepairRequestService: Error parsing time string:', timeString, error);
+      return 0;
+    }
+  }
+
   /**
    * Create a new repair request
    */
@@ -393,12 +441,17 @@ class RepairRequestService {
         }
 
         // Transform services into the format expected by Order model
-        formattedServices = services.map(service => ({
-          serviceId: service._id,
-          price: service.price || 0,
-          estimatedTime: service.estimatedTime || 0,
-          notes: ''
-        }));
+        formattedServices = services.map(service => {
+          const estimatedTimeInMinutes = RepairRequestService.parseEstimatedTime(service.estimatedTime);
+          console.log(`RepairRequestService: Service "${service.name}" - Original time: "${service.estimatedTime}", Parsed to: ${estimatedTimeInMinutes} minutes`);
+
+          return {
+            serviceId: service._id,
+            price: service.price || 0,
+            estimatedTime: estimatedTimeInMinutes,
+            notes: ''
+          };
+        });
 
         console.log(`RepairRequestService: Formatted ${formattedServices.length} services for order`);
       }
@@ -421,6 +474,30 @@ class RepairRequestService {
       await order.save();
       console.log(`RepairRequestService: Created order: ${order.orderNumber}`);
 
+      // Create a booking for the order
+      console.log(`RepairRequestService: Creating booking for order ${order.orderNumber}`);
+      let booking = null;
+      try {
+        booking = await BookingService.create({
+          customerId: request.customerId,
+          orderIds: [order._id],
+          status: 'pending',
+          billingStatus: 'unpaid',
+          paymentStatus: 'pending',
+          discount: 0,
+        });
+        console.log(`RepairRequestService: Created booking: ${booking.bookingNumber}`);
+
+        // Update order with booking reference
+        order.bookingId = booking._id;
+        await order.save();
+        console.log(`RepairRequestService: Updated order with bookingId: ${booking._id}`);
+      } catch (bookingError) {
+        console.error('RepairRequestService: Error creating booking (non-fatal):', bookingError);
+        console.error('RepairRequestService: Order created successfully but booking creation failed');
+        // Continue even if booking creation fails - the order is still valid
+      }
+
       // Update repair request
       request.status = 'converted';
       request.convertedToOrderId = order._id;
@@ -428,10 +505,14 @@ class RepairRequestService {
       request.convertedByStaffId = staffId;
       request.convertedByStaffName = staffName;
 
+      const noteText = booking
+        ? `Converted to order: ${order.orderNumber} (Booking: ${booking.bookingNumber})`
+        : `Converted to order: ${order.orderNumber}`;
+
       request.adminNotes.push({
         staffId,
         staffName,
-        note: `Converted to order: ${order.orderNumber}`,
+        note: noteText,
         createdAt: Date.now(),
       });
 
@@ -439,7 +520,7 @@ class RepairRequestService {
 
       console.log(`RepairRequestService: Repair request converted successfully`);
 
-      return { request, order };
+      return { request, order, booking };
     } catch (error) {
       console.error('RepairRequestService: Error converting to order:', error);
       throw error;
