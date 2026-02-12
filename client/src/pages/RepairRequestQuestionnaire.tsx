@@ -172,9 +172,10 @@ export function RepairRequestQuestionnaire() {
     try {
       setSubmitting(true)
 
-      // In a real implementation, you would upload images to a storage service
-      // For now, we'll use placeholder URLs
-      const imageUrls = images.map((_, index) => `https://example.com/repair-request-image-${index + 1}.jpg`)
+      // Use the base64 data URLs that were already created for preview
+      // These will be stored in the database and displayed in the admin panel
+      // Note: For production with many images, consider uploading to AWS S3 or Cloudinary
+      const imageUrls = imagePreviewUrls
 
       const requestData = {
         deviceType: selectedDevice.deviceType,
