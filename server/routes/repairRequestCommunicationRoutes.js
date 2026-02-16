@@ -235,4 +235,23 @@ router.get('/:repairRequestId/pending-actions', requireUser, async (req, res) =>
   }
 });
 
+// Description: Get unread message count for a repair request
+// Endpoint: GET /api/repair-request-communication/:repairRequestId/unread-count
+// Request: {}
+// Response: { unreadCount: number }
+router.get('/:repairRequestId/unread-count', requireUser, async (req, res) => {
+  try {
+    const { repairRequestId } = req.params;
+
+    console.log(`RepairRequestCommunicationRoutes: GET /${repairRequestId}/unread-count - Getting unread message count`);
+
+    const unreadCount = await RepairRequestCommunicationService.getUnreadMessageCount(repairRequestId, req.user._id);
+
+    res.status(200).json({ unreadCount });
+  } catch (error) {
+    console.error(`RepairRequestCommunicationRoutes: Error getting unread message count: ${error.message}`, error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

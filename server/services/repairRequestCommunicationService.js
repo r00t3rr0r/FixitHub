@@ -511,6 +511,35 @@ class RepairRequestCommunicationService {
       throw error;
     }
   }
+
+  // Get unread message count
+  static async getUnreadMessageCount(repairRequestId, userId) {
+    try {
+      console.log(`RepairRequestCommunicationService: Getting unread message count for repair request ${repairRequestId} for user ${userId}`);
+
+      const communication = await RepairRequestCommunication.findOne({ repairRequestId });
+
+      if (!communication || !communication.messages) {
+        return 0;
+      }
+
+      // Count messages that haven't been read by this user
+      let unreadCount = 0;
+      for (const message of communication.messages) {
+        // Check if user has read this message
+        const isRead = message.readBy && message.readBy.some(r => r.userId.toString() === userId.toString());
+        if (!isRead) {
+          unreadCount++;
+        }
+      }
+
+      console.log(`RepairRequestCommunicationService: Found ${unreadCount} unread messages`);
+      return unreadCount;
+    } catch (error) {
+      console.error(`RepairRequestCommunicationService: Error getting unread message count: ${error.message}`, error);
+      throw error;
+    }
+  }
 }
 
 module.exports = RepairRequestCommunicationService;

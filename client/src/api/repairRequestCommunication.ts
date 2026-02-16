@@ -150,3 +150,17 @@ export const getPendingActionsCount = async (repairRequestId: string) => {
     throw new Error((error as any)?.response?.data?.error || (error as any).message);
   }
 };
+
+// Description: Get unread message count for a repair request
+// Endpoint: GET /api/repair-request-communication/:repairRequestId/unread-count
+// Request: {}
+// Response: { unreadCount: number }
+export const getUnreadMessageCount = async (repairRequestId: string) => {
+  try {
+    const response = await api.get(`/api/repair-request-communication/${repairRequestId}/unread-count`);
+    return response.data.unreadCount || 0;
+  } catch (error) {
+    console.error('getUnreadMessageCount error:', error);
+    throw new Error((error as any)?.response?.data?.error || (error as any).message);
+  }
+};

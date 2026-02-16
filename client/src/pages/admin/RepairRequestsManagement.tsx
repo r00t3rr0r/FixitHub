@@ -26,6 +26,7 @@ import {
 } from "@/api/repairRequests"
 import { getStaffMembers, StaffMember } from "@/api/staff"
 import { getRepairServices, RepairService } from "@/api/services"
+import { getUnreadMessageCount } from "@/api/repairRequestCommunication"
 import {
   FileText,
   Search,
@@ -110,6 +111,7 @@ export function RepairRequestsManagement() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
 
   // Dialog states
   const [selectedRequest, setSelectedRequest] = useState<RepairRequest | null>(null)
@@ -147,10 +149,24 @@ export function RepairRequestsManagement() {
         getRepairServices()
       ])
 
-      setRequests((requestsResponse as any).requests || [])
+      const requestsData = (requestsResponse as any).requests || []
+      setRequests(requestsData)
       setStatistics((statsResponse as any).statistics || null)
       setStaff((staffResponse as any).staff || [])
       setServices((servicesResponse as any).services || [])
+
+      // Fetch unread counts for all requests
+      const counts: Record<string, number> = {}
+      for (const request of requestsData) {
+        try {
+          const count = await getUnreadMessageCount(request._id)
+          counts[request._id] = count
+        } catch (error) {
+          console.error(`Error fetching unread count for request ${request._id}:`, error)
+          counts[request._id] = 0
+        }
+      }
+      setUnreadCounts(counts)
 
       console.log("Data loaded successfully")
     } catch (error) {
@@ -701,7 +717,14 @@ export function RepairRequestsManagement() {
                       className="cursor-pointer hover:bg-muted/50 transition-colors"
                     >
                       <TableCell className="font-medium">
-                        {request.requestNumber}
+                        <div className="flex items-center gap-2">
+                          <span>{request.requestNumber}</span>
+                          {unreadCounts[request._id] > 0 && (
+                            <Badge variant="destructive" className="h-6 w-6 flex items-center justify-center p-0 text-xs">
+                              {unreadCounts[request._id]}
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">

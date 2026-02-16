@@ -14,6 +14,7 @@ import {
   getRepairRequestById,
   RepairRequest
 } from "@/api/repairRequests"
+import { getUnreadMessageCount } from "@/api/repairRequestCommunication"
 import {
   Search,
   Filter,
@@ -69,6 +70,7 @@ export function CustomerRepairRequests() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
 
   // Dialog states
   const [showDetailsDialog, setShowDetailsDialog] = useState(false)
@@ -86,6 +88,19 @@ export function CustomerRepairRequests() {
         console.log("CustomerRepairRequests: Requests loaded successfully", requestsData)
         setRequests(requestsData)
         setFilteredRequests(requestsData)
+
+        // Fetch unread counts for all requests
+        const counts: Record<string, number> = {}
+        for (const request of requestsData) {
+          try {
+            const count = await getUnreadMessageCount(request._id)
+            counts[request._id] = count
+          } catch (error) {
+            console.error(`Error fetching unread count for request ${request._id}:`, error)
+            counts[request._id] = 0
+          }
+        }
+        setUnreadCounts(counts)
       } catch (error) {
         console.error("CustomerRepairRequests: Error fetching repair requests:", error)
         toast({
@@ -315,7 +330,16 @@ export function CustomerRepairRequests() {
                       onClick={() => openDetailsDialog(request)}
                       className="cursor-pointer hover:bg-muted/50 transition-colors"
                     >
-                      <TableCell className="font-medium">{request.requestNumber}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <span>{request.requestNumber}</span>
+                          {unreadCounts[request._id] > 0 && (
+                            <Badge variant="destructive" className="h-6 w-6 flex items-center justify-center p-0 text-xs">
+                              {unreadCounts[request._id]}
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
                           <span className="font-medium">{request.deviceBrand}</span>
