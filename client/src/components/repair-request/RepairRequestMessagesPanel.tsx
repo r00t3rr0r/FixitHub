@@ -34,6 +34,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
+  Zap,
 } from "lucide-react"
 
 interface RepairRequestMessagesPanelProps {
@@ -103,6 +104,10 @@ export function RepairRequestMessagesPanel({
   >("parts_needed")
   const [quickActionDescription, setQuickActionDescription] = useState("")
   const [respondingTo, setRespondingTo] = useState<string | null>(null)
+  const [completingAction, setCompletingAction] = useState<string | null>(null)
+  const [showActionResponseDialog, setShowActionResponseDialog] = useState(false)
+  const [selectedActionId, setSelectedActionId] = useState<string | null>(null)
+  const [actionResponse, setActionResponse] = useState("")
 
   // Load communication thread
   useEffect(() => {
@@ -198,6 +203,35 @@ export function RepairRequestMessagesPanel({
       })
     } finally {
       setRespondingTo(null)
+    }
+  }
+
+  // Handle quick action completion
+  const handleCompleteQuickAction = async () => {
+    if (!selectedActionId) return
+
+    try {
+      console.log("RepairRequestMessagesPanel: Completing quick action:", selectedActionId)
+      setCompletingAction(selectedActionId)
+      const updated = await completeQuickAction(requestId, selectedActionId)
+      setCommunication(updated)
+      console.log("RepairRequestMessagesPanel: Quick action completed")
+      setShowActionResponseDialog(false)
+      setSelectedActionId(null)
+      setActionResponse("")
+      toast({
+        title: t("common.success"),
+        description: "Action marked as completed",
+      })
+    } catch (error: any) {
+      console.error("RepairRequestMessagesPanel: Error completing action:", error)
+      toast({
+        title: t("common.error"),
+        description: error.message || "Failed to complete action",
+        variant: "destructive",
+      })
+    } finally {
+      setCompletingAction(null)
     }
   }
 
@@ -483,17 +517,20 @@ export function RepairRequestMessagesPanel({
                     {/* Quick Actions */}
                     {message.messageType === "quick_action" && message.quickAction && (
                       <div className="border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-950 p-4 rounded">
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start justify-between gap-3 mb-3">
                           <div className="flex-1">
-                            <p className="font-semibold text-sm text-blue-900 dark:text-blue-100">
-                              {message.quickAction.actionLabel}
-                            </p>
+                            <div className="flex items-center gap-2 mb-1">
+                              <Zap className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                              <p className="font-semibold text-sm text-blue-900 dark:text-blue-100">
+                                {message.quickAction.actionLabel}
+                              </p>
+                            </div>
                             {message.quickAction.description && (
-                              <p className="text-xs text-blue-800 dark:text-blue-200 mt-2">
+                              <p className="text-xs text-blue-800 dark:text-blue-200 mt-2 ml-6">
                                 {message.quickAction.description}
                               </p>
                             )}
-                            <p className="text-xs text-muted-foreground mt-2">
+                            <p className="text-xs text-muted-foreground mt-2 ml-6">
                               from {message.senderName}
                             </p>
                           </div>
@@ -512,6 +549,25 @@ export function RepairRequestMessagesPanel({
                             {message.quickAction.status}
                           </Badge>
                         </div>
+
+                        {/* Customer Action Buttons */}
+                        {message.quickAction.status === "pending" && isCustomer && (
+                          <div className="flex gap-2 mt-3 ml-6">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => {
+                                setSelectedActionId(message._id)
+                                setShowActionResponseDialog(true)
+                              }}
+                              disabled={completingAction === message._id}
+                              className="gap-1"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                              {completingAction === message._id ? "Completing..." : "Mark Complete"}
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -625,7 +681,7 @@ export function RepairRequestMessagesPanel({
         </DialogContent>
       </Dialog>
 
-      {/* Quick Action Dialog */}
+      {/* Quick Action Dialog (Staff) */}
       <Dialog open={showQuickActionDialog} onOpenChange={setShowQuickActionDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -677,6 +733,53 @@ export function RepairRequestMessagesPanel({
             </Button>
             <Button onClick={handleSendQuickAction} disabled={sending}>
               {sending ? "Sending..." : "Send"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Action Response Dialog (Customer) */}
+      <Dialog open={showActionResponseDialog} onOpenChange={setShowActionResponseDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-green-600" />
+              Mark Action Complete
+            </DialogTitle>
+            <DialogDescription>
+              Provide any additional information about completing this action
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Completion Notes (Optional)</label>
+              <Textarea
+                placeholder="Add any notes about completing this action..."
+                value={actionResponse}
+                onChange={(e) => setActionResponse(e.target.value)}
+                className="min-h-[80px] resize-none"
+              />
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded text-xs text-blue-900 dark:text-blue-100">
+              <p>By marking this action complete, you're confirming that you have completed the required task. Our repair team will be notified.</p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowActionResponseDialog(false)
+                setSelectedActionId(null)
+                setActionResponse("")
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleCompleteQuickAction} disabled={completingAction !== null}>
+              {completingAction ? "Completing..." : "Mark Complete"}
             </Button>
           </DialogFooter>
         </DialogContent>
