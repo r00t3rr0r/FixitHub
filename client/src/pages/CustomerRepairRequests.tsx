@@ -3,23 +3,20 @@ import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/useToast"
+import { useAuth } from "@/contexts/AuthContext"
+import { RepairRequestMessagesPanel } from "@/components/repair-request/RepairRequestMessagesPanel"
 import {
   getMyRepairRequests,
   getRepairRequestById,
-  addRepairRequestMessage,
-  RepairRequest,
-  RepairRequestMessage
+  RepairRequest
 } from "@/api/repairRequests"
 import {
   Search,
   Filter,
   Eye,
-  MessageSquare,
   Clock,
   CheckCircle,
   AlertTriangle,
@@ -63,6 +60,7 @@ interface ExtendedRepairRequest extends RepairRequest {
 export function CustomerRepairRequests() {
   const { t } = useTranslation()
   const { toast } = useToast()
+  const { user } = useAuth()
 
   // State management
   const [requests, setRequests] = useState<ExtendedRepairRequest[]>([])
@@ -75,8 +73,6 @@ export function CustomerRepairRequests() {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<ExtendedRepairRequest | null>(null)
   const [detailsLoading, setDetailsLoading] = useState(false)
-  const [messageText, setMessageText] = useState("")
-  const [sending, setSending] = useState(false)
 
   // Fetch customer's repair requests
   useEffect(() => {
@@ -153,38 +149,6 @@ export function CustomerRepairRequests() {
     }
   }
 
-  // Send message
-  const handleSendMessage = async () => {
-    if (!selectedRequest || !messageText.trim()) {
-      return
-    }
-
-    try {
-      console.log("CustomerRepairRequests: Sending message for request:", selectedRequest._id)
-      setSending(true)
-      const response = await addRepairRequestMessage(selectedRequest._id, messageText)
-      const updatedRequest = (response as any).request
-
-      if (updatedRequest) {
-        setSelectedRequest(updatedRequest)
-        setMessageText("")
-        console.log("CustomerRepairRequests: Message sent successfully")
-        toast({
-          title: "Success",
-          description: "Message sent successfully"
-        })
-      }
-    } catch (error) {
-      console.error("CustomerRepairRequests: Error sending message:", error)
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to send message"
-      })
-    } finally {
-      setSending(false)
-    }
-  }
 
   // Get status color for badge
   const getStatusColor = (status: string) => {
@@ -514,74 +478,12 @@ export function CustomerRepairRequests() {
                     </div>
                   )}
 
-                  {/* Messages Section */}
-                  <div className="space-y-3">
-                    <h3 className="font-semibold flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4" />
-                      Messages ({selectedRequest.messages?.length || 0})
-                    </h3>
-
-                    {selectedRequest.messages && selectedRequest.messages.length > 0 ? (
-                      <div className="space-y-3 max-h-64 overflow-y-auto p-3 bg-muted/30 rounded-lg">
-                        {selectedRequest.messages.map((message: RepairRequestMessage) => (
-                          <div
-                            key={message._id}
-                            className={`p-3 rounded-lg ${
-                              message.senderRole === 'customer'
-                                ? 'bg-blue-50 border border-blue-200'
-                                : 'bg-gray-50 border border-gray-200'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between mb-2">
-                              <div>
-                                <p className="font-medium text-sm">{message.senderName}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {message.senderRole}
-                                </p>
-                              </div>
-                              <span className="text-xs text-muted-foreground">
-                                {formatDate(message.sentAt)}
-                              </span>
-                            </div>
-                            <p className="text-sm">{message.message}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No messages yet</p>
-                    )}
-
-                    {/* Message Input */}
-                    <div className="space-y-2">
-                      <Label htmlFor="message" className="text-sm">Send a Message</Label>
-                      <Textarea
-                        id="message"
-                        placeholder="Type your message here..."
-                        value={messageText}
-                        onChange={(e) => setMessageText(e.target.value)}
-                        disabled={sending}
-                        className="resize-none"
-                        rows={3}
-                      />
-                      <Button
-                        onClick={handleSendMessage}
-                        disabled={sending || !messageText.trim()}
-                        className="w-full"
-                      >
-                        {sending ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Sending...
-                          </>
-                        ) : (
-                          <>
-                            <MessageSquare className="h-4 w-4 mr-2" />
-                            Send Message
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
+                  {/* Messaging Panel */}
+                  <RepairRequestMessagesPanel
+                    requestId={selectedRequest._id}
+                    userRole={user?.role}
+                    isReadOnly={false}
+                  />
 
                   {/* Images */}
                   {selectedRequest.images && selectedRequest.images.length > 0 && (

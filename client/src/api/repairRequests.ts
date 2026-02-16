@@ -214,7 +214,7 @@ export const assignStaffToRepairRequest = async (requestId: string, staffId: str
   }
 };
 
-// Description: Add a message to the communication thread
+// Description: Add a message to the communication thread (Deprecated - use repairRequestCommunication API)
 // Endpoint: POST /api/repair-requests/:id/messages
 // Request: { message: string }
 // Response: { success: boolean, request: RepairRequest, message: string }
