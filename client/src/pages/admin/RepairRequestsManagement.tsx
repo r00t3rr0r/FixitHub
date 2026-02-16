@@ -94,6 +94,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Checkbox } from "@/components/ui/checkbox"
+import { RepairRequestMessagesPanel } from "@/components/repair-request/RepairRequestMessagesPanel"
 
 export function RepairRequestsManagement() {
   const { t } = useTranslation()
@@ -1010,6 +1011,20 @@ export function RepairRequestsManagement() {
                       ))}
                     </div>
                   )}
+                </CardContent>
+              </Card>
+
+              {/* Communication & Messaging Panel */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Communication</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <RepairRequestMessagesPanel
+                    requestId={selectedRequest._id}
+                    userRole="admin"
+                    isReadOnly={false}
+                  />
                 </CardContent>
               </Card>
             </div>
