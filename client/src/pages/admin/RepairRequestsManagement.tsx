@@ -694,7 +694,11 @@ export function RepairRequestsManagement() {
                   </TableRow>
                 ) : (
                   filteredRequests.map((request) => (
-                    <TableRow key={request._id}>
+                    <TableRow
+                      key={request._id}
+                      onClick={() => openDetailsDialog(request)}
+                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    >
                       <TableCell className="font-medium">
                         {request.requestNumber}
                       </TableCell>
