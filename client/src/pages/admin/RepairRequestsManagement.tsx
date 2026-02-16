@@ -826,7 +826,7 @@ export function RepairRequestsManagement() {
 
       {/* Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Request Details - {selectedRequest?.requestNumber}</DialogTitle>
             <DialogDescription>
@@ -834,8 +834,9 @@ export function RepairRequestsManagement() {
             </DialogDescription>
           </DialogHeader>
 
-          {selectedRequest && (
-            <div className="space-y-6">
+          <ScrollArea className="flex-1 overflow-hidden pr-4">
+            {selectedRequest && (
+            <div className="space-y-6 p-4">
               {/* Customer Information */}
               <Card>
                 <CardHeader>
@@ -1051,7 +1052,8 @@ export function RepairRequestsManagement() {
                 </CardContent>
               </Card>
             </div>
-          )}
+            )}
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
