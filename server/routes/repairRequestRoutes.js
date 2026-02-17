@@ -199,7 +199,7 @@ router.put('/:id/status', requireStaff, async (req, res) => {
 // Endpoint: PUT /api/repair-requests/:id/assign
 // Request: { staffId: string }
 // Response: { success: true, request: RepairRequest }
-router.put('/:id/assign', requireAdmin, async (req, res) => {
+router.put('/:id/assign', requireStaff, async (req, res) => {
   try {
     console.log(`PUT /api/repair-requests/${req.params.id}/assign - Assign staff`);
     console.log('Request body:', req.body);
@@ -469,7 +469,7 @@ router.post('/:id/convert', requireStaff, async (req, res) => {
 // Endpoint: DELETE /api/repair-requests/:id
 // Request: {}
 // Response: { success: true }
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', requireStaff, async (req, res) => {
   try {
     console.log(`DELETE /api/repair-requests/${req.params.id} - Delete repair request`);
 
