@@ -1,4 +1,5 @@
 import api from './api';
+import { generateImagePlaceholder } from '@/utils/placeholders';
 
 export interface QualityChecklist {
   _id: string;
@@ -241,7 +242,7 @@ export const getQualityInspections = (filters: any = {}) => {
                 _id: 'qphoto1',
                 requirementId: 'photo1',
                 requirementName: 'Front View',
-                url: 'https://via.placeholder.com/400x600/3b82f6/ffffff?text=QC+Front+View',
+                url: generateImagePlaceholder('QC Front View', 400, 600),
                 uploadedAt: '2024-01-15T14:35:00Z',
                 notes: 'Clear view showing perfect alignment'
               }

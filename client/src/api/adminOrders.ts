@@ -1,4 +1,5 @@
 import api from './api';
+import { generateAvatarPlaceholder, generateImagePlaceholder } from '@/utils/placeholders';
 
 export interface StaffMember {
   _id: string;
@@ -174,7 +175,7 @@ export const getAdminOrders = async (filters: any = {}) => {
               name: 'John Smith',
               email: 'john.smith@example.com',
               phone: '+1 (555) 123-4567',
-              avatar: 'https://via.placeholder.com/100x100/3b82f6/ffffff?text=JS',
+              avatar: generateAvatarPlaceholder('JS', 100),
               address: {
                 street: '123 Main St',
                 city: 'New York',
@@ -210,7 +211,7 @@ export const getAdminOrders = async (filters: any = {}) => {
             assignedStaff: [],
             estimatedCompletion: '2024-01-20T17:00:00Z',
             totalCost: 299,
-            photos: ['https://via.placeholder.com/400x300/f3f4f6/374151?text=Device+Photo'],
+            photos: [generateImagePlaceholder('Device Photo', 400, 300)],
             customerNotes: 'Screen cracked after dropping the phone',
             staffNotes: [],
             progress: 0,
@@ -233,7 +234,7 @@ export const getAdminOrders = async (filters: any = {}) => {
               name: 'Sarah Johnson',
               email: 'sarah.johnson@example.com',
               phone: '+1 (555) 234-5678',
-              avatar: 'https://via.placeholder.com/100x100/10b981/ffffff?text=SJ',
+              avatar: generateAvatarPlaceholder('SJ', 100),
               isActive: true,
               role: 'customer',
               createdAt: '2024-01-02T00:00:00Z'
@@ -248,7 +249,7 @@ export const getAdminOrders = async (filters: any = {}) => {
             assignedStaff: [{
               _id: 'staff1',
               name: 'Mike Chen',
-              avatar: 'https://via.placeholder.com/100x100/3b82f6/ffffff?text=MC'
+              avatar: generateAvatarPlaceholder('MC', 100)
             }],
             estimatedCompletion: '2024-01-18T15:00:00Z',
             totalCost: 199,

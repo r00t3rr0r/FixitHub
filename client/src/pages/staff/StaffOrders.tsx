@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
+import { generateAvatarPlaceholder, generateImagePlaceholder } from "@/utils/placeholders"
 import {
   Package,
   Search,
@@ -109,7 +110,7 @@ export function StaffOrders() {
               name: 'John Doe',
               email: 'john.doe@example.com',
               phone: '+1 (555) 123-4567',
-              avatar: 'https://via.placeholder.com/50x50/3b82f6/ffffff?text=JD'
+              avatar: generateAvatarPlaceholder('JD', 50)
             },
             deviceBrand: 'Apple',
             deviceModel: 'iPhone 15 Pro',
@@ -127,7 +128,7 @@ export function StaffOrders() {
             estimatedCompletion: '2024-01-16T17:00:00Z',
             totalCost: 359,
             createdAt: '2024-01-14T09:00:00Z',
-            photos: ['https://via.placeholder.com/400x300/3b82f6/ffffff?text=iPhone+15+Pro'],
+            photos: [generateImagePlaceholder('iPhone 15 Pro', 400, 300)],
             customerNotes: 'Phone dropped, screen cracked and battery draining fast',
             progress: 65,
             timeTracking: {
@@ -144,7 +145,7 @@ export function StaffOrders() {
               name: 'Emily Davis',
               email: 'emily.davis@example.com',
               phone: '+1 (555) 234-5678',
-              avatar: 'https://via.placeholder.com/50x50/8b5cf6/ffffff?text=ED'
+              avatar: generateAvatarPlaceholder('ED', 50)
             },
             deviceBrand: 'Samsung',
             deviceModel: 'Galaxy S24 Ultra',
@@ -155,7 +156,7 @@ export function StaffOrders() {
             estimatedCompletion: '2024-01-15T16:00:00Z',
             totalCost: 149,
             createdAt: '2024-01-13T14:00:00Z',
-            photos: ['https://via.placeholder.com/400x300/8b5cf6/ffffff?text=Galaxy+S24'],
+            photos: [generateImagePlaceholder('Galaxy S24', 400, 300)],
             customerNotes: 'Camera not focusing properly, especially in low light',
             progress: 90,
             timeTracking: {
