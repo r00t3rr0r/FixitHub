@@ -41,6 +41,36 @@ router.get('/', requireUser, requireAdminOrStaff, async (req, res) => {
   }
 });
 
+// Get assigned orders for current staff member
+router.get('/assigned', requireUser, async (req, res) => {
+  console.log('Get assigned orders request received for user:', req.user.email);
+
+  try {
+    if (!req.user._id) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const filters = {
+      search: req.query.search,
+      status: req.query.status,
+      priority: req.query.priority,
+      assignedStaff: req.user._id.toString(),
+      page: req.query.page || 1,
+      limit: req.query.limit || 50
+    };
+
+    const result = await OrderService.getAll(filters);
+
+    console.log('Assigned orders retrieved:', result.orders?.length || 0, 'orders');
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error getting assigned orders:', error);
+    return res.status(500).json({
+      error: error.message || 'Failed to get assigned orders'
+    });
+  }
+});
+
 // Get single order by ID (admin/staff)
 router.get('/:id', requireUser, requireAdminOrStaff, async (req, res) => {
   console.log('Admin get order by ID request received:', req.params.id);

@@ -633,3 +633,30 @@ export const getCompatibleServices = async (deviceType: string) => {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// Description: Get assigned orders for current staff member
+// Endpoint: GET /api/admin/orders/assigned
+// Request: { search?: string, status?: string, priority?: string, page?: number, limit?: number }
+// Response: { orders: AdminOrder[], totalPages: number, currentPage: number, totalOrders: number }
+export const getAssignedOrders = async (filters: any = {}) => {
+  console.log('getAssignedOrders called with filters:', filters);
+  try {
+    const params = new URLSearchParams();
+
+    if (filters.search) params.append('search', filters.search);
+    if (filters.status) params.append('status', filters.status);
+    if (filters.priority) params.append('priority', filters.priority);
+    if (filters.page) params.append('page', filters.page.toString());
+    if (filters.limit) params.append('limit', filters.limit.toString());
+
+    const queryString = params.toString();
+    const url = queryString ? `/api/admin/orders/assigned?${queryString}` : '/api/admin/orders/assigned';
+
+    const response = await api.get(url);
+    console.log('getAssignedOrders API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('getAssignedOrders API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
