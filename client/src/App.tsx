@@ -163,6 +163,9 @@ function App() {
             <Route path="/admin/bookings" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<BookingsManagement />} />
             </Route>
+            <Route path="/staff/bookings" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<BookingsManagement />} />
+            </Route>
             <Route path="/admin/shop" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<WebShopManagement />} />
             </Route>
