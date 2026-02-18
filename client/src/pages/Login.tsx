@@ -59,12 +59,15 @@ export function Login() {
     console.log('Login page: Checking authentication status:', isAuthenticated)
     if (isAuthenticated) {
       console.log('Login page: User already authenticated with role:', user?.role)
-      // Redirect admin users to admin dashboard, others to home
+      // Redirect based on user role
       if (user?.role === 'admin') {
         console.log('Login page: User is admin, redirecting to admin dashboard')
         navigate("/admin")
+      } else if (user?.role === 'staff') {
+        console.log('Login page: User is staff, redirecting to staff dashboard')
+        navigate("/staff")
       } else {
-        console.log('Login page: User is not admin, redirecting to home')
+        console.log('Login page: User is customer, redirecting to home')
         navigate("/")
       }
     }
@@ -102,8 +105,11 @@ export function Login() {
       if (userData?.role === 'admin') {
         console.log('Login form: Redirecting admin user to admin dashboard')
         navigate("/admin")
+      } else if (userData?.role === 'staff') {
+        console.log('Login form: Redirecting staff user to staff dashboard')
+        navigate("/staff")
       } else {
-        console.log('Login form: Redirecting user to home dashboard')
+        console.log('Login form: Redirecting customer user to home dashboard')
         navigate("/")
       }
     } catch (error: any) {
