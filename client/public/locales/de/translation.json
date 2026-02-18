@@ -121,14 +121,17 @@
   },
   "staff": {
     "menu": {
+      "dashboard": "Dashboard",
       "ordersAndWork": "Aufträge & Arbeit",
       "myOrders": "Meine Aufträge",
-      "teamChat": "Team-Chat",
-      "schedule": "Zeitplan",
-      "knowledgeBase": "Wissensdatenbank",
-      "performance": "Leistung",
+      "repairRequests": "Reparaturanfragen",
       "timeTracking": "Zeiterfassung",
-      "toolsAndResources": "Werkzeuge & Ressourcen"
+      "schedule": "Zeitplan",
+      "bookings": "Buchungen",
+      "toolsAndResources": "Werkzeuge & Ressourcen",
+      "knowledgeBase": "Wissensdatenbank",
+      "teamChat": "Team-Chat",
+      "performance": "Leistung"
     }
   },
   "header": {

@@ -13,7 +13,8 @@ import {
   Users,
   TrendingUp,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  FileText
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -131,10 +132,14 @@ export function StaffSidebar({ isCollapsed }: StaffSidebarProps) {
 
   return (
     <nav className="flex flex-col h-full p-4 space-y-1">
+      {/* Main Dashboard */}
       <NavItem to="/staff" icon={Home}>
-        {t('navigation.dashboard')}
+        {t('staff.menu.dashboard')}
       </NavItem>
 
+      <div className="my-2 border-t border-border" />
+
+      {/* Repair Work Section */}
       <CollapsibleSection
         title={t('staff.menu.ordersAndWork')}
         icon={Package}
@@ -144,20 +149,26 @@ export function StaffSidebar({ isCollapsed }: StaffSidebarProps) {
         <NavItem to="/staff/orders" icon={Package}>
           {t('staff.menu.myOrders')}
         </NavItem>
+        <NavItem to="/staff/repair-requests" icon={FileText}>
+          {t('staff.menu.repairRequests')}
+        </NavItem>
         <NavItem to="/staff/bookings" icon={Package}>
           {t('navigation.bookings')}
         </NavItem>
-        <NavItem to="/staff/repair-requests" icon={Package}>
-          {t('staff.menu.repairRequests')}
-        </NavItem>
-        <NavItem to="/staff/time-tracking" icon={Clock}>
-          {t('staff.menu.timeTracking')}
-        </NavItem>
-        <NavItem to="/staff/schedule" icon={Calendar}>
-          {t('staff.menu.schedule')}
-        </NavItem>
       </CollapsibleSection>
 
+      {/* Time & Schedule Management */}
+      <NavItem to="/staff/time-tracking" icon={Clock}>
+        {t('staff.menu.timeTracking')}
+      </NavItem>
+
+      <NavItem to="/staff/schedule" icon={Calendar}>
+        {t('staff.menu.schedule')}
+      </NavItem>
+
+      <div className="my-2 border-t border-border" />
+
+      {/* Tools & Resources Section */}
       <CollapsibleSection
         title={t('staff.menu.toolsAndResources')}
         icon={BookOpen}
@@ -175,6 +186,9 @@ export function StaffSidebar({ isCollapsed }: StaffSidebarProps) {
         </NavItem>
       </CollapsibleSection>
 
+      <div className="my-2 border-t border-border" />
+
+      {/* Communication & Profile */}
       <NavItem to="/messages" icon={MessageSquare}>
         {t('navigation.messages')}
       </NavItem>

@@ -121,14 +121,17 @@
   },
   "staff": {
     "menu": {
+      "dashboard": "Dashboard",
       "ordersAndWork": "Orders & Work",
       "myOrders": "My Orders",
-      "teamChat": "Team Chat",
-      "schedule": "Schedule",
-      "knowledgeBase": "Knowledge Base",
-      "performance": "Performance",
+      "repairRequests": "Repair Requests",
       "timeTracking": "Time Tracking",
-      "toolsAndResources": "Tools & Resources"
+      "schedule": "Schedule",
+      "bookings": "Bookings",
+      "toolsAndResources": "Tools & Resources",
+      "knowledgeBase": "Knowledge Base",
+      "teamChat": "Team Chat",
+      "performance": "Performance"
     }
   },
   "header": {
