@@ -400,14 +400,25 @@ class DeviceService {
           }
           return true;
         })
-        .map(model => ({
-          _id: model._id,
-          name: model.name || 'Unknown Device',
-          deviceType: model.deviceType || 'unknown',
-          manufacturer: (model.brandId && model.brandId.name) || 'Unknown',
-          manufacturerId: (model.brandId && model.brandId._id) || null,
-          displayName: `${model.deviceType || 'unknown'} • ${(model.brandId && model.brandId.name) || 'Unknown'} • ${model.name || 'Unknown Device'}`
-        }));
+        .map(model => {
+          // Extract image from images array or use image field
+          let imageUrl = null;
+          if (model.images && Array.isArray(model.images) && model.images.length > 0) {
+            imageUrl = model.images[0].url || model.images[0].base64 || null;
+          } else if (model.image) {
+            imageUrl = model.image;
+          }
+
+          return {
+            _id: model._id,
+            name: model.name || 'Unknown Device',
+            deviceType: model.deviceType || 'unknown',
+            manufacturer: (model.brandId && model.brandId.name) || 'Unknown',
+            manufacturerId: (model.brandId && model.brandId._id) || null,
+            image: imageUrl,
+            displayName: `${model.deviceType || 'unknown'} • ${(model.brandId && model.brandId.name) || 'Unknown'} • ${model.name || 'Unknown Device'}`
+          };
+        });
 
       console.log(`DeviceService: Found ${formattedResults.length} matching devices after filtering`);
       if (formattedResults.length > 0) {

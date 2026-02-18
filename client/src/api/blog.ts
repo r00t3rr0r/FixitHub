@@ -1,4 +1,5 @@
 import api from './api';
+import { generateAvatarPlaceholder } from '@/utils/placeholders';
 
 export interface BlogPost {
   _id: string;
@@ -226,7 +227,7 @@ export const getBlogAuthors = async () => {
             _id: '1',
             name: 'Admin User',
             email: 'admin@fixithub.com',
-            avatar: 'https://via.placeholder.com/40',
+            avatar: generateAvatarPlaceholder('AU', 40),
             bio: 'System Administrator and Content Manager',
             socialLinks: {
               twitter: '@fixithub',
@@ -243,7 +244,7 @@ export const getBlogAuthors = async () => {
             _id: '2',
             name: 'Tech Writer',
             email: 'writer@fixithub.com',
-            avatar: 'https://via.placeholder.com/40',
+            avatar: generateAvatarPlaceholder('TW', 40),
             bio: 'Technical Content Specialist',
             socialLinks: {
               twitter: '@techwriter',

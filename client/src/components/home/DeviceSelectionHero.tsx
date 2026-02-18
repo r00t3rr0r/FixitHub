@@ -27,24 +27,40 @@ import {
   ArrowRight,
   Sparkles,
   Filter,
-  Zap
+  Zap,
+  Cpu,
+  Camera,
+  Check,
+  Info
 } from 'lucide-react';
 import {
   getDeviceTypes,
   getManufacturersByDeviceType,
   getModelsByTypeAndManufacturer,
   searchDevices,
+  getModelById,
   DeviceType,
   Manufacturer,
   DeviceModel,
   SearchResult
 } from '@/api/devices';
 import { useToast } from '@/hooks/useToast';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface DeviceSelectionHeroProps {
   backgroundImage?: string;
   title?: string;
   subtitle?: string;
+}
+
+interface SelectedDeviceWithDetails extends SelectedDevice {
+  details?: any;
 }
 
 const getDeviceTypeIcon = (deviceType: string) => {
@@ -106,6 +122,14 @@ export function DeviceSelectionHero({
     manufacturer: string;
     manufacturerId: string;
   } | null>(null);
+
+  // Device details modal state
+  const [showDeviceDetailsModal, setShowDeviceDetailsModal] = useState(false);
+  const [selectedDeviceDetails, setSelectedDeviceDetails] = useState<DeviceModel | null>(null);
+  const [loadingDeviceDetails, setLoadingDeviceDetails] = useState(false);
+
+  // Track broken device images
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
 
   const defaultTitle = t('home.hero.title');
   const defaultSubtitle = t('home.hero.subtitle');
@@ -255,7 +279,32 @@ export function DeviceSelectionHero({
     setManufacturers([]);
     setModels([]);
     setSearchResults([]);
+    setShowDeviceDetailsModal(false);
+    setSelectedDeviceDetails(null);
   };
+
+  // Handle view device details
+  const handleViewDeviceDetails = useCallback(async () => {
+    if (!selectedDevice) return;
+
+    try {
+      setLoadingDeviceDetails(true);
+      console.log('Fetching device details for:', selectedDevice._id);
+      const response = await getModelById(selectedDevice._id);
+      const details = (response as any).model || response;
+      setSelectedDeviceDetails(details);
+      setShowDeviceDetailsModal(true);
+    } catch (error) {
+      console.error('Error fetching device details:', error);
+      toast({
+        title: t('common.error'),
+        description: t('home.deviceSelection.failedToLoadDeviceDetails'),
+        variant: 'destructive'
+      });
+    } finally {
+      setLoadingDeviceDetails(false);
+    }
+  }, [selectedDevice, toast, t]);
 
   // Handle start repair order
   const handleStartRepair = () => {
@@ -384,9 +433,23 @@ export function DeviceSelectionHero({
                                 className="w-full text-left px-4 py-3 hover:bg-accent transition-colors flex items-center justify-between group"
                               >
                                 <div className="flex items-center gap-3">
-                                  <div className="text-primary">
-                                    {getDeviceTypeIcon(device.deviceType)}
-                                  </div>
+                                  {device.image && !brokenImages.has(device._id) ? (
+                                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-yellow-100 dark:bg-yellow-900/30 flex-shrink-0 group-hover:scale-110 transition-transform border border-yellow-200 dark:border-yellow-800 flex items-center justify-center">
+                                      <img
+                                        src={device.image}
+                                        alt={device.name}
+                                        className="w-full h-full object-cover"
+                                        onError={() => {
+                                          console.log(`Device image failed to load for: ${device.name}`);
+                                          setBrokenImages(prev => new Set([...prev, device._id]));
+                                        }}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="p-2 bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-900/30 dark:to-yellow-800/30 rounded-lg group-hover:scale-110 transition-transform">
+                                      {getDeviceTypeIcon(device.deviceType)}
+                                    </div>
+                                  )}
                                   <div>
                                     <div className="font-medium text-sm">{device.name}</div>
                                     <div className="text-xs text-muted-foreground">
@@ -569,24 +632,37 @@ export function DeviceSelectionHero({
             {selectedDevice && (
               <div className="mt-6 p-4 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg border-2 border-primary/20">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-1">
                     <div className="text-primary bg-white p-2 rounded-full">
                       {getDeviceTypeIcon(selectedDevice.deviceType)}
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <h4 className="font-semibold text-base">{selectedDevice.name}</h4>
                       <p className="text-sm text-muted-foreground">
                         {selectedDevice.deviceType} • {selectedDevice.manufacturer}
                       </p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleClearSelection}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleViewDeviceDetails}
+                      disabled={loadingDeviceDetails}
+                      className="flex items-center gap-2"
+                    >
+                      <Info className="h-4 w-4" />
+                      {t('home.deviceSelection.viewDetails')}
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={handleClearSelection}
+                      className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -644,6 +720,212 @@ export function DeviceSelectionHero({
           </div>
         </div>
       </div>
+
+      {/* Device Details Modal */}
+      <Dialog open={showDeviceDetailsModal} onOpenChange={setShowDeviceDetailsModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <div className="text-primary bg-primary/10 p-2 rounded-lg">
+                {selectedDevice && getDeviceTypeIcon(selectedDevice.deviceType)}
+              </div>
+              {selectedDevice?.name}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedDevice?.manufacturer} • {selectedDevice?.deviceType}
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingDeviceDetails ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin">
+                <Package className="h-8 w-8 text-primary" />
+              </div>
+              <span className="ml-3 text-muted-foreground">{t('common.loading')}</span>
+            </div>
+          ) : selectedDeviceDetails ? (
+            <div className="space-y-6 mt-4">
+              {/* Device Image */}
+              {selectedDeviceDetails.image && (
+                <div className="flex justify-center mb-6">
+                  <div className="w-56 h-56 rounded-xl overflow-hidden border-2 border-gray-200 dark:border-gray-700 shadow-md flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+                    <img
+                      src={selectedDeviceDetails.image}
+                      alt={selectedDeviceDetails.name}
+                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none'
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Basic Information */}
+              {(selectedDeviceDetails.other?.releaseDate || selectedDeviceDetails.other?.price || selectedDeviceDetails.other?.colors) && (
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-blue-600"></div>
+                    {t('home.deviceSelection.basicInformation')}
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    {selectedDeviceDetails.other?.releaseDate && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">{t('home.deviceSelection.releaseDate')}:</span>
+                        <span className="font-medium">{selectedDeviceDetails.other.releaseDate}</span>
+                      </div>
+                    )}
+                    {selectedDeviceDetails.other?.price && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">{t('home.deviceSelection.price')}:</span>
+                        <span className="font-medium">{selectedDeviceDetails.other.price}</span>
+                      </div>
+                    )}
+                    {selectedDeviceDetails.other?.colors && selectedDeviceDetails.other.colors.length > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">{t('home.deviceSelection.availableColors')}:</span>
+                        <div className="flex gap-1">
+                          {selectedDeviceDetails.other.colors.map((color, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">
+                              {color}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Display Information */}
+              {selectedDeviceDetails.display && Object.values(selectedDeviceDetails.display).some(v => v) && (
+                <div className="p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                  <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
+                    <Monitor className="h-4 w-4 text-purple-600" />
+                    {t('home.deviceSelection.display')}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                    {selectedDeviceDetails.display.type && <div><span className="text-gray-600 dark:text-gray-400">{t('home.deviceSelection.type')}:</span> <span className="font-medium">{selectedDeviceDetails.display.type}</span></div>}
+                    {selectedDeviceDetails.display.size && <div><span className="text-gray-600 dark:text-gray-400">{t('home.deviceSelection.size')}:</span> <span className="font-medium">{selectedDeviceDetails.display.size}</span></div>}
+                    {selectedDeviceDetails.display.resolution && <div><span className="text-gray-600 dark:text-gray-400">{t('home.deviceSelection.resolution')}:</span> <span className="font-medium">{selectedDeviceDetails.display.resolution}</span></div>}
+                    {selectedDeviceDetails.display.protection && <div><span className="text-gray-600 dark:text-gray-400">{t('home.deviceSelection.protection')}:</span> <span className="font-medium">{selectedDeviceDetails.display.protection}</span></div>}
+                  </div>
+                </div>
+              )}
+
+              {/* Device Type & Platform */}
+              {selectedDeviceDetails.physical && Object.values(selectedDeviceDetails.physical).some(v => v) && (
+                <div className="p-4 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                  <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
+                    <Package className="h-4 w-4 text-yellow-600" />
+                    {t('home.deviceSelection.deviceType')}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                    {selectedDeviceDetails.physical.dimensions && <div><span className="text-gray-600 dark:text-gray-400">{t('home.deviceSelection.dimensions')}:</span> <span className="font-medium">{selectedDeviceDetails.physical.dimensions}</span></div>}
+                    {selectedDeviceDetails.physical.weight && <div><span className="text-gray-600 dark:text-gray-400">{t('home.deviceSelection.weight')}:</span> <span className="font-medium">{selectedDeviceDetails.physical.weight}</span></div>}
+                    {selectedDeviceDetails.physical.build && <div><span className="text-gray-600 dark:text-gray-400">{t('home.deviceSelection.build')}:</span> <span className="font-medium">{selectedDeviceDetails.physical.build}</span></div>}
+                  </div>
+                </div>
+              )}
+
+              {/* Platform & Performance */}
+              {selectedDeviceDetails.platform && Object.values(selectedDeviceDetails.platform).some(v => v) && (
+                <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
+                    <Cpu className="h-4 w-4 text-green-600" />
+                    {t('home.deviceSelection.platformPerformance')}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                    {selectedDeviceDetails.platform.os && <div><span className="text-gray-600 dark:text-gray-400">OS:</span> <span className="font-medium">{selectedDeviceDetails.platform.os}</span></div>}
+                    {selectedDeviceDetails.platform.chipset && <div><span className="text-gray-600 dark:text-gray-400">{t('home.deviceSelection.chipset')}:</span> <span className="font-medium">{selectedDeviceDetails.platform.chipset}</span></div>}
+                    {selectedDeviceDetails.platform.cpu && <div><span className="text-gray-600 dark:text-gray-400">CPU:</span> <span className="font-medium">{selectedDeviceDetails.platform.cpu}</span></div>}
+                    {selectedDeviceDetails.platform.gpu && <div><span className="text-gray-600 dark:text-gray-400">GPU:</span> <span className="font-medium">{selectedDeviceDetails.platform.gpu}</span></div>}
+                  </div>
+                </div>
+              )}
+
+              {/* Camera */}
+              {(selectedDeviceDetails.rearCamera || selectedDeviceDetails.frontCamera) && (Object.values(selectedDeviceDetails.rearCamera || {}).some(v => v) || Object.values(selectedDeviceDetails.frontCamera || {}).some(v => v)) && (
+                <div className="p-4 bg-indigo-50 dark:bg-indigo-950/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                  <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
+                    <Camera className="h-4 w-4 text-indigo-600" />
+                    {t('home.deviceSelection.camera')}
+                  </h3>
+                  <div className="space-y-3">
+                    {selectedDeviceDetails.rearCamera && Object.values(selectedDeviceDetails.rearCamera).some(v => v) && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('home.deviceSelection.rearCamera')}:</p>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          {selectedDeviceDetails.rearCamera.modules && <p>{selectedDeviceDetails.rearCamera.modules}</p>}
+                          {selectedDeviceDetails.rearCamera.features && <p>{selectedDeviceDetails.rearCamera.features}</p>}
+                        </div>
+                      </div>
+                    )}
+                    {selectedDeviceDetails.frontCamera && Object.values(selectedDeviceDetails.frontCamera).some(v => v) && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('home.deviceSelection.frontCamera')}:</p>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          {selectedDeviceDetails.frontCamera.modules && <p>{selectedDeviceDetails.frontCamera.modules}</p>}
+                          {selectedDeviceDetails.frontCamera.features && <p>{selectedDeviceDetails.frontCamera.features}</p>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Features & Additional Info */}
+              {selectedDeviceDetails.features && (Object.values(selectedDeviceDetails.features).some(v => v)) && (
+                <div className="p-4 bg-violet-50 dark:bg-violet-950/20 rounded-lg border border-violet-200 dark:border-violet-800">
+                  <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
+                    <Check className="h-4 w-4 text-violet-600" />
+                    {t('home.deviceSelection.features')}
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    {selectedDeviceDetails.features.sensors && <p><span className="text-gray-600 dark:text-gray-400">{t('home.deviceSelection.sensors')}:</span> {selectedDeviceDetails.features.sensors}</p>}
+                    {selectedDeviceDetails.features.special && selectedDeviceDetails.features.special.length > 0 && (
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">{t('home.deviceSelection.specialFeatures')}:</span>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {selectedDeviceDetails.features.special.map((feature, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">{feature}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 mt-6">
+                <Button
+                  size="lg"
+                  className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-gray-900"
+                  onClick={() => {
+                    setShowDeviceDetailsModal(false);
+                    handleStartRepair();
+                  }}
+                >
+                  <Zap className="h-5 w-5 mr-2" />
+                  {t('home.deviceSelection.startRepairOrder')}
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={() => setShowDeviceDetailsModal(false)}
+                >
+                  {t('common.close')}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="py-8 text-center text-muted-foreground">
+              {t('home.deviceSelection.failedToLoadDeviceDetails')}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

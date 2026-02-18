@@ -205,6 +205,9 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
         <NavItem to="/admin/diagnostics" icon={Stethoscope}>
           {t('admin.menu.diagnosticTools')}
         </NavItem>
+        <NavItem to="/admin/repair-requests" icon={FileText}>
+          Repair Requests
+        </NavItem>
       </CollapsibleSection>
 
       <NavItem to="/admin/shop" icon={ShoppingBag}>

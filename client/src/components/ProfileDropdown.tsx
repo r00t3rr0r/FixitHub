@@ -18,7 +18,8 @@ import {
   Settings,
   Calendar,
   FileText,
-  LogOut
+  LogOut,
+  Wrench
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -166,6 +167,13 @@ export function ProfileDropdown() {
             <Link to="/invoices" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               <span>{t('navigation.invoices')}</span>
+            </Link>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem asChild className="cursor-pointer transition-colors hover:bg-yellow-50">
+            <Link to="/my-repair-requests" className="flex items-center gap-2">
+              <Wrench className="h-4 w-4" />
+              <span>Repair Requests</span>
             </Link>
           </DropdownMenuItem>
 

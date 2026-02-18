@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/useToast"
+import { generateAvatarPlaceholder, generateImagePlaceholder } from "@/utils/placeholders"
 import {
   BookOpen,
   Search,
@@ -79,7 +80,7 @@ export function KnowledgeBase() {
             tags: ['iPhone', 'Screen', 'Replacement', 'Tools'],
             author: {
               name: 'Sarah Johnson',
-              avatar: 'https://via.placeholder.com/40x40/10b981/ffffff?text=SJ'
+              avatar: generateAvatarPlaceholder('SJ', 40)
             },
             rating: 4.8,
             views: 1247,
@@ -95,7 +96,7 @@ export function KnowledgeBase() {
               },
               {
                 type: 'image',
-                url: 'https://via.placeholder.com/400x300/3b82f6/ffffff?text=Tools+Required',
+                url: generateImagePlaceholder('Tools Required', 400, 300),
                 name: 'Required Tools'
               }
             ]
@@ -108,7 +109,7 @@ export function KnowledgeBase() {
             tags: ['Water Damage', 'Assessment', 'Checklist'],
             author: {
               name: 'Mike Chen',
-              avatar: 'https://via.placeholder.com/40x40/3b82f6/ffffff?text=MC'
+              avatar: generateAvatarPlaceholder('MC', 40)
             },
             rating: 4.9,
             views: 892,
@@ -132,7 +133,7 @@ export function KnowledgeBase() {
             tags: ['Battery', 'Troubleshooting', 'Diagnostics'],
             author: {
               name: 'Emily Rodriguez',
-              avatar: 'https://via.placeholder.com/40x40/8b5cf6/ffffff?text=ER'
+              avatar: generateAvatarPlaceholder('ER', 40)
             },
             rating: 4.7,
             views: 654,

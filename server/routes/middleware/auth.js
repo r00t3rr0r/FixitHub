@@ -7,7 +7,7 @@ const auth = async (req, res, next) => {
 
     const token = req.header('Authorization')?.replace('Bearer ', '');
 
-    if (!token) {
+    if (!token || token === 'null' || token === 'undefined') {
       console.log('Auth middleware: No token provided');
       return res.status(401).json({ error: 'Access denied. No token provided.' });
     }

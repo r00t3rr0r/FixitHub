@@ -87,6 +87,8 @@ console.log('Loading device inspection routes...');
 const deviceInspectionRoutes = require("./routes/deviceInspectionRoutes");
 console.log('Loading inspection communication routes...');
 const inspectionCommunicationRoutes = require("./routes/inspectionCommunicationRoutes");
+console.log('Loading repair request communication routes...');
+const repairRequestCommunicationRoutes = require("./routes/repairRequestCommunicationRoutes");
 console.log('Loading language routes...');
 const languageRoutes = require("./routes/languageRoutes");
 console.log('Loading checkout routes...');
@@ -117,6 +119,8 @@ console.log('Loading CSV parts import routes...');
 const csvPartsImportRoutes = require("./routes/csvPartsImportRoutes");
 console.log('Loading CSV product import routes...');
 const csvProductImportRoutes = require("./routes/csvProductImportRoutes");
+console.log('Loading repair request routes...');
+const repairRequestRoutes = require("./routes/repairRequestRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -388,6 +392,8 @@ app.use('/api/need-lists', needListRoutes);
 app.use('/api/device-inspections', deviceInspectionRoutes);
 // Inspection Communication Routes
 app.use('/api/inspection-communication', inspectionCommunicationRoutes);
+// Repair Request Communication Routes
+app.use('/api/repair-request-communication', repairRequestCommunicationRoutes);
 // Language Routes
 app.use('/api/languages', languageRoutes);
 // Checkout Routes
@@ -418,6 +424,8 @@ app.use('/api/csv-addon-import', csvAddOnImportRoutes);
 app.use('/api/csv-parts-import', csvPartsImportRoutes);
 // CSV Product Import Routes
 app.use('/api/csv-product-import', csvProductImportRoutes);
+// Repair Request Routes
+app.use('/api/repair-requests', repairRequestRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 

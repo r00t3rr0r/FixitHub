@@ -10,7 +10,31 @@ const localApi = axios.create({
   validateStatus: (status) => {
     return status >= 200 && status < 300;
   },
-  transformResponse: [(data) => JSONbig.parse(data)]
+  transformResponse: [(data) => {
+    // Handle empty responses
+    if (!data || data.trim() === '') {
+      console.warn('API returned empty response');
+      return {};
+    }
+
+    // Check if data is HTML (error page) instead of JSON
+    if (typeof data === 'string' && data.trim().startsWith('<')) {
+      console.warn('API returned HTML instead of JSON. This usually indicates a server error or the server is starting up.');
+      return { error: 'Server returned HTML response instead of JSON' };
+    }
+
+    try {
+      return JSONbig.parse(data);
+    } catch (error) {
+      console.error('Failed to parse JSON response:', {
+        error: error instanceof Error ? error.message : String(error),
+        dataPreview: typeof data === 'string' ? data.substring(0, 200) : data,
+        dataType: typeof data
+      });
+      // Return empty object as fallback to prevent complete failure
+      return {};
+    }
+  }]
 });
 
 
@@ -37,7 +61,8 @@ const setupInterceptors = (apiInstance: typeof axios) => {
       if (!accessToken) {
         accessToken = localStorage.getItem('accessToken');
       }
-      if (accessToken && config.headers) {
+      // Only add Authorization header if token is valid (not null, undefined, or string "null")
+      if (accessToken && accessToken !== 'null' && accessToken !== 'undefined' && config.headers) {
         config.headers.Authorization = `Bearer ${accessToken}`;
       }
 
@@ -59,7 +84,7 @@ const setupInterceptors = (apiInstance: typeof axios) => {
 
         try {
           const refreshToken = localStorage.getItem('refreshToken');
-          if (!refreshToken) {
+          if (!refreshToken || refreshToken === 'null' || refreshToken === 'undefined') {
             throw new Error('No refresh token available');
           }
 

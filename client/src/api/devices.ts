@@ -119,6 +119,7 @@ export interface SearchResult {
   deviceType: string;
   manufacturer: string;
   manufacturerId: string;
+  image?: string;
   displayName: string;
 }
 
@@ -179,6 +180,22 @@ export const searchDevices = async (query: string) => {
   try {
     const response = await api.get(`/api/devices/search?q=${encodeURIComponent(query)}`);
     console.log('API: Search results:', response.data.devices);
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Get complete model details by model ID
+// Endpoint: GET /api/devices/models/:modelId
+// Request: { modelId: string }
+// Response: { model: DeviceModel }
+export const getModelById = async (modelId: string) => {
+  console.log('API: Fetching model details for ID:', modelId);
+
+  try {
+    const response = await api.get(`/api/devices/models/${modelId}`);
+    console.log('API: Model details fetched:', response.data.model);
     return response.data;
   } catch (error) {
     throw new Error(error?.response?.data?.error || error.message);

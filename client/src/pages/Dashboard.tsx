@@ -11,6 +11,7 @@ import { getOrders, Order } from "@/api/orders"
 import { getCart, Cart } from "@/api/shop"
 import { getBlogPosts, BlogPost } from "@/api/blog"
 import { getNotifications } from "@/api/notifications"
+import { generateImagePlaceholder } from "@/utils/placeholders"
 import {
   Plus,
   Package,
@@ -351,7 +352,7 @@ export function Dashboard() {
                 <div className="flex items-center gap-4">
                   <div className="relative">
                     <img
-                      src={order.photos?.[0] || "https://via.placeholder.com/64x64/3b82f6/ffffff?text=Device"}
+                      src={order.photos?.[0] || generateImagePlaceholder('Device', 64, 64)}
                       alt={`${order.deviceBrand} ${order.deviceModel}`}
                       className="w-16 h-16 rounded-lg object-cover border-2 border-primary/20"
                     />

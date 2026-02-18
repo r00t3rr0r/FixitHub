@@ -12,10 +12,11 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/useToast"
 import { getRepairServices, getAddOnServices, RepairService } from "@/api/services"
-import { getDeviceTypes, getManufacturersByDeviceType, getModelsByTypeAndManufacturer, DeviceType, Manufacturer, DeviceModel, searchDevices, SearchResult } from "@/api/devices"
+import { getDeviceTypes, getManufacturersByDeviceType, getModelsByTypeAndManufacturer, DeviceType, Manufacturer, DeviceModel, searchDevices, SearchResult, getModelById } from "@/api/devices"
 import { createOrder } from "@/api/orders"
 import { addRepairOrderToCart } from "@/api/shop"
 import { UnlockPatternInput } from "@/components/inspection/UnlockPatternInput"
+import { DeviceModelDetailsPanel } from "@/components/DeviceModelDetailsPanel"
 import {
   Select,
   SelectContent,
@@ -52,7 +53,8 @@ import {
   FileText,
   AlertCircle,
   Droplets,
-  Wrench
+  Wrench,
+  CheckCircle
 } from "lucide-react"
 import {
   Tooltip,
@@ -121,6 +123,8 @@ export function NewOrder() {
   const [searchingDevices, setSearchingDevices] = useState(false)
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [selectedDevice, setSelectedDevice] = useState<SelectedDevice | null>(null)
+  const [selectedModelDetails, setSelectedModelDetails] = useState<DeviceModel | null>(null)
+  const [loadingModelDetails, setLoadingModelDetails] = useState(false)
 
   // Unlock code/pattern state
   const [unlockPattern, setUnlockPattern] = useState<string[]>([])
@@ -138,6 +142,9 @@ export function NewOrder() {
   const [previousRepairAttempts, setPreviousRepairAttempts] = useState<string>("")
   const [previousRepairDetails, setPreviousRepairDetails] = useState<string>("")
   const [itemCondition, setItemCondition] = useState<string>("")
+
+  // Track broken device images
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set())
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<OrderForm>()
   const { toast } = useToast()
@@ -187,6 +194,20 @@ export function NewOrder() {
               setSelectedDeviceType(deviceTypeObj._id)
               setSelectedManufacturer(preSelectedDevice.manufacturerId)
               setSelectedModel(preSelectedDevice._id)
+            }
+
+            // Fetch full model details for the pre-selected device
+            try {
+              setLoadingModelDetails(true)
+              console.log("Fetching full model details for pre-selected device:", preSelectedDevice._id)
+              const response = await getModelById(preSelectedDevice._id)
+              setSelectedModelDetails((response as any).model || null)
+              console.log("Pre-selected device model details loaded:", (response as any).model)
+            } catch (error) {
+              console.error("Error fetching model details for pre-selected device:", error)
+              setSelectedModelDetails(null)
+            } finally {
+              setLoadingModelDetails(false)
             }
 
             // Clear the session storage
@@ -270,6 +291,24 @@ export function NewOrder() {
     setSelectedDeviceType(device.deviceType)
     setSelectedManufacturer(device.manufacturerId)
     setSelectedModel(device._id)
+
+    // Fetch full model details
+    const fetchModelDetails = async () => {
+      try {
+        setLoadingModelDetails(true)
+        console.log("Fetching full model details for:", device._id)
+        const response = await getModelById(device._id)
+        setSelectedModelDetails((response as any).model || null)
+        console.log("Model details loaded:", (response as any).model)
+      } catch (error) {
+        console.error("Error fetching model details:", error)
+        setSelectedModelDetails(null)
+      } finally {
+        setLoadingModelDetails(false)
+      }
+    }
+
+    fetchModelDetails()
   }, [setValue])
 
   // Handle device type selection (skip if device was selected from search)
@@ -807,9 +846,23 @@ export function NewOrder() {
                               style={{ animationDelay: `${index * 50}ms` }}
                             >
                               <div className="flex items-center gap-3">
-                                <div className="p-2 bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-900/30 dark:to-yellow-800/30 rounded-lg group-hover:scale-110 transition-transform">
-                                  {getDeviceTypeIcon(device.deviceType)}
-                                </div>
+                                {device.image && !brokenImages.has(device._id) ? (
+                                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-yellow-100 dark:bg-yellow-900/30 flex-shrink-0 group-hover:scale-110 transition-transform border border-yellow-200 dark:border-yellow-800 flex items-center justify-center">
+                                    <img
+                                      src={device.image}
+                                      alt={device.name}
+                                      className="w-full h-full object-cover"
+                                      onError={() => {
+                                        console.log(`Device image failed to load for: ${device.name}`);
+                                        setBrokenImages(prev => new Set([...prev, device._id]));
+                                      }}
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="p-2 bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-900/30 dark:to-yellow-800/30 rounded-lg group-hover:scale-110 transition-transform">
+                                    {getDeviceTypeIcon(device.deviceType)}
+                                  </div>
+                                )}
                                 <div>
                                   <div className="font-semibold text-sm group-hover:text-yellow-600 transition-colors">
                                     {device.name}
@@ -863,6 +916,27 @@ export function NewOrder() {
                 </div>
               )}
 
+              {/* Device Model Details Panel */}
+              {selectedDevice && (
+                <div className="mt-6 animate-in fade-in duration-500">
+                  {loadingModelDetails ? (
+                    <Card className="border-2 shadow-lg">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center justify-center gap-3 py-12">
+                          <div className="h-6 w-6 border-3 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                          <span className="text-muted-foreground animate-pulse">Loading device specifications...</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : selectedModelDetails ? (
+                    <DeviceModelDetailsPanel
+                      model={selectedModelDetails}
+                      deviceType={selectedDevice.deviceType}
+                    />
+                  ) : null}
+                </div>
+              )}
+
               <div className="flex justify-end pt-4">
                 <Button
                   type="button"
@@ -908,6 +982,75 @@ export function NewOrder() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
+              {/* Request Repair Service Option */}
+              <Card className="border-2 border-blue-300 dark:border-blue-700 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950/30 dark:via-indigo-950/30 dark:to-purple-950/30 shadow-lg hover:shadow-xl transition-all duration-300 animate-in slide-in-from-top">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl shadow-lg">
+                          <FileText className="h-6 w-6 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-lg text-blue-900 dark:text-blue-100">
+                            Request Repair Service
+                          </h3>
+                          <p className="text-sm text-blue-700 dark:text-blue-300">
+                            Not sure what service you need? Let us evaluate your device
+                          </p>
+                        </div>
+                      </div>
+                      <div className="ml-14 space-y-2">
+                        <div className="flex items-start gap-2">
+                          <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                          <p className="text-sm text-muted-foreground">
+                            Provide details about your issue and we'll recommend the right repair
+                          </p>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                          <p className="text-sm text-muted-foreground">
+                            Get a free quote and expert diagnosis from our technicians
+                          </p>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                          <p className="text-sm text-muted-foreground">
+                            No commitment required - review the quote before proceeding
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        // Navigate to repair request questionnaire with device info
+                        navigate("/repair-request", {
+                          state: {
+                            device: selectedDevice
+                          }
+                        })
+                      }}
+                      className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all px-8 py-6 text-base group"
+                    >
+                      <span>Request Service</span>
+                      <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Or select specific services
+                  </span>
+                </div>
+              </div>
+
               {/* Compact Category Filter Buttons */}
               <div className="space-y-2">
                 <Label className="text-sm font-semibold">{t('newOrder.serviceSelection.filterLabel')}</Label>

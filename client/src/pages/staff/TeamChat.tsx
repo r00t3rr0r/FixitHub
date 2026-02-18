@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/useToast"
+import { generateAvatarPlaceholder } from "@/utils/placeholders"
 import {
   Send,
   Users,
@@ -79,14 +80,14 @@ export function TeamChat() {
             {
               _id: "1",
               name: "John Doe",
-              avatar: "https://via.placeholder.com/40",
+              avatar: generateAvatarPlaceholder("JD", 40),
               role: "staff",
               isOnline: true
             },
             {
               _id: "2",
               name: "Jane Smith",
-              avatar: "https://via.placeholder.com/40",
+              avatar: generateAvatarPlaceholder("JS", 40),
               role: "admin",
               isOnline: false
             }
@@ -107,7 +108,7 @@ export function TeamChat() {
             {
               _id: "1",
               name: "John Doe",
-              avatar: "https://via.placeholder.com/40",
+              avatar: generateAvatarPlaceholder("JD", 40),
               role: "staff",
               isOnline: true
             }
@@ -140,7 +141,7 @@ export function TeamChat() {
           _id: "1",
           content: "Good morning team!",
           senderName: "John Doe",
-          senderAvatar: "https://via.placeholder.com/40",
+          senderAvatar: generateAvatarPlaceholder("JD", 40),
           createdAt: new Date(Date.now() - 60000).toISOString(),
           messageType: "text"
         },
@@ -148,7 +149,7 @@ export function TeamChat() {
           _id: "2",
           content: "Hello! Ready for today's repairs.",
           senderName: "Jane Smith",
-          senderAvatar: "https://via.placeholder.com/40",
+          senderAvatar: generateAvatarPlaceholder("JS", 40),
           createdAt: new Date().toISOString(),
           messageType: "text"
         }
@@ -173,7 +174,7 @@ export function TeamChat() {
         _id: Date.now().toString(),
         content: newMessage,
         senderName: "You",
-        senderAvatar: "https://via.placeholder.com/40",
+        senderAvatar: generateAvatarPlaceholder("YO", 40),
         createdAt: new Date().toISOString(),
         messageType: "text"
       }

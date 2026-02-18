@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { requireUser, requireAdmin } = require('./middleware/auth');
+const { requireUser, requireAdmin, requireStaff } = require('./middleware/auth');
 const BookingService = require('../services/bookingService');
 const DHLReturnsService = require('../services/dhlReturnsService');
 
@@ -79,8 +79,8 @@ router.get('/:id', requireUser, async (req, res) => {
       });
     }
 
-    // Verify ownership
-    if (booking.customerId._id.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    // Verify ownership or admin/staff role
+    if (booking.customerId._id.toString() !== req.user._id.toString() && req.user.role !== 'admin' && req.user.role !== 'staff') {
       console.log('BookingRoutes: Unauthorized access to booking');
       return res.status(403).json({
         success: false,
@@ -147,11 +147,11 @@ router.post('/group', requireAdmin, async (req, res) => {
   }
 });
 
-// Description: Update booking status (admin only)
+// Description: Update booking status (admin/staff only)
 // Endpoint: PUT /api/bookings/:id/status
 // Request: { status: string, description?: string }
 // Response: { success: boolean, booking: Booking }
-router.put('/:id/status', requireAdmin, async (req, res) => {
+router.put('/:id/status', requireStaff, async (req, res) => {
   try {
     console.log('BookingRoutes: Updating booking status:', req.params.id);
 
@@ -191,11 +191,11 @@ router.put('/:id/status', requireAdmin, async (req, res) => {
   }
 });
 
-// Description: Update booking billing status (admin only)
+// Description: Update booking billing status (admin/staff only)
 // Endpoint: PUT /api/bookings/:id/billing-status
 // Request: { billingStatus: string, paymentStatus?: string }
 // Response: { success: boolean, booking: Booking }
-router.put('/:id/billing-status', requireAdmin, async (req, res) => {
+router.put('/:id/billing-status', requireStaff, async (req, res) => {
   try {
     console.log('BookingRoutes: Updating billing status:', req.params.id);
 
@@ -306,7 +306,7 @@ router.get('/:id/orders', requireUser, async (req, res) => {
 // Endpoint: DELETE /api/bookings/:id
 // Request: {}
 // Response: { success: boolean, booking: Booking }
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {  // Keep this admin-only for safety
   try {
     console.log('BookingRoutes: Cancelling booking:', req.params.id);
 
@@ -368,11 +368,11 @@ router.get('/:id/invoice/preview', requireUser, async (req, res) => {
   }
 });
 
-// Description: Create invoice from booking
+// Description: Create invoice from booking (admin/staff only)
 // Endpoint: POST /api/bookings/:id/invoice
 // Request: { dueDate?: string, notes?: string, sendImmediately?: boolean }
 // Response: { success: boolean, invoice: Invoice }
-router.post('/:id/invoice', requireAdmin, async (req, res) => {
+router.post('/:id/invoice', requireStaff, async (req, res) => {
   try {
     console.log('BookingRoutes: Creating invoice for booking:', req.params.id);
 
@@ -433,7 +433,7 @@ router.get('/:id/invoices', requireUser, async (req, res) => {
 // Endpoint: POST /api/bookings/:id/return-label
 // Request: { labelType?: 'PDF' | 'QR' | 'BOTH' }
 // Response: { success: boolean, returnId: string, returnTrackingNumber: string, labelUrl: string, qrCodeUrl: string, qrLink: string, message: string }
-router.post('/:id/return-label', requireAdmin, async (req, res) => {
+router.post('/:id/return-label', requireStaff, async (req, res) => {
   try {
     console.log('BookingRoutes: Creating return label for booking:', req.params.id);
 
@@ -518,7 +518,7 @@ router.get('/:id/return-tracking', requireUser, async (req, res) => {
 // Endpoint: PUT /api/bookings/:id/return-status/update
 // Request: {}
 // Response: { success: boolean, booking: Booking, trackingInfo: Object }
-router.put('/:id/return-status/update', requireAdmin, async (req, res) => {
+router.put('/:id/return-status/update', requireStaff, async (req, res) => {
   try {
     console.log('BookingRoutes: Updating return status for booking:', req.params.id);
 

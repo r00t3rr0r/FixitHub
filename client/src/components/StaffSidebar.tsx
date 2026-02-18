@@ -144,6 +144,12 @@ export function StaffSidebar({ isCollapsed }: StaffSidebarProps) {
         <NavItem to="/staff/orders" icon={Package}>
           {t('staff.menu.myOrders')}
         </NavItem>
+        <NavItem to="/staff/bookings" icon={Package}>
+          {t('navigation.bookings')}
+        </NavItem>
+        <NavItem to="/staff/repair-requests" icon={Package}>
+          {t('staff.menu.repairRequests')}
+        </NavItem>
         <NavItem to="/staff/time-tracking" icon={Clock}>
           {t('staff.menu.timeTracking')}
         </NavItem>

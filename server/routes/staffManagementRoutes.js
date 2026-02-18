@@ -16,8 +16,15 @@ const requireAdmin = (req, res, next) => {
 
 // Staff Management Routes
 
-// Get all staff members
-router.get('/staff', requireUser, requireAdmin, async (req, res) => {
+// Get all staff members - accessible to staff and admin
+const requireStaffOrAdmin = (req, res, next) => {
+  if (!['admin', 'staff'].includes(req.user.role)) {
+    return res.status(403).json({ error: 'Staff or admin access required' });
+  }
+  next();
+};
+
+router.get('/staff', requireUser, requireStaffOrAdmin, async (req, res) => {
   console.log('Staff Management: Get staff members request from:', req.user.email);
 
   try {

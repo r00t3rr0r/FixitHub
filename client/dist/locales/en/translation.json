@@ -1,7 +1,7 @@
 {
   "common": {
     "welcome": "Welcome",
-    "loading": "Loading...",
+    "loading": "Loading",
     "error": "Error",
     "success": "Success",
     "save": "Save",
@@ -32,7 +32,8 @@
     "actions": "Actions",
     "select": "Select",
     "optional": "Optional",
-    "sending": "Sending..."
+    "sending": "Sending...",
+    "new": "new"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -42,6 +43,7 @@
     "trackOrders": "Track Orders",
     "messages": "Messages",
     "notifications": "Notifications",
+    "viewAllNotifications": "View All Notifications",
     "profile": "Profile",
     "account": "Account",
     "bookings": "Bookings",
@@ -1154,7 +1156,30 @@
       "sameDayService": "Same-Day Service Available",
       "failedToLoadDeviceTypes": "Failed to load device types",
       "failedToLoadManufacturers": "Failed to load manufacturers",
-      "failedToLoadModels": "Failed to load models"
+      "failedToLoadModels": "Failed to load models",
+      "viewDetails": "View Details",
+      "failedToLoadDeviceDetails": "Failed to load device details",
+      "basicInformation": "Basic Information",
+      "releaseDate": "Release Date",
+      "price": "Price",
+      "availableColors": "Available Colors",
+      "display": "Display",
+      "type": "Type",
+      "size": "Size",
+      "resolution": "Resolution",
+      "protection": "Protection",
+      "deviceType": "Device Type",
+      "dimensions": "Dimensions",
+      "weight": "Weight",
+      "build": "Build",
+      "platformPerformance": "Platform & Performance",
+      "chipset": "Chipset",
+      "camera": "Camera",
+      "rearCamera": "Rear Camera",
+      "frontCamera": "Front Camera",
+      "features": "Features",
+      "sensors": "Sensors",
+      "specialFeatures": "Special Features"
     },
     "shop": {
       "title": "Featured Products",
