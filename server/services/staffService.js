@@ -66,9 +66,9 @@ class StaffService {
             performance: {
               ordersCompleted: completedOrders,
               averageCompletionTime: 2.5,
-              customerSatisfaction: 4.2 + Math.random() * 0.6,
-              efficiency: 85 + Math.random() * 10,
-              qualityScore: 90 + Math.random() * 8
+              customerSatisfaction: Math.round((4.2 + Math.random() * 0.6) * 10) / 10,
+              efficiency: Math.round(85 + Math.random() * 10),
+              qualityScore: Math.round(90 + Math.random() * 8)
             },
             currentWorkload: {
               assignedOrders: assignedOrders,
@@ -414,9 +414,9 @@ class StaffService {
       const performance = {
         ordersCompleted: completedOrders,
         averageCompletionTime: 2.5,
-        customerSatisfaction: 4.2 + Math.random() * 0.6,
-        efficiency: 85 + Math.random() * 10,
-        qualityScore: 90 + Math.random() * 8
+        customerSatisfaction: Math.round((4.2 + Math.random() * 0.6) * 10) / 10,
+        efficiency: Math.round(85 + Math.random() * 10),
+        qualityScore: Math.round(90 + Math.random() * 8)
       };
 
       // Compile detailed staff information
