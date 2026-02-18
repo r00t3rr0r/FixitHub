@@ -56,6 +56,8 @@ interface DashboardData {
 // Request: N/A
 // Response: N/A
 export function AdminDashboard() {
+  console.log('=== AdminDashboard Component Loading ===')
+
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -70,6 +72,8 @@ export function AdminDashboard() {
     assignedOrders: [],
     systemOverview: {}
   })
+
+  console.log('AdminDashboard: Initial state set, loading:', loading)
 
   // Fetch dashboard data
   const fetchDashboardData = async (showToast: boolean = false) => {
@@ -91,6 +95,16 @@ export function AdminDashboard() {
         systemOverview: !!data.systemOverview
       })
 
+      // Log received data before processing
+      console.log('Admin Dashboard: Data received from API:', {
+        bookingsIsArray: Array.isArray(data.bookings),
+        bookingsLength: data.bookings?.length || 0,
+        repairRequestsIsArray: Array.isArray(data.repairRequests),
+        repairRequestsLength: data.repairRequests?.length || 0,
+        notificationsIsArray: Array.isArray(data.notifications),
+        notificationsLength: data.notifications?.length || 0
+      })
+
       // Ensure all arrays are properly set
       const processedData = {
         bookings: Array.isArray(data.bookings) ? data.bookings : [],
@@ -102,9 +116,21 @@ export function AdminDashboard() {
         systemOverview: (typeof data.systemOverview === 'object' && data.systemOverview !== null) ? data.systemOverview : {}
       }
 
-      console.log('Admin Dashboard: Processed data ready for display:', processedData)
+      console.log('Admin Dashboard: Processed data with actual counts:', {
+        bookings: processedData.bookings.length,
+        repairRequests: processedData.repairRequests.length,
+        notifications: processedData.notifications.length,
+        activities: processedData.activities.length,
+        staffStatus: processedData.staffStatus.length,
+        assignedOrders: processedData.assignedOrders.length
+      })
+
+      console.log('Admin Dashboard: Sample booking data:', processedData.bookings[0])
 
       setDashboardData(processedData)
+
+      // Log state after setting to verify it was updated
+      console.log('Admin Dashboard: State set, data should now be visible in UI')
 
       if (showToast) {
         toast({
@@ -141,6 +167,19 @@ export function AdminDashboard() {
       clearInterval(interval)
     }
   }, [])
+
+  // Log when dashboard data state changes
+  useEffect(() => {
+    console.log('Admin Dashboard: State updated! Current dashboardData:', {
+      bookings: dashboardData.bookings.length,
+      repairRequests: dashboardData.repairRequests.length,
+      notifications: dashboardData.notifications.length,
+      activities: dashboardData.activities.length,
+      staffStatus: dashboardData.staffStatus.length,
+      assignedOrders: dashboardData.assignedOrders.length,
+      systemOverview: Object.keys(dashboardData.systemOverview).length
+    })
+  }, [dashboardData])
 
   // Helper function to format time ago
   const timeAgo = (date: string) => {

@@ -105,10 +105,26 @@ export const getSystemOverview = async () => {
 export const getDashboardSummary = async () => {
   try {
     const response = await api.get('/api/admin/dashboard/summary');
-    console.log('Admin Dashboard API: Raw response data:', response.data);
+    console.log('Admin Dashboard API: Raw response received');
+    console.log('Admin Dashboard API: Response structure:', {
+      hasData: !!response.data,
+      hasDataProperty: !!(response.data?.data),
+      successFlag: response.data?.success,
+      topLevelKeys: Object.keys(response.data || {})
+    });
 
     // Extract data from nested response structure
     const rawData = response.data.data || response.data;
+    console.log('Admin Dashboard API: Raw data keys:', Object.keys(rawData || {}));
+
+    // Log each data section structure
+    console.log('Admin Dashboard API: Bookings structure:', {
+      exists: !!rawData.bookings,
+      hasData: !!(rawData.bookings?.data),
+      isArray: Array.isArray(rawData.bookings),
+      dataIsArray: Array.isArray(rawData.bookings?.data),
+      length: rawData.bookings?.data?.length || rawData.bookings?.length || 0
+    });
 
     const extractedData = {
       bookings: (rawData.bookings?.data || rawData.bookings || []),
@@ -120,7 +136,18 @@ export const getDashboardSummary = async () => {
       systemOverview: (rawData.systemOverview || {})
     };
 
-    console.log('Admin Dashboard API: Extracted data:', extractedData);
+    console.log('Admin Dashboard API: Extracted data with counts:', {
+      bookings: extractedData.bookings.length,
+      repairRequests: extractedData.repairRequests.length,
+      notifications: extractedData.notifications.length,
+      activities: extractedData.activities.length,
+      staffStatus: extractedData.staffStatus.length,
+      assignedOrders: extractedData.assignedOrders.length,
+      systemOverview: Object.keys(extractedData.systemOverview).length
+    });
+
+    console.log('Admin Dashboard API: First booking sample:', extractedData.bookings[0]);
+
     return extractedData;
   } catch (error: any) {
     console.error('Error fetching dashboard summary:', error);
