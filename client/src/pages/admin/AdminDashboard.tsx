@@ -280,10 +280,10 @@ export function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-              {systemOverview.totalOrders || 0}
+              {systemOverview.counts?.totalOrders || 0}
             </div>
             <p className="text-xs text-blue-600 dark:text-blue-400">
-              {systemOverview.pendingOrders || 0} pending
+              {systemOverview.counts?.activeOrders || 0} active
             </p>
           </CardContent>
         </Card>
@@ -297,10 +297,10 @@ export function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-900 dark:text-green-100">
-              {systemOverview.totalUsers || 0}
+              {systemOverview.counts?.totalUsers || 0}
             </div>
             <p className="text-xs text-green-600 dark:text-green-400">
-              {systemOverview.activeStaff || 0} active staff
+              {systemOverview.counts?.activeStaff || 0} active staff
             </p>
           </CardContent>
         </Card>
@@ -314,10 +314,10 @@ export function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">
-              {systemOverview.totalRepairRequests || 0}
+              {systemOverview.counts?.totalBookings || 0}
             </div>
             <p className="text-xs text-orange-600 dark:text-orange-400">
-              {systemOverview.pendingRepairRequests || 0} pending
+              {systemOverview.counts?.pendingRepairRequests || 0} pending requests
             </p>
           </CardContent>
         </Card>
@@ -331,10 +331,20 @@ export function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
-              {systemOverview.systemHealth || 'Good'}
+              {(() => {
+                if (systemOverview.systemHealth && typeof systemOverview.systemHealth.status === 'string') {
+                  return String(systemOverview.systemHealth.status).charAt(0).toUpperCase() + String(systemOverview.systemHealth.status).slice(1);
+                }
+                return 'Good';
+              })()}
             </div>
             <p className="text-xs text-purple-600 dark:text-purple-400">
-              DB: {systemOverview.databaseStatus || 'Connected'}
+              DB: {(() => {
+                if (systemOverview.systemHealth && typeof systemOverview.systemHealth.dbConnection === 'string') {
+                  return String(systemOverview.systemHealth.dbConnection).charAt(0).toUpperCase() + String(systemOverview.systemHealth.dbConnection).slice(1);
+                }
+                return 'Connected';
+              })()}
             </p>
           </CardContent>
         </Card>
