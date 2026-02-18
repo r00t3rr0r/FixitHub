@@ -340,17 +340,17 @@ class StaffService {
 
       // Get real time tracking data from User model
       const timeTracking = {
-        totalHoursThisWeek: user.hoursThisWeek || 0,
-        totalHoursThisMonth: user.hoursThisMonth || 0,
-        averageHoursPerDay: user.hoursThisMonth ? Math.round((user.hoursThisMonth / new Date().getDate()) * 100) / 100 : 0,
-        lastClockIn: user.lastClockIn || null,
-        lastClockOut: user.lastClockOut || null,
-        currentStatus: user.currentStatus || 'offline'
+        totalHoursThisWeek: staff.hoursThisWeek || 0,
+        totalHoursThisMonth: staff.hoursThisMonth || 0,
+        averageHoursPerDay: staff.hoursThisMonth ? Math.round((staff.hoursThisMonth / new Date().getDate()) * 100) / 100 : 0,
+        lastClockIn: staff.lastClockIn || null,
+        lastClockOut: staff.lastClockOut || null,
+        currentStatus: staff.currentStatus || 'offline'
       };
 
       // Get real activity log from TimeEntry model
       const { TimeEntry } = require('../models/TimeEntry');
-      const recentEntries = await TimeEntry.find({ staffId: id })
+      const recentEntries = await TimeEntry.find({ staffId: staffId })
         .sort({ timestamp: -1 })
         .limit(20)
         .populate('orderId', 'orderNumber')
