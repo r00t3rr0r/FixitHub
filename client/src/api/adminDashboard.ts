@@ -105,7 +105,23 @@ export const getSystemOverview = async () => {
 export const getDashboardSummary = async () => {
   try {
     const response = await api.get('/api/admin/dashboard/summary');
-    return response.data;
+    console.log('Admin Dashboard API: Raw response data:', response.data);
+
+    // Extract data from nested response structure
+    const rawData = response.data.data || response.data;
+
+    const extractedData = {
+      bookings: (rawData.bookings?.data || rawData.bookings || []),
+      repairRequests: (rawData.repairRequests?.data || rawData.repairRequests || []),
+      notifications: (rawData.notifications?.data || rawData.notifications || []),
+      activities: (rawData.activities?.data || rawData.activities || []),
+      staffStatus: (rawData.staffStatus?.data || rawData.staffStatus || []),
+      assignedOrders: (rawData.assignedOrders?.data || rawData.assignedOrders || []),
+      systemOverview: (rawData.systemOverview || {})
+    };
+
+    console.log('Admin Dashboard API: Extracted data:', extractedData);
+    return extractedData;
   } catch (error: any) {
     console.error('Error fetching dashboard summary:', error);
     throw new Error(error?.response?.data?.error || error.message);

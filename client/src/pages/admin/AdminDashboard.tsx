@@ -81,22 +81,35 @@ export function AdminDashboard() {
       }
 
       const data = await getDashboardSummary()
-      console.log('Admin Dashboard: Fetched dashboard data:', data)
-
-      setDashboardData({
-        bookings: data.bookings || [],
-        repairRequests: data.repairRequests || [],
-        notifications: data.notifications || [],
-        activities: data.activities || [],
-        staffStatus: data.staffStatus || [],
-        assignedOrders: data.assignedOrders || [],
-        systemOverview: data.systemOverview || {}
+      console.log('Admin Dashboard: Fetched dashboard data with counts:', {
+        bookings: data.bookings?.length || 0,
+        repairRequests: data.repairRequests?.length || 0,
+        notifications: data.notifications?.length || 0,
+        activities: data.activities?.length || 0,
+        staffStatus: data.staffStatus?.length || 0,
+        assignedOrders: data.assignedOrders?.length || 0,
+        systemOverview: !!data.systemOverview
       })
+
+      // Ensure all arrays are properly set
+      const processedData = {
+        bookings: Array.isArray(data.bookings) ? data.bookings : [],
+        repairRequests: Array.isArray(data.repairRequests) ? data.repairRequests : [],
+        notifications: Array.isArray(data.notifications) ? data.notifications : [],
+        activities: Array.isArray(data.activities) ? data.activities : [],
+        staffStatus: Array.isArray(data.staffStatus) ? data.staffStatus : [],
+        assignedOrders: Array.isArray(data.assignedOrders) ? data.assignedOrders : [],
+        systemOverview: (typeof data.systemOverview === 'object' && data.systemOverview !== null) ? data.systemOverview : {}
+      }
+
+      console.log('Admin Dashboard: Processed data ready for display:', processedData)
+
+      setDashboardData(processedData)
 
       if (showToast) {
         toast({
           title: "Dashboard Refreshed",
-          description: "All data has been updated successfully"
+          description: `Updated: ${processedData.bookings.length} bookings, ${processedData.repairRequests.length} repair requests, ${processedData.notifications.length} notifications`
         })
       }
     } catch (error: any) {
@@ -114,14 +127,19 @@ export function AdminDashboard() {
 
   // Initial data load
   useEffect(() => {
+    console.log('Admin Dashboard: Mounting component, fetching initial data')
     fetchDashboardData()
 
-    // Auto-refresh every 30 seconds
+    // Auto-refresh every 15 seconds for real-time updates
     const interval = setInterval(() => {
+      console.log('Admin Dashboard: Auto-refreshing data...')
       fetchDashboardData()
-    }, 30000)
+    }, 15000)
 
-    return () => clearInterval(interval)
+    return () => {
+      console.log('Admin Dashboard: Unmounting component, clearing interval')
+      clearInterval(interval)
+    }
   }, [])
 
   // Helper function to format time ago
