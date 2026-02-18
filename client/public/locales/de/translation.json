@@ -1867,5 +1867,33 @@
     "viewOrders": "Aufträge anzeigen",
     "orderCommunication": "Auftragskommunikation",
     "communicateWithSupport": "Kommunizieren Sie mit unserem Support-Team über Ihren Reparaturauftrag"
+  },
+  "timeTracking": {
+    "title": "Zeiterfassung",
+    "description": "Verfolgen Sie Ihre Arbeitsstunden und verwalten Sie Pausen",
+    "clockIn": "Anmelden",
+    "clockOut": "Abmelden",
+    "startBreak": "Pause starten",
+    "endBreak": "Pause beenden",
+    "clockedInAt": "Angemeldet um",
+    "lastClockedOut": "Zuletzt abgemeldet um",
+    "currentOrder": "Aktueller Auftrag",
+    "summary": "Zeitzusammenfassung",
+    "hoursToday": "Stunden heute",
+    "hoursThisWeek": "Stunden diese Woche",
+    "hoursThisMonth": "Stunden diesen Monat",
+    "avgPerDay": "Durchschnitt/Tag",
+    "online": "Online",
+    "offline": "Offline",
+    "working": "Arbeit läuft",
+    "onBreak": "In Pause",
+    "pending": "Ausstehend",
+    "clockedIn": "Angemeldet",
+    "clockedOut": "Abgemeldet",
+    "breakStarted": "Pause gestartet",
+    "breakEnded": "Pause beendet",
+    "error": "Fehler",
+    "workedToday": "Heute gearbeitet",
+    "hours": "Stunden"
   }
 }
