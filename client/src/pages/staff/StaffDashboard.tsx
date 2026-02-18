@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import TimeTrackingWidget from "@/components/staff/TimeTrackingWidget"
 import {
   Wrench,
   Clock,
@@ -87,34 +88,36 @@ export function StaffDashboard() {
         </Card>
       </div>
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>
-            Common tasks and shortcuts for staff members
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <Button className="h-auto p-4 flex-col gap-2">
-              <Clock className="h-6 w-6" />
-              <span className="font-medium">Clock In/Out</span>
-              <span className="text-xs opacity-80">Track work hours</span>
-            </Button>
-            <Button variant="outline" className="h-auto p-4 flex-col gap-2">
-              <Users className="h-6 w-6" />
-              <span className="font-medium">Team Chat</span>
-              <span className="text-xs opacity-80">Collaborate with team</span>
-            </Button>
-            <Button variant="outline" className="h-auto p-4 flex-col gap-2">
-              <Calendar className="h-6 w-6" />
-              <span className="font-medium">Schedule</span>
-              <span className="text-xs opacity-80">View appointments</span>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Quick Actions and Time Tracking */}
+      <div className="grid gap-6 md:grid-cols-3">
+        <div className="md:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>
+                Common tasks and shortcuts for staff members
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Button variant="outline" className="h-auto p-4 flex-col gap-2">
+                  <Users className="h-6 w-6" />
+                  <span className="font-medium">Team Chat</span>
+                  <span className="text-xs opacity-80">Collaborate with team</span>
+                </Button>
+                <Button variant="outline" className="h-auto p-4 flex-col gap-2">
+                  <Calendar className="h-6 w-6" />
+                  <span className="font-medium">Schedule</span>
+                  <span className="text-xs opacity-80">View appointments</span>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <div>
+          <TimeTrackingWidget />
+        </div>
+      </div>
 
       {/* Recent Orders */}
       <Card>

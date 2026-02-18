@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
 import { getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct } from "@/api/orders"
+import { startOrderTracking, endOrderTracking } from "@/api/timeTracking"
 import { getConversations, getConversationMessages, sendMessage, startConversation } from "@/api/messages"
 import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, updateOrderDevice, updateOrderStatus } from "@/api/adminOrders"
 import { getUserProfile, UserProfile } from "@/api/user"
@@ -189,9 +190,20 @@ export function OrderDetails() {
 
         // Use admin API if user is admin or staff, otherwise use customer API
         let orderResponse;
-        if (user?.role === 'admin' || user?.role === 'staff') {
+        const isStaffOrAdmin = user?.role === 'admin' || user?.role === 'staff';
+
+        if (isStaffOrAdmin) {
           console.log("Using admin API to fetch order details")
           orderResponse = await getAdminOrderById(id)
+
+          // Automatically start time tracking for staff when they open the order
+          try {
+            console.log("Starting automatic time tracking for order:", id)
+            await startOrderTracking(id)
+          } catch (trackingError) {
+            console.error("Failed to start time tracking:", trackingError)
+            // Don't throw error, just log it - time tracking failure shouldn't prevent viewing order
+          }
         } else {
           console.log("Using customer API to fetch order details")
           orderResponse = await getOrderById(id)
@@ -326,6 +338,21 @@ export function OrderDetails() {
     }
 
     fetchWorkflows()
+  }, [id, user])
+
+  // Cleanup: End time tracking when leaving the page
+  useEffect(() => {
+    const isStaffOrAdmin = user?.role === 'admin' || user?.role === 'staff';
+
+    return () => {
+      if (id && isStaffOrAdmin) {
+        // End time tracking when component unmounts (user leaves the page)
+        console.log("Ending automatic time tracking for order:", id)
+        endOrderTracking(id).catch((error) => {
+          console.error("Failed to end time tracking:", error)
+        })
+      }
+    }
   }, [id, user])
 
   // Fetch progress timeline for order
