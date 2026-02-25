@@ -93,6 +93,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { CreateStaffDialog } from "@/components/admin/CreateStaffDialog"
 import { CreateTeamDialog } from "@/components/admin/CreateTeamDialog"
 import { StaffDetailsDialog } from "@/components/admin/StaffDetailsDialog"
+import StaffStatusManagement from "@/components/admin/StaffStatusManagement"
 
 export function StaffManagement() {
   const [activeTab, setActiveTab] = useState("staff")
@@ -423,11 +424,17 @@ export function StaffManagement() {
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
+          <TabsTrigger value="status">Staff Status</TabsTrigger>
           <TabsTrigger value="staff">Staff Members</TabsTrigger>
           <TabsTrigger value="teams">Teams</TabsTrigger>
           <TabsTrigger value="workload">Workload</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>
         </TabsList>
+
+        {/* Staff Status Tab - Real-time time tracking */}
+        <TabsContent value="status" className="space-y-4">
+          <StaffStatusManagement />
+        </TabsContent>
 
         {/* Staff Members Tab */}
         <TabsContent value="staff" className="space-y-4">

@@ -121,14 +121,17 @@
   },
   "staff": {
     "menu": {
+      "dashboard": "Dashboard",
       "ordersAndWork": "Orders & Work",
       "myOrders": "My Orders",
-      "teamChat": "Team Chat",
-      "schedule": "Schedule",
-      "knowledgeBase": "Knowledge Base",
-      "performance": "Performance",
+      "repairRequests": "Repair Requests",
       "timeTracking": "Time Tracking",
-      "toolsAndResources": "Tools & Resources"
+      "schedule": "Schedule",
+      "bookings": "Bookings",
+      "toolsAndResources": "Tools & Resources",
+      "knowledgeBase": "Knowledge Base",
+      "teamChat": "Team Chat",
+      "performance": "Performance"
     }
   },
   "header": {
@@ -1868,5 +1871,33 @@
     "viewOrders": "View Orders",
     "orderCommunication": "Order Communication",
     "communicateWithSupport": "Communicate with our support team about your repair order"
+  },
+  "timeTracking": {
+    "title": "Time Tracking",
+    "description": "Track your work hours and manage breaks",
+    "clockIn": "Clock In",
+    "clockOut": "Clock Out",
+    "startBreak": "Start Break",
+    "endBreak": "End Break",
+    "clockedInAt": "Clocked in at",
+    "lastClockedOut": "Last clocked out at",
+    "currentOrder": "Current order",
+    "summary": "Time Summary",
+    "hoursToday": "Hours Today",
+    "hoursThisWeek": "Hours This Week",
+    "hoursThisMonth": "Hours This Month",
+    "avgPerDay": "Avg/Day",
+    "online": "Online",
+    "offline": "Offline",
+    "working": "Working",
+    "onBreak": "On Break",
+    "pending": "Pending",
+    "clockedIn": "Clocked In",
+    "clockedOut": "Clocked Out",
+    "breakStarted": "Break Started",
+    "breakEnded": "Break Ended",
+    "error": "Error",
+    "workedToday": "Worked today",
+    "hours": "hours"
   }
 }

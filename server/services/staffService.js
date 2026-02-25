@@ -66,9 +66,9 @@ class StaffService {
             performance: {
               ordersCompleted: completedOrders,
               averageCompletionTime: 2.5,
-              customerSatisfaction: 4.2 + Math.random() * 0.6,
-              efficiency: 85 + Math.random() * 10,
-              qualityScore: 90 + Math.random() * 8
+              customerSatisfaction: Math.round((4.2 + Math.random() * 0.6) * 10) / 10,
+              efficiency: Math.round(85 + Math.random() * 10),
+              qualityScore: Math.round(90 + Math.random() * 8)
             },
             currentWorkload: {
               assignedOrders: assignedOrders,
@@ -338,47 +338,49 @@ class StaffService {
 
       console.log('StaffService: Transformed assigned orders with assignedAt timestamps');
 
-      // Calculate time tracking data (mock data for now - in real app this would come from time tracking system)
+      // Get real time tracking data from User model
       const timeTracking = {
-        totalHoursThisWeek: Math.floor(Math.random() * 40) + 20,
-        totalHoursThisMonth: Math.floor(Math.random() * 160) + 80,
-        averageHoursPerDay: Math.floor(Math.random() * 4) + 6,
-        lastClockIn: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000),
-        lastClockOut: new Date(Date.now() - Math.random() * 12 * 60 * 60 * 1000),
-        currentStatus: ['clocked_in', 'clocked_out', 'on_break'][Math.floor(Math.random() * 3)]
+        totalHoursThisWeek: staff.hoursThisWeek || 0,
+        totalHoursThisMonth: staff.hoursThisMonth || 0,
+        averageHoursPerDay: staff.hoursThisMonth ? Math.round((staff.hoursThisMonth / new Date().getDate()) * 100) / 100 : 0,
+        lastClockIn: staff.lastClockIn || null,
+        lastClockOut: staff.lastClockOut || null,
+        currentStatus: staff.currentStatus || 'offline'
       };
 
-      // Generate activity log (mock data - in real app this would come from audit logs)
-      const activityLog = [
-        {
-          _id: 'activity1',
-          action: 'Clock In',
-          description: 'Clocked in for work',
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-          details: { location: 'Main Office' }
-        },
-        {
-          _id: 'activity2',
-          action: 'Order Assignment',
-          description: 'Assigned to new repair order',
-          timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
-          details: { orderId: assignedOrders[0]?._id }
-        },
-        {
-          _id: 'activity3',
-          action: 'Task Completion',
-          description: 'Completed quality check task',
-          timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000),
-          details: { taskType: 'Quality Check' }
-        },
-        {
-          _id: 'activity4',
-          action: 'Profile Update',
-          description: 'Updated profile information',
-          timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
-          details: { field: 'specializations' }
-        }
-      ];
+      // Get real activity log from TimeEntry model
+      const { TimeEntry } = require('../models/TimeEntry');
+      const recentEntries = await TimeEntry.find({ staffId: staffId })
+        .sort({ timestamp: -1 })
+        .limit(20)
+        .populate('orderId', 'orderNumber')
+        .lean();
+
+      const activityLog = recentEntries.map(entry => {
+        const actionMap = {
+          'clock_in': 'Clock In',
+          'clock_out': 'Clock Out',
+          'break_start': 'Break Start',
+          'break_end': 'Break End',
+          'order_start': 'Started Working on Order',
+          'order_end': 'Finished Working on Order'
+        };
+
+        return {
+          _id: entry._id,
+          action: actionMap[entry.type] || entry.type,
+          description: entry.orderId
+            ? `${actionMap[entry.type]} - Order ${entry.orderNumber || entry.orderId}`
+            : actionMap[entry.type] || entry.type,
+          timestamp: entry.timestamp,
+          details: {
+            type: entry.type,
+            orderId: entry.orderId,
+            orderNumber: entry.orderNumber,
+            notes: entry.notes
+          }
+        };
+      });
 
       // Get performance history (mock data - in real app this would come from performance metrics)
       const performanceHistory = [];
@@ -412,9 +414,9 @@ class StaffService {
       const performance = {
         ordersCompleted: completedOrders,
         averageCompletionTime: 2.5,
-        customerSatisfaction: 4.2 + Math.random() * 0.6,
-        efficiency: 85 + Math.random() * 10,
-        qualityScore: 90 + Math.random() * 8
+        customerSatisfaction: Math.round((4.2 + Math.random() * 0.6) * 10) / 10,
+        efficiency: Math.round(85 + Math.random() * 10),
+        qualityScore: Math.round(90 + Math.random() * 8)
       };
 
       // Compile detailed staff information

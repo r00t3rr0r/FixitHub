@@ -204,6 +204,50 @@ const schema = new mongoose.Schema({
     index: true,
     default: () => randomUUID(),
   },
+  // Time Tracking & Status Management
+  currentStatus: {
+    type: String,
+    enum: ['offline', 'online', 'working', 'pending', 'on_break'],
+    default: 'offline'
+  },
+  currentSessionId: {
+    type: String, // Current active work session UUID
+    default: null
+  },
+  lastClockIn: {
+    type: Date,
+    default: null
+  },
+  lastClockOut: {
+    type: Date,
+    default: null
+  },
+  currentOrderId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Order',
+    default: null
+  },
+  currentOrderNumber: {
+    type: String,
+    default: null
+  },
+  lastActivity: {
+    type: Date,
+    default: Date.now
+  },
+  // Aggregated time statistics (updated periodically)
+  totalHoursWorked: {
+    type: Number,
+    default: 0
+  },
+  hoursThisWeek: {
+    type: Number,
+    default: 0
+  },
+  hoursThisMonth: {
+    type: Number,
+    default: 0
+  }
 }, {
   versionKey: false,
 });
