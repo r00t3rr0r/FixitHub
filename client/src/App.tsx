@@ -60,6 +60,14 @@ import EPartOrderManagement from "./pages/admin/EPartOrderManagement"
 import { InspectionWorkflow } from "./pages/inspection/InspectionWorkflow"
 import { RepairRequestQuestionnaire } from "./pages/RepairRequestQuestionnaire"
 import { RepairRequestsManagement } from "./pages/admin/RepairRequestsManagement"
+import { Widerrufsrecht } from "./pages/Widerrufsrecht"
+import { Privacy } from "./pages/Privacy"
+import { Imprint } from "./pages/Imprint"
+import { Terms } from "./pages/Terms"
+import { About } from "./pages/About"
+import { FAQ } from "./pages/FAQ"
+import { GuestOrderTracking } from "./pages/GuestOrderTracking"
+import { GuestBookingTracking } from "./pages/GuestBookingTracking"
 
 function App() {
   return (
@@ -74,6 +82,14 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/debug" element={<DebugLogin />} />
+
+            {/* Guest tracking routes - public access with CustomerLayout */}
+            <Route path="/track-order" element={<CustomerLayout />}>
+              <Route index element={<GuestOrderTracking />} />
+            </Route>
+            <Route path="/track-order/booking" element={<CustomerLayout />}>
+              <Route index element={<GuestBookingTracking />} />
+            </Route>
 
             {/* Protected routes - accessible only to authenticated users */}
             <Route path="/dashboard" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
@@ -100,6 +116,16 @@ function App() {
             <Route path="/blog/:id" element={<CustomerLayout />}>
               <Route index element={<BlogPostPage />} />
             </Route>
+            <Route path="/faq" element={<FAQ />} />
+            <Route path="/widerrufsrecht" element={<Widerrufsrecht />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/datenschutz" element={<Privacy />} />
+            <Route path="/imprint" element={<Imprint />} />
+            <Route path="/impressum" element={<Imprint />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/agb" element={<Terms />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/ueber-uns" element={<About />} />
 
             {/* Protected customer routes - authentication required */}
             <Route path="/orders" element={<ProtectedRoute><Layout /></ProtectedRoute>}>

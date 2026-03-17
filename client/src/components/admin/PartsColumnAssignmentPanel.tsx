@@ -87,7 +87,7 @@ export const PartsColumnAssignmentPanel: React.FC<PartsColumnAssignmentPanelProp
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Auto-Generated Item Name Notice */}
-          <Alert className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30">
+          <Alert className="border-gray-200 bg-white shadow-sm">
             <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <AlertDescription className="text-blue-800 dark:text-blue-200">
               <strong>Item Name is Auto-Generated:</strong> The Item Name field will be automatically created by combining Manufacturer + Model + Category. You do not need to map this field.

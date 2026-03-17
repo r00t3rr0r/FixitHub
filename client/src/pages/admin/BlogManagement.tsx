@@ -42,6 +42,7 @@ import {
   getBlogCategories,
   getBlogAuthors,
   createBlogPost,
+  updateBlogPost,
   BlogPost,
   BlogCategory,
   BlogAuthor
@@ -54,7 +55,10 @@ export function BlogManagement() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [editingPost, setEditingPost] = useState<BlogPost | null>(null)
   const { toast } = useToast()
 
   // Form state for new blog post
@@ -152,6 +156,70 @@ export function BlogManagement() {
       })
     } finally {
       setIsCreating(false)
+    }
+  }
+
+  const handleEditPost = (post: BlogPost) => {
+    // Ensure all values are defined to prevent controlled/uncontrolled input warnings
+    setEditingPost({
+      ...post,
+      featuredImage: post.featuredImage || '',
+      seoTitle: post.seoTitle || '',
+      seoDescription: post.seoDescription || '',
+      seoKeywords: post.seoKeywords || []
+    })
+    setIsEditDialogOpen(true)
+  }
+
+  const handleUpdatePost = async () => {
+    try {
+      if (!editingPost || !editingPost.title || !editingPost.content || !editingPost.category) {
+        toast({
+          title: "Validation Error",
+          description: "Please fill in all required fields (Title, Content, Category)",
+          variant: "destructive"
+        })
+        return
+      }
+
+      setIsUpdating(true)
+
+      const postData = {
+        title: editingPost.title,
+        excerpt: editingPost.excerpt,
+        content: editingPost.content,
+        category: typeof editingPost.category === 'string' ? editingPost.category : editingPost.category._id,
+        // Don't update tags - they require ObjectId references and need separate handling
+        status: editingPost.status,
+        featuredImage: editingPost.featuredImage || '',
+        seoTitle: editingPost.seoTitle || '',
+        seoDescription: editingPost.seoDescription || '',
+        seoKeywords: Array.isArray(editingPost.seoKeywords) ? editingPost.seoKeywords : []
+      }
+
+      const response = await updateBlogPost(editingPost._id, postData)
+
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Blog post updated successfully",
+        })
+
+        setIsEditDialogOpen(false)
+        setEditingPost(null)
+
+        // Refresh the posts list
+        fetchData()
+      }
+    } catch (error: any) {
+      console.error("Error updating blog post:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update blog post",
+        variant: "destructive"
+      })
+    } finally {
+      setIsUpdating(false)
     }
   }
 
@@ -350,6 +418,180 @@ export function BlogManagement() {
         </Dialog>
       </div>
 
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Blog Post</DialogTitle>
+            <DialogDescription>
+              Update the details of your blog post.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingPost && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-title">Title *</Label>
+                  <Input
+                    id="edit-title"
+                    value={editingPost.title}
+                    onChange={(e) => setEditingPost({ ...editingPost, title: e.target.value })}
+                    placeholder="Enter blog post title"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-category">Category *</Label>
+                  <Select
+                    value={typeof editingPost.category === 'string' ? editingPost.category : editingPost.category._id}
+                    onValueChange={(value) => setEditingPost({ ...editingPost, category: value as any })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category._id} value={category._id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-excerpt">Excerpt</Label>
+                <Textarea
+                  id="edit-excerpt"
+                  value={editingPost.excerpt}
+                  onChange={(e) => setEditingPost({ ...editingPost, excerpt: e.target.value })}
+                  placeholder="Brief description of the blog post"
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-content">Content *</Label>
+                <Textarea
+                  id="edit-content"
+                  value={editingPost.content}
+                  onChange={(e) => setEditingPost({ ...editingPost, content: e.target.value })}
+                  placeholder="Write your blog post content here"
+                  rows={8}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-tags">Tags (read-only)</Label>
+                  <Input
+                    id="edit-tags"
+                    value={
+                      Array.isArray(editingPost.tags) 
+                        ? editingPost.tags.map(tag => typeof tag === 'string' ? tag : tag.name).join(', ')
+                        : ''
+                    }
+                    disabled
+                    placeholder="Tags cannot be edited here"
+                    className="bg-muted"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-featuredImage">Featured Image URL</Label>
+                  <Input
+                    id="edit-featuredImage"
+                    value={editingPost.featuredImage}
+                    onChange={(e) => setEditingPost({ ...editingPost, featuredImage: e.target.value })}
+                    placeholder="https://example.com/image.jpg"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-status">Status</Label>
+                <Select
+                  value={editingPost.status}
+                  onValueChange={(value) => setEditingPost({ ...editingPost, status: value as any })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="pending_review">Pending Review</SelectItem>
+                    <SelectItem value="published">Published</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* SEO Section */}
+              <div className="space-y-4 border-t pt-4">
+                <h4 className="font-semibold">SEO Settings</h4>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-seoTitle">SEO Title</Label>
+                  <Input
+                    id="edit-seoTitle"
+                    value={editingPost.seoTitle || ''}
+                    onChange={(e) => setEditingPost({ ...editingPost, seoTitle: e.target.value })}
+                    placeholder="SEO optimized title"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-seoDescription">SEO Description</Label>
+                  <Textarea
+                    id="edit-seoDescription"
+                    value={editingPost.seoDescription || ''}
+                    onChange={(e) => setEditingPost({ ...editingPost, seoDescription: e.target.value })}
+                    placeholder="SEO meta description"
+                    rows={2}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-seoKeywords">SEO Keywords</Label>
+                  <Input
+                    id="edit-seoKeywords"
+                    value={
+                      Array.isArray(editingPost.seoKeywords) 
+                        ? editingPost.seoKeywords.join(', ')
+                        : ''
+                    }
+                    onChange={(e) => setEditingPost({ ...editingPost, seoKeywords: e.target.value.split(',').map(k => k.trim()) as any })}
+                    placeholder="Enter keywords separated by commas"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsEditDialogOpen(false)
+                setEditingPost(null)
+              }}
+              disabled={isUpdating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdatePost}
+              disabled={isUpdating}
+            >
+              {isUpdating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                'Update Post'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
@@ -470,7 +712,7 @@ export function BlogManagement() {
                         <Eye className="h-4 w-4" />
                       </Link>
                     </Button>
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" onClick={() => handleEditPost(post)}>
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="sm">

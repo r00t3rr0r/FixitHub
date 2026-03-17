@@ -1,171 +1,149 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
 
 export function Footer() {
   const { t } = useTranslation();
 
   return (
-    <footer className="border-t bg-gray-900 text-white relative">
-      {/* Yellow gradient accent line above footer */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-yellow-400 to-transparent opacity-50"></div>
-
-      <div className="container mx-auto px-4">
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 py-8">
+    <footer className="footer">
+      <div className="container">
+        <div className="footer-grid">
           {/* Brand Column */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 mb-3">
-              <img
-                src="https://www.mcrepair.de/bilder/intern/shoplogo/logo180.png"
-                alt="FixitHub Logo"
-                className="h-7 w-auto object-contain brightness-0 invert"
-                onError={(e) => {
-                  // Fallback to text logo
-                  (e.target as HTMLImageElement).style.display = 'none';
-                  const fallback = (e.target as HTMLImageElement).nextElementSibling as HTMLElement;
-                  if (fallback) fallback.style.display = 'flex';
-                }}
-              />
-              <div className="w-7 h-7 bg-yellow-400 rounded-lg items-center justify-center hidden flex-shrink-0">
-                <span className="text-gray-900 font-bold text-xs leading-none">FH</span>
-              </div>
-              <span className="text-base font-bold leading-none">FixitHub</span>
-            </div>
-            <p className="text-gray-400 text-xs leading-relaxed">
-              {t('home.footer.tagline')}
+          <div className="footer-brand">
+            <h3>
+              Mc<span>Repair</span>.de
+            </h3>
+            <p>
+              {t('home.footer.tagline', 'Ihr zuverlässiger Partner für schnelle und professionelle Reparaturen. Qualität, auf die Sie sich verlassen können.')}
             </p>
+            
+            {/* Social Media Icons */}
+            <div className="footer-social">
+              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+                <Facebook width={16} height={16} />
+              </a>
+              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
+                <Twitter width={16} height={16} />
+              </a>
+              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                <Instagram width={16} height={16} />
+              </a>
+              <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+                <Linkedin width={16} height={16} />
+              </a>
+            </div>
           </div>
 
-          {/* Services Column */}
-          <div className="space-y-3">
-            <h3 className="font-semibold text-white text-sm leading-tight uppercase tracking-wide">
-              {t('home.footer.servicesTitle')}
-            </h3>
-            <ul className="space-y-1.5">
+          {/* Repair Services Column */}
+          <div className="footer-col">
+            <h4>{t('home.footer.repairTitle', 'Reparatur')}</h4>
+            <ul>
               <li>
-                <a
-                  href="#"
-                  className="text-gray-400 text-xs hover:text-yellow-400 transition-colors duration-200"
-                >
-                  {t('home.services.screenRepair')}
-                </a>
+                <Link to="/new-order">
+                  {t('home.footer.smartphoneRepair', 'Smartphone Reparatur')}
+                </Link>
               </li>
               <li>
-                <a
-                  href="#"
-                  className="text-gray-400 text-xs hover:text-yellow-400 transition-colors duration-200"
-                >
-                  {t('home.services.batteryReplacement')}
-                </a>
+                <Link to="/new-order">
+                  {t('home.footer.tabletRepair', 'Tablet Reparatur')}
+                </Link>
               </li>
               <li>
-                <a
-                  href="#"
-                  className="text-gray-400 text-xs hover:text-yellow-400 transition-colors duration-200"
-                >
-                  {t('home.services.waterDamage')}
-                </a>
+                <Link to="/new-order">
+                  {t('home.footer.notebookRepair', 'Notebook Reparatur')}
+                </Link>
               </li>
               <li>
-                <a
-                  href="#"
-                  className="text-gray-400 text-xs hover:text-yellow-400 transition-colors duration-200"
-                >
-                  {t('home.services.dataRecovery')}
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          {/* Company Column */}
-          <div className="space-y-3">
-            <h3 className="font-semibold text-white text-sm leading-tight uppercase tracking-wide">
-              {t('home.footer.companyTitle')}
-            </h3>
-            <ul className="space-y-1.5">
-              <li>
-                <a
-                  href="#"
-                  className="text-gray-400 text-xs hover:text-yellow-400 transition-colors duration-200"
-                >
-                  {t('home.footer.aboutUs')}
-                </a>
+                <Link to="/new-order">
+                  {t('home.footer.consoleRepair', 'Konsolen Reparatur')}
+                </Link>
               </li>
               <li>
-                <a
-                  href="#"
-                  className="text-gray-400 text-xs hover:text-yellow-400 transition-colors duration-200"
-                >
-                  {t('home.footer.contact')}
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#"
-                  className="text-gray-400 text-xs hover:text-yellow-400 transition-colors duration-200"
-                >
-                  {t('home.footer.careers')}
-                </a>
-              </li>
-              <li>
-                <Link
-                  to="/blog"
-                  className="text-gray-400 text-xs hover:text-yellow-400 transition-colors duration-200"
-                >
-                  {t('navigation.blog')}
+                <Link to="/new-order">
+                  {t('home.footer.expressRepair', 'Express-Reparatur')}
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* Support Column */}
-          <div className="space-y-3">
-            <h3 className="font-semibold text-white text-sm leading-tight uppercase tracking-wide">
-              {t('home.footer.supportTitle')}
-            </h3>
-            <ul className="space-y-1.5">
+          {/* Service Column */}
+          <div className="footer-col">
+            <h4>{t('home.footer.serviceTitle', 'Service')}</h4>
+            <ul>
               <li>
-                <a
-                  href="#"
-                  className="text-gray-400 text-xs hover:text-yellow-400 transition-colors duration-200"
-                >
-                  {t('home.footer.helpCenter')}
+                <a href="/src/McRepair-Design-System/annahmestellen.html">
+                  {t('home.footer.locations', 'Annahmestellen')}
                 </a>
               </li>
               <li>
-                <a
-                  href="#"
-                  className="text-gray-400 text-xs hover:text-yellow-400 transition-colors duration-200"
-                >
-                  {t('home.footer.warranty')}
+                <Link to="/new-order">
+                  {t('home.footer.shippingRepair', 'Versand-Reparatur')}
+                </Link>
+              </li>
+              <li>
+                <Link to="/new-order">
+                  {t('home.footer.deviceFinder', 'Geräte-Finder')}
+                </Link>
+              </li>
+              <li>
+                <Link to="/orders">
+                  {t('home.footer.repairStatus', 'Reparatur-Status')}
+                </Link>
+              </li>
+              <li>
+                <Link to="/faq">
+                  {t('home.footer.faq', 'FAQ')}
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Company Column */}
+          <div className="footer-col">
+            <h4>{t('home.footer.companyTitle', 'Unternehmen')}</h4>
+            <ul>
+              <li>
+                <Link to="/about">
+                  {t('home.footer.aboutUs', 'Über uns')}
+                </Link>
+              </li>
+              <li>
+                <a href="#careers">
+                  {t('home.footer.careers', 'Karriere')}
                 </a>
               </li>
               <li>
-                <a
-                  href="#"
-                  className="text-gray-400 text-xs hover:text-yellow-400 transition-colors duration-200"
-                >
-                  {t('home.footer.privacyPolicy')}
+                <Link to="/blog">
+                  {t('home.footer.blog', 'Blog')}
+                </Link>
+              </li>
+              <li>
+                <a href="#press">
+                  {t('home.footer.press', 'Presse')}
                 </a>
               </li>
               <li>
-                <a
-                  href="#"
-                  className="text-gray-400 text-xs hover:text-yellow-400 transition-colors duration-200"
-                >
-                  {t('home.footer.termsOfService')}
+                <a href="#contact">
+                  {t('home.footer.contact', 'Kontakt')}
                 </a>
               </li>
             </ul>
           </div>
         </div>
 
-        {/* Copyright Section */}
-        <div className="py-4 border-t border-gray-800 text-center">
-          <p className="text-gray-500 text-xs leading-relaxed">
-            {t('home.footer.copyright')}
+        {/* Footer Bottom - Payment Methods & Copyright */}
+        <div className="footer-bottom">
+          <p>
+            © {new Date().getFullYear()} McRepair.de. {t('home.footer.allRightsReserved', 'Alle Rechte vorbehalten.')}
           </p>
+          <div className="footer-bottom-links">
+            <Link to="/imprint">{t('home.footer.imprint', 'Impressum')}</Link>
+            <Link to="/privacy">{t('home.footer.privacyPolicy', 'Datenschutz')}</Link>
+            <Link to="/terms">{t('home.footer.termsOfService', 'AGB')}</Link>
+            <Link to="/widerrufsrecht">{t('home.footer.rightOfWithdrawal', 'Widerrufsrecht')}</Link>
+          </div>
         </div>
       </div>
     </footer>

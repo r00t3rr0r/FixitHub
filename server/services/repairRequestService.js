@@ -81,8 +81,11 @@ class RepairRequestService {
         deviceModelId: data.deviceModelId,
         issueDescription: data.issueDescription,
         issueOccurredDate: data.issueOccurredDate,
-        repairAttempts: data.repairAttempts,
-        additionalInfo: data.additionalInfo || '',
+        repairAttempts: data.repairAttempts || '',
+        modelNumber: data.modelNumber || '',
+        waterDamage: data.waterDamage || 'no',
+        previousRepairDetails: data.previousRepairDetails || '',
+        itemCondition: data.itemCondition || 'unsure',
         images: data.images || [],
         reviewDeadline,
       });

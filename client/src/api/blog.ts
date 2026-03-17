@@ -300,13 +300,26 @@ export const getEditorialCalendar = async (filters: any = {}) => {
   });
 };
 
-// Description: Create or update blog post
+// Description: Create blog post
 // Endpoint: POST /api/blog-posts
 // Request: Partial<BlogPost>
 // Response: { success: boolean, post: BlogPost }
 export const createBlogPost = async (postData: Partial<BlogPost>) => {
   try {
     const response = await api.post('/api/blog-posts', postData);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Update blog post
+// Endpoint: PUT /api/blog-posts/:id
+// Request: Partial<BlogPost>
+// Response: { success: boolean, post: BlogPost }
+export const updateBlogPost = async (postId: string, postData: Partial<BlogPost>) => {
+  try {
+    const response = await api.put(`/api/blog-posts/${postId}`, postData);
     return response.data;
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);

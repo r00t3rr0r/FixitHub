@@ -26,8 +26,11 @@ export interface RepairRequest {
   };
   issueDescription: string;
   issueOccurredDate: string;
-  repairAttempts: string;
-  additionalInfo: string;
+  repairAttempts?: string;
+  modelNumber: string;
+  waterDamage?: 'no' | 'yes' | 'unsure';
+  previousRepairDetails?: string;
+  itemCondition?: 'original' | 'refurbished' | 'unsure';
   images: string[];
   status: 'pending' | 'reviewing' | 'approved' | 'rejected' | 'converted';
   assignedStaffId?: {
@@ -105,8 +108,8 @@ export interface CreateRepairRequestData {
   deviceModelId?: string;
   issueDescription: string;
   issueOccurredDate: string;
-  repairAttempts: string;
-  additionalInfo?: string;
+
+  modelNumber?: string;
   images?: string[];
 }
 
@@ -118,7 +121,7 @@ export interface ConvertToOrderData {
 
 // Description: Create a new repair request
 // Endpoint: POST /api/repair-requests
-// Request: { deviceType, deviceBrand, deviceModel, deviceModelId, issueDescription, issueOccurredDate, repairAttempts, additionalInfo, images }
+// Request: { deviceType, deviceBrand, deviceModel, deviceModelId, issueDescription, issueOccurredDate, repairAttempts, modelNumber, images }
 // Response: { success: boolean, request: RepairRequest, message: string }
 export const createRepairRequest = async (data: CreateRepairRequestData) => {
   try {

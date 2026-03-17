@@ -202,22 +202,35 @@ class BlogService {
     }
   }
 
-  // Get single blog post
-  static async getPost(id) {
+  // Get single blog post (by ID or slug)
+  static async getPost(idOrSlug) {
     try {
-      console.log('BlogService: Getting post with ID:', id);
+      console.log('BlogService: Getting post with ID or Slug:', idOrSlug);
 
-      const post = await BlogPost.findById(id)
-        .populate('author', 'name email avatar bio')
-        .populate('category', 'name slug description')
-        .populate('tags', 'name slug color');
+      let post;
+      
+      // Try to find by ID first (if it's a valid ObjectId)
+      if (idOrSlug.match(/^[0-9a-fA-F]{24}$/)) {
+        post = await BlogPost.findById(idOrSlug)
+          .populate('author', 'name email avatar bio')
+          .populate('category', 'name slug description')
+          .populate('tags', 'name slug color');
+      }
+      
+      // If not found or not a valid ObjectId, try to find by slug
+      if (!post) {
+        post = await BlogPost.findOne({ slug: idOrSlug })
+          .populate('author', 'name email avatar bio')
+          .populate('category', 'name slug description')
+          .populate('tags', 'name slug color');
+      }
 
       if (!post) {
         throw new Error('Blog post not found');
       }
 
       // Increment view count
-      await BlogPost.findByIdAndUpdate(id, { 
+      await BlogPost.findByIdAndUpdate(post._id, { 
         $inc: { 
           views: 1,
           'performance.views': 1 

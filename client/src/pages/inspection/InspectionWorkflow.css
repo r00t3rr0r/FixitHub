@@ -1,0 +1,541 @@
+/* Inspection Workflow page styles aligned with McRepair homepage brand */
+
+.inspection-workflow-page {
+  min-height: 100vh;
+  background: linear-gradient(180deg, var(--gray-50) 0%, var(--off-white) 100%);
+  padding: 1rem;
+}
+
+.inspection-workflow-container {
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+.inspection-workflow-loading {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, var(--gray-50) 0%, var(--off-white) 100%);
+  padding: 1rem;
+}
+
+.inspection-workflow-loading-text {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--gray-600);
+}
+
+.inspection-workflow-error-text {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--danger);
+}
+
+.inspection-workflow-header {
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.inspection-workflow-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.inspection-back-button {
+  border-radius: 9999px;
+  color: var(--primary-blue);
+}
+
+.inspection-back-button:hover {
+  background: rgba(26, 42, 94, 0.09);
+}
+
+.inspection-workflow-title {
+  font-size: clamp(1.45rem, 1.2rem + 1vw, 2rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--primary-blue);
+  font-weight: 800;
+}
+
+.inspection-workflow-subtitle {
+  margin-top: 0.2rem;
+  color: var(--gray-500);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.inspection-report-button {
+  border-color: var(--gray-200);
+  color: var(--primary-blue);
+  background: var(--white);
+  font-weight: 600;
+}
+
+.inspection-report-button:hover {
+  border-color: var(--primary-blue-light);
+  background: rgba(26, 42, 94, 0.06);
+  color: var(--primary-blue-dark);
+}
+
+.inspection-summary-card,
+.inspection-communication-card,
+.inspection-notes-card {
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+
+.inspection-summary-card {
+  margin-bottom: 1.5rem;
+}
+
+.inspection-summary-header,
+.inspection-communication-header,
+.inspection-notes-header {
+  padding-bottom: 0.75rem;
+}
+
+.inspection-summary-title,
+.inspection-communication-title,
+.inspection-notes-title {
+  color: var(--primary-blue);
+  font-size: 1.06rem;
+  font-weight: 700;
+}
+
+.inspection-communication-description {
+  color: var(--gray-500);
+}
+
+.inspection-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.inspection-summary-item {
+  background: var(--off-white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-md);
+  padding: 0.8rem;
+}
+
+.inspection-summary-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--gray-500);
+  margin-bottom: 0.3rem;
+}
+
+.inspection-summary-value {
+  color: var(--gray-700);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.inspection-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.inspection-form-column {
+  min-width: 0;
+}
+
+.inspection-communication-column {
+  min-width: 0;
+}
+
+.inspection-communication-card {
+  position: sticky;
+  top: 1rem;
+}
+
+.inspection-communication-content {
+  padding-top: 0;
+}
+
+.inspection-notes-card {
+  margin-top: 1.5rem;
+  border-color: rgba(26, 42, 94, 0.14);
+  background: linear-gradient(180deg, rgba(26, 42, 94, 0.04) 0%, rgba(26, 42, 94, 0.02) 100%);
+}
+
+.inspection-notes-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  font-size: 0.93rem;
+  color: var(--gray-700);
+}
+
+.inspection-note-row {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+}
+
+.inspection-note-icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--primary-blue-light);
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+/* DeviceInspectionForm integration */
+.inspection-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.inspection-step-card {
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.inspection-step-header {
+  background: linear-gradient(180deg, var(--white) 0%, rgba(248, 249, 252, 0.8) 100%);
+  transition: background 0.2s ease;
+}
+
+.inspection-step-header:hover {
+  background: rgba(26, 42, 94, 0.04);
+}
+
+.inspection-step-title {
+  color: var(--primary-blue);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.inspection-step-badge {
+  background: var(--primary-blue);
+  color: var(--white);
+  border-color: var(--primary-blue);
+}
+
+.inspection-primary-button {
+  background: var(--primary-blue);
+  color: var(--white);
+  border: 1px solid var(--primary-blue);
+  font-weight: 600;
+}
+
+.inspection-primary-button:hover {
+  background: var(--primary-blue-dark);
+  border-color: var(--primary-blue-dark);
+}
+
+.inspection-primary-button:disabled {
+  opacity: 0.7;
+}
+
+.inspection-repairable-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.inspection-repairable-actions .inspection-primary-button[data-destructive="true"] {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+@media (max-width: 1100px) {
+  .inspection-content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .inspection-communication-card {
+    position: static;
+  }
+}
+
+@media (max-width: 768px) {
+  .inspection-workflow-page {
+    padding: 0.75rem;
+  }
+
+  .inspection-workflow-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .inspection-workflow-header-left {
+    align-items: flex-start;
+  }
+
+  .inspection-report-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .inspection-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .inspection-form .grid.grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .inspection-repairable-actions {
+    flex-direction: column;
+  }
+
+  .inspection-repairable-actions > button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* CommunicationPanel fine tuning */
+.inspection-comm-header-icon,
+.inspection-comm-dialog-icon {
+  color: var(--primary-blue);
+}
+
+.inspection-comm-dialog-icon.danger {
+  color: var(--danger);
+}
+
+.inspection-comm-title,
+.inspection-comm-dialog-title {
+  color: var(--primary-blue);
+}
+
+.inspection-comm-counter {
+  background: rgba(26, 42, 94, 0.1);
+  color: var(--primary-blue);
+  border: 1px solid rgba(26, 42, 94, 0.2);
+}
+
+.inspection-comm-toolbar-btn {
+  border-color: var(--gray-200);
+  color: var(--primary-blue);
+  background: var(--white);
+}
+
+.inspection-comm-toolbar-btn:hover {
+  border-color: var(--primary-blue-light);
+  background: rgba(26, 42, 94, 0.06);
+}
+
+.inspection-comm-thread {
+  border-color: var(--gray-200);
+}
+
+.inspection-comm-feedback-card,
+.inspection-comm-action-card {
+  border-radius: var(--radius-md);
+}
+
+.inspection-comm-feedback-card.is-pending {
+  border-left-color: var(--accent-yellow);
+  background: rgba(245, 184, 0, 0.09);
+}
+
+.inspection-comm-feedback-card.is-completed {
+  border-left-color: var(--success);
+  background: rgba(56, 161, 105, 0.1);
+}
+
+.inspection-comm-action-card.is-pending {
+  border-left-color: var(--primary-blue-light);
+  background: rgba(26, 42, 94, 0.07);
+}
+
+.inspection-comm-action-card.is-completed {
+  border-left-color: var(--success);
+  background: rgba(56, 161, 105, 0.1);
+}
+
+.inspection-comm-question,
+.inspection-comm-action-title {
+  color: var(--gray-800);
+}
+
+.inspection-comm-meta,
+.inspection-comm-response-hint,
+.inspection-comm-help {
+  color: var(--gray-500);
+}
+
+.inspection-comm-status {
+  border-color: var(--gray-300);
+  color: var(--gray-600);
+  background: var(--white);
+}
+
+.inspection-comm-option-btn {
+  border-color: var(--gray-300);
+  background: var(--white);
+}
+
+.inspection-comm-option-btn:hover {
+  border-color: var(--primary-blue-light);
+  background: rgba(26, 42, 94, 0.05);
+}
+
+.inspection-comm-option-dot {
+  border-color: var(--gray-400);
+}
+
+.inspection-comm-answered {
+  color: #0f5132;
+  background: #d1fae5;
+}
+
+.inspection-comm-action-icon {
+  color: var(--primary-blue-light);
+}
+
+.inspection-comm-action-description {
+  color: var(--gray-700);
+  background: var(--white);
+  border-color: var(--gray-200);
+}
+
+.inspection-comm-empty {
+  border-color: var(--gray-200);
+  color: var(--gray-500);
+  background: var(--off-white);
+}
+
+.inspection-comm-empty svg {
+  color: var(--gray-400);
+}
+
+.inspection-comm-dialog {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--gray-100);
+}
+
+.inspection-comm-required.is-valid {
+  color: var(--success);
+}
+
+.inspection-comm-required.is-empty {
+  color: var(--gray-400);
+}
+
+.inspection-comm-input.is-valid {
+  border-color: rgba(56, 161, 105, 0.55);
+}
+
+.inspection-comm-input.is-empty {
+  border-color: var(--gray-300);
+}
+
+.inspection-comm-input:focus,
+.inspection-comm-select:focus {
+  border-color: var(--primary-blue-light);
+  box-shadow: 0 0 0 2px rgba(26, 42, 94, 0.12);
+  outline: none;
+}
+
+.inspection-comm-select {
+  border-color: var(--gray-300);
+}
+
+.inspection-comm-select:hover {
+  border-color: var(--gray-400);
+}
+
+.inspection-comm-tips {
+  border-color: rgba(26, 42, 94, 0.2);
+  background: rgba(26, 42, 94, 0.07);
+}
+
+.inspection-comm-tips-title,
+.inspection-comm-tips-list {
+  color: var(--primary-blue-dark);
+}
+
+.inspection-comm-preview {
+  border-color: var(--gray-200);
+  background: var(--off-white);
+}
+
+.inspection-comm-preview-title {
+  color: var(--gray-600);
+}
+
+.inspection-comm-preview-content {
+  border-left-color: var(--accent-yellow);
+  background: rgba(245, 184, 0, 0.11);
+}
+
+.inspection-comm-preview-content p {
+  color: var(--gray-800);
+}
+
+.inspection-comm-preview-option {
+  background: var(--white);
+  border-color: var(--gray-200);
+}
+
+.inspection-comm-preview-dot {
+  border-color: var(--gray-400);
+}
+
+.inspection-comm-action-type-box.is-part,
+.inspection-comm-action-preview.is-part {
+  border-color: rgba(26, 42, 94, 0.25);
+  background: rgba(26, 42, 94, 0.08);
+}
+
+.inspection-comm-action-type-box.is-device,
+.inspection-comm-action-preview.is-device {
+  border-color: rgba(245, 184, 0, 0.4);
+  background: rgba(245, 184, 0, 0.14);
+}
+
+.inspection-comm-action-type-box.is-unlock,
+.inspection-comm-action-preview.is-unlock {
+  border-color: rgba(42, 63, 126, 0.35);
+  background: rgba(42, 63, 126, 0.1);
+}
+
+.inspection-comm-action-type-box.is-cost,
+.inspection-comm-action-preview.is-cost {
+  border-color: rgba(229, 62, 62, 0.35);
+  background: rgba(229, 62, 62, 0.1);
+}
+
+.inspection-comm-preview-heading,
+.inspection-comm-preview-copy,
+.inspection-comm-preview-icon {
+  color: var(--gray-700);
+}
+
+@media (max-width: 768px) {
+  .inspection-comm-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .inspection-comm-toolbar {
+    width: 100%;
+  }
+
+  .inspection-comm-toolbar-btn {
+    flex: 1;
+    justify-content: center;
+  }
+}

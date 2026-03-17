@@ -1,5 +1,6 @@
 const express = require('express');
 const DeviceInspectionService = require('../services/deviceInspectionService');
+const Order = require('../models/Order');
 const { requireUser } = require('./middleware/auth');
 
 const router = express.Router();
@@ -14,7 +15,7 @@ const requireAdminOrStaff = (req, res, next) => {
 
 // Description: Initialize or get device inspection
 // Endpoint: POST /api/device-inspections/init
-// Request: { orderId: string, customerId: string }
+// Request: { orderId: string, customerId?: string }
 // Response: { inspection: DeviceInspection }
 router.post('/init', requireUser, requireAdminOrStaff, async (req, res) => {
   console.log('[DeviceInspectionRoutes] POST /init - Initializing inspection');
@@ -22,13 +23,27 @@ router.post('/init', requireUser, requireAdminOrStaff, async (req, res) => {
   try {
     const { orderId, customerId } = req.body;
 
-    if (!orderId || !customerId) {
-      return res.status(400).json({ error: 'orderId and customerId are required' });
+    if (!orderId) {
+      return res.status(400).json({ error: 'orderId is required' });
+    }
+
+    let resolvedCustomerId = customerId || null;
+
+    // Fallback for cases where populated customer relation is null in frontend responses.
+    if (!resolvedCustomerId) {
+      const order = await Order.findById(orderId).select('customerId');
+      if (!order) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+
+      if (order.customerId) {
+        resolvedCustomerId = order.customerId.toString();
+      }
     }
 
     const inspection = await DeviceInspectionService.initializeInspection(
       orderId,
-      customerId,
+      resolvedCustomerId,
       req.user._id
     );
 
@@ -56,10 +71,22 @@ router.get('/:orderId', requireUser, async (req, res) => {
       const order = await OrderService.getById(req.params.orderId);
 
       // Check if user owns this order or is admin/staff
-      const orderCustomerId = order.customerId._id ? order.customerId._id.toString() : order.customerId.toString();
+      const isAdminOrStaff = ['admin', 'staff'].includes(req.user.role);
       const currentUserId = req.user._id.toString();
 
-      if (orderCustomerId !== currentUserId && !['admin', 'staff'].includes(req.user.role)) {
+      // Guest orders can have no customerId; in that case only admin/staff may access.
+      if (!order.customerId) {
+        if (!isAdminOrStaff) {
+          console.log('[DeviceInspectionRoutes] Access denied - Guest order requires staff access');
+          return res.status(403).json({ error: 'Access denied' });
+        }
+
+        return res.status(200).json({ inspection });
+      }
+
+      const orderCustomerId = order.customerId._id ? order.customerId._id.toString() : order.customerId.toString();
+
+      if (orderCustomerId !== currentUserId && !isAdminOrStaff) {
         console.log('[DeviceInspectionRoutes] Access denied - User does not own order');
         return res.status(403).json({ error: 'Access denied' });
       }

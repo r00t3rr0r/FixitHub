@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>McRepair – Annahmestellen in Deiner Umgebung</title>
+  <meta name="description" content="Finde deine nächste McRepair-Annahmestelle. 108 Partner-Standorte in ganz Deutschland für deine Smartphone-, Tablet- und Notebook-Reparatur.">
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Leaflet.js -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/annahmestellen.css">
+</head>
+<body>
+
+  <!-- ============================================
+       TOP BAR
+       ============================================ -->
+  <div class="top-bar">
+    <div class="container">
+      <div class="top-bar-left">
+        <a href="tel:030403688951">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+          Hotline: 030 403 688 951
+        </a>
+        <a href="annahmestellen.html" class="active">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+          Annahmestellen
+        </a>
+      </div>
+      <div class="top-bar-right">
+        <a href="#">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          Anmelden
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       MAIN NAVIGATION (Sticky)
+       ============================================ -->
+  <nav class="main-nav" id="mainNav">
+    <div class="nav-inner">
+      <!-- Logo -->
+      <a href="index.html" class="nav-logo">
+        <span class="nav-logo-text">Mc<span>Repair</span>.de</span>
+      </a>
+
+      <!-- Nav Links -->
+      <div class="nav-links" id="navLinks">
+        <a href="index.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+          Smartphone
+        </a>
+        <a href="index.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+          Tablet
+        </a>
+        <a href="index.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+          Notebook
+        </a>
+        <a href="index.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg>
+          Konsole
+        </a>
+        <a href="index.html#shop">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+          Zubehör Shop
+        </a>
+        <!-- Mobile-only: top-bar links -->
+        <div class="nav-mobile-extras">
+          <a href="tel:030403688951">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+            Hotline: 030 403 688 951
+          </a>
+          <a href="annahmestellen.html">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+            Annahmestellen
+          </a>
+          <a href="#">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            Anmelden
+          </a>
+        </div>
+      </div>
+
+      <!-- Right section -->
+      <div class="nav-right">
+        <!-- Search (desktop/tablet) -->
+        <div class="nav-search">
+          <input type="text" placeholder="Suchen...">
+          <button>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          </button>
+        </div>
+
+        <!-- Search toggle (mobile only) -->
+        <button class="nav-search-toggle" id="mobileSearchToggle" aria-label="Suche öffnen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </button>
+
+        <!-- Primary CTA -->
+        <a href="index.html#configurator" class="nav-cta">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+          <span>Reparatur buchen</span>
+        </a>
+
+        <!-- Cart -->
+        <a href="#" class="nav-cart">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+          <span class="nav-cart-badge">0</span>
+        </a>
+
+        <!-- Mobile toggle -->
+        <button class="nav-mobile-toggle" id="mobileToggle" aria-label="Menü öffnen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile search overlay -->
+    <div class="nav-search-overlay" id="mobileSearchOverlay">
+      <input type="text" placeholder="Gerät, Modell oder Reparatur suchen..." id="mobileSearchInput">
+    </div>
+  </nav>
+
+  <!-- ============================================
+       BREADCRUMB
+       ============================================ -->
+  <section class="as-breadcrumb">
+    <div class="container">
+      <a href="index.html">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+      </a>
+      <svg class="as-breadcrumb-sep" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      <span>McRepair Annahmestellen</span>
+    </div>
+  </section>
+
+  <!-- ============================================
+       ANNAHMESTELLEN PAGE HEADER
+       ============================================ -->
+  <section class="as-header">
+    <div class="container">
+      <h1>Suche Annahmestellen in Deiner Umgebung</h1>
+      <p class="as-header-subtitle">108 Partner-Fachgeschäfte in ganz Deutschland – finde den nächsten Standort für deine Reparatur.</p>
+    </div>
+  </section>
+
+  <!-- ============================================
+       SEARCH BAR
+       ============================================ -->
+  <section class="as-search">
+    <div class="container">
+      <div class="as-search-row">
+        <div class="as-search-input-wrap">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+          <input type="text" id="asSearchInput" placeholder="Adresse, PLZ oder Stadt eingeben..." autocomplete="off">
+        </div>
+        <button class="as-search-btn" id="asSearchBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          SUCHEN
+        </button>
+        <div class="as-search-tags">
+          <button class="as-tag active">Lokale Geschäfte</button>
+          <button class="as-tag">Onlineshops</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================
+       VIEW TABS
+       ============================================ -->
+  <section class="as-tabs-section">
+    <div class="container">
+      <div class="as-tabs">
+        <button class="as-tab active" data-view="map">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
+          KARTENANSICHT
+        </button>
+        <button class="as-tab" data-view="list">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+          LISTENANSICHT
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================
+       MAP VIEW
+       ============================================ -->
+  <section class="as-view as-map-view active" id="asMapView">
+    <div class="container">
+      <div class="as-map-layout">
+        <!-- Map Embed -->
+        <div class="as-map-container" id="asMapContainer">
+          <!-- Leaflet Map -->
+          <div id="leafletMap" class="as-leaflet-map"></div>
+        </div>
+
+        <!-- Location List (sidebar) -->
+        <div class="as-map-sidebar">
+          <div class="as-sidebar-header">
+            <span class="as-sidebar-count"><strong>108</strong> Annahmestellen gefunden</span>
+          </div>
+          <div class="as-location-list" id="asLocationList">
+            <!-- Location items generated here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================
+       LIST VIEW (Cards)
+       ============================================ -->
+  <section class="as-view as-list-view" id="asListView">
+    <div class="container">
+      <div class="as-list-grid" id="asListGrid">
+        <!-- Cards generated by JS -->
+      </div>
+      <div class="as-load-more">
+        <button class="as-load-more-btn" id="asLoadMore">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          Weitere Annahmestellen laden
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================
+       INFO SECTION
+       ============================================ -->
+  <section class="as-info">
+    <div class="container">
+      <div class="as-info-grid">
+        <div class="as-info-card">
+          <div class="as-info-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+          </div>
+          <h3>108 Standorte</h3>
+          <p>Deutschlandweit 108 autorisierte Annahmestellen für Ihren Komfort.</p>
+        </div>
+        <div class="as-info-card">
+          <div class="as-info-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </div>
+          <h3>Schnelle Abwicklung</h3>
+          <p>Gerät abgeben, wir kümmern uns um den Rest. Meist innerhalb von 24 Stunden erledigt.</p>
+        </div>
+        <div class="as-info-card">
+          <div class="as-info-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          </div>
+          <h3>1 Jahr Garantie</h3>
+          <p>Auf jede Reparatur erhalten Sie ein volles Jahr Qualitätsgarantie.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================
+       FOOTER
+       ============================================ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <h3>Mc<span>Repair</span>.de</h3>
+          <p>Ihre Nr. 1 Smartphone- und Tabletwerkstatt mit 108 Annahmestellen in Deutschland.</p>
+          <div class="footer-social">
+            <a href="#" aria-label="Facebook">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
+            </a>
+            <a href="#" aria-label="Instagram">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+            </a>
+            <a href="#" aria-label="YouTube">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19.1c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" fill="white"></polygon></svg>
+            </a>
+          </div>
+        </div>
+        <div class="footer-col">
+          <h4>Reparatur</h4>
+          <ul>
+            <li><a href="index.html">Smartphone Reparatur</a></li>
+            <li><a href="index.html">Tablet Reparatur</a></li>
+            <li><a href="index.html">Notebook Reparatur</a></li>
+            <li><a href="index.html">Konsolen Reparatur</a></li>
+            <li><a href="index.html">Express-Reparatur</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Service</h4>
+          <ul>
+            <li><a href="annahmestellen.html">Annahmestellen</a></li>
+            <li><a href="#">Versand-Reparatur</a></li>
+            <li><a href="#">Geräte-Finder</a></li>
+            <li><a href="#">Reparatur-Status</a></li>
+            <li><a href="#">FAQ</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Unternehmen</h4>
+          <ul>
+            <li><a href="#">Über uns</a></li>
+            <li><a href="#">Karriere</a></li>
+            <li><a href="#">Blog</a></li>
+            <li><a href="#">Presse</a></li>
+            <li><a href="#">Kontakt</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 McRepair.de – Alle Rechte vorbehalten.</span>
+        <div class="footer-bottom-links">
+          <a href="#">Impressum</a>
+          <a href="#">Datenschutz</a>
+          <a href="#">AGB</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Mobile Floating CTA Button -->
+  <button class="mobile-cta-fab" id="mobileCta" onclick="window.location.href='index.html#configurator'">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+    Jetzt Reparatur buchen
+  </button>
+
+  <!-- JavaScript -->
+  <script src="js/annahmestellen.js"></script>
+</body>
+</html>

@@ -11,10 +11,12 @@ class OrderService {
     console.log('OrderService: Creating new order with data:', orderData);
 
     try {
-      // Validate customer exists
-      const customer = await User.findById(orderData.customerId);
-      if (!customer) {
-        throw new Error('Customer not found');
+      // Validate customer exists (skip for guest orders)
+      if (orderData.customerId) {
+        const customer = await User.findById(orderData.customerId);
+        if (!customer) {
+          throw new Error('Customer not found');
+        }
       }
 
       // Transform services array if it contains just IDs

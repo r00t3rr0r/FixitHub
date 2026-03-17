@@ -1,0 +1,244 @@
+/* ============================================
+   CustomerBookings Page - McRepair Design
+   Aligned with Homepage Light Theme
+   ============================================ */
+
+/* CSS Variables matching Homepage Design System */
+:root {
+  --primary-blue: #1a2a5e;
+  --primary-blue-dark: #0f1d45;
+  --primary-blue-light: #2a3f7e;
+  --accent-yellow: #f5b800;
+  --accent-yellow-hover: #e5ab00;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+  --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Progress Bar - Homepage Style */
+.progress-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 140px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-yellow) 0%, var(--accent-yellow-hover) 100%);
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+
+.progress-text {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--primary-blue);
+  white-space: nowrap;
+  min-width: 40px;
+  text-align: right;
+}
+
+/* Message Badge Styles */
+.message-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: var(--shadow-sm);
+}
+
+.message-badge:hover {
+  transform: scale(1.1);
+  box-shadow: var(--shadow-md);
+}
+
+.message-badge-staff {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  animation: pulse-badge 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.message-badge-customer {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  animation: pulse-badge 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-badge {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Expanded Row Styles */
+.expanded-row {
+  background: #f8fafc;
+  border-left: 4px solid var(--accent-yellow);
+}
+
+.expanded-section {
+  background: white;
+  border-radius:10px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  border: 1px solid #e5e7eb;
+  box-shadow: var(--shadow-sm);
+}
+
+.expanded-section-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--primary-blue);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.info-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-blue);
+}
+
+/* Responsive Design - Mobile First */
+@media (max-width: 768px) {
+  .progress-container {
+    min-width: 120px;
+    gap: 0.5rem;
+  }
+
+  .progress-bar {
+    height: 6px;
+  }
+
+  .progress-text {
+    font-size: 0.75rem;
+    min-width: 35px;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .message-badge {
+    min-width: 24px;
+    height: 24px;
+    font-size: 0.7rem;
+  }
+
+  .expanded-section {
+    padding: 1rem;
+  }
+}
+
+/* Tablet Design */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .info-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Badge Styles - Homepage Aligned */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+/* Status Badges */
+.badge-pending {
+  background: #fef3c7;
+  color: #78350f;
+  border-color: #fcd34d;
+}
+
+.badge-processing {
+  background: #dbeafe;
+  color: #1e3a8a;
+  border-color: #93c5fd;
+}
+
+.badge-completed {
+  background: #d1fae5;
+  color: #064e3b;
+  border-color: #6ee7b7;
+}
+
+.badge-cancelled {
+  background: #fee2e2;
+  color: #7f1d1d;
+  border-color: #fca5a5;
+}
+
+/* Billing Status Badges */
+.badge-payment-pending {
+  background: #fed7aa;
+  color: #7c2d12;
+  border-color: #fdba74;
+}
+
+.badge-paid {
+  background: #d1fae5;
+  color: #064e3b;
+  border-color: #6ee7b7;
+}
+
+.badge-unpaid {
+  background: #fee2e2;
+  color: #7f1d1d;
+  border-color: #fca5a5;
+}
+
+.badge-partially-paid {
+  background: #fed7aa;
+  color: #7c2d12;
+  border-color: #fdba74;
+}

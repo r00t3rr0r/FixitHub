@@ -93,6 +93,8 @@ console.log('Loading language routes...');
 const languageRoutes = require("./routes/languageRoutes");
 console.log('Loading checkout routes...');
 const checkoutRoutes = require("./routes/checkoutRoutes");
+console.log('Loading order tracking routes...');
+const orderTrackingRoutes = require("./routes/orderTrackingRoutes");
 console.log('Loading order service routes...');
 const orderServiceRoutes = require("./routes/orderServiceRoutes");
 console.log('Loading booking routes...');
@@ -402,6 +404,8 @@ app.use('/api/repair-request-communication', repairRequestCommunicationRoutes);
 app.use('/api/languages', languageRoutes);
 // Checkout Routes
 app.use('/api/checkout', checkoutRoutes);
+// Order Tracking Routes (Public - no authentication required)
+app.use('/api/track-order', orderTrackingRoutes);
 // Booking Routes
 app.use('/api/bookings', bookingRoutes);
 // Complaint Routes

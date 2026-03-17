@@ -7,6 +7,7 @@ import { LanguageSelector } from '@/components/LanguageSelector';
 import { CartIcon } from '@/components/CartIcon';
 import { NotificationBell } from '@/components/NotificationBell';
 import { ProfileDropdown } from '@/components/ProfileDropdown';
+import { NavbarSearch } from '@/components/NavbarSearch';
 
 export function CustomerNavbar() {
   const { t } = useTranslation();
@@ -29,9 +30,9 @@ export function CustomerNavbar() {
 
   return (
     <header className="border-b sticky top-0 z-50 bg-white/95 backdrop-blur shadow-sm">
-      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+      <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
         {/* Logo with fade-in animation */}
-        <Link to="/" className="flex items-center gap-3 group">
+        <Link to="/" className="flex items-center gap-3 group flex-shrink-0">
           <div
             className="relative transition-all duration-300 group-hover:scale-105"
             style={{
@@ -65,6 +66,11 @@ export function CustomerNavbar() {
             FixitHub
           </span>
         </Link>
+
+        {/* Search Bar - visible on larger screens */}
+        <div className="hidden lg:flex flex-1 max-w-xl mx-4">
+          <NavbarSearch />
+        </div>
 
         {/* Navigation links - hidden on mobile */}
         <nav className="hidden md:flex items-center gap-6">
@@ -123,6 +129,11 @@ export function CustomerNavbar() {
             </>
           )}
         </div>
+      </div>
+      
+      {/* Mobile Search Bar - visible on smaller screens */}
+      <div className="lg:hidden container mx-auto px-4 pb-3">
+        <NavbarSearch />
       </div>
     </header>
   );

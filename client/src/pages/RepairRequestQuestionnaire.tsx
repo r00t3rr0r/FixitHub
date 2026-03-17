@@ -1,14 +1,34 @@
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/useToast"
+import { useAuth } from "@/contexts/AuthContext"
+import { LoginDialog } from "@/components/home/LoginDialog"
 import { createRepairRequest } from "@/api/repairRequests"
+import {
+  getDeviceTypes,
+  getManufacturersByDeviceType,
+  getModelsByTypeAndManufacturer,
+  DeviceType as ApiDeviceType,
+  Manufacturer,
+  DeviceModel
+} from "@/api/devices"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
 import {
   Smartphone,
   Upload,
@@ -20,9 +40,14 @@ import {
   Wrench,
   Info,
   Loader2,
-  Package
+  Package,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Droplets,
+  Edit2
 } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import "./RepairRequestQuestionnaire.css"
 
 interface SelectedDevice {
   _id: string
@@ -30,6 +55,7 @@ interface SelectedDevice {
   deviceType: string
   manufacturer: string
   manufacturerId: string
+  image?: string
 }
 
 export function RepairRequestQuestionnaire() {
@@ -37,15 +63,28 @@ export function RepairRequestQuestionnaire() {
   const navigate = useNavigate()
   const location = useLocation()
   const { toast } = useToast()
+  const { isAuthenticated } = useAuth()
+  const [showLoginDialog, setShowLoginDialog] = useState(false)
+  const submitButtonRef = useRef<HTMLButtonElement>(null)
 
   // Get device information from navigation state
-  const selectedDevice = location.state?.device as SelectedDevice | null
+  const [selectedDevice, setSelectedDevice] = useState<SelectedDevice | null>(location.state?.device as SelectedDevice | null)
+
+  // Device Change Dialog State
+  const [showDeviceDialog, setShowDeviceDialog] = useState(false)
+  const [deviceTypes, setDeviceTypes] = useState<ApiDeviceType[]>([])
+  const [manufacturers, setManufacturers] = useState<Manufacturer[]>([])
+  const [models, setModels] = useState<DeviceModel[]>([])
+  const [selectedDeviceType, setSelectedDeviceType] = useState<string>("")
+  const [selectedManufacturer, setSelectedManufacturer] = useState<string>("")
+  const [selectedModel, setSelectedModel] = useState<string>("")
+  const [loadingManufacturers, setLoadingManufacturers] = useState(false)
+  const [loadingModels, setLoadingModels] = useState(false)
 
   const [formData, setFormData] = useState({
     issueDescription: "",
     issueOccurredDate: "",
-    repairAttempts: "",
-    additionalInfo: ""
+    modelNumber: ""
   })
 
   const [images, setImages] = useState<File[]>([])
@@ -53,27 +92,139 @@ export function RepairRequestQuestionnaire() {
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
+  // Extended Information State
+  const [showExtendedInfo, setShowExtendedInfo] = useState(false)
+  const [waterDamage, setWaterDamage] = useState<'no' | 'yes' | 'unsure'>('no')
+  const [previousRepairDetails, setPreviousRepairDetails] = useState("")
+  const [itemCondition, setItemCondition] = useState<'original' | 'refurbished' | 'unsure'>('unsure')
+
+  // Load device types when dialog opens
+  const handleOpenDeviceDialog = async () => {
+    setShowDeviceDialog(true)
+    setSelectedDeviceType("")
+    setSelectedManufacturer("")
+    setSelectedModel("")
+    setManufacturers([])
+    setModels([])
+    
+    try {
+      const response = await getDeviceTypes()
+      setDeviceTypes((response as any).deviceTypes || [])
+    } catch (error) {
+      console.error("Error loading device types:", error)
+      toast({
+        title: "Fehler",
+        description: "Gerätetypen konnten nicht geladen werden",
+        variant: "destructive"
+      })
+    }
+  }
+
+  // Load manufacturers when device type changes
+  const handleDeviceTypeChange = async (deviceTypeId: string) => {
+    setSelectedDeviceType(deviceTypeId)
+    setSelectedManufacturer("")
+    setSelectedModel("")
+    setManufacturers([])
+    setModels([])
+
+    if (!deviceTypeId) return
+
+    try {
+      setLoadingManufacturers(true)
+      const response = await getManufacturersByDeviceType(deviceTypeId)
+      setManufacturers((response as any).manufacturers || [])
+    } catch (error) {
+      console.error("Error loading manufacturers:", error)
+      toast({
+        title: "Fehler",
+        description: "Marken konnten nicht geladen werden",
+        variant: "destructive"
+      })
+    } finally {
+      setLoadingManufacturers(false)
+    }
+  }
+
+  // Load models when manufacturer changes
+  const handleManufacturerChange = async (manufacturerId: string) => {
+    setSelectedManufacturer(manufacturerId)
+    setSelectedModel("")
+    setModels([])
+
+    if (!manufacturerId || !selectedDeviceType) return
+
+    try {
+      setLoadingModels(true)
+      const response = await getModelsByTypeAndManufacturer(selectedDeviceType, manufacturerId)
+      setModels((response as any).models || [])
+    } catch (error) {
+      console.error("Error loading models:", error)
+      toast({
+        title: "Fehler",
+        description: "Modelle konnten nicht geladen werden",
+        variant: "destructive"
+      })
+    } finally {
+      setLoadingModels(false)
+    }
+  }
+
+  // Confirm device selection
+  const handleConfirmDeviceChange = () => {
+    if (!selectedModel) {
+      toast({
+        title: "Hinweis",
+        description: "Bitte wählen Sie ein Modell aus",
+        variant: "destructive"
+      })
+      return
+    }
+
+    const selectedModelData = models.find(m => m._id === selectedModel)
+    const selectedManufacturerData = manufacturers.find(m => m._id === selectedManufacturer)
+    const selectedDeviceTypeData = deviceTypes.find(dt => dt._id === selectedDeviceType)
+
+    if (selectedModelData && selectedManufacturerData && selectedDeviceTypeData) {
+      setSelectedDevice({
+        _id: selectedModelData._id,
+        name: selectedModelData.name,
+        deviceType: selectedDeviceTypeData.name,
+        manufacturer: selectedManufacturerData.name,
+        manufacturerId: selectedManufacturerData._id,
+        image: selectedModelData.image
+      })
+
+      toast({
+        title: "Erfolg!",
+        description: `Gerät wurde geändert zu ${selectedModelData.name}`
+      })
+
+      setShowDeviceDialog(false)
+    }
+  }
+
   // Redirect if no device selected
   if (!selectedDevice) {
     return (
-      <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
-        <Card className="border-2 border-red-200 dark:border-red-800">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-600">
+      <div className="repair-request-page">
+        <div className="mcrepair-card animate-fadeInUp" style={{ borderColor: 'var(--mcrepair-danger)' }}>
+          <div className="mcrepair-card-header">
+            <h2 className="mcrepair-card-title" style={{ color: 'var(--mcrepair-danger)' }}>
               <AlertCircle className="h-6 w-6" />
-              No Device Selected
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-4">
-              Please select a device first before requesting repair service.
+              Kein Gerät ausgewählt
+            </h2>
+          </div>
+          <div className="mcrepair-card-content">
+            <p style={{ marginBottom: '20px', color: 'var(--mcrepair-gray-500)' }}>
+              Bitte wählen Sie zuerst ein Gerät aus, bevor Sie eine Reparatur anfragen.
             </p>
-            <Button onClick={() => navigate("/new-order")}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Go Back to Order Form
-            </Button>
-          </CardContent>
-        </Card>
+            <button onClick={() => navigate("/new-order")} className="mcrepair-btn mcrepair-btn-primary">
+              <ArrowLeft className="h-4 w-4" />
+              Zurück zum Bestellformular
+            </button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -91,8 +242,8 @@ export function RepairRequestQuestionnaire() {
 
     if (files.length + images.length > 5) {
       toast({
-        title: "Too many images",
-        description: "You can upload a maximum of 5 images",
+        title: "Zu viele Bilder",
+        description: "Sie können maximal 5 Bilder hochladen",
         variant: "destructive"
       })
       return
@@ -102,16 +253,16 @@ export function RepairRequestQuestionnaire() {
     const validFiles = files.filter(file => {
       if (!file.type.startsWith('image/')) {
         toast({
-          title: "Invalid file type",
-          description: `${file.name} is not an image file`,
+          title: "Ungültiger Dateityp",
+          description: `${file.name} ist keine Bilddatei`,
           variant: "destructive"
         })
         return false
       }
       if (file.size > 5 * 1024 * 1024) { // 5MB limit
         toast({
-          title: "File too large",
-          description: `${file.name} exceeds 5MB limit`,
+          title: "Datei zu groß",
+          description: `${file.name} überschreitet die 5MB-Grenze`,
           variant: "destructive"
         })
         return false
@@ -140,17 +291,13 @@ export function RepairRequestQuestionnaire() {
     const newErrors: Record<string, string> = {}
 
     if (!formData.issueDescription.trim()) {
-      newErrors.issueDescription = "Issue description is required"
+      newErrors.issueDescription = "Problembeschreibung ist erforderlich"
     } else if (formData.issueDescription.trim().length < 20) {
-      newErrors.issueDescription = "Please provide a more detailed description (at least 20 characters)"
+      newErrors.issueDescription = "Bitte geben Sie eine detailliertere Beschreibung an (mindestens 20 Zeichen)"
     }
 
     if (!formData.issueOccurredDate) {
-      newErrors.issueOccurredDate = "Please specify when the issue occurred"
-    }
-
-    if (!formData.repairAttempts.trim()) {
-      newErrors.repairAttempts = "Please indicate if you've attempted any repairs"
+      newErrors.issueOccurredDate = "Bitte geben Sie an, wann das Problem aufgetreten ist"
     }
 
     setErrors(newErrors)
@@ -160,10 +307,21 @@ export function RepairRequestQuestionnaire() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      toast({
+        title: "Anmeldung erforderlich",
+        description: "Bitte melden Sie sich an, um eine Reparaturanfrage zu stellen",
+        variant: "default"
+      })
+      setShowLoginDialog(true)
+      return
+    }
+
     if (!validateForm()) {
       toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields correctly",
+        title: "Validierungsfehler",
+        description: "Bitte füllen Sie alle erforderlichen Felder korrekt aus",
         variant: "destructive"
       })
       return
@@ -184,8 +342,11 @@ export function RepairRequestQuestionnaire() {
         deviceModelId: selectedDevice._id,
         issueDescription: formData.issueDescription,
         issueOccurredDate: formData.issueOccurredDate,
-        repairAttempts: formData.repairAttempts,
-        additionalInfo: formData.additionalInfo || "",
+        repairAttempts: "",
+        modelNumber: formData.modelNumber || "",
+        waterDamage: waterDamage,
+        previousRepairDetails: previousRepairDetails || "",
+        itemCondition: itemCondition,
         images: imageUrls
       }
 
@@ -194,8 +355,8 @@ export function RepairRequestQuestionnaire() {
       const response = await createRepairRequest(requestData)
 
       toast({
-        title: "Success!",
-        description: "Your repair request has been submitted successfully. Our team will review it and contact you soon.",
+        title: "Erfolg!",
+        description: "Ihre Reparaturanfrage wurde erfolgreich übermittelt. Unser Team wird sie prüfen und sich bald bei Ihnen melden.",
       })
 
       // Navigate to customer orders/requests page
@@ -203,8 +364,8 @@ export function RepairRequestQuestionnaire() {
     } catch (error: any) {
       console.error("Error submitting repair request:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to submit repair request. Please try again.",
+        title: "Fehler",
+        description: error.message || "Reparaturanfrage konnte nicht übermittelt werden. Bitte versuchen Sie es erneut.",
         variant: "destructive"
       })
     } finally {
@@ -226,302 +387,520 @@ export function RepairRequestQuestionnaire() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-8 animate-in fade-in duration-500">
+    <div className="repair-request-page animate-fadeInUp">
       {/* Header */}
-      <div className="space-y-2">
-        <Button
-          variant="ghost"
+      <div className="repair-request-header">
+        <button
           onClick={() => navigate("/new-order")}
-          className="mb-2"
+          className="repair-request-back-btn"
         >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Order Form
-        </Button>
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg shadow-lg">
-            <FileText className="h-6 w-6 text-white" />
+          <ArrowLeft className="h-4 w-4" />
+          Zurück zum Bestellformular
+        </button>
+        <div className="repair-request-title">
+          <div className="repair-request-title-icon">
+            <FileText className="h-6 w-6" style={{ color: 'var(--mcrepair-white)' }} />
           </div>
-          Request Repair Service
-        </h1>
-        <p className="text-muted-foreground">
-          Provide details about your device issue and our team will review your request
-        </p>
+          <div>
+            <h1>Reparaturanfrage stellen</h1>
+            <p className="repair-request-subtitle">
+              Geben Sie Details zu Ihrem Geräteproblem an und unser Team wird Ihre Anfrage prüfen
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Selected Device Display */}
-      <Card className="border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <CheckCircle className="h-5 w-5 text-green-600" />
-            Selected Device
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4 p-4 bg-white/50 dark:bg-gray-900/30 rounded-lg">
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg shadow-md">
-              {getDeviceTypeIcon(selectedDevice.deviceType)}
+      <div className="mcrepair-card device-display-card">
+        <div className="mcrepair-card-header mcrepair-card-header-primary">
+          <div className="device-header-content">
+            <h2 className="mcrepair-card-title">
+              <CheckCircle className="h-5 w-5" style={{ color: 'var(--mcrepair-success)' }} />
+              Ausgewähltes Gerät
+            </h2>
+            <button
+              type="button"
+              onClick={handleOpenDeviceDialog}
+              className="device-change-button"
+            >
+              <Edit2 className="h-4 w-4" />
+              Gerät ändern
+            </button>
+          </div>
+        </div>
+        <div className="mcrepair-card-content">
+          <div className="device-display-content-enhanced">
+            <div className="device-image-container">
+              {selectedDevice.image ? (
+                <img
+                  src={selectedDevice.image}
+                  alt={selectedDevice.name}
+                  className="device-image"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none'
+                    const fallback = e.currentTarget.nextElementSibling as HTMLElement
+                    if (fallback) fallback.style.display = 'flex'
+                  }}
+                />
+              ) : null}
+              <div className="device-image-fallback" style={{ display: selectedDevice.image ? 'none' : 'flex' }}>
+                {getDeviceTypeIcon(selectedDevice.deviceType)}
+              </div>
             </div>
-            <div className="flex-1">
-              <h3 className="font-bold text-lg">{selectedDevice.name}</h3>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="secondary">{selectedDevice.deviceType}</Badge>
-                <Badge variant="outline">{selectedDevice.manufacturer}</Badge>
+            <div className="device-info-enhanced">
+              <h3 className="device-name">{selectedDevice.name}</h3>
+              <div className="device-meta">
+                <div className="device-meta-item">
+                  <span className="device-meta-label">Hersteller</span>
+                  <span className="device-meta-value">{selectedDevice.manufacturer}</span>
+                </div>
+                <div className="device-meta-item">
+                  <span className="device-meta-label">Gerätetyp</span>
+                  <span className="device-meta-value">{selectedDevice.deviceType}</span>
+                </div>
+              </div>
+              <div className="device-model-number-field">
+                <label htmlFor="modelNumber" className="model-number-label">
+                  <Info className="h-3 w-3" />
+                  Modellnummer (optional)
+                </label>
+                <input
+                  type="text"
+                  id="modelNumber"
+                  placeholder="z.B. A2215, SM-G998B, iPhone14,2..."
+                  value={formData.modelNumber}
+                  onChange={(e) => handleInputChange("modelNumber", e.target.value)}
+                  className="model-number-input"
+                />
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Info Alert */}
-      <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20">
-        <Info className="h-4 w-4 text-blue-600" />
-        <AlertDescription className="text-sm text-blue-900 dark:text-blue-100">
-          Please provide as much detail as possible about your device issue. This helps our technicians
-          prepare the right tools and parts, and provide you with an accurate quote.
-        </AlertDescription>
-      </Alert>
+      <div className="mcrepair-alert">
+        <Info className="h-5 w-5" />
+        <div className="mcrepair-alert-content">
+          Bitte geben Sie so viele Details wie möglich zu Ihrem Geräteproblem an. Dies hilft unseren Technikern,
+          die richtigen Werkzeuge und Teile vorzubereiten und Ihnen ein genaues Angebot zu erstellen.
+        </div>
+      </div>
 
       {/* Repair Request Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Issue Description */}
-        <Card className="border-2 hover:shadow-lg transition-shadow">
-          <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <AlertCircle className="h-5 w-5 text-purple-600" />
-              Issue Description
-            </CardTitle>
-            <CardDescription>
-              Describe the problem with your device in detail
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              <Label htmlFor="issueDescription" className="text-sm font-semibold">
-                What is wrong with your device? <span className="text-red-500">*</span>
-              </Label>
-              <Textarea
-                id="issueDescription"
-                placeholder="Example: The screen is cracked and not responding to touch. The device fell from about 1 meter height..."
-                value={formData.issueDescription}
-                onChange={(e) => handleInputChange("issueDescription", e.target.value)}
-                rows={5}
-                className={`border-2 resize-none ${errors.issueDescription ? 'border-red-500' : ''}`}
-              />
-              {errors.issueDescription && (
-                <p className="text-sm text-red-500 flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {errors.issueDescription}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Minimum 20 characters. Be as specific as possible.
+      <form onSubmit={handleSubmit}>
+        {/* Issue Details - Combined Card */}
+        <div className="mcrepair-card compact-card">
+          <div className="mcrepair-card-header-compact">
+            <h2 className="mcrepair-card-title-compact">
+              <AlertCircle className="h-4 w-4" />
+              Problembeschreibung & Details
+            </h2>
+          </div>
+          <div className="mcrepair-card-content-compact">
+            <div className="issue-details-grid">
+              {/* Issue Description */}
+              <div className="issue-description-field">
+                <label htmlFor="issueDescription" className="mcrepair-label-compact">
+                  Was ist mit Ihrem Gerät nicht in Ordnung? <span className="required">*</span>
+                </label>
+                <textarea
+                  id="issueDescription"
+                  placeholder="Beispiel: Das Display ist gesprungen und reagiert nicht auf Berührungen..."
+                  value={formData.issueDescription}
+                  onChange={(e) => handleInputChange("issueDescription", e.target.value)}
+                  rows={4}
+                  className={`mcrepair-textarea-compact ${errors.issueDescription ? 'error' : ''}`}
+                />
+                {errors.issueDescription && (
+                  <span className="mcrepair-error-text">
+                    <AlertCircle className="h-3 w-3" />
+                    {errors.issueDescription}
+                  </span>
+                )}
+              </div>
+
+              {/* When Issue Occurred */}
+              <div className="issue-date-field">
+                <label htmlFor="issueOccurredDate" className="mcrepair-label-compact">
+                  <Calendar className="h-3 w-3" />
+                  Wann ist das passiert? <span className="required">*</span>
+                </label>
+                <input
+                  id="issueOccurredDate"
+                  type="text"
+                  placeholder="z.B. Gestern, Letzte Woche..."
+                  value={formData.issueOccurredDate}
+                  onChange={(e) => handleInputChange("issueOccurredDate", e.target.value)}
+                  className={`mcrepair-input-compact ${errors.issueOccurredDate ? 'error' : ''}`}
+                />
+                {errors.issueOccurredDate && (
+                  <span className="mcrepair-error-text">
+                    <AlertCircle className="h-3 w-3" />
+                    {errors.issueOccurredDate}
+                  </span>
+                )}
+                <span className="mcrepair-helper-text-compact">
+                  Ungefähres Datum oder Zeitraum
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Extended Information Button (Collapsible) */}
+        <button
+          type="button"
+          onClick={() => setShowExtendedInfo(!showExtendedInfo)}
+          className="extended-info-toggle"
+        >
+          <div className="extended-info-toggle-content">
+            <Info className="h-5 w-5" style={{ color: 'var(--mcrepair-primary)', flexShrink: 0 }} />
+            <div style={{ flex: 1, textAlign: 'left' }}>
+              <h4 className="extended-info-title">
+                Weitere Informationen angeben
+              </h4>
+              <p className="extended-info-subtitle">
+                Je mehr Informationen Sie uns zur Verfügung stellen, desto besser können wir Ihre Reparatur durchführen und Ihnen ein genaues Angebot machen.
               </p>
             </div>
-          </CardContent>
-        </Card>
+            {showExtendedInfo ? 
+              <ChevronUp className="h-5 w-5" style={{ color: 'var(--mcrepair-primary)' }} /> : 
+              <ChevronDown className="h-5 w-5" style={{ color: 'var(--mcrepair-primary)' }} />
+            }
+          </div>
+        </button>
 
-        {/* When Issue Occurred */}
-        <Card className="border-2 hover:shadow-lg transition-shadow">
-          <CardHeader className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Calendar className="h-5 w-5 text-orange-600" />
-              When Did This Occur?
-            </CardTitle>
-            <CardDescription>
-              When did you first notice this issue?
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              <Label htmlFor="issueOccurredDate" className="text-sm font-semibold">
-                Date or timeframe <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="issueOccurredDate"
-                type="text"
-                placeholder="Example: Yesterday evening, Last week, 2 days ago..."
-                value={formData.issueOccurredDate}
-                onChange={(e) => handleInputChange("issueOccurredDate", e.target.value)}
-                className={`border-2 ${errors.issueOccurredDate ? 'border-red-500' : ''}`}
-              />
-              {errors.issueOccurredDate && (
-                <p className="text-sm text-red-500 flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {errors.issueOccurredDate}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                You can specify an approximate date or timeframe
-              </p>
+        {/* Extended Information Content (Collapsible) */}
+        {showExtendedInfo && (
+          <div className="extended-info-content">
+            {/* Water Damage */}
+            <div className="extended-info-field">
+              <label className="extended-info-label">
+                <Droplets className="h-4 w-4" style={{ color: 'var(--mcrepair-primary)' }} />
+                Wasserschaden?
+              </label>
+              <div className="extended-info-options">
+                {['no', 'yes', 'unsure'].map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setWaterDamage(option as any)}
+                    className={`extended-info-option ${waterDamage === option ? 'selected' : ''}`}
+                  >
+                    {option === 'no' ? 'Nein' : option === 'yes' ? 'Ja' : 'Nicht sicher'}
+                  </button>
+                ))}
+              </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Repair Attempts */}
-        <Card className="border-2 hover:shadow-lg transition-shadow">
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Wrench className="h-5 w-5 text-blue-600" />
-              Previous Repair Attempts
-            </CardTitle>
-            <CardDescription>
-              Have you tried fixing this yourself or taken it elsewhere?
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              <Label htmlFor="repairAttempts" className="text-sm font-semibold">
-                Repair or troubleshooting attempts <span className="text-red-500">*</span>
-              </Label>
-              <Textarea
-                id="repairAttempts"
-                placeholder="Example: No, this is the first time. OR Yes, I tried restarting the device and updating the software but the issue persists..."
-                value={formData.repairAttempts}
-                onChange={(e) => handleInputChange("repairAttempts", e.target.value)}
-                rows={4}
-                className={`border-2 resize-none ${errors.repairAttempts ? 'border-red-500' : ''}`}
-              />
-              {errors.repairAttempts && (
-                <p className="text-sm text-red-500 flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {errors.repairAttempts}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Include any repair shops you've visited or DIY attempts
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Additional Information */}
-        <Card className="border-2 hover:shadow-lg transition-shadow">
-          <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Info className="h-5 w-5 text-green-600" />
-              Additional Information
-            </CardTitle>
-            <CardDescription>
-              Any other details that might be helpful (optional)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              <Label htmlFor="additionalInfo" className="text-sm font-semibold">
-                Additional notes or context
-              </Label>
-              <Textarea
-                id="additionalInfo"
-                placeholder="Example: Device is still under warranty, Has a screen protector, Urgently needed for work..."
-                value={formData.additionalInfo}
-                onChange={(e) => handleInputChange("additionalInfo", e.target.value)}
+            {/* Previous Repair Details */}
+            <div className="extended-info-field">
+              <label className="extended-info-label">
+                <Wrench className="h-4 w-4" style={{ color: 'var(--mcrepair-primary)' }} />
+                Details zu vorherigen Reparaturversuchen
+              </label>
+              <textarea
+                placeholder="Beschreiben Sie frühere Reparaturversuche, falls vorhanden..."
+                value={previousRepairDetails}
+                onChange={(e) => setPreviousRepairDetails(e.target.value)}
                 rows={3}
-                className="border-2 resize-none"
+                className="mcrepair-textarea"
               />
-              <p className="text-xs text-muted-foreground">
-                Optional but helpful for our technicians
-              </p>
+              <span className="mcrepair-helper-text">
+                Optional - nur ausfüllen, wenn bereits Reparaturversuche unternommen wurden
+              </span>
             </div>
-          </CardContent>
-        </Card>
+
+            {/* Item Condition */}
+            <div className="extended-info-field">
+              <label className="extended-info-label">
+                <Package className="h-4 w-4" style={{ color: 'var(--mcrepair-primary)' }} />
+                Zustand des Geräts
+              </label>
+              <div className="extended-info-options">
+                {['original', 'refurbished', 'unsure'].map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setItemCondition(option as any)}
+                    className={`extended-info-option ${itemCondition === option ? 'selected' : ''}`}
+                  >
+                    {option === 'original' ? 'Original' : option === 'refurbished' ? 'Generalüberholt' : 'Nicht sicher'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Image Upload */}
-        <Card className="border-2 hover:shadow-lg transition-shadow">
-          <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/20 dark:to-purple-950/20">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Upload className="h-5 w-5 text-indigo-600" />
-              Upload Images
-            </CardTitle>
-            <CardDescription>
-              Photos of the damage or issue (optional, max 5 images)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6 space-y-4">
-            <div className="space-y-3">
-              <Label htmlFor="images" className="text-sm font-semibold">
-                Add photos of your device
-              </Label>
-              <Input
+        <div className="mcrepair-card">
+          <div className="mcrepair-card-header mcrepair-card-header-primary">
+            <h2 className="mcrepair-card-title">
+              <Upload className="h-5 w-5" />
+              Bilder hochladen
+            </h2>
+            <p className="mcrepair-card-description">
+              Fotos vom Schaden oder Problem (optional, max. 5 Bilder)
+            </p>
+          </div>
+          <div className="mcrepair-card-content">
+            <div className="mcrepair-form-group">
+              <label htmlFor="images" className="mcrepair-label">
+                Fügen Sie Fotos Ihres Geräts hinzu
+              </label>
+              <input
                 id="images"
                 type="file"
                 multiple
                 accept="image/*"
                 onChange={handleImageUpload}
-                className="cursor-pointer h-12 border-2 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-gradient-to-r file:from-blue-400 file:to-blue-500 file:text-white file:font-semibold hover:file:from-blue-500 hover:file:to-blue-600"
+                className="mcrepair-file-input"
                 disabled={images.length >= 5}
               />
-              <p className="text-xs text-muted-foreground">
-                JPG, PNG, or GIF. Max 5MB per image. {images.length}/5 images uploaded
-              </p>
+              <span className="mcrepair-helper-text">
+                JPG, PNG oder GIF. Max. 5MB pro Bild. {images.length}/5 Bilder hochgeladen
+              </span>
             </div>
 
             {/* Image Previews */}
             {imagePreviewUrls.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="image-preview-grid">
                 {imagePreviewUrls.map((url, index) => (
-                  <div key={index} className="relative group">
+                  <div key={index} className="image-preview-item">
                     <img
                       src={url}
-                      alt={`Preview ${index + 1}`}
-                      className="w-full h-32 object-cover rounded-lg border-2 border-gray-200"
+                      alt={`Vorschau ${index + 1}`}
                     />
                     <button
                       type="button"
                       onClick={() => removeImage(index)}
-                      className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="image-remove-btn"
+                      aria-label="Bild entfernen"
                     >
-                      <AlertCircle className="h-4 w-4" />
+                      <X className="h-4 w-4" />
                     </button>
                   </div>
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Submit Button */}
-        <Card className="border-2 border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 shadow-lg">
-          <CardContent className="pt-6">
-            <div className="space-y-4">
-              <Alert className="border-green-300 dark:border-green-700">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-sm">
-                  After submission, our team will review your request and contact you within 24 hours
-                  with a quote and estimated repair time.
-                </AlertDescription>
-              </Alert>
+        <div className="submit-section">
+          <div className="mcrepair-card submit-card">
+            <div className="mcrepair-card-content">
+              <div className="mcrepair-alert mcrepair-alert-success" style={{ marginBottom: '24px' }}>
+                <CheckCircle className="h-5 w-5" />
+                <div className="mcrepair-alert-content">
+                  Nach Einreichung wird unser Team Ihre Anfrage prüfen und sich innerhalb von 24 Stunden
+                  mit einem Kostenvoranschlag und der geschätzten Reparaturzeit bei Ihnen melden.
+                </div>
+              </div>
 
-              <div className="flex gap-3 justify-end">
-                <Button
+              <div className="submit-actions">
+                <button
                   type="button"
-                  variant="outline"
                   onClick={() => navigate("/new-order")}
                   disabled={submitting}
+                  className="mcrepair-btn mcrepair-btn-outline"
                 >
-                  Cancel
-                </Button>
-                <Button
+                  Abbrechen
+                </button>
+                <button
                   type="submit"
+                  ref={submitButtonRef}
                   disabled={submitting}
-                  className="min-w-[200px] bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold shadow-lg hover:shadow-xl transition-all"
+                  className="mcrepair-btn mcrepair-btn-success mcrepair-btn-large"
                 >
                   {submitting ? (
                     <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Submitting...
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Wird gesendet...
                     </>
                   ) : (
                     <>
-                      <CheckCircle className="mr-2 h-5 w-5" />
-                      Submit Repair Request
+                      <CheckCircle className="h-5 w-5" />
+                      Reparaturanfrage absenden
                     </>
                   )}
-                </Button>
+                </button>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </form>
+
+      {/* Device Change Dialog */}
+      <Dialog open={showDeviceDialog} onOpenChange={setShowDeviceDialog}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Edit2 className="h-5 w-5" />
+              Gerät ändern
+            </DialogTitle>
+            <DialogDescription>
+              Wählen Sie ein anderes Gerät für Ihre Reparaturanfrage aus
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Device Type Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700">
+                1. Gerätetyp auswählen <span className="text-red-500">*</span>
+              </label>
+              <Select value={selectedDeviceType} onValueChange={handleDeviceTypeChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Gerätetyp wählen..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {deviceTypes.map((type) => (
+                    <SelectItem key={type._id} value={type._id}>
+                      <span className="capitalize">{type.name}</span>
+                      <span className="text-xs text-gray-500 ml-2">({type.count})</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Manufacturer Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700">
+                2. Marke auswählen <span className="text-red-500">*</span>
+              </label>
+              <Select 
+                value={selectedManufacturer} 
+                onValueChange={handleManufacturerChange}
+                disabled={!selectedDeviceType || loadingManufacturers}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={
+                    loadingManufacturers ? "Lädt..." : 
+                    !selectedDeviceType ? "Bitte zuerst Gerätetyp wählen" : 
+                    "Marke wählen..."
+                  } />
+                </SelectTrigger>
+                <SelectContent>
+                  {manufacturers.map((manufacturer) => (
+                    <SelectItem key={manufacturer._id} value={manufacturer._id}>
+                      {manufacturer.name}
+                      <span className="text-xs text-gray-500 ml-2">({manufacturer.count} Modelle)</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Model Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700">
+                3. Modell auswählen <span className="text-red-500">*</span>
+              </label>
+              <Select 
+                value={selectedModel} 
+                onValueChange={setSelectedModel}
+                disabled={!selectedManufacturer || loadingModels}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={
+                    loadingModels ? "Lädt..." : 
+                    !selectedManufacturer ? "Bitte zuerst Marke wählen" : 
+                    "Modell wählen..."
+                  } />
+                </SelectTrigger>
+                <SelectContent>
+                  {models.map((model) => (
+                    <SelectItem key={model._id} value={model._id}>
+                      <div className="flex items-center gap-2">
+                        {model.image && (
+                          <img 
+                            src={model.image} 
+                            alt={model.name} 
+                            className="w-6 h-6 object-contain"
+                            onError={(e) => e.currentTarget.style.display = 'none'}
+                          />
+                        )}
+                        <span>{model.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Preview selected model */}
+            {selectedModel && models.find(m => m._id === selectedModel) && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center gap-3">
+                  {models.find(m => m._id === selectedModel)?.image && (
+                    <img 
+                      src={models.find(m => m._id === selectedModel)?.image} 
+                      alt="Selected device"
+                      className="w-16 h-16 object-contain"
+                    />
+                  )}
+                  <div>
+                    <p className="font-semibold text-gray-900">
+                      {models.find(m => m._id === selectedModel)?.name}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {manufacturers.find(m => m._id === selectedManufacturer)?.name} · {deviceTypes.find(dt => dt._id === selectedDeviceType)?.name}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeviceDialog(false)}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              onClick={handleConfirmDeviceChange}
+              disabled={!selectedModel}
+              className="bg-[#1a2a5e] hover:bg-[#0f1d45]"
+            >
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Gerät übernehmen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Login Dialog */}
+      {showLoginDialog && (
+        <>
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.3)',
+            zIndex: 9998
+          }} onClick={() => setShowLoginDialog(false)} />
+          <LoginDialog 
+            isOpen={showLoginDialog} 
+            onClose={() => setShowLoginDialog(false)}
+            anchorElement={submitButtonRef.current}
+            onLoginSuccess={() => {
+              // After successful login, submit the form automatically
+              const form = document.querySelector('form') as HTMLFormElement
+              if (form) {
+                form.requestSubmit()
+              }
+            }}
+          />
+        </>
+      )}
     </div>
   )
 }

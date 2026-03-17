@@ -208,22 +208,14 @@ export function ShopSection({ title, maxItems = 12, products: initialProducts }:
   const brands = [...new Set(products.map(p => p.brand))];
 
   return (
-    <section className="relative py-16 overflow-hidden bg-white">
-      {/* Animated particles background */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-10 left-10 w-64 h-64 bg-yellow-400/5 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-10 right-10 w-64 h-64 bg-yellow-400/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }}></div>
-      </div>
-
-      {/* Content */}
-      <div className="container mx-auto px-4 relative z-10">
+    <section className="shop-section">
+      <div className="section-container">
         {/* Section Header */}
-        <div className="text-center mb-8 animate-fadeIn">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+        <div className="section-header">
+          <h2 className="section-title">
             {title || t('home.shop.title')}
           </h2>
-          <div className="w-20 h-1 bg-gradient-to-r from-yellow-400 to-yellow-500 mx-auto rounded-full mb-3"></div>
-          <p className="text-base text-gray-600 max-w-2xl mx-auto">
+          <p className="section-subtitle">
             {t('home.shop.subtitle')}
           </p>
         </div>

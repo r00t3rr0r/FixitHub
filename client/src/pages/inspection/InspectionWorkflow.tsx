@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/useToast';
 import { useAuth } from '@/contexts/AuthContext';
 import { getOrderById } from '@/api/orders';
@@ -10,7 +9,8 @@ import { getAdminOrderById } from '@/api/adminOrders';
 import { generateInspectionReport } from '@/api/deviceInspection';
 import { DeviceInspectionForm } from '@/components/inspection/DeviceInspectionForm';
 import { CommunicationPanel } from '@/components/inspection/CommunicationPanel';
-import { ArrowLeft, Download, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Download, AlertCircle } from 'lucide-react';
+import './InspectionWorkflow.css';
 
 export function InspectionWorkflow() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -83,42 +83,44 @@ export function InspectionWorkflow() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-lg">Loading inspection workflow...</div>
+      <div className="inspection-workflow-loading">
+        <div className="inspection-workflow-loading-text">Loading inspection workflow...</div>
       </div>
     );
   }
 
   if (!order) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-lg text-red-500">Order not found</div>
+      <div className="inspection-workflow-loading">
+        <div className="inspection-workflow-error-text">Order not found</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-4xl mx-auto">
+    <div className="inspection-workflow-page">
+      <div className="inspection-workflow-container">
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="inspection-workflow-header">
+          <div className="inspection-workflow-header-left">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => navigate(-1)}
+              className="inspection-back-button"
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold">Device Inspection</h1>
-              <p className="text-gray-600">Order {order.orderNumber}</p>
+              <h1 className="inspection-workflow-title">Device Inspection</h1>
+              <p className="inspection-workflow-subtitle">Order {order.orderNumber}</p>
             </div>
           </div>
           <Button
             variant="outline"
             onClick={handleGenerateReport}
             disabled={generatingReport}
+            className="inspection-report-button"
           >
             <Download className="h-4 w-4 mr-2" />
             Generate Report
@@ -126,34 +128,34 @@ export function InspectionWorkflow() {
         </div>
 
         {/* Order Summary */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Order Information</CardTitle>
+        <Card className="inspection-summary-card">
+          <CardHeader className="inspection-summary-header">
+            <CardTitle className="inspection-summary-title">Order Information</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <p className="text-sm text-gray-600">Order Number</p>
-              <p className="font-semibold">{order.orderNumber}</p>
+          <CardContent className="inspection-summary-grid">
+            <div className="inspection-summary-item">
+              <p className="inspection-summary-label">Order Number</p>
+              <p className="inspection-summary-value">{order.orderNumber}</p>
             </div>
-            <div>
-              <p className="text-sm text-gray-600">Device</p>
-              <p className="font-semibold">{order.deviceBrand} {order.deviceModel}</p>
+            <div className="inspection-summary-item">
+              <p className="inspection-summary-label">Device</p>
+              <p className="inspection-summary-value">{order.deviceBrand} {order.deviceModel}</p>
             </div>
-            <div>
-              <p className="text-sm text-gray-600">Type</p>
-              <p className="font-semibold">{order.deviceType}</p>
+            <div className="inspection-summary-item">
+              <p className="inspection-summary-label">Type</p>
+              <p className="inspection-summary-value">{order.deviceType}</p>
             </div>
-            <div>
-              <p className="text-sm text-gray-600">Customer</p>
-              <p className="font-semibold">{order.customerId?.name || 'N/A'}</p>
+            <div className="inspection-summary-item">
+              <p className="inspection-summary-label">Customer</p>
+              <p className="inspection-summary-value">{order.customerId?.name || 'N/A'}</p>
             </div>
           </CardContent>
         </Card>
 
         {/* Inspection Form and Communication Panel - Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="inspection-content-grid">
           {/* Inspection Form - Left Column (2/3 width) */}
-          <div className="lg:col-span-2">
+          <div className="inspection-form-column">
             <DeviceInspectionForm
               orderId={orderId!}
               customerId={order.customerId?._id || order.customerId}
@@ -163,13 +165,13 @@ export function InspectionWorkflow() {
           </div>
 
           {/* Communication Panel - Right Column (1/3 width) */}
-          <div className="lg:col-span-1">
-            <Card className="sticky top-4 h-fit">
-              <CardHeader>
-                <CardTitle className="text-lg">Customer Communication</CardTitle>
-                <CardDescription>Feedback & Updates</CardDescription>
+          <div className="inspection-communication-column">
+            <Card className="inspection-communication-card">
+              <CardHeader className="inspection-communication-header">
+                <CardTitle className="inspection-communication-title">Customer Communication</CardTitle>
+                <CardDescription className="inspection-communication-description">Feedback & Updates</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="inspection-communication-content">
                 <CommunicationPanel
                   orderId={orderId!}
                   inspectionId={order._id}
@@ -180,21 +182,21 @@ export function InspectionWorkflow() {
         </div>
 
         {/* Important Notes */}
-        <Card className="mt-6 border-blue-200 bg-blue-50">
-          <CardHeader>
-            <CardTitle className="text-base">Important Notes</CardTitle>
+        <Card className="inspection-notes-card">
+          <CardHeader className="inspection-notes-header">
+            <CardTitle className="inspection-notes-title">Important Notes</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div className="flex gap-2">
-              <AlertCircle className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
+          <CardContent className="inspection-notes-content">
+            <div className="inspection-note-row">
+              <AlertCircle className="inspection-note-icon" />
               <p>All inspection fields must be completed before finalizing the repair order.</p>
             </div>
-            <div className="flex gap-2">
-              <AlertCircle className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="inspection-note-row">
+              <AlertCircle className="inspection-note-icon" />
               <p>If any tests fail, a customer notification will be automatically created.</p>
             </div>
-            <div className="flex gap-2">
-              <AlertCircle className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="inspection-note-row">
+              <AlertCircle className="inspection-note-icon" />
               <p>A PDF report will be generated upon completion with all inspection details.</p>
             </div>
           </CardContent>

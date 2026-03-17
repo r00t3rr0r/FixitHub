@@ -1,0 +1,177 @@
+/* Compact admin user details dialog styling */
+.user-details-dialog {
+  --admin-blue: #1a2a5e;
+  --admin-blue-dark: #0f1d45;
+  --admin-accent: #f5b800;
+  --dialog-border: #d8dce6;
+}
+
+.user-details-dialog__header {
+  background: linear-gradient(180deg, var(--admin-blue) 0%, var(--admin-blue-dark) 100%);
+  color: #ffffff;
+  padding: 8px 12px;
+  margin: 0;
+}
+
+.user-details-dialog__header p,
+.user-details-dialog__header span,
+.user-details-dialog__header .text-gray-600,
+.user-details-dialog__header .text-\[\#1a2a5e\],
+.user-details-dialog__header .text-sm,
+.user-details-dialog__header .text-base {
+  color: #d8dce6 !important;
+}
+
+.user-details-dialog__title {
+  color: #ffffff !important;
+  font-size: 0.95rem !important;
+  line-height: 1.2 !important;
+  margin: 0;
+}
+
+.user-details-dialog__subtitle {
+  color: #d8dce6 !important;
+  font-size: 0.72rem !important;
+  line-height: 1.2 !important;
+  margin-top: 2px !important;
+}
+
+.user-details-dialog .user-details-name {
+  color: #ffffff !important;
+  font-size: 0.9rem !important;
+  line-height: 1.2 !important;
+}
+
+.user-details-dialog .user-details-scroll {
+  padding: 8px 10px;
+}
+
+.user-details-dialog .user-details-tabs-list {
+  margin-bottom: 8px !important;
+  padding: 2px !important;
+  gap: 2px !important;
+}
+
+.user-details-dialog .user-details-tabs-trigger {
+  min-height: 24px !important;
+  padding: 2px 6px !important;
+  font-size: 0.68rem !important;
+  line-height: 1.1 !important;
+}
+
+.user-details-dialog .rounded-lg {
+  border-radius: 8px !important;
+}
+
+.user-details-dialog .p-4 {
+  padding: 8px !important;
+}
+
+.user-details-dialog .p-3 {
+  padding: 6px !important;
+}
+
+.user-details-dialog .pt-4 {
+  padding-top: 8px !important;
+}
+
+.user-details-dialog .pb-3 {
+  padding-bottom: 6px !important;
+}
+
+.user-details-dialog .pb-4 {
+  padding-bottom: 8px !important;
+}
+
+.user-details-dialog .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 8px !important;
+}
+
+.user-details-dialog .space-y-3 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 6px !important;
+}
+
+.user-details-dialog .space-y-2 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 4px !important;
+}
+
+.user-details-dialog .gap-4 {
+  gap: 8px !important;
+}
+
+.user-details-dialog .gap-3 {
+  gap: 6px !important;
+}
+
+.user-details-dialog .gap-2 {
+  gap: 4px !important;
+}
+
+.user-details-dialog .text-3xl {
+  font-size: 1rem !important;
+  line-height: 1.2 !important;
+}
+
+.user-details-dialog .text-2xl,
+.user-details-dialog .text-xl,
+.user-details-dialog .text-lg {
+  font-size: 0.9rem !important;
+  line-height: 1.2 !important;
+}
+
+.user-details-dialog .text-base {
+  font-size: 0.78rem !important;
+  line-height: 1.2 !important;
+}
+
+.user-details-dialog .text-sm {
+  font-size: 0.72rem !important;
+  line-height: 1.2 !important;
+}
+
+.user-details-dialog .text-xs {
+  font-size: 0.66rem !important;
+  line-height: 1.2 !important;
+}
+
+.user-details-dialog .h-6,
+.user-details-dialog .w-6 {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.user-details-dialog .h-5,
+.user-details-dialog .w-5 {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+.user-details-dialog .h-12,
+.user-details-dialog .w-12 {
+  width: 36px !important;
+  height: 36px !important;
+}
+
+.user-details-dialog [role="tabpanel"] .border,
+.user-details-dialog [role="tabpanel"] .border-gray-200 {
+  border-color: var(--dialog-border) !important;
+}
+
+.user-details-dialog .badge {
+  font-size: 0.66rem;
+}
+
+@media (max-width: 768px) {
+  .user-details-dialog__header {
+    padding: 6px 10px;
+  }
+
+  .user-details-dialog .user-details-scroll {
+    padding: 6px 8px;
+  }
+
+  .user-details-dialog .user-details-tabs-trigger {
+    min-height: 22px !important;
+    padding: 2px 5px !important;
+  }
+}

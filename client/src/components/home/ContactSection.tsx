@@ -56,14 +56,14 @@ export function ContactSection({ title, showMap = true }: ContactSectionProps) {
   ];
 
   return (
-    <section id="contact" className="py-16 bg-gradient-to-b from-gray-50 to-white">
-      <div className="container mx-auto px-4">
+    <section id="contact" className="section bg-gray-50">
+      <div className="section-container">
         {/* Section Header */}
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+        <div className="section-header">
+          <h2 className="section-title">
             {title || t('home.contact.title')}
           </h2>
-          <p className="text-gray-600 text-base max-w-2xl mx-auto">
+          <p className="section-subtitle">
             {t('home.contact.subtitle')}
           </p>
         </div>

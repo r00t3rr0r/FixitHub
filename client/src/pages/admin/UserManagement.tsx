@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import "./UserManagement.css"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -408,26 +409,26 @@ export function UserManagement() {
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'admin':
-        return 'bg-red-500 text-white'
+        return 'badge badge-admin'
       case 'staff':
-        return 'bg-blue-500 text-white'
+        return 'badge badge-staff'
       case 'customer':
-        return 'bg-green-500 text-white'
+        return 'badge badge-customer'
       default:
-        return 'bg-gray-500 text-white'
+        return 'badge'
     }
   }
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
-        return 'bg-green-500 text-white'
+        return 'badge badge-active'
       case 'inactive':
-        return 'bg-gray-500 text-white'
+        return 'badge badge-inactive'
       case 'suspended':
-        return 'bg-red-500 text-white'
+        return 'badge badge-suspended'
       default:
-        return 'bg-gray-500 text-white'
+        return 'badge'
     }
   }
 
@@ -558,16 +559,16 @@ export function UserManagement() {
 
   if (loading && users.length === 0) {
     return (
-      <div className="space-y-6">
-        <div className="h-8 bg-muted rounded w-48 animate-pulse"></div>
-        <Card className="animate-pulse">
+      <div className="user-management-page space-y-6">
+        <div className="skeleton h-8 rounded w-48"></div>
+        <Card className="skeleton">
           <CardHeader>
-            <div className="h-6 bg-muted rounded w-1/3"></div>
+            <div className="skeleton h-6 rounded w-1/3"></div>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-16 bg-muted rounded"></div>
+                <div key={i} className="skeleton h-16 rounded"></div>
               ))}
             </div>
           </CardContent>
@@ -578,9 +579,9 @@ export function UserManagement() {
 
   return (
     <TooltipProvider>
-      <div className="space-y-6">
+      <div className="user-management-page space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="page-header flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-2">
               <Users className="h-8 w-8" />
@@ -594,13 +595,14 @@ export function UserManagement() {
             <Button
               variant="outline"
               onClick={() => setShowCSVImportDialog(true)}
+              data-variant="outline"
             >
               <Upload className="h-4 w-4 mr-2" />
               Import from CSV
             </Button>
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
               <DialogTrigger asChild>
-                <Button>
+                <Button data-variant="default">
                   <UserPlus className="h-4 w-4 mr-2" />
                   {t('userManagement.createNewUser')}
                 </Button>
@@ -687,10 +689,10 @@ export function UserManagement() {
                   </div>
 
                   <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
+                    <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)} data-variant="outline">
                       {t('common.cancel')}
                     </Button>
-                    <Button type="submit" disabled={creating}>
+                    <Button type="submit" disabled={creating} data-variant="default">
                       {creating ? t('common.create') + "..." : t('common.create')}
                     </Button>
                   </DialogFooter>
@@ -702,25 +704,25 @@ export function UserManagement() {
 
         {/* Stats Cards */}
         <div className="grid gap-4 md:grid-cols-4">
-          <Card>
+          <Card className="stats-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t('userManagement.users')}</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="stat-label text-sm font-medium">{t('userManagement.users')}</CardTitle>
+              <Users className="stat-icon h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalUsers}</div>
+              <div className="stat-value text-2xl font-bold">{totalUsers}</div>
               <p className="text-xs text-muted-foreground">
                 Total registered users
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="stats-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t('userManagement.active')}</CardTitle>
-              <Users className="h-4 w-4 text-green-600" />
+              <CardTitle className="stat-label text-sm font-medium">{t('userManagement.active')}</CardTitle>
+              <Users className="stat-icon h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="stat-value text-2xl font-bold">
                 {users.filter(u => u.isActive).length}
               </div>
               <p className="text-xs text-muted-foreground">
@@ -728,13 +730,13 @@ export function UserManagement() {
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="stats-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t('staffManagement.staff')}</CardTitle>
-              <Shield className="h-4 w-4 text-blue-600" />
+              <CardTitle className="stat-label text-sm font-medium">{t('staffManagement.staff')}</CardTitle>
+              <Shield className="stat-icon h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="stat-value text-2xl font-bold">
                 {users.filter(u => u.role === 'staff').length}
               </div>
               <p className="text-xs text-muted-foreground">
@@ -742,13 +744,13 @@ export function UserManagement() {
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="stats-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t('orders.totalCost')}</CardTitle>
-              <DollarSign className="h-4 w-4 text-green-600" />
+              <CardTitle className="stat-label text-sm font-medium">{t('orders.totalCost')}</CardTitle>
+              <DollarSign className="stat-icon h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="stat-value text-2xl font-bold">
                 ${users.reduce((sum, u) => sum + (u.totalSpent || 0), 0).toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground">
@@ -759,11 +761,11 @@ export function UserManagement() {
         </div>
 
         {/* Filters and Search */}
-        <Card>
+        <Card className="filters-bar">
           <CardContent className="pt-6">
             <div className="flex flex-col lg:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
+              <div className="flex-1 filter-group">
+                <div className="relative search-input">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder={t('userManagement.name') + ", " + t('userManagement.email') + ", " + t('userManagement.phone')}
@@ -815,8 +817,8 @@ export function UserManagement() {
 
             {/* Bulk Actions */}
             {selectedUsers.length > 0 && (
-              <div className="flex items-center gap-2 mt-4 p-3 bg-muted/50 rounded-lg">
-                <span className="text-sm font-medium">
+              <div className="bulk-actions-bar flex items-center gap-2 mt-4 p-3 rounded-lg">
+                <span className="selected-count text-sm font-medium">
                   {selectedUsers.length} {t('userManagement.selectedCount')}
                 </span>
                 <div className="flex gap-2 ml-auto">
@@ -824,6 +826,7 @@ export function UserManagement() {
                     size="sm"
                     variant="outline"
                     onClick={() => handleBulkStatusUpdate('active')}
+                    data-variant="outline"
                   >
                     {t('userManagement.active')}
                   </Button>
@@ -831,6 +834,7 @@ export function UserManagement() {
                     size="sm"
                     variant="outline"
                     onClick={() => handleBulkStatusUpdate('inactive')}
+                    data-variant="outline"
                   >
                     {t('userManagement.inactive')}
                   </Button>
@@ -838,6 +842,7 @@ export function UserManagement() {
                     size="sm"
                     variant="outline"
                     onClick={() => setSelectedUsers([])}
+                    data-variant="outline"
                   >
                     {t('common.close')}
                   </Button>
@@ -856,7 +861,7 @@ export function UserManagement() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
+            <div className="table-container rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -902,9 +907,9 @@ export function UserManagement() {
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8">
+                      <TableCell colSpan={7} className="empty-state text-center py-8">
                         <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                        <p className="text-muted-foreground">{t('userManagement.noUsersFound')}</p>
+                        <h3 className="text-muted-foreground">{t('userManagement.noUsersFound')}</h3>
                         {searchTerm && (
                           <p className="text-sm text-muted-foreground mt-2">
                             Try adjusting your search or filters
@@ -927,7 +932,7 @@ export function UserManagement() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <Avatar className="w-10 h-10">
+                            <Avatar className="avatar w-10 h-10">
                               <AvatarImage src={user.avatar} />
                               <AvatarFallback className="bg-primary/10">
                                 {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}

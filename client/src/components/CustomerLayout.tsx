@@ -1,5 +1,6 @@
 import { Outlet } from "react-router-dom";
-import { CustomerNavbar } from "./CustomerNavbar";
+import { TopBar } from "./home/TopBar";
+import { McRepairNav } from "./home/McRepairNav";
 import { Footer } from "./Footer";
 
 export function CustomerLayout() {
@@ -45,7 +46,8 @@ export function CustomerLayout() {
 
       {/* Navigation bar with fade-in animation */}
       <div className="animate-fade-in-down">
-        <CustomerNavbar />
+        <TopBar />
+        <McRepairNav />
       </div>
 
       {/* Main content area with padding for navbar and footer */}

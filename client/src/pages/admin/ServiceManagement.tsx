@@ -462,83 +462,85 @@ export function ServiceManagement() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Wrench className="h-8 w-8" />
+      <div className="rounded-lg border border-[#2a3f7e] bg-gradient-to-r from-[#1a2a5e] to-[#0f1d45] px-4 py-3 text-white shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="flex items-center gap-2 text-xl font-semibold sm:text-2xl">
+              <Wrench className="h-5 w-5 sm:h-6 sm:w-6" />
             Service Management
-          </h1>
-          <p className="text-muted-foreground">
+            </h1>
+            <p className="text-xs text-[#d8dce6] sm:text-sm">
             Manage repair services and pricing. Click on a service row to view detailed information.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsCSVImportDialogOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" />
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" className="h-8" onClick={() => setIsCSVImportDialogOpen(true)}>
+              <Upload className="mr-1.5 h-3.5 w-3.5" />
             Import CSV
-          </Button>
-          <Button onClick={openCreateDialog}>
-            <Plus className="h-4 w-4 mr-2" />
+            </Button>
+            <Button size="sm" className="h-8 bg-white text-[#1a2a5e] hover:bg-[#f5f6f8]" onClick={openCreateDialog}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
             Add Service
-          </Button>
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-4">
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-1 pt-3">
+            <CardTitle className="text-xs font-medium text-blue-700 dark:text-blue-300">
               Total Services
             </CardTitle>
-            <Wrench className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <Wrench className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+          <CardContent className="px-4 pb-3 pt-0">
+            <div className="text-xl font-bold text-blue-900 dark:text-blue-100">
               {pagination.total}
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-1 pt-3">
+            <CardTitle className="text-xs font-medium text-green-700 dark:text-green-300">
               Avg. Price
             </CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <DollarSign className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-900 dark:text-green-100">
+          <CardContent className="px-4 pb-3 pt-0">
+            <div className="text-xl font-bold text-green-900 dark:text-green-100">
               ${services.length > 0 ? (services.reduce((sum, s) => sum + s.price, 0) / services.length).toFixed(0) : 0}
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-1 pt-3">
+            <CardTitle className="text-xs font-medium text-purple-700 dark:text-purple-300">
               Categories
             </CardTitle>
-            <Filter className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+            <Filter className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+          <CardContent className="px-4 pb-3 pt-0">
+            <div className="text-xl font-bold text-purple-900 dark:text-purple-100">
               {[...new Set(services.map(s => s.category))].length}
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-1 pt-3">
+            <CardTitle className="text-xs font-medium text-orange-700 dark:text-orange-300">
               Avg. Rating
             </CardTitle>
-            <Star className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+            <Star className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">
+          <CardContent className="px-4 pb-3 pt-0">
+            <div className="text-xl font-bold text-orange-900 dark:text-orange-100">
               {services.length > 0 ? (services.reduce((sum, s) => sum + s.popularity, 0) / services.length).toFixed(1) : 0}%
             </div>
           </CardContent>
@@ -547,16 +549,16 @@ export function ServiceManagement() {
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col lg:flex-row gap-4">
+        <CardContent className="pt-4">
+          <div className="flex flex-col gap-3 lg:flex-row">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search services by name, description, category, manufacturer, or model..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="h-8 pl-8 text-xs"
                 />
               </div>
             </div>
@@ -565,8 +567,8 @@ export function ServiceManagement() {
                 setCategoryFilter(value)
                 setCurrentPage(1) // Reset to first page when filter changes
               }}>
-                <SelectTrigger className="w-40">
-                  <Filter className="h-4 w-4 mr-2" />
+                <SelectTrigger className="h-8 w-36 text-xs">
+                  <Filter className="mr-1.5 h-3.5 w-3.5" />
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
@@ -582,7 +584,7 @@ export function ServiceManagement() {
                 setPageSize(parseInt(value))
                 setCurrentPage(1) // Reset to first page when page size changes
               }}>
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="h-8 w-28 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -599,18 +601,18 @@ export function ServiceManagement() {
 
       {/* Services Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Repair Services</CardTitle>
-          <CardDescription>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Repair Services</CardTitle>
+          <CardDescription className="text-xs">
             Manage your repair service catalog and pricing. Click on any row to view detailed information. Click column headers to sort.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead
-                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  className="cursor-pointer select-none py-2 text-xs hover:bg-muted/50"
                   onClick={() => handleSort('name')}
                 >
                   <div className="flex items-center">
@@ -619,7 +621,7 @@ export function ServiceManagement() {
                   </div>
                 </TableHead>
                 <TableHead
-                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  className="cursor-pointer select-none py-2 text-xs hover:bg-muted/50"
                   onClick={() => handleSort('category')}
                 >
                   <div className="flex items-center">
@@ -628,7 +630,7 @@ export function ServiceManagement() {
                   </div>
                 </TableHead>
                 <TableHead
-                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  className="cursor-pointer select-none py-2 text-xs hover:bg-muted/50"
                   onClick={() => handleSort('manufacturer')}
                 >
                   <div className="flex items-center">
@@ -637,7 +639,7 @@ export function ServiceManagement() {
                   </div>
                 </TableHead>
                 <TableHead
-                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  className="cursor-pointer select-none py-2 text-xs hover:bg-muted/50"
                   onClick={() => handleSort('price')}
                 >
                   <div className="flex items-center">
@@ -645,11 +647,11 @@ export function ServiceManagement() {
                     {getSortIcon('price')}
                   </div>
                 </TableHead>
-                <TableHead>Est. Time</TableHead>
-                <TableHead>Device Types</TableHead>
-                <TableHead>Knowledge Base</TableHead>
+                <TableHead className="py-2 text-xs">Est. Time</TableHead>
+                <TableHead className="py-2 text-xs">Device Types</TableHead>
+                <TableHead className="py-2 text-xs">Knowledge Base</TableHead>
                 <TableHead
-                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  className="cursor-pointer select-none py-2 text-xs hover:bg-muted/50"
                   onClick={() => handleSort('popularity')}
                 >
                   <div className="flex items-center">
@@ -657,7 +659,7 @@ export function ServiceManagement() {
                     {getSortIcon('popularity')}
                   </div>
                 </TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="py-2 text-right text-xs">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -681,22 +683,22 @@ export function ServiceManagement() {
                 filteredServices.map((service) => (
                   <TableRow
                     key={service._id}
-                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    className="cursor-pointer text-xs transition-colors hover:bg-muted/50"
                     onClick={() => handleRowClick(service)}
                   >
-                    <TableCell>
+                    <TableCell className="py-2">
                       <div>
-                        <p className="font-medium">{service.name}</p>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
+                        <p className="font-medium leading-tight">{service.name}</p>
+                        <p className="line-clamp-2 text-xs text-muted-foreground">
                           {service.description}
                         </p>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{service.category}</Badge>
+                    <TableCell className="py-2">
+                      <Badge variant="outline" className="h-5 px-1.5 text-[11px]">{service.category}</Badge>
                     </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
+                    <TableCell className="py-2">
+                      <div className="text-xs">
                         {service.manufacturer && (
                           <p className="font-medium">{service.manufacturer}</p>
                         )}
@@ -708,51 +710,52 @@ export function ServiceManagement() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="py-2">
                       <div className="flex items-center gap-1">
                         <DollarSign className="h-3 w-3 text-muted-foreground" />
                         <span className="font-medium">${service.price}</span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="py-2">
                       <div className="flex items-center gap-1">
                         <Clock className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-sm">{service.estimatedTime}</span>
+                        <span>{service.estimatedTime}</span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="py-2">
                       <div className="flex flex-wrap gap-1">
                         {service.deviceTypes.slice(0, 2).map(type => (
-                          <Badge key={type} variant="secondary" className="text-xs">
+                          <Badge key={type} variant="secondary" className="h-5 px-1.5 text-[11px]">
                             {type}
                           </Badge>
                         ))}
                         {service.deviceTypes.length > 2 && (
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="secondary" className="h-5 px-1.5 text-[11px]">
                             +{service.deviceTypes.length - 2}
                           </Badge>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="py-2">
                       <div className="flex items-center gap-1">
                         <BookOpen className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-sm">
+                        <span>
                           {service.linkedKnowledgeBaseArticles?.length || 0}
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="py-2">
                       <div className="flex items-center gap-1">
                         <Star className="h-3 w-3 text-yellow-400" />
-                        <span className="text-sm">{service.popularity}%</span>
+                        <span>{service.popularity}%</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="py-2 text-right">
                       <div className="flex gap-1 justify-end">
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="h-7 w-7 p-0"
                           onClick={(e) => {
                             e.stopPropagation()
                             openEditDialog(service)
@@ -763,6 +766,7 @@ export function ServiceManagement() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="h-7 w-7 p-0"
                           onClick={(e) => {
                             e.stopPropagation()
                             openDeleteDialog(service)
@@ -780,14 +784,15 @@ export function ServiceManagement() {
 
           {/* Pagination Controls */}
           {!loading && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 pt-4 border-t">
-              <div className="text-sm text-muted-foreground">
+            <div className="mt-3 flex items-center justify-between border-t pt-3">
+              <div className="text-xs text-muted-foreground">
                 Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, pagination.total)} of {pagination.total} services
               </div>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-7 text-xs"
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                   disabled={!pagination.hasPrevPage || loading}
                 >
@@ -814,7 +819,7 @@ export function ServiceManagement() {
                         size="sm"
                         onClick={() => setCurrentPage(pageNum)}
                         disabled={loading}
-                        className="w-8 h-8 p-0"
+                        className="h-7 w-7 p-0 text-xs"
                       >
                         {pageNum}
                       </Button>
@@ -824,6 +829,7 @@ export function ServiceManagement() {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-7 text-xs"
                   onClick={() => setCurrentPage(prev => Math.min(pagination.totalPages, prev + 1))}
                   disabled={!pagination.hasNextPage || loading}
                 >
@@ -838,13 +844,13 @@ export function ServiceManagement() {
 
       {/* Service Detail Dialog */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Info className="h-5 w-5" />
+        <DialogContent className="max-h-[88vh] max-w-4xl overflow-y-auto p-4 sm:p-5">
+          <DialogHeader className="-mx-4 -mt-4 border-b border-[#2a3f7e] bg-[#1a2a5e] px-4 py-2.5 text-white sm:-mx-5 sm:-mt-5 sm:px-5">
+            <DialogTitle className="flex items-center gap-2 text-base font-semibold">
+              <Info className="h-4 w-4" />
               Service Details
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs text-[#d8dce6]">
               Comprehensive information about the selected repair service
             </DialogDescription>
           </DialogHeader>
@@ -863,44 +869,44 @@ export function ServiceManagement() {
             </div>
           ) : detailService ? (
             <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="device">Device Info</TabsTrigger>
-                <TabsTrigger value="repair">Repair Details</TabsTrigger>
-                <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
+              <TabsList className="grid h-8 w-full grid-cols-4">
+                <TabsTrigger value="overview" className="px-2 text-xs">Overview</TabsTrigger>
+                <TabsTrigger value="device" className="px-2 text-xs">Device Info</TabsTrigger>
+                <TabsTrigger value="repair" className="px-2 text-xs">Repair Details</TabsTrigger>
+                <TabsTrigger value="knowledge" className="px-2 text-xs">Knowledge Base</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="overview" className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <TabsContent value="overview" className="space-y-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Wrench className="h-5 w-5" />
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center gap-2 text-sm">
+                        <Wrench className="h-4 w-4" />
                         Basic Information
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-3 text-xs">
                       <div>
-                        <Label className="text-sm font-medium text-muted-foreground">Service Name</Label>
-                        <p className="text-lg font-semibold">{detailService.name}</p>
+                        <Label className="text-xs font-medium text-muted-foreground">Service Name</Label>
+                        <p className="text-sm font-semibold">{detailService.name}</p>
                       </div>
                       <div>
-                        <Label className="text-sm font-medium text-muted-foreground">Category</Label>
+                        <Label className="text-xs font-medium text-muted-foreground">Category</Label>
                         <div className="mt-1">
-                          <Badge variant="outline" className="text-sm">
+                          <Badge variant="outline" className="h-5 px-1.5 text-[11px]">
                             <Tag className="h-3 w-3 mr-1" />
                             {detailService.category}
                           </Badge>
                         </div>
                       </div>
                       <div>
-                        <Label className="text-sm font-medium text-muted-foreground">Description</Label>
-                        <p className="text-sm mt-1 leading-relaxed">{detailService.description}</p>
+                        <Label className="text-xs font-medium text-muted-foreground">Description</Label>
+                        <p className="mt-1 text-xs leading-relaxed">{detailService.description}</p>
                       </div>
                       <div>
-                        <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                        <Label className="text-xs font-medium text-muted-foreground">Status</Label>
                         <div className="mt-1">
-                          <Badge variant={detailService.isActive ? "default" : "secondary"}>
+                          <Badge variant={detailService.isActive ? "default" : "secondary"} className="h-5 px-1.5 text-[11px]">
                             {detailService.isActive ? "Active" : "Inactive"}
                           </Badge>
                         </div>
@@ -909,38 +915,38 @@ export function ServiceManagement() {
                   </Card>
 
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <DollarSign className="h-5 w-5" />
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center gap-2 text-sm">
+                        <DollarSign className="h-4 w-4" />
                         Pricing & Performance
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-3 text-xs">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Label className="text-sm font-medium text-muted-foreground">Price</Label>
-                          <p className="text-2xl font-bold text-green-600">${detailService.price}</p>
+                          <Label className="text-xs font-medium text-muted-foreground">Price</Label>
+                          <p className="text-lg font-bold text-green-600">${detailService.price}</p>
                         </div>
                         <div>
-                          <Label className="text-sm font-medium text-muted-foreground">Popularity</Label>
+                          <Label className="text-xs font-medium text-muted-foreground">Popularity</Label>
                           <div className="flex items-center gap-1">
-                            <Star className="h-4 w-4 text-yellow-400" />
-                            <p className="text-xl font-semibold">{detailService.popularity}%</p>
+                            <Star className="h-3.5 w-3.5 text-yellow-400" />
+                            <p className="text-base font-semibold">{detailService.popularity}%</p>
                           </div>
                         </div>
                       </div>
                       <div>
-                        <Label className="text-sm font-medium text-muted-foreground">Estimated Time</Label>
+                        <Label className="text-xs font-medium text-muted-foreground">Estimated Time</Label>
                         <div className="flex items-center gap-1 mt-1">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                           <p className="font-medium">{detailService.estimatedTime}</p>
                         </div>
                       </div>
                       <div>
-                        <Label className="text-sm font-medium text-muted-foreground">Created</Label>
+                        <Label className="text-xs font-medium text-muted-foreground">Created</Label>
                         <div className="flex items-center gap-1 mt-1">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <p className="text-sm">{new Date(detailService.createdAt).toLocaleDateString()}</p>
+                          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                          <p>{new Date(detailService.createdAt).toLocaleDateString()}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -948,34 +954,34 @@ export function ServiceManagement() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="device" className="space-y-6">
+              <TabsContent value="device" className="space-y-4">
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Smartphone className="h-5 w-5" />
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      <Smartphone className="h-4 w-4" />
                       Device Compatibility
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <CardContent className="space-y-3 text-xs">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       <div>
-                        <Label className="text-sm font-medium text-muted-foreground">Manufacturer</Label>
+                        <Label className="text-xs font-medium text-muted-foreground">Manufacturer</Label>
                         <p className="font-medium mt-1">
                           {detailService.manufacturer || <span className="text-muted-foreground">Not specified</span>}
                         </p>
                       </div>
                       <div>
-                        <Label className="text-sm font-medium text-muted-foreground">Model</Label>
+                        <Label className="text-xs font-medium text-muted-foreground">Model</Label>
                         <p className="font-medium mt-1">
                           {detailService.model || <span className="text-muted-foreground">Not specified</span>}
                         </p>
                       </div>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium text-muted-foreground">Compatible Device Types</Label>
+                      <Label className="text-xs font-medium text-muted-foreground">Compatible Device Types</Label>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {detailService.deviceTypes.map(type => (
-                          <Badge key={type} variant="secondary">
+                          <Badge key={type} variant="secondary" className="h-5 px-1.5 text-[11px]">
                             <Smartphone className="h-3 w-3 mr-1" />
                             {type}
                           </Badge>
@@ -986,23 +992,23 @@ export function ServiceManagement() {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="repair" className="space-y-6">
-                <div className="grid grid-cols-1 gap-6">
+              <TabsContent value="repair" className="space-y-4">
+                <div className="grid grid-cols-1 gap-4">
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <User className="h-5 w-5" />
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center gap-2 text-sm">
+                        <User className="h-4 w-4" />
                         Customer Information
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="text-xs">
                       <div>
-                        <Label className="text-sm font-medium text-muted-foreground">External Repair Information</Label>
+                        <Label className="text-xs font-medium text-muted-foreground">External Repair Information</Label>
                         <div className="mt-2 p-3 bg-muted/50 rounded-lg">
                           {detailService.externalRepairInfo ? (
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{detailService.externalRepairInfo}</p>
+                            <p className="text-xs leading-relaxed whitespace-pre-wrap">{detailService.externalRepairInfo}</p>
                           ) : (
-                            <p className="text-sm text-muted-foreground italic">No customer-facing repair information provided</p>
+                            <p className="text-xs text-muted-foreground italic">No customer-facing repair information provided</p>
                           )}
                         </div>
                       </div>
@@ -1010,20 +1016,20 @@ export function ServiceManagement() {
                   </Card>
 
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <FileText className="h-5 w-5" />
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center gap-2 text-sm">
+                        <FileText className="h-4 w-4" />
                         Internal Technical Information
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="text-xs">
                       <div>
-                        <Label className="text-sm font-medium text-muted-foreground">Internal Repair Information</Label>
+                        <Label className="text-xs font-medium text-muted-foreground">Internal Repair Information</Label>
                         <div className="mt-2 p-3 bg-muted/50 rounded-lg">
                           {detailService.internalRepairInfo ? (
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{detailService.internalRepairInfo}</p>
+                            <p className="text-xs leading-relaxed whitespace-pre-wrap">{detailService.internalRepairInfo}</p>
                           ) : (
-                            <p className="text-sm text-muted-foreground italic">No internal repair information provided</p>
+                            <p className="text-xs text-muted-foreground italic">No internal repair information provided</p>
                           )}
                         </div>
                       </div>
@@ -1032,22 +1038,22 @@ export function ServiceManagement() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="knowledge" className="space-y-6">
+              <TabsContent value="knowledge" className="space-y-4">
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <BookOpen className="h-5 w-5" />
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      <BookOpen className="h-4 w-4" />
                       Linked Knowledge Base Articles
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="text-xs">
                     {detailService.linkedKnowledgeBaseArticles && detailService.linkedKnowledgeBaseArticles.length > 0 ? (
-                      <div className="space-y-3">
+                      <div className="space-y-2.5">
                         {detailService.linkedKnowledgeBaseArticles.map((article, index) => (
-                          <div key={index} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                          <div key={index} className="flex items-start gap-2 p-2.5 border rounded-lg hover:bg-muted/50 transition-colors">
                             <LinkIcon className="h-4 w-4 mt-1 text-muted-foreground flex-shrink-0" />
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm">{article.title || 'Untitled Article'}</p>
+                              <p className="text-xs font-medium">{article.title || 'Untitled Article'}</p>
                               {article.url && (
                                 <a
                                   href={article.url}
@@ -1079,15 +1085,15 @@ export function ServiceManagement() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDetailDialogOpen(false)}>
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setIsDetailDialogOpen(false)}>
               Close
             </Button>
             {detailService && (
-              <Button onClick={() => {
+              <Button size="sm" className="h-8 text-xs" onClick={() => {
                 setIsDetailDialogOpen(false)
                 openEditDialog(detailService)
               }}>
-                <Edit className="h-4 w-4 mr-2" />
+                <Edit className="mr-1.5 h-3.5 w-3.5" />
                 Edit Service
               </Button>
             )}
@@ -1104,12 +1110,12 @@ export function ServiceManagement() {
           resetForm()
         }
       }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="max-h-[88vh] max-w-4xl overflow-y-auto p-4 sm:p-5">
+          <DialogHeader className="-mx-4 -mt-4 border-b border-[#2a3f7e] bg-[#1a2a5e] px-4 py-2.5 text-white sm:-mx-5 sm:-mt-5 sm:px-5">
+            <DialogTitle className="text-base font-semibold">
               {isCreateDialogOpen ? "Create New Service" : "Edit Service"}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs text-[#d8dce6]">
               {isCreateDialogOpen
                 ? "Add a new repair service to your catalog"
                 : "Update the service information"}
@@ -1117,30 +1123,31 @@ export function ServiceManagement() {
           </DialogHeader>
 
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="device">Device & Repair</TabsTrigger>
-              <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
+            <TabsList className="grid h-8 w-full grid-cols-3">
+              <TabsTrigger value="basic" className="px-2 text-xs">Basic Info</TabsTrigger>
+              <TabsTrigger value="device" className="px-2 text-xs">Device & Repair</TabsTrigger>
+              <TabsTrigger value="knowledge" className="px-2 text-xs">Knowledge Base</TabsTrigger>
             </TabsList>
 
             <TabsContent value="basic" className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Service Name</Label>
+                  <Label htmlFor="name" className="text-xs">Service Name</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="e.g. Screen Repair"
+                    className="h-8 text-xs"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
+                  <Label htmlFor="category" className="text-xs">Category</Label>
                   <Select
                     value={formData.category}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1161,19 +1168,20 @@ export function ServiceManagement() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description" className="text-xs">Description</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Describe the service..."
-                  rows={3}
+                  rows={2}
+                  className="min-h-[64px] text-xs"
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Price ($)</Label>
+                  <Label htmlFor="price" className="text-xs">Price ($)</Label>
                   <Input
                     id="price"
                     type="number"
@@ -1182,19 +1190,21 @@ export function ServiceManagement() {
                     placeholder="0.00"
                     min="0"
                     step="0.01"
+                    className="h-8 text-xs"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="estimatedTime">Estimated Time</Label>
+                  <Label htmlFor="estimatedTime" className="text-xs">Estimated Time</Label>
                   <Input
                     id="estimatedTime"
                     value={formData.estimatedTime}
                     onChange={(e) => setFormData(prev => ({ ...prev, estimatedTime: e.target.value }))}
                     placeholder="e.g. 2-3 hours"
+                    className="h-8 text-xs"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="popularity">Popularity (%)</Label>
+                  <Label htmlFor="popularity" className="text-xs">Popularity (%)</Label>
                   <Input
                     id="popularity"
                     type="number"
@@ -1203,36 +1213,39 @@ export function ServiceManagement() {
                     placeholder="0"
                     min="0"
                     max="100"
+                    className="h-8 text-xs"
                   />
                 </div>
               </div>
             </TabsContent>
 
             <TabsContent value="device" className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="manufacturer">Manufacturer</Label>
+                  <Label htmlFor="manufacturer" className="text-xs">Manufacturer</Label>
                   <Input
                     id="manufacturer"
                     value={formData.manufacturer}
                     onChange={(e) => setFormData(prev => ({ ...prev, manufacturer: e.target.value }))}
                     placeholder="e.g. Apple, Samsung, Google"
+                    className="h-8 text-xs"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="model">Model</Label>
+                  <Label htmlFor="model" className="text-xs">Model</Label>
                   <Input
                     id="model"
                     value={formData.model}
                     onChange={(e) => setFormData(prev => ({ ...prev, model: e.target.value }))}
                     placeholder="e.g. iPhone 15 Pro, Galaxy S24"
+                    className="h-8 text-xs"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>Device Types</Label>
-                <div className="grid grid-cols-3 gap-2">
+                <Label className="text-xs">Device Types</Label>
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
                   {deviceTypes.map(deviceType => (
                     <div key={deviceType} className="flex items-center space-x-2">
                       <input
@@ -1242,7 +1255,7 @@ export function ServiceManagement() {
                         onChange={() => handleDeviceTypeToggle(deviceType)}
                         className="rounded border-gray-300"
                       />
-                      <Label htmlFor={deviceType} className="text-sm font-normal">
+                      <Label htmlFor={deviceType} className="text-xs font-normal">
                         {deviceType}
                       </Label>
                     </div>
@@ -1251,24 +1264,26 @@ export function ServiceManagement() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="internalRepairInfo">Internal Repair Information</Label>
+                <Label htmlFor="internalRepairInfo" className="text-xs">Internal Repair Information</Label>
                 <Textarea
                   id="internalRepairInfo"
                   value={formData.internalRepairInfo}
                   onChange={(e) => setFormData(prev => ({ ...prev, internalRepairInfo: e.target.value }))}
                   placeholder="Internal notes and procedures for technicians..."
-                  rows={4}
+                  rows={3}
+                  className="min-h-[80px] text-xs"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="externalRepairInfo">External Repair Information</Label>
+                <Label htmlFor="externalRepairInfo" className="text-xs">External Repair Information</Label>
                 <Textarea
                   id="externalRepairInfo"
                   value={formData.externalRepairInfo}
                   onChange={(e) => setFormData(prev => ({ ...prev, externalRepairInfo: e.target.value }))}
                   placeholder="Customer-facing repair information..."
-                  rows={4}
+                  rows={3}
+                  className="min-h-[80px] text-xs"
                 />
               </div>
             </TabsContent>
@@ -1276,40 +1291,43 @@ export function ServiceManagement() {
             <TabsContent value="knowledge" className="space-y-4">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <Label>Knowledge Base Articles</Label>
+                  <Label className="text-xs">Knowledge Base Articles</Label>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
+                    className="h-7 text-xs"
                     onClick={addKnowledgeBaseArticle}
                   >
-                    <Plus className="h-4 w-4 mr-2" />
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
                     Add Article
                   </Button>
                 </div>
 
                 {formData.linkedKnowledgeBaseArticles.length === 0 ? (
-                  <div className="text-center py-8 border-2 border-dashed border-muted-foreground/25 rounded-lg">
+                  <div className="rounded-lg border-2 border-dashed border-muted-foreground/25 py-6 text-center">
                     <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                    <p className="text-muted-foreground">No knowledge base articles linked</p>
-                    <p className="text-sm text-muted-foreground">Click "Add Article" to link relevant documentation</p>
+                    <p className="text-xs text-muted-foreground">No knowledge base articles linked</p>
+                    <p className="text-xs text-muted-foreground">Click "Add Article" to link relevant documentation</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {formData.linkedKnowledgeBaseArticles.map((article, index) => (
-                      <div key={index} className="flex gap-2 items-start p-3 border rounded-lg">
+                      <div key={index} className="flex items-start gap-2 rounded-lg border p-2">
                         <div className="flex-1 space-y-2">
                           <Input
                             placeholder="Article title"
                             value={article.title}
                             onChange={(e) => updateKnowledgeBaseArticle(index, 'title', e.target.value)}
+                            className="h-8 text-xs"
                           />
                           <div className="flex gap-2">
-                            <LinkIcon className="h-4 w-4 mt-2 text-muted-foreground" />
+                            <LinkIcon className="mt-2 h-3.5 w-3.5 text-muted-foreground" />
                             <Input
                               placeholder="Article URL"
                               value={article.url}
                               onChange={(e) => updateKnowledgeBaseArticle(index, 'url', e.target.value)}
+                              className="h-8 text-xs"
                             />
                           </div>
                         </div>
@@ -1317,9 +1335,10 @@ export function ServiceManagement() {
                           type="button"
                           variant="ghost"
                           size="sm"
+                          className="h-7 w-7 p-0"
                           onClick={() => removeKnowledgeBaseArticle(index)}
                         >
-                          <X className="h-4 w-4" />
+                          <X className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     ))}
@@ -1332,6 +1351,8 @@ export function ServiceManagement() {
           <DialogFooter>
             <Button
               variant="outline"
+              size="sm"
+              className="h-8 text-xs"
               onClick={() => {
                 setIsCreateDialogOpen(false)
                 setIsEditDialogOpen(false)
@@ -1342,17 +1363,19 @@ export function ServiceManagement() {
               Cancel
             </Button>
             <Button
+              size="sm"
+              className="h-8 text-xs"
               onClick={isCreateDialogOpen ? handleCreateService : handleUpdateService}
               disabled={submitting || !formData.name || !formData.description || !formData.category || formData.deviceTypes.length === 0}
             >
               {submitting ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  <div className="mr-1.5 h-3.5 w-3.5 animate-spin rounded-full border-b-2 border-white"></div>
                   {isCreateDialogOpen ? "Creating..." : "Updating..."}
                 </>
               ) : (
                 <>
-                  <Save className="h-4 w-4 mr-2" />
+                  <Save className="mr-1.5 h-3.5 w-3.5" />
                   {isCreateDialogOpen ? "Create Service" : "Update Service"}
                 </>
               )}

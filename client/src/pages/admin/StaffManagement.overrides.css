@@ -1,0 +1,204 @@
+/* ============================================
+   McRepair Design System Overrides
+   Global overrides for shadcn/ui components
+   ============================================ */
+
+/* Override shadcn/ui components on staff pages with McRepair colors */
+.staff-management-page *,
+.staff-details-dialog * {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+
+/* Button Primary - McRepair Yellow */
+.staff-management-page button[type="submit"],
+.staff-management-page [data-slot="button"]:not([data-variant="outline"]):not([data-variant="ghost"]),
+.staff-details-dialog button[type="submit"],
+.staff-details-dialog [data-slot="button"]:not([data-variant="outline"]):not([data-variant="ghost"]) {
+  background: #f5b800 !important;
+  color: #1a2a5e !important;
+  font-weight: 600 !important;
+}
+
+.staff-management-page button[type="submit"]:hover,
+.staff-management-page [data-slot="button"]:not([data-variant="outline"]):not([data-variant="ghost"]):hover,
+.staff-details-dialog button[type="submit"]:hover,
+.staff-details-dialog [data-slot="button"]:not([data-variant="outline"]):not([data-variant="ghost"]):hover {
+  background: #e5ab00 !important;
+}
+
+/* Active tabs should stay on white surfaces outside page headers */
+.staff-management-page [role="tab"][data-state="active"],
+.staff-details-dialog [role="tab"][data-state="active"] {
+  background: #ffffff !important;
+  color: #1a2a5e !important;
+  border: 1px solid #d8dce6 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Card headers */
+.staff-management-page [data-slot="card-title"],
+.staff-details-dialog [data-slot="card-title"] {
+  color: #1a2a5e !important;
+  font-weight: 600 !important;
+}
+
+/* Links and interactive elements */
+.staff-management-page a:hover,
+.staff-details-dialog a:hover {
+  color: #1a2a5e !important;
+}
+
+/* Progress bars - McRepair Blue */
+.staff-management-page [data-slot="progress"] > div,
+.staff-details-dialog [data-slot="progress"] > div {
+  background: #1a2a5e !important;
+}
+
+/* Select dropdowns */
+.staff-management-page [data-slot="select-trigger"]:focus,
+.staff-details-dialog [data-slot="select-trigger"]:focus {
+  border-color: #1a2a5e !important;
+  box-shadow: 0 0 0 3px rgba(26, 42, 94, 0.1) !important;
+}
+
+/* Input focus states */
+.staff-management-page input:focus,
+.staff-management-page textarea:focus,
+.staff-details-dialog input:focus,
+.staff-details-dialog textarea:focus {
+  border-color: #1a2a5e !important;
+  box-shadow: 0 0 0 3px rgba(26, 42, 94, 0.1) !important;
+}
+
+/* Badge colors - McRepair palette */
+.staff-badge-primary {
+  background: #ffffff;
+  color: #1a2a5e;
+  border: 1px solid #1a2a5e;
+}
+
+.staff-badge-success {
+  background: #38a169;
+  color: #ffffff;
+}
+
+.staff-badge-warning {
+  background: #f5b800;
+  color: #1a2a5e;
+}
+
+.staff-badge-danger {
+  background: #e53e3e;
+  color: #ffffff;
+}
+
+.staff-badge-secondary {
+  background: #eceef3;
+  color: #1a2a5e;
+  border: 1px solid #d8dce6;
+}
+
+.staff-badge-outline {
+  background: transparent;
+  color: #1a2a5e;
+  border: 1px solid #d8dce6;
+}
+
+/* Alert dialogs and modals */
+.staff-management-page [role="alertdialog"],
+.staff-details-dialog [role="dialog"] {
+  border-radius: 16px !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Destructive actions */
+.staff-management-page [data-variant="destructive"],
+.staff-details-dialog [data-variant="destructive"] {
+  background: #e53e3e !important;
+  color: #ffffff !important;
+}
+
+.staff-management-page [data-variant="destructive"]:hover,
+.staff-details-dialog [data-variant="destructive"]:hover {
+  background: #c53030 !important;
+}
+
+/* Scrollbars - subtle McRepair styling */
+.staff-details-dialog::-webkit-scrollbar,
+.staff-management-page ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.staff-details-dialog::-webkit-scrollbar-track,
+.staff-management-page ::-webkit-scrollbar-track {
+  background: #f5f6f8;
+  border-radius: 4px;
+}
+
+.staff-details-dialog::-webkit-scrollbar-thumb,
+.staff-management-page ::-webkit-scrollbar-thumb {
+  background: #b0b8c9;
+  border-radius: 4px;
+}
+
+.staff-details-dialog::-webkit-scrollbar-thumb:hover,
+.staff-management-page ::-webkit-scrollbar-thumb:hover {
+  background: #8892a8;
+}
+
+/* Hover effects for clickable rows */
+.staff-management-page tr:hover,
+.staff-details-dialog .staff-order-card:hover,
+.staff-details-dialog .staff-team-item:hover {
+  background: #f8f9fc !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Loading states */
+.staff-management-page [data-loading="true"],
+.staff-details-dialog [data-loading="true"] {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Empty states */
+.staff-management-page [data-empty="true"],
+.staff-details-dialog [data-empty="true"] {
+  color: #8892a8;
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+/* Dropdown menus */
+.staff-management-page [role="menu"],
+.staff-details-dialog [role="menu"] {
+  border-radius: 10px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  border: 1px solid #eceef3 !important;
+}
+
+.staff-management-page [role="menuitem"]:hover,
+.staff-details-dialog [role="menuitem"]:hover {
+  background: #f8f9fc !important;
+  color: #1a2a5e !important;
+}
+
+/* Toast notifications - McRepair colors */
+.staff-management-page [data-sonner-toast][data-type="success"],
+.staff-details-dialog [data-sonner-toast][data-type="success"] {
+  background: #38a169 !important;
+  color: #ffffff !important;
+}
+
+.staff-management-page [data-sonner-toast][data-type="error"],
+.staff-details-dialog [data-sonner-toast][data-type="error"] {
+  background: #e53e3e !important;
+  color: #ffffff !important;
+}
+
+.staff-management-page [data-sonner-toast][data-type="warning"],
+.staff-details-dialog [data-sonner-toast][data-type="warning"] {
+  background: #f5b800 !important;
+  color: #1a2a5e !important;
+}

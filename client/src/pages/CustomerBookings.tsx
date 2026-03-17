@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
+import "./CustomerBookings.css";
 import {
   Package,
   Calendar,
@@ -355,66 +356,66 @@ export function CustomerBookings() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+        return 'badge badge-pending';
       case 'payment-pending':
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+        return 'badge badge-payment-pending';
       case 'processing':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+        return 'badge badge-processing';
       case 'completed':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+        return 'badge badge-completed';
       case 'cancelled':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+        return 'badge badge-cancelled';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'badge';
     }
   };
 
   const getOrderStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+        return 'badge badge-pending';
       case 'in-progress':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+        return 'badge badge-processing';
       case 'quality-check':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+        return 'badge badge-processing';
       case 'ready-for-pickup':
-        return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200';
+        return 'badge badge-payment-pending';
       case 'completed':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+        return 'badge badge-completed';
       case 'cancelled':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+        return 'badge badge-cancelled';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'badge';
     }
   };
 
   const getBillingStatusColor = (status: string) => {
     switch (status) {
       case 'unpaid':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+        return 'badge badge-unpaid';
       case 'partially-paid':
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+        return 'badge badge-partially-paid';
       case 'paid':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+        return 'badge badge-paid';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'badge';
     }
   };
 
   const getReturnShipmentStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+        return 'badge badge-pending';
       case 'label-created':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+        return 'badge badge-processing';
       case 'in-transit':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+        return 'badge badge-processing';
       case 'delivered':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+        return 'badge badge-completed';
       case 'failed':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+        return 'badge badge-cancelled';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'badge';
     }
   };
 
@@ -447,209 +448,250 @@ export function CustomerBookings() {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          <p className="mt-4 text-foreground/60">{t('common.loading')}</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">{t('common.loading')}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('bookings.myBookings')}</h1>
-        <p className="text-sm text-foreground/60">{t('bookings.manageYourBookings')}</p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-amber-50/20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* Header Section */}
+        <div className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] rounded-2xl shadow-xl p-8 text-white relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-[#f5b800] rounded-full opacity-5 blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#f5b800] rounded-full opacity-5 blur-3xl"></div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-3">
+              <Package className="h-8 w-8 text-[#f5b800]" />
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">{t('bookings.myBookings')}</h1>
+            </div>
+            <p className="text-blue-100 text-base md:text-lg">{t('bookings.manageYourBookings')}</p>
+          </div>
+        </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <Card className="shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-xs font-medium text-foreground/60 uppercase tracking-wide">Total Bookings</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-3">
-            <div className="text-xl font-bold">{totalBookings}</div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-xs font-medium text-foreground/60 uppercase tracking-wide">Pending</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-3">
-            <div className="text-xl font-bold">{bookings.filter(b => b.status === 'pending').length}</div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-xs font-medium text-foreground/60 uppercase tracking-wide">Processing</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-3">
-            <div className="text-xl font-bold">{bookings.filter(b => b.status === 'processing').length}</div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-xs font-medium text-foreground/60 uppercase tracking-wide">Completed</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-3">
-            <div className="text-xl font-bold">{bookings.filter(b => b.status === 'completed').length}</div>
-          </CardContent>
-        </Card>
-      </div>
+        {/* Statistics Cards */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <Card className="border-none shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+              <CardTitle className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e]">{t('bookings.totalBookings')}</CardTitle>
+              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-[#1a2a5e] to-[#2a3f7e] flex items-center justify-center">
+                <Package className="h-6 w-6 text-white" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <div className="text-3xl font-extrabold text-[#1a2a5e]">{totalBookings}</div>
+              <p className="text-sm text-slate-500 mt-1">Alle Buchungen</p>
+            </CardContent>
+          </Card>
 
-      {/* Filters and Search */}
-      <Card className="shadow-md">
-        <CardHeader className="pb-3 pt-4 px-4">
-          <CardTitle className="flex items-center gap-2 text-sm font-bold">
-            <Filter className="h-4 w-4" />
-            {t('common.filter')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 px-4 pb-4">
-          <div className="flex flex-col md:flex-row gap-3">
-            <div className="flex-1">
-              <label className="text-xs font-medium mb-1.5 block text-foreground/70">{t('common.search')}</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-foreground/40" />
-                <Input
-                  placeholder={t('bookings.searchByBookingNumber')}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 text-sm h-9"
-                />
+          <Card className="border-none shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+              <CardTitle className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e]">{t('status.pending')}</CardTitle>
+              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-[#f5b800] to-[#e5ab00] flex items-center justify-center">
+                <Clock className="h-6 w-6 text-white" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <div className="text-3xl font-extrabold text-[#1a2a5e]">{bookings.filter(b => b.status === 'pending').length}</div>
+              <p className="text-sm text-slate-500 mt-1">Wartende Buchungen</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+              <CardTitle className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e]">{t('status.processing')}</CardTitle>
+              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                <DollarSign className="h-6 w-6 text-white" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <div className="text-3xl font-extrabold text-[#1a2a5e]">{bookings.filter(b => b.status === 'processing').length}</div>
+              <p className="text-sm text-slate-500 mt-1">In Bearbeitung</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+              <CardTitle className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e]">{t('status.completed')}</CardTitle>
+              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-white" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <div className="text-3xl font-extrabold text-[#1a2a5e]">{bookings.filter(b => b.status === 'completed').length}</div>
+              <p className="text-sm text-slate-500 mt-1">Abgeschlossen</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <Card className="border-none shadow-lg bg-white">
+          <CardContent className="py-3 px-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2 text-[#1a2a5e]">
+                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#f5b800] to-[#e5ab00] flex items-center justify-center flex-shrink-0">
+                  <Filter className="h-4 w-4 text-white" />
+                </div>
+                <span className="font-bold text-sm uppercase tracking-wide whitespace-nowrap">{t('common.filter')}</span>
+              </div>
+              <div className="flex-1 min-w-[200px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder={t('bookings.searchByBookingNumber')}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 h-9 text-sm border-slate-200 focus:border-[#f5b800] focus:ring-[#f5b800]"
+                  />
+                </div>
+              </div>
+              <div className="min-w-[180px]">
+                <Select
+                  value={statusFilter}
+                  onValueChange={(value) => {
+                    setStatusFilter(value);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger className="h-9 text-sm border-slate-200 focus:border-[#f5b800] focus:ring-[#f5b800]">
+                    <SelectValue placeholder={t('common.selectStatus')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('common.all')}</SelectItem>
+                    <SelectItem value="pending">{t('status.pending')}</SelectItem>
+                    <SelectItem value="payment-pending">{t('status.paymentPending')}</SelectItem>
+                    <SelectItem value="processing">{t('status.processing')}</SelectItem>
+                    <SelectItem value="completed">{t('status.completed')}</SelectItem>
+                    <SelectItem value="cancelled">{t('status.cancelled')}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-            <div className="w-full md:w-48">
-              <label className="text-xs font-medium mb-1.5 block text-foreground/70">{t('common.status')}</label>
-              <Select
-                value={statusFilter}
-                onValueChange={(value) => {
-                  setStatusFilter(value);
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('common.all')}</SelectItem>
-                  <SelectItem value="pending">{t('status.pending')}</SelectItem>
-                  <SelectItem value="payment-pending">{t('status.paymentPending')}</SelectItem>
-                  <SelectItem value="processing">{t('status.processing')}</SelectItem>
-                  <SelectItem value="completed">{t('status.completed')}</SelectItem>
-                  <SelectItem value="cancelled">{t('status.cancelled')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Bookings Table */}
-      <Card className="shadow-md">
-        <CardHeader className="pb-3 pt-4 px-4">
-          <div className="space-y-1">
-            <CardTitle className="text-sm font-bold">Bookings List</CardTitle>
-            <CardDescription className="text-xs text-foreground/60">{filteredBookings.length} bookings found</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          {filteredBookings.length === 0 ? (
-            <div className="text-center py-6 text-foreground/60">
-              <Package className="h-10 w-10 mx-auto mb-3 opacity-40" />
-              <p className="text-sm">{t('bookings.noBookings')}</p>
-              <Button className="mt-3 h-9 text-sm" onClick={() => navigate('/new-order')}>
-                {t('navigation.newOrder')}
-              </Button>
-            </div>
-          ) : (
-            <ScrollArea className="w-full">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30">
-                    <TableHead className="w-12 h-9 text-xs font-semibold text-foreground/70"></TableHead>
-                    <TableHead className="h-9 text-xs font-semibold text-foreground/70">Booking ID</TableHead>
-                    <TableHead className="h-9 text-xs font-semibold text-foreground/70">Status</TableHead>
-                    <TableHead className="h-9 text-xs font-semibold text-foreground/70">Billing</TableHead>
-                    <TableHead className="h-9 text-xs font-semibold text-foreground/70">Progress</TableHead>
-                    <TableHead className="h-9 text-xs font-semibold text-foreground/70">Total Cost</TableHead>
-                    <TableHead className="h-9 text-xs font-semibold text-foreground/70">Items</TableHead>
-                    <TableHead className="h-9 text-xs font-semibold text-foreground/70 text-center">Msgs</TableHead>
-                    <TableHead className="h-9 text-xs font-semibold text-foreground/70">Created</TableHead>
-                    <TableHead className="h-9 text-xs font-semibold text-foreground/70 text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+        {/* Bookings List */}
+        {filteredBookings.length === 0 ? (
+          <Card className="border-none shadow-lg bg-white">
+            <CardContent className="py-16">
+              <div className="text-center">
+                <div className="h-20 w-20 mx-auto rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center mb-6">
+                  <Package className="h-10 w-10 text-slate-400" />
+                </div>
+                <h3 className="text-xl font-bold text-[#1a2a5e] mb-2">{t('bookings.noBookings')}</h3>
+                <p className="text-slate-500 text-base mb-6">You haven't made any bookings yet. Start by creating a new order.</p>
+                <Button className="bg-gradient-to-r from-[#f5b800] to-[#e5ab00] hover:from-[#e5ab00] hover:to-[#d59a00] text-white font-semibold px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all" onClick={() => navigate('/new-order')}>
+                  {t('navigation.newOrder')}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-none shadow-lg bg-white overflow-hidden">
+            <CardHeader className="pb-4 border-b border-slate-100">
+              <CardTitle className="text-xl font-bold text-[#1a2a5e]">{t('bookings.bookingsList')}</CardTitle>
+              <CardDescription className="text-base text-slate-500">
+                {filteredBookings.length} bookings found
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0 px-0">
+              <ScrollArea className="w-full">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50 hover:bg-slate-50 border-b-2 border-slate-200">
+                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4"></TableHead>
+                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">Booking ID</TableHead>
+                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">{t('common.status')}</TableHead>
+                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">Billing</TableHead>
+                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">Progress</TableHead>
+                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">Total Cost</TableHead>
+                      <TableHead className="text-center text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">Items</TableHead>
+                      <TableHead className="text-center text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">Msgs</TableHead>
+                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">Created</TableHead>
+                      <TableHead className="text-right text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">{t('common.actions')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                   {filteredBookings.map((booking) => (
                     <React.Fragment key={booking._id}>
-                      <TableRow className="hover:bg-muted/40 h-10">
-                        <TableCell className="w-12 py-2">
+                      <TableRow
+                        className="hover:bg-slate-50 transition-colors"
+                        onClick={(e) => {
+                          // Only trigger on mobile (when screen width is <= 640px)
+                          if (window.innerWidth <= 640) {
+                            // Don't trigger if clicking on buttons or interactive elements
+                            const target = e.target as HTMLElement;
+                            if (!target.closest('button') && !target.closest('a') && !target.closest('[role="menu"]')) {
+                              toggleExpandBooking(booking._id);
+                            }
+                          }
+                        }}
+                        style={{ cursor: window.innerWidth <= 640 ? 'pointer' : 'default' }}
+                      >
+                        <TableCell className="text-center py-5">
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 w-7 p-0"
+                            className="h-8 w-8 p-0"
                             onClick={() => toggleExpandBooking(booking._id)}
                             disabled={loadingOrders.has(booking._id)}
                           >
                             {expandedBookings.has(booking._id) ? (
-                              <ChevronUp className="h-4 w-4" />
+                              <ChevronUp className="h-5 w-5" />
                             ) : (
-                              <ChevronDown className="h-4 w-4" />
+                              <ChevronDown className="h-5 w-5" />
                             )}
                           </Button>
                         </TableCell>
-                        <TableCell className="font-medium text-sm py-2">
+                        <TableCell className="font-bold text-base text-[#1a2a5e] py-5" data-label="Booking ID">
                           <div className="flex items-center gap-2">
-                            <Package className="h-3 w-3 text-foreground/60" />
+                            <Package className="h-4 w-4" />
                             <span>{booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="py-2">
-                          <Badge className={`${getStatusColor(booking.status)} text-xs`}>
+                        <TableCell className="py-5" data-label="Status">
+                          <Badge className={getStatusColor(booking.status)}>
                             {t(`status.${booking.status}`)}
                           </Badge>
                         </TableCell>
-                        <TableCell className="py-2">
-                          <Badge className={`${getBillingStatusColor(booking.billingStatus)} text-xs`}>
+                        <TableCell className="py-5" data-label="Billing">
+                          <Badge className={getBillingStatusColor(booking.billingStatus)}>
                             {t(`billingStatus.${booking.billingStatus}`)}
                           </Badge>
                         </TableCell>
-                        <TableCell className="py-2">
-                          <div className="flex items-center gap-2 min-w-[100px]">
-                            <div className="flex-1 bg-muted rounded-full h-1.5">
+                        <TableCell className="py-5" data-label="Progress">
+                          <div className="progress-container">
+                            <div className="progress-bar">
                               <div
-                                className="bg-primary h-1.5 rounded-full transition-all"
+                                className="progress-fill"
                                 style={{ width: `${getBookingProgress(booking._id, booking.overallProgress || 0)}%` }}
                               ></div>
                             </div>
-                            <span className="text-xs font-semibold whitespace-nowrap text-foreground/70">
+                            <span className="progress-text">
                               {getBookingProgress(booking._id, booking.overallProgress || 0)}%
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="font-medium text-sm py-2">
+                        <TableCell className="font-bold text-base text-[#1a2a5e] py-5" data-label="Total Cost">
                           {formatCurrency(booking.totalCost)}
                         </TableCell>
-                        <TableCell className="text-center text-sm py-2 text-foreground/70">
+                        <TableCell className="text-center font-medium py-5" data-label="Items">
                           {booking.items.length}
                         </TableCell>
-                        <TableCell className="text-center py-2">
+                        <TableCell className="text-center py-5" data-label="Messages">
                           {(() => {
                             const unreadInfo = getBookingUnreadCount(booking);
                             if (unreadInfo.total > 0) {
                               return (
                                 <div className="flex items-center justify-center">
                                   <div className={`
-                                    relative inline-flex items-center justify-center
-                                    w-8 h-8 rounded-full
+                                    message-badge
                                     ${unreadInfo.hasStaffMessages
-                                      ? 'bg-orange-500 dark:bg-orange-600'
-                                      : 'bg-blue-500 dark:bg-blue-600'
+                                      ? 'message-badge-staff'
+                                      : 'message-badge-customer'
                                     }
-                                    text-white font-semibold text-xs
-                                    shadow-lg
-                                    animate-pulse
-                                    hover:scale-110 transition-transform cursor-pointer
                                   `}
                                   title={`${unreadInfo.total} total unread message${unreadInfo.total > 1 ? 's' : ''} from ${unreadInfo.hasStaffMessages ? 'staff' : 'you'}`}
                                   onClick={(e) => {
@@ -666,33 +708,33 @@ export function CustomerBookings() {
                                 </div>
                               );
                             }
-                            return <span className="text-xs text-foreground/40">—</span>;
+                            return <span className="text-sm opacity-50">—</span>;
                           })()}
                         </TableCell>
-                        <TableCell className="text-xs text-foreground/60 py-2">
+                        <TableCell className="text-base text-slate-600 py-5" data-label="Created">
                           {formatDate(booking.createdAt)}
                         </TableCell>
-                        <TableCell className="text-right py-2">
+                        <TableCell className="text-right py-5" data-label="Actions">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                                <MoreVertical className="h-4 w-4" />
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreVertical className="h-5 w-5" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40">
-                              <DropdownMenuItem onClick={() => handleViewDetails(booking)} className="text-sm">
-                                <Eye className="h-3 w-3 mr-2" />
+                            <DropdownMenuContent align="end" className="w-44">
+                              <DropdownMenuItem onClick={() => handleViewDetails(booking)}>
+                                <Eye className="h-4 w-4 mr-2" />
                                 {t('common.viewDetails')}
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => toggleExpandBooking(booking._id)} className="text-sm">
+                              <DropdownMenuItem onClick={() => toggleExpandBooking(booking._id)}>
                                 {expandedBookings.has(booking._id) ? (
                                   <>
-                                    <ChevronUp className="h-3 w-3 mr-2" />
+                                    <ChevronUp className="h-4 w-4 mr-2" />
                                     {t('common.hide')} Orders
                                   </>
                                 ) : (
                                   <>
-                                    <ChevronDown className="h-3 w-3 mr-2" />
+                                    <ChevronDown className="h-4 w-4 mr-2" />
                                     {t('bookings.viewOrders')}
                                   </>
                                 )}
@@ -704,47 +746,47 @@ export function CustomerBookings() {
 
                       {/* Expanded Row with Orders/Repair Jobs */}
                       {expandedBookings.has(booking._id) && (
-                        <TableRow className="bg-muted/20">
+                        <TableRow className="expanded-row">
                           <TableCell colSpan={10}>
-                            <div className="p-3 space-y-3">
+                            <div className="p-2 space-y-2">
                               {/* Booking Status Summary */}
-                              <div className="bg-muted/40 p-2.5 rounded-lg border border-muted">
-                                <div className="flex items-center justify-between mb-1.5">
-                                  <span className="text-xs font-semibold text-foreground/70 uppercase">Booking Status</span>
-                                  <Badge className={`${getStatusColor(booking.status)} text-xs`}>
+                              <div className="expanded-section">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="expanded-section-title">Booking Status</span>
+                                  <Badge className={getStatusColor(booking.status)}>
                                     {t(`status.${booking.status}`)}
                                   </Badge>
                                 </div>
-                                <div className="grid grid-cols-3 gap-2 text-xs mb-2">
-                                  <div>
-                                    <span className="text-foreground/60 text-xs">Billing:</span>
-                                    <Badge className={`${getBillingStatusColor(booking.billingStatus)} ml-2 text-xs`}>
+                                <div className="info-grid">
+                                  <div className="info-item">
+                                    <div className="info-label">Billing</div>
+                                    <Badge className={getBillingStatusColor(booking.billingStatus)}>
                                       {t(`billingStatus.${booking.billingStatus}`)}
                                     </Badge>
                                   </div>
                                   {booking.returnShipmentStatus && (
-                                    <div>
-                                      <span className="text-foreground/60 text-xs">Return:</span>
-                                      <Badge className={`${getReturnShipmentStatusColor(booking.returnShipmentStatus)} ml-2 text-xs`}>
+                                    <div className="info-item">
+                                      <div className="info-label">Return Status</div>
+                                      <Badge className={getReturnShipmentStatusColor(booking.returnShipmentStatus)}>
                                         {booking.returnShipmentStatus}
                                       </Badge>
                                     </div>
                                   )}
-                                  <div className={booking.returnShipmentStatus ? "text-right" : "col-span-2 text-right"}>
-                                    <span className="text-foreground/60 text-xs">Total: </span>
-                                    <span className="font-semibold text-xs">{formatCurrency(booking.totalCost)}</span>
+                                  <div className="info-item">
+                                    <div className="info-label">Total Cost</div>
+                                    <div className="info-value">{formatCurrency(booking.totalCost)}</div>
                                   </div>
                                 </div>
-                                <div>
-                                  <span className="text-xs text-foreground/60 mb-1 block">Progress:</span>
-                                  <div className="flex items-center gap-2">
-                                    <div className="flex-1 bg-muted rounded-full h-1.5">
+                                <div className="mt-2">
+                                  <div className="info-label mb-1.5">Progress</div>
+                                  <div className="progress-container">
+                                    <div className="progress-bar">
                                       <div
-                                        className="bg-primary h-1.5 rounded-full transition-all"
+                                        className="progress-fill"
                                         style={{ width: `${getBookingProgress(booking._id, booking.overallProgress || 0)}%` }}
                                       ></div>
                                     </div>
-                                    <span className="text-xs font-semibold whitespace-nowrap text-foreground/70">
+                                    <span className="progress-text">
                                       {getBookingProgress(booking._id, booking.overallProgress || 0)}%
                                     </span>
                                   </div>
@@ -753,14 +795,14 @@ export function CustomerBookings() {
 
                               {/* Return Shipping Information */}
                               {(booking.returnTrackingNumber || booking.returnLabelUrl || booking.returnQRCodeUrl) && (
-                                <div className="bg-blue-50 dark:bg-blue-950/30 p-2.5 rounded-lg border border-blue-200 dark:border-blue-800">
+                                <div className="bg-blue-50 dark:bg-blue-950/30 p-2 rounded-md border border-blue-200 dark:border-blue-800">
                                   <div className="flex items-center justify-between mb-1.5">
                                     <span className="text-xs font-semibold text-blue-900 dark:text-blue-200 uppercase flex items-center gap-1">
                                       <Truck className="h-3 w-3" />
                                       Return Shipping
                                     </span>
                                     {booking.returnShipmentStatus && (
-                                      <Badge className={`${getReturnShipmentStatusColor(booking.returnShipmentStatus)} text-xs`}>
+                                      <Badge className={getReturnShipmentStatusColor(booking.returnShipmentStatus)}>
                                         {booking.returnShipmentStatus}
                                       </Badge>
                                     )}
@@ -821,13 +863,13 @@ export function CustomerBookings() {
                               )}
 
                               {loadingOrders.has(booking._id) ? (
-                                <div className="text-center py-3">
+                                <div className="text-center py-2">
                                   <p className="text-xs text-foreground/60">Loading orders...</p>
                                 </div>
                               ) : expandedOrdersData[booking._id] && expandedOrdersData[booking._id].length > 0 ? (
-                                <div className="space-y-2.5">
-                                  <h4 className="font-semibold text-xs mb-2 text-foreground/70">ORDERS & REPAIRS</h4>
-                                  <div className="border rounded-lg overflow-hidden">
+                                <div className="space-y-1.5">
+                                  <h4 className="font-semibold text-xs mb-1.5 text-foreground/70">ORDERS & REPAIRS</h4>
+                                  <div className="border rounded-md overflow-hidden">
                                     <Table className="text-xs">
                                       <TableHeader>
                                         <TableRow className="bg-muted/40">
@@ -945,7 +987,7 @@ export function CustomerBookings() {
                                   </div>
                                 </div>
                               ) : (
-                                <div className="text-center py-3">
+                                <div className="text-center py-2">
                                   <p className="text-xs text-foreground/60">No associated orders found</p>
                                 </div>
                               )}
@@ -958,52 +1000,48 @@ export function CustomerBookings() {
                 </TableBody>
               </Table>
             </ScrollArea>
-          )}
 
-          {/* Pagination Controls */}
-          {filteredBookings.length > 0 && totalBookings > itemsPerPage && (
-            <div className="flex items-center justify-between px-2 py-3 border-t">
-              <div className="flex items-center gap-2">
-                <p className="text-xs text-foreground/60">
+            {/* Pagination Controls */}
+            {filteredBookings.length > 0 && totalBookings > itemsPerPage && (
+              <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50">
+                <div className="text-sm text-slate-600">
                   {((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, totalBookings)} of {totalBookings}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-foreground/60">Per page:</label>
-                  <Select
-                    value={itemsPerPage.toString()}
-                    onValueChange={(value) => {
-                      setItemsPerPage(parseInt(value));
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <SelectTrigger className="h-8 w-16 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="20">20</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                      <SelectItem value="100">100</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
 
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-2 text-xs"
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1 || loading}
-                  >
-                    <ChevronLeft className="h-3 w-3 mr-1" />
-                    Prev
-                  </Button>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-slate-600">Per page:</label>
+                    <Select
+                      value={itemsPerPage.toString()}
+                      onValueChange={(value) => {
+                        setItemsPerPage(parseInt(value));
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="h-9 w-20 text-sm border-slate-200 focus:border-[#f5b800] focus:ring-[#f5b800]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="20">20</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                        <SelectItem value="100">100</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                  <div className="flex items-center gap-0.5">
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 text-sm border-slate-200 hover:bg-slate-100"
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1 || loading}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Prev
+                    </Button>
+
                     {Array.from({ length: Math.ceil(totalBookings / itemsPerPage) }, (_, i) => i + 1)
                       .filter(page => {
                         const totalPages = Math.ceil(totalBookings / itemsPerPage);
@@ -1020,38 +1058,41 @@ export function CustomerBookings() {
                         return (
                           <React.Fragment key={page}>
                             {showEllipsis && (
-                              <span className="px-1 text-foreground/40 text-xs">…</span>
+                              <span className="px-2 text-slate-400">…</span>
                             )}
                             <Button
                               variant={currentPage === page ? "default" : "outline"}
                               size="sm"
+                              className={currentPage === page 
+                                ? "h-9 w-9 p-0 bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] text-white" 
+                                : "h-9 w-9 p-0 border-slate-200 hover:bg-slate-100"
+                              }
                               onClick={() => setCurrentPage(page)}
                               disabled={loading}
-                              className="h-8 w-8 p-0 text-xs"
                             >
                               {page}
                             </Button>
                           </React.Fragment>
                         );
                       })}
-                  </div>
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-2 text-xs"
-                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalBookings / itemsPerPage), prev + 1))}
-                    disabled={currentPage >= Math.ceil(totalBookings / itemsPerPage) || loading}
-                  >
-                    Next
-                    <ChevronRight className="h-3 w-3 ml-1" />
-                  </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 text-sm border-slate-200 hover:bg-slate-100"
+                      onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalBookings / itemsPerPage), prev + 1))}
+                      disabled={currentPage >= Math.ceil(totalBookings / itemsPerPage) || loading}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+        )}
 
       {/* Booking Detail Dialog */}
       {selectedBooking && (
@@ -1094,6 +1135,7 @@ export function CustomerBookings() {
           </DialogContent>
         </Dialog>
       )}
+      </div>
     </div>
   );
 }
@@ -1136,187 +1178,247 @@ function BookingDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="pb-2">
-          <DialogTitle className="text-lg">Booking Details</DialogTitle>
-          <DialogDescription className="text-xs text-foreground/60">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-[var(--off-white,#f8f9fc)]">
+        <DialogHeader className="pb-4 border-b-2 border-[var(--accent-yellow,#f5b800)]">
+          <DialogTitle className="text-2xl font-extrabold text-[var(--primary-blue,#1a2a5e)]">
+            Buchungsdetails
+          </DialogTitle>
+          <DialogDescription className="text-sm font-semibold text-[var(--gray-600,#4a5568)] mt-1">
             {booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`}
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 h-8">
-            <TabsTrigger value="overview" className="text-xs h-7">Overview</TabsTrigger>
-            <TabsTrigger value="repairs" className="text-xs h-7">Repairs</TabsTrigger>
-            <TabsTrigger value="items" className="text-xs h-7">Items</TabsTrigger>
-            <TabsTrigger value="shipping" className="text-xs h-7">Shipping</TabsTrigger>
-            <TabsTrigger value="timeline" className="text-xs h-7">Timeline</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-4">
+          <TabsList className="grid w-full grid-cols-5 h-10 bg-[var(--primary-blue,#1a2a5e)] rounded-lg p-1">
+            <TabsTrigger 
+              value="overview" 
+              className="text-sm font-semibold data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+            >
+              Übersicht
+            </TabsTrigger>
+            <TabsTrigger 
+              value="repairs" 
+              className="text-sm font-semibold data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+            >
+              Reparaturen
+            </TabsTrigger>
+            <TabsTrigger 
+              value="items" 
+              className="text-sm font-semibold data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+            >
+              Artikel
+            </TabsTrigger>
+            <TabsTrigger 
+              value="shipping" 
+              className="text-sm font-semibold data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+            >
+              Versand
+            </TabsTrigger>
+            <TabsTrigger 
+              value="timeline" 
+              className="text-sm font-semibold data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+            >
+              Verlauf
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-3 mt-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <h3 className="font-semibold text-xs mb-2 text-foreground/70 uppercase">Customer</h3>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-8 w-8">
+          <TabsContent value="overview" className="space-y-5 mt-5">
+            <div className="grid grid-cols-2 gap-5">
+              <div className="bg-white rounded-lg p-5 shadow-md border border-[var(--gray-200,#d8dce6)]">
+                <h3 className="font-bold text-sm mb-3 text-[var(--primary-blue,#1a2a5e)] uppercase tracking-wide flex items-center gap-2">
+                  <span className="w-1 h-4 bg-[var(--accent-yellow,#f5b800)] rounded"></span>
+                  Kunde
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-12 w-12 border-2 border-[var(--accent-yellow,#f5b800)]">
                       <AvatarImage src={booking.customerId.avatar} />
-                      <AvatarFallback className="text-xs">{(booking.customerId.firstName || booking.customerId.name || booking.customerId.email).charAt(0)}</AvatarFallback>
+                      <AvatarFallback className="text-sm font-bold bg-[var(--primary-blue,#1a2a5e)] text-white">
+                        {(booking.customerId.firstName || booking.customerId.name || booking.customerId.email).charAt(0)}
+                      </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium text-xs">{booking.customerId.firstName ? `${booking.customerId.firstName} ${booking.customerId.lastName || ''}` : (booking.customerId.name || booking.customerId.email)}</p>
-                      <p className="text-xs text-foreground/60">{booking.customerId.email}</p>
+                      <p className="font-bold text-sm text-[var(--gray-800,#1a202c)]">
+                        {booking.customerId.firstName ? `${booking.customerId.firstName} ${booking.customerId.lastName || ''}` : (booking.customerId.name || booking.customerId.email)}
+                      </p>
+                      <p className="text-sm text-[var(--gray-500,#636e85)]">{booking.customerId.email}</p>
                     </div>
                   </div>
-                  <div className="text-xs">
-                    <span className="text-foreground/60">Phone: </span>
-                    <span className="font-medium">{booking.customerId.phone}</span>
+                  <div className="text-sm pt-2 border-t border-[var(--gray-200,#d8dce6)]">
+                    <span className="text-[var(--gray-600,#4a5568)] font-semibold">Telefon: </span>
+                    <span className="font-semibold text-[var(--gray-800,#1a202c)]">{booking.customerId.phone}</span>
                   </div>
                 </div>
               </div>
 
-              <div>
-                <h3 className="font-semibold text-xs mb-2 text-foreground/70 uppercase">Status</h3>
-                <div className="space-y-2">
+              <div className="bg-white rounded-lg p-5 shadow-md border border-[var(--gray-200,#d8dce6)]">
+                <h3 className="font-bold text-sm mb-3 text-[var(--primary-blue,#1a2a5e)] uppercase tracking-wide flex items-center gap-2">
+                  <span className="w-1 h-4 bg-[var(--accent-yellow,#f5b800)] rounded"></span>
+                  Status
+                </h3>
+                <div className="space-y-3">
                   <div>
-                    <p className="text-xs text-foreground/60 mb-1">Current</p>
-                    <Badge className={`${getStatusColor(booking.status)} text-xs`}>{booking.status}</Badge>
+                    <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-2 uppercase">Aktuell</p>
+                    <Badge className={`${getStatusColor(booking.status)} text-sm font-bold px-3 py-1`}>{booking.status}</Badge>
                   </div>
-                  <div>
-                    <p className="text-xs text-foreground/60 mb-1">Billing</p>
-                    <Badge className={`${getBillingStatusColor(booking.billingStatus)} text-xs`}>{booking.billingStatus}</Badge>
+                  <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
+                    <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-2 uppercase">Abrechnung</p>
+                    <Badge className={`${getBillingStatusColor(booking.billingStatus)} text-sm font-bold px-3 py-1`}>{booking.billingStatus}</Badge>
                   </div>
                 </div>
               </div>
             </div>
 
-            <Separator />
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-muted/40 p-2.5 rounded">
-                <p className="text-xs text-foreground/60">Total Cost</p>
-                <p className="text-base font-bold">{formatCurrency(booking.totalCost)}</p>
+            <div className="grid grid-cols-2 gap-5">
+              <div className="bg-gradient-to-br from-[var(--primary-blue,#1a2a5e)] to-[var(--primary-blue-light,#2a3f7e)] rounded-lg p-5 shadow-lg text-white">
+                <p className="text-sm font-semibold opacity-90 mb-1">Gesamtkosten</p>
+                <p className="text-3xl font-extrabold tracking-tight">{formatCurrency(booking.totalCost)}</p>
               </div>
-              <div className="bg-muted/40 p-2.5 rounded">
-                <p className="text-xs text-foreground/60">Items</p>
-                <p className="text-base font-bold">{booking.items.length}</p>
+              <div className="bg-gradient-to-br from-[var(--accent-yellow,#f5b800)] to-[var(--accent-yellow-hover,#e5ab00)] rounded-lg p-5 shadow-lg text-[var(--primary-blue,#1a2a5e)]">
+                <p className="text-sm font-semibold opacity-90 mb-1">Artikel</p>
+                <p className="text-3xl font-extrabold tracking-tight">{booking.items.length}</p>
               </div>
             </div>
 
-            <Separator />
-
-            <div>
-              <p className="text-xs text-foreground/60 mb-1.5 font-medium">Dates</p>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="text-foreground/70">Created: <span className="font-medium">{formatDateTime(booking.createdAt)}</span></div>
-                <div className="text-foreground/70">Updated: <span className="font-medium">{formatDateTime(booking.updatedAt)}</span></div>
+            <div className="bg-white rounded-lg p-5 shadow-md border border-[var(--gray-200,#d8dce6)]">
+              <p className="text-sm text-[var(--primary-blue,#1a2a5e)] mb-3 font-bold uppercase tracking-wide flex items-center gap-2">
+                <span className="w-1 h-4 bg-[var(--accent-yellow,#f5b800)] rounded"></span>
+                Zeitstempel
+              </p>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="flex items-center gap-2 bg-[var(--gray-50,#f5f6f8)] p-3 rounded-lg">
+                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                  <div>
+                    <span className="text-[var(--gray-600,#4a5568)]">Erstellt: </span>
+                    <span className="font-bold text-[var(--gray-800,#1a202c)]">{formatDateTime(booking.createdAt)}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 bg-[var(--gray-50,#f5f6f8)] p-3 rounded-lg">
+                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                  <div>
+                    <span className="text-[var(--gray-600,#4a5568)]">Aktualisiert: </span>
+                    <span className="font-bold text-[var(--gray-800,#1a202c)]">{formatDateTime(booking.updatedAt)}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="repairs" className="space-y-2.5 mt-3">
+          <TabsContent value="repairs" className="space-y-3 mt-5">
             {booking.items && booking.items.filter(item => item.type === 'repair').length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {booking.items.filter(item => item.type === 'repair').map((item) => (
                   <div
                     key={item._id || item.orderId}
-                    className="border p-3 rounded-lg hover:bg-muted/40 cursor-pointer transition-colors"
+                    className="bg-white border-2 border-[var(--gray-200,#d8dce6)] rounded-lg p-4 hover:border-[var(--accent-yellow,#f5b800)] hover:shadow-lg cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
                     onClick={() => item.orderId && handleViewOrder(item.orderId)}
                   >
-                    <div className="flex justify-between items-start mb-2">
+                    <div className="flex justify-between items-start mb-3">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-semibold text-sm">{item.device || 'Device Repair'}</h4>
-                          <Badge className={`${getStatusColor(item.status || 'pending')} text-xs`}>
+                        <div className="flex items-center gap-3 flex-wrap mb-2">
+                          <h4 className="font-bold text-base text-[var(--gray-800,#1a202c)]">{item.device || 'Gerät Reparatur'}</h4>
+                          <Badge className={`${getStatusColor(item.status || 'pending')} text-sm font-bold px-3 py-1`}>
                             {item.status || 'pending'}
                           </Badge>
                         </div>
                         {item.services && item.services.length > 0 && (
-                          <p className="text-xs text-foreground/60 mt-1">{item.services.map(s => s.name).join(', ')}</p>
+                          <p className="text-sm text-[var(--gray-600,#4a5568)] font-medium">{item.services.map(s => s.name).join(', ')}</p>
                         )}
                       </div>
                       {item.orderId && (
-                        <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-0.5 ml-2">
-                          <ExternalLink className="h-3 w-3" />
+                        <span className="text-sm text-[var(--primary-blue,#1a2a5e)] flex items-center gap-1 ml-3 font-semibold">
+                          <ExternalLink className="h-4 w-4" />
                         </span>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>Cost: {formatCurrency(item.cost)}</div>
+                    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-[var(--gray-200,#d8dce6)]">
+                      <div className="text-sm">
+                        <span className="text-[var(--gray-600,#4a5568)]">Kosten: </span>
+                        <span className="font-bold text-[var(--primary-blue,#1a2a5e)]">{formatCurrency(item.cost)}</span>
+                      </div>
                       {item.services && item.services[0]?.estimatedTime && (
-                        <div className="text-right">Est: {item.services[0].estimatedTime}m</div>
+                        <div className="text-sm text-right">
+                          <span className="text-[var(--gray-600,#4a5568)]">Geschätzt: </span>
+                          <span className="font-bold text-[var(--gray-800,#1a202c)]">{item.services[0].estimatedTime}m</span>
+                        </div>
                       )}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-foreground/60 text-center py-3 text-xs">No repair jobs</p>
+              <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-[var(--gray-300,#b0b8c9)]">
+                <p className="text-[var(--gray-500,#636e85)] text-base font-semibold">Keine Reparaturaufträge</p>
+              </div>
             )}
           </TabsContent>
 
-          <TabsContent value="items" className="space-y-2.5 mt-3">
+          <TabsContent value="items" className="space-y-3 mt-5">
             {booking.items && booking.items.filter(item => item.type === 'product').length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {booking.items.filter(item => item.type === 'product').map((item) => (
-                  <div key={item._id || item.orderId} className="border p-3 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-semibold text-sm">Product</h4>
-                      <Badge className={`${getStatusColor(item.status || 'pending')} text-xs`}>
+                  <div key={item._id || item.orderId} className="bg-white border-2 border-[var(--gray-200,#d8dce6)] rounded-lg p-4 shadow-md">
+                    <div className="flex items-center justify-between mb-3 pb-3 border-b-2 border-[var(--accent-yellow,#f5b800)]">
+                      <h4 className="font-bold text-base text-[var(--primary-blue,#1a2a5e)]">Produkt</h4>
+                      <Badge className={`${getStatusColor(item.status || 'pending')} text-sm font-bold px-3 py-1`}>
                         {item.status || 'pending'}
                       </Badge>
                     </div>
                     {item.products && item.products.length > 0 ? (
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         {item.products.map((product, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-xs pb-1.5 border-b last:border-0">
+                          <div key={idx} className="flex justify-between items-center text-sm p-3 bg-[var(--gray-50,#f5f6f8)] rounded-lg border-l-4 border-[var(--primary-blue,#1a2a5e)]">
                             <div>
-                              <p className="font-medium">{product.name}</p>
-                              <p className="text-xs text-foreground/60">Qty: {product.quantity} × {formatCurrency(product.price)}</p>
+                              <p className="font-bold text-[var(--gray-800,#1a202c)]">{product.name}</p>
+                              <p className="text-sm text-[var(--gray-600,#4a5568)] mt-1">
+                                Menge: {product.quantity} × {formatCurrency(product.price)}
+                              </p>
                             </div>
-                            <p className="font-semibold">{formatCurrency(product.totalPrice)}</p>
+                            <p className="font-extrabold text-base text-[var(--primary-blue,#1a2a5e)]">{formatCurrency(product.totalPrice)}</p>
                           </div>
                         ))}
-                        <div className="flex justify-between items-center text-xs mt-1.5 pt-1.5 border-t font-semibold">
-                          <span>Total:</span>
-                          <span>{formatCurrency(item.cost)}</span>
+                        <div className="flex justify-between items-center text-sm mt-4 pt-3 border-t-2 border-[var(--gray-300,#b0b8c9)] font-bold">
+                          <span className="text-[var(--gray-700,#2d3748)] uppercase tracking-wide">Gesamt:</span>
+                          <span className="text-lg text-[var(--primary-blue,#1a2a5e)]">{formatCurrency(item.cost)}</span>
                         </div>
                       </div>
                     ) : (
-                      <p className="text-xs text-foreground/60">No products</p>
+                      <p className="text-sm text-[var(--gray-500,#636e85)] text-center py-3">Keine Produkte</p>
                     )}
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-foreground/60 text-center py-3 text-xs">No product items</p>
+              <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-[var(--gray-300,#b0b8c9)]">
+                <p className="text-[var(--gray-500,#636e85)] text-base font-semibold">Keine Produktartikel</p>
+              </div>
             )}
           </TabsContent>
 
-          <TabsContent value="shipping" className="space-y-3 mt-3">
+          <TabsContent value="shipping" className="space-y-4 mt-5">
             {(booking.returnTrackingNumber || booking.returnLabelUrl || booking.returnQRCodeUrl || booking.returnShipmentStatus) ? (
-              <div className="space-y-3">
-                <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-semibold text-sm flex items-center gap-2">
-                      <Truck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                      Return Shipping
+              <div className="space-y-4">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20 p-5 rounded-lg border-2 border-[var(--primary-blue,#1a2a5e)] shadow-md">
+                  <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-[var(--accent-yellow,#f5b800)]">
+                    <h3 className="font-bold text-base flex items-center gap-2 text-[var(--primary-blue,#1a2a5e)]">
+                      <Truck className="h-5 w-5 text-[var(--accent-yellow,#f5b800)]" />
+                      Rücksendung
                     </h3>
                     {booking.returnShipmentStatus && (
-                      <Badge className={`${getReturnShipmentStatusColor(booking.returnShipmentStatus)} text-xs`}>
+                      <Badge className={`${getReturnShipmentStatusColor(booking.returnShipmentStatus)} text-sm font-bold px-3 py-1`}>
                         {booking.returnShipmentStatus}
                       </Badge>
                     )}
                   </div>
 
-                  <div className="space-y-2.5">
+                  <div className="space-y-4">
                     {booking.returnTrackingNumber && (
-                      <div className="border-b pb-2">
-                        <div className="flex items-start gap-2">
-                          <Package className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                      <div className="bg-white rounded-lg p-4 border-l-4 border-[var(--primary-blue,#1a2a5e)]">
+                        <div className="flex items-start gap-3">
+                          <Package className="h-5 w-5 text-[var(--primary-blue,#1a2a5e)] mt-0.5 flex-shrink-0" />
                           <div className="flex-1">
-                            <p className="text-xs text-foreground/60 mb-1">Tracking Number</p>
-                            <p className="font-mono font-semibold text-sm text-blue-900 dark:text-blue-200">
+                            <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-2 uppercase">Sendungsverfolgung</p>
+                            <p className="font-mono font-bold text-base text-[var(--primary-blue,#1a2a5e)]">
                               {booking.returnTrackingNumber}
                             </p>
                           </div>
@@ -1325,20 +1427,20 @@ function BookingDetailDialog({
                     )}
 
                     {booking.returnLabelUrl && (
-                      <div className="border-b pb-2">
-                        <div className="flex items-start gap-2">
-                          <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                      <div className="bg-white rounded-lg p-4 border-l-4 border-[var(--accent-yellow,#f5b800)]">
+                        <div className="flex items-start gap-3">
+                          <FileText className="h-5 w-5 text-[var(--accent-yellow,#f5b800)] mt-0.5 flex-shrink-0" />
                           <div className="flex-1">
-                            <p className="text-xs text-foreground/60 mb-1">Return Label</p>
+                            <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-2 uppercase">Versandetikett</p>
                             <a
                               href={booking.returnLabelUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors"
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary-blue,#1a2a5e)] text-white rounded-lg text-sm font-bold hover:bg-[var(--primary-blue-dark,#0f1d45)] transition-all hover:shadow-lg"
                             >
-                              <FileText className="h-3 w-3" />
-                              Download PDF
-                              <ExternalLink className="h-3 w-3" />
+                              <FileText className="h-4 w-4" />
+                              PDF Herunterladen
+                              <ExternalLink className="h-4 w-4" />
                             </a>
                           </div>
                         </div>
@@ -1346,20 +1448,20 @@ function BookingDetailDialog({
                     )}
 
                     {booking.returnQRCodeUrl && (
-                      <div className="border-b pb-2">
-                        <div className="flex items-start gap-2">
-                          <QrCode className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                      <div className="bg-white rounded-lg p-4 border-l-4 border-green-500">
+                        <div className="flex items-start gap-3">
+                          <QrCode className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
                           <div className="flex-1">
-                            <p className="text-xs text-foreground/60 mb-1">QR Code</p>
+                            <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-2 uppercase">QR Code</p>
                             <a
                               href={booking.returnQRCodeUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors"
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 transition-all hover:shadow-lg"
                             >
-                              <QrCode className="h-3 w-3" />
-                              View Code
-                              <ExternalLink className="h-3 w-3" />
+                              <QrCode className="h-4 w-4" />
+                              Code Anzeigen
+                              <ExternalLink className="h-4 w-4" />
                             </a>
                           </div>
                         </div>
@@ -1367,24 +1469,24 @@ function BookingDetailDialog({
                     )}
 
                     {(booking.returnCreatedAt || booking.returnReceivedAt) && (
-                      <div>
-                        <div className="flex items-start gap-2">
-                          <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                      <div className="bg-white rounded-lg p-4">
+                        <div className="flex items-start gap-3">
+                          <Clock className="h-5 w-5 text-[var(--primary-blue,#1a2a5e)] mt-0.5 flex-shrink-0" />
                           <div className="flex-1">
-                            <p className="text-xs text-foreground/60 mb-1">Timeline</p>
-                            <div className="space-y-1 text-xs">
+                            <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-3 uppercase">Zeitlinie</p>
+                            <div className="space-y-2 text-sm">
                               {booking.returnCreatedAt && (
-                                <div className="flex items-center gap-2">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-blue-600"></div>
-                                  <span className="text-foreground/60">Created:</span>
-                                  <span className="font-semibold">{formatDateTime(booking.returnCreatedAt)}</span>
+                                <div className="flex items-center gap-3 bg-[var(--gray-50,#f5f6f8)] p-2 rounded-lg">
+                                  <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                                  <span className="text-[var(--gray-600,#4a5568)] font-semibold">Erstellt:</span>
+                                  <span className="font-bold text-[var(--gray-800,#1a202c)]">{formatDateTime(booking.returnCreatedAt)}</span>
                                 </div>
                               )}
                               {booking.returnReceivedAt && (
-                                <div className="flex items-center gap-2">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-green-600"></div>
-                                  <span className="text-foreground/60">Received:</span>
-                                  <span className="font-semibold">{formatDateTime(booking.returnReceivedAt)}</span>
+                                <div className="flex items-center gap-3 bg-green-50 p-2 rounded-lg">
+                                  <div className="w-3 h-3 rounded-full bg-green-600"></div>
+                                  <span className="text-[var(--gray-600,#4a5568)] font-semibold">Erhalten:</span>
+                                  <span className="font-bold text-[var(--gray-800,#1a202c)]">{formatDateTime(booking.returnReceivedAt)}</span>
                                 </div>
                               )}
                             </div>
@@ -1395,46 +1497,55 @@ function BookingDetailDialog({
                   </div>
                 </div>
 
-                <div className="bg-muted/40 p-2.5 rounded-lg text-xs">
-                  <h4 className="font-semibold mb-1.5 text-foreground/80">Instructions</h4>
-                  <ol className="list-decimal list-inside space-y-0.5 text-foreground/70 text-xs">
-                    <li>Print label or save QR code</li>
-                    <li>Pack item securely</li>
-                    <li>Attach label or show QR code at DHL</li>
-                    <li>Drop off at DHL location</li>
-                    <li>Track your return</li>
+                <div className="bg-[var(--accent-yellow-light,#ffd54f)]/20 p-5 rounded-lg border-2 border-[var(--accent-yellow,#f5b800)]">
+                  <h4 className="font-bold mb-3 text-[var(--primary-blue,#1a2a5e)] uppercase tracking-wide text-sm flex items-center gap-2">
+                    <span className="w-1 h-4 bg-[var(--accent-yellow,#f5b800)] rounded"></span>
+                    Anweisungen
+                  </h4>
+                  <ol className="list-decimal list-inside space-y-2 text-[var(--gray-700,#2d3748)] text-sm font-medium">
+                    <li>Etikett drucken oder QR-Code speichern</li>
+                    <li>Artikel sicher verpacken</li>
+                    <li>Etikett befestigen oder QR-Code bei DHL vorzeigen</li>
+                    <li>Bei DHL-Standort abgeben</li>
+                    <li>Rücksendung verfolgen</li>
                   </ol>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-6">
-                <Truck className="h-10 w-10 mx-auto mb-3 text-foreground/20" />
-                <p className="text-foreground/60 text-sm">No return shipping</p>
+              <div className="text-center py-16 bg-white rounded-lg border-2 border-dashed border-[var(--gray-300,#b0b8c9)]">
+                <Truck className="h-16 w-16 mx-auto mb-4 text-[var(--gray-300,#b0b8c9)]" />
+                <p className="text-[var(--gray-500,#636e85)] text-base font-semibold">Keine Rücksendung</p>
               </div>
             )}
           </TabsContent>
 
-          <TabsContent value="timeline" className="space-y-2.5 mt-3">
+          <TabsContent value="timeline" className="space-y-3 mt-5">
             {booking.timeline && booking.timeline.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {booking.timeline.map((event) => (
-                  <div key={event._id || event.completedAt} className="border p-2.5 rounded-lg flex gap-2.5">
+                  <div key={event._id || event.completedAt} className="bg-white border-2 border-[var(--gray-200,#d8dce6)] p-4 rounded-lg flex gap-4 shadow-md hover:border-[var(--accent-yellow,#f5b800)] transition-all">
                     <div className="flex-shrink-0">
-                      <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                      <CheckCircle className="h-6 w-6 text-green-600 mt-1" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-semibold text-sm">{event.status}</h4>
-                      <p className="text-xs text-foreground/60 mt-0.5">{event.description}</p>
+                      <h4 className="font-bold text-base text-[var(--primary-blue,#1a2a5e)] mb-1">{event.status}</h4>
+                      <p className="text-sm text-[var(--gray-600,#4a5568)] mb-2">{event.description}</p>
                       {event.staffName && (
-                        <p className="text-xs text-foreground/60 mt-1">By: {event.staffName}</p>
+                        <p className="text-sm text-[var(--gray-600,#4a5568)] mb-2">
+                          <span className="font-semibold">Von:</span> {event.staffName}
+                        </p>
                       )}
-                      <p className="text-xs text-foreground/50 mt-1">{formatDateTime(event.completedAt)}</p>
+                      <p className="text-xs text-[var(--gray-500,#636e85)] font-semibold bg-[var(--gray-50,#f5f6f8)] inline-block px-3 py-1 rounded-full">
+                        {formatDateTime(event.completedAt)}
+                      </p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-foreground/60 text-center py-4 text-xs">No timeline events</p>
+              <div className="text-center py-16 bg-white rounded-lg border-2 border-dashed border-[var(--gray-300,#b0b8c9)]">
+                <p className="text-[var(--gray-500,#636e85)] text-base font-semibold">Keine Zeitlinienereignisse</p>
+              </div>
             )}
           </TabsContent>
         </Tabs>

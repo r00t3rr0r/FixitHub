@@ -1,0 +1,338 @@
+/* ============================================
+   Imprint / Impressum Page – McRepair Design
+   ============================================ */
+
+.imprint-page {
+  background: var(--white, #ffffff);
+  min-height: calc(100vh - 120px);
+  padding: 80px 0 60px;
+}
+
+.imprint-content {
+  max-width: 900px;
+  margin: 0 auto;
+  background: var(--white, #ffffff);
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.1));
+  padding: 56px 64px;
+}
+
+/* Header */
+.imprint-header {
+  text-align: center;
+  margin-bottom: 48px;
+  padding-bottom: 32px;
+  border-bottom: 3px solid var(--accent-yellow, #f5b800);
+}
+
+.imprint-header h1 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--primary-blue-dark, #0f1d45);
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+
+/* Sections */
+.imprint-section {
+  margin-bottom: 40px;
+}
+
+.imprint-section.last-section {
+  margin-bottom: 0;
+  padding-top: 32px;
+  border-top: 1px solid var(--gray-200, #d8dce6);
+}
+
+.imprint-section h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--primary-blue, #1a2a5e);
+  margin-bottom: 20px;
+  line-height: 1.3;
+  padding-top: 8px;
+}
+
+.imprint-section h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--primary-blue-light, #2a3f7e);
+  margin-top: 24px;
+  margin-bottom: 16px;
+  line-height: 1.3;
+}
+
+.imprint-section p {
+  font-size: 0.95rem;
+  line-height: 1.8;
+  color: var(--gray-700, #2d3748);
+  margin-bottom: 16px;
+}
+
+.imprint-section p:last-child {
+  margin-bottom: 0;
+}
+
+/* Company Information */
+.company-info {
+  background: var(--off-white, #f8f9fc);
+  padding: 28px 32px;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--gray-200, #d8dce6);
+}
+
+.company-info p {
+  margin-bottom: 8px;
+  line-height: 1.7;
+  color: var(--gray-700, #2d3748);
+}
+
+.company-info p:last-child {
+  margin-bottom: 0;
+}
+
+.company-info strong {
+  color: var(--primary-blue-dark, #0f1d45);
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+/* Contact Information */
+.contact-info {
+  background: var(--blue-50, #e8f0fe);
+  padding: 28px 32px;
+  border-radius: var(--radius-md, 10px);
+  border-left: 4px solid var(--primary-blue, #1a2a5e);
+}
+
+.contact-info p {
+  margin-bottom: 12px;
+  line-height: 1.7;
+  color: var(--gray-700, #2d3748);
+}
+
+.contact-info p:last-child {
+  margin-bottom: 0;
+}
+
+.contact-info strong {
+  color: var(--primary-blue-dark, #0f1d45);
+  font-weight: 600;
+}
+
+.contact-info a {
+  color: var(--primary-blue, #1a2a5e);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.contact-info a:hover {
+  color: var(--accent-yellow, #f5b800);
+  text-decoration: underline;
+}
+
+/* Registry Information */
+.registry-info {
+  background: var(--gray-50, #f5f6f8);
+  padding: 24px 28px;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--gray-200, #d8dce6);
+}
+
+.registry-info p {
+  margin-bottom: 10px;
+  line-height: 1.7;
+  color: var(--gray-700, #2d3748);
+}
+
+.registry-info p:last-child {
+  margin-bottom: 0;
+}
+
+.registry-info strong {
+  color: var(--primary-blue-dark, #0f1d45);
+  font-weight: 600;
+}
+
+/* Info Box (for Alternative Dispute Resolution) */
+.info-box {
+  background: var(--yellow-50, #fffbeb);
+  padding: 24px 28px;
+  border-radius: var(--radius-md, 10px);
+  border-left: 3px solid var(--accent-yellow, #f5b800);
+  margin: 20px 0 0;
+}
+
+.info-box p {
+  margin-bottom: 16px;
+  line-height: 1.8;
+  color: var(--gray-700, #2d3748);
+}
+
+.info-box p:last-child {
+  margin-bottom: 0;
+}
+
+.info-box a {
+  color: var(--primary-blue, #1a2a5e);
+  text-decoration: none;
+  font-weight: 500;
+  word-break: break-word;
+  transition: color 0.2s ease;
+}
+
+.info-box a:hover {
+  color: var(--accent-yellow, #f5b800);
+  text-decoration: underline;
+}
+
+/* Trademarks Information */
+.trademarks-info {
+  background: var(--off-white, #f8f9fc);
+  padding: 24px 28px;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--gray-200, #d8dce6);
+}
+
+.trademarks-info p {
+  margin-bottom: 12px;
+  line-height: 1.7;
+  color: var(--gray-600, #4a5568);
+  font-size: 0.9rem;
+}
+
+.trademarks-info p:last-child {
+  margin-bottom: 0;
+}
+
+.trademarks-info strong {
+  color: var(--primary-blue-dark, #0f1d45);
+  font-weight: 600;
+}
+
+/* Links */
+.imprint-section a {
+  color: var(--primary-blue, #1a2a5e);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.imprint-section a:hover {
+  color: var(--accent-yellow, #f5b800);
+  text-decoration: underline;
+}
+
+/* ===========================
+   Responsive Design
+   =========================== */
+
+/* Tablet */
+@media (max-width: 768px) {
+  .imprint-page {
+    padding: 60px 0 40px;
+  }
+
+  .imprint-content {
+    padding: 40px 32px;
+    border-radius: var(--radius-md, 10px);
+  }
+
+  .imprint-header {
+    margin-bottom: 36px;
+    padding-bottom: 24px;
+  }
+
+  .imprint-header h1 {
+    font-size: 1.8rem;
+  }
+
+  .imprint-section h2 {
+    font-size: 1.3rem;
+    margin-bottom: 16px;
+  }
+
+  .imprint-section {
+    margin-bottom: 32px;
+  }
+
+  .company-info,
+  .contact-info,
+  .registry-info,
+  .info-box,
+  .trademarks-info {
+    padding: 20px 24px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .imprint-page {
+    padding: 40px 0 30px;
+  }
+
+  .imprint-content {
+    padding: 32px 24px;
+    border-radius: var(--radius-sm, 8px);
+    box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 0.08));
+  }
+
+  .imprint-header {
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+  }
+
+  .imprint-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .imprint-section h2 {
+    font-size: 1.15rem;
+    margin-bottom: 14px;
+  }
+
+  .imprint-section p {
+    font-size: 0.9rem;
+    line-height: 1.7;
+  }
+
+  .imprint-section {
+    margin-bottom: 28px;
+  }
+
+  .company-info,
+  .contact-info,
+  .registry-info,
+  .info-box,
+  .trademarks-info {
+    padding: 18px 20px;
+  }
+
+  .trademarks-info p {
+    font-size: 0.85rem;
+  }
+}
+
+/* Small Mobile */
+@media (max-width: 360px) {
+  .imprint-content {
+    padding: 24px 16px;
+  }
+
+  .imprint-header h1 {
+    font-size: 1.3rem;
+  }
+
+  .imprint-section h2 {
+    font-size: 1.05rem;
+  }
+
+  .company-info,
+  .contact-info,
+  .registry-info,
+  .info-box,
+  .trademarks-info {
+    padding: 16px 18px;
+  }
+}

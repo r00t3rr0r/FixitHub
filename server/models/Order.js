@@ -218,7 +218,7 @@ const orderEPartSchema = new mongoose.Schema({
   assignedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: false, // Made optional to support guest orders
   },
 }, { _id: true });
 
@@ -252,7 +252,7 @@ const orderShopProductSchema = new mongoose.Schema({
   addedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: false, // Made optional to support guest orders
   },
 }, { _id: true });
 
@@ -287,7 +287,74 @@ const orderSchema = new mongoose.Schema({
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: false, // Made optional to support guest orders
+  },
+  // Guest information for non-registered users
+  guestInfo: {
+    email: {
+      type: String,
+      default: '',
+    },
+    firstName: {
+      type: String,
+      default: '',
+    },
+    lastName: {
+      type: String,
+      default: '',
+    },
+    phone: {
+      type: String,
+      default: '',
+    },
+    isGuest: {
+      type: Boolean,
+      default: false,
+    },
+    billingAddress: {
+      street: {
+        type: String,
+        default: '',
+      },
+      city: {
+        type: String,
+        default: '',
+      },
+      state: {
+        type: String,
+        default: '',
+      },
+      zipCode: {
+        type: String,
+        default: '',
+      },
+      country: {
+        type: String,
+        default: '',
+      },
+    },
+    shippingAddress: {
+      street: {
+        type: String,
+        default: '',
+      },
+      city: {
+        type: String,
+        default: '',
+      },
+      state: {
+        type: String,
+        default: '',
+      },
+      zipCode: {
+        type: String,
+        default: '',
+      },
+      country: {
+        type: String,
+        default: '',
+      },
+    },
   },
   deviceBrand: {
     type: String,
@@ -470,6 +537,12 @@ const orderSchema = new mongoose.Schema({
       default: '',
     },
   }],
+  // Guest order tracking
+  guestTrackingToken: {
+    type: String,
+    default: '',
+    index: true, // Add index for fast lookups
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -494,6 +567,13 @@ orderSchema.pre('save', async function(next) {
       // Fallback to timestamp-based order number
       this.orderNumber = `ORD-${Date.now()}`;
     }
+  }
+
+  // Generate tracking token for guest orders
+  if (this.isNew && this.guestInfo && this.guestInfo.isGuest && !this.guestTrackingToken) {
+    const crypto = require('crypto');
+    this.guestTrackingToken = crypto.randomBytes(32).toString('hex');
+    console.log('Order: Generated guest tracking token for order:', this.orderNumber);
   }
 
   this.updatedAt = new Date();

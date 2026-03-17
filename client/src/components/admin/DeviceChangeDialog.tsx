@@ -311,7 +311,7 @@ export function DeviceChangeDialog({
         {/* Step 2: Review Pricing Changes */}
         {step === 'review' && pricingChanges && (
           <div className="space-y-4">
-            <Card className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
+            <Card className="bg-white border-gray-200 shadow-sm">
               <CardContent className="pt-6">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 dark:text-blue-400" />
