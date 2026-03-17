@@ -23,6 +23,7 @@ export function Header({ onToggleSidebar, sidebarOpen }: HeaderProps) {
   const navigate = useNavigate()
   const { toast } = useToast()
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const isAdminHeader = userProfile?.role === "admin"
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -56,34 +57,42 @@ export function Header({ onToggleSidebar, sidebarOpen }: HeaderProps) {
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 border-b ${
+        isAdminHeader
+          ? "bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] border-[#2a3f7e]"
+          : "bg-background/95 backdrop-blur-sm border-border"
+      }`}
+    >
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center space-x-4">
           <Button
             variant="ghost"
             size="icon"
             onClick={onToggleSidebar}
-            className="lg:hidden"
+            className={isAdminHeader ? "text-white hover:bg-white/10 hover:text-white" : undefined}
             aria-label="Toggle sidebar"
           >
             {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
           <Link to="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">FH</span>
+            <div className={`font-extrabold text-lg sm:text-xl leading-none ${isAdminHeader ? "text-white" : "text-[#1a2a5e]"}`}>
+              Mc<span className="text-[#f5b800]">Repair</span>.de
             </div>
-            <span className="font-bold text-xl hidden sm:block">FixitHub</span>
           </Link>
         </div>
 
-        <div className="flex items-center space-x-4">
+        <div className={`flex items-center space-x-4 ${isAdminHeader ? "text-white" : ""}`}>
           <NotificationBell />
           <LanguageSelector />
           <ThemeToggle />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+              <Button
+                variant="ghost"
+                className={`relative h-8 w-8 rounded-full ${isAdminHeader ? "hover:bg-white/10" : ""}`}
+              >
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={userProfile?.avatar} alt={userProfile?.name} />
                   <AvatarFallback>

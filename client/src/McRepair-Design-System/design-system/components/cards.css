@@ -1,0 +1,437 @@
+/* ============================================
+   McRepair Design System – Card Components
+   ============================================
+   
+   Universal card patterns: Offer, Step, Shop, Blog
+   
+   Requires: tokens.css, base.css
+   ============================================ */
+
+/* ── UNIVERSAL CARD BEHAVIOR ── */
+/* All cards share this hover pattern */
+
+/* ── OFFER CARDS ── */
+.offers-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.offer-card {
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  transition: var(--transition);
+  cursor: pointer;
+}
+
+.offer-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-3px);
+  border-color: var(--gray-200);
+}
+
+.offer-card-image {
+  width: 100px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-light));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.offer-card-image svg {
+  width: 44px;
+  height: 44px;
+  color: var(--accent-yellow);
+  opacity: 0.8;
+}
+
+.offer-card-content {
+  padding: 16px 20px;
+  flex: 1;
+}
+
+.offer-tag {
+  display: inline-block;
+  background: var(--accent-yellow);
+  color: var(--primary-blue);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 50px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.offer-card-content h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--gray-800);
+  margin-bottom: 6px;
+}
+
+.offer-card-content p {
+  font-size: 0.85rem;
+  color: var(--gray-500);
+  line-height: 1.5;
+}
+
+.offer-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary-blue);
+}
+
+.offer-cta svg {
+  width: 14px;
+  height: 14px;
+  transition: var(--transition);
+}
+
+.offer-card:hover .offer-cta svg {
+  transform: translateX(3px);
+}
+
+/* ── STEP CARDS ── */
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 32px;
+  position: relative;
+}
+
+/* Connector line between steps */
+.steps-grid::before {
+  content: '';
+  position: absolute;
+  top: 40px;
+  left: 80px;
+  right: 80px;
+  height: 2px;
+  background: var(--gray-200);
+  z-index: 0;
+}
+
+.step-card {
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.step-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 18px;
+  background: var(--white);
+  border: 2px solid var(--gray-200);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.step-card:hover .step-icon {
+  border-color: var(--accent-yellow);
+  background: rgba(245, 184, 0, 0.06);
+  transform: scale(1.05);
+}
+
+.step-icon svg {
+  width: 32px;
+  height: 32px;
+  color: var(--primary-blue);
+}
+
+.step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--accent-yellow);
+  color: var(--primary-blue);
+  font-size: 0.75rem;
+  font-weight: 800;
+  border-radius: 50%;
+  margin-bottom: 10px;
+}
+
+.step-card h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--gray-800);
+  margin-bottom: 6px;
+}
+
+.step-card p {
+  font-size: 0.8rem;
+  color: var(--gray-400);
+  line-height: 1.5;
+}
+
+/* ── SHOP CARDS ── */
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.shop-card {
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: var(--transition);
+  cursor: pointer;
+}
+
+.shop-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-3px);
+  border-color: var(--gray-200);
+}
+
+.shop-card-image {
+  height: 180px;
+  background: var(--gray-50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.shop-card-image svg {
+  width: 56px;
+  height: 56px;
+  color: var(--gray-300);
+}
+
+.shop-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: var(--accent-yellow);
+  color: var(--primary-blue);
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.shop-card-body {
+  padding: 16px;
+}
+
+.shop-card-body h4 {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 6px;
+}
+
+.shop-card-body .shop-price {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--primary-blue);
+}
+
+.shop-card-body .shop-price-old {
+  font-size: 0.8rem;
+  color: var(--gray-400);
+  text-decoration: line-through;
+  margin-left: 6px;
+  font-weight: 400;
+}
+
+/* ── BLOG CARDS ── */
+.blog-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.blog-card {
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: var(--transition);
+  cursor: pointer;
+}
+
+.blog-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-3px);
+}
+
+.blog-card-image {
+  height: 160px;
+  background: var(--white);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.blog-card-image svg {
+  width: 40px;
+  height: 40px;
+  color: var(--gray-300);
+}
+
+.blog-card-body {
+  padding: 20px;
+}
+
+.blog-category {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent-yellow);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.blog-card-body h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--gray-800);
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.blog-card-body p {
+  font-size: 0.82rem;
+  color: var(--gray-500);
+  line-height: 1.5;
+}
+
+.blog-date {
+  font-size: 0.72rem;
+  color: var(--gray-400);
+  margin-top: 12px;
+}
+
+/* ── TRUST ROW ── */
+.trust-row {
+  background: var(--white);
+  border-bottom: 1px solid var(--gray-100);
+  padding: 24px 0;
+}
+
+.trust-items {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+
+.trust-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+}
+
+.trust-icon {
+  width: 48px;
+  height: 48px;
+  background: rgba(245, 184, 0, 0.1);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.trust-icon svg {
+  width: 22px;
+  height: 22px;
+  color: var(--accent-yellow);
+}
+
+.trust-text h4 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--gray-800);
+  margin-bottom: 2px;
+}
+
+.trust-text p {
+  font-size: 0.75rem;
+  color: var(--gray-400);
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 1024px) {
+  .trust-items {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .steps-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+  }
+
+  .steps-grid::before {
+    display: none;
+  }
+
+  .shop-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .trust-items {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .offers-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .offer-card {
+    flex-direction: column;
+  }
+
+  .offer-card-image {
+    width: 100%;
+    height: 80px;
+  }
+
+  .steps-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .shop-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .blog-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .shop-grid {
+    grid-template-columns: 1fr;
+  }
+}

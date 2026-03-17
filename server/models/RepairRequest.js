@@ -56,11 +56,27 @@ const repairRequestSchema = new mongoose.Schema({
   },
   repairAttempts: {
     type: String,
-    required: true,
+    default: '',
   },
-  additionalInfo: {
+  modelNumber: {
     type: String,
     default: '',
+  },
+
+  // Extended Information (Zusätzliche Informationen)
+  waterDamage: {
+    type: String,
+    enum: ['no', 'yes', 'unsure'],
+    default: 'no',
+  },
+  previousRepairDetails: {
+    type: String,
+    default: '',
+  },
+  itemCondition: {
+    type: String,
+    enum: ['original', 'refurbished', 'unsure'],
+    default: 'unsure',
   },
 
   // Image Uploads

@@ -5,6 +5,7 @@ const CartService = require('../services/cartService');
 const UserService = require('../services/userService');
 const OrderService = require('../services/orderService');
 const BookingService = require('../services/bookingService');
+const EmailService = require('../services/emailService');
 const Service = require('../models/Service');
 
 // Description: Initialize checkout - validates user authentication and returns cart with user info
@@ -452,6 +453,303 @@ router.post('/complete', requireUser, async (req, res) => {
     });
   } catch (error) {
     console.error('CheckoutRoutes: Error completing checkout:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Description: Complete guest checkout - creates orders from guest cart data without authentication
+// Endpoint: POST /api/checkout/guest-complete
+// Request: { guestInfo: { email, firstName, lastName, billingAddress, shippingAddress }, cartData: { items, repairOrders } }
+// Response: { success: boolean, message: string, orders: Order[], orderIds: string[] }
+router.post('/guest-complete', async (req, res) => {
+  try {
+    console.log('CheckoutRoutes: Processing guest checkout');
+
+    const { guestInfo, cartData } = req.body;
+
+    // Validate guest information
+    if (!guestInfo || !guestInfo.email || !guestInfo.firstName || !guestInfo.lastName) {
+      console.log('CheckoutRoutes: Missing required guest information');
+      return res.status(400).json({
+        success: false,
+        error: 'Guest information (email, firstName, lastName) is required'
+      });
+    }
+
+    // Validate billing address
+    const billingAddress = guestInfo.billingAddress || {};
+    if (!billingAddress.street || !billingAddress.city || !billingAddress.zipCode) {
+      console.log('CheckoutRoutes: Incomplete billing address');
+      return res.status(400).json({
+        success: false,
+        error: 'Complete billing address (street, city, postal code) is required',
+        missingFields: {
+          street: !billingAddress.street,
+          city: !billingAddress.city,
+          zipCode: !billingAddress.zipCode
+        }
+      });
+    }
+
+    // Validate cart data
+    if (!cartData || (!cartData.repairOrders || cartData.repairOrders.length === 0) && (!cartData.items || cartData.items.length === 0)) {
+      console.log('CheckoutRoutes: Cart is empty');
+      return res.status(400).json({
+        success: false,
+        error: 'Cart is empty. Please add items before checkout.'
+      });
+    }
+
+    const hasRepairOrders = cartData.repairOrders && cartData.repairOrders.length > 0;
+    const hasShopProducts = cartData.items && cartData.items.length > 0;
+
+    console.log('CheckoutRoutes: Found', cartData.repairOrders?.length || 0, 'repair orders and', cartData.items?.length || 0, 'shop products in guest cart');
+
+    // Create a temporary guest user ID for orders (using email as identifier)
+    const guestUserId = `guest_${Buffer.from(guestInfo.email).toString('base64')}_${Date.now()}`;
+
+    // Store guest information in a way that can be retrieved
+    const guestUserData = {
+      email: guestInfo.email,
+      firstName: guestInfo.firstName,
+      lastName: guestInfo.lastName,
+      phone: guestInfo.phone || '',
+      isGuest: true,
+      billingAddress: billingAddress,
+      shippingAddress: guestInfo.shippingAddress || billingAddress
+    };
+
+    // Helper function to parse estimated time string to minutes
+    const parseEstimatedTime = (timeString) => {
+      if (typeof timeString === 'number') {
+        return timeString;
+      }
+      if (!timeString || typeof timeString !== 'string') {
+        return 0;
+      }
+
+      const match = timeString.match(/(\d+)/);
+      if (!match) {
+        return 0;
+      }
+
+      const value = parseInt(match[1], 10);
+
+      if (timeString.toLowerCase().includes('hour')) {
+        return value * 60;
+      }
+
+      return value;
+    };
+
+    const createdOrders = [];
+    const orderIds = [];
+
+    // Create orders from repair orders in the guest cart
+    if (hasRepairOrders) {
+      for (const repairOrder of cartData.repairOrders) {
+        try {
+          console.log('CheckoutRoutes: Creating order from guest repair order:', repairOrder);
+
+          // Fetch service details to get price and estimated time
+          const serviceDetails = await Service.find({ _id: { $in: repairOrder.services.map(s => s._id || s) } });
+
+          // Calculate total cost from services
+          let totalCost = 0;
+          const services = serviceDetails.map(service => {
+            totalCost += service.price;
+            return {
+              serviceId: service._id,
+              price: service.price,
+              estimatedTime: parseEstimatedTime(service.estimatedTime),
+              notes: ''
+            };
+          });
+
+          // Add addOns to total cost if present
+          if (repairOrder.addOns && repairOrder.addOns.length > 0) {
+            repairOrder.addOns.forEach(addOn => {
+              totalCost += addOn.price || 0;
+            });
+          }
+
+          // Prepare order data with guest information
+          const orderData = {
+            customerId: null, // No user ID for guest orders
+            guestInfo: guestUserData, // Store guest information with the order
+            deviceBrand: repairOrder.deviceBrand,
+            deviceModel: repairOrder.deviceModel,
+            deviceType: repairOrder.deviceType || 'Smartphone',
+            services: services,
+            addOns: repairOrder.addOns || [],
+            customerNotes: repairOrder.customerNotes || '',
+            photos: repairOrder.photos || [],
+            totalCost: totalCost,
+            status: 'pending',
+            priority: 'normal',
+            progress: 0,
+            paymentStatus: 'pending',
+            estimatedCompletion: null,
+            unlockPattern: repairOrder.unlockPattern || [],
+            unlockCode: repairOrder.unlockCode || '',
+            noLock: repairOrder.noLock || false,
+            errorDescription: repairOrder.errorDescription || '',
+            waterDamage: repairOrder.waterDamage || '',
+            previousRepairAttempts: repairOrder.previousRepairAttempts || '',
+            previousRepairDetails: repairOrder.previousRepairDetails || '',
+            itemCondition: repairOrder.itemCondition || ''
+          };
+
+          console.log('CheckoutRoutes: Guest order data prepared:', orderData);
+
+          // Create the order
+          const order = await OrderService.create(orderData);
+          console.log('CheckoutRoutes: Guest order created successfully:', order._id);
+
+          createdOrders.push(order);
+          orderIds.push(order._id.toString());
+        } catch (orderError) {
+          console.error('CheckoutRoutes: Error creating guest order from repair order:', orderError);
+          // Continue with other orders even if one fails
+        }
+      }
+    }
+
+    // Create an order from shop products if present
+    if (hasShopProducts && cartData.items.length > 0) {
+      try {
+        console.log('CheckoutRoutes: Creating order from guest shop products');
+
+        const Product = require('../models/Product');
+        const populatedItems = [];
+        let totalCost = 0;
+
+        for (const item of cartData.items) {
+          const productId = item.product?._id || item.productId;
+          const product = await Product.findById(productId);
+          if (product) {
+            const itemTotal = product.price * item.quantity;
+            totalCost += itemTotal;
+            populatedItems.push({
+              productId: product._id,
+              quantity: item.quantity,
+              priceAtOrder: product.price
+            });
+          }
+        }
+
+        // Create a shop product order for guest
+        const shopOrderData = {
+          customerId: null,
+          guestInfo: guestUserData,
+          deviceBrand: 'N/A',
+          deviceModel: 'Shop Products Order',
+          deviceType: 'Shop Products',
+          services: [],
+          addOns: [],
+          shopProducts: populatedItems,
+          customerNotes: 'Order containing shop products only',
+          photos: [],
+          totalCost: totalCost,
+          status: 'pending',
+          priority: 'normal',
+          progress: 0,
+          paymentStatus: 'pending',
+          estimatedCompletion: null
+        };
+
+        console.log('CheckoutRoutes: Guest shop order data prepared:', shopOrderData);
+
+        const shopOrder = await OrderService.create(shopOrderData);
+        console.log('CheckoutRoutes: Guest shop product order created successfully:', shopOrder._id);
+
+        createdOrders.push(shopOrder);
+        orderIds.push(shopOrder._id.toString());
+      } catch (shopOrderError) {
+        console.error('CheckoutRoutes: Error creating guest shop product order:', shopOrderError);
+      }
+    }
+
+    if (createdOrders.length === 0) {
+      console.log('CheckoutRoutes: No guest orders were created');
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to create orders from cart. Please try again.'
+      });
+    }
+
+    // Create booking to consolidate all guest orders
+    console.log('CheckoutRoutes: Creating booking for guest orders:', createdOrders.length);
+    let booking = null;
+    try {
+      const mongoose = require('mongoose');
+      booking = await BookingService.create({
+        customerId: null,
+        guestInfo: guestUserData,
+        orderIds: orderIds.map(id => new mongoose.Types.ObjectId(id)),
+        discount: 0,
+        appliedPromoCode: '',
+        status: 'pending',
+        billingStatus: 'unpaid',
+        paymentStatus: 'pending',
+      });
+      console.log('CheckoutRoutes: Guest booking created successfully:', booking._id);
+    } catch (bookingError) {
+      console.error('CheckoutRoutes: Error creating guest booking:', bookingError);
+    }
+
+    // Create success message
+    const totalOrders = createdOrders.length;
+    let successMessage = `Successfully created ${totalOrders} order(s) for guest checkout`;
+
+    console.log('CheckoutRoutes: Guest checkout completed successfully');
+
+    // Send guest order confirmation email with tracking link
+    try {
+      // Calculate total amount from all orders
+      const totalAmount = createdOrders.reduce((sum, order) => sum + order.totalCost, 0);
+      
+      // Get tracking token from first order (all orders belong to same guest/booking)
+      const trackingToken = createdOrders[0]?.guestTrackingToken || '';
+      
+      const emailData = {
+        guestEmail: guestInfo.email,
+        guestName: `${guestInfo.firstName} ${guestInfo.lastName}`,
+        orderNumbers: createdOrders.map(o => o.orderNumber),
+        bookingNumber: booking?.bookingNumber || null,
+        totalAmount: totalAmount,
+        trackingToken: trackingToken
+      };
+
+      console.log('CheckoutRoutes: Sending guest order confirmation email');
+      const emailResult = await EmailService.sendGuestOrderConfirmation(emailData);
+      
+      if (emailResult.success) {
+        console.log('CheckoutRoutes: Guest order confirmation email sent successfully');
+      } else {
+        console.warn('CheckoutRoutes: Failed to send guest order confirmation email:', emailResult.error);
+      }
+    } catch (emailError) {
+      console.error('CheckoutRoutes: Error sending guest order confirmation email:', emailError);
+      // Don't fail the checkout if email fails
+    }
+
+    res.json({
+      success: true,
+      message: successMessage,
+      booking: booking || { orderIds: orderIds },
+      bookingId: booking?._id?.toString() || null,
+      bookingTrackingToken: booking?.guestTrackingToken || null,
+      orders: createdOrders,
+      orderIds: orderIds,
+      guestEmail: guestInfo.email,
+      trackingToken: createdOrders[0]?.guestTrackingToken || null
+    });
+  } catch (error) {
+    console.error('CheckoutRoutes: Error completing guest checkout:', error);
     res.status(500).json({
       success: false,
       error: error.message

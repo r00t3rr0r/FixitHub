@@ -79,8 +79,11 @@ router.get('/:id', requireUser, async (req, res) => {
       });
     }
 
-    // Verify ownership or admin/staff role
-    if (booking.customerId._id.toString() !== req.user._id.toString() && req.user.role !== 'admin' && req.user.role !== 'staff') {
+    // Verify ownership for regular users. Admin/staff can always access booking details.
+    const isPrivilegedUser = req.user.role === 'admin' || req.user.role === 'staff';
+    const bookingCustomerId = booking.customerId?._id?.toString?.() || booking.customerId?.toString?.();
+
+    if (!isPrivilegedUser && bookingCustomerId !== req.user._id.toString()) {
       console.log('BookingRoutes: Unauthorized access to booking');
       return res.status(403).json({
         success: false,
@@ -475,8 +478,11 @@ router.get('/:id/return-tracking', requireUser, async (req, res) => {
       });
     }
 
-    // Verify ownership
-    if (booking.customerId._id.toString() !== req.user._id.toString() && req.user.role !== 'admin' && req.user.role !== 'staff') {
+    // Verify ownership for regular users. Admin/staff can always access booking details.
+    const isPrivilegedUser = req.user.role === 'admin' || req.user.role === 'staff';
+    const bookingCustomerId = booking.customerId?._id?.toString?.() || booking.customerId?.toString?.();
+
+    if (!isPrivilegedUser && bookingCustomerId !== req.user._id.toString()) {
       console.log('BookingRoutes: Unauthorized access to booking');
       return res.status(403).json({
         success: false,

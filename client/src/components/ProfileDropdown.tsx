@@ -14,8 +14,6 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
   User,
-  Package,
-  Settings,
   Calendar,
   FileText,
   LogOut,
@@ -150,13 +148,6 @@ export function ProfileDropdown() {
           </DropdownMenuItem>
 
           <DropdownMenuItem asChild className="cursor-pointer transition-colors hover:bg-yellow-50">
-            <Link to="/orders" className="flex items-center gap-2">
-              <Package className="h-4 w-4" />
-              <span>{t('navigation.orders')}</span>
-            </Link>
-          </DropdownMenuItem>
-
-          <DropdownMenuItem asChild className="cursor-pointer transition-colors hover:bg-yellow-50">
             <Link to="/bookings" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               <span>{t('navigation.bookings')}</span>
@@ -174,13 +165,6 @@ export function ProfileDropdown() {
             <Link to="/my-repair-requests" className="flex items-center gap-2">
               <Wrench className="h-4 w-4" />
               <span>Repair Requests</span>
-            </Link>
-          </DropdownMenuItem>
-
-          <DropdownMenuItem asChild className="cursor-pointer transition-colors hover:bg-yellow-50">
-            <Link to="/settings" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              <span>{t('navigation.settings')}</span>
             </Link>
           </DropdownMenuItem>
 

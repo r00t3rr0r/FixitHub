@@ -1,0 +1,92 @@
+/* McRepair Homepage Layout Fixes */
+
+/* Ensure no horizontal overflow */
+html, body {
+  overflow-x: hidden !important;
+  width: 100% !important;
+  max-width: 100vw !important;
+}
+
+#root {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* Fix container width issues */
+.container {
+  max-width: var(--max-width, 1200px);
+  margin: 0 auto;
+  padding: 0 24px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Ensure hero section doesn't overflow */
+.hero {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+}
+
+.hero-layout {
+  max-width: var(--max-width, 1200px);
+  margin: 0 auto;
+  padding: 0 24px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Fix configurator card */
+.configurator {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Override Card component styles that might cause issues */
+.configurator > div {
+  padding: 0 !important;
+}
+
+/* Fix grid layouts */
+.steps-grid,
+.shop-grid,
+.blog-grid,
+.offers-grid {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Responsive fixes */
+@media (max-width: 768px) {
+  .container,
+  .hero-layout {
+    padding: 0 16px;
+  }
+
+  .steps-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .shop-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .blog-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .steps-grid,
+  .shop-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Fix any Tailwind conflicts with sections */
+section.section {
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}

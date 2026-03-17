@@ -11,13 +11,26 @@ class DeviceInspectionService {
     console.log(`[DeviceInspection] Initializing inspection for order: ${orderId}`);
 
     try {
+      let resolvedCustomerId = customerId || null;
+
+      if (!resolvedCustomerId) {
+        const order = await Order.findById(orderId).select('customerId');
+        if (!order) {
+          throw new Error('Order not found');
+        }
+
+        if (order.customerId) {
+          resolvedCustomerId = order.customerId;
+        }
+      }
+
       // Check if inspection already exists
       let inspection = await DeviceInspection.findOne({ orderId });
 
       if (!inspection) {
         inspection = new DeviceInspection({
           orderId,
-          customerId,
+          customerId: resolvedCustomerId,
           technicianId,
           status: 'in-progress',
           startedAt: new Date(),

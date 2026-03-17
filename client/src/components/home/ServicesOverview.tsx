@@ -1,111 +1,66 @@
-import React from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Smartphone, Package, Wrench, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-const iconMap = { Smartphone, Package, Wrench, RotateCcw };
-
-interface ServiceStep {
-  icon?: React.ReactNode;
-  title: string;
-  description: string;
-}
-
-interface ServicesOverviewProps {
-  title?: string;
-  steps?: ServiceStep[];
-}
-
-export function ServicesOverview({ title, steps }: ServicesOverviewProps) {
+export function ServicesOverview() {
   const { t } = useTranslation();
 
-  const defaultTitle = t('home.services.hoSoEinfachGehts');
-
-  const defaultSteps: ServiceStep[] = [
-    {
-      icon: <Smartphone className="w-16 h-16 text-yellow-400 mx-auto mb-4" />,
-      title: t('home.services.step1Title'),
-      description: t('home.services.step1Desc')
-    },
-    {
-      icon: <Package className="w-16 h-16 text-yellow-400 mx-auto mb-4" />,
-      title: t('home.services.step2Title'),
-      description: t('home.services.step2Desc')
-    },
-    {
-      icon: <Wrench className="w-16 h-16 text-yellow-400 mx-auto mb-4" />,
-      title: t('home.services.step3Title'),
-      description: t('home.services.step3Desc')
-    },
-    {
-      icon: <RotateCcw className="w-16 h-16 text-yellow-400 mx-auto mb-4" />,
-      title: t('home.services.step4Title'),
-      description: t('home.services.step4Desc')
-    }
-  ];
-
-  const displaySteps = steps || defaultSteps;
-
   return (
-    <section className="py-16 bg-gradient-to-b from-white to-gray-50">
-      <div className="container mx-auto px-4">
-        {/* Section Title */}
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
-            {title || defaultTitle}
-          </h2>
-          <div className="w-20 h-0.5 bg-yellow-400 mx-auto rounded-full"></div>
+    <div className="container">
+      <div className="section-title">
+        <h2>So einfach geht's</h2>
+        <p>In 4 Schritten zum reparierten Gerät</p>
+        <div className="accent-line"></div>
+      </div>
+      <div className="steps-grid">
+        <div className="step-card">
+          <div className="step-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+              <line x1="12" y1="18" x2="12.01" y2="18"></line>
+              <path d="M9 8h6M9 12h4"></path>
+            </svg>
+          </div>
+          <span className="step-number">1</span>
+          <h4>Reparatur buchen</h4>
+          <p>Gerät & Reparatur online wählen</p>
         </div>
-
-        {/* Steps Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
-          {displaySteps.map((step, index) => (
-            <div key={index} className="relative">
-              {/* Connecting Line */}
-              {index < displaySteps.length - 1 && (
-                <div className="hidden lg:block absolute top-16 left-[60%] right-[-40%] h-0.5 bg-yellow-400 z-0" />
-              )}
-
-              {/* Step Card */}
-              <Card className="relative z-10 h-full border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105">
-                <CardHeader className="pb-0">
-                  {/* Step Number Badge */}
-                  <div className="w-10 h-10 bg-yellow-400 text-gray-900 rounded-full flex items-center justify-center text-xl font-bold mb-3 mx-auto">
-                    {index + 1}
-                  </div>
-
-                  {/* Icon */}
-                  <div className="flex justify-center mb-3">
-                    <Smartphone className="w-12 h-12 text-yellow-400 mx-auto" />
-                  </div>
-                </CardHeader>
-
-                <CardContent className="text-center">
-                  {/* Title */}
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">
-                    {step.title}
-                  </h3>
-
-                  {/* Description */}
-                  <p className="text-gray-600 text-xs leading-relaxed">
-                    {step.description}
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          ))}
+        <div className="step-card">
+          <div className="step-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M4 7V4a2 2 0 0 1 2-2h8.5L20 7.5V20a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <path d="M4 15h9"></path>
+              <polyline points="10 12 13 15 10 18"></polyline>
+            </svg>
+          </div>
+          <span className="step-number">2</span>
+          <h4>Label erhalten</h4>
+          <p>Versandlabel kostenlos per E-Mail</p>
         </div>
-
-        {/* Mobile Step Indicators */}
-        <div className="flex justify-center gap-1.5 mt-10 lg:hidden">
-          {displaySteps.map((_, index) => (
-            <div
-              key={index}
-              className="w-2 h-2 rounded-full bg-yellow-400 transition-all duration-300"
-            />
-          ))}
+        <div className="step-card">
+          <div className="step-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="1" y="3" width="15" height="13"></rect>
+              <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+              <circle cx="5.5" cy="18.5" r="2.5"></circle>
+              <circle cx="18.5" cy="18.5" r="2.5"></circle>
+            </svg>
+          </div>
+          <span className="step-number">3</span>
+          <h4>Einsenden</h4>
+          <p>Gerät sicher verpacken & absenden</p>
+        </div>
+        <div className="step-card">
+          <div className="step-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+          </div>
+          <span className="step-number">4</span>
+          <h4>Repariert zurück</h4>
+          <p>Gerät repariert & versichert erhalten</p>
         </div>
       </div>
-    </section>
+    </div>
   );
 }

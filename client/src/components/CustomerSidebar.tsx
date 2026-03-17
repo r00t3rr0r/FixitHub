@@ -3,8 +3,6 @@ import { Link, useLocation } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import {
   Home,
-  Plus,
-  Package,
   MessageSquare,
   Bell,
   ShoppingCart,
@@ -30,7 +28,6 @@ export function CustomerSidebar({ isCollapsed }: CustomerSidebarProps) {
   const location = useLocation()
   const [unreadNotifications, setUnreadNotifications] = useState(0)
   const [cartItemCount, setCartItemCount] = useState(0)
-  const [ordersOpen, setOrdersOpen] = useState(false)
   const [shopOpen, setShopOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
 
@@ -150,20 +147,6 @@ export function CustomerSidebar({ isCollapsed }: CustomerSidebarProps) {
       <NavItem to="/" icon={Home}>
         {t('navigation.dashboard')}
       </NavItem>
-
-      <CollapsibleSection
-        title={t('navigation.orders')}
-        icon={Package}
-        isOpen={ordersOpen}
-        onToggle={() => setOrdersOpen(!ordersOpen)}
-      >
-        <NavItem to="/new-order" icon={Plus}>
-          {t('navigation.newOrder')}
-        </NavItem>
-        <NavItem to="/orders" icon={Package}>
-          {t('navigation.trackOrders')}
-        </NavItem>
-      </CollapsibleSection>
 
       <CollapsibleSection
         title={t('navigation.shop')}

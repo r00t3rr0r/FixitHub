@@ -141,6 +141,10 @@ class FinancialService {
         query.status = filters.status;
       }
 
+      if (filters.customerId) {
+        query.customerId = filters.customerId;
+      }
+
       if (filters.dateFrom || filters.dateTo) {
         query.createdAt = {};
         if (filters.dateFrom) {

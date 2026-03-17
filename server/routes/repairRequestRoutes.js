@@ -5,7 +5,7 @@ const { requireUser, requireAdmin, requireStaff } = require('./middleware/auth')
 
 // Description: Create a new repair request
 // Endpoint: POST /api/repair-requests
-// Request: { deviceType, deviceBrand, deviceModel, deviceModelId, issueDescription, issueOccurredDate, repairAttempts, additionalInfo, images }
+// Request: { deviceType, deviceBrand, deviceModel, deviceModelId, issueDescription, issueOccurredDate, modelNumber, images }
 // Response: { success: true, request: RepairRequest }
 router.post('/', requireUser, async (req, res) => {
   try {

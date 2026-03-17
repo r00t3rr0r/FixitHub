@@ -409,7 +409,7 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
             <TabsContent value="preview" className="space-y-4">
               {validationResult && (
                 <>
-                  <Card className="bg-blue-50 border-blue-200">
+                  <Card className="bg-white border-gray-200 shadow-sm">
                     <CardHeader>
                       <CardTitle className="text-base">Validation Summary</CardTitle>
                     </CardHeader>

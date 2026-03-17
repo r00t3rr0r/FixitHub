@@ -26,16 +26,14 @@ import {
   MessageSquare,
   Bell,
   User,
-  ChevronDown,
   ChevronRight,
   FolderTree,
   Boxes,
   BookMarked
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { getNotifications } from "@/api/notifications"
+import "./AdminSidebar.css"
 
 interface AdminSidebarProps {
   isCollapsed: boolean
@@ -80,34 +78,32 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
     badge?: number
     onClick?: () => void
   }) => {
+    const active = to && isActive(to)
+    
     const content = (
-      <div className={`flex items-center justify-between w-full px-3 py-2 rounded-lg transition-colors ${
-        to && isActive(to) 
-          ? 'bg-primary text-primary-foreground' 
-          : 'text-foreground hover:bg-accent hover:text-accent-foreground'
-      }`}>
-        <div className="flex items-center space-x-3">
-          <Icon className="h-5 w-5 flex-shrink-0" />
-          {!isCollapsed && <span className="text-sm font-medium">{children}</span>}
+      <div className={`admin-nav-item ${active ? 'active' : ''}`}>
+        <div className="admin-nav-item-content">
+          <Icon className="admin-nav-item-icon" />
+          {!isCollapsed && <span className="admin-nav-item-text">{children}</span>}
         </div>
         {!isCollapsed && badge && badge > 0 && (
-          <Badge variant="secondary" className="ml-auto">
+          <span className="admin-nav-badge">
             {badge > 99 ? '99+' : badge}
-          </Badge>
+          </span>
         )}
       </div>
     )
 
     if (to) {
       return (
-        <Link to={to} className="block">
+        <Link to={to}>
           {content}
         </Link>
       )
     }
 
     return (
-      <button onClick={onClick} className="w-full text-left">
+      <button onClick={onClick} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 0 }}>
         {content}
       </button>
     )
@@ -128,21 +124,16 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
   }) => (
     <Collapsible open={isOpen} onOpenChange={onToggle}>
       <CollapsibleTrigger asChild>
-        <Button 
-          variant="ghost" 
-          className={`w-full justify-between px-3 py-2 h-auto font-medium ${
-            isCollapsed ? 'px-2' : ''
-          }`}
-        >
-          <div className="flex items-center space-x-3">
-            <Icon className="h-5 w-5 flex-shrink-0" />
-            {!isCollapsed && <span className="text-sm">{title}</span>}
+        <button className="admin-collapsible-trigger">
+          <div className="admin-collapsible-trigger-content">
+            <Icon className="admin-collapsible-icon" />
+            {!isCollapsed && <span>{title}</span>}
           </div>
-          {!isCollapsed && (isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
-        </Button>
+          {!isCollapsed && <ChevronRight className="admin-collapsible-chevron" />}
+        </button>
       </CollapsibleTrigger>
       {!isCollapsed && (
-        <CollapsibleContent className="space-y-1 ml-6">
+        <CollapsibleContent className="admin-collapsible-content">
           {children}
         </CollapsibleContent>
       )}
@@ -150,7 +141,7 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
   )
 
   return (
-    <nav className="flex flex-col h-full p-4 space-y-1">
+    <nav className={`admin-sidebar ${isCollapsed ? 'collapsed' : ''}`}>
       <NavItem to="/admin" icon={Home}>
         {t('navigation.dashboard')}
       </NavItem>

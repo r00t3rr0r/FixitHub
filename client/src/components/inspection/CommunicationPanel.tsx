@@ -36,6 +36,34 @@ interface CommunicationPanelProps {
 type Message = UnifiedMessage
 type Communication = UnifiedCommunication
 
+// Prevent unnecessary rerenders by applying updates only when relevant fields changed.
+const hasThreadChanged = (
+  prev: Communication | null,
+  next: Communication | null,
+): boolean => {
+  if (!prev && next) return true
+  if (prev && !next) return false
+  if (!prev || !next) return false
+
+  if ((prev.pendingFeedbackCount || 0) !== (next.pendingFeedbackCount || 0)) return true
+  if ((prev.pendingActionsCount || 0) !== (next.pendingActionsCount || 0)) return true
+
+  const prevMessages = prev.messages || []
+  const nextMessages = next.messages || []
+
+  if (prevMessages.length !== nextMessages.length) return true
+  if (nextMessages.length === 0) return false
+
+  const prevLast = prevMessages[prevMessages.length - 1]
+  const nextLast = nextMessages[nextMessages.length - 1]
+
+  return (
+    prevLast?._id !== nextLast?._id ||
+    prevLast?.updatedAt !== nextLast?.updatedAt ||
+    prevLast?.createdAt !== nextLast?.createdAt
+  )
+}
+
 // Helper function to format timestamps
 const formatMessageTime = (dateString: string): string => {
   try {
@@ -80,6 +108,7 @@ export function CommunicationPanel({
   const [feedbackOption2Value, setFeedbackOption2Value] = useState("")
   const [quickActionType, setQuickActionType] = useState<'part_replacement' | 'incorrect_device' | 'incorrect_unlock_code' | 'additional_costs'>('part_replacement')
   const [quickActionDescription, setQuickActionDescription] = useState("")
+  const isUserEditingRef = useRef(false)
 
   // Load user profile
   useEffect(() => {
@@ -96,42 +125,68 @@ export function CommunicationPanel({
     loadUserProfile()
   }, [])
 
+  // Track whether the user is actively editing so background polling does not interrupt input.
+  useEffect(() => {
+    isUserEditingRef.current =
+      showFeedbackDialog ||
+      showQuickActionDialog ||
+      feedbackQuestion.trim().length > 0 ||
+      feedbackOption1Label.trim().length > 0 ||
+      feedbackOption2Label.trim().length > 0 ||
+      quickActionDescription.trim().length > 0
+  }, [
+    showFeedbackDialog,
+    showQuickActionDialog,
+    feedbackQuestion,
+    feedbackOption1Label,
+    feedbackOption2Label,
+    quickActionDescription,
+  ])
+
   // Load communication thread
   useEffect(() => {
-    let isActive = true;
-    let loadTimeout: NodeJS.Timeout | null = null;
+    let isActive = true
 
-    const loadCommunication = async () => {
+    const loadCommunication = async (silent = false) => {
       try {
-        if (!isActive) return;
-        setLoading(true)
+        if (!isActive) return
+        if (!silent) setLoading(true)
         const thread = await getCommunicationThread(orderId)
         if (isActive) {
-          setCommunication(thread)
-          console.log("CommunicationPanel: Communication thread loaded with", thread?.messages?.length || 0, "messages")
+          setCommunication((prev) => {
+            if (!hasThreadChanged(prev, thread)) {
+              return prev
+            }
+            console.log("CommunicationPanel: Communication thread updated with", thread?.messages?.length || 0, "messages")
+            return thread
+          })
         }
       } catch (error) {
         if (isActive) {
           console.error("CommunicationPanel: Error loading communication thread:", error)
         }
       } finally {
-        if (isActive) {
+        if (isActive && !silent) {
           setLoading(false)
         }
       }
     }
 
     if (orderId) {
-      // Initial load
-      loadCommunication()
-      // Set up polling for updates every 3 seconds
+      // Initial foreground load
+      loadCommunication(false)
+
+      // Poll less aggressively and only when user is not actively interacting.
       const interval = setInterval(() => {
-        loadCommunication()
-      }, 3000)
+        if (!isActive) return
+        if (document.visibilityState !== 'visible') return
+        if (isUserEditingRef.current) return
+        loadCommunication(true)
+      }, 10000)
+
       return () => {
         isActive = false
         clearInterval(interval)
-        if (loadTimeout) clearTimeout(loadTimeout)
       }
     }
   }, [orderId])
@@ -281,13 +336,13 @@ export function CommunicationPanel({
 
   return (
     <>
-      <div className="mt-4 space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <MessageCircle className="w-4 h-4 text-blue-600" />
-            <h3 className="text-sm font-semibold">{t('communicationPanel.communicationAndFeedback')}</h3>
+      <div className="inspection-comm-panel mt-4 space-y-3">
+        <div className="inspection-comm-header flex items-center justify-between gap-2">
+          <div className="inspection-comm-header-left flex items-center gap-2">
+            <MessageCircle className="inspection-comm-header-icon w-4 h-4" />
+            <h3 className="inspection-comm-title text-sm font-semibold">{t('communicationPanel.communicationAndFeedback')}</h3>
             {(communication?.pendingFeedbackCount || 0) + (communication?.pendingActionsCount || 0) > 0 && (
-              <Badge variant="secondary" className="text-xs">
+              <Badge variant="secondary" className="inspection-comm-counter text-xs">
                 {(communication?.pendingFeedbackCount || 0) + (communication?.pendingActionsCount || 0)}
               </Badge>
             )}
@@ -295,12 +350,12 @@ export function CommunicationPanel({
 
           {/* Staff/Admin Action Buttons */}
           {isStaffOrAdmin && (
-            <div className="flex gap-2">
+            <div className="inspection-comm-toolbar flex gap-2">
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => setShowFeedbackDialog(true)}
-                className="h-7 px-2 text-xs gap-1"
+                className="inspection-comm-toolbar-btn h-7 px-2 text-xs gap-1"
                 title={t('communicationPanel.sendFeedbackRequest')}
               >
                 <HelpCircle className="w-3 h-3" />
@@ -310,7 +365,7 @@ export function CommunicationPanel({
                 size="sm"
                 variant="outline"
                 onClick={() => setShowQuickActionDialog(true)}
-                className="h-7 px-2 text-xs gap-1"
+                className="inspection-comm-toolbar-btn h-7 px-2 text-xs gap-1"
                 title={t('communicationPanel.sendQuickAction')}
               >
                 <AlertCircle className="w-3 h-3" />
@@ -322,24 +377,24 @@ export function CommunicationPanel({
 
         {/* Communication Messages - Scrollable History */}
         {communicationMessages.length > 0 && (
-          <div className="border rounded-lg overflow-hidden bg-white dark:bg-gray-950">
+          <div className="inspection-comm-thread border rounded-lg overflow-hidden bg-white">
             <ScrollArea className="h-[450px] w-full">
-              <div className="p-4 space-y-3">
+              <div className="inspection-comm-thread-content p-4 space-y-3">
               {communicationMessages.map((message) => (
                 <div key={message._id} className="space-y-2">
                   {/* Feedback Requests */}
                   {message.messageType === "feedback_request" && message.feedbackRequest && (
-                    <div className={`border-l-4 rounded-r-lg p-4 transition-all ${
+                    <div className={`inspection-comm-feedback-card border-l-4 rounded-r-lg p-4 transition-all ${
                       message.feedbackRequest.status === "pending"
-                        ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30"
-                        : "border-green-500 bg-green-50 dark:bg-green-950/30"
+                        ? "is-pending"
+                        : "is-completed"
                     }`}>
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="flex-1">
-                          <p className="font-semibold text-sm mb-2 text-gray-900 dark:text-gray-100">
+                          <p className="inspection-comm-question font-semibold text-sm mb-2">
                             {message.feedbackRequest.question}
                           </p>
-                          <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 mb-3">
+                          <div className="inspection-comm-meta flex items-center gap-2 text-xs mb-3">
                             <User className="w-3 h-3" />
                             <span>{message.senderName}</span>
                             <Clock className="w-3 h-3 ml-2" />
@@ -348,7 +403,7 @@ export function CommunicationPanel({
                         </div>
                         <Badge
                           variant={message.feedbackRequest.status === "pending" ? "outline" : "default"}
-                          className="text-xs flex-shrink-0"
+                          className="inspection-comm-status text-xs flex-shrink-0"
                         >
                           {message.feedbackRequest.status === "pending" ? "⏳ Pending" : "✓ Responded"}
                         </Badge>
@@ -356,7 +411,7 @@ export function CommunicationPanel({
 
                       {message.feedbackRequest.status === "pending" ? (
                         <div className="space-y-2">
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Click to respond:</p>
+                          <p className="inspection-comm-response-hint text-xs mb-2">Click to respond:</p>
                           {message.feedbackRequest.options.map((option) => (
                             <Button
                               key={option.value}
@@ -369,17 +424,17 @@ export function CommunicationPanel({
                                 })
                               }
                               disabled={responding}
-                              className="w-full justify-start text-left h-auto py-2.5 hover:bg-white dark:hover:bg-gray-900 border-gray-300 dark:border-gray-700"
+                              className="inspection-comm-option-btn w-full justify-start text-left h-auto py-2.5"
                             >
                               <div className="flex items-center gap-2 w-full">
-                                <div className="w-4 h-4 rounded-full border-2 border-gray-400 flex-shrink-0" />
+                                <div className="inspection-comm-option-dot w-4 h-4 rounded-full border-2 flex-shrink-0" />
                                 <span className="text-sm">{option.label}</span>
                               </div>
                             </Button>
                           ))}
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-3 py-2 rounded">
+                        <div className="inspection-comm-answered flex items-center gap-2 px-3 py-2 rounded">
                           <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
                           <span className="text-sm">
                             {t('communicationPanel.youResponded')} <span className="font-semibold">{message.feedbackRequest.response?.label}</span>
@@ -391,25 +446,25 @@ export function CommunicationPanel({
 
                   {/* Quick Actions */}
                   {message.messageType === "quick_action" && message.quickAction && (
-                    <div className={`border-l-4 rounded-r-lg p-4 transition-all ${
+                    <div className={`inspection-comm-action-card border-l-4 rounded-r-lg p-4 transition-all ${
                       message.quickAction.status === "pending"
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30"
-                        : "border-green-500 bg-green-50 dark:bg-green-950/30"
+                        ? "is-pending"
+                        : "is-completed"
                     }`}>
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                            <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                            <AlertCircle className="inspection-comm-action-icon w-4 h-4 flex-shrink-0" />
+                            <p className="inspection-comm-action-title font-semibold text-sm">
                               {message.quickAction.actionLabel}
                             </p>
                           </div>
                           {message.quickAction.description && (
-                            <p className="text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900/50 p-2 rounded mb-2 border border-gray-200 dark:border-gray-700">
+                            <p className="inspection-comm-action-description text-sm p-2 rounded mb-2 border">
                               {message.quickAction.description}
                             </p>
                           )}
-                          <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                          <div className="inspection-comm-meta flex items-center gap-2 text-xs">
                             <User className="w-3 h-3" />
                             <span>{message.senderName}</span>
                             <Clock className="w-3 h-3 ml-2" />
@@ -417,13 +472,13 @@ export function CommunicationPanel({
                           </div>
                         </div>
                         {message.quickAction.status === "completed" && (
-                          <Badge variant="default" className="gap-1 flex-shrink-0 text-xs">
+                          <Badge variant="default" className="inspection-comm-status gap-1 flex-shrink-0 text-xs">
                             <CheckCircle2 className="w-3 h-3" />
                             {t('communicationPanel.completed')}
                           </Badge>
                         )}
                         {message.quickAction.status === "pending" && (
-                          <Badge variant="outline" className="gap-1 flex-shrink-0 text-xs">
+                          <Badge variant="outline" className="inspection-comm-status gap-1 flex-shrink-0 text-xs">
                             ⏳ {t('communicationPanel.pending')}
                           </Badge>
                         )}
@@ -438,19 +493,19 @@ export function CommunicationPanel({
         )}
 
         {communicationMessages.length === 0 && isStaffOrAdmin && (
-          <div className="flex flex-col items-center justify-center p-8 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900/50">
-            <MessageCircle className="w-8 h-8 text-gray-400 mb-2" />
-            <p className="text-sm text-gray-600 dark:text-gray-400 text-center">{t('communicationPanel.noCommunicationMessages')}</p>
+          <div className="inspection-comm-empty flex flex-col items-center justify-center p-8 border rounded-lg bg-gray-50">
+            <MessageCircle className="w-8 h-8 mb-2" />
+            <p className="text-sm text-center">{t('communicationPanel.noCommunicationMessages')}</p>
           </div>
         )}
       </div>
 
       {/* Feedback Request Dialog */}
       <Dialog open={showFeedbackDialog} onOpenChange={setShowFeedbackDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="inspection-comm-dialog max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <HelpCircle className="w-5 h-5 text-amber-600" />
+            <DialogTitle className="inspection-comm-dialog-title flex items-center gap-2">
+              <HelpCircle className="inspection-comm-dialog-icon w-5 h-5" />
               {t('communicationPanel.sendFeedbackRequest')}
             </DialogTitle>
             <DialogDescription>
@@ -462,7 +517,7 @@ export function CommunicationPanel({
             <div className="space-y-2">
               <Label htmlFor="question" className="flex items-center gap-2">
                 <span>{t('communicationPanel.question')}</span>
-                <span className={`text-xs ${feedbackQuestion.trim() ? "text-green-600" : "text-gray-400"}`}>
+                <span className={`inspection-comm-required text-xs ${feedbackQuestion.trim() ? "is-valid" : "is-empty"}`}>
                   {feedbackQuestion.trim() ? "✓" : "required"}
                 </span>
               </Label>
@@ -471,20 +526,20 @@ export function CommunicationPanel({
                 placeholder={t('communicationPanel.exampleQuestion')}
                 value={feedbackQuestion}
                 onChange={(e) => setFeedbackQuestion(e.target.value)}
-                className={`min-h-[80px] resize-none transition-colors ${
+                className={`inspection-comm-input min-h-[80px] resize-none transition-colors ${
                   feedbackQuestion.trim()
-                    ? "border-green-300 dark:border-green-700"
-                    : "border-gray-300 dark:border-gray-600"
+                    ? "is-valid"
+                    : "is-empty"
                 }`}
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="inspection-comm-help text-xs">
                 Ask a clear question that requires a yes/no or choice-based answer. Example: "Do you approve the $45 battery replacement?"
               </p>
             </div>
 
-            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-              <p className="text-xs font-medium text-blue-900 dark:text-blue-200 mb-2">💡 Tips for effective feedback:</p>
-              <ul className="text-xs text-blue-800 dark:text-blue-300 space-y-1 list-disc list-inside">
+            <div className="inspection-comm-tips border rounded-lg p-3">
+              <p className="inspection-comm-tips-title text-xs font-medium mb-2">Tips for effective feedback:</p>
+              <ul className="inspection-comm-tips-list text-xs space-y-1 list-disc list-inside">
                 <li>Be specific about what you need from the customer</li>
                 <li>Offer 2-3 clear response options</li>
                 <li>Avoid open-ended questions</li>
@@ -494,7 +549,7 @@ export function CommunicationPanel({
             <div className="space-y-2">
               <Label htmlFor="option1" className="flex items-center gap-2">
                 <span>{t('communicationPanel.firstOption')}</span>
-                <span className={`text-xs ${feedbackOption1Label.trim() ? "text-green-600" : "text-gray-400"}`}>
+                <span className={`inspection-comm-required text-xs ${feedbackOption1Label.trim() ? "is-valid" : "is-empty"}`}>
                   {feedbackOption1Label.trim() ? "✓" : "required"}
                 </span>
               </Label>
@@ -503,10 +558,10 @@ export function CommunicationPanel({
                 placeholder={t('communicationPanel.exampleOption1')}
                 value={feedbackOption1Label}
                 onChange={(e) => setFeedbackOption1Label(e.target.value)}
-                className={`transition-colors ${
+                className={`inspection-comm-input transition-colors ${
                   feedbackOption1Label.trim()
-                    ? "border-green-300 dark:border-green-700"
-                    : "border-gray-300 dark:border-gray-600"
+                    ? "is-valid"
+                    : "is-empty"
                 }`}
               />
             </div>
@@ -514,7 +569,7 @@ export function CommunicationPanel({
             <div className="space-y-2">
               <Label htmlFor="option2" className="flex items-center gap-2">
                 <span>{t('communicationPanel.secondOption')}</span>
-                <span className={`text-xs ${feedbackOption2Label.trim() ? "text-green-600" : "text-gray-400"}`}>
+                <span className={`inspection-comm-required text-xs ${feedbackOption2Label.trim() ? "is-valid" : "is-empty"}`}>
                   {feedbackOption2Label.trim() ? "✓" : "required"}
                 </span>
               </Label>
@@ -523,30 +578,30 @@ export function CommunicationPanel({
                 placeholder={t('communicationPanel.exampleOption2')}
                 value={feedbackOption2Label}
                 onChange={(e) => setFeedbackOption2Label(e.target.value)}
-                className={`transition-colors ${
+                className={`inspection-comm-input transition-colors ${
                   feedbackOption2Label.trim()
-                    ? "border-green-300 dark:border-green-700"
-                    : "border-gray-300 dark:border-gray-600"
+                    ? "is-valid"
+                    : "is-empty"
                 }`}
               />
             </div>
 
             {/* Preview Section */}
             {feedbackQuestion.trim() && (feedbackOption1Label.trim() || feedbackOption2Label.trim()) && (
-              <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Preview:</p>
-                <div className="space-y-2 border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-950/30 p-3 rounded">
-                  <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{feedbackQuestion}</p>
+              <div className="inspection-comm-preview border rounded-lg p-3">
+                <p className="inspection-comm-preview-title text-xs font-medium mb-2">Preview:</p>
+                <div className="inspection-comm-preview-content space-y-2 border-l-4 p-3 rounded">
+                  <p className="font-medium text-sm">{feedbackQuestion}</p>
                   <div className="space-y-1 text-xs">
                     {feedbackOption1Label.trim() && (
-                      <div className="flex items-center gap-2 p-2 bg-white dark:bg-gray-950 rounded border border-gray-200 dark:border-gray-700">
-                        <div className="w-3 h-3 rounded-full border border-gray-400" />
+                      <div className="inspection-comm-preview-option flex items-center gap-2 p-2 rounded border">
+                        <div className="inspection-comm-preview-dot w-3 h-3 rounded-full border" />
                         <span>{feedbackOption1Label}</span>
                       </div>
                     )}
                     {feedbackOption2Label.trim() && (
-                      <div className="flex items-center gap-2 p-2 bg-white dark:bg-gray-950 rounded border border-gray-200 dark:border-gray-700">
-                        <div className="w-3 h-3 rounded-full border border-gray-400" />
+                      <div className="inspection-comm-preview-option flex items-center gap-2 p-2 rounded border">
+                        <div className="inspection-comm-preview-dot w-3 h-3 rounded-full border" />
                         <span>{feedbackOption2Label}</span>
                       </div>
                     )}
@@ -587,10 +642,10 @@ export function CommunicationPanel({
 
       {/* Quick Action Dialog */}
       <Dialog open={showQuickActionDialog} onOpenChange={setShowQuickActionDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="inspection-comm-dialog max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-red-600" />
+            <DialogTitle className="inspection-comm-dialog-title flex items-center gap-2">
+              <AlertCircle className="inspection-comm-dialog-icon danger w-5 h-5" />
               {t('communicationPanel.sendQuickAction')}
             </DialogTitle>
             <DialogDescription>
@@ -602,13 +657,13 @@ export function CommunicationPanel({
             <div className="space-y-2">
               <Label htmlFor="actionType" className="flex items-center gap-2">
                 <span>{t('communicationPanel.actionType')}</span>
-                <span className="text-xs text-gray-400">required</span>
+                <span className="inspection-comm-required text-xs is-empty">required</span>
               </Label>
               <select
                 id="actionType"
                 value={quickActionType}
                 onChange={(e) => setQuickActionType(e.target.value as any)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-sm transition-colors hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600"
+                className="inspection-comm-select w-full px-3 py-2 border rounded-md bg-white text-sm transition-colors"
               >
                 <option value="part_replacement">{t('communicationPanel.partReplacementRequired')}</option>
                 <option value="incorrect_device">{t('communicationPanel.incorrectDeviceSpecification')}</option>
@@ -618,14 +673,14 @@ export function CommunicationPanel({
             </div>
 
             {/* Action Type Info Box */}
-            <div className={`border rounded-lg p-3 text-xs transition-colors ${
+            <div className={`inspection-comm-action-type-box border rounded-lg p-3 text-xs transition-colors ${
               quickActionType === 'part_replacement'
-                ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800'
+                ? 'is-part'
                 : quickActionType === 'incorrect_device'
-                ? 'bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800'
+                ? 'is-device'
                 : quickActionType === 'incorrect_unlock_code'
-                ? 'bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800'
-                : 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800'
+                ? 'is-unlock'
+                : 'is-cost'
             }`}>
               <p className="font-medium mb-2">
                 {quickActionType === 'part_replacement' && '🔧 Part Replacement Required'}
@@ -644,7 +699,7 @@ export function CommunicationPanel({
             <div className="space-y-2">
               <Label htmlFor="description" className="flex items-center gap-2">
                 <span>{t('communicationPanel.description')}</span>
-                <span className={`text-xs ${quickActionDescription.trim() ? "text-green-600" : "text-gray-400"}`}>
+                <span className={`inspection-comm-required text-xs ${quickActionDescription.trim() ? "is-valid" : "is-empty"}`}>
                   {quickActionDescription.trim() ? "✓" : "required"}
                 </span>
               </Label>
@@ -653,63 +708,63 @@ export function CommunicationPanel({
                 placeholder={t('communicationPanel.describeAction')}
                 value={quickActionDescription}
                 onChange={(e) => setQuickActionDescription(e.target.value)}
-                className={`min-h-[100px] resize-none transition-colors ${
+                className={`inspection-comm-input min-h-[100px] resize-none transition-colors ${
                   quickActionDescription.trim()
-                    ? "border-green-300 dark:border-green-700"
-                    : "border-gray-300 dark:border-gray-600"
+                    ? "is-valid"
+                    : "is-empty"
                 }`}
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="inspection-comm-help text-xs">
                 Provide clear, specific details about the action and any next steps the customer needs to take. Be professional but friendly.
               </p>
             </div>
 
             {/* Preview Section */}
             {quickActionDescription.trim() && (
-              <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Preview:</p>
-                <div className={`space-y-2 border-l-4 rounded p-3 ${
+              <div className="inspection-comm-preview border rounded-lg p-3">
+                <p className="inspection-comm-preview-title text-xs font-medium mb-2">Preview:</p>
+                <div className={`inspection-comm-action-preview space-y-2 border-l-4 rounded p-3 ${
                   quickActionType === 'part_replacement'
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
+                    ? 'is-part'
                     : quickActionType === 'incorrect_device'
-                    ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/30'
+                    ? 'is-device'
                     : quickActionType === 'incorrect_unlock_code'
-                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30'
-                    : 'border-red-500 bg-red-50 dark:bg-red-950/30'
+                    ? 'is-unlock'
+                    : 'is-cost'
                 }`}>
                   <div className="flex items-start gap-2">
-                    <AlertCircle className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
+                    <AlertCircle className={`w-4 h-4 flex-shrink-0 mt-0.5 inspection-comm-preview-icon ${
                       quickActionType === 'part_replacement'
-                        ? 'text-blue-600'
+                        ? 'is-part'
                         : quickActionType === 'incorrect_device'
-                        ? 'text-orange-600'
+                        ? 'is-device'
                         : quickActionType === 'incorrect_unlock_code'
-                        ? 'text-purple-600'
-                        : 'text-red-600'
+                        ? 'is-unlock'
+                        : 'is-cost'
                     }`} />
                     <div className="flex-1">
-                      <p className={`font-medium text-sm mb-1 ${
+                      <p className={`font-medium text-sm mb-1 inspection-comm-preview-heading ${
                         quickActionType === 'part_replacement'
-                          ? 'text-blue-900 dark:text-blue-100'
+                          ? 'is-part'
                           : quickActionType === 'incorrect_device'
-                          ? 'text-orange-900 dark:text-orange-100'
+                          ? 'is-device'
                           : quickActionType === 'incorrect_unlock_code'
-                          ? 'text-purple-900 dark:text-purple-100'
-                          : 'text-red-900 dark:text-red-100'
+                          ? 'is-unlock'
+                          : 'is-cost'
                       }`}>
                         {quickActionType === 'part_replacement' && '🔧 Part Replacement Required'}
                         {quickActionType === 'incorrect_device' && '❌ Device Mismatch'}
                         {quickActionType === 'incorrect_unlock_code' && '🔐 Unlock Code Issue'}
                         {quickActionType === 'additional_costs' && '💰 Additional Costs'}
                       </p>
-                      <p className={`text-xs ${
+                      <p className={`text-xs inspection-comm-preview-copy ${
                         quickActionType === 'part_replacement'
-                          ? 'text-blue-800 dark:text-blue-200'
+                          ? 'is-part'
                           : quickActionType === 'incorrect_device'
-                          ? 'text-orange-800 dark:text-orange-200'
+                          ? 'is-device'
                           : quickActionType === 'incorrect_unlock_code'
-                          ? 'text-purple-800 dark:text-purple-200'
-                          : 'text-red-800 dark:text-red-200'
+                          ? 'is-unlock'
+                          : 'is-cost'
                       }`}>
                         {quickActionDescription}
                       </p>

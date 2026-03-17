@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, Package, Wrench, X, ArrowRight, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getCart, Cart } from '@/api/shop';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 
 export function CartIcon() {
   const { isAuthenticated } = useAuth();
@@ -104,34 +109,265 @@ export function CartIcon() {
         .animate-bounce-custom {
           animation: bounce-custom 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
+
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(-5px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .cart-item-enter {
+          animation: fadeIn 0.3s ease-out;
+        }
+
+        /* McRepair Homepage Matching Styles */
+        .cart-dropdown-content {
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        .cart-item-image {
+          width: 60px;
+          height: 60px;
+          object-fit: cover;
+          border-radius: 8px;
+          background: #f5f6f8;
+          flex-shrink: 0;
+          transition: transform 0.2s ease;
+        }
+
+        .cart-item-image:hover {
+          transform: scale(1.05);
+        }
+
+        .cart-device-image {
+          width: 60px;
+          height: 60px;
+          object-fit: contain;
+          border-radius: 8px;
+          background: linear-gradient(135deg, #f5f6f8 0%, #eceef3 100%);
+          flex-shrink: 0;
+          padding: 8px;
+          transition: transform 0.2s ease;
+        }
+
+        .cart-device-image:hover {
+          transform: scale(1.05);
+        }
+
+        .cart-item-placeholder {
+          width: 60px;
+          height: 60px;
+          border-radius: 8px;
+          background: linear-gradient(135deg, #f5f6f8 0%, #eceef3 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .cart-item-card {
+          transition: all 0.2s ease;
+        }
+
+        .cart-item-card:hover {
+          transform: translateY(-2px);
+        }
       `}</style>
 
-      <Button variant="ghost" size="icon" asChild className="relative group">
-        <Link to="/cart" className="relative">
-          <div
-            className={`transition-all duration-300 ${
-              shouldBounce ? 'animate-bounce-custom' : ''
-            } group-hover:scale-110`}
-          >
-            <ShoppingCart className="h-5 w-5 text-gray-700 group-hover:text-yellow-600 transition-colors duration-200" />
-          </div>
-
-          {itemCount > 0 && (
-            <Badge
-              className={`absolute -top-1 -right-1 h-5 min-w-[20px] flex items-center justify-center px-1 bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold border-2 border-white shadow-md ${
-                shouldBounce ? 'animate-pulse' : ''
-              }`}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="icon" className="relative group">
+            <div
+              className={`transition-all duration-300 ${
+                shouldBounce ? 'animate-bounce-custom' : ''
+              } group-hover:scale-110`}
             >
-              {itemCount > 99 ? '99+' : itemCount}
-            </Badge>
-          )}
+              <ShoppingCart className="h-5 w-5 text-white group-hover:text-[#f5b800] transition-colors duration-200" />
+            </div>
 
-          {/* Subtle hover effect ring */}
-          <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 ring-2 ring-yellow-400 ring-offset-2" />
+            {itemCount > 0 && (
+              <Badge
+                className={`absolute -top-1 -right-1 h-5 min-w-[20px] flex items-center justify-center px-1 bg-[#f5b800] hover:bg-[#e5ab00] text-[#1a2a5e] text-xs font-bold border-2 border-white shadow-md ${
+                  shouldBounce ? 'animate-pulse' : ''
+                }`}
+              >
+                {itemCount > 99 ? '99+' : itemCount}
+              </Badge>
+            )}
 
-          <span className="sr-only">Shopping Cart ({itemCount} items)</span>
-        </Link>
-      </Button>
+            <span className="sr-only">Warenkorb ({itemCount} Artikel)</span>
+          </Button>
+        </PopoverTrigger>
+
+        <PopoverContent 
+          className="w-[420px] p-0 shadow-xl border border-[#d8dce6] cart-dropdown-content" 
+          align="end"
+          sideOffset={12}
+        >
+          <div className="bg-white">
+            {/* Header with McRepair styling */}
+            <div className="px-5 py-4 border-b border-[#eceef3] bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e]">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-base flex items-center gap-2 text-white">
+                  <ShoppingCart className="h-5 w-5 text-[#f5b800]" />
+                  Warenkorb
+                </h3>
+                {itemCount > 0 && (
+                  <Badge className="bg-[#f5b800] hover:bg-[#e5ab00] text-[#1a2a5e] font-semibold text-xs px-2.5 py-0.5">
+                    {itemCount} {itemCount === 1 ? 'Artikel' : 'Artikel'}
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Cart Content */}
+            <div className="max-h-[450px] overflow-y-auto">
+              {!cart || itemCount === 0 ? (
+                <div className="p-10 text-center">
+                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#f5f6f8] mb-4">
+                    <ShoppingCart className="h-10 w-10 text-[#b0b8c9]" />
+                  </div>
+                  <p className="font-semibold text-[#2d3748] text-base mb-1">Ihr Warenkorb ist leer</p>
+                  <p className="text-sm text-[#636e85]">Entdecken Sie unsere Produkte und Reparaturservices</p>
+                </div>
+              ) : (
+                <div className="p-4 space-y-3">
+                  {/* Repair Orders */}
+                  {cart.repairOrders && cart.repairOrders.length > 0 && (
+                    <div className="space-y-3">
+                      {cart.repairOrders.map((order, index) => {
+                        // Get device image if available from photos array
+                        const deviceImage = order.photos && order.photos.length > 0 ? order.photos[0] : null;
+                        
+                        return (
+                          <div 
+                            key={order._id || index}
+                            className="cart-item-card cart-item-enter bg-white rounded-lg p-3 border border-[#d8dce6] hover:border-[#1a2a5e] hover:shadow-md"
+                          >
+                            <div className="flex items-start gap-3">
+                              {/* Device Image or Icon */}
+                              {deviceImage ? (
+                                <img 
+                                  src={deviceImage} 
+                                  alt={`${order.deviceBrand} ${order.deviceModel}`}
+                                  className="cart-device-image"
+                                  loading="lazy"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    const placeholder = e.currentTarget.nextElementSibling;
+                                    if (placeholder) placeholder.classList.remove('hidden');
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`cart-item-placeholder ${deviceImage ? 'hidden' : ''}`}>
+                                <Wrench className="h-6 w-6 text-[#1a2a5e]" />
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-sm text-[#1a2a5e] truncate leading-tight">
+                                  {order.deviceBrand} {order.deviceModel}
+                                </h4>
+                                <div className="flex items-center gap-1 mt-1">
+                                  <Wrench className="h-3 w-3 text-[#636e85]" />
+                                  <p className="text-xs text-[#636e85]">
+                                    {order.services.length} Reparatur{order.services.length !== 1 ? 'en' : ''}
+                                    {order.addOns && order.addOns.length > 0 && ` + ${order.addOns.length} Extra${order.addOns.length !== 1 ? 's' : ''}`}
+                                  </p>
+                                </div>
+                                <p className="font-bold text-[#1a2a5e] text-base mt-1.5">
+                                  {order.totalCost.toFixed(2)} €
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Shop Products */}
+                  {cart.items && cart.items.length > 0 && (
+                    <div className="space-y-3">
+                      {cart.items.map((item) => {
+                        const product = typeof item.productId === 'object' ? item.productId : null;
+                        if (!product) return null;
+
+                        // Get product image
+                        const productImage = product.images && product.images.length > 0 ? product.images[0] : null;
+
+                        return (
+                          <div 
+                            key={item._id}
+                            className="cart-item-card cart-item-enter bg-white rounded-lg p-3 border border-[#d8dce6] hover:border-[#f5b800] hover:shadow-md"
+                          >
+                            <div className="flex items-start gap-3">
+                              {/* Product Image or Icon */}
+                              {productImage ? (
+                                <img 
+                                  src={productImage} 
+                                  alt={product.name}
+                                  className="cart-item-image"
+                                  loading="lazy"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    const placeholder = e.currentTarget.nextElementSibling;
+                                    if (placeholder) placeholder.classList.remove('hidden');
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`cart-item-placeholder ${productImage ? 'hidden' : ''}`}>
+                                <Package className="h-6 w-6 text-[#636e85]" />
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-sm text-[#1a2a5e] leading-tight line-clamp-2">
+                                  {product.name}
+                                </h4>
+                                <p className="text-xs text-[#636e85] mt-1">
+                                  Menge: {item.quantity} × {product.price.toFixed(2)} €
+                                </p>
+                                <p className="font-bold text-[#1a2a5e] text-base mt-1.5">
+                                  {(product.price * item.quantity).toFixed(2)} €
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            {cart && itemCount > 0 && (
+              <div className="px-5 py-4 border-t border-[#eceef3] bg-[#f8f9fc] space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-[#2d3748] text-sm">Gesamt:</span>
+                  <span className="font-bold text-2xl text-[#1a2a5e]">
+                    {cart.total.toFixed(2)} €
+                  </span>
+                </div>
+                <Button 
+                  asChild 
+                  className="w-full bg-[#f5b800] hover:bg-[#e5ab00] text-[#1a2a5e] font-bold shadow-md hover:shadow-lg transition-all duration-200 h-11 text-sm"
+                >
+                  <Link to="/cart" className="flex items-center justify-center gap-2">
+                    Zum Warenkorb
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
     </>
   );
 }

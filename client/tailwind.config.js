@@ -60,6 +60,12 @@ module.exports = {
   				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
   				border: 'hsl(var(--sidebar-border))',
   				ring: 'hsl(var(--sidebar-ring))'
+  			},
+  			mcrepair: {
+  				blue: '#1a2a5e',
+  				'blue-dark': '#141f47',
+  				yellow: '#f5b800',
+  				'yellow-dark': '#d9a400'
   			}
   		},
   		keyframes: {

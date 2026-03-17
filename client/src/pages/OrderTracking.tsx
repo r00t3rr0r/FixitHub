@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/useToast"
 import { getOrders, Order } from "@/api/orders"
+import { formatPrice } from "@/lib/utils"
 import {
   Package,
   Search,
@@ -260,7 +261,7 @@ export function OrderTracking() {
                       </span>
                       <span className="flex items-center gap-1">
                         <DollarSign className="h-4 w-4" />
-                        ${order.totalCost}
+                        ${formatPrice(order.totalCost)}
                       </span>
                     </CardDescription>
                   </div>
@@ -296,7 +297,7 @@ export function OrderTracking() {
                     <div className="flex flex-wrap gap-2">
                       {order.addOns.map((addOn) => (
                         <Badge key={addOn._id} variant="secondary">
-                          {addOn.name} (+${addOn.price})
+                          {addOn.name} (+${formatPrice(addOn.price)})
                         </Badge>
                       ))}
                     </div>

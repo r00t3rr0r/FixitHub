@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
+import "./BookingsManagement.css"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -111,7 +112,7 @@ interface Booking {
     email: string
     phone: string
     avatar?: string
-  }
+  } | null
   orderIds?: Array<any>
   repairOrderIds?: Array<any>
   items: Array<{
@@ -162,6 +163,28 @@ interface Booking {
 
 interface ExpandedBooking extends Booking {
   isExpanded: boolean
+}
+
+const FALLBACK_BOOKING_CUSTOMER = {
+  _id: '',
+  firstName: '',
+  lastName: '',
+  name: 'Unknown customer',
+  email: 'unknown@customer.local',
+  phone: '',
+  avatar: ''
+}
+
+const getSafeBookingCustomer = (booking: Pick<Booking, 'customerId'>) => {
+  return booking.customerId ?? FALLBACK_BOOKING_CUSTOMER
+}
+
+const getCustomerDisplayName = (customer: typeof FALLBACK_BOOKING_CUSTOMER) => {
+  if (customer.firstName) {
+    return `${customer.firstName} ${customer.lastName || ''}`.trim()
+  }
+
+  return customer.name || customer.email || 'Unknown customer'
 }
 
 export function BookingsManagement() {
@@ -341,15 +364,14 @@ export function BookingsManagement() {
 
     if (searchTerm) {
       filtered = filtered.filter(booking => {
-        const customerName = booking.customerId.firstName
-          ? `${booking.customerId.firstName} ${booking.customerId.lastName || ''}`
-          : (booking.customerId.name || '')
+        const customer = getSafeBookingCustomer(booking)
+        const customerName = getCustomerDisplayName(customer)
         return (
           booking._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
           (booking.bookingNumber && booking.bookingNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
           customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          booking.customerId.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          booking.customerId.phone.includes(searchTerm)
+          customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          customer.phone.includes(searchTerm)
         )
       })
     }
@@ -620,129 +642,161 @@ export function BookingsManagement() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          <p className="mt-4 text-foreground/60">Loading bookings...</p>
+      <div className="section" style={{ minHeight: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="container">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: 'var(--primary-blue)' }}></div>
+            <p className="mt-4" style={{ color: 'var(--gray-500)', fontSize: '0.95rem' }}>Loading bookings...</p>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Bookings Management</h1>
-        <p className="text-foreground/60">Manage and oversee all booking-related tasks</p>
-      </div>
+    <div className="section bookings-management-section" style={{ background: 'var(--off-white)', minHeight: 'calc(100vh - 200px)', paddingTop: '20px', paddingBottom: '36px' }}>
+      <div className="container bookings-container">
+        <div className="section-title bookings-page-header" style={{ marginBottom: '20px' }}>
+          <h1 className="bookings-page-title" style={{ fontSize: '1.35rem', fontWeight: '700', color: 'var(--white)', marginBottom: '4px' }}>Bookings Management</h1>
+          <p className="bookings-page-subtitle" style={{ color: 'rgba(255,255,255,0.88)', fontSize: '0.82rem' }}>Manage and oversee all booking-related tasks</p>
+          <div className="accent-line"></div>
+        </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-foreground/60">Total Bookings</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{bookings.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-foreground/60">Pending</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{bookings.filter(b => b.status === 'pending').length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-foreground/60">Payment Pending</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{bookings.filter(b => b.status === 'payment-pending').length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-foreground/60">Total Revenue</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(bookings.reduce((sum, b) => sum + (b.finalCost || b.totalCost || 0), 0))}</div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3" style={{ marginBottom: '16px' }}>
+        <div style={{ 
+          background: 'var(--white)', 
+          border: '1px solid var(--gray-200)', 
+          borderRadius: 'var(--radius-lg)', 
+          padding: '12px',
+          boxShadow: 'var(--shadow-sm)',
+          transition: 'var(--transition)'
+        }} className="hover:shadow-md">
+          <div style={{ color: 'var(--gray-500)', fontSize: '0.74rem', fontWeight: '600', marginBottom: '4px' }}>Total Bookings</div>
+          <div style={{ fontSize: '1.35rem', fontWeight: '700', color: 'var(--primary-blue)' }}>{bookings.length}</div>
+        </div>
+        <div style={{ 
+          background: 'var(--white)', 
+          border: '1px solid var(--gray-200)', 
+          borderRadius: 'var(--radius-lg)', 
+          padding: '12px',
+          boxShadow: 'var(--shadow-sm)',
+          transition: 'var(--transition)'
+        }} className="hover:shadow-md">
+          <div style={{ color: 'var(--gray-500)', fontSize: '0.74rem', fontWeight: '600', marginBottom: '4px' }}>Pending</div>
+          <div style={{ fontSize: '1.35rem', fontWeight: '700', color: 'var(--accent-yellow)' }}>{bookings.filter(b => b.status === 'pending').length}</div>
+        </div>
+        <div style={{ 
+          background: 'var(--white)', 
+          border: '1px solid var(--gray-200)', 
+          borderRadius: 'var(--radius-lg)', 
+          padding: '12px',
+          boxShadow: 'var(--shadow-sm)',
+          transition: 'var(--transition)'
+        }} className="hover:shadow-md">
+          <div style={{ color: 'var(--gray-500)', fontSize: '0.74rem', fontWeight: '600', marginBottom: '4px' }}>Payment Pending</div>
+          <div style={{ fontSize: '1.35rem', fontWeight: '700', color: '#ff9800' }}>{bookings.filter(b => b.status === 'payment-pending').length}</div>
+        </div>
+        <div style={{ 
+          background: 'var(--white)', 
+          border: '1px solid var(--gray-200)', 
+          borderRadius: 'var(--radius-lg)', 
+          padding: '12px',
+          boxShadow: 'var(--shadow-sm)',
+          transition: 'var(--transition)'
+        }} className="hover:shadow-md">
+          <div style={{ color: 'var(--gray-500)', fontSize: '0.74rem', fontWeight: '600', marginBottom: '4px' }}>Total Revenue</div>
+          <div style={{ fontSize: '1.35rem', fontWeight: '700', color: 'var(--success)' }}>{formatCurrency(bookings.reduce((sum, b) => sum + (b.finalCost || b.totalCost || 0), 0))}</div>
+        </div>
       </div>
 
       {/* Filters and Search */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <label className="text-sm font-medium mb-2 block">Search</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-foreground/40" />
-                <Input
-                  placeholder="Search by booking ID, customer name, email, or phone..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div className="w-full md:w-48">
-              <label className="text-sm font-medium mb-2 block">Booking Status</label>
-              <Select
-                value={statusFilter}
-                onValueChange={(value) => {
-                  setStatusFilter(value)
-                  setCurrentPage(1) // Reset to first page when filter changes
+      <div style={{ 
+        background: 'var(--white)', 
+        border: '1px solid var(--gray-200)', 
+        borderRadius: 'var(--radius-lg)', 
+        padding: '14px',
+        boxShadow: 'var(--shadow-sm)',
+        marginBottom: '14px'
+      }}>
+        <h2 style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--gray-800)', marginBottom: '10px' }}>Filters</h2>
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex-1">
+            <label style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--gray-700)', marginBottom: '4px', display: 'block' }}>Search</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4" style={{ color: 'var(--gray-400)' }} />
+              <Input
+                placeholder="Search by booking ID, customer name, email, or phone..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+                style={{
+                  border: '1px solid var(--gray-200)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '8px 8px 8px 34px',
+                  fontSize: '0.82rem',
+                  width: '100%'
                 }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="payment-pending">Payment Pending</SelectItem>
-                  <SelectItem value="processing">Processing</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-full md:w-48">
-              <label className="text-sm font-medium mb-2 block">Billing Status</label>
-              <Select
-                value={billingStatusFilter}
-                onValueChange={(value) => {
-                  setBillingStatusFilter(value)
-                  setCurrentPage(1) // Reset to first page when filter changes
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Billing Statuses</SelectItem>
-                  <SelectItem value="unpaid">Unpaid</SelectItem>
-                  <SelectItem value="partially-paid">Partially Paid</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                </SelectContent>
-              </Select>
+              />
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <div className="w-full md:w-48">
+            <label style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--gray-700)', marginBottom: '4px', display: 'block' }}>Booking Status</label>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => {
+                setStatusFilter(value)
+                setCurrentPage(1)
+              }}
+            >
+              <SelectTrigger style={{ border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-sm)' }}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="payment-pending">Payment Pending</SelectItem>
+                <SelectItem value="processing">Processing</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-full md:w-48">
+            <label style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--gray-700)', marginBottom: '4px', display: 'block' }}>Billing Status</label>
+            <Select
+              value={billingStatusFilter}
+              onValueChange={(value) => {
+                setBillingStatusFilter(value)
+                setCurrentPage(1)
+              }}
+            >
+              <SelectTrigger style={{ border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-sm)' }}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Billing Statuses</SelectItem>
+                <SelectItem value="unpaid">Unpaid</SelectItem>
+                <SelectItem value="partially-paid">Partially Paid</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
 
       {/* Bookings Table */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+      <div style={{ 
+        background: 'var(--white)', 
+        border: '1px solid var(--gray-200)', 
+        borderRadius: 'var(--radius-lg)', 
+        boxShadow: 'var(--shadow-sm)',
+        overflow: 'hidden'
+      }}>
+        <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
           <div>
-            <CardTitle>Bookings List</CardTitle>
-            <CardDescription>{filteredBookings.length} bookings found</CardDescription>
+            <h2 style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--primary-blue)', marginBottom: '2px' }}>Bookings List</h2>
+            <p style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>{filteredBookings.length} bookings found</p>
           </div>
           <Button
             variant="outline"
@@ -753,38 +807,52 @@ export function BookingsManagement() {
             }}
             disabled={loadingUnreadCounts}
             title="Refresh message counts"
+            style={{
+              border: '1px solid var(--gray-200)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--white)',
+              color: 'var(--gray-700)',
+              padding: '6px 12px',
+              fontSize: '0.78rem',
+              fontWeight: '500'
+            }}
           >
             <RefreshCw className={`h-4 w-4 ${loadingUnreadCounts ? 'animate-spin' : ''}`} />
           </Button>
-        </CardHeader>
-        <CardContent>
+        </div>
+        <div style={{ padding: '10px 12px' }}>
           {filteredBookings.length === 0 ? (
-            <div className="text-center py-8 text-foreground/60">
+            <div className="text-center py-8" style={{ color: 'var(--gray-400)' }}>
               <Package className="h-12 w-12 mx-auto mb-4 opacity-40" />
-              <p>No bookings found</p>
+              <p style={{ fontSize: '0.95rem' }}>No bookings found</p>
             </div>
           ) : (
-            <div className="w-full overflow-x-auto">
-              <Table className="w-full min-w-full">
-                <TableHeader>
+            <div className="w-full overflow-x-auto bookings-list-table-wrap">
+              <Table className="w-full min-w-full bookings-list-table">
+                <TableHeader style={{ background: 'var(--primary-blue)', borderRadius: 'var(--radius-sm) var(--radius-sm) 0 0' }}>
                   <TableRow>
-                    <TableHead className="w-12 flex-shrink-0"></TableHead>
-                    <TableHead className="min-w-[100px]">Booking ID</TableHead>
-                    <TableHead className="min-w-[150px]">Customer</TableHead>
-                    <TableHead className="min-w-[90px]">Status</TableHead>
-                    <TableHead className="min-w-[100px]">Billing Status</TableHead>
-                    <TableHead className="min-w-[110px]">Shipping Status</TableHead>
-                    <TableHead className="min-w-[100px]">Progress</TableHead>
-                    <TableHead className="min-w-[90px]">Total Cost</TableHead>
-                    <TableHead className="min-w-[70px] text-center">Orders</TableHead>
-                    <TableHead className="min-w-[60px] text-center">Items</TableHead>
-                    <TableHead className="min-w-[70px] text-center">Msgs</TableHead>
-                    <TableHead className="min-w-[100px]">Created</TableHead>
-                    <TableHead className="text-right min-w-[120px] flex-shrink-0">Actions</TableHead>
+                    <TableHead className="w-12 flex-shrink-0" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}></TableHead>
+                    <TableHead className="min-w-[100px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Booking ID</TableHead>
+                    <TableHead className="min-w-[150px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Customer</TableHead>
+                    <TableHead className="min-w-[90px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Status</TableHead>
+                    <TableHead className="min-w-[100px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Billing Status</TableHead>
+                    <TableHead className="min-w-[110px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Shipping Status</TableHead>
+                    <TableHead className="min-w-[100px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Progress</TableHead>
+                    <TableHead className="min-w-[90px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Total Cost</TableHead>
+                    <TableHead className="min-w-[70px] text-center" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Orders</TableHead>
+                    <TableHead className="min-w-[60px] text-center" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Items</TableHead>
+                    <TableHead className="min-w-[70px] text-center" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Msgs</TableHead>
+                    <TableHead className="min-w-[100px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Created</TableHead>
+                    <TableHead className="text-right min-w-[120px] flex-shrink-0" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredBookings.map((booking) => (
+                  {filteredBookings.map((booking) => {
+                    const customer = getSafeBookingCustomer(booking)
+                    const customerDisplayName = getCustomerDisplayName(customer)
+                    const customerInitial = (customer.firstName || customer.name || customer.email || 'U').charAt(0).toUpperCase()
+
+                    return (
                     <React.Fragment key={booking._id}>
                     <TableRow className="hover:bg-muted/50">
                       <TableCell className="w-12">
@@ -809,12 +877,12 @@ export function BookingsManagement() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Avatar className="h-8 w-8">
-                            <AvatarImage src={booking.customerId.avatar} />
-                            <AvatarFallback>{(booking.customerId.firstName || booking.customerId.name || booking.customerId.email).charAt(0)}</AvatarFallback>
+                            <AvatarImage src={customer.avatar} />
+                            <AvatarFallback>{customerInitial}</AvatarFallback>
                           </Avatar>
                           <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">{booking.customerId.firstName ? `${booking.customerId.firstName} ${booking.customerId.lastName || ''}` : (booking.customerId.name || booking.customerId.email)}</p>
-                            <p className="text-xs text-foreground/60 truncate">{booking.customerId.email}</p>
+                            <p className="text-sm font-medium truncate">{customerDisplayName}</p>
+                            <p className="text-xs text-foreground/60 truncate">{customer.email}</p>
                           </div>
                         </div>
                       </TableCell>
@@ -1153,7 +1221,8 @@ export function BookingsManagement() {
                       </TableRow>
                     )}
                     </React.Fragment>
-                  ))}
+                    )
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -1161,16 +1230,16 @@ export function BookingsManagement() {
 
           {/* Pagination Controls */}
           {filteredBookings.length > 0 && (
-            <div className="flex items-center justify-between px-2 py-4 border-t">
-              <div className="flex items-center gap-2">
-                <p className="text-sm text-foreground/60">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 6px', borderTop: '1px solid var(--gray-100)', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <p style={{ fontSize: '0.78rem', color: 'var(--gray-500)' }}>
                   Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalBookings)} of {totalBookings} bookings
                 </p>
               </div>
 
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-foreground/60">Rows per page:</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <label style={{ fontSize: '0.78rem', color: 'var(--gray-500)' }}>Rows per page:</label>
                   <Select
                     value={itemsPerPage.toString()}
                     onValueChange={(value) => {
@@ -1190,7 +1259,7 @@ export function BookingsManagement() {
                   </Select>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Button
                     variant="outline"
                     size="sm"
@@ -1249,8 +1318,8 @@ export function BookingsManagement() {
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Invoice Dialog */}
       {selectedBooking && (
@@ -1311,6 +1380,7 @@ export function BookingsManagement() {
           }}
         />
       )}
+      </div>
     </div>
   )
 }
@@ -1327,6 +1397,8 @@ function BookingDetailDialog({
   navigate: any;
   onStatusUpdate: () => void
 }) {
+  const customer = getSafeBookingCustomer(booking)
+  const customerDisplayName = getCustomerDisplayName(customer)
   const [activeTab, setActiveTab] = useState("overview")
   const [updating, setUpdating] = useState(false)
   const [newStatus, setNewStatus] = useState(booking.status)
@@ -1434,66 +1506,219 @@ function BookingDetailDialog({
   }
 
   return (
-    <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-      <DialogHeader>
-        <DialogTitle>Booking Details</DialogTitle>
-        <DialogDescription>Booking ID: {booking._id}</DialogDescription>
+    <DialogContent 
+      className="bookings-detail-dialog max-w-3xl max-h-[90vh] overflow-y-auto"
+      style={{
+        background: 'var(--off-white, #f8f9fc)',
+        border: '1px solid var(--gray-200, #d8dce6)',
+        borderRadius: 'var(--radius-lg, 16px)',
+        boxShadow: 'var(--shadow-xl, 0 16px 48px rgba(0,0,0,0.15))',
+        fontFamily: 'var(--font-main, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif)'
+      }}
+    >
+      <DialogHeader className="bookings-detail-header" style={{ marginBottom: '14px', paddingBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.22)' }}>
+        <DialogTitle style={{ 
+          fontSize: '1.15rem', 
+          fontWeight: '700', 
+          color: 'var(--white, #ffffff)',
+          marginBottom: '2px',
+          letterSpacing: '-0.5px'
+        }}>
+          Booking Details
+        </DialogTitle>
+        <DialogDescription style={{ 
+          fontSize: '0.78rem', 
+          color: 'rgba(255,255,255,0.88)',
+          fontWeight: '500'
+        }}>
+          Booking ID: #{booking._id.slice(-8).toUpperCase()}
+        </DialogDescription>
       </DialogHeader>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="repairs">Repair Jobs</TabsTrigger>
-          <TabsTrigger value="items">Items</TabsTrigger>
-          <TabsTrigger value="shipping">Shipping</TabsTrigger>
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
+        <TabsList 
+          className="grid w-full grid-cols-6"
+          style={{
+            background: 'var(--white, #ffffff)',
+            border: '1px solid var(--gray-200, #d8dce6)',
+            borderRadius: 'var(--radius-md, 10px)',
+            padding: '2px',
+            boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
+            gap: '2px'
+          }}
+        >
+          <TabsTrigger 
+            value="overview"
+            style={{
+              fontSize: '0.76rem',
+              fontWeight: '600',
+              borderRadius: 'var(--radius-sm, 6px)',
+              transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
+            }}
+          >
+            Overview
+          </TabsTrigger>
+          <TabsTrigger 
+            value="repairs"
+            style={{
+              fontSize: '0.76rem',
+              fontWeight: '600',
+              borderRadius: 'var(--radius-sm, 6px)',
+              transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
+            }}
+          >
+            Repair Jobs
+          </TabsTrigger>
+          <TabsTrigger 
+            value="items"
+            style={{
+              fontSize: '0.76rem',
+              fontWeight: '600',
+              borderRadius: 'var(--radius-sm, 6px)',
+              transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
+            }}
+          >
+            Items
+          </TabsTrigger>
+          <TabsTrigger 
+            value="shipping"
+            style={{
+              fontSize: '0.76rem',
+              fontWeight: '600',
+              borderRadius: 'var(--radius-sm, 6px)',
+              transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
+            }}
+          >
+            Shipping
+          </TabsTrigger>
+          <TabsTrigger 
+            value="invoices"
+            style={{
+              fontSize: '0.76rem',
+              fontWeight: '600',
+              borderRadius: 'var(--radius-sm, 6px)',
+              transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
+            }}
+          >
+            Invoices
+          </TabsTrigger>
+          <TabsTrigger 
+            value="timeline"
+            style={{
+              fontSize: '0.76rem',
+              fontWeight: '600',
+              borderRadius: 'var(--radius-sm, 6px)',
+              transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
+            }}
+          >
+            Timeline
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4 mt-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <h3 className="font-semibold text-sm mb-3">Customer Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div 
+              style={{
+                background: 'var(--white, #ffffff)',
+                border: '1px solid var(--gray-200, #d8dce6)',
+                borderRadius: 'var(--radius-lg, 16px)',
+                padding: '24px',
+                boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
+                transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
+              }}
+              className="hover:shadow-md"
+            >
+              <h3 
+                className="font-semibold text-sm mb-3" 
+                style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1.05rem', fontWeight: '700' }}
+              >
+                Customer Information
+              </h3>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <Avatar>
-                    <AvatarImage src={booking.customerId.avatar} />
-                    <AvatarFallback>{(booking.customerId.firstName || booking.customerId.name || booking.customerId.email).charAt(0)}</AvatarFallback>
+                    <AvatarImage src={customer.avatar} />
+                    <AvatarFallback style={{ background: 'var(--primary-blue, #1a2a5e)', color: 'var(--white, #ffffff)' }}>
+                      {(customerDisplayName || customer.email || '?').charAt(0)}
+                    </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-medium text-sm">{booking.customerId.firstName ? `${booking.customerId.firstName} ${booking.customerId.lastName || ''}` : (booking.customerId.name || booking.customerId.email)}</p>
-                    <p className="text-xs text-foreground/60">{booking.customerId.email}</p>
+                    <p className="font-medium text-sm" style={{ color: 'var(--gray-800, #1a202c)', fontWeight: '600' }}>
+                      {customerDisplayName}
+                    </p>
+                    <p className="text-xs" style={{ color: 'var(--gray-500, #636e85)' }}>
+                      {customer.email}
+                    </p>
                   </div>
                 </div>
-                <div className="text-sm">
-                  <span className="text-foreground/60">Phone: </span>
-                  <span>{booking.customerId.phone}</span>
+                <div className="text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>
+                  <span style={{ color: 'var(--gray-500, #636e85)' }}>Phone: </span>
+                  <span style={{ fontWeight: '500' }}>{customer.phone || 'N/A'}</span>
                 </div>
               </div>
             </div>
 
-            <div>
-              <h3 className="font-semibold text-sm mb-3">Booking Status</h3>
+            <div
+              style={{
+                background: 'var(--white, #ffffff)',
+                border: '1px solid var(--gray-200, #d8dce6)',
+                borderRadius: 'var(--radius-lg, 16px)',
+                padding: '24px',
+                boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
+                transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
+              }}
+              className="hover:shadow-md"
+            >
+              <h3 
+                className="font-semibold text-sm mb-3"
+                style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1.05rem', fontWeight: '700' }}
+              >
+                Booking Status
+              </h3>
               <div className="space-y-3">
                 <div>
-                  <p className="text-xs text-foreground/60 mb-1">Current Status</p>
+                  <p className="text-xs mb-1" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '0.75rem' }}>
+                    Current Status
+                  </p>
                   <Badge className={getStatusColor(booking.status)}>{booking.status}</Badge>
                 </div>
                 <div>
-                  <p className="text-xs text-foreground/60 mb-1">Billing Status</p>
+                  <p className="text-xs mb-1" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '0.75rem' }}>
+                    Billing Status
+                  </p>
                   <Badge className={getBillingStatusColor(booking.billingStatus)}>{booking.billingStatus}</Badge>
                 </div>
               </div>
             </div>
           </div>
 
-          <Separator />
+          <Separator style={{ background: 'var(--gray-200, #d8dce6)', height: '1px' }} />
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium">Update Booking Status</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div
+              style={{
+                background: 'var(--white, #ffffff)',
+                border: '1px solid var(--gray-200, #d8dce6)',
+                borderRadius: 'var(--radius-lg, 16px)',
+                padding: '20px',
+                boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
+              }}
+            >
+              <label 
+                className="text-sm font-medium" 
+                style={{ color: 'var(--gray-700, #2d3748)', fontWeight: '600', fontSize: '0.9rem' }}
+              >
+                Update Booking Status
+              </label>
               <Select value={newStatus} onValueChange={setNewStatus}>
-                <SelectTrigger className="mt-2">
+                <SelectTrigger 
+                  className="mt-2"
+                  style={{
+                    border: '1px solid var(--gray-200, #d8dce6)',
+                    borderRadius: 'var(--radius-sm, 6px)',
+                    fontSize: '0.9rem'
+                  }}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1512,11 +1737,26 @@ function BookingDetailDialog({
                     onChange={(e) => setDescription(e.target.value)}
                     className="mt-2"
                     rows={2}
+                    style={{
+                      border: '1px solid var(--gray-200, #d8dce6)',
+                      borderRadius: 'var(--radius-sm, 6px)',
+                      fontSize: '0.9rem'
+                    }}
                   />
                   <Button
                     onClick={handleStatusUpdate}
                     disabled={updating}
                     className="w-full mt-2"
+                    style={{
+                      background: 'var(--primary-blue, #1a2a5e)',
+                      color: 'var(--white, #ffffff)',
+                      border: 'none',
+                      borderRadius: 'var(--radius-sm, 6px)',
+                      fontWeight: '600',
+                      fontSize: '0.9rem',
+                      padding: '10px 20px',
+                      transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
+                    }}
                   >
                     Update Status
                   </Button>
@@ -1524,10 +1764,30 @@ function BookingDetailDialog({
               )}
             </div>
 
-            <div>
-              <label className="text-sm font-medium">Update Billing Status</label>
+            <div
+              style={{
+                background: 'var(--white, #ffffff)',
+                border: '1px solid var(--gray-200, #d8dce6)',
+                borderRadius: 'var(--radius-lg, 16px)',
+                padding: '20px',
+                boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
+              }}
+            >
+              <label 
+                className="text-sm font-medium"
+                style={{ color: 'var(--gray-700, #2d3748)', fontWeight: '600', fontSize: '0.9rem' }}
+              >
+                Update Billing Status
+              </label>
               <Select value={newBillingStatus} onValueChange={setNewBillingStatus}>
-                <SelectTrigger className="mt-2">
+                <SelectTrigger 
+                  className="mt-2"
+                  style={{
+                    border: '1px solid var(--gray-200, #d8dce6)',
+                    borderRadius: 'var(--radius-sm, 6px)',
+                    fontSize: '0.9rem'
+                  }}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1541,6 +1801,16 @@ function BookingDetailDialog({
                   onClick={handleBillingUpdate}
                   disabled={updating}
                   className="w-full mt-8"
+                  style={{
+                    background: 'var(--accent-yellow, #f5b800)',
+                    color: 'var(--gray-800, #1a202c)',
+                    border: 'none',
+                    borderRadius: 'var(--radius-sm, 6px)',
+                    fontWeight: '600',
+                    fontSize: '0.9rem',
+                    padding: '10px 20px',
+                    transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
+                  }}
                 >
                   Update Billing
                 </Button>
@@ -1548,30 +1818,88 @@ function BookingDetailDialog({
             </div>
           </div>
 
-          <Separator />
+          <Separator style={{ background: 'var(--gray-200, #d8dce6)', height: '1px' }} />
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-muted/50 p-3 rounded">
-              <p className="text-xs text-foreground/60">Total Cost</p>
-              <p className="text-lg font-bold">{formatCurrency(booking.totalCost)}</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div 
+              className="p-4 rounded"
+              style={{
+                background: 'var(--white, #ffffff)',
+                border: '2px solid var(--primary-blue, #1a2a5e)',
+                borderRadius: 'var(--radius-lg, 16px)',
+                boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
+                transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
+              }}
+              className="hover:shadow-md"
+            >
+              <p className="text-xs" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                Total Cost
+              </p>
+              <p className="text-lg font-bold" style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1.5rem' }}>
+                {formatCurrency(booking.totalCost)}
+              </p>
             </div>
-            <div className="bg-muted/50 p-3 rounded">
-              <p className="text-xs text-foreground/60">Final Cost</p>
-              <p className="text-lg font-bold">{formatCurrency(booking.finalCost || booking.totalCost)}</p>
+            <div 
+              className="p-4 rounded"
+              style={{
+                background: 'var(--white, #ffffff)',
+                border: '2px solid var(--success, #38a169)',
+                borderRadius: 'var(--radius-lg, 16px)',
+                boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
+                transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
+              }}
+              className="hover:shadow-md"
+            >
+              <p className="text-xs" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                Final Cost
+              </p>
+              <p className="text-lg font-bold" style={{ color: 'var(--success, #38a169)', fontSize: '1.5rem' }}>
+                {formatCurrency(booking.finalCost || booking.totalCost)}
+              </p>
             </div>
-            <div className="bg-muted/50 p-3 rounded">
-              <p className="text-xs text-foreground/60">Items Count</p>
-              <p className="text-lg font-bold">{booking.items.length}</p>
+            <div 
+              className="p-4 rounded"
+              style={{
+                background: 'var(--white, #ffffff)',
+                border: '2px solid var(--accent-yellow, #f5b800)',
+                borderRadius: 'var(--radius-lg, 16px)',
+                boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
+                transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
+              }}
+              className="hover:shadow-md"
+            >
+              <p className="text-xs" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                Items Count
+              </p>
+              <p className="text-lg font-bold" style={{ color: 'var(--accent-yellow-hover, #e5ab00)', fontSize: '1.5rem' }}>
+                {booking.items.length}
+              </p>
             </div>
           </div>
 
-          <Separator />
+          <Separator style={{ background: 'var(--gray-200, #d8dce6)', height: '1px' }} />
 
-          <div>
-            <p className="text-xs text-foreground/60 mb-2">Dates</p>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>Created: {formatDateTime(booking.createdAt)}</div>
-              <div>Updated: {formatDateTime(booking.updatedAt)}</div>
+          <div
+            style={{
+              background: 'var(--white, #ffffff)',
+              border: '1px solid var(--gray-200, #d8dce6)',
+              borderRadius: 'var(--radius-lg, 16px)',
+              padding: '16px',
+              boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
+            }}
+          >
+            <p className="text-xs mb-2" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Dates
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>
+              <div>
+                <span style={{ color: 'var(--gray-500, #636e85)' }}>Created: </span>
+                <span style={{ fontWeight: '600' }}>{formatDateTime(booking.createdAt)}</span>
+              </div>
+              <div>
+                <span style={{ color: 'var(--gray-500, #636e85)' }}>Updated: </span>
+                <span style={{ fontWeight: '600' }}>{formatDateTime(booking.updatedAt)}</span>
+              </div>
             </div>
           </div>
         </TabsContent>
@@ -1582,36 +1910,61 @@ function BookingDetailDialog({
               {booking.items.filter(item => item.type === 'repair').map((item) => (
                 <div
                   key={item._id || item.orderId}
-                  className="border p-4 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                  className="hover:bg-muted/50 cursor-pointer transition-colors"
                   onClick={() => item.orderId && handleViewOrder(item.orderId)}
+                  style={{
+                    border: '2px solid var(--gray-200, #d8dce6)',
+                    borderLeft: '4px solid var(--accent-yellow, #f5b800)',
+                    padding: '20px',
+                    borderRadius: 'var(--radius-lg, 16px)',
+                    background: 'var(--white, #ffffff)',
+                    boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
+                    transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))',
+                    cursor: 'pointer'
+                  }}
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-semibold">{item.device || 'Device Repair'}</h4>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-semibold" style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1.1rem', fontWeight: '700' }}>
+                          {item.device || 'Device Repair'}
+                        </h4>
                         <Badge className={getStatusColor(item.status || 'pending')}>
                           {item.status || 'pending'}
                         </Badge>
                         {item.orderId && (
-                          <span className="text-xs text-foreground/50 flex items-center gap-1">
+                          <span className="text-xs flex items-center gap-1" style={{ color: 'var(--gray-500, #636e85)' }}>
                             <ExternalLink className="h-3 w-3" />
                             Order: {item.orderId?.slice(-8)}
                           </span>
                         )}
                       </div>
                       {item.services && item.services.length > 0 && (
-                        <p className="text-sm text-foreground/60 mt-1">{item.services.map(s => s.name).join(', ')}</p>
+                        <p className="text-sm mt-1" style={{ color: 'var(--gray-600, #4a5568)' }}>
+                          {item.services.map(s => s.name).join(', ')}
+                        </p>
                       )}
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>Item Cost: {formatCurrency(item.cost)}</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>
+                    <div>
+                      <span style={{ color: 'var(--gray-500, #636e85)' }}>Item Cost: </span>
+                      <span style={{ fontWeight: '600', color: 'var(--primary-blue, #1a2a5e)' }}>
+                        {formatCurrency(item.cost)}
+                      </span>
+                    </div>
                     {item.services && item.services[0]?.estimatedTime && (
-                      <div className="text-right">Est. Time: {item.services[0].estimatedTime} min</div>
+                      <div className="text-right">
+                        <span style={{ color: 'var(--gray-500, #636e85)' }}>Est. Time: </span>
+                        <span style={{ fontWeight: '600' }}>{item.services[0].estimatedTime} min</span>
+                      </div>
                     )}
                   </div>
                   {item.orderId && (
-                    <div className="text-xs text-blue-600 dark:text-blue-400 mt-2 flex items-center gap-1">
+                    <div 
+                      className="text-xs mt-2 flex items-center gap-1"
+                      style={{ color: 'var(--primary-blue, #1a2a5e)', fontWeight: '600' }}
+                    >
                       <ExternalLink className="h-3 w-3" />
                       Click to view order details
                     </div>
@@ -1620,7 +1973,17 @@ function BookingDetailDialog({
               ))}
             </div>
           ) : (
-            <p className="text-foreground/60 text-center py-4">No repair jobs in this booking</p>
+            <div 
+              className="text-center py-8"
+              style={{
+                background: 'var(--white, #ffffff)',
+                border: '1px solid var(--gray-200, #d8dce6)',
+                borderRadius: 'var(--radius-lg, 16px)',
+                padding: '40px'
+              }}
+            >
+              <p style={{ color: 'var(--gray-400, #8892a8)' }}>No repair jobs in this booking</p>
+            </div>
           )}
         </TabsContent>
 
@@ -1628,9 +1991,23 @@ function BookingDetailDialog({
           {booking.items && booking.items.filter(item => item.type === 'product').length > 0 ? (
             <div className="space-y-3">
               {booking.items.filter(item => item.type === 'product').map((item) => (
-                <div key={item._id || item.orderId} className="border p-4 rounded-lg">
+                <div 
+                  key={item._id || item.orderId} 
+                  style={{
+                    border: '2px solid var(--gray-200, #d8dce6)',
+                    borderLeft: '4px solid var(--primary-blue, #1a2a5e)',
+                    padding: '20px',
+                    borderRadius: 'var(--radius-lg, 16px)',
+                    background: 'var(--white, #ffffff)',
+                    boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
+                    transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
+                  }}
+                  className="hover:shadow-md"
+                >
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold">Product Item</h4>
+                    <h4 className="font-semibold" style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1.1rem', fontWeight: '700' }}>
+                      Product Item
+                    </h4>
                     <Badge className={getStatusColor(item.status || 'pending')}>
                       {item.status || 'pending'}
                     </Badge>
@@ -1638,37 +2015,78 @@ function BookingDetailDialog({
                   {item.products && item.products.length > 0 ? (
                     <div className="space-y-2">
                       {item.products.map((product) => (
-                        <div key={product._id || product.productId} className="flex justify-between items-center text-sm pb-2 border-b last:border-0">
+                        <div 
+                          key={product._id || product.productId} 
+                          className="flex justify-between items-center text-sm pb-2 border-b last:border-0"
+                          style={{ borderColor: 'var(--gray-100, #eceef3)', color: 'var(--gray-700, #2d3748)' }}
+                        >
                           <div>
-                            <p className="font-medium">{product.name}</p>
-                            <p className="text-xs text-foreground/60">Qty: {product.quantity} × {formatCurrency(product.price)}</p>
+                            <p className="font-medium" style={{ fontWeight: '600', color: 'var(--gray-800, #1a202c)' }}>
+                              {product.name}
+                            </p>
+                            <p className="text-xs" style={{ color: 'var(--gray-500, #636e85)' }}>
+                              Qty: {product.quantity} × {formatCurrency(product.price)}
+                            </p>
                           </div>
-                          <p className="font-semibold">{formatCurrency(product.totalPrice)}</p>
+                          <p className="font-semibold" style={{ fontWeight: '700', color: 'var(--primary-blue, #1a2a5e)' }}>
+                            {formatCurrency(product.totalPrice)}
+                          </p>
                         </div>
                       ))}
-                      <div className="flex justify-between items-center text-sm mt-2 pt-2 border-t font-semibold">
+                      <div 
+                        className="flex justify-between items-center text-sm mt-2 pt-2 font-semibold"
+                        style={{ 
+                          borderTop: '2px solid var(--gray-200, #d8dce6)', 
+                          color: 'var(--gray-800, #1a202c)',
+                          fontWeight: '700'
+                        }}
+                      >
                         <span>Total:</span>
-                        <span>{formatCurrency(item.cost)}</span>
+                        <span style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1.1rem' }}>
+                          {formatCurrency(item.cost)}
+                        </span>
                       </div>
                     </div>
                   ) : (
-                    <p className="text-sm text-foreground/60">No products</p>
+                    <p className="text-sm" style={{ color: 'var(--gray-400, #8892a8)' }}>No products</p>
                   )}
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-foreground/60 text-center py-4">No product items in this booking</p>
+            <div 
+              className="text-center py-8"
+              style={{
+                background: 'var(--white, #ffffff)',
+                border: '1px solid var(--gray-200, #d8dce6)',
+                borderRadius: 'var(--radius-lg, 16px)',
+                padding: '40px'
+              }}
+            >
+              <p style={{ color: 'var(--gray-400, #8892a8)' }}>No product items in this booking</p>
+            </div>
           )}
         </TabsContent>
 
         <TabsContent value="shipping" className="space-y-4 mt-4">
           {booking.returnTrackingNumber || booking.returnLabelUrl || booking.returnQRCodeUrl ? (
             <div className="space-y-4">
-              <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div 
+                style={{
+                  background: 'var(--white, #ffffff)',
+                  border: '2px solid var(--gray-200, #d8dce6)',
+                  borderLeft: '4px solid var(--primary-blue, #1a2a5e)',
+                  borderRadius: 'var(--radius-lg, 16px)',
+                  padding: '24px',
+                  boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
+                }}
+              >
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-lg flex items-center gap-2">
-                    <Truck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  <h3 
+                    className="font-semibold text-lg flex items-center gap-2"
+                    style={{ color: 'var(--primary-blue, #1a2a5e)', fontWeight: '700' }}
+                  >
+                    <Truck className="h-5 w-5" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
                     Return Shipping Information
                   </h3>
                   {booking.returnShipmentStatus && (
@@ -1688,15 +2106,15 @@ function BookingDetailDialog({
 
                 <div className="space-y-4">
                   {booking.returnTrackingNumber && (
-                    <div className="border-b pb-3">
+                    <div className="border-b pb-3" style={{ borderColor: 'var(--gray-200, #d8dce6)' }}>
                       <div className="flex items-start gap-3">
-                        <Package className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-1 flex-shrink-0" />
+                        <Package className="h-5 w-5 mt-1 flex-shrink-0" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
                         <div className="flex-1">
-                          <p className="text-sm text-foreground/60 mb-1">Tracking Number</p>
-                          <p className="font-mono font-semibold text-lg text-blue-900 dark:text-blue-200">
+                          <p className="text-sm mb-1" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600' }}>Tracking Number</p>
+                          <p className="font-mono font-semibold text-lg" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>
                             {booking.returnTrackingNumber}
                           </p>
-                          <p className="text-xs text-foreground/50 mt-1">
+                          <p className="text-xs mt-1" style={{ color: 'var(--gray-400, #8892a8)' }}>
                             Use this tracking number to monitor your return shipment with DHL
                           </p>
                         </div>
@@ -1705,11 +2123,11 @@ function BookingDetailDialog({
                   )}
 
                   {booking.returnLabelUrl && (
-                    <div className="border-b pb-3">
+                    <div className="border-b pb-3" style={{ borderColor: 'var(--gray-200, #d8dce6)' }}>
                       <div className="flex items-start gap-3">
-                        <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-1 flex-shrink-0" />
+                        <FileText className="h-5 w-5 mt-1 flex-shrink-0" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
                         <div className="flex-1">
-                          <p className="text-sm text-foreground/60 mb-2">Return Label (PDF)</p>
+                          <p className="text-sm mb-2" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600' }}>Return Label (PDF)</p>
                           <Button
                             size="sm"
                             variant="outline"
@@ -1750,7 +2168,7 @@ function BookingDetailDialog({
                             <QrCode className="h-4 w-4 mr-2" />
                             Download QR Code
                           </Button>
-                          <p className="text-xs text-foreground/50 mt-2">
+                          <p className="text-xs mt-2" style={{ color: 'var(--gray-400, #8892a8)' }}>
                             Show this QR code at any DHL location for a label-free return
                           </p>
                         </div>
@@ -1761,22 +2179,22 @@ function BookingDetailDialog({
                   {(booking.returnCreatedAt || booking.returnReceivedAt) && (
                     <div>
                       <div className="flex items-start gap-3">
-                        <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-1 flex-shrink-0" />
+                        <Clock className="h-5 w-5 mt-1 flex-shrink-0" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
                         <div className="flex-1">
-                          <p className="text-sm text-foreground/60 mb-2">Timeline</p>
+                          <p className="text-sm mb-2" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600' }}>Timeline</p>
                           <div className="space-y-2 text-sm">
                             {booking.returnCreatedAt && (
                               <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-blue-600"></div>
-                                <span className="text-foreground/60">Label Created:</span>
-                                <span className="font-semibold">{formatDateTime(booking.returnCreatedAt)}</span>
+                                <div className="w-2 h-2 rounded-full" style={{ background: 'var(--primary-blue, #1a2a5e)' }}></div>
+                                <span style={{ color: 'var(--gray-500, #636e85)' }}>Label Created:</span>
+                                <span className="font-semibold" style={{ color: 'var(--gray-700, #2d3748)' }}>{formatDateTime(booking.returnCreatedAt)}</span>
                               </div>
                             )}
                             {booking.returnReceivedAt && (
                               <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-green-600"></div>
-                                <span className="text-foreground/60">Package Received:</span>
-                                <span className="font-semibold">{formatDateTime(booking.returnReceivedAt)}</span>
+                                <div className="w-2 h-2 rounded-full" style={{ background: 'var(--success, #38a169)' }}></div>
+                                <span style={{ color: 'var(--gray-500, #636e85)' }}>Package Received:</span>
+                                <span className="font-semibold" style={{ color: 'var(--gray-700, #2d3748)' }}>{formatDateTime(booking.returnReceivedAt)}</span>
                               </div>
                             )}
                           </div>
@@ -1787,9 +2205,17 @@ function BookingDetailDialog({
                 </div>
               </div>
 
-              <div className="bg-muted/50 p-4 rounded-lg text-sm">
-                <h4 className="font-semibold mb-2">Return Instructions</h4>
-                <ol className="list-decimal list-inside space-y-1 text-foreground/70">
+              <div 
+                style={{
+                  background: 'var(--white, #ffffff)',
+                  border: '1px solid var(--gray-200, #d8dce6)',
+                  borderRadius: 'var(--radius-lg, 16px)',
+                  padding: '20px',
+                  boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
+                }}
+              >
+                <h4 className="font-semibold mb-2" style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1.05rem' }}>Return Instructions</h4>
+                <ol className="list-decimal list-inside space-y-1" style={{ color: 'var(--gray-600, #4a5568)', fontSize: '0.9rem' }}>
                   <li>Print the return label or save the QR code to your phone</li>
                   <li>Pack your item securely in a suitable box</li>
                   <li>Attach the printed label to the package, or show the QR code at a DHL location</li>
@@ -1799,13 +2225,28 @@ function BookingDetailDialog({
               </div>
             </div>
           ) : (
-            <div className="text-center py-8">
-              <Truck className="h-12 w-12 mx-auto mb-4 text-foreground/20" />
-              <p className="text-foreground/60">No return shipping information available for this booking</p>
-              <p className="text-sm text-foreground/50 mt-2">Return shipping details will appear here once generated</p>
+            <div 
+              className="text-center py-8"
+              style={{
+                background: 'var(--white, #ffffff)',
+                border: '1px solid var(--gray-200, #d8dce6)',
+                borderRadius: 'var(--radius-lg, 16px)',
+                padding: '40px'
+              }}
+            >
+              <Truck className="h-12 w-12 mx-auto mb-4" style={{ color: 'var(--gray-300, #b0b8c9)', opacity: '0.4' }} />
+              <p style={{ color: 'var(--gray-600, #4a5568)' }}>No return shipping information available for this booking</p>
+              <p className="text-sm mt-2" style={{ color: 'var(--gray-400, #8892a8)' }}>Return shipping details will appear here once generated</p>
               <Button
                 onClick={() => setShowReturnLabelDialog(true)}
                 className="mt-4"
+                style={{
+                  background: 'var(--primary-blue, #1a2a5e)',
+                  color: 'var(--white, #ffffff)',
+                  borderRadius: 'var(--radius-sm, 6px)',
+                  fontWeight: '600',
+                  padding: '10px 20px'
+                }}
               >
                 <Truck className="h-4 w-4 mr-2" />
                 Create Return Label
@@ -1822,23 +2263,60 @@ function BookingDetailDialog({
           {booking.timeline && booking.timeline.length > 0 ? (
             <div className="space-y-3">
               {booking.timeline.map((event) => (
-                <div key={event._id || event.completedAt} className="border p-4 rounded-lg flex gap-4">
+                <div 
+                  key={event._id || event.completedAt} 
+                  className="flex gap-4"
+                  style={{
+                    border: '1px solid var(--gray-200, #d8dce6)',
+                    borderLeft: '4px solid var(--accent-yellow, #f5b800)',
+                    padding: '20px',
+                    borderRadius: 'var(--radius-lg, 16px)',
+                    background: 'var(--white, #ffffff)',
+                    boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
+                    transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
+                  }}
+                >
                   <div className="flex-shrink-0">
-                    <CheckCircle className="h-5 w-5 text-green-600 mt-1" />
+                    <CheckCircle 
+                      className="h-5 w-5 mt-1"
+                      style={{ color: 'var(--success, #38a169)' }}
+                    />
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-semibold">{event.status}</h4>
-                    <p className="text-sm text-foreground/60 mt-1">{event.description}</p>
+                    <h4 className="font-semibold" style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1.05rem', fontWeight: '700' }}>
+                      {event.status}
+                    </h4>
+                    <p className="text-sm mt-1" style={{ color: 'var(--gray-600, #4a5568)' }}>
+                      {event.description}
+                    </p>
                     {event.staffName && (
-                      <p className="text-sm text-foreground/60 mt-2">By: {event.staffName}</p>
+                      <p className="text-sm mt-2" style={{ color: 'var(--gray-500, #636e85)' }}>
+                        <span style={{ fontWeight: '600' }}>By:</span> {event.staffName}
+                      </p>
                     )}
-                    <p className="text-xs text-foreground/60 mt-2">{formatDateTime(event.completedAt)}</p>
+                    <p className="text-xs mt-2" style={{ color: 'var(--gray-400, #8892a8)', fontWeight: '500' }}>
+                      {formatDateTime(event.completedAt)}
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-foreground/60 text-center py-4">No timeline events</p>
+            <div 
+              className="text-center py-8"
+              style={{
+                background: 'var(--white, #ffffff)',
+                border: '1px solid var(--gray-200, #d8dce6)',
+                borderRadius: 'var(--radius-lg, 16px)',
+                padding: '40px'
+              }}
+            >
+              <CheckCircle 
+                className="h-12 w-12 mx-auto mb-4"
+                style={{ color: 'var(--gray-300, #b0b8c9)', opacity: '0.4' }}
+              />
+              <p style={{ color: 'var(--gray-400, #8892a8)' }}>No timeline events</p>
+            </div>
           )}
         </TabsContent>
       </Tabs>
@@ -1862,6 +2340,8 @@ function BookingDetailDialog({
 // Invoices Tab Content Component
 // Description: Display invoices for a booking with reminder actions
 function InvoicesTabContent({ booking }: { booking: Booking }) {
+  const customer = getSafeBookingCustomer(booking)
+  const customerDisplayName = getCustomerDisplayName(customer)
   const [invoices, setInvoices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false)
@@ -1978,7 +2458,7 @@ function InvoicesTabContent({ booking }: { booking: Booking }) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm text-foreground/60">
                 <Mail className="h-4 w-4" />
-                <span>{booking.customerId.email}</span>
+                <span>{customer.email}</span>
               </div>
               <div className="flex gap-2">
                 {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
@@ -2021,7 +2501,7 @@ function InvoicesTabContent({ booking }: { booking: Booking }) {
             <DialogHeader>
               <DialogTitle>Send Payment Reminder</DialogTitle>
               <DialogDescription>
-                Send a reminder to {booking.customerId.firstName || booking.customerId.email} about Invoice #{selectedInvoice.invoiceNumber}
+                Send a reminder to {customerDisplayName} about Invoice #{selectedInvoice.invoiceNumber}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -2043,9 +2523,18 @@ function InvoicesTabContent({ booking }: { booking: Booking }) {
               </Button>
               <Button onClick={async () => {
                 try {
+                  if (!customer._id) {
+                    toast({
+                      title: "Error",
+                      description: "No linked customer found for this booking",
+                      variant: "destructive"
+                    })
+                    return
+                  }
+
                   await createReminder({
                     bookingId: booking._id,
-                    customerId: booking.customerId._id,
+                    customerId: customer._id,
                     type: 'payment',
                     title: `Payment Reminder - Invoice #${selectedInvoice.invoiceNumber}`,
                     message: `This is a reminder that Invoice #${selectedInvoice.invoiceNumber} for ${formatCurrency(selectedInvoice.total)} is ${selectedInvoice.status === 'overdue' ? 'overdue' : 'pending payment'}. Please make payment at your earliest convenience.`,
@@ -2263,6 +2752,7 @@ function ReminderDialog({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const customer = getSafeBookingCustomer(booking)
   const [loading, setLoading] = useState(false)
   const [reminderType, setReminderType] = useState('payment')
   const [title, setTitle] = useState('')
@@ -2281,11 +2771,20 @@ function ReminderDialog({
       return
     }
 
+    if (!customer._id) {
+      toast({
+        title: "Error",
+        description: "No linked customer found for this booking",
+        variant: "destructive"
+      })
+      return
+    }
+
     try {
       setLoading(true)
       await createReminder({
         bookingId: booking._id,
-        customerId: booking.customerId._id,
+        customerId: customer._id,
         type: reminderType,
         title,
         message,
@@ -2531,6 +3030,8 @@ function ReturnLabelDialog({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const customer = getSafeBookingCustomer(booking)
+  const customerDisplayName = getCustomerDisplayName(customer)
   const [loading, setLoading] = useState(false)
   const [creatingLabel, setCreatingLabel] = useState(false)
   const [labelData, setLabelData] = useState<any>(null)
@@ -2596,36 +3097,54 @@ function ReturnLabelDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-            <h3 className="font-semibold text-sm mb-2">Booking Information</h3>
-            <div className="space-y-2 text-sm">
+          <div 
+            style={{
+              background: 'var(--white, #ffffff)',
+              border: '2px solid var(--gray-200, #d8dce6)',
+              borderLeft: '4px solid var(--primary-blue, #1a2a5e)',
+              borderRadius: 'var(--radius-lg, 16px)',
+              padding: '20px',
+              boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
+            }}
+          >
+            <h3 className="font-semibold text-sm mb-2" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>Booking Information</h3>
+            <div className="space-y-2 text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>
               <div className="flex justify-between">
-                <span className="text-foreground/60">Booking ID:</span>
-                <span className="font-mono font-semibold">{booking._id}</span>
+                <span style={{ color: 'var(--gray-500, #636e85)' }}>Booking ID:</span>
+                <span className="font-mono font-semibold" style={{ color: 'var(--gray-800, #1a202c)' }}>{booking._id}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-foreground/60">Customer:</span>
-                <span className="font-semibold">
-                  {booking.customerId.firstName ? `${booking.customerId.firstName} ${booking.customerId.lastName || ''}` : (booking.customerId.name || booking.customerId.email)}
+                <span style={{ color: 'var(--gray-500, #636e85)' }}>Customer:</span>
+                <span className="font-semibold" style={{ color: 'var(--gray-800, #1a202c)' }}>
+                  {customerDisplayName}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-foreground/60">Email:</span>
-                <span>{booking.customerId.email}</span>
+                <span style={{ color: 'var(--gray-500, #636e85)' }}>Email:</span>
+                <span style={{ color: 'var(--gray-700, #2d3748)' }}>{customer.email}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-foreground/60">Phone:</span>
-                <span>{booking.customerId.phone}</span>
+                <span style={{ color: 'var(--gray-500, #636e85)' }}>Phone:</span>
+                <span style={{ color: 'var(--gray-700, #2d3748)' }}>{customer.phone || 'N/A'}</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-amber-50 dark:bg-amber-950/30 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
-            <h3 className="font-semibold text-sm mb-2 flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
+          <div 
+            style={{
+              background: 'var(--white, #ffffff)',
+              border: '2px solid var(--gray-200, #d8dce6)',
+              borderLeft: '4px solid var(--accent-yellow, #f5b800)',
+              borderRadius: 'var(--radius-lg, 16px)',
+              padding: '20px',
+              boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
+            }}
+          >
+            <h3 className="font-semibold text-sm mb-2 flex items-center gap-2" style={{ color: 'var(--accent-yellow-hover, #e5ab00)' }}>
+              <AlertCircle className="h-4 w-4" style={{ color: 'var(--accent-yellow-hover, #e5ab00)' }} />
               Important
             </h3>
-            <ul className="text-sm space-y-1 text-foreground/70 list-disc list-inside">
+            <ul className="text-sm space-y-1 list-disc list-inside" style={{ color: 'var(--gray-600, #4a5568)' }}>
               <li>This will create a DHL return shipping label for this booking</li>
               <li>A tracking number will be generated and displayed to the customer</li>
               <li>The customer will receive email notification with the return label</li>
@@ -2633,9 +3152,17 @@ function ReturnLabelDialog({
             </ul>
           </div>
 
-          <div className="bg-muted/50 p-4 rounded-lg">
-            <h3 className="font-semibold text-sm mb-2">What happens next?</h3>
-            <ol className="list-decimal list-inside space-y-1 text-sm text-foreground/70">
+          <div 
+            style={{
+              background: 'var(--white, #ffffff)',
+              border: '1px solid var(--gray-200, #d8dce6)',
+              borderRadius: 'var(--radius-lg, 16px)',
+              padding: '20px',
+              boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
+            }}
+          >
+            <h3 className="font-semibold text-sm mb-2" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>What happens next?</h3>
+            <ol className="list-decimal list-inside space-y-1 text-sm" style={{ color: 'var(--gray-600, #4a5568)' }}>
               <li>A return label will be generated via DHL integration</li>
               <li>The tracking number and label will be stored in the booking</li>
               <li>The Shipping tab will be updated with the return information</li>
@@ -2645,13 +3172,29 @@ function ReturnLabelDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={creatingLabel}>
+          <Button 
+            variant="outline" 
+            onClick={onClose} 
+            disabled={creatingLabel}
+            style={{
+              border: '1px solid var(--gray-200, #d8dce6)',
+              borderRadius: 'var(--radius-sm, 6px)',
+              color: 'var(--gray-700, #2d3748)'
+            }}
+          >
             Cancel
           </Button>
           <Button
             onClick={handleCreateLabel}
             disabled={creatingLabel}
             className="gap-2"
+            style={{
+              background: 'var(--primary-blue, #1a2a5e)',
+              color: 'var(--white, #ffffff)',
+              borderRadius: 'var(--radius-sm, 6px)',
+              fontWeight: '600',
+              padding: '10px 20px'
+            }}
           >
             {creatingLabel && (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>

@@ -10,6 +10,7 @@ const FAQ = require('../models/FAQ');
 const { HomepageSection, LayoutTemplate } = require('../models/Homepage');
 const { WorkflowTemplate } = require('../models/Workflow');
 const Invoice = require('../models/Invoice');
+const Booking = require('../models/Booking');
 const Language = require('../models/Language');
 const SystemConfiguration = require('../models/SystemConfiguration');
 const ServiceCategory = require('../models/ServiceCategory');
@@ -840,23 +841,35 @@ class SeedService {
       const customers = await User.find({ role: 'customer' }).limit(2);
       if (customers.length === 0) {
         console.log('SeedService.seedFinancialData: No customers found, skipping financial data seeding');
-        return [];
+        return { message: 'No customers found' };
+      }
+
+      // Get bookings for invoices (required)
+      const bookings = await Booking.find().limit(2);
+      if (bookings.length === 0) {
+        console.log('SeedService.seedFinancialData: No bookings found, skipping invoice creation (bookingId is required)');
+        return { message: 'No bookings found, invoices require bookingId' };
       }
 
       const invoices = [
         {
           customerId: customers[0]._id,
+          customerName: customers[0].name,
+          customerEmail: customers[0].email,
+          bookingId: bookings.length > 0 ? bookings[0]._id : null,
           orderId: null, // Will be set when orders are created
           invoiceNumber: 'INV-2024-001',
           items: [
             {
               description: 'iPhone 13 Screen Replacement',
+              type: 'service',
               quantity: 1,
               unitPrice: 149.99,
               total: 149.99
             },
             {
               description: 'Screen Protector Installation',
+              type: 'addon',
               quantity: 1,
               unitPrice: 29.99,
               total: 29.99
@@ -872,11 +885,15 @@ class SeedService {
         },
         {
           customerId: customers.length > 1 ? customers[1]._id : customers[0]._id,
+          customerName: customers.length > 1 ? customers[1].name : customers[0].name,
+          customerEmail: customers.length > 1 ? customers[1].email : customers[0].email,
+          bookingId: bookings.length > 1 ? bookings[1]._id : (bookings.length > 0 ? bookings[0]._id : null),
           orderId: null,
           invoiceNumber: 'INV-2024-002',
           items: [
             {
               description: 'Samsung Galaxy S21 Battery Replacement',
+              type: 'service',
               quantity: 1,
               unitPrice: 89.99,
               total: 89.99
@@ -1014,50 +1031,105 @@ class SeedService {
           description: 'Professionelle Installation von gehärteter Glasschutzfolie',
           category: 'Protection',
           price: 29.99,
-          estimatedTime: '10',
+          estimatedTime: '10 Minuten',
           isActive: true,
-          compatibleServices: [],
-          inventoryRequired: true
+          popularity: 75,
+          bundleDiscount: 0,
+          compatibility: [
+            { deviceType: 'Smartphone', brands: ['Apple', 'Samsung', 'Huawei', 'Xiaomi', 'OnePlus'] },
+            { deviceType: 'Tablet', brands: ['Apple', 'Samsung', 'Huawei'] }
+          ]
         },
         {
           name: 'Gerätereinigung',
           description: 'Gründliche Reinigung und Desinfektion Ihres Geräts',
           category: 'Service',
           price: 19.99,
-          estimatedTime: '15',
+          estimatedTime: '15 Minuten',
           isActive: true,
-          compatibleServices: [],
-          inventoryRequired: false
+          popularity: 60,
+          bundleDiscount: 0,
+          compatibility: [
+            { deviceType: 'Smartphone', brands: [] },
+            { deviceType: 'Tablet', brands: [] },
+            { deviceType: 'Notebook', brands: [] },
+            { deviceType: 'Konsole', brands: [] }
+          ]
         },
         {
           name: 'Datentransfer',
           description: 'Übertragen Sie Daten vom alten Gerät zum reparierten Gerät',
           category: 'Data',
           price: 49.99,
-          estimatedTime: '30',
+          estimatedTime: '30 Minuten',
           isActive: true,
-          compatibleServices: [],
-          inventoryRequired: false
+          popularity: 85,
+          bundleDiscount: 5,
+          compatibility: [
+            { deviceType: 'Smartphone', brands: ['Apple', 'Samsung', 'Huawei', 'Xiaomi'] },
+            { deviceType: 'Tablet', brands: ['Apple', 'Samsung'] }
+          ]
         },
         {
           name: 'Express-Service',
-          description: 'Prioritätsreparaturservice mit schnellerem Bearbeitungszeitraum',
+          description: 'Prioritätsreparaturservice mit schnellerem Bearbeitungszeitraum (1-2 Werktage statt 3-5)',
           category: 'Service',
           price: 99.99,
-          estimatedTime: '0',
+          estimatedTime: '1-2 Werktage',
           isActive: true,
-          compatibleServices: [],
-          inventoryRequired: false
+          popularity: 90,
+          bundleDiscount: 0,
+          compatibility: [
+            { deviceType: 'Smartphone', brands: [] },
+            { deviceType: 'Tablet', brands: [] },
+            { deviceType: 'Notebook', brands: [] },
+            { deviceType: 'Konsole', brands: [] }
+          ]
         },
         {
           name: 'Erweiterte Garantie',
-          description: '6-Monate erweiterte Garantie auf Reparaturarbeiten',
+          description: '6 Monate erweiterte Garantie auf alle Reparaturarbeiten',
           category: 'Warranty',
           price: 79.99,
-          estimatedTime: '0',
+          estimatedTime: '0 Minuten',
           isActive: true,
-          compatibleServices: [],
-          inventoryRequired: false
+          popularity: 70,
+          bundleDiscount: 10,
+          compatibility: [
+            { deviceType: 'Smartphone', brands: [] },
+            { deviceType: 'Tablet', brands: [] },
+            { deviceType: 'Notebook', brands: [] },
+            { deviceType: 'Konsole', brands: [] }
+          ]
+        },
+        {
+          name: 'Versicherungsschutz',
+          description: '12 Monate Versicherungsschutz gegen Sturzschäden und Wasserschäden',
+          category: 'Insurance',
+          price: 149.99,
+          estimatedTime: '0 Minuten',
+          isActive: true,
+          popularity: 65,
+          bundleDiscount: 15,
+          compatibility: [
+            { deviceType: 'Smartphone', brands: [] },
+            { deviceType: 'Tablet', brands: [] }
+          ]
+        },
+        {
+          name: 'Datenrettung',
+          description: 'Professionelle Datenrettung von defekten oder beschädigten Geräten',
+          category: 'Data',
+          price: 199.99,
+          estimatedTime: '2-4 Werktage',
+          isActive: true,
+          popularity: 55,
+          bundleDiscount: 0,
+          compatibility: [
+            { deviceType: 'Smartphone', brands: [] },
+            { deviceType: 'Tablet', brands: [] },
+            { deviceType: 'Notebook', brands: [] }
+          ]
         }
       ];
 

@@ -216,7 +216,7 @@ export const ValidationErrorsPanel: React.FC<ValidationErrorsPanelProps> = ({
         </CardContent>
       </Card>
 
-      <Card className="bg-blue-50 border-blue-200">
+      <Card className="bg-white border-gray-200 shadow-sm">
         <CardHeader>
           <CardTitle className="text-base">Options</CardTitle>
         </CardHeader>

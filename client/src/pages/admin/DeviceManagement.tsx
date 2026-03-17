@@ -1140,8 +1140,8 @@ export function DeviceManagement() {
             <div className="space-y-6">
 
               {/* Basic Information Section */}
-              <div className="bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-6 space-y-4">
-                <h3 className="text-lg font-semibold pb-2 border-b-2 border-blue-300 dark:border-blue-700 flex items-center gap-2">
+              <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4 shadow-sm">
+                <h3 className="text-lg font-semibold pb-2 border-b border-gray-200 flex items-center gap-2 text-[#1a2a5e]">
                   <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                   Basic Information
                 </h3>
@@ -1807,24 +1807,24 @@ export function DeviceManagement() {
                     Basic Information
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                    <Card className="bg-white border-gray-200 shadow-sm">
                       <CardContent className="pt-6">
-                        <Label className="text-blue-700 dark:text-blue-300">Device Type</Label>
+                        <Label className="text-[#1a2a5e]">Device Type</Label>
                         <p className="text-sm font-medium capitalize mt-1">{selectedModel.deviceType}</p>
                       </CardContent>
                     </Card>
                     {(selectedModel as any).other?.releaseDate && (
-                      <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                      <Card className="bg-white border-gray-200 shadow-sm">
                         <CardContent className="pt-6">
-                          <Label className="text-blue-700 dark:text-blue-300">Release Date</Label>
+                          <Label className="text-[#1a2a5e]">Release Date</Label>
                           <p className="text-sm font-medium mt-1">{(selectedModel as any).other.releaseDate}</p>
                         </CardContent>
                       </Card>
                     )}
                     {(selectedModel as any).other?.price && (
-                      <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                      <Card className="bg-white border-gray-200 shadow-sm">
                         <CardContent className="pt-6">
-                          <Label className="text-blue-700 dark:text-blue-300">Price</Label>
+                          <Label className="text-[#1a2a5e]">Price</Label>
                           <p className="text-sm font-medium mt-1">{(selectedModel as any).other.price}</p>
                         </CardContent>
                       </Card>

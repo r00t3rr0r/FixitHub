@@ -12,6 +12,7 @@ import { getCart, Cart } from "@/api/shop"
 import { getBlogPosts, BlogPost } from "@/api/blog"
 import { getNotifications } from "@/api/notifications"
 import { generateImagePlaceholder } from "@/utils/placeholders"
+import { formatPrice } from "@/lib/utils"
 import {
   Plus,
   Package,
@@ -384,7 +385,7 @@ export function Dashboard() {
                         <Progress value={order.progress} className="w-20 h-2" />
                         <span className="text-xs text-muted-foreground">{order.progress}%</span>
                       </div>
-                      <span className="font-semibold text-primary">${order.totalCost}</span>
+                      <span className="font-semibold text-primary">${formatPrice(order.totalCost)}</span>
                     </div>
                   </div>
                 </div>

@@ -805,9 +805,9 @@ export function DeviceBrandsManagement() {
 
           <div className="space-y-6 py-4">
             {/* 📋 Basic Information Section */}
-            <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
+            <Card className="border-gray-200 bg-white shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                <CardTitle className="text-lg flex items-center gap-2 text-[#1a2a5e]">
                   <Package className="h-5 w-5" />
                   Basic Information
                 </CardTitle>

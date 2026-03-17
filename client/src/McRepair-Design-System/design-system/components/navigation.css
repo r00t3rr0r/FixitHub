@@ -1,0 +1,1058 @@
+/* ============================================
+   McRepair Design System – Navigation Component
+   ============================================
+   
+   Includes: Top bar, Sticky nav, Mobile menu,
+   Mobile search overlay, Mobile extras
+   
+   Requires: tokens.css, base.css
+   ============================================ */
+
+/* ── TOP BAR ── */
+.top-bar {
+  background: var(--white);
+  border-bottom: 1px solid var(--gray-100);
+  padding: 6px 0;
+  font-size: 0.8rem;
+  color: var(--gray-500);
+  position: relative;
+  z-index: 10001; /* Above navigation and dropdowns */
+}
+
+.top-bar .container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.top-bar a {
+  color: var(--gray-500);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.top-bar a:hover {
+  color: var(--primary-blue);
+}
+
+.top-bar a.active {
+  color: var(--accent-yellow);
+  font-weight: 600;
+}
+
+.top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Top Bar Login Button */
+.top-bar-login-button {
+  color: var(--gray-500);
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
+
+.top-bar-login-button:hover {
+  color: var(--primary-blue);
+  background: rgba(0, 114, 206, 0.05);
+}
+
+/* Top Bar User Info */
+.top-bar-user-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gray-500);
+  font-size: 0.8rem;
+}
+
+.top-bar-user-info .user-email {
+  color: var(--primary-blue);
+  font-weight: 500;
+}
+
+.logout-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--gray-400);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.logout-button:hover {
+  color: var(--danger);
+  background: rgba(229, 62, 62, 0.05);
+}
+
+/* ============================================
+   LOGIN DIALOG (Dropdown Pop-up)
+   ============================================ */
+
+.login-dialog-dropdown {
+  position: fixed;
+  display: block;
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 32px rgba(26, 42, 94, 0.25);
+  max-width: 380px;
+  width: 380px;
+  z-index: 9999;
+  animation: dropdownSlideDown 0.2s ease-out;
+  border: 1px solid var(--gray-100);
+  overflow: hidden;
+  visibility: visible;
+  opacity: 1;
+}
+
+@keyframes dropdownSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Arrow pointing to the button */
+.login-dialog-dropdown::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 20px;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid var(--primary-blue);
+  z-index: 1;
+}
+
+.login-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(26, 42, 94, 0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10100; /* Above dropdowns */
+  padding: 20px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.login-dialog {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 420px;
+  width: 100%;
+  position: relative;
+  animation: slideInScale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+
+@keyframes slideInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.login-dialog-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.05);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--gray-600);
+  transition: var(--transition);
+  z-index: 1;
+}
+
+.login-dialog-close:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: var(--gray-800);
+  transform: rotate(90deg);
+}
+
+.login-dialog-header {
+  padding: 24px 24px 18px;
+  text-align: center;
+  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%);
+  color: var(--white);
+}
+
+.login-dialog-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 12px;
+  background: rgba(245, 184, 0, 0.15);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-yellow);
+}
+
+.login-dialog-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.login-dialog-header h2 {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--white);
+  margin: 0 0 4px 0;
+  letter-spacing: -0.5px;
+}
+
+.login-dialog-header p {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0;
+  font-weight: 400;
+}
+
+.login-dialog-form {
+  padding: 24px 24px;
+  background: var(--white);
+}
+
+.login-dialog-form .form-group {
+  margin-bottom: 16px;
+}
+
+.login-dialog-form label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 6px;
+  font-family: var(--font-main);
+}
+
+.login-dialog-form input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  transition: var(--transition);
+  background: var(--white);
+  font-family: var(--font-main);
+  color: var(--gray-700);
+}
+
+.login-dialog-form input::placeholder {
+  color: var(--gray-400);
+}
+
+.login-dialog-form input:focus {
+  outline: none;
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(26, 42, 94, 0.1);
+}
+
+.login-dialog-form input:disabled {
+  background: var(--gray-50);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.login-dialog-form .password-input-wrapper {
+  position: relative;
+}
+
+.login-dialog-form .password-input-wrapper input {
+  padding-right: 44px;
+}
+
+.login-dialog-form .password-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--gray-400);
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
+
+.login-dialog-form .password-toggle:hover {
+  color: var(--primary-blue);
+  background: rgba(26, 42, 94, 0.05);
+}
+
+.login-dialog-form .form-actions {
+  margin-bottom: 20px;
+  text-align: right;
+}
+
+.login-dialog-form .forgot-password {
+  font-size: 0.85rem;
+  color: var(--primary-blue);
+  text-decoration: none;
+  font-weight: 500;
+  font-family: var(--font-main);
+}
+
+.login-dialog-form .forgot-password:hover {
+  color: var(--primary-blue-dark);
+  text-decoration: underline;
+}
+
+.login-dialog-form .btn-submit {
+  width: 100%;
+  padding: 12px 20px;
+  background: var(--accent-yellow);
+  color: var(--primary-blue);
+  border: none;
+  border-radius: 50px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: var(--transition);
+  font-family: var(--font-main);
+  letter-spacing: 0.3px;
+}
+
+.login-dialog-form .btn-submit:hover:not(:disabled) {
+  background: var(--accent-yellow-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245, 184, 0, 0.4);
+}
+
+.login-dialog-form .btn-submit:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.login-dialog-form .btn-submit:disabled {
+  background: var(--gray-300);
+  color: var(--gray-500);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.login-dialog-form .loading-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(26, 42, 94, 0.2);
+  border-top-color: var(--primary-blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.login-dialog-footer {
+  padding: 16px 24px 20px;
+  background: var(--off-white);
+  text-align: center;
+  font-size: 0.85rem;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  font-family: var(--font-main);
+}
+
+.login-dialog-footer span {
+  color: var(--gray-600);
+  margin-right: 6px;
+  font-weight: 400;
+}
+
+.login-dialog-footer a {
+  color: var(--primary-blue);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.login-dialog-footer a:hover {
+  color: var(--primary-blue-dark);
+  text-decoration: underline;
+}
+
+
+/* ── MAIN NAV ── */
+.main-nav {
+  background: var(--primary-blue);
+  position: sticky;
+  top: 0;
+  z-index: 9999; /* High z-index to ensure it's above page content */
+  transition: var(--transition);
+}
+
+.main-nav.scrolled {
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.2);
+}
+
+.nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--nav-height-desktop);
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--container-padding);
+}
+
+/* Logo */
+.nav-logo {
+  flex-shrink: 0;
+}
+
+.nav-logo img {
+  height: 44px;
+  width: auto;
+}
+
+.nav-logo-text {
+  color: var(--white);
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.nav-logo-text span {
+  color: var(--accent-yellow);
+}
+
+/* Nav Links */
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav-links a,
+.nav-link {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.88rem;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.nav-links a:hover,
+.nav-link:hover {
+  color: var(--white);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.nav-links a svg,
+.nav-link svg {
+  width: 16px;
+  height: 16px;
+  opacity: 0.7;
+}
+
+/* Nav Item with Dropdown */
+.nav-item-with-dropdown {
+  position: relative;
+}
+
+/* Dropdown Menu (Mega Menu) */
+.nav-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px); /* Reduced gap from 12px to 4px to prevent mouse leaving area */
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--white);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  padding: 24px;
+  min-width: 700px;
+  max-width: 90vw;
+  z-index: 10000; /* High z-index to ensure it appears above all content including hero */
+  animation: slideDownFade 0.2s ease-out;
+}
+
+.nav-dropdown-menu::before {
+  content: '';
+  position: absolute;
+  top: -6px; /* Adjusted from -8px to maintain arrow position */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid var(--white);
+}
+
+/* Add invisible bridge to prevent gap issues */
+.nav-dropdown-menu::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: transparent;
+}
+
+@keyframes slideDownFade {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.nav-dropdown-inner {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 24px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.nav-dropdown-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-dropdown-header {
+  color: var(--primary-blue);
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--accent-yellow);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.nav-dropdown-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-dropdown-list li a {
+  display: block;
+  padding: 8px 12px;
+  color: var(--gray-700);
+  font-size: 0.85rem;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.nav-dropdown-list li a:hover {
+  background: var(--gray-50);
+  color: var(--primary-blue);
+  transform: translateX(4px);
+}
+
+.nav-dropdown-list .nav-dropdown-all-models a {
+  color: var(--primary-blue);
+  font-weight: 600;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.nav-dropdown-list .nav-dropdown-all-models a:hover {
+  background: var(--primary-blue);
+  color: var(--white);
+  transform: translateX(6px);
+}
+
+/* Mobile extras (hidden on desktop) */
+.nav-mobile-extras {
+  display: none;
+}
+
+/* Nav Right */
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Search */
+.nav-search {
+  position: relative;
+  min-width: 280px; /* Ensure enough width for NavbarSearch component */
+}
+
+/* Legacy search input styles (kept for compatibility) */
+.nav-search input {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--white);
+  padding: 8px 36px 8px 14px;
+  border-radius: 50px;
+  font-size: 0.85rem;
+  width: 180px;
+  transition: var(--transition);
+  font-family: var(--font-main);
+}
+
+.nav-search input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.nav-search input:focus {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  width: 240px;
+  outline: none;
+}
+
+.nav-search button {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 0;
+}
+
+.nav-search button svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Mobile search overlay */
+.nav-search-overlay {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--primary-blue-dark);
+  padding: 10px 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  z-index: var(--z-search-overlay);
+  animation: slideDownSearch 0.25s ease;
+  min-height: 60px; /* Ensure enough space for NavbarSearch component */
+}
+
+.nav-search-overlay.open {
+  display: block; /* Changed from flex to block for NavbarSearch component */
+}
+
+.nav-search-overlay input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--white);
+  padding: 10px 16px;
+  border-radius: 50px;
+  font-size: 0.9rem;
+  font-family: var(--font-main);
+  outline: none;
+}
+
+.nav-search-overlay input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.nav-search-overlay input:focus {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: var(--accent-yellow);
+}
+
+/* CTA Button */
+.nav-cta {
+  background: var(--accent-yellow);
+  color: var(--primary-blue) !important;
+  font-weight: 700;
+  padding: 9px 20px;
+  border-radius: 50px;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.nav-cta:hover {
+  background: var(--accent-yellow-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 184, 0, 0.3);
+}
+
+/* Cart */
+.nav-cart {
+  position: relative;
+  color: rgba(255, 255, 255, 0.85);
+  padding: 8px;
+  border-radius: var(--radius-sm);
+}
+
+.nav-cart:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--white);
+}
+
+.nav-cart svg {
+  width: 20px;
+  height: 20px;
+}
+
+.nav-cart-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: var(--accent-yellow);
+  color: var(--primary-blue);
+  font-size: 0.65rem;
+  font-weight: 700;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Mobile toggles (hidden on desktop) */
+.nav-search-toggle {
+  display: none;
+}
+
+.nav-mobile-toggle {
+  display: none;
+  background: none;
+  color: var(--white);
+  padding: 8px;
+}
+
+.nav-mobile-toggle svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* ── RESPONSIVE: TABLET ── */
+@media (max-width: 1024px) {
+  .nav-search {
+    min-width: 200px; /* Adjust for tablet */
+  }
+  
+  .nav-search input {
+    width: 140px;
+    padding: 7px 32px 7px 12px;
+    font-size: 0.8rem;
+  }
+
+  .nav-search input:focus {
+    width: 180px;
+  }
+}
+
+/* ── RESPONSIVE: MOBILE ── */
+@media (max-width: 768px) {
+  .top-bar {
+    display: none;
+  }
+
+  /* Show top-bar on mobile if needed */
+  .top-bar.show-on-mobile {
+    display: block;
+  }
+
+  /* Mobile adjustments for login dialog */
+  .login-dialog-dropdown {
+    max-width: calc(100vw - 32px);
+    width: calc(100vw - 32px);
+    left: 16px !important;
+    right: 16px !important;
+  }
+
+  .login-dialog-dropdown::before {
+    right: auto;
+    left: calc(100% - 40px);
+  }
+
+  .login-dialog-header {
+    padding: 20px 20px 16px;
+  }
+
+  .login-dialog-icon {
+    width: 44px;
+    height: 44px;
+    margin: 0 auto 10px;
+  }
+
+  .login-dialog-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .login-dialog-header h2 {
+    font-size: 1.3rem;
+  }
+
+  .login-dialog-header p {
+    font-size: 0.8rem;
+  }
+
+  .login-dialog-form {
+    padding: 20px;
+  }
+
+  .login-dialog-form .form-group {
+    margin-bottom: 14px;
+  }
+
+  .login-dialog-footer {
+    padding: 14px 20px 18px;
+    font-size: 0.8rem;
+  }
+
+  .nav-links {
+    display: none;
+  }
+
+  .nav-search {
+    display: none;
+  }
+
+  .nav-search-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: rgba(255, 255, 255, 0.85);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: var(--transition);
+    flex-shrink: 0;
+  }
+
+  .nav-search-toggle:hover,
+  .nav-search-toggle.active {
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--white);
+  }
+
+  .nav-search-toggle svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .nav-mobile-toggle {
+    display: block;
+  }
+
+  .nav-cta {
+    font-size: 0.78rem;
+    padding: 8px 14px;
+  }
+
+  .nav-right {
+    gap: 8px;
+  }
+
+  .nav-inner {
+    height: var(--nav-height-mobile);
+  }
+
+  /* Mobile menu */
+  .nav-links.mobile-open {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: var(--nav-height-mobile);
+    left: 0;
+    right: 0;
+    background: var(--primary-blue);
+    padding: 16px 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .nav-links.mobile-open a,
+  .nav-links.mobile-open .nav-link {
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  /* Hide dropdowns on mobile */
+  .nav-item-with-dropdown {
+    width: 100%;
+  }
+
+  .nav-dropdown-menu {
+    display: none;
+  }
+
+  /* Mobile extras: top-bar links inside hamburger menu */
+  .nav-mobile-extras {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .nav-mobile-extras a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 0;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.85rem;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    transition: color 0.2s;
+  }
+
+  .nav-mobile-extras a:last-child {
+    border-bottom: none;
+  }
+
+  .nav-mobile-extras a:hover,
+  .nav-mobile-extras a:active {
+    color: var(--accent-yellow);
+  }
+
+  .nav-mobile-extras svg {
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+}
+
+/* ── RESPONSIVE: SMALL MOBILE ── */
+@media (max-width: 480px) {
+  .nav-cta span {
+    display: none;
+  }
+
+  /* Extra small screens for login dialog */
+  .login-dialog-dropdown {
+    max-width: calc(100vw - 20px);
+    width: calc(100vw - 20px);
+    left: 10px !important;
+    right: 10px !important;
+  }
+
+  .login-dialog-header {
+    padding: 18px 18px 14px;
+  }
+
+  .login-dialog-icon {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 8px;
+  }
+
+  .login-dialog-icon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .login-dialog-header h2 {
+    font-size: 1.2rem;
+    letter-spacing: -0.3px;
+  }
+
+  .login-dialog-header p {
+    font-size: 0.75rem;
+  }
+
+  .login-dialog-form {
+    padding: 18px;
+  }
+
+  .login-dialog-form .form-group {
+    margin-bottom: 14px;
+  }
+
+  .login-dialog-form label {
+    font-size: 0.8rem;
+    margin-bottom: 5px;
+  }
+
+  .login-dialog-form input {
+    padding: 9px 11px;
+    font-size: 0.85rem;
+  }
+
+  .login-dialog-form .btn-submit {
+    padding: 10px 16px;
+    font-size: 0.85rem;
+  }
+
+  .login-dialog-footer {
+    padding: 12px 18px 16px;
+    font-size: 0.75rem;
+  }
+}

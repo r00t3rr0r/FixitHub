@@ -83,20 +83,14 @@ export function AboutUsSection({ title, content }: AboutUsSectionProps) {
   }, []);
 
   return (
-    <section id="about" className="relative py-16 bg-white overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-yellow-400 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-yellow-400 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-      </div>
-
-      <div className="container mx-auto px-4 relative z-10">
+    <section id="about" className="section bg-white">
+      <div className="section-container">
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center mb-16">
           {/* Content */}
-          <div className="space-y-4 animate-fadeInLeft">
+          <div className="space-y-4">
             <div>
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3 animate-slideDown">
+              <h2 className="section-title text-left">
                 {title || t('home.about.title')}
               </h2>
               <div className="w-20 h-0.5 bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full animate-expandWidth"></div>

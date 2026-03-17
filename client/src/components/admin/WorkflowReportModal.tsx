@@ -340,7 +340,7 @@ export function WorkflowReportModal({
                     {step.notes && (
                       <div>
                         <p className="text-sm font-semibold mb-2">Notes</p>
-                        <div className="bg-blue-50 rounded-lg p-3 text-sm text-gray-700 border border-blue-200">
+                        <div className="bg-white rounded-lg p-3 text-sm text-gray-700 border border-gray-200 shadow-sm">
                           {step.notes}
                         </div>
                       </div>

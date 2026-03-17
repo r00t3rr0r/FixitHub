@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import "./RepairRequestsManagement.css"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -523,306 +524,279 @@ export function RepairRequestsManagement() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="h-8 bg-muted rounded w-48 animate-pulse"></div>
-        <Card className="animate-pulse">
-          <CardHeader>
-            <div className="h-6 bg-muted rounded w-1/3"></div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-16 bg-muted rounded"></div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="repair-requests-management">
+        <div className="loading-state">
+          <div className="loading-spinner"></div>
+          <p style={{color: 'var(--gray-500)', fontSize: '1.1rem', fontWeight: 500}}>Lade Reparaturanfragen...</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="repair-requests-management">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <FileText className="h-8 w-8" />
-          Repair Requests Management
+      <div className="repair-requests-header">
+        <h1>
+          <FileText className="h-10 w-10" />
+          Reparaturanfragen
         </h1>
-        <p className="text-muted-foreground">
-          Manage customer repair service requests and convert them to orders
+        <p>
+          Kundenanfragen verwalten und in Aufträge umwandeln
         </p>
       </div>
 
       {/* Statistics Cards */}
       {statistics && (
-        <div className="grid gap-4 md:grid-cols-5">
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                Total Requests
-              </CardTitle>
-              <FileText className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-                {statistics.total}
+        <div className="stats-grid">
+          <div className="stat-card stat-total">
+            <div className="stat-card-header">
+              <div className="stat-card-title">Gesamt</div>
+              <div className="stat-card-icon">
+                <FileText className="h-5 w-5" />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="stat-card-value">{statistics.total}</div>
+          </div>
 
-          <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950 dark:to-yellow-900 border-yellow-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
-                Pending
-              </CardTitle>
-              <Clock className="h-4 w-4 text-yellow-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">
-                {statistics.byStatus.pending}
+          <div className="stat-card stat-pending">
+            <div className="stat-card-header">
+              <div className="stat-card-title">Ausstehend</div>
+              <div className="stat-card-icon">
+                <Clock className="h-5 w-5" />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="stat-card-value">{statistics.byStatus.pending}</div>
+          </div>
 
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                Reviewing
-              </CardTitle>
-              <Eye className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-                {statistics.byStatus.reviewing}
+          <div className="stat-card stat-reviewing">
+            <div className="stat-card-header">
+              <div className="stat-card-title">In Prüfung</div>
+              <div className="stat-card-icon">
+                <Eye className="h-5 w-5" />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="stat-card-value">{statistics.byStatus.reviewing}</div>
+          </div>
 
-          <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">
-                Converted
-              </CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-900 dark:text-green-100">
-                {statistics.byStatus.converted}
+          <div className="stat-card stat-converted">
+            <div className="stat-card-header">
+              <div className="stat-card-title">Umgewandelt</div>
+              <div className="stat-card-icon">
+                <CheckCircle className="h-5 w-5" />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="stat-card-value">{statistics.byStatus.converted}</div>
+          </div>
 
-          <Card className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950 dark:to-red-900 border-red-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-red-700 dark:text-red-300">
-                High Priority
-              </CardTitle>
-              <AlertTriangle className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-900 dark:text-red-100">
-                {statistics.highPriority}
+          <div className="stat-card stat-priority">
+            <div className="stat-card-header">
+              <div className="stat-card-title">Hohe Priorität</div>
+              <div className="stat-card-icon">
+                <AlertTriangle className="h-5 w-5" />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="stat-card-value">{statistics.highPriority}</div>
+          </div>
         </div>
       )}
 
       {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by request number, customer, or device..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="reviewing">Reviewing</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                  <SelectItem value="converted">Converted</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priority</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="filter-card">
+        <div className="filter-container">
+          <div className="search-wrapper">
+            <Search />
+            <input
+              type="text"
+              placeholder="Suche nach Anfragenummer, Kunde oder Gerät..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
           </div>
-        </CardContent>
-      </Card>
+          <div className="filter-row">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-40">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle Status</SelectItem>
+                <SelectItem value="pending">Ausstehend</SelectItem>
+                <SelectItem value="reviewing">In Prüfung</SelectItem>
+                <SelectItem value="approved">Genehmigt</SelectItem>
+                <SelectItem value="rejected">Abgelehnt</SelectItem>
+                <SelectItem value="converted">Umgewandelt</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Priorität" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle Prioritäten</SelectItem>
+                <SelectItem value="low">Niedrig</SelectItem>
+                <SelectItem value="medium">Mittel</SelectItem>
+                <SelectItem value="high">Hoch</SelectItem>
+                <SelectItem value="urgent">Dringend</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
 
       {/* Requests Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Repair Requests ({filteredRequests.length})</CardTitle>
-          <CardDescription>
-            All repair service requests from customers
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Request #</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Device</TableHead>
-                  <TableHead>Issue</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Assigned To</TableHead>
-                  <TableHead>Est. Cost</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+      <div className="requests-table-card">
+        <div className="requests-table-header">
+          <h2 className="requests-table-title">Reparaturanfragen ({filteredRequests.length})</h2>
+          <p className="requests-table-description">
+            Alle Reparaturanfragen von Kunden
+          </p>
+        </div>
+        <div className="requests-table-content">
+          <div className="requests-table-wrapper">
+            <table className="requests-table">
+              <thead>
+                <tr>
+                  <th>Anfrage #</th>
+                  <th>Kunde</th>
+                  <th>Gerät</th>
+                  <th>Problem</th>
+                  <th>Status</th>
+                  <th>Priorität</th>
+                  <th>Zugewiesen an</th>
+                  <th>Gesch. Kosten</th>
+                  <th>Datum</th>
+                  <th style={{textAlign: 'right'}}>Aktionen</th>
+                </tr>
+              </thead>
+              <tbody>
                 {filteredRequests.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                      No repair requests found
-                    </TableCell>
-                  </TableRow>
+                  <tr>
+                    <td colSpan={10} className="empty-state">
+                      <FileText />
+                      <p>Keine Reparaturanfragen gefunden</p>
+                    </td>
+                  </tr>
                 ) : (
                   filteredRequests.map((request) => (
-                    <TableRow
+                    <tr
                       key={request._id}
                       onClick={() => openDetailsDialog(request)}
-                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                      style={{cursor: 'pointer'}}
                     >
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
+                      <td>
+                        <div className="request-number">
                           <span>{request.requestNumber}</span>
                           {unreadCounts[request._id] > 0 && (
-                            <Badge variant="destructive" className="h-6 w-6 flex items-center justify-center p-0 text-xs">
+                            <span className="unread-badge">
                               {unreadCounts[request._id]}
-                            </Badge>
+                            </span>
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={request.customerId?.avatar} />
-                            <AvatarFallback>
-                              {request.customerName.charAt(0).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium text-sm">{request.customerName}</div>
-                            <div className="text-xs text-muted-foreground">{request.customerEmail}</div>
+                      </td>
+                      <td>
+                        <div className="customer-info">
+                          <div className="customer-avatar">
+                            {request.customerName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="customer-details">
+                            <div className="customer-name">{request.customerName}</div>
+                            <div className="customer-email">{request.customerEmail}</div>
                           </div>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div className="font-medium">{request.deviceBrand}</div>
-                          <div className="text-muted-foreground">{request.deviceModel}</div>
+                      </td>
+                      <td>
+                        <div className="device-info">
+                          <div className="device-brand">{request.deviceBrand}</div>
+                          <div className="device-model">{request.deviceModel}</div>
                         </div>
-                      </TableCell>
-                      <TableCell className="max-w-[200px]">
-                        <div className="text-sm truncate">{request.issueDescription}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(request.status)}>
-                          {request.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getPriorityColor(request.priority)}>
-                          {request.priority}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td>
+                        <div className="issue-description">{request.issueDescription}</div>
+                      </td>
+                      <td>
+                        <span className={`status-badge status-${request.status}`}>
+                          {request.status === 'pending' ? 'Ausstehend' :
+                           request.status === 'reviewing' ? 'In Prüfung' :
+                           request.status === 'approved' ? 'Genehmigt' :
+                           request.status === 'rejected' ? 'Abgelehnt' :
+                           request.status === 'converted' ? 'Umgewandelt' : request.status}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`priority-badge priority-${request.priority}`}>
+                          {request.priority === 'urgent' ? 'Dringend' :
+                           request.priority === 'high' ? 'Hoch' :
+                           request.priority === 'medium' ? 'Mittel' :
+                           request.priority === 'low' ? 'Niedrig' : request.priority}
+                        </span>
+                      </td>
+                      <td>
                         {request.assignedStaffName ? (
-                          <div className="text-sm">{request.assignedStaffName}</div>
+                          <span className="assigned-staff">{request.assignedStaffName}</span>
                         ) : (
-                          <span className="text-xs text-muted-foreground">Unassigned</span>
+                          <span className="unassigned">Nicht zugewiesen</span>
                         )}
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td>
                         {request.estimatedCost > 0 ? (
-                          <span className="font-medium">${request.estimatedCost}</span>
+                          <span className="estimated-cost">€{request.estimatedCost}</span>
                         ) : (
-                          <span className="text-xs text-muted-foreground">Not set</span>
+                          <span className="cost-not-set">Nicht festgelegt</span>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm text-muted-foreground">
-                          {new Date(request.createdAt).toLocaleDateString()}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
+                      </td>
+                      <td>
+                        <span className="request-date">
+                          {new Date(request.createdAt).toLocaleDateString('de-DE')}
+                        </span>
+                      </td>
+                      <td style={{textAlign: 'right'}}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              Actions
-                            </Button>
+                            <button className="actions-button">
+                              Aktionen
+                            </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openDetailsDialog(request)}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDetailsDialog(request); }}>
                               <Eye className="mr-2 h-4 w-4" />
-                              View Details
+                              Details anzeigen
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openMessageDialog(request)}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openMessageDialog(request); }}>
                               <MessageSquare className="mr-2 h-4 w-4" />
-                              Send Message
+                              Nachricht senden
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openAssignDialog(request)}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openAssignDialog(request); }}>
                               <UserPlus className="mr-2 h-4 w-4" />
-                              Assign Staff
+                              Mitarbeiter zuweisen
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {request.status !== 'converted' && (
-                              <DropdownMenuItem onClick={() => openConvertDialog(request)}>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openConvertDialog(request); }}>
                                 <ShoppingCart className="mr-2 h-4 w-4" />
-                                Convert to Order
+                                In Auftrag umwandeln
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem
-                              onClick={() => openDeleteDialog(request)}
+                              onClick={(e) => { e.stopPropagation(); openDeleteDialog(request); }}
                               className="text-red-600"
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
+                              Löschen
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))
                 )}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
@@ -902,14 +876,48 @@ export function RepairRequestsManagement() {
                     <Label className="text-muted-foreground">When Occurred:</Label>
                     <p className="mt-1">{selectedRequest.issueOccurredDate}</p>
                   </div>
-                  <div>
-                    <Label className="text-muted-foreground">Repair Attempts:</Label>
-                    <p className="mt-1 whitespace-pre-wrap">{selectedRequest.repairAttempts}</p>
-                  </div>
-                  {selectedRequest.additionalInfo && (
+                  {selectedRequest.modelNumber && (
                     <div>
-                      <Label className="text-muted-foreground">Additional Info:</Label>
-                      <p className="mt-1 whitespace-pre-wrap">{selectedRequest.additionalInfo}</p>
+                      <Label className="text-muted-foreground">Modellnummer:</Label>
+                      <p className="mt-1 whitespace-pre-wrap">{selectedRequest.modelNumber}</p>
+                    </div>
+                  )}
+                  
+                  {/* Extended Information */}
+                  {(selectedRequest.waterDamage || selectedRequest.previousRepairDetails || selectedRequest.itemCondition) && (
+                    <div className="pt-3 border-t">
+                      <Label className="text-muted-foreground font-semibold mb-2 block">Weitere Informationen:</Label>
+                      
+                      {selectedRequest.waterDamage && (
+                        <div className="mb-2">
+                          <Label className="text-muted-foreground text-xs">Wasserschaden:</Label>
+                          <p className="mt-1">
+                            <Badge variant={selectedRequest.waterDamage === 'yes' ? 'destructive' : 'secondary'}>
+                              {selectedRequest.waterDamage === 'yes' ? 'Ja' : selectedRequest.waterDamage === 'no' ? 'Nein' : 'Nicht sicher'}
+                            </Badge>
+                          </p>
+                        </div>
+                      )}
+                      
+                      {selectedRequest.previousRepairDetails && (
+                        <div className="mb-2">
+                          <Label className="text-muted-foreground text-xs">Vorherige Reparaturversuche:</Label>
+                          <p className="mt-1 whitespace-pre-wrap text-sm">{selectedRequest.previousRepairDetails}</p>
+                        </div>
+                      )}
+                      
+                      {selectedRequest.itemCondition && (
+                        <div className="mb-2">
+                          <Label className="text-muted-foreground text-xs">Gerätezustand:</Label>
+                          <p className="mt-1">
+                            <Badge variant="outline">
+                              {selectedRequest.itemCondition === 'original' ? 'Original' : 
+                               selectedRequest.itemCondition === 'refurbished' ? 'Generalüberholt' : 
+                               'Nicht sicher'}
+                            </Badge>
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
@@ -1077,7 +1085,7 @@ export function RepairRequestsManagement() {
                       key={idx}
                       className={`p-3 rounded-lg ${
                         msg.senderRole === 'customer'
-                          ? 'bg-blue-50 dark:bg-blue-950/20'
+                          ? 'bg-white border border-gray-200 shadow-sm'
                           : 'bg-gray-50 dark:bg-gray-900/20'
                       }`}
                     >
@@ -1192,7 +1200,7 @@ export function RepairRequestsManagement() {
           </DialogHeader>
 
           <div className="space-y-4">
-            <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20">
+            <Alert className="border-gray-200 bg-white shadow-sm">
               <Info className="h-4 w-4 text-blue-600" />
               <AlertDescription className="text-sm">
                 This will create a new repair order and mark the request as converted.

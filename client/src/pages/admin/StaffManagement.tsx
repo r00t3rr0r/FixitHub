@@ -8,6 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/useToast"
+import "./StaffManagement.css"
+import "./StaffManagement.overrides.css"
 import {
   getStaffMembers,
   getTeams,
@@ -319,30 +321,30 @@ export function StaffManagement() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'bg-green-500 text-white'
+        return 'staff-badge-success'
       case 'in_progress':
-        return 'bg-blue-500 text-white'
+        return 'staff-badge-primary'
       case 'pending':
-        return 'bg-yellow-500 text-black'
+        return 'staff-badge-warning'
       case 'cancelled':
-        return 'bg-red-500 text-white'
+        return 'staff-badge-danger'
       default:
-        return 'bg-gray-500 text-white'
+        return 'staff-badge'
     }
   }
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'urgent':
-        return 'bg-red-600 text-white'
+        return 'staff-badge-danger'
       case 'high':
-        return 'bg-orange-500 text-white'
+        return 'staff-badge-warning'
       case 'normal':
-        return 'bg-blue-500 text-white'
+        return 'staff-badge-primary'
       case 'low':
-        return 'bg-gray-500 text-white'
+        return 'staff-badge'
       default:
-        return 'bg-gray-500 text-white'
+        return 'staff-badge'
     }
   }
 
@@ -367,58 +369,50 @@ export function StaffManagement() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="staff-management-page space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
+      <div className="staff-management-header">
+        <h1>
           <Users className="h-8 w-8" />
           Staff Management
         </h1>
-        <p className="text-muted-foreground">
+        <p>
           Manage staff members, teams, workload distribution, and performance metrics
         </p>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Staff</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{staff.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Teams</CardTitle>
-            <Users className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{teams.filter(t => t.isActive).length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Tasks</CardTitle>
-            <Clock className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{tasks.filter(t => ['pending', 'in_progress'].includes(t.status)).length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Utilization</CardTitle>
-            <TrendingUp className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {workload.length > 0 ? Math.round(workload.reduce((sum, w) => sum + w.utilizationRate, 0) / workload.length) : 0}%
-            </div>
-          </CardContent>
-        </Card>
+      <div className="staff-stats-grid">
+        <div className="staff-stat-card">
+          <div className="staff-stat-card-header">
+            <span className="staff-stat-card-title">Total Staff</span>
+            <Users className="staff-stat-card-icon h-4 w-4" />
+          </div>
+          <div className="staff-stat-card-value">{staff.length}</div>
+        </div>
+        <div className="staff-stat-card">
+          <div className="staff-stat-card-header">
+            <span className="staff-stat-card-title">Active Teams</span>
+            <Users className="staff-stat-card-icon h-4 w-4" style={{ color: '#38a169' }} />
+          </div>
+          <div className="staff-stat-card-value">{teams.filter(t => t.isActive).length}</div>
+        </div>
+        <div className="staff-stat-card">
+          <div className="staff-stat-card-header">
+            <span className="staff-stat-card-title">Active Tasks</span>
+            <Clock className="staff-stat-card-icon h-4 w-4" style={{ color: '#1a2a5e' }} />
+          </div>
+          <div className="staff-stat-card-value">{tasks.filter(t => ['pending', 'in_progress'].includes(t.status)).length}</div>
+        </div>
+        <div className="staff-stat-card">
+          <div className="staff-stat-card-header">
+            <span className="staff-stat-card-title">Avg Utilization</span>
+            <TrendingUp className="staff-stat-card-icon h-4 w-4" style={{ color: '#f5b800' }} />
+          </div>
+          <div className="staff-stat-card-value">
+            {workload.length > 0 ? Math.round(workload.reduce((sum, w) => sum + w.utilizationRate, 0) / workload.length) : 0}%
+          </div>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -438,21 +432,19 @@ export function StaffManagement() {
 
         {/* Staff Members Tab */}
         <TabsContent value="staff" className="space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search staff members..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+          <div className="staff-toolbar">
+            <div className="staff-search-wrapper">
+              <Search className="staff-search-icon h-4 w-4" />
+              <input
+                className="staff-search-input"
+                placeholder="Search staff members..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
-            <div className="flex gap-2">
+            <div className="staff-toolbar-actions">
               <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="staff-button-secondary w-40">
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="All Roles" />
                 </SelectTrigger>
@@ -462,81 +454,82 @@ export function StaffManagement() {
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
-              <Button onClick={() => setShowCreateStaff(true)}>
-                <UserPlus className="h-4 w-4 mr-2" />
+              <button className="staff-button-primary" onClick={() => setShowCreateStaff(true)}>
+                <UserPlus className="h-4 w-4" />
                 Add Staff Member
-              </Button>
+              </button>
             </div>
           </div>
 
-          <Card>
-            <CardContent className="pt-6">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Staff Member</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Department</TableHead>
-                    <TableHead>Specializations</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Workload</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+          <div className="staff-content-card">
+            <table className="staff-table">
+              <thead>
+                <tr>
+                  <th>Staff Member</th>
+                  <th>Role</th>
+                  <th>Department</th>
+                  <th>Specializations</th>
+                  <th>Status</th>
+                  <th>Workload</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
                   {staff.filter(member =>
                     (roleFilter === "all" || member.role === roleFilter) &&
                     (searchTerm === "" || member.name.toLowerCase().includes(searchTerm.toLowerCase()) || member.email.toLowerCase().includes(searchTerm.toLowerCase()))
                   ).map((member) => (
-                    <TableRow 
-                      key={member._id} 
-                      className="cursor-pointer hover:bg-muted/50"
+                    <tr 
+                      key={member._id}
                       onClick={() => handleStaffRowClick(member)}
                     >
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="w-8 h-8">
-                            <AvatarImage src={member.avatar} />
-                            <AvatarFallback>
-                              {member.name.split(' ').map(n => n[0]).join('')}
-                            </AvatarFallback>
-                          </Avatar>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <div className="staff-avatar">
+                            {member.avatar ? (
+                              <img src={member.avatar} alt={member.name} />
+                            ) : (
+                              member.name.split(' ').map(n => n[0]).join('')
+                            )}
+                          </div>
                           <div>
-                            <p className="font-medium">{member.name}</p>
-                            <p className="text-sm text-muted-foreground">{member.email}</p>
+                            <p style={{ fontWeight: 500, marginBottom: '0.125rem' }}>{member.name}</p>
+                            <p style={{ fontSize: '0.875rem', color: '#636e85' }}>{member.email}</p>
                           </div>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{member.role}</Badge>
-                      </TableCell>
-                      <TableCell>{member.department || 'Technical'}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
+                      </td>
+                      <td>
+                        <span className="staff-badge staff-badge-outline">{member.role}</span>
+                      </td>
+                      <td>{member.department || 'Technical'}</td>
+                      <td>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
                           {member.specializations.slice(0, 2).map((spec, index) => (
-                            <Badge key={index} variant="secondary" className="text-xs">
+                            <span key={index} className="staff-badge staff-badge-secondary" style={{ fontSize: '0.75rem' }}>
                               {spec}
-                            </Badge>
+                            </span>
                           ))}
                           {member.specializations.length > 2 && (
-                            <Badge variant="secondary" className="text-xs">
+                            <span className="staff-badge staff-badge-secondary" style={{ fontSize: '0.75rem' }}>
                               +{member.specializations.length - 2}
-                            </Badge>
+                            </span>
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={member.status === 'active' ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'}>
+                      </td>
+                      <td>
+                        <span className={member.status === 'active' ? 'staff-badge staff-badge-success' : 'staff-badge'}>
                           {member.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Progress value={member.currentWorkload.utilizationRate} className="w-16" />
-                          <span className="text-sm">{member.currentWorkload.utilizationRate}%</span>
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <div className="staff-progress">
+                            <div className="staff-progress-bar" style={{ width: `${member.currentWorkload.utilizationRate}%` }}></div>
+                          </div>
+                          <span style={{ fontSize: '0.875rem' }}>{member.currentWorkload.utilizationRate}%</span>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-right">
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="h-8 w-8 p-0">
@@ -580,13 +573,12 @@ export function StaffManagement() {
                             </AlertDialog>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                </tbody>
+              </table>
+            </div>
         </TabsContent>
 
         {/* Teams Tab */}

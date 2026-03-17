@@ -233,7 +233,7 @@ export function WorkflowExecutionModal({
 
                   {/* Current Step Preview */}
                   {currentStep && (
-                    <Card className="border-blue-200 bg-blue-50/50">
+                    <Card className="border-gray-200 bg-white shadow-sm">
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1">
@@ -276,7 +276,7 @@ export function WorkflowExecutionModal({
                           onClick={() => setCurrentStepIndex(index)}
                           className={`w-full text-left p-3 rounded-lg border transition-all ${
                             currentStepIndex === index
-                              ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-300'
+                              ? 'border-[#1a2a5e] bg-white ring-2 ring-[#1a2a5e]/15'
                               : 'border-gray-200 hover:border-gray-300'
                           }`}
                         >
@@ -468,7 +468,7 @@ export function WorkflowExecutionModal({
 
             {/* Current Step Display */}
             {currentStep && (
-              <Card className="border-blue-200 bg-blue-50/50">
+              <Card className="border-gray-200 bg-white shadow-sm">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
@@ -514,7 +514,7 @@ export function WorkflowExecutionModal({
                     onClick={() => setCurrentStepIndex(index)}
                     className={`w-full text-left p-3 rounded-lg border transition-all ${
                       currentStepIndex === index
-                        ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-300'
+                        ? 'border-[#1a2a5e] bg-white ring-2 ring-[#1a2a5e]/15'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >

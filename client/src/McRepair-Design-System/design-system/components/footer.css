@@ -1,0 +1,168 @@
+/* ============================================
+   McRepair Design System – Footer Component
+   ============================================
+   
+   Requires: tokens.css, base.css
+   ============================================ */
+
+.footer {
+  background: var(--primary-blue-dark);
+  color: rgba(255, 255, 255, 0.7);
+  padding: 56px 0 0;
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr 1fr;
+  gap: 40px;
+  padding-bottom: 40px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Brand Column */
+.footer-brand h3 {
+  color: var(--white);
+  font-size: 1.3rem;
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+
+.footer-brand h3 span {
+  color: var(--accent-yellow);
+}
+
+.footer-brand p {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  margin-bottom: 20px;
+  max-width: 300px;
+}
+
+/* Social Icons */
+.footer-social {
+  display: flex;
+  gap: 10px;
+}
+
+.footer-social a {
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.6);
+  transition: var(--transition);
+}
+
+.footer-social a:hover {
+  background: var(--accent-yellow);
+  color: var(--primary-blue);
+}
+
+.footer-social a svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Link Columns */
+.footer-col h4 {
+  color: var(--white);
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.footer-col ul li {
+  margin-bottom: 8px;
+}
+
+.footer-col ul li a {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.5);
+  transition: var(--transition);
+}
+
+.footer-col ul li a:hover {
+  color: var(--accent-yellow);
+}
+
+/* Bottom Bar */
+.footer-bottom {
+  padding: 20px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.footer-bottom-links {
+  display: flex;
+  gap: 20px;
+}
+
+.footer-bottom-links a {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.footer-bottom-links a:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Payment Icons */
+.footer-payment-icons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 14px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.footer-pay-label {
+  font-family: var(--font-main);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* Footer bottom stacking with payment */
+.footer .footer-bottom {
+  flex-direction: column;
+  gap: 14px;
+  text-align: center;
+  align-items: center;
+}
+
+.footer .footer-bottom-links {
+  justify-content: center;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 1024px) {
+  .footer-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+}
+
+@media (max-width: 768px) {
+  .footer-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .footer-bottom {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+}

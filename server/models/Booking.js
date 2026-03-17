@@ -83,7 +83,74 @@ const bookingSchema = new mongoose.Schema({
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: false, // Made optional to support guest bookings
+  },
+  // Guest information for non-registered users
+  guestInfo: {
+    email: {
+      type: String,
+      default: '',
+    },
+    firstName: {
+      type: String,
+      default: '',
+    },
+    lastName: {
+      type: String,
+      default: '',
+    },
+    phone: {
+      type: String,
+      default: '',
+    },
+    isGuest: {
+      type: Boolean,
+      default: false,
+    },
+    billingAddress: {
+      street: {
+        type: String,
+        default: '',
+      },
+      city: {
+        type: String,
+        default: '',
+      },
+      state: {
+        type: String,
+        default: '',
+      },
+      zipCode: {
+        type: String,
+        default: '',
+      },
+      country: {
+        type: String,
+        default: '',
+      },
+    },
+    shippingAddress: {
+      street: {
+        type: String,
+        default: '',
+      },
+      city: {
+        type: String,
+        default: '',
+      },
+      state: {
+        type: String,
+        default: '',
+      },
+      zipCode: {
+        type: String,
+        default: '',
+      },
+      country: {
+        type: String,
+        default: '',
+      },
+    },
   },
   orderIds: [{
     type: mongoose.Schema.Types.ObjectId,
@@ -176,6 +243,12 @@ const bookingSchema = new mongoose.Schema({
   returnReceivedAt: {
     type: Date,
   },
+  // Guest tracking token for public booking tracking without authentication
+  guestTrackingToken: {
+    type: String,
+    default: '',
+    index: true,
+  },
   timeline: [bookingTimelineSchema],
   createdAt: {
     type: Date,
@@ -223,6 +296,20 @@ bookingSchema.pre('save', function(next) {
       staffId: 'system',
       staffName: 'System',
     });
+  }
+  next();
+});
+
+// Generate tracking token for guest bookings
+bookingSchema.pre('save', async function(next) {
+  if (this.isNew && this.guestInfo && this.guestInfo.isGuest && !this.guestTrackingToken) {
+    try {
+      const crypto = require('crypto');
+      this.guestTrackingToken = crypto.randomBytes(32).toString('hex');
+      console.log('Booking pre-save: Generated guest tracking token for guest booking');
+    } catch (error) {
+      console.error('Booking pre-save: Error generating guest tracking token:', error);
+    }
   }
   next();
 });

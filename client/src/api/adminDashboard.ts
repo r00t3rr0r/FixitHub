@@ -126,14 +126,33 @@ export const getDashboardSummary = async () => {
       length: rawData.bookings?.data?.length || rawData.bookings?.length || 0
     });
 
+    const bookingsSection = rawData.bookings || {};
+    const repairRequestsSection = rawData.repairRequests || {};
+    const notificationsSection = rawData.notifications || {};
+    const activitiesSection = rawData.activities || {};
+    const staffStatusSection = rawData.staffStatus || {};
+    const assignedOrdersSection = rawData.assignedOrders || {};
+
     const extractedData = {
-      bookings: (rawData.bookings?.data || rawData.bookings || []),
-      repairRequests: (rawData.repairRequests?.data || rawData.repairRequests || []),
-      notifications: (rawData.notifications?.data || rawData.notifications || []),
-      activities: (rawData.activities?.data || rawData.activities || []),
-      staffStatus: (rawData.staffStatus?.data || rawData.staffStatus || []),
-      assignedOrders: (rawData.assignedOrders?.data || rawData.assignedOrders || []),
-      systemOverview: (rawData.systemOverview || {})
+      bookings: (bookingsSection.data || rawData.bookings || []),
+      repairRequests: (repairRequestsSection.data || rawData.repairRequests || []),
+      notifications: (notificationsSection.data || rawData.notifications || []),
+      activities: (activitiesSection.data || rawData.activities || []),
+      staffStatus: (staffStatusSection.data || rawData.staffStatus || []),
+      assignedOrders: (assignedOrdersSection.data || rawData.assignedOrders || []),
+      systemOverview: (rawData.systemOverview || {}),
+      notificationMeta: {
+        unreadCount: Number(notificationsSection.unreadCount || 0),
+        urgentCount: Number(notificationsSection.urgentCount || 0),
+        totalCount: Number(notificationsSection.totalCount || 0)
+      },
+      sectionCounts: {
+        bookings: Number(bookingsSection.count || 0),
+        repairRequests: Number(repairRequestsSection.count || 0),
+        activities: Number(activitiesSection.count || 0),
+        staffStatus: Number(staffStatusSection.count || 0),
+        assignedOrders: Number(assignedOrdersSection.count || 0)
+      }
     };
 
     console.log('Admin Dashboard API: Extracted data with counts:', {
@@ -143,7 +162,9 @@ export const getDashboardSummary = async () => {
       activities: extractedData.activities.length,
       staffStatus: extractedData.staffStatus.length,
       assignedOrders: extractedData.assignedOrders.length,
-      systemOverview: Object.keys(extractedData.systemOverview).length
+      systemOverview: Object.keys(extractedData.systemOverview).length,
+      unreadNotifications: extractedData.notificationMeta.unreadCount,
+      urgentNotifications: extractedData.notificationMeta.urgentCount
     });
 
     console.log('Admin Dashboard API: First booking sample:', extractedData.bookings[0]);

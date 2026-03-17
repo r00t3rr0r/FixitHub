@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Lock, X, RotateCcw } from "lucide-react"
+import { Lock, X, RotateCcw, AlertCircle } from "lucide-react"
 
 interface UnlockPatternInputProps {
   onPatternChange: (pattern: string[]) => void
@@ -28,8 +28,8 @@ export function UnlockPatternInput({
   unlockCode = ""
 }: UnlockPatternInputProps) {
   const [selectedPattern, setSelectedPattern] = useState<string[]>(pattern)
-  const [unlockMethod, setUnlockMethod] = useState<"pattern" | "code" | "nolock">(
-    noLock ? "nolock" : unlockCode ? "code" : "pattern"
+  const [unlockMethod, setUnlockMethod] = useState<"pattern" | "code" | "nolock" | "noinfo">(
+    unlockCode ? "code" : pattern.length > 0 ? "pattern" : "nolock"
   )
 
   const patternDots = [
@@ -56,10 +56,15 @@ export function UnlockPatternInput({
   }
 
   const handleUnlockMethodChange = (method: string) => {
-    setUnlockMethod(method as "pattern" | "code" | "nolock")
+    setUnlockMethod(method as "pattern" | "code" | "nolock" | "noinfo")
 
     if (method === "nolock") {
       onNoLockChange(true)
+      setSelectedPattern([])
+      onPatternChange([])
+      onUnlockCodeChange("")
+    } else if (method === "noinfo") {
+      onNoLockChange(false)
       setSelectedPattern([])
       onPatternChange([])
       onUnlockCodeChange("")
@@ -74,70 +79,71 @@ export function UnlockPatternInput({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Unlock Method Selection */}
-      <div className="space-y-3">
-        <Label className="text-base font-semibold">Device Lock Status</Label>
+      <div className="space-y-2">
         <RadioGroup
           value={unlockMethod}
           onValueChange={handleUnlockMethodChange}
-          className="space-y-3"
+          className="space-y-2"
         >
+          {/* No Lock Option - jetzt als erste Option */}
+          <label 
+            htmlFor="nolock-method" 
+            className="flex items-center space-x-2 p-2 rounded-md border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer"
+          >
+            <RadioGroupItem value="nolock" id="nolock-method" />
+            <span className="font-medium text-sm" style={{ color: '#2d3748' }}>
+              Keine Sperre
+            </span>
+          </label>
+
           {/* Pattern Entry Option */}
-          <div className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:border-primary/50 transition-colors">
-            <RadioGroupItem value="pattern" id="pattern-method" className="mt-1" />
-            <div className="flex-1">
-              <Label htmlFor="pattern-method" className="font-medium cursor-pointer">
-                Device Has Pattern Lock
-              </Label>
-              <p className="text-sm text-muted-foreground mt-1">
-                Enter the unlock pattern by clicking the dots in sequence
-              </p>
-            </div>
-          </div>
+          <label 
+            htmlFor="pattern-method" 
+            className="flex items-center space-x-2 p-2 rounded-md border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer"
+          >
+            <RadioGroupItem value="pattern" id="pattern-method" />
+            <span className="font-medium text-sm" style={{ color: '#2d3748' }}>
+              Entsperrcode
+            </span>
+          </label>
 
           {/* Unlock Code Option */}
-          <div className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:border-primary/50 transition-colors">
-            <RadioGroupItem value="code" id="code-method" className="mt-1" />
-            <div className="flex-1">
-              <Label htmlFor="code-method" className="font-medium cursor-pointer">
-                Device Has Unlock Code
-              </Label>
-              <p className="text-sm text-muted-foreground mt-1">
-                Enter PIN, pattern, or passcode as text
-              </p>
-            </div>
-          </div>
+          <label 
+            htmlFor="code-method" 
+            className="flex items-center space-x-2 p-2 rounded-md border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer"
+          >
+            <RadioGroupItem value="code" id="code-method" />
+            <span className="font-medium text-sm" style={{ color: '#2d3748' }}>
+              PIN/Code
+            </span>
+          </label>
 
-          {/* No Lock Option */}
-          <div className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:border-primary/50 transition-colors">
-            <RadioGroupItem value="nolock" id="nolock-method" className="mt-1" />
-            <div className="flex-1">
-              <Label htmlFor="nolock-method" className="font-medium cursor-pointer">
-                Device Has No Lock
-              </Label>
-              <p className="text-sm text-muted-foreground mt-1">
-                Device has no security lock or unlocked already
-              </p>
-            </div>
-          </div>
+          {/* No Information Option - neue Option */}
+          <label 
+            htmlFor="noinfo-method" 
+            className="flex items-center space-x-2 p-2 rounded-md border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer"
+          >
+            <RadioGroupItem value="noinfo" id="noinfo-method" />
+            <span className="font-medium text-sm" style={{ color: '#2d3748' }}>
+              Ich möchte keine Angaben machen
+            </span>
+          </label>
         </RadioGroup>
       </div>
 
       {/* Pattern Input Grid */}
       {unlockMethod === "pattern" && (
-        <Card className="p-6 bg-gradient-to-br from-primary/5 to-secondary/5">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-4">
-              <Lock className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold">Enter Pattern</h3>
-              <span className="text-xs text-muted-foreground ml-auto">
-                {selectedPattern.length} dot{selectedPattern.length !== 1 ? "s" : ""} selected
-              </span>
+        <Card className="p-3 bg-gray-50 border-gray-200">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Lock className="h-4 w-4" style={{ color: '#1a2a5e' }} />
+              <h3 className="font-semibold text-sm" style={{ color: '#1a2a5e' }}>Entsperrcode eingeben</h3>
             </div>
 
             {/* 3x3 Pattern Grid */}
-            <div className="grid grid-cols-3 gap-4 max-w-xs mx-auto">
+            <div className="grid grid-cols-3 gap-2 max-w-[220px] mx-auto">
               {patternDots.flat().map((dot) => (
                 <button
                   key={dot}
@@ -145,14 +151,19 @@ export function UnlockPatternInput({
                   onClick={() => handleDotClick(dot)}
                   disabled={noLock}
                   className={`
-                    w-16 h-16 rounded-full border-2 font-bold text-lg transition-all
+                    w-14 h-14 rounded-full border-2 font-semibold text-sm transition-all
                     ${
                       selectedPattern.includes(dot.toString())
-                        ? "border-primary bg-primary text-primary-foreground shadow-lg scale-95"
-                        : "border-primary/30 bg-background hover:border-primary/60 hover:shadow-md"
+                        ? "shadow-md scale-95"
+                        : "bg-white hover:shadow-sm"
                     }
                     ${noLock ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
                   `}
+                  style={{
+                    borderColor: selectedPattern.includes(dot.toString()) ? '#1a2a5e' : '#d8dce6',
+                    backgroundColor: selectedPattern.includes(dot.toString()) ? '#1a2a5e' : '#ffffff',
+                    color: selectedPattern.includes(dot.toString()) ? '#ffffff' : '#1a2a5e'
+                  }}
                 >
                   {dot}
                 </button>
@@ -161,9 +172,9 @@ export function UnlockPatternInput({
 
             {/* Pattern Sequence Display */}
             {selectedPattern.length > 0 && (
-              <div className="p-3 rounded-lg bg-secondary/10 text-center">
-                <p className="text-sm text-muted-foreground mb-1">Pattern sequence:</p>
-                <p className="text-lg font-mono font-bold text-primary">
+              <div className="p-2 rounded-md bg-blue-50 text-center">
+                <p className="text-xs text-gray-600 mb-0.5">Entsperrcode:</p>
+                <p className="text-sm font-mono font-semibold" style={{ color: '#1a2a5e' }}>
                   {selectedPattern.join(" → ")}
                 </p>
               </div>
@@ -176,10 +187,10 @@ export function UnlockPatternInput({
               size="sm"
               onClick={handleResetPattern}
               disabled={selectedPattern.length === 0 || noLock}
-              className="w-full"
+              className="w-full text-xs h-8"
             >
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Reset Pattern
+              <RotateCcw className="h-3 w-3 mr-1.5" />
+              Zurücksetzen
             </Button>
           </div>
         </Card>
@@ -187,54 +198,60 @@ export function UnlockPatternInput({
 
       {/* Unlock Code Input */}
       {unlockMethod === "code" && (
-        <Card className="p-6 bg-gradient-to-br from-primary/5 to-secondary/5">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-4">
-              <Lock className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold">Enter Unlock Code</h3>
+        <Card className="p-3 bg-gray-50 border-gray-200">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Lock className="h-4 w-4" style={{ color: '#1a2a5e' }} />
+              <h3 className="font-semibold text-sm" style={{ color: '#1a2a5e' }}>Code eingeben</h3>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="unlockCode">Unlock Code / PIN / Passcode</Label>
+              <Label htmlFor="unlockCode" className="text-xs text-gray-600">PIN / Passwort</Label>
               <Input
                 id="unlockCode"
                 type="password"
-                placeholder="Enter the device unlock code"
+                placeholder="Entsperrcode eingeben"
                 value={unlockCode}
                 onChange={(e) => onUnlockCodeChange(e.target.value)}
                 disabled={noLock}
-                className="font-mono text-center tracking-widest"
+                className="font-mono text-center tracking-widest text-sm h-9"
               />
-              <p className="text-xs text-muted-foreground">
-                This code will be kept confidential and only used by our technicians
+              <p className="text-xs text-gray-500">
+                Der Code wird vertraulich behandelt und nur von unseren Technikern verwendet
               </p>
             </div>
-
-            {/* Show/Hide Button */}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-full"
-              disabled={noLock}
-            >
-              Show Code
-            </Button>
           </div>
         </Card>
       )}
 
       {/* No Lock Info */}
       {unlockMethod === "nolock" && (
-        <Card className="p-6 bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
-          <div className="flex items-start gap-3">
-            <X className="h-5 w-5 text-green-600 flex-shrink-0 mt-1" />
+        <Card className="p-3 bg-green-50 border-green-200">
+          <div className="flex items-start gap-2">
+            <X className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
             <div>
-              <h3 className="font-semibold text-green-900 dark:text-green-100 mb-1">
-                No Lock Required
+              <h3 className="font-semibold text-sm text-green-900 mb-0.5">
+                Keine Sperre erforderlich
               </h3>
-              <p className="text-sm text-green-800 dark:text-green-200">
-                The device has no security lock or is already unlocked. Our technicians will not need to enter any unlock codes or patterns.
+              <p className="text-xs text-green-700">
+                Das Gerät hat keine Sicherheitssperre oder ist bereits entsperrt. Unsere Techniker benötigen keine Entsperrinformationen.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* No Information Warning */}
+      {unlockMethod === "noinfo" && (
+        <Card className="p-3 bg-amber-50 border-amber-300">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-sm text-amber-900 mb-1">
+                Wichtiger Hinweis zur Garantie
+              </h3>
+              <p className="text-xs text-amber-800">
+                Wenn Sie keine Entsperrinformationen angeben, kann die Reparatur ohne Garantie durchgeführt werden. Unsere Techniker können das Gerät ohne Zugang nicht vollständig testen und die Funktionstüchtigkeit nach der Reparatur nicht garantieren.
               </p>
             </div>
           </div>

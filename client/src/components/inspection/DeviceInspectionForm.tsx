@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -29,7 +29,7 @@ import {
 
 interface DeviceInspectionFormProps {
   orderId: string;
-  customerId: string;
+  customerId?: string | null;
   deviceType: string;
   onComplete?: () => void;
 }
@@ -285,30 +285,30 @@ export function DeviceInspectionForm({
   };
 
   if (loading) {
-    return <div className="text-center py-8">Loading inspection...</div>;
+    return <div className="text-center py-8 text-gray-600 font-medium">Loading inspection...</div>;
   }
 
   return (
-    <div className="space-y-4">
+    <div className="inspection-form">
       {/* Step 1: Model Verification */}
-      <Card>
+      <Card className="inspection-step-card">
         <CardHeader
-          className="cursor-pointer hover:bg-gray-50"
+          className="inspection-step-header cursor-pointer"
           onClick={() => toggleStep(1)}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Badge variant={currentStep >= 1 ? 'default' : 'outline'}>
+              <Badge variant={currentStep >= 1 ? 'default' : 'outline'} className={currentStep >= 1 ? 'inspection-step-badge' : ''}>
                 Step 1
               </Badge>
-              <CardTitle>Model Verification</CardTitle>
+              <CardTitle className="inspection-step-title">Model Verification</CardTitle>
             </div>
             {expandedSteps.includes(1) ? <ChevronUp /> : <ChevronDown />}
           </div>
         </CardHeader>
         {expandedSteps.includes(1) && (
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="reported-model">Reported Model</Label>
                 <Input
@@ -366,7 +366,7 @@ export function DeviceInspectionForm({
               />
             </div>
 
-            <Button onClick={handleModelVerification} disabled={submitting}>
+            <Button onClick={handleModelVerification} disabled={submitting} className="inspection-primary-button">
               Save & Continue
             </Button>
           </CardContent>
@@ -374,17 +374,17 @@ export function DeviceInspectionForm({
       </Card>
 
       {/* Step 2: Identification */}
-      <Card>
+      <Card className="inspection-step-card">
         <CardHeader
-          className="cursor-pointer hover:bg-gray-50"
+          className="inspection-step-header cursor-pointer"
           onClick={() => toggleStep(2)}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Badge variant={currentStep >= 2 ? 'default' : 'outline'}>
+              <Badge variant={currentStep >= 2 ? 'default' : 'outline'} className={currentStep >= 2 ? 'inspection-step-badge' : ''}>
                 Step 2
               </Badge>
-              <CardTitle>Device Identification</CardTitle>
+              <CardTitle className="inspection-step-title">Device Identification</CardTitle>
             </div>
             {expandedSteps.includes(2) ? <ChevronUp /> : <ChevronDown />}
           </div>
@@ -413,7 +413,7 @@ export function DeviceInspectionForm({
               </div>
             )}
 
-            <Button onClick={handleIdentification} disabled={submitting}>
+            <Button onClick={handleIdentification} disabled={submitting} className="inspection-primary-button">
               Save & Continue
             </Button>
           </CardContent>
@@ -421,17 +421,17 @@ export function DeviceInspectionForm({
       </Card>
 
       {/* Step 3: Accessories */}
-      <Card>
+      <Card className="inspection-step-card">
         <CardHeader
-          className="cursor-pointer hover:bg-gray-50"
+          className="inspection-step-header cursor-pointer"
           onClick={() => toggleStep(3)}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Badge variant={currentStep >= 3 ? 'default' : 'outline'}>
+              <Badge variant={currentStep >= 3 ? 'default' : 'outline'} className={currentStep >= 3 ? 'inspection-step-badge' : ''}>
                 Step 3
               </Badge>
-              <CardTitle>Accessories & Packaging</CardTitle>
+              <CardTitle className="inspection-step-title">Accessories & Packaging</CardTitle>
             </div>
             {expandedSteps.includes(3) ? <ChevronUp /> : <ChevronDown />}
           </div>
@@ -475,7 +475,7 @@ export function DeviceInspectionForm({
               />
             </div>
 
-            <Button onClick={handleAccessories} disabled={submitting}>
+            <Button onClick={handleAccessories} disabled={submitting} className="inspection-primary-button">
               Save & Continue
             </Button>
           </CardContent>
@@ -483,24 +483,24 @@ export function DeviceInspectionForm({
       </Card>
 
       {/* Step 4: External Inspection */}
-      <Card>
+      <Card className="inspection-step-card">
         <CardHeader
-          className="cursor-pointer hover:bg-gray-50"
+          className="inspection-step-header cursor-pointer"
           onClick={() => toggleStep(4)}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Badge variant={currentStep >= 4 ? 'default' : 'outline'}>
+              <Badge variant={currentStep >= 4 ? 'default' : 'outline'} className={currentStep >= 4 ? 'inspection-step-badge' : ''}>
                 Step 4
               </Badge>
-              <CardTitle>External Inspection</CardTitle>
+              <CardTitle className="inspection-step-title">External Inspection</CardTitle>
             </div>
             {expandedSteps.includes(4) ? <ChevronUp /> : <ChevronDown />}
           </div>
         </CardHeader>
         {expandedSteps.includes(4) && (
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
                 { label: 'Display', state: displayStatus, setter: setDisplayStatus },
                 { label: 'Frame', state: frameStatus, setter: setFrameStatus },
@@ -555,7 +555,7 @@ export function DeviceInspectionForm({
               />
             </div>
 
-            <Button onClick={handleExternalInspection} disabled={submitting}>
+            <Button onClick={handleExternalInspection} disabled={submitting} className="inspection-primary-button">
               Save & Continue
             </Button>
           </CardContent>
@@ -563,24 +563,24 @@ export function DeviceInspectionForm({
       </Card>
 
       {/* Step 5: Device Tests */}
-      <Card>
+      <Card className="inspection-step-card">
         <CardHeader
-          className="cursor-pointer hover:bg-gray-50"
+          className="inspection-step-header cursor-pointer"
           onClick={() => toggleStep(5)}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Badge variant={currentStep >= 5 ? 'default' : 'outline'}>
+              <Badge variant={currentStep >= 5 ? 'default' : 'outline'} className={currentStep >= 5 ? 'inspection-step-badge' : ''}>
                 Step 5
               </Badge>
-              <CardTitle>Device Testing</CardTitle>
+              <CardTitle className="inspection-step-title">Device Testing</CardTitle>
             </div>
             {expandedSteps.includes(5) ? <ChevronUp /> : <ChevronDown />}
           </div>
         </CardHeader>
         {expandedSteps.includes(5) && (
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
                 { label: 'Charging', state: chargingStatus, setter: setChargingStatus },
                 { label: 'Power', state: powerStatus, setter: setPowerStatus },
@@ -611,7 +611,7 @@ export function DeviceInspectionForm({
               ))}
             </div>
 
-            <Button onClick={handleDeviceTests} disabled={submitting}>
+            <Button onClick={handleDeviceTests} disabled={submitting} className="inspection-primary-button">
               Save & Continue
             </Button>
           </CardContent>
@@ -619,17 +619,17 @@ export function DeviceInspectionForm({
       </Card>
 
       {/* Step 6: Apple-Specific */}
-      <Card>
+      <Card className="inspection-step-card">
         <CardHeader
-          className="cursor-pointer hover:bg-gray-50"
+          className="inspection-step-header cursor-pointer"
           onClick={() => toggleStep(6)}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Badge variant={currentStep >= 6 ? 'default' : 'outline'}>
+              <Badge variant={currentStep >= 6 ? 'default' : 'outline'} className={currentStep >= 6 ? 'inspection-step-badge' : ''}>
                 Step 6
               </Badge>
-              <CardTitle>Apple-Specific Checks</CardTitle>
+              <CardTitle className="inspection-step-title">Apple-Specific Checks</CardTitle>
             </div>
             {expandedSteps.includes(6) ? <ChevronUp /> : <ChevronDown />}
           </div>
@@ -665,7 +665,7 @@ export function DeviceInspectionForm({
               )}
             </div>
 
-            <Button onClick={handleAppleSpecific} disabled={submitting}>
+            <Button onClick={handleAppleSpecific} disabled={submitting} className="inspection-primary-button">
               Save & Continue
             </Button>
           </CardContent>
@@ -673,17 +673,17 @@ export function DeviceInspectionForm({
       </Card>
 
       {/* Final Step: Summary */}
-      <Card>
+      <Card className="inspection-step-card">
         <CardHeader
-          className="cursor-pointer hover:bg-gray-50"
+          className="inspection-step-header cursor-pointer"
           onClick={() => toggleStep(7)}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Badge variant={currentStep >= 7 ? 'default' : 'outline'}>
+              <Badge variant={currentStep >= 7 ? 'default' : 'outline'} className={currentStep >= 7 ? 'inspection-step-badge' : ''}>
                 Summary
               </Badge>
-              <CardTitle>Inspection Summary</CardTitle>
+              <CardTitle className="inspection-step-title">Inspection Summary</CardTitle>
             </div>
             {expandedSteps.includes(7) ? <ChevronUp /> : <ChevronDown />}
           </div>
@@ -692,10 +692,11 @@ export function DeviceInspectionForm({
           <CardContent className="space-y-4">
             <div>
               <Label>Is Device Repairable?</Label>
-              <div className="flex gap-4 mt-2">
+              <div className="inspection-repairable-actions">
                 <Button
                   variant={isRepairable === true ? 'default' : 'outline'}
                   onClick={() => setIsRepairable(true)}
+                  className={isRepairable === true ? 'inspection-primary-button' : ''}
                 >
                   <CheckCircle2 className="h-4 w-4 mr-2" />
                   Yes
@@ -703,6 +704,8 @@ export function DeviceInspectionForm({
                 <Button
                   variant={isRepairable === false ? 'destructive' : 'outline'}
                   onClick={() => setIsRepairable(false)}
+                  className={isRepairable === false ? 'inspection-primary-button' : ''}
+                  data-destructive={isRepairable === false ? 'true' : 'false'}
                 >
                   <AlertTriangle className="h-4 w-4 mr-2" />
                   No
@@ -748,7 +751,7 @@ export function DeviceInspectionForm({
             <Button
               onClick={handleCompleteInspection}
               disabled={submitting || isRepairable === null}
-              className="w-full"
+              className="w-full inspection-primary-button"
             >
               Complete Inspection
             </Button>

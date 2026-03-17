@@ -1,0 +1,466 @@
+/* AdminSidebar - McRepair Design System */
+/* Matches the homepage navigation design with primary-blue and accent-yellow */
+
+.admin-sidebar {
+  height: 100%;
+  background: var(--primary-blue, #1a2a5e);
+  color: var(--white, #ffffff);
+  font-family: var(--font-main, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.625rem 0.5rem;
+  overflow-y: auto;
+}
+
+/* Link Reset */
+.admin-sidebar a {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+/* Navigation Items - Matches Homepage Nav Style */
+.admin-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.375rem 0.625rem;
+  margin-bottom: 0.125rem;
+  border-radius: var(--radius-sm, 6px);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  line-height: 1.35;
+}
+
+.admin-nav-item:hover {
+  color: var(--white, #ffffff);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.admin-nav-item.active {
+  color: var(--primary-blue, #1a2a5e);
+  background: var(--accent-yellow, #f5b800);
+  font-weight: 600;
+}
+
+.admin-nav-item.active:hover {
+  background: var(--accent-yellow-hover, #e5ab00);
+}
+
+.admin-nav-item-content {
+  display: flex;
+  align-items: center;
+  gap: 0.4375rem;
+  flex: 1;
+}
+
+.admin-nav-item-icon {
+  width: 0.9375rem;
+  height: 0.9375rem;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.admin-nav-item:hover .admin-nav-item-icon {
+  opacity: 1;
+}
+
+.admin-nav-item.active .admin-nav-item-icon {
+  opacity: 1;
+}
+
+.admin-nav-item-text {
+  font-size: 0.75rem;
+  font-weight: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.35;
+}
+
+/* Badge - McRepair Style */
+.admin-nav-badge {
+  background: var(--accent-yellow, #f5b800);
+  color: var(--primary-blue, #1a2a5e);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.125rem 0.5rem;
+  border-radius: 12px;
+  min-width: 1.5rem;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.admin-nav-item.active .admin-nav-badge {
+  background: var(--white, #ffffff);
+  color: var(--primary-blue, #1a2a5e);
+}
+
+/* Collapsible Sections */
+.admin-collapsible-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.375rem 0.625rem;
+  margin-bottom: 0.125rem;
+  border-radius: var(--radius-sm, 6px);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  line-height: 1.35;
+}
+
+.admin-collapsible-trigger:hover {
+  color: var(--white, #ffffff);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.admin-collapsible-trigger-content {
+  display: flex;
+  align-items: center;
+  gap: 0.4375rem;
+}
+
+.admin-collapsible-icon {
+  width: 0.9375rem;
+  height: 0.9375rem;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.admin-collapsible-trigger:hover .admin-collapsible-icon {
+  opacity: 1;
+}
+
+.admin-collapsible-chevron {
+  width: 0.8125rem;
+  height: 0.8125rem;
+  opacity: 0.7;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.admin-collapsible-trigger:hover .admin-collapsible-chevron {
+  opacity: 1;
+}
+
+.admin-collapsible-trigger[data-state="open"] .admin-collapsible-chevron {
+  transform: rotate(90deg);
+}
+
+.admin-collapsible-content {
+  margin-left: 1.125rem;
+  margin-top: 0.125rem;
+  margin-bottom: 0.25rem;
+}
+
+.admin-collapsible-content .admin-nav-item {
+  font-size: 0.75rem;
+  padding: 0.3125rem 0.5rem;
+  font-weight: 500;
+}
+
+/* Collapsed State */
+.admin-sidebar.collapsed .admin-nav-item-text,
+.admin-sidebar.collapsed .admin-collapsible-trigger span,
+.admin-sidebar.collapsed .admin-nav-badge,
+.admin-sidebar.collapsed .admin-collapsible-chevron {
+  display: none;
+}
+
+.admin-sidebar.collapsed .admin-nav-item,
+.admin-sidebar.collapsed .admin-collapsible-trigger {
+  justify-content: center;
+  padding: 0.5rem;
+}
+
+.admin-sidebar.collapsed .admin-nav-item-content,
+.admin-sidebar.collapsed .admin-collapsible-trigger-content {
+  justify-content: center;
+  gap: 0;
+}
+
+.admin-sidebar.collapsed .admin-collapsible-content {
+  display: none;
+}
+
+/* Scrollbar Styling - McRepair Style */
+.admin-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.admin-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Focus States for Accessibility */
+.admin-nav-item:focus-visible,
+.admin-collapsible-trigger:focus-visible {
+  outline: 2px solid var(--accent-yellow, #f5b800);
+  outline-offset: 2px;
+}
+
+/* Mobile Responsiveness - Touch-Friendly Design */
+@media (max-width: 768px) {
+  .admin-sidebar {
+    width: 100%;
+    padding: 0.75rem 0.625rem;
+  }
+
+  /* Larger touch targets for mobile */
+  .admin-nav-item,
+  .admin-collapsible-trigger {
+    font-size: 0.75rem;
+    padding: 0.625rem 0.875rem;
+    min-height: 44px; /* Apple's recommended touch target size */
+    margin-bottom: 0.25rem;
+  }
+
+  .admin-nav-item-icon,
+  .admin-collapsible-icon {
+    width: 1.25rem; /* 20px - larger icons for mobile */
+    height: 1.25rem;
+  }
+
+  .admin-nav-item-content {
+    gap: 0.625rem;
+  }
+
+  .admin-collapsible-trigger-content {
+    gap: 0.625rem;
+  }
+
+  .admin-collapsible-content {
+    margin-left: 1.375rem;
+  }
+
+  .admin-collapsible-content .admin-nav-item {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  .admin-nav-badge {
+    font-size: 0.8125rem; /* 13px */
+    padding: 0.25rem 0.625rem;
+  }
+
+  .admin-collapsible-chevron {
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+/* Tablet Responsiveness - Optimized Layout */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .admin-sidebar {
+    padding: 0.625rem 0.5rem;
+  }
+
+  .admin-nav-item,
+  .admin-collapsible-trigger {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    min-height: 40px;
+  }
+
+  .admin-nav-item-icon,
+  .admin-collapsible-icon {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .admin-nav-item-content,
+  .admin-collapsible-trigger-content {
+    gap: 0.5rem;
+  }
+
+  .admin-collapsible-content {
+    margin-left: 1.25rem;
+  }
+
+  .admin-collapsible-content .admin-nav-item {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.625rem;
+  }
+
+  .admin-collapsible-chevron {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+}
+
+/* Small Mobile (iPhone SE, smaller Android phones) */
+@media (max-width: 375px) {
+  .admin-sidebar {
+    padding: 0.5rem 0.375rem;
+  }
+
+  .admin-nav-item,
+  .admin-collapsible-trigger {
+    font-size: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .admin-nav-item-text {
+    font-size: 0.75rem;
+  }
+
+  .admin-collapsible-content {
+    margin-left: 1.5rem;
+  }
+}
+
+/* Landscape Mobile - Compact View */
+@media (max-width: 896px) and (orientation: landscape) {
+  .admin-sidebar {
+    padding: 0.5rem;
+  }
+
+  .admin-nav-item,
+  .admin-collapsible-trigger {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    min-height: 36px;
+    margin-bottom: 0.125rem;
+  }
+
+  .admin-nav-item-icon,
+  .admin-collapsible-icon {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .admin-collapsible-content {
+    margin-top: 0.125rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .admin-collapsible-content .admin-nav-item {
+    padding: 0.375rem 0.625rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Large Tablets and Small Desktops */
+@media (min-width: 1025px) and (max-width: 1280px) {
+  .admin-sidebar {
+    padding: 0.625rem 0.5rem;
+  }
+
+  .admin-nav-item,
+  .admin-collapsible-trigger {
+    font-size: 0.75rem;
+    padding: 0.4375rem 0.6875rem;
+  }
+}
+
+/* Extra Large Screens - More Spacious */
+@media (min-width: 1920px) {
+  .admin-sidebar {
+    padding: 1.25rem 1rem;
+  }
+
+  .admin-nav-item,
+  .admin-collapsible-trigger {
+    font-size: 0.75rem;
+    padding: 0.625rem 1rem;
+  }
+
+  .admin-nav-item-icon,
+  .admin-collapsible-icon {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+}
+
+/* Active/Touch States for Better Mobile UX */
+.admin-nav-item:active,
+.admin-collapsible-trigger:active {
+  transform: scale(0.98);
+}
+
+/* Hover effects only on devices that support hover */
+@media (hover: hover) {
+  .admin-nav-item:hover,
+  .admin-collapsible-trigger:hover {
+    transform: translateX(2px);
+  }
+}
+
+/* Touch-Friendly Tap Highlights (iOS and Android) */
+.admin-nav-item,
+.admin-collapsible-trigger {
+  -webkit-tap-highlight-color: rgba(245, 184, 0, 0.1);
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+/* Smooth Interactions */
+.admin-nav-item,
+.admin-collapsible-trigger,
+.admin-nav-item-icon,
+.admin-collapsible-icon,
+.admin-collapsible-chevron {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Section Divider - Optional Visual Separator */
+.admin-sidebar-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0.75rem 0.5rem;
+}
+
+/* Loading Spinner (if needed) */
+.admin-sidebar-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background: var(--primary-blue, #1a2a5e);
+}
+
+.admin-sidebar-spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--accent-yellow, #f5b800);
+  border-radius: 50%;
+  animation: admin-spin 0.8s linear infinite;
+}
+
+@keyframes admin-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Print Styles */
+@media print {
+  .admin-sidebar {
+    display: none;
+  }
+}

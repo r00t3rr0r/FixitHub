@@ -2,11 +2,17 @@ import api from './api';
 
 // Description: Initialize device inspection for an order
 // Endpoint: POST /api/device-inspections/init
-// Request: { orderId: string, customerId: string }
+// Request: { orderId: string, customerId?: string }
 // Response: { inspection: DeviceInspection }
-export const initializeInspection = async (orderId: string, customerId: string) => {
+export const initializeInspection = async (orderId: string, customerId?: string | null) => {
   try {
-    const response = await api.post('/api/device-inspections/init', { orderId, customerId });
+    const payload: { orderId: string; customerId?: string } = { orderId };
+
+    if (customerId) {
+      payload.customerId = customerId;
+    }
+
+    const response = await api.post('/api/device-inspections/init', payload);
     return response.data;
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);

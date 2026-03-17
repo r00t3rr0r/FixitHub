@@ -338,7 +338,7 @@ const ProductCSVImportDialog: React.FC<ProductCSVImportDialogProps> = ({
                 <div className="text-2xl font-bold text-green-600">{importResult.successful.length}</div>
                 <div className="text-sm text-muted-foreground">Created</div>
               </div>
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-center">
+              <div className="bg-white border border-gray-200 shadow-sm p-4 rounded-lg text-center">
                 <div className="text-2xl font-bold text-blue-600">{importResult.updated.length}</div>
                 <div className="text-sm text-muted-foreground">Updated</div>
               </div>

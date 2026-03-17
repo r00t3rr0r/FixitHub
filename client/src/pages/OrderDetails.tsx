@@ -8,6 +8,8 @@ import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
+import { safeToNumber, formatPrice } from "@/lib/utils"
+import "./OrderDetails.css"
 import { getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct } from "@/api/orders"
 import { startOrderTracking, endOrderTracking } from "@/api/timeTracking"
 import { getConversations, getConversationMessages, sendMessage, startConversation } from "@/api/messages"
@@ -86,6 +88,7 @@ import {
   Wrench,
   Trash2,
   Plus,
+  PlusCircle,
   Edit,
   X,
   Lock,
@@ -263,16 +266,18 @@ export function OrderDetails() {
 
   useEffect(() => {
     const fetchAvailableStaff = async () => {
-      try {
-        const response = await getAvailableStaff()
-        setAvailableStaff((response as any).staff || [])
-      } catch (error) {
-        console.error("Error fetching available staff:", error)
+      if (user?.role === 'admin' || user?.role === 'staff') {
+        try {
+          const response = await getAvailableStaff()
+          setAvailableStaff((response as any).staff || [])
+        } catch (error) {
+          console.error("Error fetching available staff:", error)
+        }
       }
     }
 
     fetchAvailableStaff()
-  }, [])
+  }, [user])
 
   useEffect(() => {
     const fetchAvailableAddons = async () => {
@@ -292,16 +297,18 @@ export function OrderDetails() {
   // Fetch available repair services and repair services for order
   useEffect(() => {
     const fetchRepairServices = async () => {
-      if (!id || !user || (user.role !== 'admin' && user.role !== 'staff')) return
+      if (!id || !user) return
 
       try {
         console.log("Fetching repair services for order:", id)
 
-        // Fetch available services
-        const servicesResponse = await getServices()
-        setAvailableServices((servicesResponse as any).services || [])
+        // Fetch available services (only for admin/staff)
+        if (user.role === 'admin' || user.role === 'staff') {
+          const servicesResponse = await getServices()
+          setAvailableServices((servicesResponse as any).services || [])
+        }
 
-        // Fetch repair services for this order
+        // Fetch repair services for this order (for all users)
         const orderServicesResponse = await getOrderServices(id)
         setRepairServices((orderServicesResponse as any).services || [])
 
@@ -1261,19 +1268,21 @@ export function OrderDetails() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'bg-green-500 text-white'
+        return 'status-completed'
       case 'diagnostic-assessment':
-        return 'bg-orange-500 text-white'
+        return 'status-in-progress'
       case 'in-progress':
-        return 'bg-blue-500 text-white'
+        return 'status-in-progress'
       case 'quality-check':
-        return 'bg-yellow-500 text-black'
+        return 'status-quality-check'
       case 'ready-for-pickup':
-        return 'bg-purple-500 text-white'
+        return 'status-ready-for-pickup'
       case 'pending':
-        return 'bg-gray-500 text-white'
+        return 'status-pending'
+      case 'cancelled':
+        return 'status-cancelled'
       default:
-        return 'bg-gray-500 text-white'
+        return 'status-pending'
     }
   }
 
@@ -1297,15 +1306,15 @@ export function OrderDetails() {
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
       case 'paid':
-        return 'bg-green-500 text-white'
+        return 'payment-paid'
       case 'pending':
-        return 'bg-yellow-500 text-black'
+        return 'payment-pending'
       case 'refunded':
-        return 'bg-red-500 text-white'
+        return 'payment-refunded'
       case 'partial':
-        return 'bg-orange-500 text-white'
+        return 'payment-pending'
       default:
-        return 'bg-gray-500 text-white'
+        return 'payment-pending'
     }
   }
 
@@ -1319,70 +1328,74 @@ export function OrderDetails() {
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto space-y-4">
-        <Card className="animate-pulse">
-          <CardHeader>
-            <div className="h-7 bg-muted rounded w-1/2"></div>
-            <div className="h-3 bg-muted rounded w-1/3 mt-2"></div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="h-24 bg-muted rounded"></div>
-              <div className="h-16 bg-muted rounded"></div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="order-details-container">
+        <div className="order-section-card animate-pulse">
+          <div className="h-7 bg-gray-200 rounded w-1/2 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/3 mb-6"></div>
+          <div className="space-y-3">
+            <div className="h-24 bg-gray-200 rounded"></div>
+            <div className="h-16 bg-gray-200 rounded"></div>
+          </div>
+        </div>
       </div>
     )
   }
 
   if (!order) {
     return (
-      <div className="max-w-6xl mx-auto">
-        <Card>
-          <CardContent className="text-center py-8">
-            <Package className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
-            <h3 className="text-base font-semibold mb-1">Order not found</h3>
-            <p className="text-xs text-muted-foreground mb-3">
-              The order you're looking for doesn't exist
-            </p>
-            <Button asChild size="sm">
-              <Link to="/bookings">
-                <ArrowLeft className="h-3 w-3 mr-1" />
-                {t('orderDetails.backToBookings')}
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="order-details-container">
+        <div className="order-section-card">
+          <div className="order-empty-state">
+            <Package className="h-20 w-20 mx-auto mb-4 opacity-30" />
+            <h3>Order not found</h3>
+            <p>The order you're looking for doesn't exist</p>
+            <Link to="/bookings" className="order-btn order-btn-primary mt-4">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              {t('orderDetails.backToBookings')}
+            </Link>
+          </div>
+        </div>
       </div>
     )
   }
 
+  const customer = order.customerId ?? {
+    _id: '',
+    name: 'Unknown customer',
+    email: 'unknown@customer.local',
+    phone: '',
+    avatar: '',
+    createdAt: '',
+  }
+  const customerInitials = customer.name
+    ? customer.name.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase()
+    : 'U'
+  const customerSinceText = customer.createdAt
+    ? new Date(customer.createdAt).toLocaleDateString()
+    : '-'
+
   return (
-    <div className="max-w-6xl mx-auto space-y-4">
+    <div className="order-details-container">
       {/* Back Button */}
-      <Button variant="ghost" size="sm" asChild>
-        <Link to="/bookings">
-          <ArrowLeft className="h-3 w-3 mr-1" />
-          {t('orderDetails.backToBookings')}
-        </Link>
-      </Button>
+      <Link to="/bookings" className="order-back-button">
+        <ArrowLeft className="h-4 w-4" />
+        {t('orderDetails.backToBookings')}
+      </Link>
 
       {/* Order Header */}
-      <Card className="bg-gradient-to-r from-primary/10 to-secondary/10 shadow-md">
-        <CardHeader className="pb-3 pt-4 px-4">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
-            <div className="space-y-1">
-              <CardTitle className="text-xl flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Order #{order.orderNumber || order._id.slice(-6)}
-              </CardTitle>
-              <CardDescription className="text-xs text-foreground/60">
-                {order.deviceBrand} {order.deviceModel} • {new Date(order.createdAt).toLocaleDateString()}
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              {/* Status Dropdown for Admin/Staff, Badge for Customers */}
+      <div className="order-details-header">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          <div>
+            <h1>
+              <Package className="h-7 w-7" />
+              Order #{order.orderNumber || order._id.slice(-6)}
+            </h1>
+            <p>
+              {order.deviceBrand} {order.deviceModel} • {new Date(order.createdAt).toLocaleDateString()}
+            </p>
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Status Dropdown for Admin/Staff, Badge for Customers */}
               {(user?.role === 'admin' || user?.role === 'staff') ? (
                 <DropdownMenu open={statusDropdownOpen} onOpenChange={setStatusDropdownOpen}>
                   <DropdownMenuTrigger asChild>
@@ -1454,45 +1467,46 @@ export function OrderDetails() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
-                <Badge className={`${getStatusColor(order.status)} text-xs px-3 py-1`}>
+                <span className={`order-status-badge ${getStatusColor(order.status)} text-xs px-3 py-1`}>
                   {getStatusIcon(order.status)}
                   <span className="ml-1">{order.status.replace('-', ' ')}</span>
-                </Badge>
+                </span>
               )}
-              <Badge className={`${getPaymentStatusColor(order.paymentStatus)} text-xs px-2 py-1`}>
+              <span className={`payment-status-badge ${getPaymentStatusColor(order.paymentStatus)}`}>
                 <CreditCard className="h-3 w-3 mr-1" />
                 {order.paymentStatus}
-              </Badge>
-              <div className="text-right">
-                <p className="text-lg font-bold text-primary">${order.totalCost}</p>
-                <p className="text-xs text-muted-foreground">Total</p>
+              </span>
+              <div className="order-total-cost">
+                <div className="amount">${safeToNumber(order.totalCost).toFixed(2)}</div>
+                <div className="label">Total</div>
               </div>
             </div>
           </div>
-        </CardHeader>
-      </Card>
-
+        </div>
+      
       {/* Overall Progress Timeline */}
       {progressTimeline && (
-        <OrderProgressTimeline
-          stages={progressTimeline.stages}
-          currentStage={progressTimeline.currentStage}
-        />
+        <div className="order-section-card">
+          <OrderProgressTimeline
+            stages={progressTimeline.stages}
+            currentStage={progressTimeline.currentStage}
+          />
+        </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="order-grid">
         {/* Main Content */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="order-main-content space-y-4">
           {/* Additional Repair Information - Always visible */}
-          <Card className="border-2 border-amber-300 dark:border-amber-700">
-            <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 pb-3 pt-3 px-4">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <Card className="order-section-card border-2 border-amber-300 dark:border-amber-700">
+            <CardHeader className="order-section-header bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40">
+              <CardTitle className="order-section-title">
+                <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                 Additional Repair Information
               </CardTitle>
-              <CardDescription className="text-xs mt-1">
+              <p className="order-section-description">
                 {t('orderDetails.repairInfo.description') || 'Customer-provided information about the device and repair requirements'}
-              </CardDescription>
+              </p>
             </CardHeader>
             <CardContent className="pt-3 space-y-3">
               <div>
@@ -1668,61 +1682,61 @@ export function OrderDetails() {
           </Card>
 
           {/* Customer Information */}
-          <Card>
-            <CardHeader className="pb-3 pt-3 px-4">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <User className="h-4 w-4" />
+          <Card className="order-section-card">
+            <CardHeader className="order-section-header">
+              <CardTitle className="order-section-title">
+                <User className="h-5 w-5" />
                 {t('orderDetails.customerInformation')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center gap-3">
-                <Avatar className="w-12 h-12">
-                  <AvatarImage src={order.customerId.avatar} />
-                  <AvatarFallback className="text-sm">
-                    {order.customerId.name.split(' ').map(n => n[0]).join('')}
+              <div className="customer-info-card">
+                <Avatar className="avatar w-16 h-16">
+                  <AvatarImage src={customer.avatar} />
+                  <AvatarFallback className="text-lg">
+                    {customerInitials}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1">
-                  <h3 className="text-sm font-semibold">{order.customerId.name}</h3>
+                <div className="details flex-1">
+                  <h3>{customer.name}</h3>
                   <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                     <Mail className="h-3 w-3" />
-                    {order.customerId.email}
+                    {customer.email}
                   </p>
                   <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                     <Phone className="h-3 w-3" />
-                    {order.customerId.phone}
+                    {customer.phone || '-'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {t('orderDetails.customerSince')} {new Date(order.customerId.createdAt).toLocaleDateString()}
+                    {t('orderDetails.customerSince')} {customerSinceText}
                   </p>
                 </div>
               </div>
 
               {/* Address Information */}
-              {order.customerId.address && (
+              {customer.address && (
                 <div className="bg-muted/50 p-3 rounded-lg">
                   <h4 className="font-medium mb-1 flex items-center gap-1 text-xs">
                     <Home className="h-3 w-3" />
                     {t('orderDetails.address')}
                   </h4>
                   <div className="text-xs text-muted-foreground space-y-0.5">
-                    <p>{order.customerId.address.street}</p>
-                    <p>{order.customerId.address.city}, {order.customerId.address.state} {order.customerId.address.zipCode}</p>
-                    <p>{order.customerId.address.country}</p>
+                    <p>{customer.address.street}</p>
+                    <p>{customer.address.city}, {customer.address.state} {customer.address.zipCode}</p>
+                    <p>{customer.address.country}</p>
                   </div>
                 </div>
               )}
 
               {/* Payment Methods */}
-              {order.customerId.paymentMethods && order.customerId.paymentMethods.length > 0 && (
+              {customer.paymentMethods && customer.paymentMethods.length > 0 && (
                 <div className="bg-muted/50 p-3 rounded-lg">
                   <h4 className="font-medium mb-1 flex items-center gap-1 text-xs">
                     <CreditCard className="h-3 w-3" />
                     {t('orderDetails.paymentMethods')}
                   </h4>
                   <div className="space-y-1">
-                    {order.customerId.paymentMethods.map((method) => (
+                    {customer.paymentMethods.map((method) => (
                       <div key={`${method.type}-${method.last4}`} className="flex items-center justify-between text-xs">
                         <span className="capitalize">{method.type} ending in {method.last4}</span>
                         <div className="flex items-center gap-1">
@@ -1746,14 +1760,13 @@ export function OrderDetails() {
 
           {/* Assigned Staff - Only visible to admin/staff */}
           {(user?.role === 'admin' || user?.role === 'staff') && (
-          <Card>
-            <CardHeader className="pb-3 pt-3 px-4">
-              <CardTitle className="flex items-center justify-between text-base">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  {t('orderDetails.assignedStaff')}
-                </div>
-                <Dialog open={staffDialogOpen} onOpenChange={setStaffDialogOpen}>
+          <Card className="order-section-card">
+            <CardHeader className="order-section-header">
+              <CardTitle className="order-section-title">
+                <Users className="h-5 w-5" />
+                {t('orderDetails.assignedStaff')}
+              </CardTitle>
+              <Dialog open={staffDialogOpen} onOpenChange={setStaffDialogOpen}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm" className="text-xs px-2 h-8">
                       <UserPlus className="h-3 w-3 mr-1" />
@@ -1831,7 +1844,6 @@ export function OrderDetails() {
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
-              </CardTitle>
             </CardHeader>
             <CardContent className="pt-3">
               {order.assignedStaff && order.assignedStaff.length > 0 ? (
@@ -1863,38 +1875,36 @@ export function OrderDetails() {
           )}
 
           {/* Device Information */}
-          <Card>
-            <CardHeader className="pb-3 pt-3 px-4">
-              <CardTitle className="flex items-center justify-between text-base">
-                <div className="flex items-center gap-2">
-                  <Camera className="h-4 w-4" />
-                  {t('orderDetails.deviceInformation')}
-                </div>
-                {(user?.role === 'admin' || user?.role === 'staff') && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setNewDeviceBrand(order?.deviceBrand || "")
-                      setNewDeviceModel(order?.deviceModel || "")
-                      setNewDeviceType(order?.deviceType || "Smartphone")
-                      setDeviceChangeDialogOpen(true)
-                    }}
-                    className="text-xs px-2 h-8"
-                  >
-                    <Edit className="h-3 w-3 mr-1" />
-                    {t('common.edit')}
-                  </Button>
-                )}
+          <Card className="order-section-card">
+            <CardHeader className="order-section-header">
+              <CardTitle className="order-section-title">
+                <Camera className="h-5 w-5" />
+                {t('orderDetails.deviceInformation')}
               </CardTitle>
+              {(user?.role === 'admin' || user?.role === 'staff') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setNewDeviceBrand(order?.deviceBrand || "")
+                    setNewDeviceModel(order?.deviceModel || "")
+                    setNewDeviceType(order?.deviceType || "Smartphone")
+                    setDeviceChangeDialogOpen(true)
+                  }}
+                  className="text-xs px-2 h-8"
+                >
+                  <Edit className="h-3 w-3 mr-1" />
+                  {t('common.edit')}
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="space-y-3 pt-3">
-              <div className="flex items-center gap-3">
+              <div className="device-info-card">
                 {getDeviceImage(order) ? (
                   <img
                     src={getDeviceImage(order)}
                     alt={`${order.deviceBrand} ${order.deviceModel}`}
-                    className="w-20 h-20 rounded-lg object-cover border-2 border-primary/20"
+                    className="device-image"
                     onError={(e) => {
                       // Replace with fallback on error
                       e.currentTarget.style.display = 'none'
@@ -1903,26 +1913,13 @@ export function OrderDetails() {
                     }}
                   />
                 ) : null}
-                <div className="w-20 h-20 rounded-lg border-2 border-primary/20 bg-primary/10 flex items-center justify-center" style={{ display: getDeviceImage(order) ? 'none' : 'flex' }}>
-                  <Smartphone className="h-7 w-7 text-primary" />
+                <div className="device-placeholder" style={{ display: getDeviceImage(order) ? 'none' : 'flex' }}>
+                  <Smartphone className="h-10 w-10" />
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="text-sm font-semibold">{order.deviceBrand} {order.deviceModel}</h3>
-                    {(user?.role === 'admin' || user?.role === 'staff') && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setDeviceChangeDialogOpen(true)}
-                        className="text-xs gap-1 px-2 h-7"
-                      >
-                        <Edit className="w-3 h-3" />
-                        Change
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">Repair Services</p>
-                  <div className="flex flex-wrap gap-1 mt-1">
+                <div className="details flex-1">
+                  <h3>{order.deviceBrand} {order.deviceModel}</h3>
+                  <p>Repair Services</p>
+                  <div className="services-tags">
                     {order.services && order.services.filter((s) => s && s._id).length > 0 ? (
                       order.services.filter((s) => s && s._id).map((service) => {
                         // Get service name from populated serviceId object or fallback to ID
@@ -1934,14 +1931,14 @@ export function OrderDetails() {
                           : service.price;
 
                         return (
-                          <Badge key={service._id} variant="outline" className="text-xs px-2 py-0.5">
+                          <span key={service._id} className="service-tag">
                             {serviceName}
                             {servicePrice && <span className="ml-0.5 font-semibold">${servicePrice.toFixed(2)}</span>}
-                          </Badge>
+                          </span>
                         );
                       })
                     ) : (
-                      <Badge variant="outline" className="text-xs px-2 py-0.5">{t('orderDetails.noServicesSelected')}</Badge>
+                      <span className="service-tag">{t('orderDetails.noServicesSelected')}</span>
                     )}
                   </div>
                 </div>
@@ -1949,14 +1946,6 @@ export function OrderDetails() {
 
               {order.customerNotes && (
                 <div className="bg-muted/50 p-3 rounded-lg">
-                  <h4 className="font-medium mb-1 text-xs">{t('orderDetails.yourNotes')}:</h4>
-                  <p className="text-xs text-muted-foreground">{order.customerNotes}</p>
-                </div>
-              )}
-
-              {/* Unlock Information Display - Integrated into Device Information Section */}
-              {(order?.unlockPattern?.length > 0 || order?.unlockCode || order?.noLock) && (
-                <div className="border-t pt-3 mt-3">
                   <h4 className="font-semibold mb-2 flex items-center gap-2 text-sm">
                     <Lock className="h-3 w-3" />
                     {t('orderDetails.deviceLockInformation', 'Device Lock Information')}
@@ -2212,111 +2201,106 @@ export function OrderDetails() {
           )}
 
           {/* Repair Services - Visible to all users */}
-          <Card>
-            <CardHeader className="pb-3 pt-3 px-4">
-              <CardTitle className="flex items-center justify-between text-base">
-                <div className="flex items-center gap-2">
-                  <Wrench className="h-4 w-4" />
-                  {t('orderDetails.repairServices')}
-                </div>
-                {(user?.role === 'admin' || user?.role === 'staff') && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setEditingService(null)
-                      setServiceDialogOpen(true)
-                    }}
-                    className="text-xs px-2 h-8"
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    {t('orderDetails.addService')}
-                  </Button>
-                )}
+          <Card className="order-section-card">
+            <CardHeader className="order-section-header">
+              <CardTitle className="order-section-title">
+                <Wrench className="h-5 w-5" />
+                {t('orderDetails.repairServices')}
               </CardTitle>
+              {(user?.role === 'admin' || user?.role === 'staff') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEditingService(null)
+                    setServiceDialogOpen(true)
+                  }}
+                  className="text-xs px-2 h-8"
+                >
+                  <PlusCircle className="h-3 w-3 mr-1" />
+                  {t('orderDetails.addService')}
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="pt-3">
               {repairServices && repairServices.filter((s) => s && s._id).length > 0 ? (
                 <div className="space-y-2">
                   {repairServices.filter((s) => s && s._id).map((service, index) => (
-                    <div key={service._id || `service-${index}`} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-2 flex-1">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-sm">{service.serviceId?.name || 'Service'}</h4>
-                          {service.serviceId?.description && (
-                            <p className="text-xs text-muted-foreground mt-0.5">{service.serviceId.description}</p>
-                          )}
-                          {service.notes && (
-                            <p className="text-xs text-muted-foreground italic">{service.notes}</p>
-                          )}
-                          {service.estimatedTime && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              <Clock className="h-3 w-3 inline mr-0.5" />
-                              {service.estimatedTime} min
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 ml-2">
-                        <div className="text-right">
-                          <p className="text-sm font-medium">${service.price}</p>
-                        </div>
-                        {(user?.role === 'admin' || user?.role === 'staff') && (
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openEditServiceDialog(service)}
-                              className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 h-8 w-8"
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => service._id && handleDeleteRepairService(service._id)}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
+                    <div key={service._id || `service-${index}`} className="service-list-item">
+                      <div className="service-info flex-1">
+                        <h4>{service.serviceId?.name || 'Service'}</h4>
+                        {service.serviceId?.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{service.serviceId.description}</p>
+                        )}
+                        {service.notes && (
+                          <p className="text-xs text-muted-foreground italic mt-1">{service.notes}</p>
                         )}
                       </div>
+                      <div className="service-meta">
+                        {service.estimatedTime && (
+                          <span>
+                            <Clock className="h-3 w-3 inline mr-0.5" />
+                            {safeToNumber(service.estimatedTime)} min
+                          </span>
+                        )}
+                        <span className="service-price">${safeToNumber(service.price).toFixed(2)}</span>
+                      </div>
+                      {(user?.role === 'admin' || user?.role === 'staff') && (
+                        <div className="service-actions">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditingService(service)
+                              setServiceDialogOpen(true)
+                            }}
+                            className="order-btn-icon text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => service._id && handleDeleteRepairService(service._id)}
+                            className="order-btn-icon text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center text-muted-foreground py-6">
+                <div className="order-empty-state">
                   <Wrench className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">{t('orderDetails.noRepairServices')}</p>
+                  <h3>{t('orderDetails.noRepairServices')}</h3>
                   {(user?.role === 'admin' || user?.role === 'staff') && (
-                    <p className="text-xs mt-1">{t('orderDetails.clickAddService')}</p>
+                    <p className="text-xs mt-1">{t('orderDetails.clickToAddService')}</p>
                   )}
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Add-On Services */}
-          <Card>
-            <CardHeader className="pb-3 pt-3 px-4">
-              <CardTitle className="flex items-center justify-between text-base">
-                <div className="flex items-center gap-2">
-                  <Shield className="h-4 w-4" />
-                  {t('orderDetails.addOnServices')}
-                </div>
-                {(user?.role === 'admin' || user?.role === 'staff') && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setAddAddonDialogOpen(true)}
-                    className="text-xs px-2 h-8"
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    {t('orderDetails.addAddOn')}
-                  </Button>
-                )}
+          {/* Add-On Services - Visible to all users */}
+          <Card className="order-section-card">
+            <CardHeader className="order-section-header">
+              <CardTitle className="order-section-title">
+                <Shield className="h-5 w-5" />
+                {t('orderDetails.addOnServices')}
               </CardTitle>
+              {(user?.role === 'admin' || user?.role === 'staff') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAddAddonDialogOpen(true)}
+                  className="text-xs px-2 h-8"
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  {t('orderDetails.addAddOn')}
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="pt-3">
               {order.addOns && order.addOns.length > 0 ? (
@@ -2335,7 +2319,7 @@ export function OrderDetails() {
                           {addOn.estimatedTime && (
                             <p className="text-xs text-muted-foreground mt-0.5">
                               <Clock className="h-3 w-3 inline mr-0.5" />
-                              {addOn.estimatedTime}
+                              {safeToNumber(addOn.estimatedTime)}
                             </p>
                           )}
                         </div>
@@ -2345,7 +2329,7 @@ export function OrderDetails() {
                           <Badge className={`${getStatusColor(addOn.status)} text-xs px-2 py-0.5`}>
                             {addOn.status}
                           </Badge>
-                          <p className="text-xs text-muted-foreground mt-1">+${addOn.price}</p>
+                          <p className="text-xs text-muted-foreground mt-1">+${safeToNumber(addOn.price).toFixed(2)}</p>
                         </div>
                         {(user?.role === 'admin' || user?.role === 'staff') && (
                           <div className="flex gap-1">
@@ -2393,23 +2377,21 @@ export function OrderDetails() {
 
           {/* EParts - Only visible to admin/staff */}
           {(user?.role === 'admin' || user?.role === 'staff') && (
-            <Card>
-              <CardHeader className="pb-3 pt-3 px-4">
-                <CardTitle className="flex items-center justify-between text-base">
-                  <div className="flex items-center gap-2">
-                    <Wrench className="h-4 w-4" />
-                    {t('orderDetails.electronicParts')}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setEPartDialogOpen(true)}
-                    className="text-xs px-2 h-8"
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    {t('orderDetails.addEPart')}
-                  </Button>
+            <Card className="order-section-card">
+              <CardHeader className="order-section-header">
+                <CardTitle className="order-section-title">
+                  <Wrench className="h-5 w-5" />
+                  {t('orderDetails.electronicParts')}
                 </CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEPartDialogOpen(true)}
+                  className="text-xs px-2 h-8"
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  {t('orderDetails.addEPart')}
+                </Button>
               </CardHeader>
               <CardContent className="pt-3">
                 {(order as any).eParts && (order as any).eParts.length > 0 ? (
@@ -2482,23 +2464,21 @@ export function OrderDetails() {
 
           {/* Shop Products - Only visible to admin/staff */}
           {(user?.role === 'admin' || user?.role === 'staff') && (
-            <Card>
-              <CardHeader className="pb-3 pt-3 px-4">
-                <CardTitle className="flex items-center justify-between text-base">
-                  <div className="flex items-center gap-2">
-                    <ShoppingCart className="h-4 w-4" />
-                    Shop Products
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShopProductDialogOpen(true)}
-                    className="text-xs px-2 h-8"
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    Add Product
-                  </Button>
+            <Card className="order-section-card">
+              <CardHeader className="order-section-header">
+                <CardTitle className="order-section-title">
+                  <ShoppingCart className="h-5 w-5" />
+                  Shop Products
                 </CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShopProductDialogOpen(true)}
+                  className="text-xs px-2 h-8"
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add Product
+                </Button>
               </CardHeader>
               <CardContent className="pt-3">
                 {(order as any).shopProducts && (order as any).shopProducts.length > 0 ? (
@@ -2596,29 +2576,27 @@ export function OrderDetails() {
 
           {/* Workflows - Only visible to admin/staff */}
           {(user?.role === 'admin' || user?.role === 'staff') && (
-            <Card>
-              <CardHeader className="pb-3 pt-3 px-4">
-                <CardTitle className="flex items-center justify-between text-base">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4" />
-                    {t('orderDetails.workflows')}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setWorkflowDialogOpen(true)}
-                    className="text-xs px-2 h-8"
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    {t('orderDetails.assignWorkflow')}
-                  </Button>
+            <Card className="order-section-card">
+              <CardHeader className="order-section-header">
+                <CardTitle className="order-section-title">
+                  <CheckCircle className="h-5 w-5" />
+                  {t('orderDetails.workflows')}
                 </CardTitle>
-                {workflows.length > 0 && (
-                  <CardDescription className="text-xs mt-1">
-                    {workflows.length} workflow{workflows.length !== 1 ? 's' : ''} assigned to this order
-                  </CardDescription>
-                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setWorkflowDialogOpen(true)}
+                  className="text-xs px-2 h-8"
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  {t('orderDetails.assignWorkflow')}
+                </Button>
               </CardHeader>
+              {workflows.length > 0 && (
+                <CardDescription className="text-xs mt-1 px-4">
+                  {workflows.length} workflow{workflows.length !== 1 ? 's' : ''} assigned to this order
+                </CardDescription>
+              )}
               <CardContent className="pt-3">
                 {workflows.length > 0 ? (
                   <div className="grid gap-3 md:grid-cols-1 lg:grid-cols-2">
@@ -2651,18 +2629,18 @@ export function OrderDetails() {
           )}
 
           {/* Progress Timeline */}
-          <Card>
-            <CardHeader className="pb-3 pt-3 px-4">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Clock className="h-4 w-4" />
+          <Card className="order-section-card">
+            <CardHeader className="order-section-header">
+              <CardTitle className="order-section-title">
+                <Clock className="h-5 w-5" />
                 {t('orderDetails.repairProgress')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 pt-3">
-              <div className="space-y-1">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium text-sm">{t('orderDetails.overallProgress')}</span>
-                  <span className="text-xs text-muted-foreground">{order.progress}%</span>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span>{t('orderDetails.currentProgress')}</span>
+                  <span className="font-semibold text-muted-foreground">{order.progress}%</span>
                 </div>
                 <Progress value={order.progress} className="h-2" />
                 {order.estimatedCompletion && order.status !== 'completed' && (
@@ -2709,22 +2687,22 @@ export function OrderDetails() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-4">
+        <div className="order-sidebar space-y-4">
           {/* Order Summary */}
-          <Card>
-            <CardHeader className="pb-3 pt-3 px-4">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <DollarSign className="h-4 w-4" />
+          <Card className="order-section-card">
+            <CardHeader className="order-section-header">
+              <CardTitle className="order-section-title">
+                <DollarSign className="h-5 w-5" />
                 {t('orderDetails.orderSummary')}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 pt-3">
+            <CardContent className="pt-3">
               <div className="space-y-1">
-                {order.services && order.services.filter((s) => s && s._id).length > 0 ? (
-                  order.services.filter((s) => s && s._id).map((service) => (
+                {order.services && order.services.length > 0 ? (
+                  order.services.map((service) => (
                     <div key={service._id} className="flex justify-between text-xs">
                       <span>Service #{service._id.substring(0, 8)}</span>
-                      <span>${service.price}</span>
+                      <span>${safeToNumber(service.price).toFixed(2)}</span>
                     </div>
                   ))
                 ) : (
@@ -2736,7 +2714,7 @@ export function OrderDetails() {
                 {order.addOns && order.addOns.map((addOn) => (
                   <div key={addOn._id} className="flex justify-between text-xs">
                     <span>{addOn.name}</span>
-                    <span>${addOn.price}</span>
+                    <span>${safeToNumber(addOn.price).toFixed(2)}</span>
                   </div>
                 ))}
                 {(order as any).shopProducts && (order as any).shopProducts.map((shopProduct: any) => (
@@ -2746,11 +2724,11 @@ export function OrderDetails() {
                   </div>
                 ))}
               </div>
-              <div className="border-t pt-1 flex justify-between font-semibold text-sm">
+              <div className="border-t pt-1 mt-1 flex justify-between font-semibold text-sm">
                 <span>Total</span>
-                <span>${order.totalCost}</span>
+                <span>${safeToNumber(order.totalCost).toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-xs">
+              <div className="flex justify-between text-xs mt-2">
                 <span>Payment Status</span>
                 <Badge className={`${getPaymentStatusColor(order.paymentStatus)} text-xs px-2 py-0.5`}>
                   {order.paymentStatus}
@@ -2760,14 +2738,14 @@ export function OrderDetails() {
           </Card>
 
           {/* Quick Actions */}
-          <Card>
-            <CardHeader className="pb-3 pt-3 px-4">
-              <CardTitle className="text-base">Quick Actions</CardTitle>
+          <Card className="order-section-card">
+            <CardHeader className="order-section-header">
+              <CardTitle className="order-section-title">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 pt-3">
               <Button className="w-full text-xs h-8" variant="outline" size="sm">
                 <MessageSquare className="h-3 w-3 mr-1" />
-                Contact Support
+                Send Message
               </Button>
               <Button className="w-full text-xs h-8" variant="outline" size="sm">
                 <Camera className="h-3 w-3 mr-1" />
@@ -2836,7 +2814,7 @@ export function OrderDetails() {
                 <SelectContent>
                   {availableAddons.map((addon) => (
                     <SelectItem key={addon._id} value={addon._id}>
-                      {addon.name} - ${addon.price}
+                      {addon.name} - ${safeToNumber(addon.price).toFixed(2)}
                     </SelectItem>
                   ))}
                 </SelectContent>

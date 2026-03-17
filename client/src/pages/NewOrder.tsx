@@ -222,6 +222,110 @@ export function NewOrder() {
             console.error("Error processing pre-selected device:", error)
           }
         }
+
+        // Check if device was selected from navigation dropdown
+        const navDeviceSelectionJson = sessionStorage.getItem('navDeviceSelection')
+        if (navDeviceSelectionJson) {
+          try {
+            const navDeviceSelection = JSON.parse(navDeviceSelectionJson)
+            console.log("Device selected from navigation:", navDeviceSelection)
+
+            if (navDeviceSelection.searchQuery) {
+              // Trigger device search with the provided query
+              setDeviceSearchQuery(navDeviceSelection.searchQuery)
+              
+              // Perform the search
+              try {
+                setSearchingDevices(true)
+                setShowSearchResults(true)
+                console.log("Searching devices from nav selection:", navDeviceSelection.searchQuery)
+
+                const response = await searchDevices(navDeviceSelection.searchQuery)
+                const devices = (response as any).devices || []
+                setDeviceSearchResults(devices)
+
+                // If we have exactly one result or a clear match, auto-select it
+                if (devices.length > 0) {
+                  const exactMatch = devices.find((d: SearchResult) => 
+                    d.name.toLowerCase().includes(navDeviceSelection.modelName?.toLowerCase() || '') &&
+                    d.manufacturer.toLowerCase() === navDeviceSelection.manufacturer.toLowerCase()
+                  )
+                  
+                  if (exactMatch) {
+                    // Auto-select the exact match
+                    setTimeout(() => {
+                      setSelectedDevice({
+                        _id: exactMatch._id,
+                        name: exactMatch.name,
+                        deviceType: exactMatch.deviceType,
+                        manufacturer: exactMatch.manufacturer,
+                        manufacturerId: exactMatch.manufacturerId
+                      })
+
+                      setDeviceSearchQuery(exactMatch.displayName)
+                      setShowSearchResults(false)
+                      setDeviceSearchResults([])
+
+                      setValue("deviceType", exactMatch.deviceType)
+                      setValue("deviceManufacturer", exactMatch.manufacturerId)
+                      setValue("deviceModel", exactMatch._id)
+
+                      setSelectedDeviceType(exactMatch.deviceType)
+                      setSelectedManufacturer(exactMatch.manufacturerId)
+                      setSelectedModel(exactMatch._id)
+
+                      // Fetch full model details
+                      setLoadingModelDetails(true)
+                      getModelById(exactMatch._id).then(response => {
+                        setSelectedModelDetails((response as any).model || null)
+                      }).catch(error => {
+                        console.error("Error fetching model details:", error)
+                        setSelectedModelDetails(null)
+                      }).finally(() => {
+                        setLoadingModelDetails(false)
+                      })
+
+                      toast({
+                        title: t('newOrder.deviceSelection.deviceSelected'),
+                        description: t('newOrder.deviceSelection.preSelectedSuccess', { device: exactMatch.displayName })
+                      })
+                    }, 100)
+                  } else {
+                    // Show search results for user to choose
+                    toast({
+                      title: t('newOrder.deviceSelection.searchResults'),
+                      description: t('newOrder.deviceSelection.selectFromResults', { count: devices.length })
+                    })
+                  }
+                }
+              } catch (error) {
+                console.error("Error searching devices from nav:", error)
+              } finally {
+                setSearchingDevices(false)
+              }
+            } else if (navDeviceSelection.deviceType && navDeviceSelection.manufacturer) {
+              // Set device type and manufacturer filter
+              const deviceTypeObj = ((deviceTypesResponse as any).deviceTypes || []).find(
+                (dt: DeviceType) => dt.name.toLowerCase() === navDeviceSelection.deviceType.toLowerCase()
+              )
+              
+              if (deviceTypeObj) {
+                setValue("deviceType", deviceTypeObj._id)
+                setSelectedDeviceType(deviceTypeObj._id)
+                
+                toast({
+                  title: t('newOrder.deviceSelection.filterApplied'),
+                  description: `${navDeviceSelection.manufacturer} ${navDeviceSelection.deviceType}`
+                })
+              }
+            }
+
+            // Clear the session storage
+            sessionStorage.removeItem('navDeviceSelection')
+          } catch (error) {
+            console.error("Error processing nav device selection:", error)
+          }
+        }
       } catch (error) {
         console.error("Error fetching initial form data:", error)
         toast({

@@ -8,6 +8,8 @@ import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/useToast"
 import { getStaffMemberDetails, StaffMemberDetails } from "@/api/staff"
+import "./StaffDetailsDialog.css"
+import "../../pages/admin/StaffManagement.overrides.css"
 import {
   Users,
   Clock,
@@ -78,22 +80,22 @@ export function StaffDetailsDialog({ open, onOpenChange, staffId }: StaffDetails
     console.log("Getting status color for:", status, "type:", typeof status)
     switch (status) {
       case 'completed':
-        return 'bg-green-500 text-white'
+        return 'staff-badge-success'
       case 'in_progress':
       case 'in-progress':
-        return 'bg-blue-500 text-white'
+        return 'staff-badge-primary'
       case 'pending':
-        return 'bg-yellow-500 text-black'
+        return 'staff-badge-warning'
       case 'cancelled':
-        return 'bg-red-500 text-white'
+        return 'staff-badge-danger'
       case 'clocked_in':
-        return 'bg-green-500 text-white'
+        return 'staff-badge-success'
       case 'clocked_out':
-        return 'bg-gray-500 text-white'
+        return 'staff-badge'
       case 'on_break':
-        return 'bg-orange-500 text-white'
+        return 'staff-badge-warning'
       default:
-        return 'bg-gray-500 text-white'
+        return 'staff-badge'
     }
   }
 
@@ -101,15 +103,15 @@ export function StaffDetailsDialog({ open, onOpenChange, staffId }: StaffDetails
     console.log("Getting priority color for:", priority, "type:", typeof priority)
     switch (priority) {
       case 'urgent':
-        return 'bg-red-600 text-white'
+        return 'staff-badge-danger'
       case 'high':
-        return 'bg-orange-500 text-white'
+        return 'staff-badge-warning'
       case 'normal':
-        return 'bg-blue-500 text-white'
+        return 'staff-badge-primary'
       case 'low':
-        return 'bg-gray-500 text-white'
+        return 'staff-badge'
       default:
-        return 'bg-gray-500 text-white'
+        return 'staff-badge'
     }
   }
 
@@ -201,126 +203,115 @@ export function StaffDetailsDialog({ open, onOpenChange, staffId }: StaffDetails
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-3">
-            <Avatar className="w-10 h-10">
-              <AvatarImage src={staffDetails.avatar} />
-              <AvatarFallback>
-                {staffDetails.name.split(' ').map(n => n[0]).join('')}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <div className="text-xl font-semibold">{safeRender(staffDetails.name)}</div>
-              <div className="text-sm text-muted-foreground">{safeRender(staffDetails.email)}</div>
+      <DialogContent className="staff-details-dialog max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="staff-details-header">
+          <DialogTitle className="flex items-center gap-3" style={{ border: 'none', paddingBottom: 0 }}>
+            <div className="staff-details-avatar">
+              {staffDetails.avatar ? (
+                <img src={staffDetails.avatar} alt={staffDetails.name} />
+              ) : (
+                staffDetails.name.split(' ').map(n => n[0]).join('')
+              )}
+            </div>
+            <div className="staff-details-header-info">
+              <div className="staff-details-name">{safeRender(staffDetails.name)}</div>
+              <div className="staff-details-email">{safeRender(staffDetails.email)}</div>
             </div>
           </DialogTitle>
         </DialogHeader>
 
         {/* Header Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Badge className={getStatusColor(staffDetails.timeTracking?.currentStatus || 'unknown')}>
-                  {safeRender(staffDetails.timeTracking?.currentStatus?.replace('_', ' ') || 'Unknown')}
-                </Badge>
-              </div>
-              <div className="text-sm text-muted-foreground mt-1">Current Status</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold">{safeRender(staffDetails.currentWorkload?.assignedOrders || 0)}</div>
-              <div className="text-sm text-muted-foreground">Active Orders</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold">{safeRender(staffDetails.currentWorkload?.assignedTasks || 0)}</div>
-              <div className="text-sm text-muted-foreground">Active Tasks</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold">{safeRender(staffDetails.currentWorkload?.utilizationRate || 0)}%</div>
-              <div className="text-sm text-muted-foreground">Utilization</div>
-            </CardContent>
-          </Card>
+        <div className="staff-details-stats-grid">
+          <div className="staff-details-stat-card">
+            <div className="flex items-center gap-2">
+              <Badge className={getStatusColor(staffDetails.timeTracking?.currentStatus || 'unknown')}>
+                {safeRender(staffDetails.timeTracking?.currentStatus?.replace('_', ' ') || 'Unknown')}
+              </Badge>
+            </div>
+            <div className="staff-details-stat-label mt-1">Current Status</div>
+          </div>
+          <div className="staff-details-stat-card">
+            <div className="staff-details-stat-value">{safeRender(staffDetails.currentWorkload?.assignedOrders || 0)}</div>
+            <div className="staff-details-stat-label">Active Orders</div>
+          </div>
+          <div className="staff-details-stat-card">
+            <div className="staff-details-stat-value">{safeRender(staffDetails.currentWorkload?.assignedTasks || 0)}</div>
+            <div className="staff-details-stat-label">Active Tasks</div>
+          </div>
+          <div className="staff-details-stat-card">
+            <div className="staff-details-stat-value">{safeRender(staffDetails.currentWorkload?.utilizationRate || 0)}%</div>
+            <div className="staff-details-stat-label">Utilization</div>
+          </div>
         </div>
 
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="teams">Teams</TabsTrigger>
-            <TabsTrigger value="workload">Workload</TabsTrigger>
-            <TabsTrigger value="performance">Performance</TabsTrigger>
-            <TabsTrigger value="time">Time Tracking</TabsTrigger>
-            <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsList className="staff-details-tabs-list">
+            <TabsTrigger value="overview" className="staff-details-tabs-trigger">Overview</TabsTrigger>
+            <TabsTrigger value="teams" className="staff-details-tabs-trigger">Teams</TabsTrigger>
+            <TabsTrigger value="workload" className="staff-details-tabs-trigger">Workload</TabsTrigger>
+            <TabsTrigger value="performance" className="staff-details-tabs-trigger">Performance</TabsTrigger>
+            <TabsTrigger value="time" className="staff-details-tabs-trigger">Time Tracking</TabsTrigger>
+            <TabsTrigger value="activity" className="staff-details-tabs-trigger">Activity</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    Personal Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div>
-                    <div className="text-sm font-medium">Role</div>
-                    <Badge variant="outline">{safeRender(staffDetails.role)}</Badge>
+              <div className="staff-info-card">
+                <div className="staff-info-card-header">
+                  <User className="h-5 w-5" />
+                  <h3 className="staff-info-card-title">Personal Information</h3>
+                </div>
+                <div className="space-y-3">
+                  <div className="staff-info-field">
+                    <label className="staff-info-label">Role</label>
+                    <Badge variant="outline" className="staff-badge-outline">{safeRender(staffDetails.role)}</Badge>
                   </div>
-                  <div>
-                    <div className="text-sm font-medium">Department</div>
-                    <div className="text-sm text-muted-foreground">{safeRender(staffDetails.department || 'Technical')}</div>
+                  <div className="staff-info-field">
+                    <label className="staff-info-label">Department</label>
+                    <div className="staff-info-value">{safeRender(staffDetails.department || 'Technical')}</div>
                   </div>
-                  <div>
-                    <div className="text-sm font-medium">Phone</div>
-                    <div className="text-sm text-muted-foreground">{safeRender(staffDetails.phone || 'Not provided')}</div>
+                  <div className="staff-info-field">
+                    <label className="staff-info-label">Phone</label>
+                    <div className="staff-info-value">{safeRender(staffDetails.phone || 'Not provided')}</div>
                   </div>
-                  <div>
-                    <div className="text-sm font-medium">Hire Date</div>
-                    <div className="text-sm text-muted-foreground">
+                  <div className="staff-info-field">
+                    <label className="staff-info-label">Hire Date</label>
+                    <div className="staff-info-value">
                       {formatDate(staffDetails.hireDate, 'MMM dd, yyyy')}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Briefcase className="h-5 w-5" />
-                    Skills & Specializations
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div>
-                    <div className="text-sm font-medium mb-2">Specializations</div>
-                    <div className="flex flex-wrap gap-1">
+              <div className="staff-info-card">
+                <div className="staff-info-card-header">
+                  <Briefcase className="h-5 w-5" />
+                  <h3 className="staff-info-card-title">Skills & Specializations</h3>
+                </div>
+                <div className="space-y-3">
+                  <div className="staff-info-field">
+                    <label className="staff-info-label">Specializations</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
                       {(staffDetails.specializations || []).map((spec, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
+                        <Badge key={index} variant="secondary" className="staff-badge-secondary text-xs">
                           {safeRender(spec)}
                         </Badge>
                       ))}
                     </div>
                   </div>
-                  <div>
-                    <div className="text-sm font-medium mb-2">Add-On Capabilities</div>
-                    <div className="flex flex-wrap gap-1">
+                  <div className="staff-info-field">
+                    <label className="staff-info-label">Add-On Capabilities</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
                       {(staffDetails.addOnCapabilities || []).map((capability, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
+                        <Badge key={index} variant="outline" className="staff-badge-outline text-xs">
                           {safeRender(capability)}
                         </Badge>
                       ))}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
           </TabsContent>
 

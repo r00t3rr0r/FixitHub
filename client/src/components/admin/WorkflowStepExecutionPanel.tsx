@@ -317,7 +317,7 @@ export function WorkflowStepExecutionPanel({
 
   return (
     <>
-      <Card className="border-blue-200 bg-blue-50/50">
+      <Card className="border-gray-200 bg-white shadow-sm">
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">

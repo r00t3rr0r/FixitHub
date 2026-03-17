@@ -1,0 +1,990 @@
+/* ============================================
+   CustomerRepairRequests Page - McRepair Design
+   Aligned with Homepage Branding & UX
+   ============================================ */
+
+/* CSS Variables matching Homepage */
+.customer-repair-requests {
+  --primary-blue: #1a2a5e;
+  --primary-blue-dark: #0f1d45;
+  --primary-blue-light: #2a3f7e;
+  --accent-yellow: #f5b800;
+  --accent-yellow-hover: #e5ab00;
+  --accent-yellow-light: #ffd54f;
+  --white: #ffffff;
+  --off-white: #f8f9fc;
+  --gray-50: #f5f6f8;
+  --gray-100: #eceef3;
+  --gray-200: #d8dce6;
+  --gray-300: #b0b8c9;
+  --gray-400: #8892a8;
+  --gray-500: #636e85;
+  --gray-600: #4a5568;
+  --gray-700: #2d3748;
+  --gray-800: #1a202c;
+  --success: #38a169;
+  --warning: #f5b800;
+  --danger: #e53e3e;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+  --shadow-xl: 0 16px 48px rgba(0,0,0,0.15);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --max-width: 1200px;
+  
+  font-family: var(--font-main);
+  color: var(--gray-700);
+  padding: 2.5rem 1.5rem;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  background: var(--off-white);
+  min-height: 100vh;
+}
+
+/* Page Header */
+.customer-repair-requests .page-header {
+  margin-bottom: 2.5rem;
+  text-align: center;
+}
+
+.customer-repair-requests .page-title {
+  font-size: clamp(2rem, 4vw + 1rem, 3rem);
+  font-weight: 800;
+  color: var(--primary-blue);
+  margin-bottom: 0.75rem;
+  letter-spacing: -1px;
+  line-height: 1.1;
+}
+
+.customer-repair-requests .page-subtitle {
+  font-size: clamp(1rem, 2vw + 0.5rem, 1.25rem);
+  color: var(--gray-600);
+  font-weight: 400;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* Filter Card - Compact Single Line */
+.customer-repair-requests .filter-card {
+  background: var(--white);
+  border-radius: var(--radius-md);
+  padding: 0.875rem 1.5rem;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--gray-200);
+  transition: var(--transition);
+}
+
+.customer-repair-requests .filter-card:hover {
+  border-color: var(--accent-yellow);
+  box-shadow: var(--shadow-md);
+}
+
+.customer-repair-requests .filter-card-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--primary-blue);
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  white-space: nowrap;
+  margin-right: 1rem;
+}
+
+.customer-repair-requests .filter-inputs {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+@media (min-width: 768px) {
+  .customer-repair-requests .filter-inputs {
+    flex-wrap: nowrap;
+    gap: 1.5rem;
+  }
+}
+
+.customer-repair-requests .filter-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--gray-600);
+  margin-bottom: 0.25rem;
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* Search Input */
+.customer-repair-requests .search-input-wrapper {
+  position: relative;
+}
+
+.customer-repair-requests .search-input-wrapper input {
+  padding-left: 2.5rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  font-size: 0.875rem;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+  min-width: 250px;
+}
+
+.customer-repair-requests .search-input-wrapper input:focus {
+  border-color: var(--accent-yellow);
+  box-shadow: 0 0 0 2px rgba(245, 184, 0, 0.1);
+  outline: none;
+}
+
+.customer-repair-requests .search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gray-400);
+  pointer-events: none;
+  width: 16px;
+  height: 16px;
+}
+
+/* Filter Input Container */
+.customer-repair-requests .filter-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 200px;
+}
+
+/* Compact Select Trigger */
+.customer-repair-requests .filter-input-container button[role="combobox"] {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  height: auto;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+}
+
+.customer-repair-requests .filter-input-container button[role="combobox"]:focus {
+  border-color: var(--accent-yellow);
+  box-shadow: 0 0 0 2px rgba(245, 184, 0, 0.1);
+}
+
+/* Requests Card */
+.customer-repair-requests .requests-card {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  border: 2px solid transparent;
+  transition: var(--transition);
+}
+
+.customer-repair-requests .requests-card:hover {
+  border-color: var(--accent-yellow);
+  box-shadow: var(--shadow-lg);
+}
+
+.customer-repair-requests .requests-card-header {
+  padding: 2rem;
+  border-bottom: 2px solid var(--gray-100);
+  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-light) 100%);
+}
+
+.customer-repair-requests .requests-card-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: 0.5rem;
+}
+
+.customer-repair-requests .requests-card-description {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.customer-repair-requests .requests-card-content {
+  padding: 2rem;
+}
+
+/* Table Styles */
+.customer-repair-requests .requests-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.customer-repair-requests .requests-table thead {
+  background: var(--gray-50);
+}
+
+.customer-repair-requests .requests-table th {
+  padding: 1rem;
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--primary-blue);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--accent-yellow);
+}
+
+.customer-repair-requests .requests-table tbody tr {
+  transition: var(--transition);
+  cursor: pointer;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.customer-repair-requests .requests-table tbody tr:hover {
+  background: var(--gray-50);
+  transform: scale(1.01);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.customer-repair-requests .requests-table td {
+  padding: 1.25rem 1rem;
+  font-size: 0.95rem;
+  color: var(--gray-700);
+}
+
+.customer-repair-requests .request-number {
+  font-weight: 700;
+  color: var(--primary-blue);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.customer-repair-requests .device-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.customer-repair-requests .device-brand {
+  font-weight: 600;
+  color: var(--gray-800);
+}
+
+.customer-repair-requests .device-model {
+  font-size: 0.875rem;
+  color: var(--gray-500);
+}
+
+.customer-repair-requests .issue-description {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--gray-600);
+}
+
+/* Status Badges - Homepage Aligned */
+.customer-repair-requests .status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-lg);
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-transform: capitalize;
+  transition: var(--transition);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  letter-spacing: 0.3px;
+}
+
+.customer-repair-requests .status-badge svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.customer-repair-requests .status-badge.status-converted {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: var(--white);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+}
+
+.customer-repair-requests .status-badge.status-converted:hover {
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+  transform: translateY(-2px);
+}
+
+.customer-repair-requests .status-badge.status-approved {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: var(--white);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+}
+
+.customer-repair-requests .status-badge.status-approved:hover {
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.45);
+  transform: translateY(-2px);
+}
+
+.customer-repair-requests .status-badge.status-reviewing {
+  background: linear-gradient(135deg, var(--accent-yellow) 0%, var(--accent-yellow-hover) 100%);
+  color: var(--primary-blue);
+  box-shadow: 0 4px 12px rgba(245, 184, 0, 0.35);
+}
+
+.customer-repair-requests .status-badge.status-reviewing:hover {
+  box-shadow: 0 6px 20px rgba(245, 184, 0, 0.45);
+  transform: translateY(-2px);
+}
+
+.customer-repair-requests .status-badge.status-pending {
+  background: linear-gradient(135deg, #8892a8 0%, #636e85 100%);
+  color: var(--white);
+  box-shadow: 0 4px 12px rgba(136, 146, 168, 0.35);
+}
+
+.customer-repair-requests .status-badge.status-pending:hover {
+  box-shadow: 0 6px 20px rgba(136, 146, 168, 0.45);
+  transform: translateY(-2px);
+}
+
+.customer-repair-requests .status-badge.status-rejected {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: var(--white);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+}
+
+.customer-repair-requests .status-badge.status-rejected:hover {
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.45);
+  transform: translateY(-2px);
+}
+
+/* Priority Badges - Enhanced */
+.customer-repair-requests .priority-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  transition: var(--transition);
+}
+
+.customer-repair-requests .priority-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.customer-repair-requests .priority-badge.priority-urgent {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+  border: 2px solid #f87171;
+}
+
+.customer-repair-requests .priority-badge.priority-high {
+  background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%);
+  color: #9a3412;
+  border: 2px solid #fb923c;
+}
+
+.customer-repair-requests .priority-badge.priority-medium {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #854d0e;
+  border: 2px solid #fbbf24;
+}
+
+.customer-repair-requests .priority-badge.priority-low {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+  border: 2px solid #34d399;
+}
+
+/* Unread Count Badge */
+.customer-repair-requests .unread-badge {
+  background: var(--danger);
+  color: var(--white);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(229, 62, 62, 0.4);
+}
+
+/* Action Buttons */
+.customer-repair-requests .action-button {
+  background: transparent;
+  border: none;
+  color: var(--primary-blue);
+  padding: 0.5rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.customer-repair-requests .action-button:hover {
+  background: var(--accent-yellow);
+  color: var(--white);
+  transform: scale(1.1);
+}
+
+/* Empty State */
+.customer-repair-requests .empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  background: var(--gray-50);
+  border-radius: var(--radius-lg);
+  border: 2px dashed var(--gray-300);
+}
+
+.customer-repair-requests .empty-state-icon {
+  color: var(--gray-400);
+  margin: 0 auto 1rem;
+}
+
+.customer-repair-requests .empty-state-text {
+  color: var(--gray-600);
+  font-size: 1rem;
+}
+
+/* Loading State */
+.customer-repair-requests .loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.customer-repair-requests .loading-spinner {
+  color: var(--accent-yellow);
+}
+
+.customer-repair-requests .loading-text {
+  color: var(--gray-600);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+/* Dialog Styles - Homepage Aligned */
+.customer-repair-requests .dialog-content {
+  max-width: 56rem;
+  max-height: 90vh;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  border: none;
+  box-shadow: 0 20px 60px rgba(26, 42, 94, 0.3);
+  background: var(--white);
+}
+
+.customer-repair-requests .dialog-header {
+  padding: 2rem 2.5rem;
+  background: linear-gradient(to right, #1a2a5e 0%, #2a3f7e 100%);
+  border-bottom: none;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle decorative elements in header - matching homepage */
+.customer-repair-requests .dialog-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 16rem;
+  height: 16rem;
+  background: radial-gradient(circle, rgba(245, 184, 0, 0.08) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.customer-repair-requests .dialog-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 12rem;
+  height: 12rem;
+  background: radial-gradient(circle, rgba(245, 184, 0, 0.06) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.customer-repair-requests .dialog-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--white);
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.5px;
+  position: relative;
+  z-index: 1;
+}
+
+.customer-repair-requests .dialog-description {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.125rem;
+  font-weight: 400;
+  letter-spacing: 0.3px;
+  position: relative;
+  z-index: 1;
+}
+
+.customer-repair-requests .dialog-body {
+  padding: 2.5rem;
+  background: linear-gradient(to bottom, #ffffff 0%, #fafbfc 100%);
+}
+
+.customer-repair-requests .dialog-section {
+  margin-bottom: 2.5rem;
+  padding: 2rem;
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(26, 42, 94, 0.06);
+  transition: var(--transition);
+}
+
+.customer-repair-requests .dialog-section:hover {
+  box-shadow: 0 4px 16px rgba(26, 42, 94, 0.08);
+  border-color: rgba(245, 184, 0, 0.3);
+  transform: translateY(-2px);
+}
+
+.customer-repair-requests .dialog-section:last-child {
+  margin-bottom: 0;
+}
+
+.customer-repair-requests .dialog-section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--primary-blue);
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding-bottom: 0.875rem;
+  border-bottom: 2px solid rgba(245, 184, 0, 0.2);
+  letter-spacing: -0.3px;
+}
+
+.customer-repair-requests .dialog-section-title svg {
+  color: var(--accent-yellow);
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+.customer-repair-requests .dialog-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.customer-repair-requests .dialog-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(26, 42, 94, 0.05);
+  transition: var(--transition);
+}
+
+.customer-repair-requests .dialog-info-item:hover {
+  background: var(--white);
+  border-color: rgba(245, 184, 0, 0.25);
+  transform: translateX(4px);
+}
+
+.customer-repair-requests .dialog-info-label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #636e85;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.customer-repair-requests .dialog-info-value {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--primary-blue);
+  line-height: 1.4;
+}
+
+.customer-repair-requests .dialog-cost {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--primary-blue);
+  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--accent-yellow) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Converted Order Alert - Homepage Styled */
+.customer-repair-requests .converted-alert {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border: 2px solid var(--success);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 12px rgba(56, 161, 105, 0.15);
+}
+
+.customer-repair-requests .converted-alert-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #065f46;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  letter-spacing: -0.3px;
+}
+
+.customer-repair-requests .converted-alert-title svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Images Grid - Enhanced */
+.customer-repair-requests .images-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.25rem;
+}
+
+.customer-repair-requests .request-image {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  border: 2px solid rgba(26, 42, 94, 0.08);
+  transition: var(--transition);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.customer-repair-requests .request-image:hover {
+  border-color: var(--accent-yellow);
+  transform: scale(1.05) translateY(-4px);
+  box-shadow: 0 8px 24px rgba(245, 184, 0, 0.25);
+}
+
+/* Timeline - Homepage Style */
+.customer-repair-requests .timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.customer-repair-requests .timeline-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(26, 42, 94, 0.06);
+  transition: var(--transition);
+}
+
+.customer-repair-requests .timeline-item:hover {
+  background: var(--white);
+  border-color: rgba(245, 184, 0, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transform: translateX(4px);
+}
+
+.customer-repair-requests .timeline-label {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--primary-blue);
+  letter-spacing: 0.3px;
+}
+
+.customer-repair-requests .timeline-value {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #636e85;
+}
+
+/* Dialog Footer - Homepage Styled */
+.customer-repair-requests .dialog-footer {
+  padding: 1.75rem 2.5rem;
+  background: linear-gradient(to bottom, #fafbfc 0%, #f5f6f8 100%);
+  border-top: 1px solid rgba(26, 42, 94, 0.08);
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.customer-repair-requests .dialog-close-button {
+  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-light) 100%);
+  color: var(--white);
+  padding: 0.875rem 2.5rem;
+  border-radius: var(--radius-lg);
+  font-weight: 700;
+  font-size: 1rem;
+  transition: var(--transition);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(26, 42, 94, 0.2);
+  letter-spacing: 0.3px;
+}
+
+.customer-repair-requests .dialog-close-button:hover {
+  background: linear-gradient(135deg, var(--accent-yellow) 0%, var(--accent-yellow-hover) 100%);
+  color: var(--primary-blue);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245, 184, 0, 0.3);
+}
+
+.customer-repair-requests .dialog-close-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(245, 184, 0, 0.2);
+}
+
+/* Responsive Design - Mobile Optimized */
+@media (max-width: 768px) {
+  .customer-repair-requests {
+    padding: 1.5rem 1rem;
+  }
+
+  .customer-repair-requests .page-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .customer-repair-requests .filter-card {
+    padding: 1rem;
+  }
+
+  .customer-repair-requests .filter-inputs {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .customer-repair-requests .filter-card-title {
+    margin-bottom: 0.75rem;
+  }
+
+  .customer-repair-requests .filter-input-container {
+    min-width: auto;
+  }
+
+  .customer-repair-requests .search-input-wrapper input {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .customer-repair-requests .requests-card-header,
+  .customer-repair-requests .requests-card-content {
+    padding: 1.5rem;
+  }
+
+  .customer-repair-requests .requests-table {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .customer-repair-requests .requests-table th,
+  .customer-repair-requests .requests-table td {
+    padding: 0.875rem 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  /* Enhanced Mobile Dialog Styles */
+  .customer-repair-requests .dialog-content {
+    max-width: 95vw;
+    max-height: 95vh;
+    border-radius: var(--radius-lg);
+  }
+  
+  .customer-repair-requests .dialog-header {
+    padding: 1.5rem 1.25rem;
+  }
+  
+  .customer-repair-requests .dialog-title {
+    font-size: 1.375rem;
+  }
+  
+  .customer-repair-requests .dialog-description {
+    font-size: 0.9375rem;
+  }
+  
+  .customer-repair-requests .dialog-body {
+    padding: 1.5rem 1.25rem;
+  }
+  
+  .customer-repair-requests .dialog-section {
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .customer-repair-requests .dialog-section-title {
+    font-size: 1.125rem;
+  }
+  
+  .customer-repair-requests .dialog-info-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .customer-repair-requests .dialog-footer {
+    padding: 1.25rem;
+  }
+  
+  .customer-repair-requests .dialog-close-button {
+    width: 100%;
+    padding: 1rem;
+  }
+
+  .customer-repair-requests .images-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-repair-requests .request-image {
+    height: 280px;
+  }
+
+  .customer-repair-requests .status-badge {
+    font-size: 0.8125rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .customer-repair-requests .priority-badge {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.875rem;
+  }
+}
+
+/* Animations - Homepage Aligned */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.customer-repair-requests .requests-card,
+.customer-repair-requests .filter-card {
+  animation: fadeIn 0.4s ease-out;
+}
+
+.customer-repair-requests .dialog-content {
+  animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.customer-repair-requests .dialog-section:nth-child(odd) {
+  animation: slideInFromLeft 0.4s ease-out;
+}
+
+.customer-repair-requests .dialog-section:nth-child(even) {
+  animation: slideInFromRight 0.4s ease-out;
+}
+
+.customer-repair-requests .dialog-info-item {
+  animation: fadeIn 0.3s ease-out;
+  animation-fill-mode: both;
+}
+
+.customer-repair-requests .dialog-info-item:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.customer-repair-requests .dialog-info-item:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.customer-repair-requests .dialog-info-item:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.customer-repair-requests .dialog-info-item:nth-child(4) {
+  animation-delay: 0.2s;
+}
+
+.customer-repair-requests .dialog-info-item:nth-child(5) {
+  animation-delay: 0.25s;
+}
+
+.customer-repair-requests .dialog-info-item:nth-child(6) {
+  animation-delay: 0.3s;
+}
+
+/* Smooth loading shimmer effect */
+.customer-repair-requests .loading-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--accent-yellow) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
