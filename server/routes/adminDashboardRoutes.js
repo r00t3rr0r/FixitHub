@@ -1,6 +1,8 @@
 const express = require('express');
 const AdminDashboardService = require('../services/adminDashboardService');
 const { requireUser, requireRole } = require('./middleware/auth');
+const InspectionCommunication = require('../models/InspectionCommunication');
+const RepairRequestCommunication = require('../models/RepairRequestCommunication');
 
 const router = express.Router();
 
@@ -308,6 +310,97 @@ router.get('/summary', requireAdmin, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message || 'Failed to fetch dashboard summary'
+    });
+  }
+});
+
+/**
+ * GET /api/admin/dashboard/customer-messages
+ * Get recent unread customer messages from inspection + repair request communications
+ */
+router.get('/customer-messages', requireAdmin, async (req, res) => {
+  console.log('AdminDashboard: Get customer messages request from:', req.user.email);
+
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const adminUserId = req.user._id;
+
+    // Fetch from both communication collections in parallel
+    const [inspectionComms, repairRequestComms] = await Promise.all([
+      InspectionCommunication.find({ 'messages.0': { $exists: true } })
+        .populate({ path: 'orderId', select: 'orderNumber status' })
+        .select('orderId messages lastMessageAt')
+        .sort({ lastMessageAt: -1 })
+        .limit(100)
+        .lean(),
+      RepairRequestCommunication.find({ 'messages.0': { $exists: true } })
+        .populate({ path: 'repairRequestId', select: 'requestNumber status deviceType' })
+        .select('repairRequestId messages lastMessageAt')
+        .sort({ lastMessageAt: -1 })
+        .limit(100)
+        .lean(),
+    ]);
+
+    const messages = [];
+
+    // Extract unread customer messages from inspection communications
+    for (const comm of inspectionComms) {
+      for (const msg of comm.messages) {
+        if (msg.senderType !== 'customer') continue;
+        const alreadyRead = Array.isArray(msg.readBy) &&
+          msg.readBy.some((r) => r.userId && r.userId.toString() === adminUserId.toString());
+        if (!alreadyRead) {
+          messages.push({
+            _id: msg._id,
+            source: 'inspection',
+            sourceId: comm.orderId?._id || null,
+            orderNumber: comm.orderId?.orderNumber || null,
+            orderStatus: comm.orderId?.status || null,
+            senderName: msg.senderName || 'Kunde',
+            content: msg.content,
+            createdAt: msg.createdAt,
+            navigateTo: comm.orderId?._id ? `/inspection/${comm.orderId._id}` : '/admin/orders',
+          });
+        }
+      }
+    }
+
+    // Extract unread customer messages from repair request communications
+    for (const comm of repairRequestComms) {
+      for (const msg of comm.messages) {
+        if (msg.senderType !== 'customer') continue;
+        const alreadyRead = Array.isArray(msg.readBy) &&
+          msg.readBy.some((r) => r.userId && r.userId.toString() === adminUserId.toString());
+        if (!alreadyRead) {
+          messages.push({
+            _id: msg._id,
+            source: 'repair_request',
+            sourceId: comm.repairRequestId?._id || null,
+            requestNumber: comm.repairRequestId?.requestNumber || null,
+            deviceType: comm.repairRequestId?.deviceType || null,
+            senderName: msg.senderName || 'Kunde',
+            content: msg.content,
+            createdAt: msg.createdAt,
+            navigateTo: '/admin/repair-requests',
+          });
+        }
+      }
+    }
+
+    // Sort by newest first and limit
+    messages.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const limited = messages.slice(0, limit);
+
+    return res.status(200).json({
+      success: true,
+      messages: limited,
+      totalUnread: messages.length,
+    });
+  } catch (error) {
+    console.error('AdminDashboard: Error getting customer messages:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch customer messages',
     });
   }
 });

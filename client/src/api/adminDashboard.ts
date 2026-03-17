@@ -175,3 +175,34 @@ export const getDashboardSummary = async () => {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+export interface CustomerMessage {
+  _id: string
+  source: 'inspection' | 'repair_request'
+  sourceId: string | null
+  orderNumber?: string | null
+  orderStatus?: string | null
+  requestNumber?: string | null
+  deviceType?: string | null
+  senderName: string
+  content: string
+  createdAt: string
+  navigateTo: string
+}
+
+// Description: Get unread customer messages for admin dashboard
+// Endpoint: GET /api/admin/dashboard/customer-messages
+// Request: { limit?: number }
+// Response: { messages: CustomerMessage[], totalUnread: number }
+export const getCustomerMessages = async (limit = 20): Promise<{ messages: CustomerMessage[]; totalUnread: number }> => {
+  try {
+    const response = await api.get(`/api/admin/dashboard/customer-messages?limit=${limit}`)
+    return {
+      messages: Array.isArray(response.data.messages) ? response.data.messages : [],
+      totalUnread: Number(response.data.totalUnread || 0),
+    }
+  } catch (error: any) {
+    console.error('Error fetching customer messages:', error)
+    return { messages: [], totalUnread: 0 }
+  }
+}
