@@ -705,3 +705,374 @@
   font-size: 0.875rem;
   margin: 0;
 }
+
+/* ── ADMIN / STAFF WORKSPACE MODE ── */
+.order-details-container.admin-order-workspace {
+  --dash-bg: #f4f6fb;
+  --dash-card: #ffffff;
+  --dash-border: #d8dce6;
+  --dash-primary: #1a2a5e;
+  --dash-text: #273246;
+  --dash-muted: #647087;
+  --dash-radius: 10px;
+
+  background:
+    radial-gradient(1200px 500px at -5% -10%, #dde6ff 0%, transparent 55%),
+    radial-gradient(900px 420px at 120% -20%, #d7f2f0 0%, transparent 50%),
+    var(--dash-bg);
+  color: var(--dash-text);
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  max-width: 1640px;
+  padding: 10px 12px 16px;
+  font-size: 13px;
+}
+
+.admin-order-workspace .order-back-button {
+  margin-bottom: 8px;
+  font-size: 0.72rem;
+  padding: 6px 10px;
+  border-width: 1px;
+}
+
+.admin-order-workspace .order-details-header {
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border-radius: var(--dash-radius);
+  border: 1px solid #2f4a90;
+  box-shadow: 0 4px 12px rgba(26, 42, 94, 0.18);
+}
+
+.admin-order-workspace .order-header-title-block h1 {
+  font-size: 0.95rem;
+  margin-bottom: 4px;
+}
+
+.admin-order-workspace .order-header-title-block p {
+  font-size: 0.7rem;
+  opacity: 0.9;
+}
+
+.admin-order-workspace .order-header-meta-block {
+  gap: 8px;
+}
+
+.order-admin-kpi-grid {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.order-admin-kpi-card {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  padding: 5px 6px;
+  display: grid;
+  gap: 1px;
+}
+
+.order-admin-kpi-card span {
+  font-size: 0.66rem;
+  color: rgba(255, 255, 255, 0.85);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.order-admin-kpi-card strong {
+  font-size: 0.79rem;
+  color: #ffffff;
+  line-height: 1.1;
+  font-weight: 700;
+}
+
+.admin-order-workspace .order-grid {
+  gap: 3px;
+  grid-template-columns: 1fr;
+}
+
+.admin-order-workspace .order-main-content,
+.admin-order-workspace .order-sidebar {
+  gap: 3px;
+}
+
+.admin-order-workspace .order-sidebar {
+  position: static;
+}
+
+.admin-order-workspace .order-main-content.space-y-4 > :not([hidden]) ~ :not([hidden]),
+.admin-order-workspace .order-sidebar.space-y-4 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 3px;
+}
+
+.admin-order-workspace .order-nested-block {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-order-workspace .order-nested-top-grid.is-admin-nested {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: start;
+  grid-auto-flow: dense;
+}
+
+.admin-order-workspace .order-nested-ops-grid.is-admin-nested {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: start;
+  grid-auto-flow: dense;
+}
+
+.admin-order-workspace .order-nested-admin-grid.is-admin-nested {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: start;
+  grid-auto-flow: dense;
+}
+
+.admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-repair-info {
+  grid-column: 1 / span 9;
+}
+
+.admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-device-inspection {
+  grid-column: 1 / span 9;
+}
+
+.admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-device-info {
+  grid-column: 10 / span 3;
+}
+
+.admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-device-lock {
+  grid-column: 10 / span 3;
+}
+
+.admin-order-workspace .order-nested-ops-grid.is-admin-nested > #order-device-info {
+  grid-column: 1 / span 8;
+}
+
+.admin-order-workspace .order-nested-ops-grid.is-admin-nested > #order-repair-services {
+  grid-column: 9 / span 4;
+}
+
+.admin-order-workspace .order-nested-ops-grid.is-admin-nested > #order-addons {
+  grid-column: 1 / -1;
+}
+
+.admin-order-workspace .order-nested-ops-grid.is-admin-nested > #order-staff {
+  grid-column: 9 / span 4;
+}
+
+.admin-order-workspace .order-nested-admin-grid.is-admin-nested > #order-workflows {
+  grid-column: 1 / span 9;
+}
+
+.admin-order-workspace .order-nested-admin-grid.is-admin-nested > #order-progress {
+  grid-column: 10 / span 3;
+}
+
+.admin-order-workspace .order-nested-admin-grid.is-admin-nested > #order-eparts {
+  grid-column: 1 / span 6;
+}
+
+.admin-order-workspace .order-nested-admin-grid.is-admin-nested > #order-shop-products {
+  grid-column: 7 / span 6;
+}
+
+.admin-order-workspace .order-section-card {
+  border-radius: 4px;
+  border: 1px solid #d4dae7;
+  box-shadow: none;
+  padding: 0;
+  margin-bottom: 0;
+  animation: none;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.admin-order-workspace .order-section-card:hover {
+  border-color: #ccd3e2;
+  box-shadow: none;
+  transform: none;
+}
+
+.admin-order-workspace .order-section-header {
+  margin-bottom: 0;
+  padding: 5px 6px 4px;
+  border-bottom-width: 1px;
+  min-height: 0;
+}
+
+.admin-order-workspace .order-section-title {
+  font-size: 0.69rem;
+  gap: 5px;
+  line-height: 1.1;
+}
+
+.admin-order-workspace .order-section-title svg {
+  width: 12px;
+  height: 12px;
+}
+
+.admin-order-workspace .order-section-description {
+  font-size: 0.6rem;
+  margin-top: 1px;
+  line-height: 1.15;
+}
+
+.admin-order-workspace .order-section-card [data-slot="card-content"] {
+  padding: 4px 5px 5px;
+}
+
+.admin-order-workspace .customer-info-card,
+.admin-order-workspace .device-info-card,
+.admin-order-workspace .service-list-item {
+  border-width: 1px;
+  border-radius: 3px;
+  padding: 4px;
+  margin-bottom: 2px;
+}
+
+.admin-order-workspace .customer-info-card .details h3,
+.admin-order-workspace .device-info-card .details h3,
+.admin-order-workspace .service-list-item .service-info h4 {
+  font-size: 0.69rem;
+  margin-bottom: 1px;
+}
+
+.admin-order-workspace .customer-info-card .details p,
+.admin-order-workspace .device-info-card .details p,
+.admin-order-workspace .service-list-item .service-info p,
+.admin-order-workspace .service-list-item .service-meta {
+  font-size: 0.61rem;
+}
+
+.admin-order-workspace .service-list-item .service-price {
+  font-size: 0.7rem;
+}
+
+.admin-order-workspace .order-total-cost {
+  padding: 3px 5px;
+  border-width: 1px;
+}
+
+.admin-order-workspace .order-total-cost .amount {
+  font-size: 0.9rem;
+}
+
+.admin-order-workspace .order-total-cost .label {
+  font-size: 0.54rem;
+}
+
+.admin-order-workspace .order-section-card .text-sm,
+.admin-order-workspace .order-section-card .text-xs,
+.admin-order-workspace .order-section-card p,
+.admin-order-workspace .order-section-card span,
+.admin-order-workspace .order-section-card button,
+.admin-order-workspace .order-section-card input,
+.admin-order-workspace .order-section-card textarea {
+  font-size: 0.6rem;
+  line-height: 1.1;
+}
+
+.admin-order-workspace #order-device-inspection {
+  margin: 0;
+}
+
+.admin-order-workspace #order-device-inspection > * {
+  margin: 0;
+}
+
+.admin-order-workspace .order-sidebar {
+  position: sticky;
+  top: 8px;
+  align-self: start;
+  max-width: 190px;
+  justify-self: end;
+  width: 100%;
+}
+
+.admin-order-workspace .order-sidebar .order-section-card {
+  width: 100%;
+}
+
+.admin-order-workspace .order-sidebar .order-section-header {
+  padding: 4px 5px 4px;
+}
+
+.admin-order-workspace .order-sidebar .order-section-card [data-slot="card-content"] {
+  padding: 4px 5px 5px;
+}
+
+.admin-order-workspace .order-sidebar .order-section-title {
+  font-size: 0.66rem;
+}
+
+.admin-order-workspace .order-sidebar .text-sm,
+.admin-order-workspace .order-sidebar .text-xs,
+.admin-order-workspace .order-sidebar p,
+.admin-order-workspace .order-sidebar span,
+.admin-order-workspace .order-sidebar button {
+  font-size: 0.58rem;
+}
+
+.admin-order-workspace .order-sidebar.space-y-4 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 2px;
+}
+
+.admin-order-workspace .order-quick-actions-card button {
+  justify-content: flex-start;
+  gap: 4px;
+  min-height: 28px;
+}
+
+@media (min-width: 1280px) {
+  .admin-order-workspace .order-grid {
+    grid-template-columns: minmax(0, 2fr) minmax(170px, 0.42fr);
+  }
+}
+
+@media (max-width: 1100px) {
+  .admin-order-workspace .order-admin-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-order-workspace .order-nested-top-grid.is-admin-nested,
+  .admin-order-workspace .order-nested-ops-grid.is-admin-nested,
+  .admin-order-workspace .order-nested-admin-grid.is-admin-nested {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-repair-info,
+  .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-device-inspection,
+  .admin-order-workspace .order-nested-ops-grid.is-admin-nested > #order-device-info,
+  .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-device-lock,
+  .admin-order-workspace .order-nested-ops-grid.is-admin-nested > #order-repair-services,
+  .admin-order-workspace .order-nested-ops-grid.is-admin-nested > #order-addons,
+  .admin-order-workspace .order-nested-ops-grid.is-admin-nested > #order-staff,
+  .admin-order-workspace .order-nested-admin-grid.is-admin-nested > #order-workflows,
+  .admin-order-workspace .order-nested-admin-grid.is-admin-nested > #order-progress,
+  .admin-order-workspace .order-nested-admin-grid.is-admin-nested > #order-eparts,
+  .admin-order-workspace .order-nested-admin-grid.is-admin-nested > #order-shop-products {
+    grid-column: 1 / -1;
+  }
+
+  .admin-order-workspace .order-sidebar {
+    position: static;
+    max-width: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .order-details-container.admin-order-workspace {
+    padding: 12px;
+  }
+
+  .admin-order-workspace .order-details-header {
+    padding: 12px;
+  }
+
+  .admin-order-workspace .order-header-title-block h1 {
+    font-size: 0.98rem;
+  }
+
+  .admin-order-workspace .order-admin-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}

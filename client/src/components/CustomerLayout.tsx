@@ -1,9 +1,13 @@
 import { Outlet } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { TopBar } from "./home/TopBar";
 import { McRepairNav } from "./home/McRepairNav";
 import { Footer } from "./Footer";
 
 export function CustomerLayout() {
+  const location = useLocation();
+  const isOrderDetailsPage = /^\/orders\/[^/]+$/.test(location.pathname);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 flex flex-col">
       <style>{`
@@ -52,7 +56,7 @@ export function CustomerLayout() {
 
       {/* Main content area with padding for navbar and footer */}
       <main className="flex-1 overflow-y-auto pt-6 pb-12">
-        <div className="container mx-auto px-4 animate-slide-up">
+        <div className={`${isOrderDetailsPage ? "max-w-[1680px]" : "container"} mx-auto px-4 animate-slide-up`}>
           <Outlet />
         </div>
       </main>

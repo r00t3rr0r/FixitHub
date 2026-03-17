@@ -462,7 +462,7 @@ export function WorkflowManagement() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="py-2 px-3">
+              <CardContent className="py-3 px-4 lg:px-5">
                 <div className="space-y-2">
                   {/* Basic Statistics Row */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
@@ -492,71 +492,114 @@ export function WorkflowManagement() {
                     </div>
                   </div>
 
-                  {/* Device and Service Types */}
-                  {(workflow.deviceTypes?.length > 0 || workflow.serviceTypes?.length > 0) && (
-                    <div className="space-y-2">
-                      {workflow.deviceTypes && workflow.deviceTypes.length > 0 && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.deviceTypes')}:</span>
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                    {/* Context: where this workflow can be used */}
+                    {(workflow.deviceTypes?.length > 0 || workflow.serviceTypes?.length > 0) && (
+                      <div className="rounded-lg border bg-background p-3 space-y-2 min-w-0">
+                        {workflow.deviceTypes && workflow.deviceTypes.length > 0 && (
+                          <div className="space-y-1.5">
+                            <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.deviceTypes')}:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {workflow.deviceTypes.map((type) => (
+                                <Badge key={type} variant="outline" className="text-xs">
+                                  {type}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {workflow.serviceTypes && workflow.serviceTypes.length > 0 && (
+                          <div className="space-y-1.5">
+                            <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.serviceTypes')}:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {workflow.serviceTypes.map((typeId) => {
+                                const service = services.find(s => s._id === typeId);
+                                return service ? (
+                                  <Badge key={typeId} variant="outline" className="text-xs">
+                                    {service.name}
+                                  </Badge>
+                                ) : null;
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Structure: categories and quick step preview */}
+                    {workflow.steps && workflow.steps.length > 0 && (
+                      <div className="rounded-lg border bg-background p-3 space-y-2 min-w-0">
+                        <div className="space-y-1.5">
+                          <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.stepCategories')}:</span>
                           <div className="flex flex-wrap gap-1">
-                            {workflow.deviceTypes.map((type) => (
-                              <Badge key={type} variant="outline" className="text-xs">
-                                {type}
+                            {Object.entries(
+                              workflow.steps.reduce((acc, step) => {
+                                acc[step.category] = (acc[step.category] || 0) + 1;
+                                return acc;
+                              }, {} as Record<string, number>)
+                            ).map(([category, count]) => (
+                              <Badge key={category} variant="secondary" className="text-xs">
+                                {category}: {count}
                               </Badge>
                             ))}
                           </div>
                         </div>
-                      )}
-                      {workflow.serviceTypes && workflow.serviceTypes.length > 0 && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.serviceTypes')}:</span>
-                          <div className="flex flex-wrap gap-1">
-                            {workflow.serviceTypes.map((typeId) => {
-                              const service = services.find(s => s._id === typeId);
-                              return service ? (
-                                <Badge key={typeId} variant="outline" className="text-xs">
-                                  {service.name}
-                                </Badge>
-                              ) : null;
-                            })}
+
+                        <div className="space-y-1.5">
+                          <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.stepOverview')}:</span>
+                          <div className="space-y-1 max-h-36 overflow-y-auto">
+                            {workflow.steps.slice(0, 3).map((step, index) => (
+                              <div key={step._id} className="flex items-center justify-between p-2 bg-muted/30 rounded text-xs gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Badge variant="outline" className="text-xs shrink-0">
+                                    {index + 1}
+                                  </Badge>
+                                  <span className="font-medium truncate">{step.name}</span>
+                                  <Badge className={`text-xs shrink-0 ${getCategoryColor(step.category)}`}>
+                                    {step.category}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                                  <span>{step.estimatedTime}m</span>
+                                  {step.formFields?.length > 0 && (
+                                    <span className="flex items-center gap-1">
+                                      <FormInput className="h-3 w-3" />
+                                      {step.formFields.length}
+                                    </span>
+                                  )}
+                                  {step.automationRules?.length > 0 && (
+                                    <span className="flex items-center gap-1">
+                                      <Zap className="h-3 w-3" />
+                                      {step.automationRules.length}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                            {workflow.steps.length > 3 && (
+                              <div className="text-xs text-muted-foreground text-center py-1">
+                                {t('workflowManagement.workflowDetails.moreSteps', { count: workflow.steps.length - 3 })}
+                              </div>
+                            )}
                           </div>
                         </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Step Categories Breakdown */}
-                  {workflow.steps && workflow.steps.length > 0 && (
-                    <div className="space-y-2">
-                      <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.stepCategories')}:</span>
-                      <div className="flex flex-wrap gap-1">
-                        {Object.entries(
-                          workflow.steps.reduce((acc, step) => {
-                            acc[step.category] = (acc[step.category] || 0) + 1;
-                            return acc;
-                          }, {} as Record<string, number>)
-                        ).map(([category, count]) => (
-                          <Badge key={category} variant="secondary" className="text-xs">
-                            {category}: {count}
-                          </Badge>
-                        ))}
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
-                  {/* Interactive Elements Summary */}
+                  {/* Interactive nested elements: full-width and grouped by purpose */}
                   {workflow.steps && workflow.steps.some(step => step.formFields?.length > 0 || step.automationRules?.length > 0) && (
-                    <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                    <div className="bg-muted/50 rounded-lg p-3.5 space-y-3 w-full">
                       <h4 className="text-sm font-medium flex items-center gap-2">
                         <FormInput className="h-4 w-4" />
                         {t('workflowManagement.workflowDetails.interactiveElements')}
                       </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                        {/* Form Fields Summary */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
+                        {/* Input-related nested elements */}
                         {workflow.steps.some(step => step.formFields?.length > 0) && (
-                          <div>
+                          <div className="rounded-md border bg-background p-2.5">
                             <span className="font-medium">{t('workflowManagement.workflowDetails.formFieldTypes')}:</span>
-                            <div className="flex flex-wrap gap-1 mt-1">
+                            <div className="flex flex-wrap gap-1 mt-1.5">
                               {Object.entries(
                                 workflow.steps.reduce((acc, step) => {
                                   step.formFields?.forEach(field => {
@@ -573,11 +616,11 @@ export function WorkflowManagement() {
                           </div>
                         )}
 
-                        {/* Automation Rules Summary */}
+                        {/* Automation-related nested elements */}
                         {workflow.steps.some(step => step.automationRules?.length > 0) && (
-                          <div>
+                          <div className="rounded-md border bg-background p-2.5">
                             <span className="font-medium">{t('workflowManagement.workflowDetails.automationTriggers')}:</span>
-                            <div className="flex flex-wrap gap-1 mt-1">
+                            <div className="flex flex-wrap gap-1 mt-1.5">
                               {Object.entries(
                                 workflow.steps.reduce((acc, step) => {
                                   step.automationRules?.forEach(rule => {
@@ -591,48 +634,6 @@ export function WorkflowManagement() {
                                 </Badge>
                               ))}
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Step Details Preview */}
-                  {workflow.steps && workflow.steps.length > 0 && (
-                    <div className="space-y-2">
-                      <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.stepOverview')}:</span>
-                      <div className="space-y-1 max-h-32 overflow-y-auto">
-                        {workflow.steps.slice(0, 3).map((step, index) => (
-                          <div key={step._id} className="flex items-center justify-between p-2 bg-muted/30 rounded text-xs">
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-xs">
-                                {index + 1}
-                              </Badge>
-                              <span className="font-medium">{step.name}</span>
-                              <Badge className={`text-xs ${getCategoryColor(step.category)}`}>
-                                {step.category}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <span>{step.estimatedTime}m</span>
-                              {step.formFields?.length > 0 && (
-                                <span className="flex items-center gap-1">
-                                  <FormInput className="h-3 w-3" />
-                                  {step.formFields.length}
-                                </span>
-                              )}
-                              {step.automationRules?.length > 0 && (
-                                <span className="flex items-center gap-1">
-                                  <Zap className="h-3 w-3" />
-                                  {step.automationRules.length}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                        {workflow.steps.length > 3 && (
-                          <div className="text-xs text-muted-foreground text-center py-1">
-                            {t('workflowManagement.workflowDetails.moreSteps', { count: workflow.steps.length - 3 })}
                           </div>
                         )}
                       </div>
