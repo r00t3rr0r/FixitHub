@@ -17,6 +17,7 @@ import {
   Download,
   FileText,
   HardDrive,
+  MessageCircle,
   Package,
   RefreshCw,
   Settings,
@@ -26,7 +27,7 @@ import {
   Users,
   Wrench,
 } from "lucide-react"
-import { getDashboardSummary } from "@/api/adminDashboard"
+import { getDashboardSummary, getCustomerMessages, type CustomerMessage } from "@/api/adminDashboard"
 import "./AdminDashboard.css"
 
 type NotificationMeta = {
@@ -113,6 +114,8 @@ export function AdminDashboard() {
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   const [dashboardData, setDashboardData] = useState<DashboardData>(FALLBACK_DATA)
+  const [customerMessages, setCustomerMessages] = useState<CustomerMessage[]>([])
+  const [totalUnreadMessages, setTotalUnreadMessages] = useState(0)
 
   const fetchDashboardData = async (showToast = false) => {
     try {
@@ -122,7 +125,12 @@ export function AdminDashboard() {
         setLoading(true)
       }
 
-      const data = await getDashboardSummary()
+      const [data, msgData] = await Promise.all([
+        getDashboardSummary(),
+        getCustomerMessages(15),
+      ])
+      setCustomerMessages(msgData.messages)
+      setTotalUnreadMessages(msgData.totalUnread)
       const processedData: DashboardData = {
         bookings: safeArray(data.bookings),
         repairRequests: safeArray(data.repairRequests),
@@ -303,6 +311,17 @@ export function AdminDashboard() {
         <Card className="compact-stat-card">
           <CardContent className="compact-stat-content">
             <div>
+              <p>Nachrichten</p>
+              <h3>{totalUnreadMessages}</h3>
+              <small>ungelesen von Kunden</small>
+            </div>
+            <MessageCircle className="h-4 w-4" />
+          </CardContent>
+        </Card>
+
+        <Card className="compact-stat-card">
+          <CardContent className="compact-stat-content">
+            <div>
               <p>Ungelesen</p>
               <h3>{dashboardData.notificationMeta.unreadCount}</h3>
               <small>{dashboardData.notificationMeta.urgentCount} dringend</small>
@@ -328,6 +347,9 @@ export function AdminDashboard() {
         <button type="button" onClick={() => navigate("/admin/orders")}>Prioritaet Auftraege: <strong>{derived.urgentOrders}</strong></button>
         <button type="button" onClick={() => navigate("/admin/staff")}>Team Auslastung {">"} 85%: <strong>{derived.overloadedStaff}</strong></button>
         <button type="button" onClick={() => navigate("/admin/bookings")}>Buchungen offen: <strong>{derived.pendingBookings}</strong></button>
+        {totalUnreadMessages > 0 && (
+          <button type="button" className="compact-alert-messages" onClick={() => navigate("/admin/orders")}>Neue Kundennachrichten: <strong>{totalUnreadMessages}</strong></button>
+        )}
       </div>
 
       <div className="compact-main-grid">
@@ -450,7 +472,63 @@ export function AdminDashboard() {
         </Card>
       </div>
 
-      <div className="compact-bottom-grid">
+      <div className="compact-bottom-grid compact-bottom-grid--3col">
+        <Card className="compact-panel compact-panel--messages">
+          <CardHeader className="compact-panel-header">
+            <CardTitle>
+              <MessageCircle className="h-4 w-4 compact-messages-icon" />
+              Neue Kundennachrichten
+            </CardTitle>
+            <CardDescription>
+              {totalUnreadMessages > 0
+                ? <span className="compact-messages-count-label">{totalUnreadMessages} ungelesen</span>
+                : "Keine neuen Nachrichten"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="compact-panel-content">
+            <ScrollArea className="compact-scroll-area">
+              <div className="compact-list">
+                {customerMessages.length === 0 && (
+                  <p className="compact-empty">Keine ungelesenen Kundennachrichten</p>
+                )}
+                {customerMessages.slice(0, 8).map((msg) => {
+                  const label = msg.source === "inspection"
+                    ? msg.orderNumber ? `Auftrag #${msg.orderNumber}` : "Auftrag"
+                    : msg.requestNumber ? `Anfrage #${msg.requestNumber}` : (msg.deviceType || "Repair Request")
+                  const preview = msg.content.length > 60
+                    ? `${msg.content.slice(0, 60)}…`
+                    : msg.content
+                  return (
+                    <button
+                      key={msg._id}
+                      type="button"
+                      className="compact-msg-item"
+                      onClick={() => navigate(msg.navigateTo)}
+                    >
+                      <div className="compact-msg-avatar">
+                        <MessageCircle className="h-3.5 w-3.5" />
+                      </div>
+                      <div className="compact-msg-body">
+                        <p className="compact-title">{msg.senderName}</p>
+                        <p className="compact-sub compact-msg-ref">{label}</p>
+                        <p className="compact-sub compact-msg-preview">{preview}</p>
+                      </div>
+                      <div className="compact-list-side">
+                        <Badge className="compact-badge-unread">neu</Badge>
+                        <small>{timeAgo(msg.createdAt)}</small>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </ScrollArea>
+            <Separator />
+            <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/admin/orders")}>
+              Alle Auftraege
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </CardContent>
+        </Card>
         <Card className="compact-panel">
           <CardHeader className="compact-panel-header">
             <CardTitle>
