@@ -493,38 +493,43 @@ export function StepManagementDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader
+            className="px-4 py-3 flex-shrink-0"
+            style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)' }}
+          >
+            <DialogTitle className="flex items-center gap-2 text-sm font-semibold text-white">
+              <Settings className="h-4 w-4" />
               {isNew ? 'Create New Step' : 'Edit Step'}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>
               {isNew ? 'Create a new workflow step with interactive elements' : 'Modify step properties and interactive elements'}
             </DialogDescription>
           </DialogHeader>
 
+          <div className="overflow-y-auto flex-1 p-3">
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="forms">Forms</TabsTrigger>
-              <TabsTrigger value="automation">Automation</TabsTrigger>
-              <TabsTrigger value="requirements">Requirements</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-4 h-7 mb-2">
+              <TabsTrigger value="basic" className="text-xs">Basic Info</TabsTrigger>
+              <TabsTrigger value="forms" className="text-xs">Forms</TabsTrigger>
+              <TabsTrigger value="automation" className="text-xs">Automation</TabsTrigger>
+              <TabsTrigger value="requirements" className="text-xs">Requirements</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="basic" className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="step-name">Step Name *</Label>
+            <TabsContent value="basic" className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="step-name" className="text-xs">Step Name *</Label>
                   <Input
                     id="step-name"
                     value={stepData.name || ""}
                     onChange={(e) => setStepData(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="Enter step name"
+                    className="h-7 text-xs"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="step-category">Category *</Label>
+                <div className="space-y-1">
+                  <Label htmlFor="step-category" className="text-xs">Category *</Label>
                   <Select
                     value={stepData.category || "diagnostic"}
                     onValueChange={(value) => setStepData(prev => ({ ...prev, category: value as any }))}
@@ -543,36 +548,38 @@ export function StepManagementDialog({
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="step-description">Description *</Label>
+              <div className="space-y-1">
+                <Label htmlFor="step-description" className="text-xs">Description *</Label>
                 <Textarea
                   id="step-description"
                   value={stepData.description || ""}
                   onChange={(e) => setStepData(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Enter step description"
-                  rows={3}
+                  rows={2}
+                  className="text-xs"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="estimated-time">Estimated Time (minutes)</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="estimated-time" className="text-xs">Estimated Time (minutes)</Label>
                   <Input
                     id="estimated-time"
                     type="number"
                     value={stepData.estimatedTime || 30}
                     onChange={(e) => setStepData(prev => ({ ...prev, estimatedTime: parseInt(e.target.value) || 30 }))}
                     min="1"
+                    className="h-7 text-xs"
                   />
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-2">
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="is-required"
                       checked={stepData.isRequired || false}
                       onCheckedChange={(checked) => setStepData(prev => ({ ...prev, isRequired: checked }))}
                     />
-                    <Label htmlFor="is-required">Required Step</Label>
+                    <Label htmlFor="is-required" className="text-xs">Required Step</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Switch
@@ -580,19 +587,19 @@ export function StepManagementDialog({
                       checked={stepData.canSkip || false}
                       onCheckedChange={(checked) => setStepData(prev => ({ ...prev, canSkip: checked }))}
                     />
-                    <Label htmlFor="can-skip">Can Skip</Label>
+                    <Label htmlFor="can-skip" className="text-xs">Can Skip</Label>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-2">
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="requires-approval"
                     checked={stepData.requiresApproval || false}
                     onCheckedChange={(checked) => setStepData(prev => ({ ...prev, requiresApproval: checked }))}
                   />
-                  <Label htmlFor="requires-approval">Requires Approval</Label>
+                  <Label htmlFor="requires-approval" className="text-xs">Requires Approval</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Switch
@@ -600,15 +607,15 @@ export function StepManagementDialog({
                     checked={stepData.requiresFormCompletion || false}
                     onCheckedChange={(checked) => setStepData(prev => ({ ...prev, requiresFormCompletion: checked }))}
                   />
-                  <Label htmlFor="requires-form">Requires Form Completion</Label>
+                  <Label htmlFor="requires-form" className="text-xs">Requires Form Completion</Label>
                 </div>
               </div>
 
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Notification Settings</CardTitle>
+                <CardHeader className="py-2 px-3">
+                  <CardTitle className="text-xs">Notification Settings</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-2 py-2 px-3">
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="notify-start"
@@ -621,7 +628,7 @@ export function StepManagementDialog({
                         }
                       }))}
                     />
-                    <Label htmlFor="notify-start">Notify on Start</Label>
+                    <Label htmlFor="notify-start" className="text-xs">Notify on Start</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Switch
@@ -635,7 +642,7 @@ export function StepManagementDialog({
                         }
                       }))}
                     />
-                    <Label htmlFor="notify-complete">Notify on Complete</Label>
+                    <Label htmlFor="notify-complete" className="text-xs">Notify on Complete</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Switch
@@ -649,51 +656,51 @@ export function StepManagementDialog({
                         }
                       }))}
                     />
-                    <Label htmlFor="notify-delay">Notify on Delay</Label>
+                    <Label htmlFor="notify-delay" className="text-xs">Notify on Delay</Label>
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
 
-            <TabsContent value="forms" className="space-y-4">
+            <TabsContent value="forms" className="space-y-2">
               <div className="flex justify-between items-center">
                 <div>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <FormInput className="h-5 w-5" />
+                  <h3 className="text-xs font-semibold flex items-center gap-1">
+                    <FormInput className="h-3 w-3" />
                     Interactive Form Elements
                   </h3>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Add checkboxes, text areas, and other interactive elements for data collection
                   </p>
                 </div>
-                <Button onClick={() => setShowFormFieldDialog(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
+                <Button size="sm" className="h-7 text-xs" onClick={() => setShowFormFieldDialog(true)}>
+                  <Plus className="h-3 w-3 mr-1" />
                   Add Form Field
                 </Button>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {stepData.formFields && stepData.formFields.length > 0 ? (
                   stepData.formFields.map((field) => (
-                    <Card key={field.id} className="p-4">
+                    <Card key={field.id} className="p-2">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge variant="outline">{field.type}</Badge>
-                            {field.required && <Badge variant="destructive">Required</Badge>}
-                            {field.isConditional && <Badge variant="secondary">Conditional</Badge>}
+                          <div className="flex items-center gap-1 mb-1">
+                            <Badge variant="outline" className="text-xs h-4 px-1">{field.type}</Badge>
+                            {field.required && <Badge variant="destructive" className="text-xs h-4 px-1">Required</Badge>}
+                            {field.isConditional && <Badge variant="secondary" className="text-xs h-4 px-1">Conditional</Badge>}
                           </div>
-                          <h4 className="font-medium">{field.label}</h4>
-                          <p className="text-sm text-muted-foreground">{field.name}</p>
+                          <h4 className="text-xs font-medium">{field.label}</h4>
+                          <p className="text-xs text-muted-foreground">{field.name}</p>
                           {field.helpText && (
-                            <p className="text-xs text-muted-foreground mt-1">{field.helpText}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{field.helpText}</p>
                           )}
                           {field.options && field.options.length > 0 && (
-                            <div className="mt-2">
+                            <div className="mt-1">
                               <p className="text-xs font-medium">Options:</p>
-                              <div className="flex flex-wrap gap-1 mt-1">
+                              <div className="flex flex-wrap gap-1 mt-0.5">
                                 {field.options.map((option, idx) => (
-                                  <Badge key={idx} variant="outline" className="text-xs">
+                                  <Badge key={idx} variant="outline" className="text-xs h-4 px-1">
                                     {option.label}
                                   </Badge>
                                 ))}
@@ -701,10 +708,11 @@ export function StepManagementDialog({
                             </div>
                           )}
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-1">
                           <Button
                             variant="outline"
                             size="sm"
+                            className="h-6 w-6 p-0"
                             onClick={() => setEditingFormField(field)}
                           >
                             <Edit className="h-3 w-3" />
@@ -712,6 +720,7 @@ export function StepManagementDialog({
                           <Button
                             variant="outline"
                             size="sm"
+                            className="h-6 w-6 p-0"
                             onClick={() => handleRemoveFormField(field.id)}
                           >
                             <Trash2 className="h-3 w-3" />
@@ -721,14 +730,14 @@ export function StepManagementDialog({
                     </Card>
                   ))
                 ) : (
-                  <Card className="p-8 text-center">
-                    <FormInput className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="font-medium mb-2">No Form Fields</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
+                  <Card className="p-4 text-center">
+                    <FormInput className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                    <h3 className="text-xs font-medium mb-1">No Form Fields</h3>
+                    <p className="text-xs text-muted-foreground mb-2">
                       Add interactive form elements like checkboxes, text areas, and dropdowns to collect data during this step.
                     </p>
-                    <Button onClick={() => setShowFormFieldDialog(true)}>
-                      <Plus className="h-4 w-4 mr-2" />
+                    <Button size="sm" className="h-7 text-xs" onClick={() => setShowFormFieldDialog(true)}>
+                      <Plus className="h-3 w-3 mr-1" />
                       Add First Form Field
                     </Button>
                   </Card>
@@ -736,51 +745,52 @@ export function StepManagementDialog({
               </div>
             </TabsContent>
 
-            <TabsContent value="automation" className="space-y-4">
+            <TabsContent value="automation" className="space-y-2">
               <div className="flex justify-between items-center">
                 <div>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Zap className="h-5 w-5" />
+                  <h3 className="text-xs font-semibold flex items-center gap-1">
+                    <Zap className="h-3 w-3" />
                     Automation Rules
                   </h3>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Configure automatic actions and triggers for this step
                   </p>
                 </div>
-                <Button onClick={() => setShowAutomationDialog(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
+                <Button size="sm" className="h-7 text-xs" onClick={() => setShowAutomationDialog(true)}>
+                  <Plus className="h-3 w-3 mr-1" />
                   Add Rule
                 </Button>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {stepData.automationRules && stepData.automationRules.length > 0 ? (
                   stepData.automationRules.map((rule) => (
-                    <Card key={rule._id} className="p-4">
+                    <Card key={rule._id} className="p-2">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge variant={rule.isActive ? "default" : "secondary"}>
+                          <div className="flex items-center gap-1 mb-1">
+                            <Badge variant={rule.isActive ? "default" : "secondary"} className="text-xs h-4 px-1">
                               {rule.isActive ? "Active" : "Inactive"}
                             </Badge>
-                            <Badge variant="outline">{rule.trigger}</Badge>
+                            <Badge variant="outline" className="text-xs h-4 px-1">{rule.trigger}</Badge>
                           </div>
-                          <h4 className="font-medium">
+                          <h4 className="text-xs font-medium">
                             When: {triggerOptions.find(t => t.value === rule.trigger)?.label}
                           </h4>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-xs text-muted-foreground">
                             Action: {actionOptions.find(a => a.value === rule.action)?.label}
                           </p>
                           {rule.condition && (
-                            <p className="text-xs text-muted-foreground mt-1">
+                            <p className="text-xs text-muted-foreground mt-0.5">
                               Condition: {rule.condition}
                             </p>
                           )}
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-1">
                           <Button
                             variant="outline"
                             size="sm"
+                            className="h-6 w-6 p-0"
                             onClick={() => setEditingAutomationRule(rule)}
                           >
                             <Edit className="h-3 w-3" />
@@ -788,6 +798,7 @@ export function StepManagementDialog({
                           <Button
                             variant="outline"
                             size="sm"
+                            className="h-6 w-6 p-0"
                             onClick={() => handleRemoveAutomationRule(rule._id!)}
                           >
                             <Trash2 className="h-3 w-3" />
@@ -797,14 +808,14 @@ export function StepManagementDialog({
                     </Card>
                   ))
                 ) : (
-                  <Card className="p-8 text-center">
-                    <Zap className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="font-medium mb-2">No Automation Rules</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
+                  <Card className="p-4 text-center">
+                    <Zap className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                    <h3 className="text-xs font-medium mb-1">No Automation Rules</h3>
+                    <p className="text-xs text-muted-foreground mb-2">
                       Add automation rules to trigger actions automatically when certain conditions are met.
                     </p>
-                    <Button onClick={() => setShowAutomationDialog(true)}>
-                      <Plus className="h-4 w-4 mr-2" />
+                    <Button size="sm" className="h-7 text-xs" onClick={() => setShowAutomationDialog(true)}>
+                      <Plus className="h-3 w-3 mr-1" />
                       Add First Rule
                     </Button>
                   </Card>
@@ -812,38 +823,40 @@ export function StepManagementDialog({
               </div>
             </TabsContent>
 
-            <TabsContent value="requirements" className="space-y-4">
-              <div className="grid gap-6">
+            <TabsContent value="requirements" className="space-y-2">
+              <div className="grid gap-2">
                 {/* Checklist Items */}
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <CheckSquare className="h-4 w-4" />
+                  <CardHeader className="py-2 px-3">
+                    <CardTitle className="text-xs flex items-center gap-1">
+                      <CheckSquare className="h-3 w-3" />
                       Checklist Items
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-xs">
                       Add mandatory checklist items that must be completed
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-2 py-2 px-3">
                     <div className="flex gap-2">
                       <Input
                         value={newChecklistItem}
                         onChange={(e) => setNewChecklistItem(e.target.value)}
                         placeholder="Enter checklist item"
                         onKeyPress={(e) => e.key === 'Enter' && addChecklistItem()}
+                        className="h-7 text-xs"
                       />
-                      <Button onClick={addChecklistItem} size="sm">
-                        <Plus className="h-4 w-4" />
+                      <Button onClick={addChecklistItem} size="sm" className="h-7">
+                        <Plus className="h-3 w-3" />
                       </Button>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       {stepData.checklistItems?.map((item, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
-                          <span className="text-sm">{item}</span>
+                        <div key={index} className="flex items-center justify-between p-1.5 bg-muted rounded">
+                          <span className="text-xs">{item}</span>
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-5 w-5 p-0"
                             onClick={() => removeChecklistItem(index)}
                           >
                             <X className="h-3 w-3" />
@@ -856,35 +869,36 @@ export function StepManagementDialog({
 
                 {/* Required Tools */}
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <Settings className="h-4 w-4" />
+                  <CardHeader className="py-2 px-3">
+                    <CardTitle className="text-xs flex items-center gap-1">
+                      <Settings className="h-3 w-3" />
                       Required Tools
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-xs">
                       Specify tools needed for this step
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-2 py-2 px-3">
                     <div className="flex gap-2">
                       <Input
                         value={newTool}
                         onChange={(e) => setNewTool(e.target.value)}
                         placeholder="Enter tool name"
                         onKeyPress={(e) => e.key === 'Enter' && addTool()}
+                        className="h-7 text-xs"
                       />
-                      <Button onClick={addTool} size="sm">
-                        <Plus className="h-4 w-4" />
+                      <Button onClick={addTool} size="sm" className="h-7">
+                        <Plus className="h-3 w-3" />
                       </Button>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1">
                       {stepData.tools?.map((tool, index) => (
-                        <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                        <Badge key={index} variant="secondary" className="text-xs h-4 px-1 flex items-center gap-0.5">
                           {tool}
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-auto p-0 ml-1"
+                            className="h-auto p-0 ml-0.5"
                             onClick={() => removeTool(index)}
                           >
                             <X className="h-3 w-3" />
@@ -897,35 +911,36 @@ export function StepManagementDialog({
 
                 {/* Required Skills */}
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4" />
+                  <CardHeader className="py-2 px-3">
+                    <CardTitle className="text-xs flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
                       Required Skills
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-xs">
                       Specify skills or certifications needed
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-2 py-2 px-3">
                     <div className="flex gap-2">
                       <Input
                         value={newSkill}
                         onChange={(e) => setNewSkill(e.target.value)}
                         placeholder="Enter skill requirement"
                         onKeyPress={(e) => e.key === 'Enter' && addSkill()}
+                        className="h-7 text-xs"
                       />
-                      <Button onClick={addSkill} size="sm">
-                        <Plus className="h-4 w-4" />
+                      <Button onClick={addSkill} size="sm" className="h-7">
+                        <Plus className="h-3 w-3" />
                       </Button>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1">
                       {stepData.skills?.map((skill, index) => (
-                        <Badge key={index} variant="outline" className="flex items-center gap-1">
+                        <Badge key={index} variant="outline" className="text-xs h-4 px-1 flex items-center gap-0.5">
                           {skill}
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-auto p-0 ml-1"
+                            className="h-auto p-0 ml-0.5"
                             onClick={() => removeSkill(index)}
                           >
                             <X className="h-3 w-3" />
@@ -938,20 +953,21 @@ export function StepManagementDialog({
               </div>
             </TabsContent>
           </Tabs>
+          </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <DialogFooter className="px-4 py-2 border-t flex-shrink-0">
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button size="sm" className="h-7 text-xs" onClick={handleSave} disabled={saving}>
               {saving ? (
                 <>
-                  <Clock className="h-4 w-4 mr-2 animate-spin" />
+                  <Clock className="h-3 w-3 mr-1 animate-spin" />
                   Saving...
                 </>
               ) : (
                 <>
-                  <Save className="h-4 w-4 mr-2" />
+                  <Save className="h-3 w-3 mr-1" />
                   {isNew ? 'Create Step' : 'Save Changes'}
                 </>
               )}
@@ -962,42 +978,47 @@ export function StepManagementDialog({
 
       {/* Form Field Dialog */}
       <Dialog open={showFormFieldDialog} onOpenChange={setShowFormFieldDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Add Form Field</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-lg p-0 overflow-hidden">
+          <DialogHeader
+            className="px-4 py-3"
+            style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)' }}
+          >
+            <DialogTitle className="text-sm font-semibold text-white">Add Form Field</DialogTitle>
+            <DialogDescription className="text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>
               Create an interactive form element for data collection
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="field-name">Field Name *</Label>
+          <div className="grid gap-3 p-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="field-name" className="text-xs">Field Name *</Label>
                 <Input
                   id="field-name"
                   value={newFormField.name || ""}
                   onChange={(e) => setNewFormField(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="field_name"
+                  className="h-7 text-xs"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="field-label">Display Label *</Label>
+              <div className="space-y-1">
+                <Label htmlFor="field-label" className="text-xs">Display Label *</Label>
                 <Input
                   id="field-label"
                   value={newFormField.label || ""}
                   onChange={(e) => setNewFormField(prev => ({ ...prev, label: e.target.value }))}
                   placeholder="Field Label"
+                  className="h-7 text-xs"
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="field-type">Field Type *</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="field-type" className="text-xs">Field Type *</Label>
                 <Select
                   value={newFormField.type || "text"}
                   onValueChange={(value) => setNewFormField(prev => ({ ...prev, type: value as any }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-7 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1009,37 +1030,39 @@ export function StepManagementDialog({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center space-x-2 pt-6">
+              <div className="flex items-center space-x-2 pt-5">
                 <Switch
                   id="field-required"
                   checked={newFormField.required || false}
                   onCheckedChange={(checked) => setNewFormField(prev => ({ ...prev, required: checked }))}
                 />
-                <Label htmlFor="field-required">Required Field</Label>
+                <Label htmlFor="field-required" className="text-xs">Required Field</Label>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="field-placeholder">Placeholder Text</Label>
+            <div className="space-y-1">
+              <Label htmlFor="field-placeholder" className="text-xs">Placeholder Text</Label>
               <Input
                 id="field-placeholder"
                 value={newFormField.placeholder || ""}
                 onChange={(e) => setNewFormField(prev => ({ ...prev, placeholder: e.target.value }))}
                 placeholder="Enter placeholder text"
+                className="h-7 text-xs"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="field-help">Help Text</Label>
+            <div className="space-y-1">
+              <Label htmlFor="field-help" className="text-xs">Help Text</Label>
               <Textarea
                 id="field-help"
                 value={newFormField.helpText || ""}
                 onChange={(e) => setNewFormField(prev => ({ ...prev, helpText: e.target.value }))}
                 placeholder="Additional help or instructions"
                 rows={2}
+                className="text-xs"
               />
             </div>
             {(newFormField.type === 'select' || newFormField.type === 'multiselect' || newFormField.type === 'radio') && (
-              <div className="space-y-2">
-                <Label>Options (one per line)</Label>
+              <div className="space-y-1">
+                <Label className="text-xs">Options (one per line)</Label>
                 <Textarea
                   placeholder="Option 1&#10;Option 2&#10;Option 3"
                   onChange={(e) => {
@@ -1049,16 +1072,17 @@ export function StepManagementDialog({
                     }))
                     setNewFormField(prev => ({ ...prev, options }))
                   }}
-                  rows={4}
+                  rows={3}
+                  className="text-xs"
                 />
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowFormFieldDialog(false)}>
+          <DialogFooter className="px-4 py-2 border-t">
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowFormFieldDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAddFormField}>
+            <Button size="sm" className="h-7 text-xs" onClick={handleAddFormField}>
               Add Field
             </Button>
           </DialogFooter>
@@ -1067,43 +1091,48 @@ export function StepManagementDialog({
 
       {/* Edit Form Field Dialog */}
       <Dialog open={!!editingFormField} onOpenChange={(open) => !open && setEditingFormField(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit Form Field</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-lg p-0 overflow-hidden">
+          <DialogHeader
+            className="px-4 py-3"
+            style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)' }}
+          >
+            <DialogTitle className="text-sm font-semibold text-white">Edit Form Field</DialogTitle>
+            <DialogDescription className="text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>
               Modify the form field properties
             </DialogDescription>
           </DialogHeader>
           {editingFormField && (
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-field-name">Field Name *</Label>
+            <div className="grid gap-3 p-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="edit-field-name" className="text-xs">Field Name *</Label>
                   <Input
                     id="edit-field-name"
                     value={editingFormField.name || ""}
                     onChange={(e) => setEditingFormField(prev => prev ? ({ ...prev, name: e.target.value }) : null)}
                     placeholder="field_name"
+                    className="h-7 text-xs"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-field-label">Display Label *</Label>
+                <div className="space-y-1">
+                  <Label htmlFor="edit-field-label" className="text-xs">Display Label *</Label>
                   <Input
                     id="edit-field-label"
                     value={editingFormField.label || ""}
                     onChange={(e) => setEditingFormField(prev => prev ? ({ ...prev, label: e.target.value }) : null)}
                     placeholder="Field Label"
+                    className="h-7 text-xs"
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-field-type">Field Type *</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="edit-field-type" className="text-xs">Field Type *</Label>
                   <Select
                     value={editingFormField.type || "text"}
                     onValueChange={(value) => setEditingFormField(prev => prev ? ({ ...prev, type: value as any }) : null)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-7 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1115,41 +1144,43 @@ export function StepManagementDialog({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-center space-x-2 pt-6">
+                <div className="flex items-center space-x-2 pt-5">
                   <Switch
                     id="edit-field-required"
                     checked={editingFormField.required || false}
                     onCheckedChange={(checked) => setEditingFormField(prev => prev ? ({ ...prev, required: checked }) : null)}
                   />
-                  <Label htmlFor="edit-field-required">Required Field</Label>
+                  <Label htmlFor="edit-field-required" className="text-xs">Required Field</Label>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-field-placeholder">Placeholder Text</Label>
+              <div className="space-y-1">
+                <Label htmlFor="edit-field-placeholder" className="text-xs">Placeholder Text</Label>
                 <Input
                   id="edit-field-placeholder"
                   value={editingFormField.placeholder || ""}
                   onChange={(e) => setEditingFormField(prev => prev ? ({ ...prev, placeholder: e.target.value }) : null)}
                   placeholder="Enter placeholder text"
+                  className="h-7 text-xs"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-field-help">Help Text</Label>
+              <div className="space-y-1">
+                <Label htmlFor="edit-field-help" className="text-xs">Help Text</Label>
                 <Textarea
                   id="edit-field-help"
                   value={editingFormField.helpText || ""}
                   onChange={(e) => setEditingFormField(prev => prev ? ({ ...prev, helpText: e.target.value }) : null)}
                   placeholder="Additional help or instructions"
                   rows={2}
+                  className="text-xs"
                 />
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingFormField(null)}>
+          <DialogFooter className="px-4 py-2 border-t">
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setEditingFormField(null)}>
               Cancel
             </Button>
-            <Button onClick={() => editingFormField && handleUpdateFormField(editingFormField.id, editingFormField)}>
+            <Button size="sm" className="h-7 text-xs" onClick={() => editingFormField && handleUpdateFormField(editingFormField.id, editingFormField)}>
               Save Changes
             </Button>
           </DialogFooter>
@@ -1158,22 +1189,25 @@ export function StepManagementDialog({
 
       {/* Automation Rule Dialog */}
       <Dialog open={showAutomationDialog} onOpenChange={setShowAutomationDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Automation Rule</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-lg p-0 overflow-hidden">
+          <DialogHeader
+            className="px-4 py-3"
+            style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)' }}
+          >
+            <DialogTitle className="text-sm font-semibold text-white">Add Automation Rule</DialogTitle>
+            <DialogDescription className="text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>
               Configure automatic actions for this step
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="rule-trigger">Trigger *</Label>
+          <div className="grid gap-3 p-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="rule-trigger" className="text-xs">Trigger *</Label>
                 <Select
                   value={newAutomationRule.trigger || "step_completion"}
                   onValueChange={(value) => setNewAutomationRule(prev => ({ ...prev, trigger: value as any }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-7 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1185,13 +1219,13 @@ export function StepManagementDialog({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="rule-action">Action *</Label>
+              <div className="space-y-1">
+                <Label htmlFor="rule-action" className="text-xs">Action *</Label>
                 <Select
                   value={newAutomationRule.action || "send_notification"}
                   onValueChange={(value) => setNewAutomationRule(prev => ({ ...prev, action: value as any }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-7 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1204,13 +1238,14 @@ export function StepManagementDialog({
                 </Select>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="rule-condition">Condition (optional)</Label>
+            <div className="space-y-1">
+              <Label htmlFor="rule-condition" className="text-xs">Condition (optional)</Label>
               <Input
                 id="rule-condition"
                 value={newAutomationRule.condition || ""}
                 onChange={(e) => setNewAutomationRule(prev => ({ ...prev, condition: e.target.value }))}
                 placeholder="e.g., status == 'completed'"
+                className="h-7 text-xs"
               />
             </div>
             <div className="flex items-center space-x-2">
@@ -1219,14 +1254,14 @@ export function StepManagementDialog({
                 checked={newAutomationRule.isActive || false}
                 onCheckedChange={(checked) => setNewAutomationRule(prev => ({ ...prev, isActive: checked }))}
               />
-              <Label htmlFor="rule-active">Active Rule</Label>
+              <Label htmlFor="rule-active" className="text-xs">Active Rule</Label>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAutomationDialog(false)}>
+          <DialogFooter className="px-4 py-2 border-t">
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowAutomationDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAddAutomationRule}>
+            <Button size="sm" className="h-7 text-xs" onClick={handleAddAutomationRule}>
               Add Rule
             </Button>
           </DialogFooter>

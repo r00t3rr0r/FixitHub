@@ -454,12 +454,15 @@ export function StepFormDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader
+            className="px-4 py-3 flex-shrink-0"
+            style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)' }}
+          >
+            <DialogTitle className="text-sm font-semibold text-white">
               {mode === 'create' ? 'Create New Step' : 'Edit Step'}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>
               {mode === 'create'
                 ? 'Add a new step to the workflow with interactive forms and automation rules'
                 : 'Modify step properties, forms, and automation rules'
@@ -467,55 +470,57 @@ export function StepFormDialog({
             </DialogDescription>
           </DialogHeader>
 
+          <div className="overflow-y-auto flex-1 p-3">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="basic" className="flex items-center gap-2">
-                <Settings className="h-4 w-4" />
+            <TabsList className="grid w-full grid-cols-5 h-7 mb-2">
+              <TabsTrigger value="basic" className="flex items-center gap-1 text-xs">
+                <Settings className="h-3 w-3" />
                 Basic
               </TabsTrigger>
-              <TabsTrigger value="requirements" className="flex items-center gap-2">
-                <List className="h-4 w-4" />
+              <TabsTrigger value="requirements" className="flex items-center gap-1 text-xs">
+                <List className="h-3 w-3" />
                 Requirements
               </TabsTrigger>
-              <TabsTrigger value="forms" className="flex items-center gap-2">
-                <FormInput className="h-4 w-4" />
+              <TabsTrigger value="forms" className="flex items-center gap-1 text-xs">
+                <FormInput className="h-3 w-3" />
                 Forms
               </TabsTrigger>
-              <TabsTrigger value="automation" className="flex items-center gap-2">
-                <Zap className="h-4 w-4" />
+              <TabsTrigger value="automation" className="flex items-center gap-1 text-xs">
+                <Zap className="h-3 w-3" />
                 Automation
               </TabsTrigger>
-              <TabsTrigger value="notifications" className="flex items-center gap-2">
-                <Bell className="h-4 w-4" />
+              <TabsTrigger value="notifications" className="flex items-center gap-1 text-xs">
+                <Bell className="h-3 w-3" />
                 Notifications
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="basic" className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="step-name">Step Name *</Label>
+            <TabsContent value="basic" className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="step-name" className="text-xs">Step Name *</Label>
                   <Input
                     id="step-name"
                     value={formData.name || ""}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="Enter step name"
+                    className="h-7 text-xs"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category *</Label>
+                <div className="space-y-1">
+                  <Label htmlFor="category" className="text-xs">Category *</Label>
                   <Select
                     value={formData.category}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, category: value as any }))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-7 text-xs">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
                       {categoryOptions.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
-                          <div className="flex items-center gap-2">
-                            <option.icon className="h-4 w-4" />
+                          <div className="flex items-center gap-1 text-xs">
+                            <option.icon className="h-3 w-3" />
                             {option.label}
                           </div>
                         </SelectItem>
@@ -525,36 +530,38 @@ export function StepFormDialog({
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="description">Description *</Label>
+              <div className="space-y-1">
+                <Label htmlFor="description" className="text-xs">Description *</Label>
                 <Textarea
                   id="description"
                   value={formData.description || ""}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Enter step description"
-                  rows={3}
+                  rows={2}
+                  className="text-xs"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="estimated-time">Estimated Time (minutes)</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="estimated-time" className="text-xs">Estimated Time (minutes)</Label>
                   <Input
                     id="estimated-time"
                     type="number"
                     value={formData.estimatedTime || 30}
                     onChange={(e) => setFormData(prev => ({ ...prev, estimatedTime: parseInt(e.target.value) || 30 }))}
                     min="1"
+                    className="h-7 text-xs"
                   />
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-2">
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="is-required"
                       checked={formData.isRequired || false}
                       onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isRequired: checked }))}
                     />
-                    <Label htmlFor="is-required">Required Step</Label>
+                    <Label htmlFor="is-required" className="text-xs">Required Step</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Switch
@@ -562,7 +569,7 @@ export function StepFormDialog({
                       checked={formData.canSkip || false}
                       onCheckedChange={(checked) => setFormData(prev => ({ ...prev, canSkip: checked }))}
                     />
-                    <Label htmlFor="can-skip">Can Skip</Label>
+                    <Label htmlFor="can-skip" className="text-xs">Can Skip</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Switch
@@ -570,14 +577,14 @@ export function StepFormDialog({
                       checked={formData.requiresApproval || false}
                       onCheckedChange={(checked) => setFormData(prev => ({ ...prev, requiresApproval: checked }))}
                     />
-                    <Label htmlFor="requires-approval">Requires Approval</Label>
+                    <Label htmlFor="requires-approval" className="text-xs">Requires Approval</Label>
                   </div>
                 </div>
               </div>
 
               {existingSteps.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Dependencies</Label>
+                <div className="space-y-1">
+                  <Label className="text-xs">Dependencies</Label>
                   <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
                     {existingSteps
                       .filter(s => s._id !== step?._id)
@@ -588,7 +595,7 @@ export function StepFormDialog({
                             checked={formData.dependencies?.includes(existingStep._id) || false}
                             onCheckedChange={(checked) => handleDependencyChange(existingStep._id, checked as boolean)}
                           />
-                          <Label htmlFor={`dep-${existingStep._id}`} className="text-sm">
+                          <Label htmlFor={`dep-${existingStep._id}`} className="text-xs">
                             {existingStep.name}
                           </Label>
                         </div>
@@ -598,30 +605,31 @@ export function StepFormDialog({
               )}
             </TabsContent>
 
-            <TabsContent value="requirements" className="space-y-4">
-              <div className="space-y-4">
+            <TabsContent value="requirements" className="space-y-2">
+              <div className="space-y-2">
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Wrench className="h-5 w-5" />
+                  <CardHeader className="py-2 px-3">
+                    <CardTitle className="text-xs flex items-center gap-1">
+                      <Wrench className="h-3 w-3" />
                       Required Tools
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-2 py-2 px-3">
                     <div className="flex gap-2">
                       <Input
                         value={newTool}
                         onChange={(e) => setNewTool(e.target.value)}
                         placeholder="Enter tool name"
                         onKeyPress={(e) => e.key === 'Enter' && handleAddTool()}
+                        className="h-7 text-xs"
                       />
-                      <Button onClick={handleAddTool} size="sm">
-                        <Plus className="h-4 w-4" />
+                      <Button onClick={handleAddTool} size="sm" className="h-7">
+                        <Plus className="h-3 w-3" />
                       </Button>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1">
                       {formData.tools?.map((tool, index) => (
-                        <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                        <Badge key={index} variant="secondary" className="text-xs h-4 px-1 flex items-center gap-0.5">
                           {tool}
                           <X
                             className="h-3 w-3 cursor-pointer"
@@ -634,27 +642,28 @@ export function StepFormDialog({
                 </Card>
 
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <User className="h-5 w-5" />
+                  <CardHeader className="py-2 px-3">
+                    <CardTitle className="text-xs flex items-center gap-1">
+                      <User className="h-3 w-3" />
                       Required Skills
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-2 py-2 px-3">
                     <div className="flex gap-2">
                       <Input
                         value={newSkill}
                         onChange={(e) => setNewSkill(e.target.value)}
                         placeholder="Enter skill requirement"
                         onKeyPress={(e) => e.key === 'Enter' && handleAddSkill()}
+                        className="h-7 text-xs"
                       />
-                      <Button onClick={handleAddSkill} size="sm">
-                        <Plus className="h-4 w-4" />
+                      <Button onClick={handleAddSkill} size="sm" className="h-7">
+                        <Plus className="h-3 w-3" />
                       </Button>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1">
                       {formData.skills?.map((skill, index) => (
-                        <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                        <Badge key={index} variant="secondary" className="text-xs h-4 px-1 flex items-center gap-0.5">
                           {skill}
                           <X
                             className="h-3 w-3 cursor-pointer"
@@ -667,34 +676,36 @@ export function StepFormDialog({
                 </Card>
 
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <CheckCircle className="h-5 w-5" />
+                  <CardHeader className="py-2 px-3">
+                    <CardTitle className="text-xs flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3" />
                       Checklist Items
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-2 py-2 px-3">
                     <div className="flex gap-2">
                       <Input
                         value={newChecklistItem}
                         onChange={(e) => setNewChecklistItem(e.target.value)}
                         placeholder="Enter checklist item"
                         onKeyPress={(e) => e.key === 'Enter' && handleAddChecklistItem()}
+                        className="h-7 text-xs"
                       />
-                      <Button onClick={handleAddChecklistItem} size="sm">
-                        <Plus className="h-4 w-4" />
+                      <Button onClick={handleAddChecklistItem} size="sm" className="h-7">
+                        <Plus className="h-3 w-3" />
                       </Button>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       {formData.checklistItems?.map((item, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
-                          <span className="text-sm">{item}</span>
+                        <div key={index} className="flex items-center justify-between p-1.5 bg-muted rounded">
+                          <span className="text-xs">{item}</span>
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-5 w-5 p-0"
                             onClick={() => handleRemoveChecklistItem(index)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
                       ))}
@@ -704,11 +715,11 @@ export function StepFormDialog({
               </div>
             </TabsContent>
 
-            <TabsContent value="forms" className="space-y-4">
+            <TabsContent value="forms" className="space-y-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold">Interactive Form Fields</h3>
-                  <p className="text-sm text-muted-foreground">
+                  <h3 className="text-xs font-semibold">Interactive Form Fields</h3>
+                  <p className="text-xs text-muted-foreground">
                     Add form fields for data collection, diagnostics, and checklists
                   </p>
                 </div>
@@ -718,46 +729,48 @@ export function StepFormDialog({
                     checked={formData.requiresFormCompletion || false}
                     onCheckedChange={(checked) => setFormData(prev => ({ ...prev, requiresFormCompletion: checked }))}
                   />
-                  <Label htmlFor="requires-form">Require Form Completion</Label>
+                  <Label htmlFor="requires-form" className="text-xs">Require Form Completion</Label>
                 </div>
               </div>
 
-              <Button onClick={() => setShowFormFieldDialog(true)} className="w-full">
-                <Plus className="h-4 w-4 mr-2" />
+              <Button size="sm" className="w-full h-7 text-xs" onClick={() => setShowFormFieldDialog(true)}>
+                <Plus className="h-3 w-3 mr-1" />
                 Add Form Field
               </Button>
 
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {formData.formFields?.map((field) => (
                   <Card key={field.id}>
-                    <CardContent className="pt-4">
+                    <CardContent className="pt-2 pb-2 px-3">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge variant="outline">{field.type}</Badge>
-                            {field.required && <Badge variant="destructive" className="text-xs">Required</Badge>}
-                            {field.isConditional && <Badge variant="secondary" className="text-xs">Conditional</Badge>}
+                          <div className="flex items-center gap-1 mb-1">
+                            <Badge variant="outline" className="text-xs h-4 px-1">{field.type}</Badge>
+                            {field.required && <Badge variant="destructive" className="text-xs h-4 px-1">Required</Badge>}
+                            {field.isConditional && <Badge variant="secondary" className="text-xs h-4 px-1">Conditional</Badge>}
                           </div>
-                          <h4 className="font-medium">{field.label}</h4>
-                          <p className="text-sm text-muted-foreground">{field.name}</p>
+                          <h4 className="text-xs font-medium">{field.label}</h4>
+                          <p className="text-xs text-muted-foreground">{field.name}</p>
                           {field.helpText && (
-                            <p className="text-xs text-muted-foreground mt-1">{field.helpText}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{field.helpText}</p>
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-6 w-6 p-0"
                             onClick={() => handleEditFormField(field)}
                           >
-                            <Edit className="h-4 w-4" />
+                            <Edit className="h-3 w-3" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-6 w-6 p-0"
                             onClick={() => handleRemoveFormField(field.id)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
                       </div>
@@ -767,57 +780,59 @@ export function StepFormDialog({
               </div>
             </TabsContent>
 
-            <TabsContent value="automation" className="space-y-4">
+            <TabsContent value="automation" className="space-y-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold">Automation Rules</h3>
-                  <p className="text-sm text-muted-foreground">
+                  <h3 className="text-xs font-semibold">Automation Rules</h3>
+                  <p className="text-xs text-muted-foreground">
                     Configure automatic actions based on step events and conditions
                   </p>
                 </div>
               </div>
 
-              <Button onClick={() => setShowAutomationDialog(true)} className="w-full">
-                <Plus className="h-4 w-4 mr-2" />
+              <Button size="sm" className="w-full h-7 text-xs" onClick={() => setShowAutomationDialog(true)}>
+                <Plus className="h-3 w-3 mr-1" />
                 Add Automation Rule
               </Button>
 
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {formData.automationRules?.map((rule) => (
                   <Card key={rule._id}>
-                    <CardContent className="pt-4">
+                    <CardContent className="pt-2 pb-2 px-3">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge variant="outline">{rule.trigger}</Badge>
-                            <Badge variant="secondary">{rule.action}</Badge>
+                          <div className="flex items-center gap-1 mb-1">
+                            <Badge variant="outline" className="text-xs h-4 px-1">{rule.trigger}</Badge>
+                            <Badge variant="secondary" className="text-xs h-4 px-1">{rule.action}</Badge>
                             {rule.isActive ? (
-                              <Badge variant="default" className="text-xs">Active</Badge>
+                              <Badge variant="default" className="text-xs h-4 px-1">Active</Badge>
                             ) : (
-                              <Badge variant="destructive" className="text-xs">Inactive</Badge>
+                              <Badge variant="destructive" className="text-xs h-4 px-1">Inactive</Badge>
                             )}
                           </div>
-                          <p className="text-sm">
+                          <p className="text-xs">
                             When <strong>{rule.trigger.replace('_', ' ')}</strong> → <strong>{rule.action.replace('_', ' ')}</strong>
                           </p>
                           {rule.condition && (
-                            <p className="text-xs text-muted-foreground mt-1">Condition: {rule.condition}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">Condition: {rule.condition}</p>
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-6 w-6 p-0"
                             onClick={() => handleEditAutomationRule(rule)}
                           >
-                            <Edit className="h-4 w-4" />
+                            <Edit className="h-3 w-3" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-6 w-6 p-0"
                             onClick={() => handleRemoveAutomationRule(rule._id!)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
                       </div>
@@ -827,14 +842,14 @@ export function StepFormDialog({
               </div>
             </TabsContent>
 
-            <TabsContent value="notifications" className="space-y-4">
+            <TabsContent value="notifications" className="space-y-2">
               <div>
-                <h3 className="text-lg font-semibold mb-4">Notification Settings</h3>
-                <div className="space-y-4">
+                <h3 className="text-xs font-semibold mb-2">Notification Settings</h3>
+                <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label htmlFor="notify-start">Notify on Step Start</Label>
-                      <p className="text-sm text-muted-foreground">Send notification when step begins</p>
+                      <Label htmlFor="notify-start" className="text-xs">Notify on Step Start</Label>
+                      <p className="text-xs text-muted-foreground">Send notification when step begins</p>
                     </div>
                     <Switch
                       id="notify-start"
@@ -850,8 +865,8 @@ export function StepFormDialog({
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label htmlFor="notify-complete">Notify on Step Completion</Label>
-                      <p className="text-sm text-muted-foreground">Send notification when step is completed</p>
+                      <Label htmlFor="notify-complete" className="text-xs">Notify on Step Completion</Label>
+                      <p className="text-xs text-muted-foreground">Send notification when step is completed</p>
                     </div>
                     <Switch
                       id="notify-complete"
@@ -867,8 +882,8 @@ export function StepFormDialog({
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label htmlFor="notify-delay">Notify on Delay</Label>
-                      <p className="text-sm text-muted-foreground">Send notification if step takes longer than estimated</p>
+                      <Label htmlFor="notify-delay" className="text-xs">Notify on Delay</Label>
+                      <p className="text-xs text-muted-foreground">Send notification if step takes longer than estimated</p>
                     </div>
                     <Switch
                       id="notify-delay"
@@ -886,20 +901,21 @@ export function StepFormDialog({
               </div>
             </TabsContent>
           </Tabs>
+          </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <DialogFooter className="px-4 py-2 border-t flex-shrink-0">
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={loading}>
+            <Button size="sm" className="h-7 text-xs" onClick={handleSave} disabled={loading}>
               {loading ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
                   Saving...
                 </>
               ) : (
                 <>
-                  <Save className="h-4 w-4 mr-2" />
+                  <Save className="h-3 w-3 mr-1" />
                   {mode === 'create' ? 'Create Step' : 'Update Step'}
                 </>
               )}
@@ -910,44 +926,49 @@ export function StepFormDialog({
 
       {/* Form Field Dialog */}
       <Dialog open={showFormFieldDialog} onOpenChange={setShowFormFieldDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="max-w-lg p-0 overflow-hidden">
+          <DialogHeader
+            className="px-4 py-3"
+            style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)' }}
+          >
+            <DialogTitle className="text-sm font-semibold text-white">
               {editingFormField ? 'Edit Form Field' : 'Add Form Field'}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>
               Configure an interactive form field for data collection
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="field-name">Field Name *</Label>
+          <div className="grid gap-3 p-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="field-name" className="text-xs">Field Name *</Label>
                 <Input
                   id="field-name"
                   value={newFormField.name || ""}
                   onChange={(e) => setNewFormField(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="field_name"
+                  className="h-7 text-xs"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="field-label">Field Label *</Label>
+              <div className="space-y-1">
+                <Label htmlFor="field-label" className="text-xs">Field Label *</Label>
                 <Input
                   id="field-label"
                   value={newFormField.label || ""}
                   onChange={(e) => setNewFormField(prev => ({ ...prev, label: e.target.value }))}
                   placeholder="Display Label"
+                  className="h-7 text-xs"
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="field-type">Field Type</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="field-type" className="text-xs">Field Type</Label>
                 <Select
                   value={newFormField.type}
                   onValueChange={(value) => setNewFormField(prev => ({ ...prev, type: value as any }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-7 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -959,37 +980,39 @@ export function StepFormDialog({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center space-x-2 pt-8">
+              <div className="flex items-center space-x-2 pt-5">
                 <Switch
                   id="field-required"
                   checked={newFormField.required || false}
                   onCheckedChange={(checked) => setNewFormField(prev => ({ ...prev, required: checked }))}
                 />
-                <Label htmlFor="field-required">Required</Label>
+                <Label htmlFor="field-required" className="text-xs">Required</Label>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="field-placeholder">Placeholder</Label>
+            <div className="space-y-1">
+              <Label htmlFor="field-placeholder" className="text-xs">Placeholder</Label>
               <Input
                 id="field-placeholder"
                 value={newFormField.placeholder || ""}
                 onChange={(e) => setNewFormField(prev => ({ ...prev, placeholder: e.target.value }))}
                 placeholder="Enter placeholder text"
+                className="h-7 text-xs"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="field-help">Help Text</Label>
+            <div className="space-y-1">
+              <Label htmlFor="field-help" className="text-xs">Help Text</Label>
               <Textarea
                 id="field-help"
                 value={newFormField.helpText || ""}
                 onChange={(e) => setNewFormField(prev => ({ ...prev, helpText: e.target.value }))}
                 placeholder="Additional help or instructions"
                 rows={2}
+                className="text-xs"
               />
             </div>
             {(newFormField.type === 'select' || newFormField.type === 'multiselect' || newFormField.type === 'radio') && (
-              <div className="space-y-2">
-                <Label>Options (one per line)</Label>
+              <div className="space-y-1">
+                <Label className="text-xs">Options (one per line)</Label>
                 <Textarea
                   value={newFormField.options?.map(opt => `${opt.value}:${opt.label}`).join('\n') || ""}
                   onChange={(e) => {
@@ -1002,15 +1025,16 @@ export function StepFormDialog({
                   }}
                   placeholder="value1:Label 1&#10;value2:Label 2"
                   rows={3}
+                  className="text-xs"
                 />
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowFormFieldDialog(false)}>
+          <DialogFooter className="px-4 py-2 border-t">
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowFormFieldDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={editingFormField ? handleUpdateFormField : handleAddFormField}>
+            <Button size="sm" className="h-7 text-xs" onClick={editingFormField ? handleUpdateFormField : handleAddFormField}>
               {editingFormField ? 'Update Field' : 'Add Field'}
             </Button>
           </DialogFooter>
@@ -1019,24 +1043,27 @@ export function StepFormDialog({
 
       {/* Automation Rule Dialog */}
       <Dialog open={showAutomationDialog} onOpenChange={setShowAutomationDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="max-w-lg p-0 overflow-hidden">
+          <DialogHeader
+            className="px-4 py-3"
+            style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)' }}
+          >
+            <DialogTitle className="text-sm font-semibold text-white">
               {editingAutomationRule ? 'Edit Automation Rule' : 'Add Automation Rule'}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>
               Configure automatic actions for this step
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="rule-trigger">Trigger</Label>
+          <div className="grid gap-3 p-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="rule-trigger" className="text-xs">Trigger</Label>
                 <Select
                   value={newAutomationRule.trigger}
                   onValueChange={(value) => setNewAutomationRule(prev => ({ ...prev, trigger: value as any }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-7 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1048,13 +1075,13 @@ export function StepFormDialog({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="rule-action">Action</Label>
+              <div className="space-y-1">
+                <Label htmlFor="rule-action" className="text-xs">Action</Label>
                 <Select
                   value={newAutomationRule.action}
                   onValueChange={(value) => setNewAutomationRule(prev => ({ ...prev, action: value as any }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-7 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1067,13 +1094,14 @@ export function StepFormDialog({
                 </Select>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="rule-condition">Condition (optional)</Label>
+            <div className="space-y-1">
+              <Label htmlFor="rule-condition" className="text-xs">Condition (optional)</Label>
               <Input
                 id="rule-condition"
                 value={newAutomationRule.condition || ""}
                 onChange={(e) => setNewAutomationRule(prev => ({ ...prev, condition: e.target.value }))}
                 placeholder="e.g., form_field_value == 'failed'"
+                className="h-7 text-xs"
               />
             </div>
             <div className="flex items-center space-x-2">
@@ -1082,14 +1110,14 @@ export function StepFormDialog({
                 checked={newAutomationRule.isActive || false}
                 onCheckedChange={(checked) => setNewAutomationRule(prev => ({ ...prev, isActive: checked }))}
               />
-              <Label htmlFor="rule-active">Active</Label>
+              <Label htmlFor="rule-active" className="text-xs">Active</Label>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAutomationDialog(false)}>
+          <DialogFooter className="px-4 py-2 border-t">
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowAutomationDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={editingAutomationRule ? handleUpdateAutomationRule : handleAddAutomationRule}>
+            <Button size="sm" className="h-7 text-xs" onClick={editingAutomationRule ? handleUpdateAutomationRule : handleAddAutomationRule}>
               {editingAutomationRule ? 'Update Rule' : 'Add Rule'}
             </Button>
           </DialogFooter>
