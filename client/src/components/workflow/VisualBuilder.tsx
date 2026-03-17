@@ -274,127 +274,130 @@ export function VisualBuilder({ workflow, onSave, onClose, services, addOnServic
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b">
+      <div
+        className="flex items-center justify-between px-4 py-2 flex-shrink-0"
+        style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)' }}
+      >
         <div>
-          <h2 className="text-2xl font-bold">{workflowData.name}</h2>
-          <p className="text-muted-foreground">Visual Workflow Builder</p>
+          <h2 className="text-sm font-bold text-white">{workflowData.name}</h2>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>Visual Workflow Builder</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button onClick={handleAddStep}>
-            <Plus className="h-4 w-4 mr-2" />
+        <div className="flex items-center gap-1">
+          <Button size="sm" className="h-7 text-xs px-2" variant="secondary" onClick={handleAddStep}>
+            <Plus className="h-3 w-3 mr-1" />
             Add Step
           </Button>
-          <Button onClick={handleSaveWorkflow} disabled={saving}>
+          <Button size="sm" className="h-7 text-xs px-2" variant="secondary" onClick={handleSaveWorkflow} disabled={saving}>
             {saving ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1"></div>
                 Saving...
               </>
             ) : (
               <>
-                <Save className="h-4 w-4 mr-2" />
-                Save Workflow
+                <Save className="h-3 w-3 mr-1" />
+                Save
               </>
             )}
           </Button>
-          <Button variant="outline" onClick={onClose}>
-            <X className="h-4 w-4 mr-2" />
+          <Button size="sm" className="h-7 text-xs px-2" variant="outline" style={{ borderColor: 'rgba(255,255,255,0.4)', color: 'white', background: 'transparent' }} onClick={onClose}>
+            <X className="h-3 w-3 mr-1" />
             Close
           </Button>
         </div>
       </div>
 
       {/* Workflow Canvas */}
-      <div className="flex-1 p-6 overflow-auto">
-        <div className="space-y-4">
+      <div className="flex-1 p-3 overflow-auto">
+        <div className="space-y-2">
           {sortedSteps.length === 0 ? (
             <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Settings className="h-16 w-16 text-muted-foreground mb-4" />
-                <h3 className="text-xl font-semibold mb-2">No Steps Added</h3>
-                <p className="text-muted-foreground text-center mb-6">
-                  Start building your workflow by adding the first step with interactive forms and automation
+              <CardContent className="flex flex-col items-center justify-center py-8">
+                <Settings className="h-10 w-10 text-muted-foreground mb-2" />
+                <h3 className="text-sm font-semibold mb-1">No Steps Added</h3>
+                <p className="text-xs text-muted-foreground text-center mb-3">
+                  Start building your workflow by adding the first step
                 </p>
-                <Button onClick={handleAddStep} size="lg">
-                  <Plus className="h-5 w-5 mr-2" />
+                <Button onClick={handleAddStep} size="sm" className="h-7 text-xs">
+                  <Plus className="h-3 w-3 mr-1" />
                   Add First Step
                 </Button>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4">
+            <div className="grid gap-2">
               {sortedSteps.map((step, index) => (
                 <Card key={step._id} className="relative">
-                  <CardHeader className="pb-3">
+                  <CardHeader className="py-2 px-3">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="outline" className="text-xs">
+                        <div className="flex items-center gap-1 mb-1">
+                          <Badge variant="outline" className="text-xs h-4 px-1">
                             Step {step.order}
                           </Badge>
-                          <Badge className={`text-xs ${getCategoryColor(step.category)}`}>
+                          <Badge className={`text-xs h-4 px-1 ${getCategoryColor(step.category)}`}>
                             {step.category}
                           </Badge>
                           {step.isRequired && (
-                            <Badge variant="destructive" className="text-xs">
+                            <Badge variant="destructive" className="text-xs h-4 px-1">
                               Required
                             </Badge>
                           )}
                           {step.requiresApproval && (
-                            <Badge variant="secondary" className="text-xs">
-                              <CheckCircle className="h-3 w-3 mr-1" />
+                            <Badge variant="secondary" className="text-xs h-4 px-1">
+                              <CheckCircle className="h-2.5 w-2.5 mr-0.5" />
                               Approval
                             </Badge>
                           )}
                           {step.requiresFormCompletion && (
-                            <Badge variant="secondary" className="text-xs">
-                              <FormInput className="h-3 w-3 mr-1" />
+                            <Badge variant="secondary" className="text-xs h-4 px-1">
+                              <FormInput className="h-2.5 w-2.5 mr-0.5" />
                               Form Required
                             </Badge>
                           )}
                         </div>
-                        <CardTitle className="text-lg">{step.name}</CardTitle>
-                        <p className="text-sm text-muted-foreground mt-1">
+                        <CardTitle className="text-xs font-semibold">{step.name}</CardTitle>
+                        <p className="text-xs text-muted-foreground">
                           {step.description}
                         </p>
                       </div>
-                      <div className="flex items-center gap-1 ml-2">
+                      <div className="flex items-center gap-0.5 ml-2">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEditStep(step)}
-                          className="h-8 w-8 p-0"
+                          className="h-6 w-6 p-0"
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="h-3 w-3" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleDeleteStep(step._id)}
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                          className="h-6 w-6 p-0 text-destructive hover:text-destructive"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="space-y-3">
+                  <CardContent className="py-1 px-3">
+                    <div className="space-y-1.5">
                       {/* Step Details */}
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <div className="flex items-center gap-1">
-                          <Clock className="h-4 w-4" />
+                          <Clock className="h-3 w-3" />
                           <span>{step.estimatedTime} min</span>
                         </div>
                         {step.dependencies && step.dependencies.length > 0 && (
                           <div className="flex items-center gap-1">
-                            <AlertTriangle className="h-4 w-4" />
-                            <span>{step.dependencies.length} dependencies</span>
+                            <AlertTriangle className="h-3 w-3" />
+                            <span>{step.dependencies.length} deps</span>
                           </div>
                         )}
                         {step.tools && step.tools.length > 0 && (
                           <div className="flex items-center gap-1">
-                            <Settings className="h-4 w-4" />
+                            <Settings className="h-3 w-3" />
                             <span>{step.tools.length} tools</span>
                           </div>
                         )}
@@ -402,21 +405,21 @@ export function VisualBuilder({ workflow, onSave, onClose, services, addOnServic
 
                       {/* Form Fields Summary */}
                       {step.formFields && step.formFields.length > 0 && (
-                        <div className="bg-muted/50 rounded-lg p-3">
-                          <div className="flex items-center gap-2 mb-2">
-                            <FormInput className="h-4 w-4" />
-                            <span className="text-sm font-medium">
-                              Interactive Form Fields ({step.formFields.length})
+                        <div className="bg-muted/50 rounded p-2">
+                          <div className="flex items-center gap-1 mb-1">
+                            <FormInput className="h-3 w-3" />
+                            <span className="text-xs font-medium">
+                              Form Fields ({step.formFields.length})
                             </span>
                           </div>
-                          <div className="flex flex-wrap gap-1">
+                          <div className="flex flex-wrap gap-0.5">
                             {step.formFields.slice(0, 3).map((field) => (
-                              <Badge key={field.id} variant="outline" className="text-xs">
+                              <Badge key={field.id} variant="outline" className="text-xs h-4 px-1">
                                 {field.label} ({field.type})
                               </Badge>
                             ))}
                             {step.formFields.length > 3 && (
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="outline" className="text-xs h-4 px-1">
                                 +{step.formFields.length - 3} more
                               </Badge>
                             )}
@@ -426,21 +429,21 @@ export function VisualBuilder({ workflow, onSave, onClose, services, addOnServic
 
                       {/* Automation Rules Summary */}
                       {step.automationRules && step.automationRules.length > 0 && (
-                        <div className="bg-muted/50 rounded-lg p-3">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Zap className="h-4 w-4" />
-                            <span className="text-sm font-medium">
+                        <div className="bg-muted/50 rounded p-2">
+                          <div className="flex items-center gap-1 mb-1">
+                            <Zap className="h-3 w-3" />
+                            <span className="text-xs font-medium">
                               Automation Rules ({step.automationRules.length})
                             </span>
                           </div>
-                          <div className="flex flex-wrap gap-1">
+                          <div className="flex flex-wrap gap-0.5">
                             {step.automationRules.slice(0, 2).map((rule, index) => (
-                              <Badge key={index} variant="outline" className="text-xs">
+                              <Badge key={index} variant="outline" className="text-xs h-4 px-1">
                                 {rule.trigger} → {rule.action}
                               </Badge>
                             ))}
                             {step.automationRules.length > 2 && (
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="outline" className="text-xs h-4 px-1">
                                 +{step.automationRules.length - 2} more
                               </Badge>
                             )}
@@ -450,14 +453,14 @@ export function VisualBuilder({ workflow, onSave, onClose, services, addOnServic
 
                       {/* Checklist Items */}
                       {step.checklistItems && step.checklistItems.length > 0 && (
-                        <div className="bg-muted/50 rounded-lg p-3">
-                          <div className="flex items-center gap-2 mb-2">
-                            <CheckCircle className="h-4 w-4" />
-                            <span className="text-sm font-medium">
+                        <div className="bg-muted/50 rounded p-2">
+                          <div className="flex items-center gap-1 mb-1">
+                            <CheckCircle className="h-3 w-3" />
+                            <span className="text-xs font-medium">
                               Checklist ({step.checklistItems.length} items)
                             </span>
                           </div>
-                          <div className="space-y-1">
+                          <div className="space-y-0.5">
                             {step.checklistItems.slice(0, 2).map((item, index) => (
                               <div key={index} className="text-xs text-muted-foreground">
                                 • {item}
@@ -465,7 +468,7 @@ export function VisualBuilder({ workflow, onSave, onClose, services, addOnServic
                             ))}
                             {step.checklistItems.length > 2 && (
                               <div className="text-xs text-muted-foreground">
-                                ... and {step.checklistItems.length - 2} more items
+                                ... and {step.checklistItems.length - 2} more
                               </div>
                             )}
                           </div>
