@@ -267,15 +267,19 @@ export default function ServiceCategoryManagement() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between rounded-xl px-5 py-4 text-white shadow-sm" style={{ background: '#1a2a5e' }}>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Service Category Management</h1>
-          <p className="text-muted-foreground mt-2">
+          <h1 className="text-2xl font-bold tracking-tight">Service Category Management</h1>
+          <p className="mt-1 text-sm text-blue-100">
             Manage dynamic service categories for repair and add-on services
           </p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
+        <Button
+          onClick={() => setShowCreateDialog(true)}
+          variant="secondary"
+          className="border-0 bg-white text-blue-700 hover:bg-blue-50"
+        >
+          <Plus className="mr-2 h-4 w-4" />
           Add Category
         </Button>
       </div>
@@ -489,77 +493,81 @@ export default function ServiceCategoryManagement() {
 
       {/* Create Category Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New Category</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-md gap-0 overflow-hidden p-0 [&>button]:right-3 [&>button]:top-3 [&>button]:text-white [&>button]:hover:bg-white/15 [&>button]:hover:text-white">
+          <DialogHeader className="space-y-0.5 px-4 py-3 text-left sm:text-left" style={{ background: '#1a2a5e' }}>
+            <DialogTitle className="text-sm font-semibold text-white">Create New Category</DialogTitle>
+            <DialogDescription className="text-xs text-blue-100">
               Add a new service category for repair or add-on services
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-2 p-3">
             <div>
-              <Label htmlFor="name">Name *</Label>
+              <Label htmlFor="name" className="mb-1 block text-xs font-medium">Name *</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Category name"
+                className="h-8 text-xs"
               />
             </div>
             <div>
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description" className="mb-1 block text-xs font-medium">Description</Label>
               <Input
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Category description"
+                className="h-8 text-xs"
               />
             </div>
             <div>
-              <Label htmlFor="type">Type *</Label>
+              <Label htmlFor="type" className="mb-1 block text-xs font-medium">Type *</Label>
               <Select
                 value={formData.type}
                 onValueChange={(value: 'repair' | 'addon') =>
                   setFormData({ ...formData, type: value })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-8 text-xs">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="repair">Repair</SelectItem>
-                  <SelectItem value="addon">Add-on</SelectItem>
+                  <SelectItem value="repair" className="text-xs">Repair</SelectItem>
+                  <SelectItem value="addon" className="text-xs">Add-on</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label htmlFor="icon">Icon Name (Lucide)</Label>
+              <Label htmlFor="icon" className="mb-1 block text-xs font-medium">Icon Name (Lucide)</Label>
               <Input
                 id="icon"
                 value={formData.icon}
                 onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
                 placeholder="e.g., Monitor, Battery"
+                className="h-8 text-xs"
               />
             </div>
             <div>
-              <Label htmlFor="color">Color</Label>
+              <Label htmlFor="color" className="mb-1 block text-xs font-medium">Color</Label>
               <div className="flex gap-2">
                 <Input
                   id="color"
                   type="color"
                   value={formData.color}
                   onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                  className="w-20"
+                  className="h-8 w-14 p-1"
                 />
                 <Input
                   value={formData.color}
                   onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                   placeholder="#3b82f6"
+                  className="h-8 text-xs"
                 />
               </div>
             </div>
             <div>
-              <Label htmlFor="order">Order</Label>
+              <Label htmlFor="order" className="mb-1 block text-xs font-medium">Order</Label>
               <Input
                 id="order"
                 type="number"
@@ -568,74 +576,79 @@ export default function ServiceCategoryManagement() {
                   setFormData({ ...formData, order: parseInt(e.target.value) || 0 })
                 }
                 placeholder="Display order"
+                className="h-8 text-xs"
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+          <DialogFooter className="border-t bg-slate-50 px-3 py-2 sm:justify-end sm:space-x-1.5">
+            <Button size="sm" variant="outline" className="h-8 px-3 text-xs" onClick={() => setShowCreateDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateCategory}>Create Category</Button>
+            <Button size="sm" className="h-8 px-3 text-xs" onClick={handleCreateCategory}>Create Category</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Edit Category Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Category</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-md gap-0 overflow-hidden p-0 [&>button]:right-3 [&>button]:top-3 [&>button]:text-white [&>button]:hover:bg-white/15 [&>button]:hover:text-white">
+          <DialogHeader className="space-y-0.5 px-4 py-3 text-left sm:text-left" style={{ background: '#1a2a5e' }}>
+            <DialogTitle className="text-sm font-semibold text-white">Edit Category</DialogTitle>
+            <DialogDescription className="text-xs text-blue-100">
               Update the category information
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-2 p-3">
             <div>
-              <Label htmlFor="edit-name">Name *</Label>
+              <Label htmlFor="edit-name" className="mb-1 block text-xs font-medium">Name *</Label>
               <Input
                 id="edit-name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Category name"
+                className="h-8 text-xs"
               />
             </div>
             <div>
-              <Label htmlFor="edit-description">Description</Label>
+              <Label htmlFor="edit-description" className="mb-1 block text-xs font-medium">Description</Label>
               <Input
                 id="edit-description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Category description"
+                className="h-8 text-xs"
               />
             </div>
             <div>
-              <Label htmlFor="edit-icon">Icon Name (Lucide)</Label>
+              <Label htmlFor="edit-icon" className="mb-1 block text-xs font-medium">Icon Name (Lucide)</Label>
               <Input
                 id="edit-icon"
                 value={formData.icon}
                 onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
                 placeholder="e.g., Monitor, Battery"
+                className="h-8 text-xs"
               />
             </div>
             <div>
-              <Label htmlFor="edit-color">Color</Label>
+              <Label htmlFor="edit-color" className="mb-1 block text-xs font-medium">Color</Label>
               <div className="flex gap-2">
                 <Input
                   id="edit-color"
                   type="color"
                   value={formData.color}
                   onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                  className="w-20"
+                  className="h-8 w-14 p-1"
                 />
                 <Input
                   value={formData.color}
                   onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                   placeholder="#3b82f6"
+                  className="h-8 text-xs"
                 />
               </div>
             </div>
             <div>
-              <Label htmlFor="edit-order">Order</Label>
+              <Label htmlFor="edit-order" className="mb-1 block text-xs font-medium">Order</Label>
               <Input
                 id="edit-order"
                 type="number"
@@ -644,14 +657,15 @@ export default function ServiceCategoryManagement() {
                   setFormData({ ...formData, order: parseInt(e.target.value) || 0 })
                 }
                 placeholder="Display order"
+                className="h-8 text-xs"
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+          <DialogFooter className="border-t bg-slate-50 px-3 py-2 sm:justify-end sm:space-x-1.5">
+            <Button size="sm" variant="outline" className="h-8 px-3 text-xs" onClick={() => setShowEditDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateCategory}>Update Category</Button>
+            <Button size="sm" className="h-8 px-3 text-xs" onClick={handleUpdateCategory}>Update Category</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

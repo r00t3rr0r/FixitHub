@@ -40,23 +40,28 @@
   color: var(--gray-700);
   background: var(--off-white);
   min-height: 100vh;
-  padding: 32px 24px;
+  padding: 18px 16px;
 }
 
 /* Header Section */
 .repair-requests-header {
-  margin-bottom: 32px;
+  background: var(--primary-blue);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .repair-requests-header h1 {
-  font-size: 2.5rem;
+  font-size: 1.35rem;
   font-weight: 800;
-  color: var(--primary-blue);
-  margin-bottom: 8px;
-  letter-spacing: -0.5px;
+  color: var(--white);
+  margin-bottom: 2px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .repair-requests-header h1 svg {
@@ -64,24 +69,25 @@
 }
 
 .repair-requests-header p {
-  color: var(--gray-500);
-  font-size: 1.05rem;
-  font-weight: 500;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.78rem;
+  font-weight: 400;
+  margin: 0;
 }
 
 /* Statistics Cards */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 20px;
-  margin-bottom: 32px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
 }
 
 .stat-card {
   background: var(--white);
-  border-radius: var(--radius-lg);
-  padding: 24px;
-  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  box-shadow: var(--shadow-sm);
   transition: var(--transition);
   border: 2px solid transparent;
 }
@@ -120,11 +126,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 
 .stat-card-title {
-  font-size: 0.875rem;
+  font-size: 0.68rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -168,13 +174,13 @@
 }
 
 .stat-card-icon {
-  width: 40px;
-  height: 40px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.3);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
 }
 
 .stat-card.stat-total .stat-card-icon {
@@ -182,19 +188,19 @@
 }
 
 .stat-card-value {
-  font-size: 2.5rem;
+  font-size: 1.7rem;
   font-weight: 800;
   line-height: 1;
-  letter-spacing: -1px;
+  letter-spacing: -0.5px;
 }
 
 /* Filter Section */
 .filter-card {
   background: var(--white);
-  border-radius: var(--radius-lg);
-  padding: 24px;
-  box-shadow: var(--shadow-md);
-  margin-bottom: 24px;
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 12px;
 }
 
 .filter-container {
@@ -210,21 +216,21 @@
 
 .search-wrapper svg {
   position: absolute;
-  left: 16px;
+  left: 11px;
   top: 50%;
   transform: translateY(-50%);
   color: var(--gray-400);
-  width: 20px;
-  height: 20px;
+  width: 15px;
+  height: 15px;
 }
 
 .search-input {
   width: 100%;
-  padding: 12px 16px 12px 48px;
+  padding: 7px 12px 7px 34px;
   border: 2px solid var(--gray-200);
   border-radius: var(--radius-md);
   font-family: var(--font-main);
-  font-size: 1rem;
+  font-size: 0.85rem;
   color: var(--gray-700);
   transition: var(--transition);
 }
@@ -254,20 +260,20 @@
 }
 
 .requests-table-header {
-  padding: 24px;
+  padding: 12px 16px;
   border-bottom: 2px solid var(--gray-100);
 }
 
 .requests-table-title {
-  font-size: 1.5rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--primary-blue);
-  margin-bottom: 4px;
+  margin-bottom: 1px;
 }
 
 .requests-table-description {
   color: var(--gray-500);
-  font-size: 0.95rem;
+  font-size: 0.78rem;
 }
 
 .requests-table-content {
@@ -283,7 +289,7 @@
 .requests-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
 
 .requests-table thead {
@@ -292,10 +298,10 @@
 }
 
 .requests-table thead th {
-  padding: 16px;
+  padding: 9px 12px;
   text-align: left;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--primary-blue);
@@ -316,7 +322,7 @@
 }
 
 .requests-table tbody td {
-  padding: 16px;
+  padding: 8px 12px;
   color: var(--gray-700);
 }
 
@@ -337,12 +343,12 @@
 .customer-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 7px;
 }
 
 .customer-avatar {
-  width: 40px;
-  height: 40px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: var(--white);
   color: var(--primary-blue);
@@ -350,7 +356,7 @@
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 0.75rem;
   flex-shrink: 0;
   border: 1px solid var(--gray-200);
 }
@@ -401,10 +407,10 @@
 .status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 0.8rem;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 0.67rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -445,10 +451,10 @@
 .priority-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 0.8rem;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 0.67rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -514,10 +520,10 @@
 .actions-button {
   background: var(--primary-blue);
   color: var(--white);
-  padding: 8px 20px;
-  border-radius: var(--radius-md);
+  padding: 4px 11px;
+  border-radius: var(--radius-sm);
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.75rem;
   transition: var(--transition);
   border: none;
   cursor: pointer;
@@ -545,19 +551,19 @@
 /* Empty State */
 .empty-state {
   text-align: center;
-  padding: 64px 24px;
+  padding: 36px 24px;
   color: var(--gray-500);
 }
 
 .empty-state svg {
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 16px;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 10px;
   opacity: 0.3;
 }
 
 .empty-state p {
-  font-size: 1.1rem;
+  font-size: 0.9rem;
   font-weight: 500;
 }
 
@@ -597,35 +603,35 @@
 
 @media (max-width: 1200px) {
   .requests-table {
-    font-size: 0.85rem;
+    font-size: 0.78rem;
   }
 
   .requests-table thead th,
   .requests-table tbody td {
-    padding: 12px;
+    padding: 7px 10px;
   }
 }
 
 @media (max-width: 768px) {
   .repair-requests-management {
-    padding: 20px 16px;
+    padding: 14px 12px;
   }
 
   .repair-requests-header h1 {
-    font-size: 1.8rem;
+    font-size: 1.3rem;
   }
 
   .stats-grid {
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
   }
 
   .stat-card {
-    padding: 16px;
+    padding: 10px;
   }
 
   .stat-card-value {
-    font-size: 2rem;
+    font-size: 1.4rem;
   }
 
   .requests-table-wrapper {
@@ -640,22 +646,34 @@
 
 /* Dialog Improvements */
 .mcrepair-dialog-header {
-  background: linear-gradient(135deg, var(--primary-blue-dark) 0%, var(--primary-blue) 100%);
-  padding: 24px;
-  margin: -24px -24px 24px -24px;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--primary-blue);
+  padding: 14px 22px !important;
+  margin: -24px -24px 18px -24px;
+  border-radius: 8px 8px 0 0;
+  text-align: left !important;
 }
 
-.mcrepair-dialog-title {
-  color: var(--white);
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin-bottom: 4px;
+.mcrepair-dialog-header > *,
+.mcrepair-dialog-title,
+.mcrepair-dialog-header [class*="title"] {
+  color: var(--white) !important;
+  font-size: 1rem !important;
+  font-weight: 700 !important;
+  margin-bottom: 2px;
+  line-height: 1.3;
 }
 
-.mcrepair-dialog-description {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 0.95rem;
+.mcrepair-dialog-description,
+.mcrepair-dialog-header + * > [class*="description"],
+.mcrepair-dialog-header [class*="description"] {
+  color: rgba(255, 255, 255, 0.82) !important;
+  font-size: 0.78rem !important;
+  margin-top: 2px !important;
+}
+
+/* AlertDialog with blue header */
+.mcrepair-dialog-header.mcrepair-dialog-header {
+  background: var(--primary-blue) !important;
 }
 
 /* Button Styles */

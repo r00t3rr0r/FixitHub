@@ -375,82 +375,84 @@ export function SystemConfiguration() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Settings className="h-8 w-8" />
-            {t('admin.systemConfig.title')}
-          </h1>
-          <p className="text-muted-foreground">
-            Configure system settings, notifications, integrations, and security
-          </p>
+      <div className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] rounded-lg p-6 text-white shadow-md">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Settings className="h-6 w-6" />
+              {t('admin.systemConfig.title')}
+            </h1>
+            <p className="text-blue-100 text-sm mt-1">
+              Configure system settings, notifications, integrations, and security
+            </p>
+          </div>
+          <Button onClick={handleSaveConfig} disabled={saving} className="bg-white text-[#1a2a5e] hover:bg-blue-50">
+            {saving ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                Save Changes
+              </>
+            )}
+          </Button>
         </div>
-        <Button onClick={handleSaveConfig} disabled={saving}>
-          {saving ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Saving...
-            </>
-          ) : (
-            <>
-              <Save className="h-4 w-4 mr-2" />
-              Save Changes
-            </>
-          )}
-        </Button>
       </div>
 
-      <Tabs defaultValue="general" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="general">{t('admin.systemConfig.general')}</TabsTrigger>
-          <TabsTrigger value="notifications">{t('admin.systemConfig.notifications')}</TabsTrigger>
-          <TabsTrigger value="integrations">{t('admin.systemConfig.integrations')}</TabsTrigger>
-          <TabsTrigger value="workflow">{t('admin.systemConfig.workflows')}</TabsTrigger>
-          <TabsTrigger value="security">{t('admin.systemConfig.security')}</TabsTrigger>
-          <TabsTrigger value="content">{t('admin.systemConfig.content')}</TabsTrigger>
-          <TabsTrigger value="languages">{t('admin.systemConfig.languages')}</TabsTrigger>
+      <Tabs defaultValue="general" className="space-y-3">
+        <TabsList className="h-auto bg-gradient-to-r from-[#1a2a5e]/10 to-[#2a3f7f]/10 border-b-2 border-[#1a2a5e] gap-1 p-1 w-full rounded-none">
+          <TabsTrigger value="general" className="text-xs sm:text-sm py-2 px-2 sm:px-4">{t('admin.systemConfig.general')}</TabsTrigger>
+          <TabsTrigger value="notifications" className="text-xs sm:text-sm py-2 px-2 sm:px-4">{t('admin.systemConfig.notifications')}</TabsTrigger>
+          <TabsTrigger value="integrations" className="text-xs sm:text-sm py-2 px-2 sm:px-4">{t('admin.systemConfig.integrations')}</TabsTrigger>
+          <TabsTrigger value="workflow" className="text-xs sm:text-sm py-2 px-2 sm:px-4">{t('admin.systemConfig.workflows')}</TabsTrigger>
+          <TabsTrigger value="security" className="text-xs sm:text-sm py-2 px-2 sm:px-4">{t('admin.systemConfig.security')}</TabsTrigger>
+          <TabsTrigger value="content" className="text-xs sm:text-sm py-2 px-2 sm:px-4">{t('admin.systemConfig.content')}</TabsTrigger>
+          <TabsTrigger value="languages" className="text-xs sm:text-sm py-2 px-2 sm:px-4">{t('admin.systemConfig.languages')}</TabsTrigger>
         </TabsList>
 
         {/* General Tab */}
-        <TabsContent value="general" className="space-y-6">
+        <TabsContent value="general" className="space-y-4">
           {/* System Status */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Server className="h-5 w-5" />
                 System Status
               </CardTitle>
-              <CardDescription>Current system health and status</CardDescription>
+              <CardDescription className="text-blue-100 text-xs mt-1">Current system health and status</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Server className="h-4 w-4" />
+            <CardContent className="p-4">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="flex items-center justify-between p-2 border rounded-lg bg-gray-50 hover:bg-blue-50 transition-colors">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Server className="h-4 w-4 text-[#1a2a5e]" />
                     <span>Server Status</span>
                   </div>
-                  <Badge className="bg-green-500 text-white">
-                    <CheckCircle className="h-3 w-3 mr-1" />
+                  <Badge className="bg-green-500 text-white text-xs py-0.5 px-2">
+                    <CheckCircle className="h-2.5 w-2.5 mr-1" />
                     Online
                   </Badge>
                 </div>
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Database className="h-4 w-4" />
+                <div className="flex items-center justify-between p-2 border rounded-lg bg-gray-50 hover:bg-blue-50 transition-colors">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Database className="h-4 w-4 text-[#1a2a5e]" />
                     <span>Database</span>
                   </div>
-                  <Badge className="bg-green-500 text-white">
-                    <CheckCircle className="h-3 w-3 mr-1" />
+                  <Badge className="bg-green-500 text-white text-xs py-0.5 px-2">
+                    <CheckCircle className="h-2.5 w-2.5 mr-1" />
                     Connected
                   </Badge>
                 </div>
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4" />
+                <div className="flex items-center justify-between p-2 border rounded-lg bg-gray-50 hover:bg-blue-50 transition-colors">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Mail className="h-4 w-4 text-[#1a2a5e]" />
                     <span>Email Service</span>
                   </div>
-                  <Badge className="bg-green-500 text-white">
-                    <CheckCircle className="h-3 w-3 mr-1" />
+                  <Badge className="bg-green-500 text-white text-xs py-0.5 px-2">
+                    <CheckCircle className="h-2.5 w-2.5 mr-1" />
                     Active
                   </Badge>
                 </div>
@@ -460,12 +462,12 @@ export function SystemConfiguration() {
 
           {/* General Settings */}
           <Card>
-            <CardHeader>
-              <CardTitle>General Settings</CardTitle>
-              <CardDescription>Basic system configuration</CardDescription>
+            <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
+              <CardTitle className="text-lg">General Settings</CardTitle>
+              <CardDescription className="text-blue-100 text-xs mt-1">Basic system configuration</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
+            <CardContent className="p-4 space-y-4">
+              <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="siteName">Site Name</Label>
                   <Input
@@ -484,14 +486,14 @@ export function SystemConfiguration() {
                   />
                 </div>
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="timezone">Timezone</Label>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="timezone" className="text-sm">Timezone</Label>
                   <Select
                     value={config.timezone}
                     onValueChange={(value) => setConfig(prev => prev ? { ...prev, timezone: value } : null)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-9 text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -516,38 +518,38 @@ export function SystemConfiguration() {
 
           {/* System Actions */}
           <Card>
-            <CardHeader>
-              <CardTitle>System Actions</CardTitle>
-              <CardDescription>Perform system maintenance tasks</CardDescription>
+            <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
+              <CardTitle className="text-lg">System Actions</CardTitle>
+              <CardDescription className="text-blue-100 text-xs mt-1">Perform system maintenance tasks</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
+            <CardContent className="p-4">
+              <div className="grid gap-3 md:grid-cols-2">
                 <Button
                   variant="outline"
                   onClick={handleClearCache}
                   disabled={clearingCache}
-                  className="h-auto p-4 flex-col gap-2"
+                  className="h-auto py-3 px-4 flex-col gap-1"
                 >
                   {clearingCache ? (
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-current"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
                   ) : (
-                    <RefreshCw className="h-6 w-6" />
+                    <RefreshCw className="h-5 w-5" />
                   )}
-                  <span className="font-medium">Clear Cache</span>
+                  <span className="font-medium text-sm">Clear Cache</span>
                   <span className="text-xs text-muted-foreground">Clear system cache</span>
                 </Button>
                 <Button
                   variant="outline"
                   onClick={handleRunSecurityScan}
                   disabled={runningSecurityScan}
-                  className="h-auto p-4 flex-col gap-2"
+                  className="h-auto py-3 px-4 flex-col gap-1"
                 >
                   {runningSecurityScan ? (
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-current"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
                   ) : (
-                    <Scan className="h-6 w-6" />
+                    <Scan className="h-5 w-5" />
                   )}
-                  <span className="font-medium">Run Security Scan</span>
+                  <span className="font-medium text-sm">Run Security Scan</span>
                   <span className="text-xs text-muted-foreground">Check for vulnerabilities</span>
                 </Button>
               </div>
@@ -556,21 +558,21 @@ export function SystemConfiguration() {
         </TabsContent>
 
         {/* Notifications Tab - Combined notifications settings and templates */}
-        <TabsContent value="notifications" className="space-y-6">
+        <TabsContent value="notifications" className="space-y-4">
           {/* Notification Settings */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Bell className="h-5 w-5" />
                 Notification Settings
               </CardTitle>
-              <CardDescription>Configure notification preferences and behavior</CardDescription>
+              <CardDescription className="text-blue-100 text-xs mt-1">Configure notification preferences and behavior</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
+            <CardContent className="p-4 space-y-2">
+              <div className="flex items-center justify-between py-2 border-b last:border-b-0">
                 <div>
-                  <Label htmlFor="orderNotifications">Order Notifications</Label>
-                  <p className="text-sm text-muted-foreground">Send notifications for order updates</p>
+                  <Label htmlFor="orderNotifications" className="text-sm font-medium">Order Notifications</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">Send notifications for order updates</p>
                 </div>
                 <Switch
                   id="orderNotifications"
@@ -586,10 +588,10 @@ export function SystemConfiguration() {
                   }
                 />
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between py-2 border-b last:border-b-0">
                 <div>
-                  <Label htmlFor="paymentNotifications">Payment Notifications</Label>
-                  <p className="text-sm text-muted-foreground">Send notifications for payment events</p>
+                  <Label htmlFor="paymentNotifications" className="text-sm font-medium">Payment Notifications</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">Send notifications for payment events</p>
                 </div>
                 <Switch
                   id="paymentNotifications"
@@ -605,10 +607,10 @@ export function SystemConfiguration() {
                   }
                 />
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between py-2 border-b last:border-b-0">
                 <div>
-                  <Label htmlFor="systemAlerts">System Alerts</Label>
-                  <p className="text-sm text-muted-foreground">Send system-wide alerts and announcements</p>
+                  <Label htmlFor="systemAlerts" className="text-sm font-medium">System Alerts</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">Send system-wide alerts and announcements</p>
                 </div>
                 <Switch
                   id="systemAlerts"
@@ -629,15 +631,15 @@ export function SystemConfiguration() {
 
           {/* Email Configuration */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Mail className="h-5 w-5" />
                 Email Configuration
               </CardTitle>
-              <CardDescription>Configure SMTP settings for email notifications</CardDescription>
+              <CardDescription className="text-blue-100 text-xs mt-1">Configure SMTP settings for email notifications</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
+            <CardContent className="p-4 space-y-3">
+              <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="smtpHost">SMTP Host</Label>
                   <Input
@@ -717,22 +719,22 @@ export function SystemConfiguration() {
 
           {/* Notification Templates */}
           <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
+            <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex-1">
+                  <CardTitle className="flex items-center gap-2 text-lg">
                     <FileText className="h-5 w-5" />
                     Notification Templates
                   </CardTitle>
-                  <CardDescription>Create and manage notification templates with dynamic variables</CardDescription>
+                  <CardDescription className="text-blue-100 text-xs mt-1">Create and manage notification templates with dynamic variables</CardDescription>
                 </div>
-                <Button onClick={handleCreateTemplate}>
+                <Button onClick={handleCreateTemplate} size="sm" className="bg-white text-[#1a2a5e] hover:bg-blue-50">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Template
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4">
               {templates.length === 0 ? (
                 <div className="text-center py-8">
                   <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
@@ -831,22 +833,22 @@ export function SystemConfiguration() {
         {/* Integrations Tab */}
         <TabsContent value="integrations" className="space-y-6">
           <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
+            <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex-1">
+                  <CardTitle className="flex items-center gap-2 text-lg">
                     <Link className="h-5 w-5" />
                     Third-Party Integrations
                   </CardTitle>
-                  <CardDescription>Manage external service integrations and API connections</CardDescription>
+                  <CardDescription className="text-blue-100 text-xs mt-1">Manage external service integrations and API connections</CardDescription>
                 </div>
-                <Button onClick={handleCreateIntegration}>
+                <Button onClick={handleCreateIntegration} size="sm" className="bg-white text-[#1a2a5e] hover:bg-blue-50">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Integration
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4">
               {integrations.length === 0 ? (
                 <div className="text-center py-8">
                   <Link className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
@@ -957,14 +959,14 @@ export function SystemConfiguration() {
         {/* Workflow Tab */}
         <TabsContent value="workflow" className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Workflow className="h-5 w-5" />
                 Workflow Settings
               </CardTitle>
-              <CardDescription>Configure workflow automation and business processes</CardDescription>
+              <CardDescription className="text-blue-100 text-xs mt-1">Configure workflow automation and business processes</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <Label htmlFor="autoAssignment">Auto Assignment</Label>
@@ -1044,14 +1046,14 @@ export function SystemConfiguration() {
         {/* Security Tab */}
         <TabsContent value="security" className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Shield className="h-5 w-5" />
                 Security Settings
               </CardTitle>
-              <CardDescription>Configure security policies and access controls</CardDescription>
+              <CardDescription className="text-blue-100 text-xs mt-1">Configure security policies and access controls</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="p-4 space-y-4">
               {/* Password Policy */}
               <div className="space-y-4">
                 <h4 className="font-medium">Password Policy</h4>
@@ -1215,14 +1217,14 @@ export function SystemConfiguration() {
         <TabsContent value="content" className="space-y-6">
           {/* Homepage Content Settings */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Home className="h-5 w-5" />
                 Homepage Content Management
               </CardTitle>
-              <CardDescription>Configure homepage sections, layout, and content display</CardDescription>
+              <CardDescription className="text-blue-100 text-xs mt-1">Configure homepage sections, layout, and content display</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="p-4 space-y-4">
               {/* Hero Section Settings */}
               <div className="space-y-4">
                 <h4 className="font-medium flex items-center gap-2">
@@ -1386,14 +1388,14 @@ export function SystemConfiguration() {
 
           {/* Blog Content Settings */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <BookOpen className="h-5 w-5" />
                 Blog Content Management
               </CardTitle>
-              <CardDescription>Configure blog display, categories, and content policies</CardDescription>
+              <CardDescription className="text-blue-100 text-xs mt-1">Configure blog display, categories, and content policies</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="p-4 space-y-4">
               {/* Blog Display Settings */}
               <div className="space-y-4">
                 <h4 className="font-medium">Blog Display Settings</h4>
@@ -1521,14 +1523,14 @@ export function SystemConfiguration() {
 
           {/* Shop Content Settings */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Store className="h-5 w-5" />
                 Shop Content Management
               </CardTitle>
-              <CardDescription>Configure product display, categories, and shopping experience</CardDescription>
+              <CardDescription className="text-blue-100 text-xs mt-1">Configure product display, categories, and shopping experience</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="p-4 space-y-4">
               {/* Product Display */}
               <div className="space-y-4">
                 <h4 className="font-medium">Product Display Settings</h4>
@@ -1696,14 +1698,14 @@ export function SystemConfiguration() {
 
           {/* Media & File Management */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <FileImage className="h-5 w-5" />
                 Media & File Management
               </CardTitle>
-              <CardDescription>Configure file uploads, image optimization, and media handling</CardDescription>
+              <CardDescription className="text-blue-100 text-xs mt-1">Configure file uploads, image optimization, and media handling</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="p-4 space-y-4">
               {/* File Upload Settings */}
               <div className="space-y-4">
                 <h4 className="font-medium">File Upload Settings</h4>
@@ -1874,14 +1876,14 @@ export function SystemConfiguration() {
 
           {/* SEO & Performance */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Globe className="h-5 w-5" />
                 SEO & Performance Settings
               </CardTitle>
-              <CardDescription>Configure search engine optimization and site performance</CardDescription>
+              <CardDescription className="text-blue-100 text-xs mt-1">Configure search engine optimization and site performance</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="p-4 space-y-4">
               {/* SEO Settings */}
               <div className="space-y-4">
                 <h4 className="font-medium">SEO Configuration</h4>
@@ -1976,16 +1978,16 @@ export function SystemConfiguration() {
         {/* Languages Tab */}
         <TabsContent value="languages" className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Globe className="h-5 w-5" />
                 Language Management
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-blue-100 text-xs mt-1">
                 Manage system languages and translations
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4">
               <LanguageManagementTab />
             </CardContent>
           </Card>
