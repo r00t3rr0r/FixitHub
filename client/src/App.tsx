@@ -177,16 +177,16 @@ function App() {
             </Route>
 
             {/* Admin routes */}
-            <Route path="/admin" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<AdminDashboard />} />
             </Route>
-            <Route path="/admin/users" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/users" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<UserManagement />} />
             </Route>
-            <Route path="/admin/orders" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/orders" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<OrderManagement />} />
             </Route>
-            <Route path="/admin/bookings" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/bookings" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<BookingsManagement />} />
             </Route>
             <Route path="/staff/bookings" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
@@ -195,71 +195,71 @@ function App() {
             <Route path="/staff/repair-requests" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<RepairRequestsManagement />} />
             </Route>
-            <Route path="/admin/shop" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/shop" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<WebShopManagement />} />
             </Route>
-            <Route path="/admin/services" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/services" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<ServiceManagement />} />
             </Route>
-            <Route path="/admin/addons" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/addons" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<AddOnServiceManagement />} />
             </Route>
-            <Route path="/admin/service-categories" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/service-categories" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<ServiceCategoryManagement />} />
             </Route>
-            <Route path="/admin/devices" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/devices" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<DeviceManagement />} />
             </Route>
-            <Route path="/admin/analytics" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/analytics" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<Analytics />} />
             </Route>
-            <Route path="/admin/blog" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/blog" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<BlogManagement />} />
             </Route>
-            <Route path="/admin/faq" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/faq" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<FAQManagement />} />
             </Route>
-            <Route path="/admin/homepage" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/homepage" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<HomepageManagement />} />
             </Route>
-            <Route path="/admin/website-builder" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/website-builder" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<WebsiteBuilder />} />
             </Route>
-            <Route path="/admin/visual-builder/:pageId" element={<ProtectedRoute><VisualPageBuilder /></ProtectedRoute>} />
-            <Route path="/admin/seo" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/visual-builder/:pageId" element={<ProtectedRoute requiredRole="admin"><VisualPageBuilder /></ProtectedRoute>} />
+            <Route path="/admin/seo" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<SEOManagement />} />
             </Route>
-            <Route path="/admin/system" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/system" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<SystemConfiguration />} />
             </Route>
-            <Route path="/admin/database" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/database" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<DatabaseManagement />} />
             </Route>
-            <Route path="/admin/security" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/security" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<SecuritySettings />} />
             </Route>
-            <Route path="/admin/workflow" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/workflow" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<WorkflowManagement />} />
             </Route>
-            <Route path="/admin/diagnostics" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/diagnostics" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<DiagnosticTools />} />
             </Route>
-            <Route path="/admin/parts" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/parts" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<PartsManagement />} />
             </Route>
-            <Route path="/admin/quality" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/quality" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<QualityControl />} />
             </Route>
-            <Route path="/admin/staff" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/staff" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<StaffManagement />} />
             </Route>
-            <Route path="/admin/financial" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/financial" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<FinancialManagement />} />
             </Route>
-            <Route path="/admin/epart-orders" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/epart-orders" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<EPartOrderManagement />} />
             </Route>
-            <Route path="/admin/repair-requests" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/admin/repair-requests" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<RepairRequestsManagement />} />
             </Route>
 
