@@ -90,7 +90,7 @@
 
 .compact-stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.5rem;
 }
 
@@ -132,6 +132,21 @@
   gap: 0.4rem;
 }
 
+.compact-alert-messages {
+  border-color: #3b82f6 !important;
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+}
+
+.compact-alert-messages:hover {
+  background: #dbeafe !important;
+  border-color: #2563eb !important;
+}
+
+.compact-alert-messages strong {
+  color: #1d4ed8 !important;
+}
+
 .compact-alert-bar button {
   background: #fff;
   border: 1px dashed #c7cedd;
@@ -162,6 +177,10 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
+}
+
+.compact-bottom-grid--3col {
+  grid-template-columns: 1.1fr repeat(2, minmax(0, 1fr));
 }
 
 .compact-summary-grid {
@@ -335,6 +354,81 @@
   font-size: 0.8rem;
 }
 
+.admin-dashboard-loading-screen {
+  min-height: 50vh;
+  display: grid;
+  place-content: center;
+  gap: 0.5rem;
+  color: #5a647b;
+  font-size: 0.8rem;
+}
+
+/* Customer Messages Panel */
+.compact-panel--messages {
+  border-color: #bfdbfe;
+  background: linear-gradient(160deg, #f0f7ff 0%, #ffffff 60%);
+}
+
+.compact-messages-icon {
+  color: #2563eb;
+}
+
+.compact-messages-count-label {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.compact-msg-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  width: 100%;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  padding: 0.35rem 0.45rem;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.compact-msg-item:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.compact-msg-avatar {
+  flex-shrink: 0;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  background: #dbeafe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2563eb;
+  margin-top: 0.05rem;
+}
+
+.compact-msg-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.compact-msg-ref {
+  color: #2563eb;
+  font-size: 0.62rem;
+}
+
+.compact-msg-preview {
+  font-size: 0.63rem;
+  color: #4b5563;
+  margin-top: 0.1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 1160px) {
   .compact-main-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -342,6 +436,18 @@
 
   .compact-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .compact-stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .compact-bottom-grid--3col {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .compact-bottom-grid--3col .compact-panel--messages {
+    grid-column: 1 / -1;
   }
 }
 
@@ -370,8 +476,13 @@
   .compact-alert-bar,
   .compact-main-grid,
   .compact-bottom-grid,
+  .compact-bottom-grid--3col,
   .compact-summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .compact-bottom-grid--3col .compact-panel--messages {
+    grid-column: auto;
   }
 
   .compact-scroll-area {

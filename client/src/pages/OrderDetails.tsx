@@ -30,7 +30,6 @@ import { OrderProgressTimeline } from "@/components/OrderProgressTimeline"
 import { UnlockInformationDisplay } from "@/components/inspection/UnlockInformationDisplay"
 import { ConfirmUnlockDialog } from "@/components/inspection/ConfirmUnlockDialog"
 import { DeviceChangeDialog } from "@/components/admin/DeviceChangeDialog"
-import { TrackingPanel } from "@/components/admin/TrackingPanel"
 import { OrderMessagesPanel } from "@/components/inspection/OrderMessagesPanel"
 import { OrderMessagesSummary } from "@/components/inspection/OrderMessagesSummary"
 import { Input } from "@/components/ui/input"
@@ -1373,19 +1372,218 @@ export function OrderDetails() {
   const customerSinceText = customer.createdAt
     ? new Date(customer.createdAt).toLocaleDateString()
     : '-'
+  const isStaffOrAdmin = user?.role === 'admin' || user?.role === 'staff'
+  const backLinkPath = user?.role === 'admin' ? '/admin/orders' : user?.role === 'staff' ? '/staff/bookings' : '/bookings'
+  const backLinkLabel = isStaffOrAdmin ? 'Back to Order Queue' : t('orderDetails.backToBookings')
+  const staffCount = order.assignedStaff?.length || 0
+  const serviceCount = (repairServices?.filter((s) => s && s._id).length || 0) + (order.addOns?.length || 0)
+  const lastUpdate = order.updatedAt ? new Date(order.updatedAt).toLocaleString() : '-'
+
+  const scrollToSection = (sectionId: string) => {
+    const target = document.getElementById(sectionId)
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
+  const renderDeviceInformationCard = () => (
+    <Card id="order-device-info" className="order-section-card">
+      <CardHeader className="order-section-header">
+        <CardTitle className="order-section-title">
+          <Camera className="h-5 w-5" />
+          {t('orderDetails.deviceInformation')}
+        </CardTitle>
+        {(user?.role === 'admin' || user?.role === 'staff') && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setNewDeviceBrand(order?.deviceBrand || "")
+              setNewDeviceModel(order?.deviceModel || "")
+              setNewDeviceType(order?.deviceType || "Smartphone")
+              setDeviceChangeDialogOpen(true)
+            }}
+            className="text-xs px-2 h-8"
+          >
+            <Edit className="h-3 w-3 mr-1" />
+            {t('common.edit')}
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-3 pt-3">
+        <div className="device-info-card">
+          {getDeviceImage(order) ? (
+            <img
+              src={getDeviceImage(order)}
+              alt={`${order.deviceBrand} ${order.deviceModel}`}
+              className="device-image"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+                const fallback = e.currentTarget.nextElementSibling as HTMLElement
+                if (fallback) fallback.style.display = 'flex'
+              }}
+            />
+          ) : null}
+          <div className="device-placeholder" style={{ display: getDeviceImage(order) ? 'none' : 'flex' }}>
+            <Smartphone className="h-10 w-10" />
+          </div>
+          <div className="details flex-1">
+            <h3>{order.deviceBrand} {order.deviceModel}</h3>
+            <p>Repair Services</p>
+            <div className="services-tags">
+              {order.services && order.services.filter((s) => s && s._id).length > 0 ? (
+                order.services.filter((s) => s && s._id).map((service) => {
+                  const serviceName = typeof service.serviceId === 'object'
+                    ? service.serviceId?.name
+                    : service.serviceName || `Service #${String(service._id).substring(0, 8)}`;
+                  const servicePrice = typeof service.serviceId === 'object'
+                    ? service.serviceId?.price || service.price
+                    : service.price;
+
+                  return (
+                    <span key={service._id} className="service-tag">
+                      {serviceName}
+                      {servicePrice && <span className="ml-0.5 font-semibold">${servicePrice.toFixed(2)}</span>}
+                    </span>
+                  );
+                })
+              ) : (
+                <span className="service-tag">{t('orderDetails.noServicesSelected')}</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {order.customerNotes && (
+          <div className="bg-muted/50 p-2 rounded-lg">
+            <h4 className="font-medium text-xs">{t('orderDetails.notes', 'Notes:')}</h4>
+            <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{order.customerNotes}</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+
+  const renderDeviceLockInformationCard = () => (
+    <Card id="order-device-lock" className="order-section-card">
+      <CardHeader className="order-section-header">
+        <CardTitle className="order-section-title">
+          <Lock className="h-5 w-5" />
+          {t('orderDetails.deviceLockInformation', 'Device Lock Information')}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2 pt-2">
+        {order.unlockPattern && order.unlockPattern.length > 0 && (
+          <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-0.5">
+              {t('orderDetails.unlockPattern', 'Unlock Pattern')}
+            </p>
+            <div className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
+              {order.unlockPattern.join(' → ')}
+            </div>
+            <span className="text-xs text-slate-500">({order.unlockPattern.length} {t('orderDetails.dots', 'dots')})</span>
+          </div>
+        )}
+
+        {order.unlockCode && (
+          <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-0.5">
+              {t('orderDetails.unlockCode', 'Unlock Code')}
+            </p>
+            <input
+              type="password"
+              value={order.unlockCode}
+              readOnly
+              className="w-full px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-mono text-xs"
+            />
+          </div>
+        )}
+
+        {order.noLock && (
+          <div className="p-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+            <div className="flex items-center gap-2">
+              <X className="h-3 w-3 text-green-600 dark:text-green-400" />
+              <p className="text-xs font-medium text-green-700 dark:text-green-300">
+                {t('orderDetails.unlockNoLock', 'Device has no lock')}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {order.unlockConfirmation && order.unlockConfirmation.confirmationStatus && (
+          <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+              {t('orderDetails.confirmationStatus', 'Confirmation Status')}
+            </p>
+            <div className="space-y-0.5 text-xs text-slate-600 dark:text-slate-400">
+              <div className="flex items-center gap-2">
+                {order.unlockConfirmation.confirmationStatus === 'verified' && (
+                  <Badge className="bg-green-100 border-green-300 text-green-800 text-xs px-1.5 py-0">
+                    <CheckCircle className="h-3 w-3 mr-0.5" />
+                    {t('orderDetails.unlockVerified', 'Verified')}
+                  </Badge>
+                )}
+                {order.unlockConfirmation.confirmationStatus === 'incorrect' && (
+                  <Badge className="bg-red-100 border-red-300 text-red-800 text-xs px-1.5 py-0">
+                    <AlertCircle className="h-3 w-3 mr-0.5" />
+                    {t('orderDetails.unlockIncorrect', 'Incorrect')}
+                  </Badge>
+                )}
+                {order.unlockConfirmation.confirmationStatus === 'unable-to-verify' && (
+                  <Badge variant="outline" className="bg-gray-50 border-gray-300 text-gray-800 text-xs px-1.5 py-0">
+                    <HelpCircle className="h-3 w-3 mr-0.5" />
+                    {t('orderDetails.unlockUnableToVerify', 'Unable to Verify')}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs">
+                <span className="font-medium">{t('orderDetails.confirmedBy', 'Confirmed by:')}</span>{' '}
+                {order.unlockConfirmation.confirmedByName}
+              </p>
+              {order.unlockConfirmation.notes && (
+                <p className="text-xs">
+                  <span className="font-medium">{t('orderDetails.notes', 'Notes:')}</span>{' '}
+                  {order.unlockConfirmation.notes}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {!order.unlockPattern?.length && !order.unlockCode && !order.noLock && !order.unlockConfirmation?.confirmationStatus && (
+          <div className="bg-muted/50 p-2 rounded-lg text-xs text-muted-foreground">
+            {t('orderDetails.repairInfo.noInformationProvided') || 'No information provided'}
+          </div>
+        )}
+
+        {(user?.role === 'admin' || user?.role === 'staff') && (order.unlockPattern?.length || order.unlockCode || order.noLock || order.unlockConfirmation) && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setUnlockConfirmDialogOpen(true)}
+            className="w-full text-xs px-2 h-8"
+          >
+            {order.unlockConfirmation
+              ? t('orderDetails.updateConfirmation', 'Update Confirmation')
+              : t('orderDetails.confirmUnlock', 'Confirm Unlock Information')}
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  )
 
   return (
-    <div className="order-details-container">
+    <div className={`order-details-container ${isStaffOrAdmin ? 'admin-order-workspace' : ''}`}>
       {/* Back Button */}
-      <Link to="/bookings" className="order-back-button">
+      <Link to={backLinkPath} className="order-back-button">
         <ArrowLeft className="h-4 w-4" />
-        {t('orderDetails.backToBookings')}
+        {backLinkLabel}
       </Link>
 
       {/* Order Header */}
       <div className="order-details-header">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-          <div>
+          <div className="order-header-title-block">
             <h1>
               <Package className="h-7 w-7" />
               Order #{order.orderNumber || order._id.slice(-6)}
@@ -1394,96 +1592,94 @@ export function OrderDetails() {
               {order.deviceBrand} {order.deviceModel} • {new Date(order.createdAt).toLocaleDateString()}
             </p>
           </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Status Dropdown for Admin/Staff, Badge for Customers */}
-              {(user?.role === 'admin' || user?.role === 'staff') ? (
-                <DropdownMenu open={statusDropdownOpen} onOpenChange={setStatusDropdownOpen}>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className={`${getStatusColor(order.status)} text-xs px-3 py-1 cursor-pointer border-none flex items-center gap-1`}
-                      disabled={updatingStatus}
-                    >
-                      {getStatusIcon(order.status)}
-                      <span>{order.status.replace('-', ' ')}</span>
-                      <ChevronDown className="h-3 w-3 ml-1" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuLabel className="text-xs font-semibold">
-                      Change Order Status
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => handleStatusChange('pending')}
-                      disabled={updatingStatus || order.status === 'pending'}
-                      className="text-xs cursor-pointer"
-                    >
-                      <span className="inline-block w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-                      Pending
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleStatusChange('in-progress')}
-                      disabled={updatingStatus || order.status === 'in-progress'}
-                      className="text-xs cursor-pointer"
-                    >
-                      <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-                      In Progress
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleStatusChange('quality-check')}
-                      disabled={updatingStatus || order.status === 'quality-check'}
-                      className="text-xs cursor-pointer"
-                    >
-                      <span className="inline-block w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
-                      Quality Check
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleStatusChange('ready-for-pickup')}
-                      disabled={updatingStatus || order.status === 'ready-for-pickup'}
-                      className="text-xs cursor-pointer"
-                    >
-                      <span className="inline-block w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
-                      Ready for Pickup
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleStatusChange('completed')}
-                      disabled={updatingStatus || order.status === 'completed'}
-                      className="text-xs cursor-pointer"
-                    >
-                      <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                      Completed
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => handleStatusChange('cancelled')}
-                      disabled={updatingStatus || order.status === 'cancelled'}
-                      className="text-xs cursor-pointer text-destructive"
-                    >
-                      <span className="inline-block w-2 h-2 bg-red-500 rounded-full mr-2"></span>
-                      Cancelled
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <span className={`order-status-badge ${getStatusColor(order.status)} text-xs px-3 py-1`}>
-                  {getStatusIcon(order.status)}
-                  <span className="ml-1">{order.status.replace('-', ' ')}</span>
-                </span>
-              )}
-              <span className={`payment-status-badge ${getPaymentStatusColor(order.paymentStatus)}`}>
-                <CreditCard className="h-3 w-3 mr-1" />
-                {order.paymentStatus}
+          <div className="flex items-center gap-3 flex-wrap order-header-meta-block">
+            {isStaffOrAdmin ? (
+              <DropdownMenu open={statusDropdownOpen} onOpenChange={setStatusDropdownOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`${getStatusColor(order.status)} text-xs px-3 py-1 cursor-pointer border-none flex items-center gap-1`}
+                    disabled={updatingStatus}
+                  >
+                    {getStatusIcon(order.status)}
+                    <span>{order.status.replace('-', ' ')}</span>
+                    <ChevronDown className="h-3 w-3 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel className="text-xs font-semibold">Change Order Status</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleStatusChange('pending')} disabled={updatingStatus || order.status === 'pending'} className="text-xs cursor-pointer">
+                    <span className="inline-block w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                    Pending
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleStatusChange('in-progress')} disabled={updatingStatus || order.status === 'in-progress'} className="text-xs cursor-pointer">
+                    <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                    In Progress
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleStatusChange('quality-check')} disabled={updatingStatus || order.status === 'quality-check'} className="text-xs cursor-pointer">
+                    <span className="inline-block w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                    Quality Check
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleStatusChange('ready-for-pickup')} disabled={updatingStatus || order.status === 'ready-for-pickup'} className="text-xs cursor-pointer">
+                    <span className="inline-block w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+                    Ready for Pickup
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleStatusChange('completed')} disabled={updatingStatus || order.status === 'completed'} className="text-xs cursor-pointer">
+                    <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                    Completed
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleStatusChange('cancelled')} disabled={updatingStatus || order.status === 'cancelled'} className="text-xs cursor-pointer text-destructive">
+                    <span className="inline-block w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                    Cancelled
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <span className={`order-status-badge ${getStatusColor(order.status)} text-xs px-3 py-1`}>
+                {getStatusIcon(order.status)}
+                <span className="ml-1">{order.status.replace('-', ' ')}</span>
               </span>
-              <div className="order-total-cost">
-                <div className="amount">${safeToNumber(order.totalCost).toFixed(2)}</div>
-                <div className="label">Total</div>
-              </div>
+            )}
+            <span className={`payment-status-badge ${getPaymentStatusColor(order.paymentStatus)}`}>
+              <CreditCard className="h-3 w-3 mr-1" />
+              {order.paymentStatus}
+            </span>
+            <div className="order-total-cost">
+              <div className="amount">${safeToNumber(order.totalCost).toFixed(2)}</div>
+              <div className="label">Total</div>
             </div>
           </div>
         </div>
-      
+
+        {isStaffOrAdmin && (
+          <div className="order-admin-kpi-grid">
+            <div className="order-admin-kpi-card">
+              <span>Progress</span>
+              <strong>{order.progress}%</strong>
+            </div>
+            <div className="order-admin-kpi-card">
+              <span>Status</span>
+              <strong>{order.status.replace('-', ' ')}</strong>
+            </div>
+            <div className="order-admin-kpi-card">
+              <span>Assigned Staff</span>
+              <strong>{staffCount}</strong>
+            </div>
+            <div className="order-admin-kpi-card">
+              <span>Services</span>
+              <strong>{serviceCount}</strong>
+            </div>
+            <div className="order-admin-kpi-card">
+              <span>Last Update</span>
+              <strong>{lastUpdate}</strong>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Overall Progress Timeline */}
       {progressTimeline && (
         <div className="order-section-card">
@@ -1497,8 +1693,9 @@ export function OrderDetails() {
       <div className="order-grid">
         {/* Main Content */}
         <div className="order-main-content space-y-4">
+          <div className={`order-nested-block order-nested-top-grid ${isStaffOrAdmin ? 'is-admin-nested' : ''}`}>
           {/* Additional Repair Information - Always visible */}
-          <Card className="order-section-card border-2 border-amber-300 dark:border-amber-700">
+          <Card id="order-repair-info" className="order-section-card border-2 border-amber-300 dark:border-amber-700 order-card-repair-info">
             <CardHeader className="order-section-header bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40">
               <CardTitle className="order-section-title">
                 <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" />
@@ -1682,7 +1879,7 @@ export function OrderDetails() {
           </Card>
 
           {/* Customer Information */}
-          <Card className="order-section-card">
+          <Card id="order-customer" className="order-section-card">
             <CardHeader className="order-section-header">
               <CardTitle className="order-section-title">
                 <User className="h-5 w-5" />
@@ -1755,12 +1952,18 @@ export function OrderDetails() {
             </CardContent>
           </Card>
 
-          {/* Device Inspection Section - visible to all roles when inspection is completed */}
-          <InspectionResultsDisplay orderId={id!} userRole={user?.role} />
+          <div id="order-device-inspection">
+            <InspectionResultsDisplay orderId={id!} userRole={user?.role} />
+          </div>
 
+          {renderDeviceInformationCard()}
+          {renderDeviceLockInformationCard()}
+          </div>
+
+          <div className={`order-nested-block order-nested-ops-grid ${isStaffOrAdmin ? 'is-admin-nested' : ''}`}>
           {/* Assigned Staff - Only visible to admin/staff */}
-          {(user?.role === 'admin' || user?.role === 'staff') && (
-          <Card className="order-section-card">
+          {isStaffOrAdmin && (
+          <Card id="order-staff" className="order-section-card">
             <CardHeader className="order-section-header">
               <CardTitle className="order-section-title">
                 <Users className="h-5 w-5" />
@@ -1872,199 +2075,6 @@ export function OrderDetails() {
               )}
             </CardContent>
           </Card>
-          )}
-
-          {/* Device Information */}
-          <Card className="order-section-card">
-            <CardHeader className="order-section-header">
-              <CardTitle className="order-section-title">
-                <Camera className="h-5 w-5" />
-                {t('orderDetails.deviceInformation')}
-              </CardTitle>
-              {(user?.role === 'admin' || user?.role === 'staff') && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setNewDeviceBrand(order?.deviceBrand || "")
-                    setNewDeviceModel(order?.deviceModel || "")
-                    setNewDeviceType(order?.deviceType || "Smartphone")
-                    setDeviceChangeDialogOpen(true)
-                  }}
-                  className="text-xs px-2 h-8"
-                >
-                  <Edit className="h-3 w-3 mr-1" />
-                  {t('common.edit')}
-                </Button>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-3 pt-3">
-              <div className="device-info-card">
-                {getDeviceImage(order) ? (
-                  <img
-                    src={getDeviceImage(order)}
-                    alt={`${order.deviceBrand} ${order.deviceModel}`}
-                    className="device-image"
-                    onError={(e) => {
-                      // Replace with fallback on error
-                      e.currentTarget.style.display = 'none'
-                      const fallback = e.currentTarget.nextElementSibling as HTMLElement
-                      if (fallback) fallback.style.display = 'flex'
-                    }}
-                  />
-                ) : null}
-                <div className="device-placeholder" style={{ display: getDeviceImage(order) ? 'none' : 'flex' }}>
-                  <Smartphone className="h-10 w-10" />
-                </div>
-                <div className="details flex-1">
-                  <h3>{order.deviceBrand} {order.deviceModel}</h3>
-                  <p>Repair Services</p>
-                  <div className="services-tags">
-                    {order.services && order.services.filter((s) => s && s._id).length > 0 ? (
-                      order.services.filter((s) => s && s._id).map((service) => {
-                        // Get service name from populated serviceId object or fallback to ID
-                        const serviceName = typeof service.serviceId === 'object'
-                          ? service.serviceId?.name
-                          : service.serviceName || `Service #${String(service._id).substring(0, 8)}`;
-                        const servicePrice = typeof service.serviceId === 'object'
-                          ? service.serviceId?.price || service.price
-                          : service.price;
-
-                        return (
-                          <span key={service._id} className="service-tag">
-                            {serviceName}
-                            {servicePrice && <span className="ml-0.5 font-semibold">${servicePrice.toFixed(2)}</span>}
-                          </span>
-                        );
-                      })
-                    ) : (
-                      <span className="service-tag">{t('orderDetails.noServicesSelected')}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {order.customerNotes && (
-                <div className="bg-muted/50 p-3 rounded-lg">
-                  <h4 className="font-semibold mb-2 flex items-center gap-2 text-sm">
-                    <Lock className="h-3 w-3" />
-                    {t('orderDetails.deviceLockInformation', 'Device Lock Information')}
-                  </h4>
-
-                  <div className="space-y-2">
-                    {/* Unlock Pattern Display */}
-                    {order.unlockPattern && order.unlockPattern.length > 0 && (
-                      <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
-                        <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-0.5">
-                          {t('orderDetails.unlockPattern', 'Unlock Pattern')}
-                        </p>
-                        <div className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
-                          {order.unlockPattern.join(' → ')}
-                        </div>
-                        <span className="text-xs text-slate-500">({order.unlockPattern.length} {t('orderDetails.dots', 'dots')})</span>
-                      </div>
-                    )}
-
-                    {/* Unlock Code Display */}
-                    {order.unlockCode && (
-                      <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
-                        <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-0.5">
-                          {t('orderDetails.unlockCode', 'Unlock Code')}
-                        </p>
-                        <input
-                          type="password"
-                          value={order.unlockCode}
-                          readOnly
-                          className="w-full px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-mono text-xs"
-                        />
-                      </div>
-                    )}
-
-                    {/* No Lock Display */}
-                    {order.noLock && (
-                      <div className="p-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
-                        <div className="flex items-center gap-2">
-                          <X className="h-3 w-3 text-green-600 dark:text-green-400" />
-                          <p className="text-xs font-medium text-green-700 dark:text-green-300">
-                            {t('orderDetails.unlockNoLock', 'Device has no lock')}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Confirmation Status */}
-                    {order.unlockConfirmation && order.unlockConfirmation.confirmationStatus && (
-                      <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                        <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
-                          {t('orderDetails.confirmationStatus', 'Confirmation Status')}
-                        </p>
-                        <div className="space-y-0.5 text-xs text-slate-600 dark:text-slate-400">
-                          <div className="flex items-center gap-2">
-                            {order.unlockConfirmation.confirmationStatus === 'verified' && (
-                              <Badge className="bg-green-100 border-green-300 text-green-800 text-xs px-1.5 py-0">
-                                <CheckCircle className="h-3 w-3 mr-0.5" />
-                                {t('orderDetails.unlockVerified', 'Verified')}
-                              </Badge>
-                            )}
-                            {order.unlockConfirmation.confirmationStatus === 'incorrect' && (
-                              <Badge className="bg-red-100 border-red-300 text-red-800 text-xs px-1.5 py-0">
-                                <AlertCircle className="h-3 w-3 mr-0.5" />
-                                {t('orderDetails.unlockIncorrect', 'Incorrect')}
-                              </Badge>
-                            )}
-                            {order.unlockConfirmation.confirmationStatus === 'unable-to-verify' && (
-                              <Badge variant="outline" className="bg-gray-50 border-gray-300 text-gray-800 text-xs px-1.5 py-0">
-                                <HelpCircle className="h-3 w-3 mr-0.5" />
-                                {t('orderDetails.unlockUnableToVerify', 'Unable to Verify')}
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs">
-                            <span className="font-medium">
-                              {t('orderDetails.confirmedBy', 'Confirmed by:')}
-                            </span>{' '}
-                            {order.unlockConfirmation.confirmedByName}
-                          </p>
-                          {order.unlockConfirmation.notes && (
-                            <p className="text-xs">
-                              <span className="font-medium">
-                                {t('orderDetails.notes', 'Notes:')}
-                              </span>{' '}
-                              {order.unlockConfirmation.notes}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Confirm Button for Staff/Admin - Only show if not confirmed or can re-confirm */}
-                    {(user?.role === 'admin' || user?.role === 'staff') && (
-                      <div className="pt-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setUnlockConfirmDialogOpen(true)}
-                          className="w-full text-xs px-2 h-8"
-                        >
-                          {order.unlockConfirmation
-                            ? t('orderDetails.updateConfirmation', 'Update Confirmation')
-                            : t('orderDetails.confirmUnlock', 'Confirm Unlock Information')}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Shipping & Tracking Section - Only for Admin and Staff */}
-          {(user?.role === 'admin' || user?.role === 'staff') && (
-            <TrackingPanel
-              orderId={id || ''}
-              orderData={order}
-              onUpdate={refreshOrder}
-            />
           )}
 
           {/* Device Change Dialog */}
@@ -2201,7 +2211,7 @@ export function OrderDetails() {
           )}
 
           {/* Repair Services - Visible to all users */}
-          <Card className="order-section-card">
+          <Card id="order-repair-services" className="order-section-card">
             <CardHeader className="order-section-header">
               <CardTitle className="order-section-title">
                 <Wrench className="h-5 w-5" />
@@ -2284,7 +2294,7 @@ export function OrderDetails() {
           </Card>
 
           {/* Add-On Services - Visible to all users */}
-          <Card className="order-section-card">
+          <Card id="order-addons" className="order-section-card">
             <CardHeader className="order-section-header">
               <CardTitle className="order-section-title">
                 <Shield className="h-5 w-5" />
@@ -2374,10 +2384,12 @@ export function OrderDetails() {
               )}
             </CardContent>
           </Card>
+          </div>
 
           {/* EParts - Only visible to admin/staff */}
-          {(user?.role === 'admin' || user?.role === 'staff') && (
-            <Card className="order-section-card">
+          <div className={`order-nested-block order-nested-admin-grid ${isStaffOrAdmin ? 'is-admin-nested' : ''}`}>
+          {isStaffOrAdmin && (
+            <Card id="order-eparts" className="order-section-card">
               <CardHeader className="order-section-header">
                 <CardTitle className="order-section-title">
                   <Wrench className="h-5 w-5" />
@@ -2463,8 +2475,8 @@ export function OrderDetails() {
           )}
 
           {/* Shop Products - Only visible to admin/staff */}
-          {(user?.role === 'admin' || user?.role === 'staff') && (
-            <Card className="order-section-card">
+          {isStaffOrAdmin && (
+            <Card id="order-shop-products" className="order-section-card">
               <CardHeader className="order-section-header">
                 <CardTitle className="order-section-title">
                   <ShoppingCart className="h-5 w-5" />
@@ -2575,8 +2587,8 @@ export function OrderDetails() {
           )}
 
           {/* Workflows - Only visible to admin/staff */}
-          {(user?.role === 'admin' || user?.role === 'staff') && (
-            <Card className="order-section-card">
+          {isStaffOrAdmin && (
+            <Card id="order-workflows" className="order-section-card">
               <CardHeader className="order-section-header">
                 <CardTitle className="order-section-title">
                   <CheckCircle className="h-5 w-5" />
@@ -2629,7 +2641,7 @@ export function OrderDetails() {
           )}
 
           {/* Progress Timeline */}
-          <Card className="order-section-card">
+          <Card id="order-progress" className="order-section-card">
             <CardHeader className="order-section-header">
               <CardTitle className="order-section-title">
                 <Clock className="h-5 w-5" />
@@ -2684,12 +2696,13 @@ export function OrderDetails() {
               </div>
             </CardContent>
           </Card>
+          </div>
         </div>
 
         {/* Sidebar */}
-        <div className="order-sidebar space-y-4">
+        <div className="order-sidebar space-y-2">
           {/* Order Summary */}
-          <Card className="order-section-card">
+          <Card id="order-summary" className="order-section-card">
             <CardHeader className="order-section-header">
               <CardTitle className="order-section-title">
                 <DollarSign className="h-5 w-5" />
@@ -2738,37 +2751,70 @@ export function OrderDetails() {
           </Card>
 
           {/* Quick Actions */}
-          <Card className="order-section-card">
+          <Card id="order-quick-actions" className="order-section-card order-quick-actions-card">
             <CardHeader className="order-section-header">
               <CardTitle className="order-section-title">Quick Actions</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 pt-3">
-              <Button className="w-full text-xs h-8" variant="outline" size="sm">
-                <MessageSquare className="h-3 w-3 mr-1" />
-                Send Message
-              </Button>
-              <Button className="w-full text-xs h-8" variant="outline" size="sm">
-                <Camera className="h-3 w-3 mr-1" />
-                Upload Photos
-              </Button>
-              <Button className="w-full text-xs h-8" variant="outline" size="sm">
-                <Star className="h-3 w-3 mr-1" />
-                Rate Service
-              </Button>
+            <CardContent className="space-y-1 pt-2">
+              {isStaffOrAdmin ? (
+                <>
+                  <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => setStatusDropdownOpen(true)}>
+                    <Clock className="h-3 w-3 mr-1" />
+                    Update Status
+                  </Button>
+                  <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => scrollToSection('order-staff')}>
+                    <Users className="h-3 w-3 mr-1" />
+                    Manage Staff
+                  </Button>
+                  <Button
+                    className="w-full text-xs h-8"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingService(null)
+                      setServiceDialogOpen(true)
+                    }}
+                  >
+                    <PlusCircle className="h-3 w-3 mr-1" />
+                    Add Repair Service
+                  </Button>
+                  <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => scrollToSection('order-messages')}>
+                    <MessageSquare className="h-3 w-3 mr-1" />
+                    Open Messages
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button className="w-full text-xs h-8" variant="outline" size="sm">
+                    <MessageSquare className="h-3 w-3 mr-1" />
+                    Send Message
+                  </Button>
+                  <Button className="w-full text-xs h-8" variant="outline" size="sm">
+                    <Camera className="h-3 w-3 mr-1" />
+                    Upload Photos
+                  </Button>
+                  <Button className="w-full text-xs h-8" variant="outline" size="sm">
+                    <Star className="h-3 w-3 mr-1" />
+                    Rate Service
+                  </Button>
+                </>
+              )}
             </CardContent>
           </Card>
 
           {/* Customer Messages Summary - Shows last message with option to expand history */}
           {id && (
-            <OrderMessagesSummary
-              orderId={id}
-              userRole={user?.role}
-              customer={{
-                name: order?.customerId?.name || "Customer",
-                email: order?.customerId?.email || "",
-                avatar: order?.customerId?.avatar,
-              }}
-            />
+            <div id="order-messages">
+              <OrderMessagesSummary
+                orderId={id}
+                userRole={user?.role}
+                customer={{
+                  name: order?.customerId?.name || "Customer",
+                  email: order?.customerId?.email || "",
+                  avatar: order?.customerId?.avatar,
+                }}
+              />
+            </div>
           )}
         </div>
       </div>

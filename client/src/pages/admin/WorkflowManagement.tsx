@@ -295,66 +295,69 @@ export function WorkflowManagement() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div
+        className="flex items-center justify-between rounded-lg px-4 py-3"
+        style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)' }}
+      >
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t('workflowManagement.pageHeading')}</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-lg font-bold tracking-tight text-white">{t('workflowManagement.pageHeading')}</h1>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>
             {t('workflowManagement.description')}
           </p>
         </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="h-4 w-4 mr-2" />
+        <Button onClick={openCreateDialog} size="sm" variant="secondary" className="h-7 text-xs px-2">
+          <Plus className="h-3 w-3 mr-1" />
           {t('workflowManagement.createNewWorkflow')}
         </Button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t('workflowManagement.stats.activeWorkflows')}</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2 px-3">
+            <CardTitle className="text-xs font-medium">{t('workflowManagement.stats.activeWorkflows')}</CardTitle>
+            <Activity className="h-3 w-3 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.activeWorkflows || 0}</div>
+          <CardContent className="py-1 px-3">
+            <div className="text-lg font-bold">{stats.activeWorkflows || 0}</div>
             <p className="text-xs text-muted-foreground">
               {stats.inactiveWorkflows || 0} {t('workflowManagement.inactiveStatus')}
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t('workflowManagement.stats.totalSteps')}</CardTitle>
-            <Settings className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2 px-3">
+            <CardTitle className="text-xs font-medium">{t('workflowManagement.stats.totalSteps')}</CardTitle>
+            <Settings className="h-3 w-3 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalSteps || 0}</div>
+          <CardContent className="py-1 px-3">
+            <div className="text-lg font-bold">{stats.totalSteps || 0}</div>
             <p className="text-xs text-muted-foreground">
               {t('workflowManagement.stats.acrossAllWorkflows')}
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t('workflowManagement.stats.automationRules')}</CardTitle>
-            <Zap className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2 px-3">
+            <CardTitle className="text-xs font-medium">{t('workflowManagement.stats.automationRules')}</CardTitle>
+            <Zap className="h-3 w-3 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalAutomationRules || 0}</div>
+          <CardContent className="py-1 px-3">
+            <div className="text-lg font-bold">{stats.totalAutomationRules || 0}</div>
             <p className="text-xs text-muted-foreground">
               {t('workflowManagement.stats.activeAutomations')}
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t('workflowManagement.stats.averageCompletionTime')}</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2 px-3">
+            <CardTitle className="text-xs font-medium">{t('workflowManagement.stats.averageCompletionTime')}</CardTitle>
+            <Clock className="h-3 w-3 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.averageCompletionTime || 0}m</div>
+          <CardContent className="py-1 px-3">
+            <div className="text-lg font-bold">{stats.averageCompletionTime || 0}m</div>
             <p className="text-xs text-muted-foreground">
               {t('workflowManagement.stats.estimatedTime')}
             </p>
@@ -363,32 +366,32 @@ export function WorkflowManagement() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center space-x-4">
-        <div className="flex-1 max-w-sm">
+      <div className="flex items-center space-x-2">
+        <div className="flex-1 max-w-xs">
           <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2 top-2 h-3 w-3 text-muted-foreground" />
             <Input
               placeholder={t('workflowManagement.searchWorkflows')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
+              className="pl-7 h-7 text-xs"
             />
           </div>
         </div>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[140px] h-7 text-xs">
             <SelectValue placeholder={t('workflowManagement.filterByStatus')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">{t('workflowManagement.allWorkflows')}</SelectItem>
-            <SelectItem value="active">{t('workflowManagement.activeStatus')}</SelectItem>
-            <SelectItem value="inactive">{t('workflowManagement.inactiveStatus')}</SelectItem>
+            <SelectItem value="all" className="text-xs">{t('workflowManagement.allWorkflows')}</SelectItem>
+            <SelectItem value="active" className="text-xs">{t('workflowManagement.activeStatus')}</SelectItem>
+            <SelectItem value="inactive" className="text-xs">{t('workflowManagement.inactiveStatus')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       {/* Workflows List */}
-      <div className="grid gap-4">
+      <div className="grid gap-2">
         {filteredWorkflows.map((workflow) => {
           console.log('WorkflowManagement: Rendering workflow:', {
             id: workflow._id,
@@ -403,80 +406,85 @@ export function WorkflowManagement() {
 
           return (
             <Card key={workflow._id}>
-              <CardHeader>
+              <CardHeader className="py-2 px-3">
                 <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="flex items-center gap-2">
+                  <div className="space-y-0.5">
+                    <CardTitle className="flex items-center gap-2 text-sm">
                       {workflow.name}
-                      <Badge variant={workflow.isActive ? 'default' : 'secondary'}>
+                      <Badge variant={workflow.isActive ? 'default' : 'secondary'} className="text-xs h-4 px-1">
                         {workflow.isActive ? t('workflowManagement.activeStatus') : t('workflowManagement.inactiveStatus')}
                       </Badge>
                     </CardTitle>
-                    <p className="text-sm text-muted-foreground">{workflow.description}</p>
+                    <p className="text-xs text-muted-foreground">{workflow.description}</p>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1">
                     <Button
                       variant="ghost"
                       size="sm"
+                      className="h-6 w-6 p-0"
                       onClick={() => openViewDialog(workflow)}
                     >
-                      <Eye className="h-4 w-4" />
+                      <Eye className="h-3 w-3" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
+                      className="h-6 w-6 p-0"
                       onClick={() => openEditDialog(workflow)}
                     >
-                      <Edit className="h-4 w-4" />
+                      <Edit className="h-3 w-3" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
+                      className="h-6 w-6 p-0"
                       onClick={() => openVisualBuilder(workflow)}
                       title="Visual Builder"
                     >
-                      <Move className="h-4 w-4" />
+                      <Move className="h-3 w-3" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
+                      className="h-6 w-6 p-0"
                       onClick={() => handleDuplicateWorkflow(workflow._id)}
                     >
-                      <Copy className="h-4 w-4" />
+                      <Copy className="h-3 w-3" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
+                      className="h-6 w-6 p-0"
                       onClick={() => handleDeleteWorkflow(workflow._id)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
+              <CardContent className="py-3 px-4 lg:px-5">
+                <div className="space-y-2">
                   {/* Basic Statistics Row */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Settings className="h-4 w-4 text-muted-foreground" />
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                    <div className="flex items-center gap-1">
+                      <Settings className="h-3 w-3 text-muted-foreground" />
                       <span className="font-medium">{workflow.steps?.length || 0}</span>
                       <span className="text-muted-foreground">{t('workflowManagement.labels.steps')}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3 w-3 text-muted-foreground" />
                       <span className="font-medium">{workflow.estimatedTotalTime || 0}</span>
                       <span className="text-muted-foreground">{t('workflowManagement.labels.minutes')}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <FormInput className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex items-center gap-1">
+                      <FormInput className="h-3 w-3 text-muted-foreground" />
                       <span className="font-medium">
                         {workflow.steps?.reduce((total, step) => total + (step.formFields?.length || 0), 0) || 0}
                       </span>
                       <span className="text-muted-foreground">{t('workflowManagement.labels.formFields')}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex items-center gap-1">
+                      <Zap className="h-3 w-3 text-muted-foreground" />
                       <span className="font-medium">
                         {workflow.steps?.reduce((total, step) => total + (step.automationRules?.length || 0), 0) || 0}
                       </span>
@@ -484,71 +492,114 @@ export function WorkflowManagement() {
                     </div>
                   </div>
 
-                  {/* Device and Service Types */}
-                  {(workflow.deviceTypes?.length > 0 || workflow.serviceTypes?.length > 0) && (
-                    <div className="space-y-2">
-                      {workflow.deviceTypes && workflow.deviceTypes.length > 0 && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.deviceTypes')}:</span>
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                    {/* Context: where this workflow can be used */}
+                    {(workflow.deviceTypes?.length > 0 || workflow.serviceTypes?.length > 0) && (
+                      <div className="rounded-lg border bg-background p-3 space-y-2 min-w-0">
+                        {workflow.deviceTypes && workflow.deviceTypes.length > 0 && (
+                          <div className="space-y-1.5">
+                            <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.deviceTypes')}:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {workflow.deviceTypes.map((type) => (
+                                <Badge key={type} variant="outline" className="text-xs">
+                                  {type}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {workflow.serviceTypes && workflow.serviceTypes.length > 0 && (
+                          <div className="space-y-1.5">
+                            <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.serviceTypes')}:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {workflow.serviceTypes.map((typeId) => {
+                                const service = services.find(s => s._id === typeId);
+                                return service ? (
+                                  <Badge key={typeId} variant="outline" className="text-xs">
+                                    {service.name}
+                                  </Badge>
+                                ) : null;
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Structure: categories and quick step preview */}
+                    {workflow.steps && workflow.steps.length > 0 && (
+                      <div className="rounded-lg border bg-background p-3 space-y-2 min-w-0">
+                        <div className="space-y-1.5">
+                          <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.stepCategories')}:</span>
                           <div className="flex flex-wrap gap-1">
-                            {workflow.deviceTypes.map((type) => (
-                              <Badge key={type} variant="outline" className="text-xs">
-                                {type}
+                            {Object.entries(
+                              workflow.steps.reduce((acc, step) => {
+                                acc[step.category] = (acc[step.category] || 0) + 1;
+                                return acc;
+                              }, {} as Record<string, number>)
+                            ).map(([category, count]) => (
+                              <Badge key={category} variant="secondary" className="text-xs">
+                                {category}: {count}
                               </Badge>
                             ))}
                           </div>
                         </div>
-                      )}
-                      {workflow.serviceTypes && workflow.serviceTypes.length > 0 && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.serviceTypes')}:</span>
-                          <div className="flex flex-wrap gap-1">
-                            {workflow.serviceTypes.map((typeId) => {
-                              const service = services.find(s => s._id === typeId);
-                              return service ? (
-                                <Badge key={typeId} variant="outline" className="text-xs">
-                                  {service.name}
-                                </Badge>
-                              ) : null;
-                            })}
+
+                        <div className="space-y-1.5">
+                          <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.stepOverview')}:</span>
+                          <div className="space-y-1 max-h-36 overflow-y-auto">
+                            {workflow.steps.slice(0, 3).map((step, index) => (
+                              <div key={step._id} className="flex items-center justify-between p-2 bg-muted/30 rounded text-xs gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Badge variant="outline" className="text-xs shrink-0">
+                                    {index + 1}
+                                  </Badge>
+                                  <span className="font-medium truncate">{step.name}</span>
+                                  <Badge className={`text-xs shrink-0 ${getCategoryColor(step.category)}`}>
+                                    {step.category}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                                  <span>{step.estimatedTime}m</span>
+                                  {step.formFields?.length > 0 && (
+                                    <span className="flex items-center gap-1">
+                                      <FormInput className="h-3 w-3" />
+                                      {step.formFields.length}
+                                    </span>
+                                  )}
+                                  {step.automationRules?.length > 0 && (
+                                    <span className="flex items-center gap-1">
+                                      <Zap className="h-3 w-3" />
+                                      {step.automationRules.length}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                            {workflow.steps.length > 3 && (
+                              <div className="text-xs text-muted-foreground text-center py-1">
+                                {t('workflowManagement.workflowDetails.moreSteps', { count: workflow.steps.length - 3 })}
+                              </div>
+                            )}
                           </div>
                         </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Step Categories Breakdown */}
-                  {workflow.steps && workflow.steps.length > 0 && (
-                    <div className="space-y-2">
-                      <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.stepCategories')}:</span>
-                      <div className="flex flex-wrap gap-1">
-                        {Object.entries(
-                          workflow.steps.reduce((acc, step) => {
-                            acc[step.category] = (acc[step.category] || 0) + 1;
-                            return acc;
-                          }, {} as Record<string, number>)
-                        ).map(([category, count]) => (
-                          <Badge key={category} variant="secondary" className="text-xs">
-                            {category}: {count}
-                          </Badge>
-                        ))}
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
-                  {/* Interactive Elements Summary */}
+                  {/* Interactive nested elements: full-width and grouped by purpose */}
                   {workflow.steps && workflow.steps.some(step => step.formFields?.length > 0 || step.automationRules?.length > 0) && (
-                    <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                    <div className="bg-muted/50 rounded-lg p-3.5 space-y-3 w-full">
                       <h4 className="text-sm font-medium flex items-center gap-2">
                         <FormInput className="h-4 w-4" />
                         {t('workflowManagement.workflowDetails.interactiveElements')}
                       </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                        {/* Form Fields Summary */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
+                        {/* Input-related nested elements */}
                         {workflow.steps.some(step => step.formFields?.length > 0) && (
-                          <div>
+                          <div className="rounded-md border bg-background p-2.5">
                             <span className="font-medium">{t('workflowManagement.workflowDetails.formFieldTypes')}:</span>
-                            <div className="flex flex-wrap gap-1 mt-1">
+                            <div className="flex flex-wrap gap-1 mt-1.5">
                               {Object.entries(
                                 workflow.steps.reduce((acc, step) => {
                                   step.formFields?.forEach(field => {
@@ -565,11 +616,11 @@ export function WorkflowManagement() {
                           </div>
                         )}
 
-                        {/* Automation Rules Summary */}
+                        {/* Automation-related nested elements */}
                         {workflow.steps.some(step => step.automationRules?.length > 0) && (
-                          <div>
+                          <div className="rounded-md border bg-background p-2.5">
                             <span className="font-medium">{t('workflowManagement.workflowDetails.automationTriggers')}:</span>
-                            <div className="flex flex-wrap gap-1 mt-1">
+                            <div className="flex flex-wrap gap-1 mt-1.5">
                               {Object.entries(
                                 workflow.steps.reduce((acc, step) => {
                                   step.automationRules?.forEach(rule => {
@@ -583,48 +634,6 @@ export function WorkflowManagement() {
                                 </Badge>
                               ))}
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Step Details Preview */}
-                  {workflow.steps && workflow.steps.length > 0 && (
-                    <div className="space-y-2">
-                      <span className="text-sm font-medium">{t('workflowManagement.workflowDetails.stepOverview')}:</span>
-                      <div className="space-y-1 max-h-32 overflow-y-auto">
-                        {workflow.steps.slice(0, 3).map((step, index) => (
-                          <div key={step._id} className="flex items-center justify-between p-2 bg-muted/30 rounded text-xs">
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-xs">
-                                {index + 1}
-                              </Badge>
-                              <span className="font-medium">{step.name}</span>
-                              <Badge className={`text-xs ${getCategoryColor(step.category)}`}>
-                                {step.category}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <span>{step.estimatedTime}m</span>
-                              {step.formFields?.length > 0 && (
-                                <span className="flex items-center gap-1">
-                                  <FormInput className="h-3 w-3" />
-                                  {step.formFields.length}
-                                </span>
-                              )}
-                              {step.automationRules?.length > 0 && (
-                                <span className="flex items-center gap-1">
-                                  <Zap className="h-3 w-3" />
-                                  {step.automationRules.length}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                        {workflow.steps.length > 3 && (
-                          <div className="text-xs text-muted-foreground text-center py-1">
-                            {t('workflowManagement.workflowDetails.moreSteps', { count: workflow.steps.length - 3 })}
                           </div>
                         )}
                       </div>
@@ -668,51 +677,56 @@ export function WorkflowManagement() {
 
       {/* Create Workflow Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{t('workflowManagement.dialogs.createWorkflowTitle')}</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-xl p-0 overflow-hidden">
+          <DialogHeader
+            className="px-4 py-3"
+            style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)' }}
+          >
+            <DialogTitle className="text-sm font-semibold text-white">{t('workflowManagement.dialogs.createWorkflowTitle')}</DialogTitle>
+            <DialogDescription className="text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>
               {t('workflowManagement.dialogs.createWorkflowDesc')}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">{t('workflowManagement.labels.workflowName')}</Label>
+          <div className="grid gap-3 p-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="name" className="text-xs">{t('workflowManagement.labels.workflowName')}</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder={t('workflowManagement.labels.workflowName')}
+                  className="h-7 text-xs"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="active">{t('workflowManagement.labels.workflowStatus')}</Label>
-                <div className="flex items-center space-x-2">
+              <div className="space-y-1">
+                <Label htmlFor="active" className="text-xs">{t('workflowManagement.labels.workflowStatus')}</Label>
+                <div className="flex items-center space-x-2 pt-1">
                   <Switch
                     id="active"
                     checked={formData.isActive}
                     onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
                   />
-                  <Label htmlFor="active">{formData.isActive ? t('workflowManagement.activeStatus') : t('workflowManagement.inactiveStatus')}</Label>
+                  <Label htmlFor="active" className="text-xs">{formData.isActive ? t('workflowManagement.activeStatus') : t('workflowManagement.inactiveStatus')}</Label>
                 </div>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">{t('workflowManagement.labels.description')}</Label>
+            <div className="space-y-1">
+              <Label htmlFor="description" className="text-xs">{t('workflowManagement.labels.description')}</Label>
               <Textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 placeholder={t('workflowManagement.labels.description')}
-                rows={3}
+                rows={2}
+                className="text-xs"
               />
             </div>
-            <div className="space-y-2">
-              <Label>{t('workflowManagement.workflowDetails.deviceTypes')}</Label>
-              <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">{t('workflowManagement.workflowDetails.deviceTypes')}</Label>
+              <div className="grid grid-cols-3 gap-1">
                 {deviceTypeOptions.map((type) => (
-                  <div key={type} className="flex items-center space-x-2">
+                  <div key={type} className="flex items-center space-x-1">
                     <input
                       type="checkbox"
                       id={type}
@@ -725,16 +739,16 @@ export function WorkflowManagement() {
                         }
                       }}
                     />
-                    <Label htmlFor={type} className="text-sm">{type}</Label>
+                    <Label htmlFor={type} className="text-xs">{type}</Label>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>{t('workflowManagement.workflowDetails.serviceTypes')}</Label>
-              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+            <div className="space-y-1">
+              <Label className="text-xs">{t('workflowManagement.workflowDetails.serviceTypes')}</Label>
+              <div className="grid grid-cols-2 gap-1 max-h-24 overflow-y-auto">
                 {services.map((service) => (
-                  <div key={service._id} className="flex items-center space-x-2">
+                  <div key={service._id} className="flex items-center space-x-1">
                     <input
                       type="checkbox"
                       id={service._id}
@@ -747,17 +761,17 @@ export function WorkflowManagement() {
                         }
                       }}
                     />
-                    <Label htmlFor={service._id} className="text-sm">{service.name}</Label>
+                    <Label htmlFor={service._id} className="text-xs">{service.name}</Label>
                   </div>
                 ))}
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+          <DialogFooter className="px-4 py-2 border-t">
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowCreateDialog(false)}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleCreateWorkflow}>
+            <Button size="sm" className="h-7 text-xs" onClick={handleCreateWorkflow}>
               {t('workflowManagement.createNewWorkflow')}
             </Button>
           </DialogFooter>
@@ -766,49 +780,54 @@ export function WorkflowManagement() {
 
       {/* Edit Workflow Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{t("workflowManagement.dialogs.editWorkflowTitle")}</DialogTitle>
-            <DialogDescription>{t("workflowManagement.dialogs.editWorkflowDesc")}</DialogDescription>
+        <DialogContent className="max-w-xl p-0 overflow-hidden">
+          <DialogHeader
+            className="px-4 py-3"
+            style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)' }}
+          >
+            <DialogTitle className="text-sm font-semibold text-white">{t("workflowManagement.dialogs.editWorkflowTitle")}</DialogTitle>
+            <DialogDescription className="text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>{t("workflowManagement.dialogs.editWorkflowDesc")}</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-name">{t('workflowManagement.labels.workflowName')}</Label>
+          <div className="grid gap-3 p-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="edit-name" className="text-xs">{t('workflowManagement.labels.workflowName')}</Label>
                 <Input
                   id="edit-name"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder={t('workflowManagement.labels.workflowName')}
+                  className="h-7 text-xs"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-active">{t('workflowManagement.labels.workflowStatus')}</Label>
-                <div className="flex items-center space-x-2">
+              <div className="space-y-1">
+                <Label htmlFor="edit-active" className="text-xs">{t('workflowManagement.labels.workflowStatus')}</Label>
+                <div className="flex items-center space-x-2 pt-1">
                   <Switch
                     id="edit-active"
                     checked={formData.isActive}
                     onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
                   />
-                  <Label htmlFor="edit-active">{formData.isActive ? t('workflowManagement.activeStatus') : t('workflowManagement.inactiveStatus')}</Label>
+                  <Label htmlFor="edit-active" className="text-xs">{formData.isActive ? t('workflowManagement.activeStatus') : t('workflowManagement.inactiveStatus')}</Label>
                 </div>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-description">{t('workflowManagement.labels.description')}</Label>
+            <div className="space-y-1">
+              <Label htmlFor="edit-description" className="text-xs">{t('workflowManagement.labels.description')}</Label>
               <Textarea
                 id="edit-description"
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Enter workflow description"
-                rows={3}
+                rows={2}
+                className="text-xs"
               />
             </div>
-            <div className="space-y-2">
-              <Label>{t('workflowManagement.workflowDetails.deviceTypes')}</Label>
-              <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">{t('workflowManagement.workflowDetails.deviceTypes')}</Label>
+              <div className="grid grid-cols-3 gap-1">
                 {deviceTypeOptions.map((type) => (
-                  <div key={type} className="flex items-center space-x-2">
+                  <div key={type} className="flex items-center space-x-1">
                     <input
                       type="checkbox"
                       id={`edit-${type}`}
@@ -821,16 +840,16 @@ export function WorkflowManagement() {
                         }
                       }}
                     />
-                    <Label htmlFor={`edit-${type}`} className="text-sm">{type}</Label>
+                    <Label htmlFor={`edit-${type}`} className="text-xs">{type}</Label>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>{t('workflowManagement.workflowDetails.serviceTypes')}</Label>
-              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+            <div className="space-y-1">
+              <Label className="text-xs">{t('workflowManagement.workflowDetails.serviceTypes')}</Label>
+              <div className="grid grid-cols-2 gap-1 max-h-24 overflow-y-auto">
                 {services.map((service) => (
-                  <div key={service._id} className="flex items-center space-x-2">
+                  <div key={service._id} className="flex items-center space-x-1">
                     <input
                       type="checkbox"
                       id={`edit-${service._id}`}
@@ -843,17 +862,17 @@ export function WorkflowManagement() {
                         }
                       }}
                     />
-                    <Label htmlFor={`edit-${service._id}`} className="text-sm">{service.name}</Label>
+                    <Label htmlFor={`edit-${service._id}`} className="text-xs">{service.name}</Label>
                   </div>
                 ))}
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+          <DialogFooter className="px-4 py-2 border-t">
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowEditDialog(false)}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleUpdateWorkflow}>
+            <Button size="sm" className="h-7 text-xs" onClick={handleUpdateWorkflow}>
               {t('workflowManagement.buttons.update')}
             </Button>
           </DialogFooter>
@@ -862,39 +881,43 @@ export function WorkflowManagement() {
 
       {/* View Workflow Dialog */}
       <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader
+            className="px-4 py-3 flex-shrink-0"
+            style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)' }}
+          >
+            <DialogTitle className="flex items-center gap-2 text-sm font-semibold text-white">
               {selectedWorkflow?.name}
-              <Badge variant={selectedWorkflow?.isActive ? 'default' : 'secondary'}>
+              <Badge variant={selectedWorkflow?.isActive ? 'default' : 'secondary'} className="text-xs h-4 px-1">
                 {selectedWorkflow?.isActive ? 'Active' : 'Inactive'}
               </Badge>
             </DialogTitle>
-            <DialogDescription>{t("workflowManagement.dialogs.viewWorkflowDesc")}</DialogDescription>
+            <DialogDescription className="text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>{t("workflowManagement.dialogs.viewWorkflowDesc")}</DialogDescription>
           </DialogHeader>
+          <div className="overflow-y-auto flex-1">
           {selectedWorkflow && (
-            <div className="space-y-6">
+            <div className="space-y-3 p-4">
               <div>
-                <h3 className="text-lg font-semibold mb-2">{t('workflowManagement.labels.description')}</h3>
-                <p className="text-muted-foreground">{selectedWorkflow.description}</p>
+                <h3 className="text-xs font-semibold mb-1">{t('workflowManagement.labels.description')}</h3>
+                <p className="text-xs text-muted-foreground">{selectedWorkflow.description}</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">{t('workflowManagement.workflowDetails.deviceTypes')}</h3>
-                  <div className="flex flex-wrap gap-2">
+                  <h3 className="text-xs font-semibold mb-1">{t('workflowManagement.workflowDetails.deviceTypes')}</h3>
+                  <div className="flex flex-wrap gap-1">
                     {selectedWorkflow.deviceTypes?.map((type) => (
-                      <Badge key={type} variant="outline">{type}</Badge>
+                      <Badge key={type} variant="outline" className="text-xs h-4 px-1">{type}</Badge>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">{t('workflowManagement.workflowDetails.serviceTypes')}</h3>
-                  <div className="flex flex-wrap gap-2">
+                  <h3 className="text-xs font-semibold mb-1">{t('workflowManagement.workflowDetails.serviceTypes')}</h3>
+                  <div className="flex flex-wrap gap-1">
                     {selectedWorkflow.serviceTypes?.map((typeId) => {
                       const service = services.find(s => s._id === typeId);
                       return service ? (
-                        <Badge key={typeId} variant="outline">{service.name}</Badge>
+                        <Badge key={typeId} variant="outline" className="text-xs h-4 px-1">{service.name}</Badge>
                       ) : null;
                     })}
                   </div>
@@ -903,26 +926,26 @@ export function WorkflowManagement() {
 
               {selectedWorkflow.steps && selectedWorkflow.steps.length > 0 && (
                 <div>
-                  <h3 className="text-lg font-semibold mb-4">{t('workflowManagement.dialogs.workflowStepsCount', { count: selectedWorkflow.steps.length })}</h3>
-                  <div className="space-y-3">
+                  <h3 className="text-xs font-semibold mb-2">{t('workflowManagement.dialogs.workflowStepsCount', { count: selectedWorkflow.steps.length })}</h3>
+                  <div className="space-y-2">
                     {selectedWorkflow.steps.map((step, index) => (
                       <Card key={step._id}>
-                        <CardContent className="pt-4">
+                        <CardContent className="p-2">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Badge variant="outline">Step {index + 1}</Badge>
-                                <Badge className={getCategoryColor(step.category)}>
+                              <div className="flex items-center gap-1 mb-1">
+                                <Badge variant="outline" className="text-xs h-4 px-1">Step {index + 1}</Badge>
+                                <Badge className={`text-xs h-4 px-1 ${getCategoryColor(step.category)}`}>
                                   {step.category}
                                 </Badge>
                                 {step.isRequired && (
-                                  <Badge variant="destructive" className="text-xs">Required</Badge>
+                                  <Badge variant="destructive" className="text-xs h-4 px-1">Required</Badge>
                                 )}
                               </div>
-                              <h4 className="font-semibold">{step.name}</h4>
-                              <p className="text-sm text-muted-foreground mt-1">{step.description}</p>
+                              <h4 className="text-xs font-semibold">{step.name}</h4>
+                              <p className="text-xs text-muted-foreground">{step.description}</p>
                             </div>
-                            <div className="text-right text-sm text-muted-foreground">
+                            <div className="text-right text-xs text-muted-foreground">
                               <div className="flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
                                 {step.estimatedTime} min
@@ -931,7 +954,7 @@ export function WorkflowManagement() {
                           </div>
 
                           {/* Step Details */}
-                          <div className="mt-4 grid grid-cols-2 gap-4 text-xs">
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                             {step.formFields && step.formFields.length > 0 && (
                               <div>
                                 <span className="font-medium">Form Fields ({step.formFields.length}):</span>
@@ -979,13 +1002,14 @@ export function WorkflowManagement() {
               )}
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowViewDialog(false)}>
+          </div>
+          <DialogFooter className="px-4 py-2 border-t flex-shrink-0">
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowViewDialog(false)}>
               {t('common.close')}
             </Button>
             {selectedWorkflow && (
-              <Button onClick={() => openVisualBuilder(selectedWorkflow)}>
-                <Move className="h-4 w-4 mr-2" />
+              <Button size="sm" className="h-7 text-xs" onClick={() => openVisualBuilder(selectedWorkflow)}>
+                <Move className="h-3 w-3 mr-1" />
                 {t('workflowManagement.buttons.openVisualBuilder')}
               </Button>
             )}
