@@ -196,37 +196,38 @@ export function NotificationTemplateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0">
+        <DialogHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white p-6 rounded-t-lg">
+          <DialogTitle className="text-xl">
             {mode === 'create' ? 'Create Notification Template' : 'Edit Notification Template'}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-blue-100 text-sm mt-2">
             Create customizable notification templates with dynamic variables
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-6 py-4">
+        <div className="grid gap-4 py-4 px-6">
           {/* Basic Information */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Template Name *</Label>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="name" className="text-sm">Template Name *</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Enter template name"
+                className="h-9 text-sm"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="type">Type *</Label>
+            <div className="space-y-1">
+              <Label htmlFor="type" className="text-sm">Type *</Label>
               <Select
                 value={formData.type}
                 onValueChange={(value: 'email' | 'sms' | 'push') => 
                   setFormData(prev => ({ ...prev, type: value }))
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-9 text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -240,28 +241,30 @@ export function NotificationTemplateDialog({
 
           {/* Subject (for email) */}
           {formData.type === 'email' && (
-            <div className="space-y-2">
-              <Label htmlFor="subject">Subject *</Label>
+            <div className="space-y-1">
+              <Label htmlFor="subject" className="text-sm">Subject *</Label>
               <Input
                 id="subject"
                 value={formData.subject}
                 onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
                 placeholder="Enter email subject"
+                className="h-9 text-sm"
               />
             </div>
           )}
 
           {/* Content */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="content">Content *</Label>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="content" className="text-sm">Content *</Label>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setShowPreview(!showPreview)}
+                className="h-8 text-xs"
               >
-                <Eye className="h-4 w-4 mr-2" />
+                <Eye className="h-3 w-3 mr-1" />
                 {showPreview ? 'Hide Preview' : 'Show Preview'}
               </Button>
             </div>
@@ -270,15 +273,16 @@ export function NotificationTemplateDialog({
               value={formData.content}
               onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
               placeholder="Enter template content. Use {{variableName}} for dynamic content."
-              rows={8}
+              rows={6}
+              className="text-sm"
             />
             {showPreview && (
-              <Card>
-                <CardHeader>
+              <Card className="mt-2 border-blue-200 bg-blue-50">
+                <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t p-3">
                   <CardTitle className="text-sm">Preview</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="whitespace-pre-wrap text-sm bg-muted p-3 rounded">
+                <CardContent className="p-3">
+                  <div className="whitespace-pre-wrap text-xs bg-white p-2 rounded border border-blue-200">
                     {renderPreview()}
                   </div>
                 </CardContent>
@@ -287,8 +291,8 @@ export function NotificationTemplateDialog({
           </div>
 
           {/* Variables */}
-          <div className="space-y-4">
-            <Label>Variables</Label>
+          <div className="space-y-2">
+            <Label className="text-sm">Variables</Label>
             
             {/* Common Variables */}
             <Card>

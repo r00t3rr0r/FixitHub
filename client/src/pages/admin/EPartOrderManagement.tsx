@@ -74,9 +74,27 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import NeedListManagement from '@/components/admin/NeedListManagement';
+import { cn } from '@/lib/utils';
 
 export default function EPartOrderManagement() {
   const { toast } = useToast();
+  const pageSectionCardClass = 'border-slate-200 shadow-sm';
+  const compactCardHeaderClass = 'space-y-1 px-4 py-3';
+  const compactCardContentClass = 'px-4 pb-4';
+  const compactLabelClass = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600';
+  const compactInputClass = 'h-8 text-xs';
+  const compactSelectClass = 'h-8 text-xs';
+  const compactTextareaClass = 'min-h-[88px] text-xs';
+  const compactButtonClass = 'h-8 text-xs';
+  const compactGhostButtonClass = 'h-8 w-8 p-0';
+  const compactTableHeadClass = 'h-9 px-2 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500';
+  const compactTableCellClass = 'px-2 py-2 text-xs align-middle';
+  const compactDialogContentClass = 'max-h-[88vh] overflow-hidden gap-0 border-slate-200 p-0 shadow-xl';
+  const compactDialogHeaderClass = 'space-y-1 border-b border-slate-800 bg-[#1a2a5e] px-4 py-3 text-left';
+  const compactDialogTitleClass = 'text-base font-semibold text-white';
+  const compactDialogDescriptionClass = 'text-xs text-slate-200';
+  const compactDialogBodyClass = 'space-y-4 p-4 pt-3';
+  const compactDialogFooterClass = 'border-t border-slate-200 bg-slate-50 px-4 py-3';
 
   // State
   const [orders, setOrders] = useState<EPartOrder[]>([]);
@@ -551,112 +569,112 @@ export default function EPartOrderManagement() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto max-w-[1600px] space-y-4 px-4 py-4 lg:px-5">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="rounded-lg border border-slate-200 bg-gradient-to-r from-[#1a2a5e] via-[#243976] to-[#2b4a92] px-4 py-4 text-white shadow-sm">
         <div>
-          <h1 className="text-3xl font-bold">EPart Order Management</h1>
-          <p className="text-muted-foreground">Manage supplier orders, need lists, and inventory replenishment</p>
+          <h1 className="text-2xl font-bold tracking-tight">EPart Order Management</h1>
+          <p className="mt-1 text-sm text-slate-200">Manage supplier orders, need lists, and inventory replenishment</p>
         </div>
       </div>
 
       {/* Main Tabs */}
-      <Tabs defaultValue="orders" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="orders">
-            <ShoppingCart className="mr-2 h-4 w-4" />
+      <Tabs defaultValue="orders" className="space-y-4">
+        <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-lg border border-slate-200 bg-slate-100 p-1">
+          <TabsTrigger value="orders" className="h-9 text-xs font-semibold">
+            <ShoppingCart className="mr-2 h-3.5 w-3.5" />
             Orders
           </TabsTrigger>
-          <TabsTrigger value="need-lists">
-            <ClipboardList className="mr-2 h-4 w-4" />
+          <TabsTrigger value="need-lists" className="h-9 text-xs font-semibold">
+            <ClipboardList className="mr-2 h-3.5 w-3.5" />
             Need Lists
           </TabsTrigger>
-          <TabsTrigger value="suppliers">
-            <Package className="mr-2 h-4 w-4" />
+          <TabsTrigger value="suppliers" className="h-9 text-xs font-semibold">
+            <Package className="mr-2 h-3.5 w-3.5" />
             Suppliers
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="orders" className="space-y-6">
+        <TabsContent value="orders" className="space-y-4">
           {/* Orders Content */}
           <div className="flex justify-end gap-2">
-            <Button onClick={() => setShowCreateOrderDialog(true)}>
-              <Plus className="mr-2 h-4 w-4" />
+            <Button onClick={() => setShowCreateOrderDialog(true)} className={cn(compactButtonClass, 'px-3')}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
               Create Order
             </Button>
           </div>
 
       {/* Statistics Cards */}
       {statistics && (
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <Card className={pageSectionCardClass}>
+            <CardHeader className={cn(compactCardHeaderClass, 'flex-row items-center justify-between space-y-0 pb-2')}>
+              <CardTitle className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Total Orders</CardTitle>
+              <ShoppingCart className="h-4 w-4 text-slate-400" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{statistics.totalOrders}</div>
+            <CardContent className={compactCardContentClass}>
+              <div className="text-xl font-bold text-slate-900">{statistics.totalOrders}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+          <Card className={pageSectionCardClass}>
+            <CardHeader className={cn(compactCardHeaderClass, 'flex-row items-center justify-between space-y-0 pb-2')}>
+              <CardTitle className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Total Spent</CardTitle>
+              <DollarSign className="h-4 w-4 text-slate-400" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">${statistics.totalSpent.toFixed(2)}</div>
+            <CardContent className={compactCardContentClass}>
+              <div className="text-xl font-bold text-slate-900">${statistics.totalSpent.toFixed(2)}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Orders</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
+          <Card className={pageSectionCardClass}>
+            <CardHeader className={cn(compactCardHeaderClass, 'flex-row items-center justify-between space-y-0 pb-2')}>
+              <CardTitle className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Pending Orders</CardTitle>
+              <Package className="h-4 w-4 text-slate-400" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className={compactCardContentClass}>
+              <div className="text-xl font-bold text-slate-900">
                 {(statistics.ordersByStatus.pending || 0) + (statistics.ordersByStatus.confirmed || 0)}
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">In Transit</CardTitle>
-              <Truck className="h-4 w-4 text-muted-foreground" />
+          <Card className={pageSectionCardClass}>
+            <CardHeader className={cn(compactCardHeaderClass, 'flex-row items-center justify-between space-y-0 pb-2')}>
+              <CardTitle className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">In Transit</CardTitle>
+              <Truck className="h-4 w-4 text-slate-400" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{statistics.ordersByStatus.shipped || 0}</div>
+            <CardContent className={compactCardContentClass}>
+              <div className="text-xl font-bold text-slate-900">{statistics.ordersByStatus.shipped || 0}</div>
             </CardContent>
           </Card>
         </div>
       )}
 
       {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
+      <Card className={pageSectionCardClass}>
+        <CardHeader className={compactCardHeaderClass}>
+          <CardTitle className="text-base">Filters</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <CardContent className={compactCardContentClass}>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
             <div>
-              <Label>Search</Label>
+              <Label className={compactLabelClass}>Search</Label>
               <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   placeholder="Order number..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8"
+                  className={cn(compactInputClass, 'pl-7')}
                 />
               </div>
             </div>
 
             <div>
-              <Label>Status</Label>
+              <Label className={compactLabelClass}>Status</Label>
               <Select value={statusFilter || undefined} onValueChange={(value) => setStatusFilter(value || '')}>
-                <SelectTrigger>
+                <SelectTrigger className={compactSelectClass}>
                   <SelectValue placeholder="All Statuses" />
                 </SelectTrigger>
                 <SelectContent>
@@ -672,9 +690,9 @@ export default function EPartOrderManagement() {
             </div>
 
             <div>
-              <Label>Supplier</Label>
+              <Label className={compactLabelClass}>Supplier</Label>
               <Select value={supplierFilter || undefined} onValueChange={(value) => setSupplierFilter(value || '')}>
-                <SelectTrigger>
+                <SelectTrigger className={compactSelectClass}>
                   <SelectValue placeholder="All Suppliers" />
                 </SelectTrigger>
                 <SelectContent>
@@ -690,6 +708,7 @@ export default function EPartOrderManagement() {
             <div className="flex items-end">
               <Button
                 variant="outline"
+                className={cn(compactButtonClass, 'w-full md:w-auto')}
                 onClick={() => {
                   setStatusFilter('');
                   setSupplierFilter('');
@@ -704,66 +723,69 @@ export default function EPartOrderManagement() {
       </Card>
 
       {/* Orders Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Orders</CardTitle>
-          <CardDescription>View and manage all epart orders</CardDescription>
+      <Card className={pageSectionCardClass}>
+        <CardHeader className={compactCardHeaderClass}>
+          <CardTitle className="text-base">Orders</CardTitle>
+          <CardDescription className="text-xs">View and manage all epart orders</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
+        <CardContent className={cn(compactCardContentClass, 'pt-0')}>
+          <div className="overflow-x-auto">
+            <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Order #</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Payment</TableHead>
-                <TableHead>Order Date</TableHead>
-                <TableHead>Expected</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className={compactTableHeadClass}>Order #</TableHead>
+                <TableHead className={compactTableHeadClass}>Supplier</TableHead>
+                <TableHead className={compactTableHeadClass}>Items</TableHead>
+                <TableHead className={compactTableHeadClass}>Total</TableHead>
+                <TableHead className={compactTableHeadClass}>Status</TableHead>
+                <TableHead className={compactTableHeadClass}>Payment</TableHead>
+                <TableHead className={compactTableHeadClass}>Order Date</TableHead>
+                <TableHead className={compactTableHeadClass}>Expected</TableHead>
+                <TableHead className={cn(compactTableHeadClass, 'text-right')}>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {orders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="h-20 text-center text-sm text-muted-foreground">
                     No orders found
                   </TableCell>
                 </TableRow>
               ) : (
                 orders.map((order) => (
                   <TableRow key={order._id}>
-                    <TableCell className="font-medium">{order.orderNumber}</TableCell>
-                    <TableCell>{getSupplierName(order.supplierId)}</TableCell>
-                    <TableCell>{order.items.length}</TableCell>
-                    <TableCell>${order.totalCost.toFixed(2)}</TableCell>
-                    <TableCell>{getStatusBadge(order.status)}</TableCell>
-                    <TableCell>
+                    <TableCell className={cn(compactTableCellClass, 'font-semibold text-slate-900')}>{order.orderNumber}</TableCell>
+                    <TableCell className={compactTableCellClass}>{getSupplierName(order.supplierId)}</TableCell>
+                    <TableCell className={compactTableCellClass}>{order.items.length}</TableCell>
+                    <TableCell className={compactTableCellClass}>${order.totalCost.toFixed(2)}</TableCell>
+                    <TableCell className={compactTableCellClass}>{getStatusBadge(order.status)}</TableCell>
+                    <TableCell className={compactTableCellClass}>
                       <Badge variant={order.paymentStatus === 'paid' ? 'default' : 'outline'}>
                         {order.paymentStatus}
                       </Badge>
                     </TableCell>
-                    <TableCell>{format(new Date(order.orderDate), 'MMM dd, yyyy')}</TableCell>
-                    <TableCell>
+                    <TableCell className={compactTableCellClass}>{format(new Date(order.orderDate), 'MMM dd, yyyy')}</TableCell>
+                    <TableCell className={compactTableCellClass}>
                       {order.expectedDeliveryDate
                         ? format(new Date(order.expectedDeliveryDate), 'MMM dd, yyyy')
                         : '-'}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className={cn(compactTableCellClass, 'text-right')}>
                       <Button
                         variant="ghost"
                         size="sm"
+                        className={compactGhostButtonClass}
                         onClick={() => handleViewOrder(order._id)}
                       >
-                        <Eye className="h-4 w-4" />
+                        <Eye className="h-3.5 w-3.5" />
                       </Button>
                     </TableCell>
                   </TableRow>
                 ))
               )}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
         </CardContent>
       </Card>
         </TabsContent>
@@ -772,51 +794,52 @@ export default function EPartOrderManagement() {
           <NeedListManagement onOrderCreated={loadData} />
         </TabsContent>
 
-        <TabsContent value="suppliers" className="space-y-6">
+        <TabsContent value="suppliers" className="space-y-4">
           {/* Suppliers Content */}
           <div className="flex justify-end gap-2">
-            <Button onClick={() => setShowCreateSupplierDialog(true)}>
-              <Plus className="mr-2 h-4 w-4" />
+            <Button onClick={() => setShowCreateSupplierDialog(true)} className={cn(compactButtonClass, 'px-3')}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
               Add Supplier
             </Button>
           </div>
 
       {/* Suppliers Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Suppliers</CardTitle>
-          <CardDescription>View and manage all suppliers</CardDescription>
+      <Card className={pageSectionCardClass}>
+        <CardHeader className={compactCardHeaderClass}>
+          <CardTitle className="text-base">Suppliers</CardTitle>
+          <CardDescription className="text-xs">View and manage all suppliers</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
+        <CardContent className={cn(compactCardContentClass, 'pt-0')}>
+          <div className="overflow-x-auto">
+            <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Contact Person</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Website</TableHead>
-                <TableHead>Ust.ID</TableHead>
-                <TableHead>Payment Terms</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className={compactTableHeadClass}>Name</TableHead>
+                <TableHead className={compactTableHeadClass}>Email</TableHead>
+                <TableHead className={compactTableHeadClass}>Contact Person</TableHead>
+                <TableHead className={compactTableHeadClass}>Phone</TableHead>
+                <TableHead className={compactTableHeadClass}>Website</TableHead>
+                <TableHead className={compactTableHeadClass}>Ust.ID</TableHead>
+                <TableHead className={compactTableHeadClass}>Payment Terms</TableHead>
+                <TableHead className={compactTableHeadClass}>Status</TableHead>
+                <TableHead className={cn(compactTableHeadClass, 'text-right')}>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {suppliers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="h-20 text-center text-sm text-muted-foreground">
                     No suppliers found
                   </TableCell>
                 </TableRow>
               ) : (
                 suppliers.map((supplier) => (
                   <TableRow key={supplier._id}>
-                    <TableCell className="font-medium">{supplier.name}</TableCell>
-                    <TableCell>{supplier.email}</TableCell>
-                    <TableCell>{supplier.contactPerson || '-'}</TableCell>
-                    <TableCell>{supplier.phone || '-'}</TableCell>
-                    <TableCell>
+                    <TableCell className={cn(compactTableCellClass, 'font-semibold text-slate-900')}>{supplier.name}</TableCell>
+                    <TableCell className={compactTableCellClass}>{supplier.email}</TableCell>
+                    <TableCell className={compactTableCellClass}>{supplier.contactPerson || '-'}</TableCell>
+                    <TableCell className={compactTableCellClass}>{supplier.phone || '-'}</TableCell>
+                    <TableCell className={compactTableCellClass}>
                       {supplier.website ? (
                         <a
                           href={supplier.website}
@@ -830,27 +853,29 @@ export default function EPartOrderManagement() {
                         '-'
                       )}
                     </TableCell>
-                    <TableCell>{supplier.ustId || '-'}</TableCell>
-                    <TableCell>{supplier.paymentTerms || '-'}</TableCell>
-                    <TableCell>
+                    <TableCell className={compactTableCellClass}>{supplier.ustId || '-'}</TableCell>
+                    <TableCell className={compactTableCellClass}>{supplier.paymentTerms || '-'}</TableCell>
+                    <TableCell className={compactTableCellClass}>
                       <Badge variant={supplier.isActive ? 'default' : 'secondary'}>
                         {supplier.isActive ? 'Active' : 'Inactive'}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className={cn(compactTableCellClass, 'text-right')}>
                       <Button
                         variant="ghost"
                         size="sm"
+                        className={compactGhostButtonClass}
                         onClick={() => handleEditSupplier(supplier)}
                       >
-                        <Edit className="h-4 w-4" />
+                        <Edit className="h-3.5 w-3.5" />
                       </Button>
                     </TableCell>
                   </TableRow>
                 ))
               )}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
         </CardContent>
       </Card>
         </TabsContent>
@@ -858,22 +883,22 @@ export default function EPartOrderManagement() {
 
       {/* Create Order Dialog */}
       <Dialog open={showCreateOrderDialog} onOpenChange={setShowCreateOrderDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create New EPart Order</DialogTitle>
-            <DialogDescription>
+        <DialogContent className={cn(compactDialogContentClass, 'max-w-4xl')}>
+          <DialogHeader className={compactDialogHeaderClass}>
+            <DialogTitle className={compactDialogTitleClass}>Create New EPart Order</DialogTitle>
+            <DialogDescription className={compactDialogDescriptionClass}>
               Create a new order to replenish inventory from a supplier
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className={compactDialogBodyClass}>
             <div>
-              <Label>Supplier *</Label>
+              <Label className={compactLabelClass}>Supplier *</Label>
               <Select
                 value={newOrder.supplierId}
                 onValueChange={(value) => setNewOrder({ ...newOrder, supplierId: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className={compactSelectClass}>
                   <SelectValue placeholder="Select supplier" />
                 </SelectTrigger>
                 <SelectContent>
@@ -887,21 +912,21 @@ export default function EPartOrderManagement() {
             </div>
 
             <div>
-              <div className="flex justify-between items-center mb-2">
-                <Label>Order Items *</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addItemToOrder}>
-                  <Plus className="h-4 w-4 mr-1" />
+              <div className="mb-2 flex items-center justify-between">
+                <Label className={compactLabelClass}>Order Items *</Label>
+                <Button type="button" variant="outline" size="sm" className={compactButtonClass} onClick={addItemToOrder}>
+                  <Plus className="mr-1 h-3.5 w-3.5" />
                   Add Item
                 </Button>
               </div>
 
               {newOrder.items.map((item, index) => (
-                <div key={index} className="flex gap-2 mb-2">
+                <div key={index} className="mb-2 flex flex-col gap-2 rounded-md border border-slate-200 bg-slate-50 p-2 md:flex-row">
                   <Select
                     value={item.partId}
                     onValueChange={(value) => updateOrderItem(index, 'partId', value)}
                   >
-                    <SelectTrigger className="flex-1">
+                    <SelectTrigger className={cn(compactSelectClass, 'flex-1')}>
                       <SelectValue placeholder="Select part" />
                     </SelectTrigger>
                     <SelectContent>
@@ -919,7 +944,7 @@ export default function EPartOrderManagement() {
                     onChange={(e) =>
                       updateOrderItem(index, 'quantity', parseInt(e.target.value) || 0)
                     }
-                    className="w-24"
+                    className={cn(compactInputClass, 'w-full md:w-20')}
                   />
                   <Input
                     type="number"
@@ -928,39 +953,41 @@ export default function EPartOrderManagement() {
                     onChange={(e) =>
                       updateOrderItem(index, 'unitPrice', parseFloat(e.target.value) || 0)
                     }
-                    className="w-32"
+                    className={cn(compactInputClass, 'w-full md:w-28')}
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
+                    className={cn(compactGhostButtonClass, 'self-end md:self-center')}
                     onClick={() => removeItemFromOrder(index)}
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               ))}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
-                <Label>Expected Delivery Date</Label>
+                <Label className={compactLabelClass}>Expected Delivery Date</Label>
                 <Input
                   type="date"
                   value={newOrder.expectedDeliveryDate}
                   onChange={(e) =>
                     setNewOrder({ ...newOrder, expectedDeliveryDate: e.target.value })
                   }
+                  className={compactInputClass}
                 />
               </div>
 
               <div>
-                <Label>Payment Method</Label>
+                <Label className={compactLabelClass}>Payment Method</Label>
                 <Select
                   value={newOrder.paymentMethod}
                   onValueChange={(value) => setNewOrder({ ...newOrder, paymentMethod: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={compactSelectClass}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -974,7 +1001,7 @@ export default function EPartOrderManagement() {
               </div>
 
               <div>
-                <Label>Tax</Label>
+                <Label className={compactLabelClass}>Tax</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -982,11 +1009,12 @@ export default function EPartOrderManagement() {
                   onChange={(e) =>
                     setNewOrder({ ...newOrder, tax: parseFloat(e.target.value) || 0 })
                   }
+                  className={compactInputClass}
                 />
               </div>
 
               <div>
-                <Label>Shipping Cost</Label>
+                <Label className={compactLabelClass}>Shipping Cost</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -994,112 +1022,120 @@ export default function EPartOrderManagement() {
                   onChange={(e) =>
                     setNewOrder({ ...newOrder, shippingCost: parseFloat(e.target.value) || 0 })
                   }
+                  className={compactInputClass}
                 />
               </div>
             </div>
 
             <div>
-              <Label>Notes</Label>
+              <Label className={compactLabelClass}>Notes</Label>
               <Textarea
                 value={newOrder.notes}
                 onChange={(e) => setNewOrder({ ...newOrder, notes: e.target.value })}
                 placeholder="Additional notes..."
+                className={compactTextareaClass}
               />
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateOrderDialog(false)}>
+          <DialogFooter className={compactDialogFooterClass}>
+            <Button variant="outline" className={compactButtonClass} onClick={() => setShowCreateOrderDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateOrder}>Create Order</Button>
+            <Button className={compactButtonClass} onClick={handleCreateOrder}>Create Order</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Create Supplier Dialog */}
       <Dialog open={showCreateSupplierDialog} onOpenChange={setShowCreateSupplierDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add New Supplier</DialogTitle>
-            <DialogDescription>Create a new supplier for epart orders</DialogDescription>
+        <DialogContent className={cn(compactDialogContentClass, 'max-w-4xl')}>
+          <DialogHeader className={compactDialogHeaderClass}>
+            <DialogTitle className={compactDialogTitleClass}>Add New Supplier</DialogTitle>
+            <DialogDescription className={compactDialogDescriptionClass}>Create a new supplier for epart orders</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6">
+          <div className={compactDialogBodyClass}>
             {/* Basic Information Section */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+            <div className="space-y-3">
+              <h3 className="border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
                 Basic Information
               </h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div>
-                  <Label>Name *</Label>
+                  <Label className={compactLabelClass}>Name *</Label>
                   <Input
                     value={newSupplier.name}
                     onChange={(e) => setNewSupplier({ ...newSupplier, name: e.target.value })}
                     placeholder="Supplier name"
+                    className={compactInputClass}
                   />
                 </div>
 
                 <div>
-                  <Label>Email *</Label>
+                  <Label className={compactLabelClass}>Email *</Label>
                   <Input
                     type="email"
                     value={newSupplier.email}
                     onChange={(e) => setNewSupplier({ ...newSupplier, email: e.target.value })}
                     placeholder="supplier@example.com"
+                    className={compactInputClass}
                   />
                 </div>
 
                 <div>
-                  <Label>Contact Person</Label>
+                  <Label className={compactLabelClass}>Contact Person</Label>
                   <Input
                     value={newSupplier.contactPerson}
                     onChange={(e) =>
                       setNewSupplier({ ...newSupplier, contactPerson: e.target.value })
                     }
                     placeholder="John Doe"
+                    className={compactInputClass}
                   />
                 </div>
 
                 <div>
-                  <Label>Phone</Label>
+                  <Label className={compactLabelClass}>Phone</Label>
                   <Input
                     value={newSupplier.phone}
                     onChange={(e) => setNewSupplier({ ...newSupplier, phone: e.target.value })}
                     placeholder="+49 123 456789"
+                    className={compactInputClass}
                   />
                 </div>
 
                 <div>
-                  <Label>Website</Label>
+                  <Label className={compactLabelClass}>Website</Label>
                   <Input
                     type="url"
                     placeholder="https://example.com"
                     value={newSupplier.website}
                     onChange={(e) => setNewSupplier({ ...newSupplier, website: e.target.value })}
+                    className={compactInputClass}
                   />
                 </div>
 
                 <div>
-                  <Label>Ust.ID (VAT ID)</Label>
+                  <Label className={compactLabelClass}>Ust.ID (VAT ID)</Label>
                   <Input
                     placeholder="DE123456789"
                     value={newSupplier.ustId}
                     onChange={(e) => setNewSupplier({ ...newSupplier, ustId: e.target.value })}
+                    className={compactInputClass}
                   />
                 </div>
               </div>
             </div>
 
             {/* Address Section */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+            <div className="space-y-3">
+              <h3 className="border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
                 Address
               </h3>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <div className="col-span-3">
-                  <Label>Street</Label>
+                  <Label className={compactLabelClass}>Street</Label>
                   <Input
                     value={newSupplier.address?.street}
                     onChange={(e) =>
@@ -1109,10 +1145,11 @@ export default function EPartOrderManagement() {
                       })
                     }
                     placeholder="123 Main Street"
+                    className={compactInputClass}
                   />
                 </div>
                 <div>
-                  <Label>City</Label>
+                  <Label className={compactLabelClass}>City</Label>
                   <Input
                     value={newSupplier.address?.city}
                     onChange={(e) =>
@@ -1122,10 +1159,11 @@ export default function EPartOrderManagement() {
                       })
                     }
                     placeholder="Berlin"
+                    className={compactInputClass}
                   />
                 </div>
                 <div>
-                  <Label>State/Region</Label>
+                  <Label className={compactLabelClass}>State/Region</Label>
                   <Input
                     value={newSupplier.address?.state}
                     onChange={(e) =>
@@ -1135,10 +1173,11 @@ export default function EPartOrderManagement() {
                       })
                     }
                     placeholder="Berlin"
+                    className={compactInputClass}
                   />
                 </div>
                 <div>
-                  <Label>Zip Code</Label>
+                  <Label className={compactLabelClass}>Zip Code</Label>
                   <Input
                     value={newSupplier.address?.zipCode}
                     onChange={(e) =>
@@ -1148,10 +1187,11 @@ export default function EPartOrderManagement() {
                       })
                     }
                     placeholder="10115"
+                    className={compactInputClass}
                   />
                 </div>
                 <div className="col-span-3">
-                  <Label>Country</Label>
+                  <Label className={compactLabelClass}>Country</Label>
                   <Input
                     value={newSupplier.address?.country}
                     onChange={(e) =>
@@ -1161,19 +1201,20 @@ export default function EPartOrderManagement() {
                       })
                     }
                     placeholder="Germany"
+                    className={compactInputClass}
                   />
                 </div>
               </div>
             </div>
 
             {/* Payment Information Section */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+            <div className="space-y-3">
+              <h3 className="border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
                 Payment Information
               </h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div>
-                  <Label>IBAN</Label>
+                  <Label className={compactLabelClass}>IBAN</Label>
                   <Input
                     placeholder="DE89 3704 0044 0532 0130 00"
                     value={newSupplier.paymentInformation?.iban}
@@ -1186,10 +1227,11 @@ export default function EPartOrderManagement() {
                         },
                       })
                     }
+                    className={compactInputClass}
                   />
                 </div>
                 <div>
-                  <Label>BIC/SWIFT</Label>
+                  <Label className={compactLabelClass}>BIC/SWIFT</Label>
                   <Input
                     placeholder="COBADEFFXXX"
                     value={newSupplier.paymentInformation?.bic}
@@ -1202,10 +1244,11 @@ export default function EPartOrderManagement() {
                         },
                       })
                     }
+                    className={compactInputClass}
                   />
                 </div>
                 <div>
-                  <Label>Bank Name</Label>
+                  <Label className={compactLabelClass}>Bank Name</Label>
                   <Input
                     placeholder="Commerzbank"
                     value={newSupplier.paymentInformation?.bankName}
@@ -1218,10 +1261,11 @@ export default function EPartOrderManagement() {
                         },
                       })
                     }
+                    className={compactInputClass}
                   />
                 </div>
                 <div>
-                  <Label>Account Holder</Label>
+                  <Label className={compactLabelClass}>Account Holder</Label>
                   <Input
                     value={newSupplier.paymentInformation?.accountHolder}
                     onChange={(e) =>
@@ -1234,30 +1278,32 @@ export default function EPartOrderManagement() {
                       })
                     }
                     placeholder="Account holder name"
+                    className={compactInputClass}
                   />
                 </div>
               </div>
             </div>
 
             {/* Terms Section */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+            <div className="space-y-3">
+              <h3 className="border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
                 Terms & Conditions
               </h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div>
-                  <Label>Payment Terms</Label>
+                  <Label className={compactLabelClass}>Payment Terms</Label>
                   <Input
                     value={newSupplier.paymentTerms}
                     onChange={(e) =>
                       setNewSupplier({ ...newSupplier, paymentTerms: e.target.value })
                     }
                     placeholder="Net 30"
+                    className={compactInputClass}
                   />
                 </div>
 
                 <div>
-                  <Label>Lead Time (days)</Label>
+                  <Label className={compactLabelClass}>Lead Time (days)</Label>
                   <Input
                     type="number"
                     value={newSupplier.leadTime}
@@ -1265,17 +1311,18 @@ export default function EPartOrderManagement() {
                       setNewSupplier({ ...newSupplier, leadTime: parseInt(e.target.value) || 0 })
                     }
                     placeholder="7"
+                    className={compactInputClass}
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          <DialogFooter className="mt-6">
-            <Button variant="outline" onClick={() => setShowCreateSupplierDialog(false)}>
+          <DialogFooter className={compactDialogFooterClass}>
+            <Button variant="outline" className={compactButtonClass} onClick={() => setShowCreateSupplierDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateSupplier}>Create Supplier</Button>
+            <Button className={compactButtonClass} onClick={handleCreateSupplier}>Create Supplier</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1283,32 +1330,33 @@ export default function EPartOrderManagement() {
       {/* Edit Supplier Dialog */}
       {selectedSupplier && (
         <Dialog open={showEditSupplierDialog} onOpenChange={setShowEditSupplierDialog}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Edit Supplier</DialogTitle>
-              <DialogDescription>Update supplier information</DialogDescription>
+          <DialogContent className={cn(compactDialogContentClass, 'max-w-4xl')}>
+            <DialogHeader className={compactDialogHeaderClass}>
+              <DialogTitle className={compactDialogTitleClass}>Edit Supplier</DialogTitle>
+              <DialogDescription className={compactDialogDescriptionClass}>Update supplier information</DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-6">
+            <div className={compactDialogBodyClass}>
               {/* Basic Information Section */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+              <div className="space-y-3">
+                <h3 className="border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
                   Basic Information
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div>
-                    <Label>Name *</Label>
+                    <Label className={compactLabelClass}>Name *</Label>
                     <Input
                       value={selectedSupplier.name}
                       onChange={(e) =>
                         setSelectedSupplier({ ...selectedSupplier, name: e.target.value })
                       }
                       placeholder="Supplier name"
+                      className={compactInputClass}
                     />
                   </div>
 
                   <div>
-                    <Label>Email *</Label>
+                    <Label className={compactLabelClass}>Email *</Label>
                     <Input
                       type="email"
                       value={selectedSupplier.email}
@@ -1316,33 +1364,36 @@ export default function EPartOrderManagement() {
                         setSelectedSupplier({ ...selectedSupplier, email: e.target.value })
                       }
                       placeholder="supplier@example.com"
+                      className={compactInputClass}
                     />
                   </div>
 
                   <div>
-                    <Label>Contact Person</Label>
+                    <Label className={compactLabelClass}>Contact Person</Label>
                     <Input
                       value={selectedSupplier.contactPerson}
                       onChange={(e) =>
                         setSelectedSupplier({ ...selectedSupplier, contactPerson: e.target.value })
                       }
                       placeholder="John Doe"
+                      className={compactInputClass}
                     />
                   </div>
 
                   <div>
-                    <Label>Phone</Label>
+                    <Label className={compactLabelClass}>Phone</Label>
                     <Input
                       value={selectedSupplier.phone}
                       onChange={(e) =>
                         setSelectedSupplier({ ...selectedSupplier, phone: e.target.value })
                       }
                       placeholder="+49 123 456789"
+                      className={compactInputClass}
                     />
                   </div>
 
                   <div>
-                    <Label>Website</Label>
+                    <Label className={compactLabelClass}>Website</Label>
                     <Input
                       type="url"
                       placeholder="https://example.com"
@@ -1350,30 +1401,32 @@ export default function EPartOrderManagement() {
                       onChange={(e) =>
                         setSelectedSupplier({ ...selectedSupplier, website: e.target.value })
                       }
+                      className={compactInputClass}
                     />
                   </div>
 
                   <div>
-                    <Label>Ust.ID (VAT ID)</Label>
+                    <Label className={compactLabelClass}>Ust.ID (VAT ID)</Label>
                     <Input
                       placeholder="DE123456789"
                       value={selectedSupplier.ustId}
                       onChange={(e) =>
                         setSelectedSupplier({ ...selectedSupplier, ustId: e.target.value })
                       }
+                      className={compactInputClass}
                     />
                   </div>
                 </div>
               </div>
 
               {/* Address Section */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+              <div className="space-y-3">
+                <h3 className="border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
                   Address
                 </h3>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                   <div className="col-span-3">
-                    <Label>Street</Label>
+                    <Label className={compactLabelClass}>Street</Label>
                     <Input
                       value={selectedSupplier.address?.street}
                       onChange={(e) =>
@@ -1383,10 +1436,11 @@ export default function EPartOrderManagement() {
                         })
                       }
                       placeholder="123 Main Street"
+                      className={compactInputClass}
                     />
                   </div>
                   <div>
-                    <Label>City</Label>
+                    <Label className={compactLabelClass}>City</Label>
                     <Input
                       value={selectedSupplier.address?.city}
                       onChange={(e) =>
@@ -1396,10 +1450,11 @@ export default function EPartOrderManagement() {
                         })
                       }
                       placeholder="Berlin"
+                      className={compactInputClass}
                     />
                   </div>
                   <div>
-                    <Label>State/Region</Label>
+                    <Label className={compactLabelClass}>State/Region</Label>
                     <Input
                       value={selectedSupplier.address?.state}
                       onChange={(e) =>
@@ -1409,10 +1464,11 @@ export default function EPartOrderManagement() {
                         })
                       }
                       placeholder="Berlin"
+                      className={compactInputClass}
                     />
                   </div>
                   <div>
-                    <Label>Zip Code</Label>
+                    <Label className={compactLabelClass}>Zip Code</Label>
                     <Input
                       value={selectedSupplier.address?.zipCode}
                       onChange={(e) =>
@@ -1422,10 +1478,11 @@ export default function EPartOrderManagement() {
                         })
                       }
                       placeholder="10115"
+                      className={compactInputClass}
                     />
                   </div>
                   <div className="col-span-3">
-                    <Label>Country</Label>
+                    <Label className={compactLabelClass}>Country</Label>
                     <Input
                       value={selectedSupplier.address?.country}
                       onChange={(e) =>
@@ -1435,19 +1492,20 @@ export default function EPartOrderManagement() {
                         })
                       }
                       placeholder="Germany"
+                      className={compactInputClass}
                     />
                   </div>
                 </div>
               </div>
 
               {/* Payment Information Section */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+              <div className="space-y-3">
+                <h3 className="border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
                   Payment Information
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div>
-                    <Label>IBAN</Label>
+                    <Label className={compactLabelClass}>IBAN</Label>
                     <Input
                       placeholder="DE89 3704 0044 0532 0130 00"
                       value={selectedSupplier.paymentInformation?.iban}
@@ -1460,10 +1518,11 @@ export default function EPartOrderManagement() {
                           },
                         })
                       }
+                      className={compactInputClass}
                     />
                   </div>
                   <div>
-                    <Label>BIC/SWIFT</Label>
+                    <Label className={compactLabelClass}>BIC/SWIFT</Label>
                     <Input
                       placeholder="COBADEFFXXX"
                       value={selectedSupplier.paymentInformation?.bic}
@@ -1476,10 +1535,11 @@ export default function EPartOrderManagement() {
                           },
                         })
                       }
+                      className={compactInputClass}
                     />
                   </div>
                   <div>
-                    <Label>Bank Name</Label>
+                    <Label className={compactLabelClass}>Bank Name</Label>
                     <Input
                       placeholder="Commerzbank"
                       value={selectedSupplier.paymentInformation?.bankName}
@@ -1492,10 +1552,11 @@ export default function EPartOrderManagement() {
                           },
                         })
                       }
+                      className={compactInputClass}
                     />
                   </div>
                   <div>
-                    <Label>Account Holder</Label>
+                    <Label className={compactLabelClass}>Account Holder</Label>
                     <Input
                       value={selectedSupplier.paymentInformation?.accountHolder}
                       onChange={(e) =>
@@ -1508,30 +1569,32 @@ export default function EPartOrderManagement() {
                         })
                       }
                       placeholder="Account holder name"
+                      className={compactInputClass}
                     />
                   </div>
                 </div>
               </div>
 
               {/* Terms & Status Section */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+              <div className="space-y-3">
+                <h3 className="border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
                   Terms & Status
                 </h3>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                   <div>
-                    <Label>Payment Terms</Label>
+                    <Label className={compactLabelClass}>Payment Terms</Label>
                     <Input
                       value={selectedSupplier.paymentTerms}
                       onChange={(e) =>
                         setSelectedSupplier({ ...selectedSupplier, paymentTerms: e.target.value })
                       }
                       placeholder="Net 30"
+                      className={compactInputClass}
                     />
                   </div>
 
                   <div>
-                    <Label>Lead Time (days)</Label>
+                    <Label className={compactLabelClass}>Lead Time (days)</Label>
                     <Input
                       type="number"
                       value={selectedSupplier.leadTime}
@@ -1542,18 +1605,19 @@ export default function EPartOrderManagement() {
                         })
                       }
                       placeholder="7"
+                      className={compactInputClass}
                     />
                   </div>
 
                   <div>
-                    <Label>Status</Label>
+                    <Label className={compactLabelClass}>Status</Label>
                     <Select
                       value={selectedSupplier.isActive ? 'active' : 'inactive'}
                       onValueChange={(value) =>
                         setSelectedSupplier({ ...selectedSupplier, isActive: value === 'active' })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className={compactSelectClass}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1566,9 +1630,10 @@ export default function EPartOrderManagement() {
               </div>
             </div>
 
-            <DialogFooter className="mt-6">
+            <DialogFooter className={compactDialogFooterClass}>
               <Button
                 variant="outline"
+                className={compactButtonClass}
                 onClick={() => {
                   setShowEditSupplierDialog(false);
                   setSelectedSupplier(null);
@@ -1576,7 +1641,7 @@ export default function EPartOrderManagement() {
               >
                 Cancel
               </Button>
-              <Button onClick={handleUpdateSupplier}>Update Supplier</Button>
+              <Button className={compactButtonClass} onClick={handleUpdateSupplier}>Update Supplier</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1585,30 +1650,31 @@ export default function EPartOrderManagement() {
       {/* Order Details Dialog */}
       {selectedOrder && (
         <Dialog open={showOrderDetailsDialog} onOpenChange={setShowOrderDetailsDialog}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Order Details - {selectedOrder.orderNumber}</DialogTitle>
-              <DialogDescription>
+          <DialogContent className={cn(compactDialogContentClass, 'max-w-4xl')}>
+            <DialogHeader className={compactDialogHeaderClass}>
+              <DialogTitle className={compactDialogTitleClass}>Order Details - {selectedOrder.orderNumber}</DialogTitle>
+              <DialogDescription className={compactDialogDescriptionClass}>
                 Manage order status, receive items, and view order history
               </DialogDescription>
             </DialogHeader>
 
-            <Tabs defaultValue="details">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="details">Details</TabsTrigger>
-                <TabsTrigger value="items">Items</TabsTrigger>
-                <TabsTrigger value="timeline">Timeline</TabsTrigger>
+            <div className={compactDialogBodyClass}>
+            <Tabs defaultValue="details" className="space-y-4">
+              <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-md border border-slate-200 bg-slate-100 p-1">
+                <TabsTrigger value="details" className="h-8 text-xs font-semibold">Details</TabsTrigger>
+                <TabsTrigger value="items" className="h-8 text-xs font-semibold">Items</TabsTrigger>
+                <TabsTrigger value="timeline" className="h-8 text-xs font-semibold">Timeline</TabsTrigger>
               </TabsList>
 
               <TabsContent value="details" className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div>
-                    <Label>Supplier</Label>
+                    <Label className={compactLabelClass}>Supplier</Label>
                     <p className="text-sm">{getSupplierName(selectedOrder.supplierId)}</p>
                   </div>
 
                   <div>
-                    <Label>Status</Label>
+                    <Label className={compactLabelClass}>Status</Label>
                     <div className="mt-1">
                       {getStatusBadge(selectedOrder.status)}
                       {selectedOrder.status !== 'cancelled' &&
@@ -1619,7 +1685,7 @@ export default function EPartOrderManagement() {
                               handleUpdateOrderStatus(selectedOrder._id, value)
                             }
                           >
-                            <SelectTrigger className="mt-2">
+                            <SelectTrigger className={cn(compactSelectClass, 'mt-2')}>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1634,14 +1700,14 @@ export default function EPartOrderManagement() {
                   </div>
 
                   <div>
-                    <Label>Order Date</Label>
+                    <Label className={compactLabelClass}>Order Date</Label>
                     <p className="text-sm">
                       {format(new Date(selectedOrder.orderDate), 'MMM dd, yyyy')}
                     </p>
                   </div>
 
                   <div>
-                    <Label>Expected Delivery</Label>
+                    <Label className={compactLabelClass}>Expected Delivery</Label>
                     <p className="text-sm">
                       {selectedOrder.expectedDeliveryDate
                         ? format(new Date(selectedOrder.expectedDeliveryDate), 'MMM dd, yyyy')
@@ -1650,27 +1716,27 @@ export default function EPartOrderManagement() {
                   </div>
 
                   <div>
-                    <Label>Subtotal</Label>
+                    <Label className={compactLabelClass}>Subtotal</Label>
                     <p className="text-sm">${selectedOrder.subtotal.toFixed(2)}</p>
                   </div>
 
                   <div>
-                    <Label>Tax</Label>
+                    <Label className={compactLabelClass}>Tax</Label>
                     <p className="text-sm">${selectedOrder.tax.toFixed(2)}</p>
                   </div>
 
                   <div>
-                    <Label>Shipping</Label>
+                    <Label className={compactLabelClass}>Shipping</Label>
                     <p className="text-sm">${selectedOrder.shippingCost.toFixed(2)}</p>
                   </div>
 
                   <div>
-                    <Label>Total</Label>
+                    <Label className={compactLabelClass}>Total</Label>
                     <p className="text-sm font-bold">${selectedOrder.totalCost.toFixed(2)}</p>
                   </div>
 
                   <div>
-                    <Label>Payment Status</Label>
+                    <Label className={compactLabelClass}>Payment Status</Label>
                     <div className="mt-1">
                       <Badge
                         variant={selectedOrder.paymentStatus === 'paid' ? 'default' : 'outline'}
@@ -1687,7 +1753,7 @@ export default function EPartOrderManagement() {
                             })
                           }
                         >
-                          <SelectTrigger className="mt-2">
+                          <SelectTrigger className={cn(compactSelectClass, 'mt-2')}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1701,21 +1767,22 @@ export default function EPartOrderManagement() {
                   </div>
 
                   <div>
-                    <Label>Tracking Number</Label>
+                    <Label className={compactLabelClass}>Tracking Number</Label>
                     <p className="text-sm">{selectedOrder.trackingNumber || '-'}</p>
                   </div>
 
                   <div>
-                    <Label>Invoice</Label>
+                    <Label className={compactLabelClass}>Invoice</Label>
                     <div className="flex gap-2 mt-1">
                       {selectedOrder.invoiceFile ? (
                         <>
                           <Button
                             variant="outline"
                             size="sm"
+                            className={compactButtonClass}
                             onClick={() => handleDownloadInvoice(selectedOrder._id)}
                           >
-                            <Download className="mr-2 h-4 w-4" />
+                            <Download className="mr-1.5 h-3.5 w-3.5" />
                             Download
                           </Button>
                           <p className="text-xs text-muted-foreground self-center">
@@ -1726,9 +1793,10 @@ export default function EPartOrderManagement() {
                         <Button
                           variant="outline"
                           size="sm"
+                          className={compactButtonClass}
                           onClick={() => setShowInvoiceUploadDialog(true)}
                         >
-                          <Upload className="mr-2 h-4 w-4" />
+                          <Upload className="mr-1.5 h-3.5 w-3.5" />
                           Upload Invoice
                         </Button>
                       )}
@@ -1736,7 +1804,7 @@ export default function EPartOrderManagement() {
                   </div>
 
                   <div>
-                    <Label>Return/Exchange</Label>
+                    <Label className={compactLabelClass}>Return/Exchange</Label>
                     <div className="mt-1">
                       {selectedOrder.returnExchange && selectedOrder.returnExchange.status !== 'none' ? (
                         <div className="space-y-2">
@@ -1753,6 +1821,7 @@ export default function EPartOrderManagement() {
                               <Button
                                 size="sm"
                                 variant="outline"
+                                className={compactButtonClass}
                                 onClick={() => handleUpdateReturnExchange('approved')}
                               >
                                 Approve
@@ -1760,6 +1829,7 @@ export default function EPartOrderManagement() {
                               <Button
                                 size="sm"
                                 variant="destructive"
+                                className={compactButtonClass}
                                 onClick={() => handleUpdateReturnExchange('rejected', 'Rejected by admin')}
                               >
                                 Reject
@@ -1770,6 +1840,7 @@ export default function EPartOrderManagement() {
                             <Button
                               size="sm"
                               variant="outline"
+                              className={compactButtonClass}
                               onClick={() => handleUpdateReturnExchange('in_transit')}
                             >
                               Mark In Transit
@@ -1778,6 +1849,7 @@ export default function EPartOrderManagement() {
                           {selectedOrder.returnExchange.status === 'in_transit' && (
                             <Button
                               size="sm"
+                              className={compactButtonClass}
                               onClick={() => handleUpdateReturnExchange('completed')}
                             >
                               Mark Completed
@@ -1788,6 +1860,7 @@ export default function EPartOrderManagement() {
                         <Button
                           variant="outline"
                           size="sm"
+                          className={compactButtonClass}
                           onClick={() => {
                             setReturnExchangeForm({
                               type: 'return',
@@ -1799,7 +1872,7 @@ export default function EPartOrderManagement() {
                           }}
                           disabled={!selectedOrder.items.some(item => item.receivedQuantity > 0)}
                         >
-                          <RotateCcw className="mr-2 h-4 w-4" />
+                          <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
                           Request Return/Exchange
                         </Button>
                       )}
@@ -1809,7 +1882,7 @@ export default function EPartOrderManagement() {
 
                 {selectedOrder.notes && (
                   <div>
-                    <Label>Notes</Label>
+                    <Label className={compactLabelClass}>Notes</Label>
                     <p className="text-sm text-muted-foreground">{selectedOrder.notes}</p>
                   </div>
                 )}
@@ -1817,6 +1890,7 @@ export default function EPartOrderManagement() {
                 <div className="flex gap-2">
                   {selectedOrder.status === 'shipped' && (
                     <Button
+                      className={compactButtonClass}
                       onClick={() => {
                         setShowReceiveDialog(true);
                         setReceiveData(
@@ -1827,7 +1901,7 @@ export default function EPartOrderManagement() {
                         );
                       }}
                     >
-                      <CheckCircle className="mr-2 h-4 w-4" />
+                      <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
                       Receive Items
                     </Button>
                   )}
@@ -1835,9 +1909,10 @@ export default function EPartOrderManagement() {
                     selectedOrder.status !== 'received' && (
                       <Button
                         variant="destructive"
+                        className={compactButtonClass}
                         onClick={() => handleCancelOrder(selectedOrder._id)}
                       >
-                        <X className="mr-2 h-4 w-4" />
+                        <X className="mr-1.5 h-3.5 w-3.5" />
                         Cancel Order
                       </Button>
                     )}
@@ -1845,46 +1920,48 @@ export default function EPartOrderManagement() {
               </TabsContent>
 
               <TabsContent value="items">
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Part</TableHead>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Ordered</TableHead>
-                      <TableHead>Received</TableHead>
-                      <TableHead>Unit Price</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead className={compactTableHeadClass}>Part</TableHead>
+                      <TableHead className={compactTableHeadClass}>SKU</TableHead>
+                      <TableHead className={compactTableHeadClass}>Ordered</TableHead>
+                      <TableHead className={compactTableHeadClass}>Received</TableHead>
+                      <TableHead className={compactTableHeadClass}>Unit Price</TableHead>
+                      <TableHead className={compactTableHeadClass}>Total</TableHead>
+                      <TableHead className={compactTableHeadClass}>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {selectedOrder.items.map((item) => (
                       <TableRow key={item._id}>
-                        <TableCell>{item.partName}</TableCell>
-                        <TableCell>{item.sku}</TableCell>
-                        <TableCell>{item.quantity}</TableCell>
-                        <TableCell>{item.receivedQuantity}</TableCell>
-                        <TableCell>${item.unitPrice.toFixed(2)}</TableCell>
-                        <TableCell>${item.totalPrice.toFixed(2)}</TableCell>
-                        <TableCell>{getStatusBadge(item.status)}</TableCell>
+                        <TableCell className={compactTableCellClass}>{item.partName}</TableCell>
+                        <TableCell className={compactTableCellClass}>{item.sku}</TableCell>
+                        <TableCell className={compactTableCellClass}>{item.quantity}</TableCell>
+                        <TableCell className={compactTableCellClass}>{item.receivedQuantity}</TableCell>
+                        <TableCell className={compactTableCellClass}>${item.unitPrice.toFixed(2)}</TableCell>
+                        <TableCell className={compactTableCellClass}>${item.totalPrice.toFixed(2)}</TableCell>
+                        <TableCell className={compactTableCellClass}>{getStatusBadge(item.status)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               </TabsContent>
 
               <TabsContent value="timeline">
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {selectedOrder.timeline.map((entry, index) => (
-                    <div key={index} className="flex gap-4">
-                      <div className="flex-shrink-0 w-24 text-sm text-muted-foreground">
+                    <div key={index} className="flex gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+                      <div className="w-24 flex-shrink-0 text-xs text-muted-foreground">
                         {format(new Date(entry.completedAt), 'MMM dd, HH:mm')}
                       </div>
                       <div className="flex-1">
-                        <p className="font-medium">{entry.status}</p>
-                        <p className="text-sm text-muted-foreground">{entry.description}</p>
+                        <p className="text-sm font-medium">{entry.status}</p>
+                        <p className="text-xs text-muted-foreground">{entry.description}</p>
                         {entry.notes && (
-                          <p className="text-sm text-muted-foreground italic">{entry.notes}</p>
+                          <p className="text-xs italic text-muted-foreground">{entry.notes}</p>
                         )}
                       </div>
                     </div>
@@ -1892,41 +1969,43 @@ export default function EPartOrderManagement() {
                 </div>
               </TabsContent>
             </Tabs>
+            </div>
           </DialogContent>
         </Dialog>
       )}
 
       {/* Invoice Upload Dialog */}
       <Dialog open={showInvoiceUploadDialog} onOpenChange={setShowInvoiceUploadDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Upload Invoice</DialogTitle>
-            <DialogDescription>
+        <DialogContent className={cn(compactDialogContentClass, 'max-w-lg')}>
+          <DialogHeader className={compactDialogHeaderClass}>
+            <DialogTitle className={compactDialogTitleClass}>Upload Invoice</DialogTitle>
+            <DialogDescription className={compactDialogDescriptionClass}>
               Upload an invoice file for this order (PDF, images, or office documents)
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className={compactDialogBodyClass}>
             <div>
-              <Label>Invoice File</Label>
+              <Label className={compactLabelClass}>Invoice File</Label>
               <Input
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
                 onChange={(e) => setInvoiceFile(e.target.files?.[0] || null)}
+                className={cn(compactInputClass, 'h-10 file:mr-3 file:text-xs')}
               />
               {invoiceFile && (
-                <p className="text-sm text-muted-foreground mt-2">
+                <p className="mt-2 text-xs text-muted-foreground">
                   Selected: {invoiceFile.name} ({(invoiceFile.size / 1024).toFixed(2)} KB)
                 </p>
               )}
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowInvoiceUploadDialog(false)}>
+          <DialogFooter className={compactDialogFooterClass}>
+            <Button variant="outline" className={compactButtonClass} onClick={() => setShowInvoiceUploadDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUploadInvoice} disabled={!invoiceFile || uploadingInvoice}>
+            <Button className={compactButtonClass} onClick={handleUploadInvoice} disabled={!invoiceFile || uploadingInvoice}>
               {uploadingInvoice ? 'Uploading...' : 'Upload'}
             </Button>
           </DialogFooter>
@@ -1936,24 +2015,24 @@ export default function EPartOrderManagement() {
       {/* Return/Exchange Dialog */}
       {selectedOrder && (
         <Dialog open={showReturnExchangeDialog} onOpenChange={setShowReturnExchangeDialog}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Request Return/Exchange</DialogTitle>
-              <DialogDescription>
+          <DialogContent className={cn(compactDialogContentClass, 'max-w-3xl')}>
+            <DialogHeader className={compactDialogHeaderClass}>
+              <DialogTitle className={compactDialogTitleClass}>Request Return/Exchange</DialogTitle>
+              <DialogDescription className={compactDialogDescriptionClass}>
                 Submit a return or exchange request for broken or defective parts
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
+            <div className={compactDialogBodyClass}>
               <div>
-                <Label>Type *</Label>
+                <Label className={compactLabelClass}>Type *</Label>
                 <Select
                   value={returnExchangeForm.type}
                   onValueChange={(value: 'return' | 'exchange') =>
                     setReturnExchangeForm({ ...returnExchangeForm, type: value })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={compactSelectClass}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1964,18 +2043,19 @@ export default function EPartOrderManagement() {
               </div>
 
               <div>
-                <Label>Reason *</Label>
+                <Label className={compactLabelClass}>Reason *</Label>
                 <Input
                   value={returnExchangeForm.reason}
                   onChange={(e) =>
                     setReturnExchangeForm({ ...returnExchangeForm, reason: e.target.value })
                   }
                   placeholder="e.g., Broken parts, Wrong items, Quality issues"
+                  className={compactInputClass}
                 />
               </div>
 
               <div>
-                <Label>Description *</Label>
+                <Label className={compactLabelClass}>Description *</Label>
                 <Textarea
                   value={returnExchangeForm.description}
                   onChange={(e) =>
@@ -1983,25 +2063,26 @@ export default function EPartOrderManagement() {
                   }
                   placeholder="Provide detailed description of the issue..."
                   rows={3}
+                  className={compactTextareaClass}
                 />
               </div>
 
               <div>
-                <div className="flex justify-between items-center mb-2">
-                  <Label>Affected Items *</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={addAffectedItem}>
-                    <Plus className="h-4 w-4 mr-1" />
+                <div className="mb-2 flex items-center justify-between">
+                  <Label className={compactLabelClass}>Affected Items *</Label>
+                  <Button type="button" variant="outline" size="sm" className={compactButtonClass} onClick={addAffectedItem}>
+                    <Plus className="mr-1 h-3.5 w-3.5" />
                     Add Item
                   </Button>
                 </div>
 
                 {returnExchangeForm.affectedItems.map((item, index) => (
-                  <div key={index} className="flex gap-2 mb-2">
+                  <div key={index} className="mb-2 flex flex-col gap-2 rounded-md border border-slate-200 bg-slate-50 p-2 md:flex-row">
                     <Select
                       value={item.itemId}
                       onValueChange={(value) => updateAffectedItem(index, 'itemId', value)}
                     >
-                      <SelectTrigger className="flex-1">
+                      <SelectTrigger className={cn(compactSelectClass, 'flex-1')}>
                         <SelectValue placeholder="Select item" />
                       </SelectTrigger>
                       <SelectContent>
@@ -2021,7 +2102,7 @@ export default function EPartOrderManagement() {
                       onChange={(e) =>
                         updateAffectedItem(index, 'quantity', parseInt(e.target.value) || 0)
                       }
-                      className="w-24"
+                      className={cn(compactInputClass, 'w-full md:w-20')}
                       min="1"
                       max={
                         selectedOrder.items.find((i) => i._id === item.itemId)?.receivedQuantity || 1
@@ -2033,26 +2114,27 @@ export default function EPartOrderManagement() {
                       onChange={(e) =>
                         updateAffectedItem(index, 'issueDescription', e.target.value)
                       }
-                      className="flex-1"
+                      className={cn(compactInputClass, 'flex-1')}
                     />
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
+                      className={cn(compactGhostButtonClass, 'self-end md:self-center')}
                       onClick={() => removeAffectedItem(index)}
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 ))}
               </div>
             </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowReturnExchangeDialog(false)}>
+            <DialogFooter className={compactDialogFooterClass}>
+              <Button variant="outline" className={compactButtonClass} onClick={() => setShowReturnExchangeDialog(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleRequestReturnExchange}>Submit Request</Button>
+              <Button className={compactButtonClass} onClick={handleRequestReturnExchange}>Submit Request</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -2061,24 +2143,24 @@ export default function EPartOrderManagement() {
       {/* Receive Items Dialog */}
       {selectedOrder && (
         <Dialog open={showReceiveDialog} onOpenChange={setShowReceiveDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Receive Items</DialogTitle>
-              <DialogDescription>
+          <DialogContent className={cn(compactDialogContentClass, 'max-w-xl')}>
+            <DialogHeader className={compactDialogHeaderClass}>
+              <DialogTitle className={compactDialogTitleClass}>Receive Items</DialogTitle>
+              <DialogDescription className={compactDialogDescriptionClass}>
                 Mark items as received and update inventory
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
+            <div className={compactDialogBodyClass}>
               {selectedOrder.items.map((item, index) => {
                 const remainingQty = item.quantity - item.receivedQuantity;
                 if (remainingQty <= 0) return null;
 
                 return (
-                  <div key={item._id} className="flex items-center gap-4">
+                  <div key={item._id} className="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 p-2.5">
                     <div className="flex-1">
-                      <p className="font-medium">{item.partName}</p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm font-medium">{item.partName}</p>
+                      <p className="text-xs text-muted-foreground">
                         Remaining: {remainingQty} / {item.quantity}
                       </p>
                     </div>
@@ -2099,18 +2181,18 @@ export default function EPartOrderManagement() {
                           return [...prev, { itemId: item._id!, quantity: qty }];
                         });
                       }}
-                      className="w-24"
+                      className={cn(compactInputClass, 'w-20')}
                     />
                   </div>
                 );
               })}
             </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowReceiveDialog(false)}>
+            <DialogFooter className={compactDialogFooterClass}>
+              <Button variant="outline" className={compactButtonClass} onClick={() => setShowReceiveDialog(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleReceiveItems}>Receive Items</Button>
+              <Button className={compactButtonClass} onClick={handleReceiveItems}>Receive Items</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

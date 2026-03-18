@@ -326,17 +326,17 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Import Parts from CSV</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto p-4 sm:p-5">
+          <DialogHeader className="-mx-4 -mt-4 border-b border-[#2a3f7e] bg-[#1a2a5e] px-4 py-2.5 text-left text-white sm:-mx-5 sm:-mt-5 sm:px-5">
+            <DialogTitle className="text-base font-semibold">Import Parts from CSV</DialogTitle>
+            <DialogDescription className="text-xs text-[#d8dce6]">
               Upload a CSV file to import parts into your inventory. Follow the steps to map columns and validate data.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6">
+          <div className="space-y-5 pt-4">
             {/* Progress Steps */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1">
               <div className={`flex items-center gap-2 ${step === 'upload' ? 'text-primary' : step !== 'upload' ? 'text-green-600' : 'text-muted-foreground'}`}>
                 {step !== 'upload' ? (
                   <CheckCircle className="h-5 w-5" />
@@ -345,7 +345,7 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
                     <span className="text-xs">1</span>
                   </div>
                 )}
-                <span className="text-sm font-medium">Upload</span>
+                <span className="text-xs font-medium whitespace-nowrap">Upload</span>
               </div>
               <Separator className="flex-1 mx-2" />
               <div className={`flex items-center gap-2 ${step === 'mapping' ? 'text-primary' : ['preview', 'import'].includes(step) ? 'text-green-600' : 'text-muted-foreground'}`}>
@@ -356,7 +356,7 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
                     <span className="text-xs">2</span>
                   </div>
                 )}
-                <span className="text-sm font-medium">Map Columns</span>
+                <span className="text-xs font-medium whitespace-nowrap">Map Columns</span>
               </div>
               <Separator className="flex-1 mx-2" />
               <div className={`flex items-center gap-2 ${step === 'preview' ? 'text-primary' : step === 'import' ? 'text-green-600' : 'text-muted-foreground'}`}>
@@ -367,14 +367,14 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
                     <span className="text-xs">3</span>
                   </div>
                 )}
-                <span className="text-sm font-medium">Preview</span>
+                <span className="text-xs font-medium whitespace-nowrap">Preview</span>
               </div>
               <Separator className="flex-1 mx-2" />
               <div className={`flex items-center gap-2 ${step === 'import' ? 'text-primary' : 'text-muted-foreground'}`}>
                 <div className="h-5 w-5 rounded-full border-2 border-current flex items-center justify-center">
                   <span className="text-xs">4</span>
                 </div>
-                <span className="text-sm font-medium">Import</span>
+                <span className="text-xs font-medium whitespace-nowrap">Import</span>
               </div>
             </div>
 
@@ -384,19 +384,20 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
             {step === 'upload' && (
               <div className="space-y-4">
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Upload CSV File</CardTitle>
-                    <CardDescription>
+                  <CardHeader className="px-4 py-3">
+                    <CardTitle className="text-base">Upload CSV File</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">
                       Select a CSV file containing parts data. Maximum file size: 100MB.
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                  <CardContent className="space-y-4 px-4 pb-4 pt-0">
+                    <div className="rounded-lg border-2 border-dashed p-6 text-center sm:p-8">
                       <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                       <div className="space-y-2">
                         <Button
                           onClick={() => fileInputRef.current?.click()}
                           variant="default"
+                          size="sm"
                         >
                           <FileText className="h-4 w-4 mr-2" />
                           Choose CSV File
@@ -408,7 +409,7 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
                           onChange={handleFileSelect}
                           className="hidden"
                         />
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-xs text-muted-foreground sm:text-sm">
                           or drag and drop your CSV file here
                         </p>
                       </div>
@@ -418,6 +419,7 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
                       <Button
                         variant="outline"
                         size="sm"
+                        className="h-8 text-xs"
                         onClick={handleDownloadSample}
                       >
                         <Download className="h-4 w-4 mr-2" />
@@ -429,7 +431,7 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>
                         <strong>CSV Requirements:</strong>
-                        <ul className="list-disc list-inside text-sm mt-2 space-y-1">
+                        <ul className="mt-2 list-inside list-disc space-y-1 text-xs sm:text-sm">
                           <li>File must be in CSV format (.csv)</li>
                           <li>First row must contain column headers</li>
                           <li>Required columns: Category, Manufacturer, Model</li>
@@ -455,10 +457,10 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
                 />
 
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Import Options</CardTitle>
+                  <CardHeader className="px-4 py-3">
+                    <CardTitle className="text-base">Import Options</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-4 px-4 pb-4 pt-0">
                     <div className="flex items-center space-x-2">
                       <Checkbox
                         id="skipDuplicates"
@@ -473,10 +475,10 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
                 </Card>
 
                 <div className="flex justify-end gap-3">
-                  <Button variant="outline" onClick={handleClose}>
+                  <Button variant="outline" onClick={handleClose} size="sm">
                     Cancel
                   </Button>
-                  <Button onClick={handleValidate} disabled={isValidating}>
+                  <Button onClick={handleValidate} disabled={isValidating} size="sm">
                     {isValidating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Validate Data
                   </Button>
@@ -490,12 +492,13 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
                 <PartsCSVPreviewTable validationResult={validationResult} />
 
                 <div className="flex justify-end gap-3">
-                  <Button variant="outline" onClick={() => setStep('mapping')}>
+                  <Button variant="outline" onClick={() => setStep('mapping')} size="sm">
                     Back to Mapping
                   </Button>
                   <Button
                     onClick={() => setShowConfirmDialog(true)}
                     disabled={!validationResult.success || (validationResult.data?.length || 0) === 0}
+                    size="sm"
                   >
                     Import Parts
                   </Button>
@@ -507,13 +510,13 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
             {step === 'import' && (
               <div className="space-y-4">
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Importing Parts...</CardTitle>
-                    <CardDescription>
+                  <CardHeader className="px-4 py-3">
+                    <CardTitle className="text-base">Importing Parts...</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">
                       Please wait while we import your parts into the inventory
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-4 px-4 pb-4 pt-0">
                     <Progress value={importProgress} />
                     <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                       {isImporting ? (
@@ -538,15 +541,15 @@ export const PartsCSVImportDialog: React.FC<PartsCSVImportDialogProps> = ({
 
       {/* Confirmation Dialog */}
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Import</AlertDialogTitle>
-            <AlertDialogDescription>
+        <AlertDialogContent className="gap-0 overflow-hidden p-0">
+          <AlertDialogHeader className="space-y-0.5 border-b border-[#2a3f7e] bg-[#1a2a5e] px-4 py-3 text-left">
+            <AlertDialogTitle className="text-base font-semibold text-white">Confirm Import</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-[#d8dce6] sm:text-sm">
               You are about to import {validationResult?.data?.length || 0} part(s) into your inventory.
               This action cannot be undone. Do you want to proceed?
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="px-4 py-4">
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleImport}>
               Confirm Import

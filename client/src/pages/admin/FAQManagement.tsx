@@ -77,6 +77,23 @@ export function FAQManagement() {
     'Technical'
   ]
 
+  const compactCardClass = 'border-slate-200 shadow-sm'
+  const compactCardHeaderClass = 'px-4 py-3 pb-2'
+  const compactCardTitleClass = 'text-base font-semibold'
+  const compactCardDescriptionClass = 'text-xs text-muted-foreground'
+  const compactInputClass = 'h-8 text-xs'
+  const compactTextareaClass = 'min-h-[120px] text-sm leading-snug'
+  const compactSelectTriggerClass = 'h-8 text-xs'
+  const compactButtonClass = 'h-8 px-3 text-xs'
+  const compactIconButtonClass = 'h-8 w-8 p-0'
+  const compactDialogContentClass = 'max-h-[88vh] max-w-2xl overflow-y-auto gap-0 border-slate-200 p-4 text-sm shadow-xl sm:p-5 [&>button]:right-3 [&>button]:top-3 [&>button]:text-white [&>button]:opacity-90 [&>button]:hover:bg-white/10 [&>button]:hover:text-white'
+  const compactDialogHeaderClass = '-mx-4 -mt-4 border-b border-[#2a3f7e] bg-[#1a2a5e] px-4 py-2.5 text-left text-white sm:-mx-5 sm:-mt-5 sm:px-5'
+  const compactDialogTitleClass = 'text-base font-semibold text-white'
+  const compactDialogDescriptionClass = 'text-xs text-[#d8dce6]'
+  const compactDialogBodyClass = 'grid gap-3 py-4'
+  const compactLabelClass = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600'
+  const sectionBadgeClass = 'border border-[#d7def7] bg-[#eef2ff] px-2 py-0.5 text-[11px] font-medium text-[#1a2a5e]'
+
   useEffect(() => {
     fetchData()
   }, [selectedCategory, searchTerm])
@@ -241,7 +258,7 @@ export function FAQManagement() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
@@ -250,64 +267,66 @@ export function FAQManagement() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <HelpCircle className="h-8 w-8" />
+      <div className="flex flex-col gap-3 rounded-xl border border-[#0f1d45] bg-[#1a2a5e] px-4 py-4 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 space-y-1">
+          <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight sm:text-2xl">
+            <HelpCircle className="h-6 w-6" />
             FAQ Management
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-xs text-blue-100 sm:text-sm">
             Manage frequently asked questions and categories
           </p>
         </div>
 
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
+            <Button className="h-9 bg-white px-3 text-sm font-medium text-[#1a2a5e] hover:bg-[#f7f9ff]">
+              <Plus className="mr-1.5 h-4 w-4" />
               New FAQ
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create New FAQ</DialogTitle>
-              <DialogDescription>
+          <DialogContent className={compactDialogContentClass}>
+            <DialogHeader className={compactDialogHeaderClass}>
+              <DialogTitle className={compactDialogTitleClass}>Create New FAQ</DialogTitle>
+              <DialogDescription className={compactDialogDescriptionClass}>
                 Fill in the details below to create a new FAQ.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="question">Question *</Label>
+            <div className={compactDialogBodyClass}>
+              <div className="space-y-1.5">
+                <Label htmlFor="question" className={compactLabelClass}>Question *</Label>
                 <Input
                   id="question"
                   value={faqForm.question}
                   onChange={(e) => setFaqForm({ ...faqForm, question: e.target.value })}
                   placeholder="Enter the FAQ question"
+                  className={compactInputClass}
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="answer">Answer *</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="answer" className={compactLabelClass}>Answer *</Label>
                 <Textarea
                   id="answer"
                   value={faqForm.answer}
                   onChange={(e) => setFaqForm({ ...faqForm, answer: e.target.value })}
                   placeholder="Enter the FAQ answer"
-                  rows={6}
+                  rows={5}
+                  className={compactTextareaClass}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="category" className={compactLabelClass}>Category</Label>
                   <Select
                     value={faqForm.category}
                     onValueChange={(value) => setFaqForm({ ...faqForm, category: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={compactSelectTriggerClass}>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -320,30 +339,32 @@ export function FAQManagement() {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="order">Order</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="order" className={compactLabelClass}>Order</Label>
                   <Input
                     id="order"
                     type="number"
                     value={faqForm.order}
                     onChange={(e) => setFaqForm({ ...faqForm, order: parseInt(e.target.value) || 0 })}
                     placeholder="Display order"
+                    className={compactInputClass}
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="tags">Tags</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="tags" className={compactLabelClass}>Tags</Label>
                 <Input
                   id="tags"
                   value={faqForm.tags}
                   onChange={(e) => setFaqForm({ ...faqForm, tags: e.target.value })}
                   placeholder="Enter tags separated by commas"
+                  className={compactInputClass}
                 />
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="gap-2 border-t border-slate-200 px-0 pt-3 sm:justify-end">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -351,12 +372,14 @@ export function FAQManagement() {
                   resetForm()
                 }}
                 disabled={isCreating}
+                className={compactButtonClass}
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleCreateFAQ}
                 disabled={isCreating}
+                className={compactButtonClass}
               >
                 {isCreating ? (
                   <>
@@ -373,43 +396,43 @@ export function FAQManagement() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total FAQs</CardTitle>
+      <div className="grid gap-3 md:grid-cols-4">
+        <Card className={compactCardClass}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3 pb-1.5">
+            <CardTitle className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Total FAQs</CardTitle>
             <HelpCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{faqs.length}</div>
+          <CardContent className="px-4 pb-4 pt-0">
+            <div className="text-xl font-bold text-slate-900">{faqs.length}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Categories</CardTitle>
+        <Card className={compactCardClass}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3 pb-1.5">
+            <CardTitle className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Categories</CardTitle>
             <Eye className="h-4 w-4 text-green-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{categories.length}</div>
+          <CardContent className="px-4 pb-4 pt-0">
+            <div className="text-xl font-bold text-slate-900">{categories.length}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Views</CardTitle>
+        <Card className={compactCardClass}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3 pb-1.5">
+            <CardTitle className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Total Views</CardTitle>
             <Eye className="h-4 w-4 text-blue-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent className="px-4 pb-4 pt-0">
+            <div className="text-xl font-bold text-slate-900">
               {faqs.reduce((total, faq) => total + (faq.views || 0), 0)}
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Helpful Votes</CardTitle>
+        <Card className={compactCardClass}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3 pb-1.5">
+            <CardTitle className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Helpful Votes</CardTitle>
             <ThumbsUp className="h-4 w-4 text-green-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent className="px-4 pb-4 pt-0">
+            <div className="text-xl font-bold text-slate-900">
               {faqs.reduce((total, faq) => total + (faq.helpful || 0), 0)}
             </div>
           </CardContent>
@@ -417,20 +440,24 @@ export function FAQManagement() {
       </div>
 
       {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
+      <Card className={compactCardClass}>
+        <CardHeader className={compactCardHeaderClass}>
+          <CardTitle className={compactCardTitleClass}>Filters</CardTitle>
+          <CardDescription className={compactCardDescriptionClass}>Search and narrow down categories quickly.</CardDescription>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 pt-0">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search FAQs..."
-                className="pl-10"
+                className="h-8 pl-9 text-xs"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectTrigger className="h-8 w-full text-xs sm:w-[190px]">
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
@@ -447,33 +474,38 @@ export function FAQManagement() {
       </Card>
 
       {/* FAQs List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>FAQs</CardTitle>
-          <CardDescription>Manage your frequently asked questions</CardDescription>
+      <Card className={compactCardClass}>
+        <CardHeader className={compactCardHeaderClass}>
+          <CardTitle className={compactCardTitleClass}>FAQs</CardTitle>
+          <CardDescription className={compactCardDescriptionClass}>Compact overview of questions, answers and engagement.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
+        <CardContent className="px-4 pb-4 pt-0">
+          <div className="space-y-4">
             {Object.keys(groupedFAQs).length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
+              <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 py-8 text-center text-sm text-muted-foreground">
                 No FAQs found. Create your first FAQ!
               </div>
             ) : (
               Object.entries(groupedFAQs).map(([category, categoryFAQs]) => (
-                <div key={category} className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-semibold">{category}</h3>
-                    <Badge variant="secondary">{categoryFAQs.length}</Badge>
+                <div key={category} className="space-y-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                  <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2">
+                    <h3 className="text-sm font-semibold text-slate-900 sm:text-base">{category}</h3>
+                    <Badge variant="secondary" className={sectionBadgeClass}>{categoryFAQs.length}</Badge>
                   </div>
                   <div className="space-y-2">
                     {categoryFAQs.map((faq) => (
-                      <div key={faq._id} className="flex items-start justify-between p-4 border rounded-lg">
-                        <div className="flex-1">
-                          <h4 className="font-medium">{faq.question}</h4>
-                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                      <div key={faq._id} className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-start gap-2">
+                            <h4 className="text-sm font-medium leading-snug text-slate-900">{faq.question}</h4>
+                            <Badge variant={faq.isActive ? 'default' : 'secondary'} className="h-5 px-1.5 text-[11px]">
+                              {faq.isActive ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground sm:text-sm">
                             {faq.answer}
                           </p>
-                          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground sm:text-xs">
                             <span className="flex items-center gap-1">
                               <Eye className="h-3 w-3" />
                               {faq.views || 0} views
@@ -487,20 +519,18 @@ export function FAQManagement() {
                               {faq.notHelpful || 0}
                             </span>
                             {faq.tags.length > 0 && (
-                              <span>Tags: {faq.tags.join(', ')}</span>
+                              <span className="truncate">Tags: {faq.tags.join(', ')}</span>
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={faq.isActive ? 'default' : 'secondary'}>
-                            {faq.isActive ? 'Active' : 'Inactive'}
-                          </Badge>
-                          <Button variant="ghost" size="sm" onClick={() => openEditDialog(faq)}>
+                        <div className="flex shrink-0 items-center gap-1.5 self-end lg:self-center">
+                          <Button variant="ghost" size="icon" className={compactIconButtonClass} onClick={() => openEditDialog(faq)}>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button 
                             variant="ghost" 
-                            size="sm"
+                            size="icon"
+                            className={compactIconButtonClass}
                             onClick={() => handleDeleteFAQ(faq._id)}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -518,44 +548,46 @@ export function FAQManagement() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit FAQ</DialogTitle>
-            <DialogDescription>
+        <DialogContent className={compactDialogContentClass}>
+          <DialogHeader className={compactDialogHeaderClass}>
+            <DialogTitle className={compactDialogTitleClass}>Edit FAQ</DialogTitle>
+            <DialogDescription className={compactDialogDescriptionClass}>
               Update the FAQ details below.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-question">Question *</Label>
+          <div className={compactDialogBodyClass}>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-question" className={compactLabelClass}>Question *</Label>
               <Input
                 id="edit-question"
                 value={faqForm.question}
                 onChange={(e) => setFaqForm({ ...faqForm, question: e.target.value })}
                 placeholder="Enter the FAQ question"
+                className={compactInputClass}
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-answer">Answer *</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-answer" className={compactLabelClass}>Answer *</Label>
               <Textarea
                 id="edit-answer"
                 value={faqForm.answer}
                 onChange={(e) => setFaqForm({ ...faqForm, answer: e.target.value })}
                 placeholder="Enter the FAQ answer"
-                rows={6}
+                rows={5}
+                className={compactTextareaClass}
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-category">Category</Label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-category" className={compactLabelClass}>Category</Label>
                 <Select
                   value={faqForm.category}
                   onValueChange={(value) => setFaqForm({ ...faqForm, category: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={compactSelectTriggerClass}>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -568,30 +600,32 @@ export function FAQManagement() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="edit-order">Order</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-order" className={compactLabelClass}>Order</Label>
                 <Input
                   id="edit-order"
                   type="number"
                   value={faqForm.order}
                   onChange={(e) => setFaqForm({ ...faqForm, order: parseInt(e.target.value) || 0 })}
                   placeholder="Display order"
+                  className={compactInputClass}
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-tags">Tags</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-tags" className={compactLabelClass}>Tags</Label>
               <Input
                 id="edit-tags"
                 value={faqForm.tags}
                 onChange={(e) => setFaqForm({ ...faqForm, tags: e.target.value })}
                 placeholder="Enter tags separated by commas"
+                className={compactInputClass}
               />
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 border-t border-slate-200 px-0 pt-3 sm:justify-end">
             <Button
               variant="outline"
               onClick={() => {
@@ -600,12 +634,14 @@ export function FAQManagement() {
                 resetForm()
               }}
               disabled={isUpdating}
+              className={compactButtonClass}
             >
               Cancel
             </Button>
             <Button
               onClick={handleEditFAQ}
               disabled={isUpdating}
+              className={compactButtonClass}
             >
               {isUpdating ? (
                 <>
