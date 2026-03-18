@@ -126,6 +126,8 @@ export function AddOnServiceManagement() {
   const [loadingCategories, setLoadingCategories] = useState(true)
   const deviceTypes = ['iPhone', 'Samsung', 'Google Pixel', 'iPad', 'Tablet', 'Laptop']
   const brands = ['Apple', 'Samsung', 'Google', 'Microsoft', 'Dell', 'HP', 'Lenovo']
+  const compactFieldClassName = "h-9 text-xs"
+  const compactLabelClassName = "text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
 
   useEffect(() => {
     fetchCategories()
@@ -447,40 +449,49 @@ export function AddOnServiceManagement() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Plus className="h-8 w-8" />
+      <div className="flex flex-col gap-3 rounded-xl border border-[#0f1d45] bg-gradient-to-r from-[#1a2a5e] via-[#1a2a5e] to-[#2a3f7e] px-4 py-4 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="flex items-center gap-2 text-2xl font-bold leading-none">
+            <Plus className="h-6 w-6" />
             Add-On Service Management
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm text-white/80">
             Manage add-on services and compatibility settings
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsCSVImportDialogOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+            onClick={() => setIsCSVImportDialogOpen(true)}
+          >
+            <Upload className="mr-2 h-4 w-4" />
             Import CSV
           </Button>
-          <Button onClick={openCreateDialog}>
-            <Plus className="h-4 w-4 mr-2" />
+          <Button
+            size="sm"
+            className="bg-white text-[#1a2a5e] hover:bg-[#f8f9fc]"
+            onClick={openCreateDialog}
+          >
+            <Plus className="mr-2 h-4 w-4" />
             Add New Service
           </Button>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-4">
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3 pb-1">
             <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
               Total Add-Ons
             </CardTitle>
             <Plus className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 pb-3 pt-0">
             <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
               {addOnServices.length}
             </div>
@@ -488,13 +499,13 @@ export function AddOnServiceManagement() {
         </Card>
 
         <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3 pb-1">
             <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">
               Avg. Price
             </CardTitle>
             <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 pb-3 pt-0">
             <div className="text-2xl font-bold text-green-900 dark:text-green-100">
               ${addOnServices.length > 0 ? (addOnServices.reduce((sum, s) => sum + s.price, 0) / addOnServices.length).toFixed(0) : 0}
             </div>
@@ -502,13 +513,13 @@ export function AddOnServiceManagement() {
         </Card>
 
         <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3 pb-1">
             <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">
               Categories
             </CardTitle>
             <Filter className="h-4 w-4 text-purple-600 dark:text-purple-400" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 pb-3 pt-0">
             <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
               {[...new Set(addOnServices.map(s => s.category))].length}
             </div>
@@ -516,13 +527,13 @@ export function AddOnServiceManagement() {
         </Card>
 
         <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3 pb-1">
             <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300">
               Avg. Discount
             </CardTitle>
             <Percent className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 pb-3 pt-0">
             <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">
               {addOnServices.length > 0 ? (addOnServices.reduce((sum, s) => sum + (s.bundleDiscount || 0), 0) / addOnServices.length).toFixed(1) : 0}%
             </div>
@@ -532,8 +543,8 @@ export function AddOnServiceManagement() {
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col lg:flex-row gap-4">
+        <CardContent className="px-4 py-4">
+          <div className="flex flex-col gap-3 lg:flex-row">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -541,13 +552,13 @@ export function AddOnServiceManagement() {
                   placeholder="Search add-on services by name, description, or category..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="h-9 pl-10 text-sm"
                 />
               </div>
             </div>
             <div className="flex gap-2">
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="h-9 w-40 text-sm">
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
@@ -567,13 +578,13 @@ export function AddOnServiceManagement() {
 
       {/* Add-On Services Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Add-On Services</CardTitle>
-          <CardDescription>
+        <CardHeader className="px-4 py-4">
+          <CardTitle className="text-lg">Add-On Services</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">
             Manage your add-on service catalog and compatibility settings. Click on a row to view detailed information.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 pb-4 pt-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -644,8 +655,8 @@ export function AddOnServiceManagement() {
                   >
                     <TableCell>
                       <div>
-                        <p className="font-medium">{service.name}</p>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
+                        <p className="text-sm font-medium leading-tight">{service.name}</p>
+                        <p className="line-clamp-2 text-xs text-muted-foreground leading-snug">
                           {service.description}
                         </p>
                       </div>
@@ -656,7 +667,7 @@ export function AddOnServiceManagement() {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <DollarSign className="h-3 w-3 text-muted-foreground" />
-                        <span className="font-medium">${service.price}</span>
+                        <span className="text-sm font-medium">${service.price}</span>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -696,6 +707,7 @@ export function AddOnServiceManagement() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="h-8 w-8 p-0"
                           onClick={(e) => {
                             e.stopPropagation()
                             openEditDialog(service)
@@ -706,6 +718,7 @@ export function AddOnServiceManagement() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="h-8 w-8 p-0"
                           onClick={(e) => {
                             e.stopPropagation()
                             openDeleteDialog(service)
@@ -722,7 +735,7 @@ export function AddOnServiceManagement() {
           </Table>
 
           {/* Pagination Controls */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t">
+          <div className="flex flex-col gap-3 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>
                 Showing {addOnServices.length === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1} to{" "}
@@ -732,9 +745,9 @@ export function AddOnServiceManagement() {
 
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <Label className="text-sm">Rows per page:</Label>
+                <Label className="text-xs">Rows per page:</Label>
                 <Select value={itemsPerPage.toString()} onValueChange={handlePageSizeChange}>
-                  <SelectTrigger className="w-20">
+                  <SelectTrigger className="h-8 w-20 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -750,6 +763,7 @@ export function AddOnServiceManagement() {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-8 px-2 text-xs"
                   onClick={handlePreviousPage}
                   disabled={currentPage === 1}
                 >
@@ -758,7 +772,7 @@ export function AddOnServiceManagement() {
                 </Button>
 
                 <div className="flex items-center gap-1">
-                  <span className="text-sm font-medium">
+                  <span className="text-xs font-medium">
                     Page {currentPage} of {totalPages}
                   </span>
                 </div>
@@ -766,6 +780,7 @@ export function AddOnServiceManagement() {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-8 px-2 text-xs"
                   onClick={handleNextPage}
                   disabled={currentPage === totalPages}
                 >
@@ -780,69 +795,69 @@ export function AddOnServiceManagement() {
 
       {/* Service Detail Dialog */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Info className="h-5 w-5" />
+        <DialogContent className="max-h-[88vh] max-w-3xl overflow-hidden p-0">
+          <DialogHeader className="gap-1 border-b border-[#0f1d45] bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] px-4 py-3 text-left text-white">
+            <DialogTitle className="flex items-center gap-2 text-base font-semibold">
+              <Info className="h-4 w-4" />
               Add-On Service Details
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs text-white/80 sm:text-sm">
               Comprehensive information about the selected add-on service
             </DialogDescription>
           </DialogHeader>
 
           {loadingDetail ? (
-            <div className="space-y-4">
+            <div className="space-y-4 px-4 py-4">
               <div className="h-6 bg-muted rounded w-1/2 animate-pulse"></div>
               <div className="h-4 bg-muted rounded w-3/4 animate-pulse"></div>
               <div className="h-4 bg-muted rounded w-1/2 animate-pulse"></div>
               <div className="h-32 bg-muted rounded animate-pulse"></div>
             </div>
           ) : detailService ? (
-            <div className="space-y-6">
+            <div className="max-h-[calc(88vh-132px)] space-y-4 overflow-y-auto px-4 py-4">
               {/* Basic Information */}
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Package className="h-5 w-5" />
+                <CardHeader className="px-4 py-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Package className="h-4 w-4" />
                     {detailService.name}
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <CardContent className="space-y-3 px-4 pb-4 pt-0">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
                     <div className="space-y-1">
-                      <Label className="text-sm font-medium text-muted-foreground">Category</Label>
-                      <Badge variant="outline" className="w-fit">
+                      <Label className={compactLabelClassName}>Category</Label>
+                      <Badge variant="outline" className="w-fit text-[11px]">
                         <Tag className="h-3 w-3 mr-1" />
                         {detailService.category}
                       </Badge>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-sm font-medium text-muted-foreground">Price</Label>
-                      <div className="flex items-center gap-1 text-lg font-semibold">
+                      <Label className={compactLabelClassName}>Price</Label>
+                      <div className="flex items-center gap-1 text-base font-semibold">
                         <DollarSign className="h-4 w-4 text-green-600" />
                         {detailService.price}
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-sm font-medium text-muted-foreground">Estimated Time</Label>
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4 text-blue-600" />
+                      <Label className={compactLabelClassName}>Estimated Time</Label>
+                      <div className="flex items-center gap-1 text-sm">
+                        <Clock className="h-3.5 w-3.5 text-blue-600" />
                         <span>{detailService.estimatedTime}</span>
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-sm font-medium text-muted-foreground">Bundle Discount</Label>
-                      <div className="flex items-center gap-1">
-                        <Percent className="h-4 w-4 text-orange-600" />
+                      <Label className={compactLabelClassName}>Bundle Discount</Label>
+                      <div className="flex items-center gap-1 text-sm">
+                        <Percent className="h-3.5 w-3.5 text-orange-600" />
                         <span>{detailService.bundleDiscount || 0}%</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-muted-foreground">Description</Label>
-                    <p className="text-sm leading-relaxed bg-muted/50 p-3 rounded-lg">
+                  <div className="space-y-1.5">
+                    <Label className={compactLabelClassName}>Description</Label>
+                    <p className="rounded-lg bg-muted/50 p-2.5 text-sm leading-snug">
                       {detailService.description}
                     </p>
                   </div>
@@ -851,34 +866,34 @@ export function AddOnServiceManagement() {
 
               {/* Performance Metrics */}
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Star className="h-5 w-5" />
+                <CardHeader className="px-4 py-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Star className="h-4 w-4" />
                     Performance Metrics
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="text-center p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950 dark:to-yellow-900 rounded-lg">
-                      <Star className="h-8 w-8 mx-auto mb-2 text-yellow-600" />
-                      <div className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">
+                <CardContent className="px-4 pb-4 pt-0">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <div className="rounded-lg bg-gradient-to-br from-yellow-50 to-yellow-100 p-3 text-center dark:from-yellow-950 dark:to-yellow-900">
+                      <Star className="mx-auto mb-1.5 h-6 w-6 text-yellow-600" />
+                      <div className="text-xl font-bold text-yellow-900 dark:text-yellow-100">
                         {detailService.popularity || 0}%
                       </div>
-                      <p className="text-sm text-yellow-700 dark:text-yellow-300">Popularity</p>
+                      <p className="text-xs text-yellow-700 dark:text-yellow-300">Popularity</p>
                     </div>
-                    <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 rounded-lg">
-                      <Shield className="h-8 w-8 mx-auto mb-2 text-green-600" />
-                      <div className="text-2xl font-bold text-green-900 dark:text-green-100">
+                    <div className="rounded-lg bg-gradient-to-br from-green-50 to-green-100 p-3 text-center dark:from-green-950 dark:to-green-900">
+                      <Shield className="mx-auto mb-1.5 h-6 w-6 text-green-600" />
+                      <div className="text-xl font-bold text-green-900 dark:text-green-100">
                         {detailService.isActive ? 'Active' : 'Inactive'}
                       </div>
-                      <p className="text-sm text-green-700 dark:text-green-300">Status</p>
+                      <p className="text-xs text-green-700 dark:text-green-300">Status</p>
                     </div>
-                    <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 rounded-lg">
-                      <Smartphone className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-                      <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                    <div className="rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 p-3 text-center dark:from-blue-950 dark:to-blue-900">
+                      <Smartphone className="mx-auto mb-1.5 h-6 w-6 text-blue-600" />
+                      <div className="text-xl font-bold text-blue-900 dark:text-blue-100">
                         {detailService.compatibility?.length || 0}
                       </div>
-                      <p className="text-sm text-blue-700 dark:text-blue-300">Compatibility Rules</p>
+                      <p className="text-xs text-blue-700 dark:text-blue-300">Compatibility Rules</p>
                     </div>
                   </div>
                 </CardContent>
@@ -887,25 +902,25 @@ export function AddOnServiceManagement() {
               {/* Device Compatibility */}
               {detailService.compatibility && detailService.compatibility.length > 0 && (
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Smartphone className="h-5 w-5" />
+                  <CardHeader className="px-4 py-3">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Smartphone className="h-4 w-4" />
                       Device Compatibility
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
+                  <CardContent className="px-4 pb-4 pt-0">
+                    <div className="space-y-3">
                       {detailService.compatibility.map((comp, index) => (
-                        <div key={index} className="p-4 border rounded-lg bg-muted/25">
-                          <div className="flex items-center gap-2 mb-3">
-                            <Smartphone className="h-4 w-4 text-blue-600" />
-                            <span className="font-medium">{comp.deviceType}</span>
+                        <div key={index} className="rounded-lg border bg-muted/25 p-3">
+                          <div className="mb-2 flex items-center gap-2">
+                            <Smartphone className="h-3.5 w-3.5 text-blue-600" />
+                            <span className="text-sm font-medium">{comp.deviceType}</span>
                           </div>
-                          <div className="space-y-2">
-                            <Label className="text-sm text-muted-foreground">Compatible Brands:</Label>
-                            <div className="flex flex-wrap gap-2">
+                          <div className="space-y-1.5">
+                            <Label className={compactLabelClassName}>Compatible Brands</Label>
+                            <div className="flex flex-wrap gap-1.5">
                               {comp.brands.map((brand, brandIndex) => (
-                                <Badge key={brandIndex} variant="secondary">
+                                <Badge key={brandIndex} variant="secondary" className="text-[11px]">
                                   {brand}
                                 </Badge>
                               ))}
@@ -920,25 +935,25 @@ export function AddOnServiceManagement() {
 
               {/* Timestamps */}
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
+                <CardHeader className="px-4 py-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Calendar className="h-4 w-4" />
                     Timeline Information
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <CardContent className="px-4 pb-4 pt-0">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <div className="space-y-1">
-                      <Label className="text-sm font-medium text-muted-foreground">Created At</Label>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <Label className={compactLabelClassName}>Created At</Label>
+                      <div className="flex items-center gap-1 text-sm">
+                        <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="text-sm">{formatDate(detailService.createdAt)}</span>
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-sm font-medium text-muted-foreground">Last Updated</Label>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <Label className={compactLabelClassName}>Last Updated</Label>
+                      <div className="flex items-center gap-1 text-sm">
+                        <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="text-sm">{formatDate(detailService.updatedAt)}</span>
                       </div>
                     </div>
@@ -947,18 +962,18 @@ export function AddOnServiceManagement() {
               </Card>
             </div>
           ) : (
-            <div className="text-center py-8">
+            <div className="px-4 py-8 text-center">
               <Info className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
               <p className="text-muted-foreground">No service details available</p>
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDetailDialogOpen(false)}>
+          <DialogFooter className="border-t px-4 py-3 sm:justify-between">
+            <Button variant="outline" size="sm" onClick={() => setIsDetailDialogOpen(false)}>
               Close
             </Button>
             {detailService && (
-              <Button onClick={() => {
+              <Button size="sm" onClick={() => {
                 setIsDetailDialogOpen(false)
                 openEditDialog(detailService)
               }}>
@@ -979,12 +994,12 @@ export function AddOnServiceManagement() {
           resetForm()
         }
       }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="max-h-[88vh] max-w-3xl overflow-hidden p-0">
+          <DialogHeader className="gap-1 border-b border-[#0f1d45] bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] px-4 py-3 text-left text-white">
+            <DialogTitle className="text-base font-semibold">
               {isCreateDialogOpen ? "Create New Add-On Service" : "Edit Add-On Service"}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs text-white/80 sm:text-sm">
               {isCreateDialogOpen
                 ? "Add a new add-on service to your catalog"
                 : "Update the add-on service information"}
@@ -992,29 +1007,31 @@ export function AddOnServiceManagement() {
           </DialogHeader>
 
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="compatibility">Compatibility</TabsTrigger>
+            <div className="max-h-[calc(88vh-126px)] overflow-y-auto px-4 py-4">
+            <TabsList className="grid h-9 w-full grid-cols-2">
+              <TabsTrigger value="basic" className="text-xs">Basic Info</TabsTrigger>
+              <TabsTrigger value="compatibility" className="text-xs">Compatibility</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="basic" className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Service Name</Label>
+            <TabsContent value="basic" className="space-y-3 pt-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="name" className={compactLabelClassName}>Service Name</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="e.g. Screen Protector Installation"
+                    className={compactFieldClassName}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="category" className={compactLabelClassName}>Category</Label>
                   <Select
                     value={formData.category}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={compactFieldClassName}>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1034,20 +1051,21 @@ export function AddOnServiceManagement() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="description" className={compactLabelClassName}>Description</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Describe the add-on service..."
-                  rows={3}
+                  rows={2}
+                  className="min-h-[72px] text-sm leading-snug"
                 />
               </div>
 
-              <div className="grid grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="price">Price ($)</Label>
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="price" className={compactLabelClassName}>Price ($)</Label>
                   <Input
                     id="price"
                     type="number"
@@ -1056,19 +1074,21 @@ export function AddOnServiceManagement() {
                     placeholder="0.00"
                     min="0"
                     step="0.01"
+                    className={compactFieldClassName}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="estimatedTime">Estimated Time</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="estimatedTime" className={compactLabelClassName}>Estimated Time</Label>
                   <Input
                     id="estimatedTime"
                     value={formData.estimatedTime}
                     onChange={(e) => setFormData(prev => ({ ...prev, estimatedTime: e.target.value }))}
                     placeholder="e.g. 15 minutes"
+                    className={compactFieldClassName}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="bundleDiscount">Bundle Discount (%)</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="bundleDiscount" className={compactLabelClassName}>Bundle Discount (%)</Label>
                   <Input
                     id="bundleDiscount"
                     type="number"
@@ -1077,10 +1097,11 @@ export function AddOnServiceManagement() {
                     placeholder="0"
                     min="0"
                     max="100"
+                    className={compactFieldClassName}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="popularity">Popularity (%)</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="popularity" className={compactLabelClassName}>Popularity (%)</Label>
                   <Input
                     id="popularity"
                     type="number"
@@ -1089,19 +1110,21 @@ export function AddOnServiceManagement() {
                     placeholder="0"
                     min="0"
                     max="100"
+                    className={compactFieldClassName}
                   />
                 </div>
               </div>
             </TabsContent>
 
-            <TabsContent value="compatibility" className="space-y-4">
-              <div className="space-y-4">
+            <TabsContent value="compatibility" className="space-y-3 pt-3">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Device Compatibility</Label>
+                  <Label className={compactLabelClassName}>Device Compatibility</Label>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
+                    className="h-8 px-3 text-xs"
                     onClick={addCompatibility}
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -1110,34 +1133,35 @@ export function AddOnServiceManagement() {
                 </div>
 
                 {formData.compatibility.length === 0 ? (
-                  <div className="text-center py-8 border-2 border-dashed border-muted-foreground/25 rounded-lg">
-                    <Shield className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                    <p className="text-muted-foreground">No compatibility rules defined</p>
-                    <p className="text-sm text-muted-foreground">Click "Add Compatibility" to define device compatibility</p>
+                  <div className="rounded-lg border-2 border-dashed border-muted-foreground/25 py-6 text-center">
+                    <Shield className="mx-auto mb-3 h-10 w-10 text-muted-foreground opacity-50" />
+                    <p className="text-sm text-muted-foreground">No compatibility rules defined</p>
+                    <p className="text-xs text-muted-foreground">Click "Add Compatibility" to define device compatibility</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {formData.compatibility.map((comp, index) => (
-                      <div key={index} className="p-4 border rounded-lg space-y-3">
+                      <div key={index} className="space-y-3 rounded-lg border p-3">
                         <div className="flex items-center justify-between">
-                          <h4 className="font-medium">Compatibility Rule {index + 1}</h4>
+                          <h4 className="text-sm font-medium">Compatibility Rule {index + 1}</h4>
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
+                            className="h-8 w-8 p-0"
                             onClick={() => removeCompatibility(index)}
                           >
                             <X className="h-4 w-4" />
                           </Button>
                         </div>
 
-                        <div className="space-y-2">
-                          <Label>Device Type</Label>
+                        <div className="space-y-1.5">
+                          <Label className={compactLabelClassName}>Device Type</Label>
                           <Select
                             value={comp.deviceType}
                             onValueChange={(value) => updateCompatibility(index, 'deviceType', value)}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className={compactFieldClassName}>
                               <SelectValue placeholder="Select device type" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1150,9 +1174,9 @@ export function AddOnServiceManagement() {
                           </Select>
                         </div>
 
-                        <div className="space-y-2">
-                          <Label>Compatible Brands</Label>
-                          <div className="grid grid-cols-3 gap-2">
+                        <div className="space-y-1.5">
+                          <Label className={compactLabelClassName}>Compatible Brands</Label>
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                             {brands.map(brand => (
                               <div key={brand} className="flex items-center space-x-2">
                                 <input
@@ -1162,7 +1186,7 @@ export function AddOnServiceManagement() {
                                   onChange={() => toggleBrand(index, brand)}
                                   className="rounded border-gray-300"
                                 />
-                                <Label htmlFor={`${index}-${brand}`} className="text-sm font-normal">
+                                <Label htmlFor={`${index}-${brand}`} className="text-xs font-normal leading-none">
                                   {brand}
                                 </Label>
                               </div>
@@ -1175,11 +1199,13 @@ export function AddOnServiceManagement() {
                 )}
               </div>
             </TabsContent>
+            </div>
           </Tabs>
 
-          <DialogFooter>
+          <DialogFooter className="border-t px-4 py-3">
             <Button
               variant="outline"
+              size="sm"
               onClick={() => {
                 setIsCreateDialogOpen(false)
                 setIsEditDialogOpen(false)
@@ -1190,6 +1216,7 @@ export function AddOnServiceManagement() {
               Cancel
             </Button>
             <Button
+              size="sm"
               onClick={isCreateDialogOpen ? handleCreateService : handleUpdateService}
               disabled={submitting || !formData.name || !formData.description || !formData.category}
             >
