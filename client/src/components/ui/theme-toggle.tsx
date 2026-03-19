@@ -24,10 +24,10 @@ export function ThemeToggle() {
 
   return (
     <Button
-      variant="ghost"
+      variant="outline"
       size="icon"
       onClick={toggleTheme}
-      className="w-9 h-9 rounded-full transition-colors hover:bg-accent"
+      className="w-9 h-9 rounded-full transition-colors"
     >
       {theme === "dark" ? (
         <Sun className="h-5 w-5 transition-all" />
