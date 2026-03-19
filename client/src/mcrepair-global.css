@@ -2879,3 +2879,23 @@ ul, ol {
 .autocomplete-item.highlighted {
   background: rgba(245, 184, 0, 0.1);
 }
+
+/* ============================================
+   Nav Right – Icon Buttons Styling
+   Shared components (LanguageSelector, NotificationBell, etc.)
+   need white icons with yellow hover on navy nav background
+   ============================================ */
+.nav-right button {
+  color: rgba(255, 255, 255, 0.9);
+  border: none;
+  background: transparent;
+}
+
+.nav-right button:hover {
+  color: var(--accent-yellow) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.nav-right button svg {
+  color: inherit;
+}

@@ -31,30 +31,30 @@
     --radius: 0.5rem;
   }
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --background: 222 47% 8%;
+    --foreground: 210 20% 93%;
+    --card: 222 47% 10%;
+    --card-foreground: 210 20% 93%;
+    --popover: 222 47% 10%;
+    --popover-foreground: 210 20% 93%;
+    --primary: 45 95% 54%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 222 30% 16%;
+    --secondary-foreground: 210 20% 90%;
+    --muted: 222 30% 14%;
+    --muted-foreground: 215 15% 60%;
+    --accent: 222 30% 18%;
+    --accent-foreground: 210 20% 93%;
+    --destructive: 0 62.8% 50%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --border: 222 25% 18%;
+    --input: 222 25% 18%;
+    --ring: 45 95% 54%;
+    --chart-1: 220 70% 60%;
+    --chart-2: 160 60% 50%;
+    --chart-3: 30 80% 60%;
+    --chart-4: 280 65% 65%;
+    --chart-5: 340 75% 60%;
   }
 }
 
@@ -185,4 +185,122 @@
 .dark .ql-container {
   border-color: hsl(var(--border)) !important;
   background: hsl(var(--background));
+}
+
+/* ============================================
+   Global Dark Mode Overrides
+   Handles hardcoded bg-white, text colors, etc.
+   ============================================ */
+
+/* Force Tailwind bg-white elements to use theme background in dark mode */
+.dark .bg-white {
+  background-color: hsl(var(--card)) !important;
+}
+
+.dark .bg-gray-50,
+.dark .bg-gray-100 {
+  background-color: hsl(var(--muted)) !important;
+}
+
+.dark .bg-gray-200 {
+  background-color: hsl(var(--accent)) !important;
+}
+
+/* Text color overrides for gray scale */
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-gray-700 {
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark .text-gray-600,
+.dark .text-gray-500 {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.dark .text-gray-400,
+.dark .text-gray-300 {
+  color: hsl(215 15% 50%) !important;
+}
+
+/* Border overrides */
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-300 {
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Dropdown & Popover hardcoded backgrounds */
+.dark [class*="bg-gradient-to-r from-[#fffbf0]"] {
+  background: hsl(222 30% 14%) !important;
+}
+
+/* Hardcoded brand color adaptations for dark backgrounds */
+.dark .text-\[\#2d3748\],
+.dark .text-\[\#1a202c\] {
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark .text-\[\#636e85\] {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.dark .bg-\[\#f5f6f8\],
+.dark .bg-\[\#f8f9fc\] {
+  background-color: hsl(var(--muted)) !important;
+}
+
+.dark .border-\[\#d8dce6\],
+.dark .border-\[\#eceef3\] {
+  border-color: hsl(var(--border)) !important;
+}
+
+/* NotificationBell dropdown dark mode */
+.dark .notification-dropdown-content .bg-white,
+.dark .notification-dropdown-content > div > .bg-white {
+  background-color: hsl(var(--card)) !important;
+}
+
+/* Yellow accent adjustments for dark mode - keep visible but less harsh */
+.dark .bg-yellow-50 {
+  background-color: hsl(45 40% 14%) !important;
+}
+
+.dark .hover\:bg-yellow-100:hover {
+  background-color: hsl(45 40% 18%) !important;
+}
+
+.dark .hover\:bg-gray-50:hover {
+  background-color: hsl(var(--accent)) !important;
+}
+
+/* Shadows for dark mode - darker and more subtle */
+.dark [class*="shadow-"] {
+  --tw-shadow-color: rgba(0, 0, 0, 0.3);
+}
+
+/* Input / Select elements with explicit white backgrounds */
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark select,
+.dark textarea {
+  background-color: hsl(var(--input));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+}
+
+/* Tables in dark mode */
+.dark table {
+  color: hsl(var(--foreground));
+}
+
+.dark thead {
+  background-color: hsl(var(--muted));
+}
+
+.dark tbody tr {
+  border-color: hsl(var(--border));
+}
+
+.dark tbody tr:hover {
+  background-color: hsl(var(--accent));
 }

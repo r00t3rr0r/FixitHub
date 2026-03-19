@@ -70,19 +70,19 @@ export function Header({ onToggleSidebar, sidebarOpen }: HeaderProps) {
             variant="ghost"
             size="icon"
             onClick={onToggleSidebar}
-            className={isAdminHeader ? "text-white hover:bg-white/10 hover:text-white" : undefined}
+            className={`h-9 w-9 rounded-lg transition-colors ${isAdminHeader ? "text-white hover:bg-white/10 hover:text-white" : ""}`}
             aria-label="Toggle sidebar"
           >
             {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
           <Link to="/" className="flex items-center space-x-2">
-            <div className={`font-extrabold text-lg sm:text-xl leading-none ${isAdminHeader ? "text-white" : "text-[#1a2a5e]"}`}>
+            <div className={`font-extrabold text-lg sm:text-xl leading-none ${isAdminHeader ? "text-white" : "text-[#1a2a5e] dark:text-foreground"}`}>
               Mc<span className="text-[#f5b800]">Repair</span>.de
             </div>
           </Link>
         </div>
 
-        <div className={`flex items-center space-x-4 ${isAdminHeader ? "text-white" : ""}`}>
+        <div className={`flex items-center gap-1 ${isAdminHeader ? "[&_button]:text-white [&_button]:hover:bg-white/10 [&_button]:hover:text-white" : ""}`}>
           <NotificationBell />
           <LanguageSelector />
           <ThemeToggle />
@@ -91,7 +91,7 @@ export function Header({ onToggleSidebar, sidebarOpen }: HeaderProps) {
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                className={`relative h-8 w-8 rounded-full ${isAdminHeader ? "hover:bg-white/10" : ""}`}
+                className={`relative h-9 w-9 rounded-lg transition-colors ${isAdminHeader ? "text-white hover:bg-white/10" : ""}`}
               >
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={userProfile?.avatar} alt={userProfile?.name} />
