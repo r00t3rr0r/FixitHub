@@ -2040,5 +2040,27 @@
     "loading": "Loading...",
     "models": "models",
     "confirmDevice": "Confirm Device"
+  },
+  "vorabdiagnose": {
+    "title": "Pre-Diagnosis",
+    "badge": "Quick & Easy",
+    "heroSub": "in 3 Steps",
+    "heroDesc": "Answer a few short questions and find out what repair your device needs.",
+    "step": "Step",
+    "result": "Our Assessment",
+    "needHelp": "Need help?",
+    "phone": "Phone",
+    "hotlineHours": "Hotline hours",
+    "contact": "Contact",
+    "bookRepair": "Book Repair",
+    "newDiagnosis": "New Diagnosis",
+    "back": "Back",
+    "hotline": "Hotline",
+    "onsite": "On-Site Diagnosis",
+    "visitUs": "Visit one of our",
+    "locations": "Drop-off Points",
+    "bookRepairShort": "Book Repair",
+    "bookOnline": "Book directly online",
+    "toConfigurator": "To Configurator"
   }
 }

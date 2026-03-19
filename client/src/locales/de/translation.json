@@ -1979,5 +1979,27 @@
     "loading": "Lädt...",
     "models": "Modelle",
     "confirmDevice": "Gerät übernehmen"
+  },
+  "vorabdiagnose": {
+    "title": "Vorabdiagnose",
+    "badge": "Schnell & Einfach",
+    "heroSub": "in 3 Schritten",
+    "heroDesc": "Beantworten Sie einige kurze Fragen und finden Sie heraus, welche Reparatur Ihr Gerät benötigt.",
+    "step": "Schritt",
+    "result": "Unsere Einschätzung",
+    "needHelp": "Sie brauchen Hilfe?",
+    "phone": "Telefon",
+    "hotlineHours": "Hotline-Zeiten",
+    "contact": "Kontakt",
+    "bookRepair": "Reparatur buchen",
+    "newDiagnosis": "Neue Diagnose",
+    "back": "Zurück",
+    "hotline": "Hotline",
+    "onsite": "Vor-Ort-Diagnose",
+    "visitUs": "Besuchen Sie eine unserer",
+    "locations": "Annahmestellen",
+    "bookRepairShort": "Reparatur buchen",
+    "bookOnline": "Direkt online buchen",
+    "toConfigurator": "Zum Konfigurator"
   }
 }

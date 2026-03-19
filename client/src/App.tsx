@@ -68,6 +68,7 @@ import { About } from "./pages/About"
 import { FAQ } from "./pages/FAQ"
 import { GuestOrderTracking } from "./pages/GuestOrderTracking"
 import { GuestBookingTracking } from "./pages/GuestBookingTracking"
+import { Vorabdiagnose } from "./pages/Vorabdiagnose"
 
 function App() {
   return (
@@ -116,6 +117,7 @@ function App() {
             <Route path="/blog/:id" element={<CustomerLayout />}>
               <Route index element={<BlogPostPage />} />
             </Route>
+            <Route path="/vorabdiagnose" element={<Vorabdiagnose />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/widerrufsrecht" element={<Widerrufsrecht />} />
             <Route path="/privacy" element={<Privacy />} />
