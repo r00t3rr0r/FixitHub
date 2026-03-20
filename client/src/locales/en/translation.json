@@ -375,7 +375,7 @@
     "price": "Price",
     "estimatedTime": "Estimated Time",
     "deviceCompatibility": "Device Compatibility",
-    "description": "Description",
+    "fieldDescription": "Description",
     "instructions": "Repair Instructions",
     "knowledgeBase": "Knowledge Base Articles",
     "status": "Status",
@@ -489,7 +489,7 @@
     "title": "Blog Management",
     "description": "Create and manage blog posts",
     "posts": "Blog Posts",
-    "title": "Title",
+    "fieldTitle": "Title",
     "author": "Author",
     "category": "Category",
     "status": "Status",
@@ -616,7 +616,7 @@
     "inStock": "In Stock",
     "lowStock": "Low Stock",
     "outOfStock": "Out of Stock",
-    "description": "Description",
+    "fieldDescription": "Description",
     "images": "Images",
     "features": "Features",
     "specifications": "Specifications"
@@ -837,7 +837,7 @@
     "price": "Price",
     "deviceCompatibility": "Device Compatibility",
     "bundleDiscount": "Bundle Discount",
-    "description": "Description",
+    "fieldDescription": "Description",
     "status": "Status",
     "active": "Active",
     "inactive": "Inactive",
@@ -1015,7 +1015,7 @@
       "stepAddedSuccess": "Step added successfully",
       "errorSavingWorkflow": "Failed to save workflow"
     },
-    "steps": {
+    "stepTypes": {
       "diagnostic": "diagnostic",
       "repair": "repair",
       "quality": "quality",
@@ -1034,7 +1034,7 @@
     "tests": "Diagnostic Tests",
     "forms": "Assessment Forms",
     "testName": "Test Name",
-    "description": "Description",
+    "fieldDescription": "Description",
     "category": "Category",
     "steps": "Steps",
     "tools": "Required Tools",
@@ -1772,7 +1772,7 @@
     "completed": "Completed",
     "cancelled": "Cancelled"
   },
-  "orders": {
+  "orderSummary": {
     "orderNumber": "Order Number",
     "type": "Type",
     "device": "Device",

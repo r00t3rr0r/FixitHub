@@ -109,7 +109,7 @@ export function LoginDialog({ isOpen, onClose, anchorElement, onLoginSuccess }: 
       } else if (userData?.role === 'staff') {
         navigate('/staff');
       } else {
-        window.location.reload(); // Reload to update UI
+        navigate('/'); // Navigate customer to home
       }
     } catch (error: any) {
       toast({

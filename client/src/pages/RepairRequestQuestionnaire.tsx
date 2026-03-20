@@ -352,7 +352,7 @@ export function RepairRequestQuestionnaire() {
 
       console.log("Submitting repair request:", requestData)
 
-      const response = await createRepairRequest(requestData)
+      await createRepairRequest(requestData)
 
       toast({
         title: t('repairRequest.successTitle'),

@@ -10,7 +10,6 @@ import { ProtectedRoute } from "./components/ProtectedRoute"
 import { Layout } from "./components/Layout"
 import { CustomerLayout } from "./components/CustomerLayout"
 import { BlankPage } from "./pages/BlankPage"
-import { Dashboard } from "./pages/Dashboard"
 import { NewOrder } from "./pages/NewOrder"
 import { OrderTracking } from "./pages/OrderTracking"
 import { OrderDetails } from "./pages/OrderDetails"
@@ -92,11 +91,6 @@ function App() {
               <Route index element={<GuestBookingTracking />} />
             </Route>
 
-            {/* Protected routes - accessible only to authenticated users */}
-            <Route path="/dashboard" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-              <Route index element={<Dashboard />} />
-            </Route>
-
             {/* Customer routes */}
             {/* Public access routes - no authentication required */}
             <Route path="/new-order" element={<CustomerLayout />}>
@@ -156,25 +150,25 @@ function App() {
             </Route>
 
             {/* Staff routes */}
-            <Route path="/staff" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/staff" element={<ProtectedRoute requiredRole={["staff", "admin"]}><Layout /></ProtectedRoute>}>
               <Route index element={<StaffDashboard />} />
             </Route>
-            <Route path="/staff/orders" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/staff/orders" element={<ProtectedRoute requiredRole={["staff", "admin"]}><Layout /></ProtectedRoute>}>
               <Route index element={<StaffOrders />} />
             </Route>
-            <Route path="/staff/knowledge-base" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/staff/knowledge-base" element={<ProtectedRoute requiredRole={["staff", "admin"]}><Layout /></ProtectedRoute>}>
               <Route index element={<KnowledgeBase />} />
             </Route>
-            <Route path="/staff/time-tracking" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/staff/time-tracking" element={<ProtectedRoute requiredRole={["staff", "admin"]}><Layout /></ProtectedRoute>}>
               <Route index element={<TimeTracking />} />
             </Route>
-            <Route path="/staff/schedule" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/staff/schedule" element={<ProtectedRoute requiredRole={["staff", "admin"]}><Layout /></ProtectedRoute>}>
               <Route index element={<Schedule />} />
             </Route>
-            <Route path="/staff/chat" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/staff/chat" element={<ProtectedRoute requiredRole={["staff", "admin"]}><Layout /></ProtectedRoute>}>
               <Route index element={<TeamChat />} />
             </Route>
-            <Route path="/staff/performance" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/staff/performance" element={<ProtectedRoute requiredRole={["staff", "admin"]}><Layout /></ProtectedRoute>}>
               <Route index element={<Performance />} />
             </Route>
 
@@ -191,10 +185,10 @@ function App() {
             <Route path="/admin/bookings" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<BookingsManagement />} />
             </Route>
-            <Route path="/staff/bookings" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/staff/bookings" element={<ProtectedRoute requiredRole={["staff", "admin"]}><Layout /></ProtectedRoute>}>
               <Route index element={<BookingsManagement />} />
             </Route>
-            <Route path="/staff/repair-requests" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/staff/repair-requests" element={<ProtectedRoute requiredRole={["staff", "admin"]}><Layout /></ProtectedRoute>}>
               <Route index element={<RepairRequestsManagement />} />
             </Route>
             <Route path="/admin/shop" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
@@ -266,7 +260,7 @@ function App() {
             </Route>
 
             {/* Inspection route */}
-            <Route path="/inspection/:orderId" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/inspection/:orderId" element={<ProtectedRoute requiredRole={["staff", "admin"]}><Layout /></ProtectedRoute>}>
               <Route index element={<InspectionWorkflow />} />
             </Route>
 
