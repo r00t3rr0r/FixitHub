@@ -68,6 +68,7 @@ import { FAQ } from "./pages/FAQ"
 import { GuestOrderTracking } from "./pages/GuestOrderTracking"
 import { GuestBookingTracking } from "./pages/GuestBookingTracking"
 import { Vorabdiagnose } from "./pages/Vorabdiagnose"
+import { Annahmestellen } from "./pages/Annahmestellen"
 
 function App() {
   return (
@@ -112,6 +113,7 @@ function App() {
               <Route index element={<BlogPostPage />} />
             </Route>
             <Route path="/vorabdiagnose" element={<Vorabdiagnose />} />
+            <Route path="/annahmestellen" element={<Annahmestellen />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/widerrufsrecht" element={<Widerrufsrecht />} />
             <Route path="/privacy" element={<Privacy />} />

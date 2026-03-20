@@ -138,7 +138,7 @@ export function VorabdiagnoseWizard({ onResult, compact = false }: Vorabdiagnose
           </div>
           <div className="diagnose-info-mini">
             <MapPin className="w-4 h-4" />
-            <span><a href="/about">108 Annahmestellen</a></span>
+            <span><a href="/annahmestellen">108 Annahmestellen</a></span>
           </div>
         </div>
       )}

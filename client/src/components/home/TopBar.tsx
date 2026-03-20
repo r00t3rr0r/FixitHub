@@ -31,7 +31,7 @@ export function TopBar() {
               <Phone width={14} height={14} />
               <span>{t('home.topBar.hotline', '0170 123 4567')}</span>
             </a>
-            <a href="/src/McRepair-Design-System/annahmestellen.html">
+            <a href="/annahmestellen">
               <MapPin width={14} height={14} />
               <span>{t('home.topBar.locations', 'Annahmestellen')}</span>
             </a>

@@ -73,7 +73,7 @@ export function Footer() {
             <h4>{t('home.footer.serviceTitle', 'Service')}</h4>
             <ul>
               <li>
-                <a href="/src/McRepair-Design-System/annahmestellen.html">
+                <a href="/annahmestellen">
                   {t('home.footer.locations', 'Annahmestellen')}
                 </a>
               </li>
