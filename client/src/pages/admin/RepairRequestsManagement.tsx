@@ -538,7 +538,7 @@ export function RepairRequestsManagement() {
       {/* Header */}
       <div className="repair-requests-header">
         <h1>
-          <FileText className="h-10 w-10" />
+          <FileText className="h-6 w-6" />
           Reparaturanfragen
         </h1>
         <p>
@@ -801,73 +801,73 @@ export function RepairRequestsManagement() {
       {/* Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Request Details - {selectedRequest?.requestNumber}</DialogTitle>
-            <DialogDescription>
-              Complete information about this repair request
+          <DialogHeader className="mcrepair-dialog-header">
+            <DialogTitle className="mcrepair-dialog-title">Anfrage Details – {selectedRequest?.requestNumber}</DialogTitle>
+            <DialogDescription className="mcrepair-dialog-description">
+              Vollständige Informationen zu dieser Reparaturanfrage
             </DialogDescription>
           </DialogHeader>
 
           <ScrollArea className="flex-1 overflow-hidden pr-4">
             {selectedRequest && (
-            <div className="space-y-6 p-4">
+            <div className="space-y-3 p-3">
               {/* Customer Information */}
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <User className="h-4 w-4" />
-                    Customer Information
+                <CardHeader className="pb-2 pt-3 px-4">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <User className="h-3.5 w-3.5" />
+                    Kundeninformationen
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2 text-sm">
+                <CardContent className="space-y-1 text-sm pb-3 px-4">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Name:</span>
-                    <span className="font-medium">{selectedRequest.customerName}</span>
+                    <span className="text-muted-foreground text-xs">Name:</span>
+                    <span className="font-medium text-xs">{selectedRequest.customerName}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Email:</span>
-                    <span className="font-medium">{selectedRequest.customerEmail}</span>
+                    <span className="text-muted-foreground text-xs">E-Mail:</span>
+                    <span className="font-medium text-xs">{selectedRequest.customerEmail}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Phone:</span>
-                    <span className="font-medium">{selectedRequest.customerPhone}</span>
+                    <span className="text-muted-foreground text-xs">Telefon:</span>
+                    <span className="font-medium text-xs">{selectedRequest.customerPhone}</span>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Device Information */}
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Package className="h-4 w-4" />
-                    Device Information
+                <CardHeader className="pb-2 pt-3 px-4">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Package className="h-3.5 w-3.5" />
+                    Geräteinformationen
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2 text-sm">
+                <CardContent className="space-y-1 text-sm pb-3 px-4">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Type:</span>
-                    <span className="font-medium">{selectedRequest.deviceType}</span>
+                    <span className="text-muted-foreground text-xs">Typ:</span>
+                    <span className="font-medium text-xs">{selectedRequest.deviceType}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Brand:</span>
-                    <span className="font-medium">{selectedRequest.deviceBrand}</span>
+                    <span className="text-muted-foreground text-xs">Marke:</span>
+                    <span className="font-medium text-xs">{selectedRequest.deviceBrand}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Model:</span>
-                    <span className="font-medium">{selectedRequest.deviceModel}</span>
+                    <span className="text-muted-foreground text-xs">Modell:</span>
+                    <span className="font-medium text-xs">{selectedRequest.deviceModel}</span>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Issue Details */}
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4" />
-                    Issue Details
+                <CardHeader className="pb-2 pt-3 px-4">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    Problemdetails
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3 text-sm">
+                <CardContent className="space-y-2 text-sm pb-3 px-4">
                   <div>
                     <Label className="text-muted-foreground">Description:</Label>
                     <p className="mt-1 whitespace-pre-wrap">{selectedRequest.issueDescription}</p>
@@ -926,17 +926,17 @@ export function RepairRequestsManagement() {
               {/* Images */}
               {selectedRequest.images && selectedRequest.images.length > 0 && (
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Device Images</CardTitle>
+                  <CardHeader className="pb-2 pt-3 px-4">
+                    <CardTitle className="text-sm">Gerätebilder</CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-3 gap-4">
+                  <CardContent className="pb-3 px-4">
+                    <div className="grid grid-cols-3 gap-2">
                       {selectedRequest.images.map((img, idx) => (
                         <img
                           key={idx}
                           src={img}
-                          alt={`Device ${idx + 1}`}
-                          className="w-full h-32 object-cover rounded-lg border"
+                          alt={`Gerät ${idx + 1}`}
+                          className="w-full h-24 object-cover rounded-md border"
                         />
                       ))}
                     </div>
@@ -946,65 +946,66 @@ export function RepairRequestsManagement() {
 
               {/* Status and Priority Updates */}
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Status & Priority</CardTitle>
+                <CardHeader className="pb-2 pt-3 px-4">
+                  <CardTitle className="text-sm">Status &amp; Priorität</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Status</Label>
+                <CardContent className="space-y-3 pb-3 px-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Status</Label>
                       <Select
                         value={selectedRequest.status}
                         onValueChange={(value) => handleStatusUpdate(selectedRequest._id, value)}
                         disabled={actionLoading}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="h-8 text-xs">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="reviewing">Reviewing</SelectItem>
-                          <SelectItem value="approved">Approved</SelectItem>
-                          <SelectItem value="rejected">Rejected</SelectItem>
-                          <SelectItem value="converted">Converted</SelectItem>
+                          <SelectItem value="pending">Ausstehend</SelectItem>
+                          <SelectItem value="reviewing">In Prüfung</SelectItem>
+                          <SelectItem value="approved">Genehmigt</SelectItem>
+                          <SelectItem value="rejected">Abgelehnt</SelectItem>
+                          <SelectItem value="converted">Umgewandelt</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Priority</Label>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Priorität</Label>
                       <Select
                         value={selectedRequest.priority}
                         onValueChange={(value) => handlePriorityUpdate(selectedRequest._id, value)}
                         disabled={actionLoading}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="h-8 text-xs">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="low">Low</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
-                          <SelectItem value="urgent">Urgent</SelectItem>
+                          <SelectItem value="low">Niedrig</SelectItem>
+                          <SelectItem value="medium">Mittel</SelectItem>
+                          <SelectItem value="high">Hoch</SelectItem>
+                          <SelectItem value="urgent">Dringend</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Estimated Cost ($)</Label>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Gesch. Kosten (€)</Label>
                     <div className="flex gap-2">
                       <Input
                         type="number"
-                        placeholder="Enter cost"
+                        placeholder="Betrag eingeben"
                         value={estimatedCost}
                         onChange={(e) => setEstimatedCost(e.target.value)}
+                        className="h-8 text-xs"
                       />
-                      <Button onClick={handleCostUpdate} disabled={actionLoading || !estimatedCost}>
-                        {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update"}
+                      <Button size="sm" onClick={handleCostUpdate} disabled={actionLoading || !estimatedCost}>
+                        {actionLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Speichern"}
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Current: ${selectedRequest.estimatedCost || 0}
+                      Aktuell: €{selectedRequest.estimatedCost || 0}
                     </p>
                   </div>
                 </CardContent>
@@ -1012,19 +1013,20 @@ export function RepairRequestsManagement() {
 
               {/* Admin Notes */}
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Admin Notes</CardTitle>
+                <CardHeader className="pb-2 pt-3 px-4">
+                  <CardTitle className="text-sm">Admin-Notizen</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
+                <CardContent className="space-y-3 pb-3 px-4">
+                  <div className="space-y-1">
                     <Textarea
-                      placeholder="Add internal note..."
+                      placeholder="Interne Notiz hinzufügen..."
                       value={adminNote}
                       onChange={(e) => setAdminNote(e.target.value)}
-                      rows={3}
+                      rows={2}
+                      className="text-xs"
                     />
-                    <Button onClick={handleAddNote} disabled={actionLoading || !adminNote.trim()}>
-                      Add Note
+                    <Button size="sm" onClick={handleAddNote} disabled={actionLoading || !adminNote.trim()}>
+                      Notiz speichern
                     </Button>
                   </div>
 
@@ -1048,10 +1050,10 @@ export function RepairRequestsManagement() {
 
               {/* Communication & Messaging Panel */}
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Communication</CardTitle>
+                <CardHeader className="pb-2 pt-3 px-4">
+                  <CardTitle className="text-sm">Kommunikation</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pb-3 px-4">
                   <RepairRequestMessagesPanel
                     requestId={selectedRequest._id}
                     userRole="admin"
@@ -1067,66 +1069,67 @@ export function RepairRequestsManagement() {
 
       {/* Message Dialog */}
       <Dialog open={showMessageDialog} onOpenChange={setShowMessageDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Send Message to Customer</DialogTitle>
-            <DialogDescription>
-              Communicate with {selectedRequest?.customerName}
+        <DialogContent className="overflow-hidden">
+          <DialogHeader className="mcrepair-dialog-header">
+            <DialogTitle className="mcrepair-dialog-title">Nachricht senden</DialogTitle>
+            <DialogDescription className="mcrepair-dialog-description">
+              Kommunikation mit {selectedRequest?.customerName}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-3 pt-2">
             {/* Previous Messages */}
             {selectedRequest && selectedRequest.messages && selectedRequest.messages.length > 0 && (
-              <ScrollArea className="h-[200px] border rounded-lg p-4">
-                <div className="space-y-3">
+              <ScrollArea className="h-[180px] border rounded-lg p-3">
+                <div className="space-y-2">
                   {selectedRequest.messages.map((msg, idx) => (
                     <div
                       key={idx}
-                      className={`p-3 rounded-lg ${
+                      className={`p-2 rounded-lg ${
                         msg.senderRole === 'customer'
                           ? 'bg-white border border-gray-200 shadow-sm'
                           : 'bg-gray-50 dark:bg-gray-900/20'
                       }`}
                     >
-                      <div className="flex justify-between mb-1 text-xs">
+                      <div className="flex justify-between mb-0.5 text-xs">
                         <span className="font-medium">{msg.senderName}</span>
                         <span className="text-muted-foreground">
                           {new Date(msg.sentAt).toLocaleString()}
                         </span>
                       </div>
-                      <p className="text-sm">{msg.message}</p>
+                      <p className="text-xs">{msg.message}</p>
                     </div>
                   ))}
                 </div>
               </ScrollArea>
             )}
 
-            <div className="space-y-2">
-              <Label>Your Message</Label>
+            <div className="space-y-1">
+              <Label className="text-xs">Ihre Nachricht</Label>
               <Textarea
-                placeholder="Type your message here..."
+                placeholder="Nachricht eingeben..."
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                rows={5}
+                rows={4}
+                className="text-xs"
               />
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowMessageDialog(false)}>
-              Cancel
+              Abbrechen
             </Button>
             <Button onClick={handleSendMessage} disabled={actionLoading || !newMessage.trim()}>
               {actionLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
+                  Senden...
                 </>
               ) : (
                 <>
                   <Send className="mr-2 h-4 w-4" />
-                  Send Message
+                  Senden
                 </>
               )}
             </Button>
@@ -1136,25 +1139,25 @@ export function RepairRequestsManagement() {
 
       {/* Assign Staff Dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign Staff Member</DialogTitle>
-            <DialogDescription>
-              Assign a technician to review this request
+        <DialogContent className="overflow-hidden">
+          <DialogHeader className="mcrepair-dialog-header">
+            <DialogTitle className="mcrepair-dialog-title">Mitarbeiter zuweisen</DialogTitle>
+            <DialogDescription className="mcrepair-dialog-description">
+              Techniker für diese Reparaturanfrage bestimmen
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Select Staff Member</Label>
+          <div className="space-y-3 pt-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Mitarbeiter auswählen</Label>
               <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a staff member" />
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Mitarbeiter wählen" />
                 </SelectTrigger>
                 <SelectContent>
                   {staff.map((member) => (
                     <SelectItem key={member._id} value={member._id}>
-                      {member.firstName} {member.lastName} - {member.role}
+                      {member.firstName} {member.lastName} – {member.role}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1162,26 +1165,26 @@ export function RepairRequestsManagement() {
             </div>
 
             {selectedRequest?.assignedStaffName && (
-              <p className="text-sm text-muted-foreground">
-                Currently assigned to: {selectedRequest.assignedStaffName}
+              <p className="text-xs text-muted-foreground">
+                Aktuell zugewiesen: {selectedRequest.assignedStaffName}
               </p>
             )}
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
-              Cancel
+              Abbrechen
             </Button>
             <Button onClick={handleAssignStaff} disabled={actionLoading || !selectedStaffId}>
               {actionLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Assigning...
+                  Zuweisen...
                 </>
               ) : (
                 <>
                   <UserPlus className="mr-2 h-4 w-4" />
-                  Assign
+                  Zuweisen
                 </>
               )}
             </Button>
@@ -1191,11 +1194,11 @@ export function RepairRequestsManagement() {
 
       {/* Convert to Order Dialog */}
       <Dialog open={showConvertDialog} onOpenChange={setShowConvertDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Convert to Order</DialogTitle>
-            <DialogDescription>
-              Select services to create an order from this repair request
+        <DialogContent className="max-w-2xl overflow-hidden">
+          <DialogHeader className="mcrepair-dialog-header">
+            <DialogTitle className="mcrepair-dialog-title">In Auftrag umwandeln</DialogTitle>
+            <DialogDescription className="mcrepair-dialog-description">
+              Dienste auswählen und Auftrag aus dieser Anfrage erstellen
             </DialogDescription>
           </DialogHeader>
 
@@ -1203,16 +1206,16 @@ export function RepairRequestsManagement() {
             <Alert className="border-gray-200 bg-white shadow-sm">
               <Info className="h-4 w-4 text-blue-600" />
               <AlertDescription className="text-sm">
-                This will create a new repair order and mark the request as converted.
+                Ein neuer Reparaturauftrag wird erstellt und die Anfrage als konvertiert markiert.
               </AlertDescription>
             </Alert>
 
-            <div className="space-y-3">
-              <Label>Select Services</Label>
-              <ScrollArea className="h-[300px] border rounded-lg p-4">
-                <div className="space-y-2">
+            <div className="space-y-2">
+              <Label className="text-xs">Dienste auswählen</Label>
+              <ScrollArea className="h-[260px] border rounded-lg p-3">
+                <div className="space-y-1">
                   {services.map((service) => (
-                    <div key={service._id} className="flex items-start space-x-3 p-3 hover:bg-muted rounded-lg">
+                    <div key={service._id} className="flex items-start space-x-2 p-2 hover:bg-muted rounded-md">
                       <Checkbox
                         id={service._id}
                         checked={selectedServices.includes(service._id)}
@@ -1225,11 +1228,11 @@ export function RepairRequestsManagement() {
                         }}
                       />
                       <div className="flex-1">
-                        <label htmlFor={service._id} className="text-sm font-medium cursor-pointer">
+                        <label htmlFor={service._id} className="text-xs font-medium cursor-pointer">
                           {service.name}
                         </label>
                         <p className="text-xs text-muted-foreground">{service.description}</p>
-                        <p className="text-xs font-semibold mt-1">${service.price}</p>
+                        <p className="text-xs font-semibold mt-0.5">€{service.price}</p>
                       </div>
                     </div>
                   ))}
@@ -1238,15 +1241,15 @@ export function RepairRequestsManagement() {
             </div>
 
             {selectedServices.length > 0 && (
-              <div className="p-4 bg-muted rounded-lg">
-                <div className="flex justify-between text-sm">
-                  <span>Selected services:</span>
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="flex justify-between text-xs">
+                  <span>Ausgewählte Dienste:</span>
                   <span className="font-bold">{selectedServices.length}</span>
                 </div>
-                <div className="flex justify-between text-sm mt-1">
-                  <span>Estimated cost:</span>
+                <div className="flex justify-between text-xs mt-1">
+                  <span>Gesch. Kosten:</span>
                   <span className="font-bold">
-                    ${services
+                    €{services
                       .filter(s => selectedServices.includes(s._id))
                       .reduce((sum, s) => sum + s.price, 0)
                       .toFixed(2)}
@@ -1258,22 +1261,22 @@ export function RepairRequestsManagement() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowConvertDialog(false)}>
-              Cancel
+              Abbrechen
             </Button>
             <Button
               onClick={handleConvertToOrder}
               disabled={actionLoading || selectedServices.length === 0}
-              className="bg-gradient-to-r from-purple-500 to-indigo-500"
+              style={{background: '#1a2a5e', color: '#fff'}}
             >
               {actionLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Converting...
+                  Konvertiere...
                 </>
               ) : (
                 <>
                   <ShoppingCart className="mr-2 h-4 w-4" />
-                  Convert to Order
+                  In Auftrag umwandeln
                 </>
               )}
             </Button>
@@ -1283,16 +1286,15 @@ export function RepairRequestsManagement() {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Repair Request</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this repair request? This action cannot be undone.
-              Request #{selectedRequest?.requestNumber}
+        <AlertDialogContent className="overflow-hidden">
+          <AlertDialogHeader className="mcrepair-dialog-header">
+            <AlertDialogTitle className="mcrepair-dialog-title">Reparaturanfrage löschen</AlertDialogTitle>
+            <AlertDialogDescription className="mcrepair-dialog-description">
+              Diese Aktion kann nicht rückgängig gemacht werden. Anfrage #{selectedRequest?.requestNumber}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteRequest}
               className="bg-red-600 hover:bg-red-700"
@@ -1301,10 +1303,10 @@ export function RepairRequestsManagement() {
               {actionLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
+                  Löschen...
                 </>
               ) : (
-                "Delete"
+                "Löschen"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

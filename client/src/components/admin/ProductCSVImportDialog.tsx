@@ -49,6 +49,7 @@ const ProductCSVImportDialog: React.FC<ProductCSVImportDialogProps> = ({
   const [updateExisting, setUpdateExisting] = useState(false);
   const [skipDuplicates, setSkipDuplicates] = useState(true);
   const [importProgress, setImportProgress] = useState(0);
+  const dialogHeaderClass = '-mx-6 -mt-6 mb-2 rounded-t-lg bg-[#1a2a5e] px-6 py-3 text-white';
 
   const resetDialog = useCallback(() => {
     setCurrentStep('upload');
@@ -425,21 +426,21 @@ const ProductCSVImportDialog: React.FC<ProductCSVImportDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{getDialogTitle()}</DialogTitle>
-          <DialogDescription>{getDialogDescription()}</DialogDescription>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto text-sm">
+        <DialogHeader className={dialogHeaderClass}>
+          <DialogTitle className="text-base text-white">{getDialogTitle()}</DialogTitle>
+          <DialogDescription className="text-xs text-white/80">{getDialogDescription()}</DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">{renderStepContent()}</div>
+        <div className="py-3">{renderStepContent()}</div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2">
           {currentStep === 'upload' && (
             <>
-              <Button variant="outline" onClick={handleClose} disabled={isProcessing}>
+              <Button size="sm" variant="outline" onClick={handleClose} disabled={isProcessing}>
                 Cancel
               </Button>
-              <Button onClick={handleUpload} disabled={!selectedFile || isProcessing}>
+              <Button size="sm" onClick={handleUpload} disabled={!selectedFile || isProcessing}>
                 {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Next
               </Button>
@@ -448,10 +449,10 @@ const ProductCSVImportDialog: React.FC<ProductCSVImportDialogProps> = ({
 
           {currentStep === 'mapping' && (
             <>
-              <Button variant="outline" onClick={() => setCurrentStep('upload')} disabled={isProcessing}>
+              <Button size="sm" variant="outline" onClick={() => setCurrentStep('upload')} disabled={isProcessing}>
                 Back
               </Button>
-              <Button onClick={handleValidate} disabled={isProcessing}>
+              <Button size="sm" onClick={handleValidate} disabled={isProcessing}>
                 {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Validate Data
               </Button>
@@ -460,10 +461,11 @@ const ProductCSVImportDialog: React.FC<ProductCSVImportDialogProps> = ({
 
           {currentStep === 'preview' && (
             <>
-              <Button variant="outline" onClick={() => setCurrentStep('mapping')} disabled={isProcessing}>
+              <Button size="sm" variant="outline" onClick={() => setCurrentStep('mapping')} disabled={isProcessing}>
                 Back
               </Button>
               <Button
+                size="sm"
                 onClick={handleImport}
                 disabled={!validationResult?.valid || isProcessing}
               >
@@ -474,7 +476,7 @@ const ProductCSVImportDialog: React.FC<ProductCSVImportDialogProps> = ({
           )}
 
           {currentStep === 'complete' && (
-            <Button onClick={handleClose}>Close</Button>
+            <Button size="sm" onClick={handleClose}>Close</Button>
           )}
         </DialogFooter>
       </DialogContent>

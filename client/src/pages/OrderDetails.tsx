@@ -30,8 +30,7 @@ import { OrderProgressTimeline } from "@/components/OrderProgressTimeline"
 import { UnlockInformationDisplay } from "@/components/inspection/UnlockInformationDisplay"
 import { ConfirmUnlockDialog } from "@/components/inspection/ConfirmUnlockDialog"
 import { DeviceChangeDialog } from "@/components/admin/DeviceChangeDialog"
-import { OrderMessagesPanel } from "@/components/inspection/OrderMessagesPanel"
-import { OrderMessagesSummary } from "@/components/inspection/OrderMessagesSummary"
+import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -95,7 +94,8 @@ import {
   FileText,
   Droplets,
   Info,
-  ChevronDown
+  ChevronDown,
+  Zap
 } from "lucide-react"
 
 export function OrderDetails() {
@@ -1958,6 +1958,133 @@ export function OrderDetails() {
 
           {renderDeviceInformationCard()}
           {renderDeviceLockInformationCard()}
+
+          {/* Quick Actions */}
+          <Card id="order-quick-actions" className="order-section-card order-quick-actions-card">
+            <CardHeader className="order-section-header">
+              <CardTitle className="order-section-title">
+                <Zap className="h-5 w-5" />
+                Quick Actions
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 pt-2">
+              {isStaffOrAdmin ? (
+                <>
+                  <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => setStatusDropdownOpen(true)}>
+                    <Clock className="h-3 w-3 mr-1" />
+                    Update Status
+                  </Button>
+                  <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => scrollToSection('order-staff')}>
+                    <Users className="h-3 w-3 mr-1" />
+                    Manage Staff
+                  </Button>
+                  <Button
+                    className="w-full text-xs h-8"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingService(null)
+                      setServiceDialogOpen(true)
+                    }}
+                  >
+                    <PlusCircle className="h-3 w-3 mr-1" />
+                    Add Repair Service
+                  </Button>
+                  <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => scrollToSection('order-messages')}>
+                    <MessageSquare className="h-3 w-3 mr-1" />
+                    Open Messages
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button className="w-full text-xs h-8" variant="outline" size="sm">
+                    <MessageSquare className="h-3 w-3 mr-1" />
+                    Send Message
+                  </Button>
+                  <Button className="w-full text-xs h-8" variant="outline" size="sm">
+                    <Camera className="h-3 w-3 mr-1" />
+                    Upload Photos
+                  </Button>
+                  <Button className="w-full text-xs h-8" variant="outline" size="sm">
+                    <Star className="h-3 w-3 mr-1" />
+                    Rate Service
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Order Summary Card - Moved from Sidebar */}
+          <Card id="order-summary" className="order-section-card">
+            <CardHeader className="order-section-header">
+              <CardTitle className="order-section-title">
+                <DollarSign className="h-5 w-5" />
+                {t('orderDetails.orderSummary')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-3">
+              <div className="space-y-1">
+                {order.services && order.services.length > 0 ? (
+                  order.services.map((service) => (
+                    <div key={service._id} className="flex justify-between text-xs">
+                      <span>Service #{service._id.substring(0, 8)}</span>
+                      <span>${safeToNumber(service.price).toFixed(2)}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex justify-between text-xs">
+                    <span>No services</span>
+                    <span>$0</span>
+                  </div>
+                )}
+                {order.addOns && order.addOns.map((addOn) => (
+                  <div key={addOn._id} className="flex justify-between text-xs">
+                    <span>{addOn.name}</span>
+                    <span>${safeToNumber(addOn.price).toFixed(2)}</span>
+                  </div>
+                ))}
+                {(order as any).shopProducts && (order as any).shopProducts.map((shopProduct: any) => (
+                  <div key={shopProduct._id} className="flex justify-between text-xs">
+                    <span>{shopProduct.productId?.name || 'Product'} x{shopProduct.quantity}</span>
+                    <span>${(shopProduct.priceAtOrder * shopProduct.quantity).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t pt-1 mt-1 flex justify-between font-semibold text-sm">
+                <span>Total</span>
+                <span>${safeToNumber(order.totalCost).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-xs mt-2">
+                <span>Payment Status</span>
+                <Badge className={`${getPaymentStatusColor(order.paymentStatus)} text-xs px-2 py-0.5`}>
+                  {order.paymentStatus}
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Customer Communication Panel - Moved from Sidebar */}
+          {id && (
+            <div id="order-communication">
+              <Card className="border-l-4 border-l-blue-500 order-section-card">
+                <CardHeader className="order-section-header">
+                  <CardTitle className="order-section-title flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5" />
+                    Customer Communication
+                  </CardTitle>
+                  <CardDescription className="order-section-description">
+                    Manage customer feedback, requests, and quick actions
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-3">
+                  <CommunicationPanel
+                    orderId={id}
+                    inspectionId={order?._id}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          )}
           </div>
 
           <div className={`order-nested-block order-nested-ops-grid ${isStaffOrAdmin ? 'is-admin-nested' : ''}`}>
@@ -2697,125 +2824,6 @@ export function OrderDetails() {
             </CardContent>
           </Card>
           </div>
-        </div>
-
-        {/* Sidebar */}
-        <div className="order-sidebar space-y-2">
-          {/* Order Summary */}
-          <Card id="order-summary" className="order-section-card">
-            <CardHeader className="order-section-header">
-              <CardTitle className="order-section-title">
-                <DollarSign className="h-5 w-5" />
-                {t('orderDetails.orderSummary')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-3">
-              <div className="space-y-1">
-                {order.services && order.services.length > 0 ? (
-                  order.services.map((service) => (
-                    <div key={service._id} className="flex justify-between text-xs">
-                      <span>Service #{service._id.substring(0, 8)}</span>
-                      <span>${safeToNumber(service.price).toFixed(2)}</span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex justify-between text-xs">
-                    <span>No services</span>
-                    <span>$0</span>
-                  </div>
-                )}
-                {order.addOns && order.addOns.map((addOn) => (
-                  <div key={addOn._id} className="flex justify-between text-xs">
-                    <span>{addOn.name}</span>
-                    <span>${safeToNumber(addOn.price).toFixed(2)}</span>
-                  </div>
-                ))}
-                {(order as any).shopProducts && (order as any).shopProducts.map((shopProduct: any) => (
-                  <div key={shopProduct._id} className="flex justify-between text-xs">
-                    <span>{shopProduct.productId?.name || 'Product'} x{shopProduct.quantity}</span>
-                    <span>${(shopProduct.priceAtOrder * shopProduct.quantity).toFixed(2)}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="border-t pt-1 mt-1 flex justify-between font-semibold text-sm">
-                <span>Total</span>
-                <span>${safeToNumber(order.totalCost).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-xs mt-2">
-                <span>Payment Status</span>
-                <Badge className={`${getPaymentStatusColor(order.paymentStatus)} text-xs px-2 py-0.5`}>
-                  {order.paymentStatus}
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card id="order-quick-actions" className="order-section-card order-quick-actions-card">
-            <CardHeader className="order-section-header">
-              <CardTitle className="order-section-title">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1 pt-2">
-              {isStaffOrAdmin ? (
-                <>
-                  <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => setStatusDropdownOpen(true)}>
-                    <Clock className="h-3 w-3 mr-1" />
-                    Update Status
-                  </Button>
-                  <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => scrollToSection('order-staff')}>
-                    <Users className="h-3 w-3 mr-1" />
-                    Manage Staff
-                  </Button>
-                  <Button
-                    className="w-full text-xs h-8"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setEditingService(null)
-                      setServiceDialogOpen(true)
-                    }}
-                  >
-                    <PlusCircle className="h-3 w-3 mr-1" />
-                    Add Repair Service
-                  </Button>
-                  <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => scrollToSection('order-messages')}>
-                    <MessageSquare className="h-3 w-3 mr-1" />
-                    Open Messages
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button className="w-full text-xs h-8" variant="outline" size="sm">
-                    <MessageSquare className="h-3 w-3 mr-1" />
-                    Send Message
-                  </Button>
-                  <Button className="w-full text-xs h-8" variant="outline" size="sm">
-                    <Camera className="h-3 w-3 mr-1" />
-                    Upload Photos
-                  </Button>
-                  <Button className="w-full text-xs h-8" variant="outline" size="sm">
-                    <Star className="h-3 w-3 mr-1" />
-                    Rate Service
-                  </Button>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Customer Messages Summary - Shows last message with option to expand history */}
-          {id && (
-            <div id="order-messages">
-              <OrderMessagesSummary
-                orderId={id}
-                userRole={user?.role}
-                customer={{
-                  name: order?.customerId?.name || "Customer",
-                  email: order?.customerId?.email || "",
-                  avatar: order?.customerId?.avatar,
-                }}
-              />
-            </div>
-          )}
         </div>
       </div>
 

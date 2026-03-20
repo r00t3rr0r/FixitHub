@@ -807,73 +807,119 @@
 
 .admin-order-workspace .order-nested-block {
   display: grid;
-  gap: 2px;
+  gap: 8px;
 }
 
 .admin-order-workspace .order-nested-top-grid.is-admin-nested {
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   align-items: start;
   grid-auto-flow: dense;
 }
 
 .admin-order-workspace .order-nested-ops-grid.is-admin-nested {
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
   grid-auto-flow: dense;
 }
 
 .admin-order-workspace .order-nested-admin-grid.is-admin-nested {
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
   grid-auto-flow: dense;
 }
 
 .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-repair-info {
-  grid-column: 1 / span 9;
+  grid-column: 1 / span 3;
 }
 
 .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-device-inspection {
-  grid-column: 1 / span 9;
+  grid-column: 1 / span 2;
+
+}
+
+.admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-customer {
+  grid-column: 1 / span 3;
 }
 
 .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-device-info {
-  grid-column: 10 / span 3;
+  grid-column: 4 / span 3;
 }
 
 .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-device-lock {
-  grid-column: 10 / span 3;
+  grid-column: 3 / span 2;
 }
 
-.admin-order-workspace .order-nested-ops-grid.is-admin-nested > #order-device-info {
-  grid-column: 1 / span 8;
+.admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-summary {
+  grid-column: 4 / span 3;
 }
 
-.admin-order-workspace .order-nested-ops-grid.is-admin-nested > #order-repair-services {
-  grid-column: 9 / span 4;
-}
-
-.admin-order-workspace .order-nested-ops-grid.is-admin-nested > #order-addons {
+.admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-communication {
   grid-column: 1 / -1;
 }
 
+.admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-quick-actions {
+  grid-column: 5 / span 2;
+}
+
+.admin-order-workspace .order-nested-ops-grid.is-admin-nested > #order-repair-services {
+  grid-column: 1;
+}
+
+.admin-order-workspace .order-nested-ops-grid.is-admin-nested > #order-addons {
+  grid-column: 2;
+}
+
 .admin-order-workspace .order-nested-ops-grid.is-admin-nested > #order-staff {
-  grid-column: 9 / span 4;
+  grid-column: 1 / -1;
 }
 
 .admin-order-workspace .order-nested-admin-grid.is-admin-nested > #order-workflows {
-  grid-column: 1 / span 9;
+  grid-column: 1;
 }
 
 .admin-order-workspace .order-nested-admin-grid.is-admin-nested > #order-progress {
-  grid-column: 10 / span 3;
+  grid-column: 2;
 }
 
 .admin-order-workspace .order-nested-admin-grid.is-admin-nested > #order-eparts {
-  grid-column: 1 / span 6;
+  grid-column: 1;
 }
 
 .admin-order-workspace .order-nested-admin-grid.is-admin-nested > #order-shop-products {
-  grid-column: 7 / span 6;
+  grid-column: 2;
+}
+
+.admin-order-workspace .order-nested-block .order-section-card {
+  min-height: 100%;
+}
+
+.admin-order-workspace .order-nested-block .order-section-header {
+  padding: 8px 10px 7px;
+}
+
+.admin-order-workspace .order-nested-block .order-section-title {
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.admin-order-workspace .order-nested-block .order-section-description {
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
+.admin-order-workspace .order-nested-block .order-section-card [data-slot="card-content"] {
+  padding: 8px 10px 10px;
+}
+
+.admin-order-workspace .order-nested-block .order-section-card .text-sm,
+.admin-order-workspace .order-nested-block .order-section-card .text-xs,
+.admin-order-workspace .order-nested-block .order-section-card p,
+.admin-order-workspace .order-nested-block .order-section-card span,
+.admin-order-workspace .order-nested-block .order-section-card button,
+.admin-order-workspace .order-nested-block .order-section-card input,
+.admin-order-workspace .order-nested-block .order-section-card textarea {
+  font-size: 0.68rem;
+  line-height: 1.25;
 }
 
 .admin-order-workspace .order-section-card {
@@ -980,40 +1026,11 @@
 }
 
 .admin-order-workspace .order-sidebar {
-  position: sticky;
-  top: 8px;
-  align-self: start;
-  max-width: 190px;
-  justify-self: end;
-  width: 100%;
+  display: none;
 }
 
-.admin-order-workspace .order-sidebar .order-section-card {
-  width: 100%;
-}
-
-.admin-order-workspace .order-sidebar .order-section-header {
-  padding: 4px 5px 4px;
-}
-
-.admin-order-workspace .order-sidebar .order-section-card [data-slot="card-content"] {
-  padding: 4px 5px 5px;
-}
-
-.admin-order-workspace .order-sidebar .order-section-title {
-  font-size: 0.66rem;
-}
-
-.admin-order-workspace .order-sidebar .text-sm,
-.admin-order-workspace .order-sidebar .text-xs,
-.admin-order-workspace .order-sidebar p,
-.admin-order-workspace .order-sidebar span,
-.admin-order-workspace .order-sidebar button {
-  font-size: 0.58rem;
-}
-
-.admin-order-workspace .order-sidebar.space-y-4 > :not([hidden]) ~ :not([hidden]) {
-  margin-top: 2px;
+.admin-order-workspace .order-grid {
+  grid-template-columns: 1fr;
 }
 
 .admin-order-workspace .order-quick-actions-card button {
@@ -1022,9 +1039,18 @@
   min-height: 28px;
 }
 
+/* Order Summary and Communication Cards styling in nested view */
+.admin-order-workspace #order-summary {
+  border-top: 3px solid var(--color-accent, #3b82f6);
+}
+
+.admin-order-workspace #order-communication {
+  margin-top: 0;
+}
+
 @media (min-width: 1280px) {
   .admin-order-workspace .order-grid {
-    grid-template-columns: minmax(0, 2fr) minmax(170px, 0.42fr);
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1041,6 +1067,10 @@
 
   .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-repair-info,
   .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-device-inspection,
+  .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-customer,
+  .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-quick-actions,
+  .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-summary,
+  .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-communication,
   .admin-order-workspace .order-nested-ops-grid.is-admin-nested > #order-device-info,
   .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-device-lock,
   .admin-order-workspace .order-nested-ops-grid.is-admin-nested > #order-repair-services,

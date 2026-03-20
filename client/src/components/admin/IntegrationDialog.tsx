@@ -117,34 +117,35 @@ export function IntegrationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="max-w-2xl p-0">
+        <DialogHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white p-6 rounded-t-lg">
+          <DialogTitle className="text-xl">
             {mode === 'create' ? 'Add Integration' : 'Edit Integration'}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-blue-100 text-sm mt-2">
             Configure third-party service integration settings
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Integration Name *</Label>
+        <div className="grid gap-3 py-4 px-6">
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="name" className="text-sm">Integration Name *</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Enter integration name"
+                className="h-9 text-sm"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="type">Type *</Label>
+            <div className="space-y-1">
+              <Label htmlFor="type" className="text-sm">Type *</Label>
               <Select
                 value={formData.type}
                 onValueChange={(value: any) => setFormData(prev => ({ ...prev, type: value, provider: '' }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-9 text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -158,14 +159,14 @@ export function IntegrationDialog({
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="provider">Provider *</Label>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="provider" className="text-sm">Provider *</Label>
               <Select
                 value={formData.provider}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, provider: value }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="Select provider" />
                 </SelectTrigger>
                 <SelectContent>
@@ -177,36 +178,39 @@ export function IntegrationDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="endpoint">Endpoint URL</Label>
+            <div className="space-y-1">
+              <Label htmlFor="endpoint" className="text-sm">Endpoint URL</Label>
               <Input
                 id="endpoint"
                 value={formData.endpoint}
                 onChange={(e) => setFormData(prev => ({ ...prev, endpoint: e.target.value }))}
                 placeholder="https://api.example.com"
+                className="h-9 text-sm"
               />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="apiKey">API Key *</Label>
+          <div className="space-y-1">
+            <Label htmlFor="apiKey" className="text-sm">API Key *</Label>
             <Input
               id="apiKey"
               type="password"
               value={formData.apiKey}
               onChange={(e) => setFormData(prev => ({ ...prev, apiKey: e.target.value }))}
               placeholder="Enter API key"
+              className="h-9 text-sm"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="apiSecret">API Secret</Label>
+          <div className="space-y-1">
+            <Label htmlFor="apiSecret" className="text-sm">API Secret</Label>
             <Input
               id="apiSecret"
               type="password"
               value={formData.apiSecret}
               onChange={(e) => setFormData(prev => ({ ...prev, apiSecret: e.target.value }))}
               placeholder="Enter API secret (if required)"
+              className="h-9 text-sm"
             />
           </div>
 
@@ -215,23 +219,23 @@ export function IntegrationDialog({
               checked={formData.isActive}
               onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
             />
-            <Label>Active Integration</Label>
+            <Label className="text-sm">Active Integration</Label>
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="bg-gray-50 px-6 py-4 rounded-b-lg">
+          <Button variant="outline" onClick={() => onOpenChange(false)} size="sm">
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={loading}>
+          <Button onClick={handleSave} disabled={loading} size="sm" className="bg-[#1a2a5e] hover:bg-[#2a3f7f]">
             {loading ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2"></div>
                 Saving...
               </>
             ) : (
               <>
-                <Save className="h-4 w-4 mr-2" />
+                <Save className="h-3 w-3 mr-1" />
                 {mode === 'create' ? 'Add Integration' : 'Update Integration'}
               </>
             )}

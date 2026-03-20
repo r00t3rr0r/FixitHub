@@ -548,6 +548,7 @@ export function WebShopManagement() {
   const totalRevenue = products.reduce((sum, product) => sum + (product.price * (product.stockCount || 0)), 0)
   const lowStockProducts = products.filter(p => p.inStock && p.stockCount <= 5).length
   const outOfStockProducts = products.filter(p => !p.inStock || p.stockCount === 0).length
+  const dialogHeaderClass = "-mx-6 -mt-6 mb-2 rounded-t-lg bg-[#1a2a5e] px-6 py-3 text-white"
 
   if (loading) {
     return (
@@ -570,32 +571,34 @@ export function WebShopManagement() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <ShoppingCart className="h-8 w-8" />
-            Web Shop Management
-          </h1>
-          <p className="text-muted-foreground">
-            Manage products, inventory, and shop settings
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowImportDialog(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            Import CSV
-          </Button>
-          <Button onClick={() => setShowAddDialog(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Product
-          </Button>
+      <div className="rounded-lg bg-[#1a2a5e] px-4 py-3 text-white shadow-sm">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div>
+            <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5 md:h-6 md:w-6" />
+              Web Shop Management
+            </h1>
+            <p className="text-xs md:text-sm text-white/85">
+              Manage products, inventory, and shop settings
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" className="h-8 px-3 text-xs" onClick={() => setShowImportDialog(true)}>
+              <Upload className="h-3.5 w-3.5 mr-1.5" />
+              Import CSV
+            </Button>
+            <Button size="sm" className="h-8 px-3 text-xs bg-white text-[#1a2a5e] hover:bg-white/90" onClick={() => setShowAddDialog(true)}>
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              Add Product
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-4">
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
@@ -655,23 +658,23 @@ export function WebShopManagement() {
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col lg:flex-row gap-4">
+        <CardContent className="pt-4 pb-4">
+          <div className="flex flex-col lg:flex-row gap-3">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   placeholder="Search products by name, brand, or description..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-9 h-8 text-sm"
                 />
               </div>
             </div>
             <div className="flex gap-2">
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-40">
-                  <Filter className="h-4 w-4 mr-2" />
+                <SelectTrigger className="w-36 h-8 text-xs">
+                  <Filter className="h-3.5 w-3.5 mr-1.5" />
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
@@ -685,7 +688,7 @@ export function WebShopManagement() {
               </Select>
 
               <Select value={stockFilter} onValueChange={setStockFilter}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-36 h-8 text-xs">
                   <SelectValue placeholder="All Stock" />
                 </SelectTrigger>
                 <SelectContent>
@@ -702,13 +705,13 @@ export function WebShopManagement() {
 
       {/* Products Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Product Inventory</CardTitle>
-          <CardDescription>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Product Inventory</CardTitle>
+          <CardDescription className="text-xs">
             Manage your product catalog and inventory levels ({totalProducts} total products)
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -725,8 +728,8 @@ export function WebShopManagement() {
               {products.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8">
-                    <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                    <p className="text-muted-foreground">No products found</p>
+                    <Package className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-50" />
+                    <p className="text-sm text-muted-foreground">No products found</p>
                   </TableCell>
                 </TableRow>
               ) : (
@@ -737,14 +740,14 @@ export function WebShopManagement() {
                         <img
                           src={product.images[0]}
                           alt={product.name}
-                          className="w-12 h-12 rounded object-cover"
+                          className="w-10 h-10 rounded object-cover"
                           onError={(e) => {
                             e.currentTarget.src = "/placeholder-product.png"
                           }}
                         />
                         <div>
-                          <p className="font-medium">{product.name}</p>
-                          <p className="text-sm text-muted-foreground">{product.brand}</p>
+                          <p className="font-medium text-sm leading-tight">{product.name}</p>
+                          <p className="text-xs text-muted-foreground">{product.brand}</p>
                         </div>
                       </div>
                     </TableCell>
@@ -799,7 +802,7 @@ export function WebShopManagement() {
                           onClick={() => handleViewProduct(product)}
                           title="View Product"
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-3.5 w-3.5" />
                         </Button>
                         <Button 
                           variant="ghost" 
@@ -807,7 +810,7 @@ export function WebShopManagement() {
                           onClick={() => handleEditProduct(product)}
                           title="Edit Product"
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="h-3.5 w-3.5" />
                         </Button>
                         <Button 
                           variant="ghost" 
@@ -815,7 +818,7 @@ export function WebShopManagement() {
                           onClick={() => handleDeleteProduct(product)}
                           title="Delete Product"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </TableCell>
@@ -826,14 +829,14 @@ export function WebShopManagement() {
           </Table>
 
           {/* Pagination Controls */}
-          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Items per page:</span>
+              <span className="text-xs text-muted-foreground">Items per page:</span>
               <Select value={itemsPerPage.toString()} onValueChange={(value) => {
                 setItemsPerPage(parseInt(value))
                 setCurrentPage(1)
               }}>
-                <SelectTrigger className="w-20">
+                <SelectTrigger className="w-16 h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -845,7 +848,7 @@ export function WebShopManagement() {
               </Select>
             </div>
 
-            <div className="text-sm text-muted-foreground">
+            <div className="text-xs text-muted-foreground">
               Page {currentPage} of {totalPages} ({totalProducts} total products)
             </div>
 
@@ -875,17 +878,17 @@ export function WebShopManagement() {
 
       {/* Add Product Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add New Product</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto text-sm">
+          <DialogHeader className={dialogHeaderClass}>
+            <DialogTitle className="text-base text-white">Add New Product</DialogTitle>
+            <DialogDescription className="text-xs text-white/80">
               Create a new product for your web shop inventory
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-6 py-4">
+          <div className="grid gap-4 py-3 [&_label]:text-xs [&_p]:leading-snug">
             {/* Basic Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="name">Product Name *</Label>
                 <Input
@@ -1096,7 +1099,7 @@ export function WebShopManagement() {
             </div>
 
             {/* Physical Properties */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="weight">Weight (g)</Label>
                 <Input
@@ -1160,9 +1163,9 @@ export function WebShopManagement() {
             </div>
 
             {/* SEO Fields */}
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4">SEO Optimization</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-semibold mb-3">SEO Optimization</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="searchKeywords">Search Keywords (Suchbegriffe)</Label>
                   <Textarea
@@ -1227,9 +1230,10 @@ export function WebShopManagement() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button
               variant="outline"
+              size="sm"
               onClick={() => {
                 resetAddForm()
                 setShowAddDialog(false)
@@ -1237,7 +1241,7 @@ export function WebShopManagement() {
             >
               Cancel
             </Button>
-            <Button onClick={handleAddProduct} disabled={isCreating}>
+            <Button size="sm" onClick={handleAddProduct} disabled={isCreating}>
               {isCreating ? "Creating..." : "Create Product"}
             </Button>
           </DialogFooter>
@@ -1246,17 +1250,17 @@ export function WebShopManagement() {
 
       {/* Edit Product Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Product</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto text-sm">
+          <DialogHeader className={dialogHeaderClass}>
+            <DialogTitle className="text-base text-white">Edit Product</DialogTitle>
+            <DialogDescription className="text-xs text-white/80">
               Update the product information
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-6 py-4">
+          <div className="grid gap-4 py-3 [&_label]:text-xs [&_p]:leading-snug">
             {/* Basic Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="edit-name">Product Name *</Label>
                 <Input
@@ -1467,7 +1471,7 @@ export function WebShopManagement() {
             </div>
 
             {/* Physical Properties */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="edit-weight">Weight (g)</Label>
                 <Input
@@ -1531,9 +1535,9 @@ export function WebShopManagement() {
             </div>
 
             {/* SEO Fields */}
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4">SEO Optimization</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-semibold mb-3">SEO Optimization</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="edit-searchKeywords">Search Keywords (Suchbegriffe)</Label>
                   <Textarea
@@ -1598,9 +1602,10 @@ export function WebShopManagement() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button
               variant="outline"
+              size="sm"
               onClick={() => {
                 setShowEditDialog(false)
                 setSelectedProduct(null)
@@ -1609,7 +1614,7 @@ export function WebShopManagement() {
             >
               Cancel
             </Button>
-            <Button onClick={handleUpdateProduct} disabled={isUpdating}>
+            <Button size="sm" onClick={handleUpdateProduct} disabled={isUpdating}>
               {isUpdating ? "Updating..." : "Update Product"}
             </Button>
           </DialogFooter>
@@ -1618,16 +1623,16 @@ export function WebShopManagement() {
 
       {/* View Product Dialog */}
       <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Product Details</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto text-sm">
+          <DialogHeader className={dialogHeaderClass}>
+            <DialogTitle className="text-base text-white">Product Details</DialogTitle>
+            <DialogDescription className="text-xs text-white/80">
               View complete product information
             </DialogDescription>
           </DialogHeader>
 
           {selectedProduct && (
-            <div className="space-y-6 py-4">
+            <div className="space-y-4 py-3 [&_label]:text-xs">
               {/* Product Images */}
               <div className="space-y-2">
                 <Label>Product Images</Label>
@@ -1647,7 +1652,7 @@ export function WebShopManagement() {
               </div>
 
               {/* Basic Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Product Name</Label>
                   <p className="text-sm font-medium">{selectedProduct.name}</p>
@@ -1775,7 +1780,7 @@ export function WebShopManagement() {
               </div>
 
               {/* Timestamps */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                 <div>
                   <p className="text-muted-foreground">Created</p>
                   <p className="font-medium">
@@ -1792,9 +1797,10 @@ export function WebShopManagement() {
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button
               variant="outline"
+              size="sm"
               onClick={() => {
                 setShowViewDialog(false)
                 setSelectedProduct(null)
@@ -1804,6 +1810,7 @@ export function WebShopManagement() {
             </Button>
             {selectedProduct && (
               <Button
+                size="sm"
                 onClick={() => {
                   setShowViewDialog(false)
                   handleEditProduct(selectedProduct)
@@ -1818,15 +1825,16 @@ export function WebShopManagement() {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Product</AlertDialogTitle>
-            <AlertDialogDescription>
+        <AlertDialogContent className="text-sm">
+          <AlertDialogHeader className="-mx-6 -mt-6 mb-2 rounded-t-lg bg-[#1a2a5e] px-6 py-3 text-left text-white">
+            <AlertDialogTitle className="text-base text-white">Delete Product</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-white/80">
               Are you sure you want to delete "{selectedProduct?.name}"? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="gap-2">
             <AlertDialogCancel
+              className="h-8 text-xs"
               onClick={() => {
                 setShowDeleteDialog(false)
                 setSelectedProduct(null)
@@ -1837,7 +1845,7 @@ export function WebShopManagement() {
             <AlertDialogAction
               onClick={confirmDeleteProduct}
               disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="h-8 text-xs bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>

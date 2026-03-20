@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Textarea } from '../../components/ui/textarea';
@@ -17,6 +17,10 @@ import { getParts, createInventoryItem, updatePart, deletePart, Part, PartVersio
 import { getNeedLists, createNeedList, addItemToNeedList, NeedList } from '../../api/needLists';
 import { PartsCSVImportDialog } from '../../components/admin/PartsCSVImportDialog';
 import { useToast } from '../../hooks/useToast';
+
+const adminDialogHeaderClassName = "-mx-4 -mt-4 border-b border-[#2a3f7e] bg-[#1a2a5e] px-4 py-2.5 text-left text-white sm:-mx-5 sm:-mt-5 sm:px-5";
+const compactFieldClassName = "h-8 text-xs";
+const compactLabelClassName = "text-[11px] font-medium uppercase tracking-wide text-muted-foreground";
 
 export function PartsManagement() {
   const [parts, setParts] = useState<Part[]>([]);
@@ -448,16 +452,21 @@ export function PartsManagement() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Parts Management</h1>
-          <p className="text-muted-foreground">Manage inventory parts and supplies</p>
+      <div className="flex flex-col gap-3 rounded-xl border border-[#0f1d45] bg-gradient-to-r from-[#1a2a5e] via-[#1a2a5e] to-[#2a3f7e] px-4 py-4 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="flex items-center gap-2 text-2xl font-bold leading-none">
+            <Package className="h-6 w-6" />
+            Parts Management
+          </h1>
+          <p className="text-sm text-white/80">Manage inventory parts and supplies in a compact admin workspace</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
+            size="sm"
+            className="border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white"
             onClick={() => {
               console.log('PartsManagement: CSV Import button clicked');
               setShowCSVImportDialog(true);
@@ -472,83 +481,88 @@ export function PartsManagement() {
                 console.log('PartsManagement: Add Part button clicked');
                 resetForm();
                 setShowAddDialog(true);
-              }}>
+              }} size="sm" className="bg-white text-[#1a2a5e] hover:bg-[#f8f9fc]">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Part
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Add New Part</DialogTitle>
+            <DialogContent className="max-h-[88vh] max-w-4xl overflow-y-auto p-4 sm:p-5">
+              <DialogHeader className={adminDialogHeaderClassName}>
+                <DialogTitle className="text-base font-semibold">Add New Part</DialogTitle>
+                <DialogDescription className="text-xs text-[#d8dce6]">
+                  Create a new inventory item with compact stock and version details.
+                </DialogDescription>
               </DialogHeader>
-              <AddEditPartForm
-                formData={formData}
-                setFormData={setFormData}
-                onSubmit={handleAddPart}
-                onCancel={() => setShowAddDialog(false)}
-                categories={categories}
-                versionTypes={versionTypes}
-                addVersion={addVersion}
-                removeVersion={removeVersion}
-                updateVersion={updateVersion}
-                isEdit={false}
-              />
+              <div className="pt-4">
+                <AddEditPartForm
+                  formData={formData}
+                  setFormData={setFormData}
+                  onSubmit={handleAddPart}
+                  onCancel={() => setShowAddDialog(false)}
+                  categories={categories}
+                  versionTypes={versionTypes}
+                  addVersion={addVersion}
+                  removeVersion={removeVersion}
+                  updateVersion={updateVersion}
+                  isEdit={false}
+                />
+              </div>
             </DialogContent>
           </Dialog>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Parts</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3 pb-1">
+            <CardTitle className="text-sm font-medium text-blue-700">Total Parts</CardTitle>
+            <Package className="h-4 w-4 text-blue-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{parts.length}</div>
+          <CardContent className="px-4 pb-3 pt-0">
+            <div className="text-2xl font-bold text-blue-950">{parts.length}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Value</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+        <Card className="border-green-200 bg-gradient-to-br from-green-50 to-green-100">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3 pb-1">
+            <CardTitle className="text-sm font-medium text-green-700">Total Value</CardTitle>
+            <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${totalValue.toFixed(2)}</div>
+          <CardContent className="px-4 pb-3 pt-0">
+            <div className="text-2xl font-bold text-green-950">${totalValue.toFixed(2)}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Low Stock Items</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+        <Card className="border-orange-200 bg-gradient-to-br from-orange-50 to-orange-100">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3 pb-1">
+            <CardTitle className="text-sm font-medium text-orange-700">Low Stock Items</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{lowStockCount}</div>
+          <CardContent className="px-4 pb-3 pt-0">
+            <div className="text-2xl font-bold text-orange-700">{lowStockCount}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle>Parts Inventory</CardTitle>
+        <CardHeader className="px-4 py-4">
+          <CardTitle className="text-lg">Parts Inventory</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <CardContent className="px-4 pb-4 pt-0">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search parts..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
+                  className="h-9 pl-10 text-sm"
                 />
               </div>
             </div>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectTrigger className="h-9 w-full text-sm sm:w-[190px]">
                 <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
               <SelectContent>
@@ -561,7 +575,7 @@ export function PartsManagement() {
               </SelectContent>
             </Select>
             <Select value={modelFilter} onValueChange={setModelFilter}>
-              <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectTrigger className="h-9 w-full text-sm sm:w-[190px]">
                 <SelectValue placeholder="Filter by model" />
               </SelectTrigger>
               <SelectContent>
@@ -577,10 +591,12 @@ export function PartsManagement() {
 
           {/* Add to Need List button */}
           {selectedParts.size > 0 && (
-            <div className="mb-4">
+            <div className="mb-3">
               <Button
                 onClick={handleOpenAddToNeedList}
                 variant="outline"
+                size="sm"
+                className="h-8 text-xs"
               >
                 <ListPlus className="mr-2 h-4 w-4" />
                 Add {selectedParts.size} Part{selectedParts.size > 1 ? 's' : ''} to Need List
@@ -589,18 +605,18 @@ export function PartsManagement() {
           )}
 
           {/* Parts Table */}
-          <div className="border rounded-lg">
+          <div className="overflow-hidden rounded-lg border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12">
+                  <TableHead className="w-12 h-10 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     <Checkbox
                       checked={selectedParts.size === parts.length && parts.length > 0}
                       onCheckedChange={handleSelectAllParts}
                     />
                   </TableHead>
                   <TableHead
-                    className="cursor-pointer select-none hover:bg-muted/50"
+                    className="h-10 cursor-pointer select-none px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:bg-muted/50"
                     onClick={() => handleSort('sku')}
                   >
                     <div className="flex items-center">
@@ -609,7 +625,7 @@ export function PartsManagement() {
                     </div>
                   </TableHead>
                   <TableHead
-                    className="cursor-pointer select-none hover:bg-muted/50"
+                    className="h-10 cursor-pointer select-none px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:bg-muted/50"
                     onClick={() => handleSort('itemName')}
                   >
                     <div className="flex items-center">
@@ -618,7 +634,7 @@ export function PartsManagement() {
                     </div>
                   </TableHead>
                   <TableHead
-                    className="cursor-pointer select-none hover:bg-muted/50"
+                    className="h-10 cursor-pointer select-none px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:bg-muted/50"
                     onClick={() => handleSort('category')}
                   >
                     <div className="flex items-center">
@@ -627,7 +643,7 @@ export function PartsManagement() {
                     </div>
                   </TableHead>
                   <TableHead
-                    className="cursor-pointer select-none hover:bg-muted/50"
+                    className="h-10 cursor-pointer select-none px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:bg-muted/50"
                     onClick={() => handleSort('model')}
                   >
                     <div className="flex items-center">
@@ -635,16 +651,16 @@ export function PartsManagement() {
                       {getSortIcon('model')}
                     </div>
                   </TableHead>
-                  <TableHead>Stock</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="h-10 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Stock</TableHead>
+                  <TableHead className="h-10 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Status</TableHead>
+                  <TableHead className="h-10 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Location</TableHead>
+                  <TableHead className="h-10 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {parts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
                       No parts found
                     </TableCell>
                   </TableRow>
@@ -654,28 +670,29 @@ export function PartsManagement() {
                       key={part._id}
                       className="cursor-pointer hover:bg-muted/50"
                     >
-                      <TableCell onClick={(e) => e.stopPropagation()}>
+                      <TableCell className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                         <Checkbox
                           checked={selectedParts.has(part._id)}
                           onCheckedChange={(checked) => handleSelectPart(part._id, checked as boolean)}
                         />
                       </TableCell>
-                      <TableCell className="font-medium" onClick={() => handleRowClick(part)}>{part.partNumber}</TableCell>
-                      <TableCell onClick={() => handleRowClick(part)}>{part.name}</TableCell>
-                      <TableCell onClick={() => handleRowClick(part)}>
-                        <Badge variant="outline">
+                      <TableCell className="px-2 py-2 text-xs font-medium" onClick={() => handleRowClick(part)}>{part.partNumber}</TableCell>
+                      <TableCell className="px-2 py-2 text-sm" onClick={() => handleRowClick(part)}>{part.name}</TableCell>
+                      <TableCell className="px-2 py-2" onClick={() => handleRowClick(part)}>
+                        <Badge variant="outline" className="text-[11px]">
                           {part.category}
                         </Badge>
                       </TableCell>
-                      <TableCell onClick={() => handleRowClick(part)}>{part.model}</TableCell>
-                      <TableCell onClick={() => handleRowClick(part)}>{part.stockQuantity}</TableCell>
-                      <TableCell onClick={() => handleRowClick(part)}>{getStockStatus(part)}</TableCell>
-                      <TableCell onClick={() => handleRowClick(part)}>{part.location}</TableCell>
-                      <TableCell>
+                      <TableCell className="px-2 py-2 text-xs" onClick={() => handleRowClick(part)}>{part.model}</TableCell>
+                      <TableCell className="px-2 py-2 text-xs font-medium" onClick={() => handleRowClick(part)}>{part.stockQuantity}</TableCell>
+                      <TableCell className="px-2 py-2" onClick={() => handleRowClick(part)}>{getStockStatus(part)}</TableCell>
+                      <TableCell className="px-2 py-2 text-xs" onClick={() => handleRowClick(part)}>{part.location}</TableCell>
+                      <TableCell className="px-2 py-2">
                         <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-8 w-8 p-0"
                             onClick={(e) => handleEditClick(e, part)}
                           >
                             <Edit className="h-4 w-4" />
@@ -683,6 +700,7 @@ export function PartsManagement() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-8 w-8 p-0"
                             onClick={(e) => handleDeleteClick(e, part._id)}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -697,11 +715,11 @@ export function PartsManagement() {
           </div>
 
           {/* Pagination Controls */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="itemsPerPage" className="text-sm">Items per page:</Label>
+          <div className="mt-4 flex flex-col gap-3 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <Label htmlFor="itemsPerPage" className="text-xs">Items per page:</Label>
               <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
-                <SelectTrigger id="itemsPerPage" className="w-[80px]">
+                <SelectTrigger id="itemsPerPage" className="h-8 w-[78px] text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -712,7 +730,7 @@ export function PartsManagement() {
                   <SelectItem value="100">100</SelectItem>
                 </SelectContent>
               </Select>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 Showing {parts.length === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1} to{' '}
                 {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} parts
               </span>
@@ -722,6 +740,7 @@ export function PartsManagement() {
               <Button
                 variant="outline"
                 size="sm"
+                className="h-8 px-2 text-xs"
                 onClick={() => handlePageChange(1)}
                 disabled={currentPage === 1}
               >
@@ -730,6 +749,7 @@ export function PartsManagement() {
               <Button
                 variant="outline"
                 size="sm"
+                className="h-8 px-2"
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
               >
@@ -756,7 +776,7 @@ export function PartsManagement() {
                       variant={currentPage === pageNum ? "default" : "outline"}
                       size="sm"
                       onClick={() => handlePageChange(pageNum)}
-                      className="w-10"
+                      className="h-8 w-8 text-xs"
                     >
                       {pageNum}
                     </Button>
@@ -767,6 +787,7 @@ export function PartsManagement() {
               <Button
                 variant="outline"
                 size="sm"
+                className="h-8 px-2"
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
               >
@@ -775,6 +796,7 @@ export function PartsManagement() {
               <Button
                 variant="outline"
                 size="sm"
+                className="h-8 px-2 text-xs"
                 onClick={() => handlePageChange(totalPages)}
                 disabled={currentPage === totalPages}
               >
@@ -787,48 +809,61 @@ export function PartsManagement() {
 
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Part</DialogTitle>
+        <DialogContent className="max-h-[88vh] max-w-4xl overflow-y-auto p-4 sm:p-5">
+          <DialogHeader className={adminDialogHeaderClassName}>
+            <DialogTitle className="text-base font-semibold">Edit Part</DialogTitle>
+            <DialogDescription className="text-xs text-[#d8dce6]">
+              Update inventory metadata, device compatibility and version stock levels.
+            </DialogDescription>
           </DialogHeader>
-          <AddEditPartForm
-            formData={formData}
-            setFormData={setFormData}
-            onSubmit={handleUpdatePart}
-            onCancel={() => setShowEditDialog(false)}
-            categories={categories}
-            versionTypes={versionTypes}
-            addVersion={addVersion}
-            removeVersion={removeVersion}
-            updateVersion={updateVersion}
-            isEdit={true}
-          />
+          <div className="pt-4">
+            <AddEditPartForm
+              formData={formData}
+              setFormData={setFormData}
+              onSubmit={handleUpdatePart}
+              onCancel={() => setShowEditDialog(false)}
+              categories={categories}
+              versionTypes={versionTypes}
+              addVersion={addVersion}
+              removeVersion={removeVersion}
+              updateVersion={updateVersion}
+              isEdit={true}
+            />
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* Detail View Dialog */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+        <DialogContent className="max-h-[88vh] max-w-4xl overflow-y-auto p-4 sm:p-5">
+          <DialogHeader className={adminDialogHeaderClassName}>
+            <DialogTitle className="flex items-center gap-2 text-base font-semibold">
               <Eye className="h-5 w-5" />
               Part Details
             </DialogTitle>
+            <DialogDescription className="text-xs text-[#d8dce6]">
+              Review inventory, pricing, specifications and versions in a condensed layout.
+            </DialogDescription>
           </DialogHeader>
-          {selectedPart && <PartDetailView part={selectedPart} />}
+          <div className="pt-4">
+            {selectedPart && <PartDetailView part={selectedPart} />}
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* Add to Need List Dialog */}
       <Dialog open={showAddToNeedListDialog} onOpenChange={setShowAddToNeedListDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+        <DialogContent className="max-w-2xl p-4 sm:p-5">
+          <DialogHeader className={adminDialogHeaderClassName}>
+            <DialogTitle className="flex items-center gap-2 text-base font-semibold">
               <ListPlus className="h-5 w-5" />
               Add Parts to Need List
             </DialogTitle>
+            <DialogDescription className="text-xs text-[#d8dce6]">
+              Assign selected parts to an existing draft list or create a new one.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 pt-4">
             <div>
               <p className="text-sm text-muted-foreground">
                 You are adding {selectedParts.size} part{selectedParts.size > 1 ? 's' : ''} to a need list.
@@ -851,32 +886,34 @@ export function PartsManagement() {
 
               {createNewNeedList ? (
                 <div className="space-y-3 pl-6">
-                  <div>
-                    <Label htmlFor="newListName">Need List Name *</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="newListName" className={compactLabelClassName}>Need List Name *</Label>
                     <Input
                       id="newListName"
                       value={newNeedListName}
                       onChange={(e) => setNewNeedListName(e.target.value)}
                       placeholder="Enter need list name"
+                      className={compactFieldClassName}
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="newListDescription">Description</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="newListDescription" className={compactLabelClassName}>Description</Label>
                     <Textarea
                       id="newListDescription"
                       value={newNeedListDescription}
                       onChange={(e) => setNewNeedListDescription(e.target.value)}
                       placeholder="Enter description (optional)"
                       rows={2}
+                      className="min-h-[70px] text-sm"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="newListPriority">Priority</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="newListPriority" className={compactLabelClassName}>Priority</Label>
                     <Select
                       value={newNeedListPriority}
                       onValueChange={(value) => setNewNeedListPriority(value as 'low' | 'medium' | 'high' | 'urgent')}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className={compactFieldClassName}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -889,13 +926,13 @@ export function PartsManagement() {
                   </div>
                 </div>
               ) : (
-                <div>
-                  <Label htmlFor="existingList">Select Existing Need List *</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="existingList" className={compactLabelClassName}>Select Existing Need List *</Label>
                   <Select
                     value={selectedNeedList}
                     onValueChange={setSelectedNeedList}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={compactFieldClassName}>
                       <SelectValue placeholder="Select a need list" />
                     </SelectTrigger>
                     <SelectContent>
@@ -918,9 +955,10 @@ export function PartsManagement() {
 
             <Separator />
 
-            <div className="flex justify-end gap-3">
+            <DialogFooter className="gap-3 sm:justify-end">
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => {
                   setShowAddToNeedListDialog(false);
                   setCreateNewNeedList(false);
@@ -936,10 +974,11 @@ export function PartsManagement() {
               <Button
                 onClick={handleAddToNeedList}
                 disabled={addingToNeedList}
+                size="sm"
               >
                 {addingToNeedList ? 'Adding...' : 'Add to Need List'}
               </Button>
-            </div>
+            </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>
@@ -960,75 +999,75 @@ export function PartsManagement() {
 // Part Detail View Component
 function PartDetailView({ part }: { part: Part }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Basic Information */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader className="px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-base">
               <Info className="h-4 w-4" />
               Basic Information
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Part Number</Label>
+          <CardContent className="space-y-2.5 px-4 pb-4 pt-0">
+            <div className="space-y-1">
+              <Label className={compactLabelClassName}>Part Number</Label>
               <p className="text-sm font-mono">{part.partNumber}</p>
             </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Name</Label>
+            <div className="space-y-1">
+              <Label className={compactLabelClassName}>Name</Label>
               <p className="text-sm">{part.name}</p>
             </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Description</Label>
-              <p className="text-sm">{part.description || 'No description available'}</p>
+            <div className="space-y-1">
+              <Label className={compactLabelClassName}>Description</Label>
+              <p className="text-sm leading-snug">{part.description || 'No description available'}</p>
             </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Category</Label>
-              <Badge variant="outline" className="ml-2">
+            <div className="space-y-1">
+              <Label className={compactLabelClassName}>Category</Label>
+              <Badge variant="outline" className="text-[11px]">
                 {part.category?.charAt(0).toUpperCase() + part.category?.slice(1)}
               </Badge>
             </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Model</Label>
+            <div className="space-y-1">
+              <Label className={compactLabelClassName}>Model</Label>
               <p className="text-sm">{part.model}</p>
             </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Supplier</Label>
+            <div className="space-y-1">
+              <Label className={compactLabelClassName}>Supplier</Label>
               <p className="text-sm">{part.supplier}</p>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader className="px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-base">
               <Package className="h-4 w-4" />
               Stock Information
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Current Stock</Label>
+          <CardContent className="space-y-2.5 px-4 pb-4 pt-0">
+            <div className="space-y-1">
+              <Label className={compactLabelClassName}>Current Stock</Label>
               <p className="text-2xl font-bold">{part.stockQuantity}</p>
             </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Minimum Stock Level</Label>
+            <div className="space-y-1">
+              <Label className={compactLabelClassName}>Minimum Stock Level</Label>
               <p className="text-sm">{part.minStockLevel}</p>
             </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Storage Location</Label>
+            <div className="space-y-1">
+              <Label className={compactLabelClassName}>Storage Location</Label>
               <p className="text-sm flex items-center gap-1">
                 <MapPin className="h-3 w-3" />
                 {part.location}
               </p>
             </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Condition</Label>
-              <Badge variant="default">{part.condition}</Badge>
+            <div className="space-y-1">
+              <Label className={compactLabelClassName}>Condition</Label>
+              <Badge variant="default" className="text-[11px]">{part.condition}</Badge>
             </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Warranty</Label>
+            <div className="space-y-1">
+              <Label className={compactLabelClassName}>Warranty</Label>
               <p className="text-sm">{part.warranty} days</p>
             </div>
           </CardContent>
@@ -1037,20 +1076,20 @@ function PartDetailView({ part }: { part: Part }) {
 
       {/* Pricing Information */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="px-4 py-3">
+          <CardTitle className="flex items-center gap-2 text-base">
             <DollarSign className="h-4 w-4" />
             Pricing Information
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Cost Price</Label>
+        <CardContent className="px-4 pb-4 pt-0">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="space-y-1">
+              <Label className={compactLabelClassName}>Cost Price</Label>
               <p className="text-lg font-semibold">${part.cost?.toFixed(2)}</p>
             </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Selling Price</Label>
+            <div className="space-y-1">
+              <Label className={compactLabelClassName}>Selling Price</Label>
               <p className="text-lg font-semibold">${part.sellingPrice?.toFixed(2)}</p>
             </div>
           </div>
@@ -1060,13 +1099,13 @@ function PartDetailView({ part }: { part: Part }) {
       {/* Compatible Devices */}
       {part.compatibleDevices && part.compatibleDevices.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle>Compatible Devices</CardTitle>
+          <CardHeader className="px-4 py-3">
+            <CardTitle className="text-base">Compatible Devices</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
+          <CardContent className="px-4 pb-4 pt-0">
+            <div className="flex flex-wrap gap-1.5">
               {part.compatibleDevices.map((device, index) => (
-                <Badge key={index} variant="secondary">
+                <Badge key={index} variant="secondary" className="text-[11px]">
                   {device}
                 </Badge>
               ))}
@@ -1078,14 +1117,14 @@ function PartDetailView({ part }: { part: Part }) {
       {/* Specifications */}
       {part.specifications && Object.keys(part.specifications).length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle>Specifications</CardTitle>
+          <CardHeader className="px-4 py-3">
+            <CardTitle className="text-base">Specifications</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <CardContent className="px-4 pb-4 pt-0">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {Object.entries(part.specifications).map(([key, value]) => (
-                <div key={key}>
-                  <Label className="text-sm font-medium text-muted-foreground">
+                <div key={key} className="space-y-1">
+                  <Label className={compactLabelClassName}>
                     {key.charAt(0).toUpperCase() + key.slice(1)}
                   </Label>
                   <p className="text-sm">{value}</p>
@@ -1099,42 +1138,42 @@ function PartDetailView({ part }: { part: Part }) {
       {/* Versions */}
       {part.versions && part.versions.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle>Part Versions</CardTitle>
+          <CardHeader className="px-4 py-3">
+            <CardTitle className="text-base">Part Versions</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+          <CardContent className="px-4 pb-4 pt-0">
+            <div className="space-y-3">
               {part.versions.map((version, index) => (
-                <div key={version._id || index} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <Badge variant="outline">
+                <div key={version._id || index} className="rounded-lg border p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <Badge variant="outline" className="text-[11px]">
                       {version.versionType?.charAt(0).toUpperCase() + version.versionType?.slice(1)}
                     </Badge>
-                    <Badge variant={version.status === 'active' ? 'default' : 'secondary'}>
+                    <Badge variant={version.status === 'active' ? 'default' : 'secondary'} className="text-[11px]">
                       {version.status}
                     </Badge>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                  <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
                     <div>
-                      <Label className="text-xs text-muted-foreground">Quantity</Label>
+                      <Label className={compactLabelClassName}>Quantity</Label>
                       <p className="font-medium">{version.quantity}</p>
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Unit Cost</Label>
+                      <Label className={compactLabelClassName}>Unit Cost</Label>
                       <p className="font-medium">${version.unitCost?.toFixed(2)}</p>
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Selling Price</Label>
+                      <Label className={compactLabelClassName}>Selling Price</Label>
                       <p className="font-medium">${version.sellingPrice?.toFixed(2)}</p>
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Location</Label>
+                      <Label className={compactLabelClassName}>Location</Label>
                       <p className="font-medium">{version.storageLocation}</p>
                     </div>
                   </div>
                   {version.notes && (
-                    <div className="mt-3">
-                      <Label className="text-xs text-muted-foreground">Notes</Label>
+                    <div className="mt-2 space-y-1">
+                      <Label className={compactLabelClassName}>Notes</Label>
                       <p className="text-sm">{version.notes}</p>
                     </div>
                   )}
@@ -1147,7 +1186,7 @@ function PartDetailView({ part }: { part: Part }) {
 
       {/* Last Updated */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="px-4 py-3">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Calendar className="h-4 w-4" />
             Last updated: {part.lastUpdated ? new Date(part.lastUpdated).toLocaleString() : 'Unknown'}
@@ -1198,37 +1237,37 @@ function AddEditPartForm({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Tabs defaultValue="basic" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="basic">Basic Info</TabsTrigger>
-          <TabsTrigger value="versions">Versions</TabsTrigger>
-          <TabsTrigger value="additional">Additional</TabsTrigger>
+        <TabsList className="grid h-8 w-full grid-cols-3">
+          <TabsTrigger value="basic" className="text-xs">Basic Info</TabsTrigger>
+          <TabsTrigger value="versions" className="text-xs">Versions</TabsTrigger>
+          <TabsTrigger value="additional" className="text-xs">Additional</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="basic" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="itemName">Item Name * (Auto-generated)</Label>
+        <TabsContent value="basic" className="space-y-3 pt-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="itemName" className={compactLabelClassName}>Item Name * (Auto-generated)</Label>
               <Input
                 id="itemName"
                 value={formData.itemName}
                 readOnly
                 disabled
                 placeholder="Auto-generated from Manufacturer + Model + Category"
-                className="bg-muted"
+                className={`${compactFieldClassName} bg-muted`}
               />
               <p className="text-xs text-muted-foreground mt-1">
                 This field is automatically generated from Manufacturer, Model, and Category
               </p>
             </div>
-            <div>
-              <Label htmlFor="category">Category *</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="category" className={compactLabelClassName}>Category *</Label>
               <Select
                 value={formData.category}
                 onValueChange={(value) => handleFieldChange('category', value)}
               >
-                <SelectTrigger>
+                <SelectTrigger className={compactFieldClassName}>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1240,80 +1279,86 @@ function AddEditPartForm({
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label htmlFor="manufacturer">Manufacturer *</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="manufacturer" className={compactLabelClassName}>Manufacturer *</Label>
               <Input
                 id="manufacturer"
                 value={formData.manufacturer}
                 onChange={(e) => handleFieldChange('manufacturer', e.target.value)}
                 placeholder="Enter manufacturer"
+                className={compactFieldClassName}
               />
             </div>
-            <div>
-              <Label htmlFor="model">Model *</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="model" className={compactLabelClassName}>Model *</Label>
               <Input
                 id="model"
                 value={formData.model}
                 onChange={(e) => handleFieldChange('model', e.target.value)}
                 placeholder="Enter model"
+                className={compactFieldClassName}
               />
             </div>
-            <div>
-              <Label htmlFor="date">Date</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="date" className={compactLabelClassName}>Date</Label>
               <Input
                 id="date"
                 type="date"
                 value={formData.date ? formData.date.toISOString().split('T')[0] : ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value ? new Date(e.target.value) : null }))}
+                className={compactFieldClassName}
               />
             </div>
           </div>
-          <div>
-            <Label htmlFor="itemDescription">Description</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="itemDescription" className={compactLabelClassName}>Description</Label>
             <Textarea
               id="itemDescription"
               value={formData.itemDescription}
               onChange={(e) => setFormData(prev => ({ ...prev, itemDescription: e.target.value }))}
               placeholder="Enter item description"
+              rows={3}
+              className="min-h-[84px] text-sm leading-snug"
             />
           </div>
         </TabsContent>
 
-        <TabsContent value="versions" className="space-y-4">
+        <TabsContent value="versions" className="space-y-3 pt-3">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-medium">Part Versions</h3>
-            <Button type="button" onClick={addVersion} variant="outline">
+            <h3 className="text-sm font-semibold">Part Versions</h3>
+            <Button type="button" onClick={addVersion} variant="outline" size="sm" className="h-8 text-xs">
               <Plus className="mr-2 h-4 w-4" />
               Add Version
             </Button>
           </div>
           
-          <ScrollArea className="h-[400px]">
-            <div className="space-y-4">
+          <ScrollArea className="h-[320px]">
+            <div className="space-y-3 pr-3">
               {formData.versions.map((version: any, index: number) => (
                 <Card key={index}>
-                  <CardHeader className="pb-3">
+                  <CardHeader className="px-4 py-3 pb-2">
                     <div className="flex justify-between items-center">
                       <CardTitle className="text-sm">Version {index + 1}</CardTitle>
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
+                        className="h-8 w-8 p-0"
                         onClick={() => removeVersion(index)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div>
-                        <Label>Version Type *</Label>
+                  <CardContent className="space-y-3 px-4 pb-4 pt-0">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                      <div className="space-y-1.5">
+                        <Label className={compactLabelClassName}>Version Type *</Label>
                         <Select
                           value={version.versionType}
                           onValueChange={(value) => updateVersion(index, 'versionType', value)}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className={compactFieldClassName}>
                             <SelectValue placeholder="Select type" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1325,61 +1370,68 @@ function AddEditPartForm({
                           </SelectContent>
                         </Select>
                       </div>
-                      <div>
-                        <Label>Quantity *</Label>
+                      <div className="space-y-1.5">
+                        <Label className={compactLabelClassName}>Quantity *</Label>
                         <Input
                           type="number"
                           value={version.quantity || 0}
                           onChange={(e) => updateVersion(index, 'quantity', parseInt(e.target.value) || 0)}
                           min="0"
+                          className={compactFieldClassName}
                         />
                       </div>
-                      <div>
-                        <Label>Min Stock Level</Label>
+                      <div className="space-y-1.5">
+                        <Label className={compactLabelClassName}>Min Stock Level</Label>
                         <Input
                           type="number"
                           value={version.minStockLevel || 5}
                           onChange={(e) => updateVersion(index, 'minStockLevel', parseInt(e.target.value) || 5)}
                           min="0"
+                          className={compactFieldClassName}
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <Label>Unit Cost *</Label>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label className={compactLabelClassName}>Unit Cost *</Label>
                         <Input
                           type="number"
                           step="0.01"
                           value={version.unitCost || 0}
                           onChange={(e) => updateVersion(index, 'unitCost', parseFloat(e.target.value) || 0)}
                           min="0"
+                          className={compactFieldClassName}
                         />
                       </div>
-                      <div>
-                        <Label>Selling Price *</Label>
+                      <div className="space-y-1.5">
+                        <Label className={compactLabelClassName}>Selling Price *</Label>
                         <Input
                           type="number"
                           step="0.01"
                           value={version.sellingPrice || 0}
                           onChange={(e) => updateVersion(index, 'sellingPrice', parseFloat(e.target.value) || 0)}
                           min="0"
+                          className={compactFieldClassName}
                         />
                       </div>
                     </div>
-                    <div>
-                      <Label>Storage Location *</Label>
+                    <div className="space-y-1.5">
+                      <Label className={compactLabelClassName}>Storage Location *</Label>
                       <Input
                         value={version.storageLocation || ''}
                         onChange={(e) => updateVersion(index, 'storageLocation', e.target.value)}
                         placeholder="Enter storage location"
+                        className={compactFieldClassName}
                       />
                     </div>
-                    <div>
-                      <Label>Notes</Label>
+                    <div className="space-y-1.5">
+                      <Label className={compactLabelClassName}>Notes</Label>
                       <Textarea
                         value={version.notes || ''}
                         onChange={(e) => updateVersion(index, 'notes', e.target.value)}
                         placeholder="Enter notes"
+                        rows={2}
+                        className="min-h-[70px] text-sm"
                       />
                     </div>
                   </CardContent>
@@ -1389,9 +1441,9 @@ function AddEditPartForm({
           </ScrollArea>
         </TabsContent>
 
-        <TabsContent value="additional" className="space-y-4">
-          <div>
-            <Label>Compatible Devices</Label>
+        <TabsContent value="additional" className="space-y-3 pt-3">
+          <div className="space-y-1.5">
+            <Label className={compactLabelClassName}>Compatible Devices</Label>
             <Input
               value={formData.compatibleDevices.join(', ')}
               onChange={(e) => setFormData(prev => ({ 
@@ -1399,6 +1451,7 @@ function AddEditPartForm({
                 compatibleDevices: e.target.value.split(',').map(d => d.trim()).filter(d => d) 
               }))}
               placeholder="Enter compatible devices (comma separated)"
+              className={compactFieldClassName}
             />
           </div>
         </TabsContent>
@@ -1407,10 +1460,10 @@ function AddEditPartForm({
       <Separator />
 
       <div className="flex justify-end gap-3">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={onCancel} size="sm">
           Cancel
         </Button>
-        <Button type="button" onClick={onSubmit}>
+        <Button type="button" onClick={onSubmit} size="sm">
           {isEdit ? 'Update Part' : 'Add Part'}
         </Button>
       </div>
