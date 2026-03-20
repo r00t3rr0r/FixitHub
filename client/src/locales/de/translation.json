@@ -375,7 +375,7 @@
     "price": "Preis",
     "estimatedTime": "Geschätzte Zeit",
     "deviceCompatibility": "Gerätekompatibilität",
-    "description": "Beschreibung",
+    "fieldDescription": "Beschreibung",
     "instructions": "Reparaturanleitung",
     "knowledgeBase": "Knowledge-Base-Artikel",
     "status": "Status",
@@ -489,7 +489,7 @@
     "title": "Blog-Verwaltung",
     "description": "Blog-Beiträge erstellen und verwalten",
     "posts": "Blog-Beiträge",
-    "title": "Titel",
+    "fieldTitle": "Titel",
     "author": "Autor",
     "category": "Kategorie",
     "status": "Status",
@@ -616,7 +616,7 @@
     "inStock": "Auf Lager",
     "lowStock": "Niedriger Bestand",
     "outOfStock": "Nicht verfügbar",
-    "description": "Beschreibung",
+    "fieldDescription": "Beschreibung",
     "images": "Bilder",
     "features": "Funktionen",
     "specifications": "Spezifikationen"
@@ -837,7 +837,7 @@
     "price": "Preis",
     "deviceCompatibility": "Gerätekompatibilität",
     "bundleDiscount": "Bundle-Rabatt",
-    "description": "Beschreibung",
+    "fieldDescription": "Beschreibung",
     "status": "Status",
     "active": "Aktiv",
     "inactive": "Inaktiv",
@@ -1015,7 +1015,7 @@
       "stepAddedSuccess": "Schritt erfolgreich hinzugefügt",
       "errorSavingWorkflow": "Fehler beim Speichern des Workflows"
     },
-    "steps": {
+    "stepTypes": {
       "diagnostic": "Diagnose",
       "repair": "Reparatur",
       "quality": "Qualität",
@@ -1034,7 +1034,7 @@
     "tests": "Diagnosetests",
     "forms": "Bewertungsformulare",
     "testName": "Testname",
-    "description": "Beschreibung",
+    "fieldDescription": "Beschreibung",
     "category": "Kategorie",
     "steps": "Schritte",
     "tools": "Erforderliche Werkzeuge",
@@ -1711,7 +1711,7 @@
     "completed": "Abgeschlossen",
     "cancelled": "Storniert"
   },
-  "orders": {
+  "orderSummary": {
     "orderNumber": "Auftragsnummer",
     "type": "Typ",
     "device": "Gerät",
