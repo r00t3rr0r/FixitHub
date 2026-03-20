@@ -571,6 +571,7 @@ export function DiagnosticTools() {
         <TabsList>
           <TabsTrigger value="tests">Diagnostic Tests</TabsTrigger>
           <TabsTrigger value="forms">Assessment Forms</TabsTrigger>
+          <TabsTrigger value="vorabdiagnose">Vorabdiagnose</TabsTrigger>
         </TabsList>
 
         <TabsContent value="tests" className="space-y-4">
@@ -747,6 +748,57 @@ export function DiagnosticTools() {
               </Card>
             ))}
           </div>
+        </TabsContent>
+
+        <TabsContent value="vorabdiagnose" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Stethoscope className="h-5 w-5" />
+                Vorabdiagnose (Pre-Diagnosis Wizard)
+              </CardTitle>
+              <CardDescription>
+                Customer-facing pre-diagnosis wizard that helps users identify their device issue before booking a repair. 
+                The wizard is available on the homepage and as a standalone page at <a href="/vorabdiagnose" target="_blank" className="text-blue-600 underline">/vorabdiagnose</a>.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <Eye className="h-4 w-4" />
+                    Integration Points
+                  </h4>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• Top bar link (all pages)</li>
+                    <li>• Homepage hero helper card</li>
+                    <li>• Repair configurator popup (Step 3)</li>
+                    <li>• Standalone page (/vorabdiagnose)</li>
+                  </ul>
+                </div>
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Decision Tree
+                  </h4>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• 10 initial problem categories</li>
+                    <li>• 2-3 follow-up questions per category</li>
+                    <li>• Specific diagnosis result with advice</li>
+                    <li>• CTA to book repair or contact support</li>
+                  </ul>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <a href="/vorabdiagnose" target="_blank">
+                  <Button variant="outline" className="gap-2">
+                    <Eye className="h-4 w-4" />
+                    Preview Page
+                  </Button>
+                </a>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

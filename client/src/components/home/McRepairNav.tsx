@@ -18,6 +18,7 @@ import {
   ShoppingBag
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { ForceLightMode } from '@/components/ForceLightMode';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { CartIcon } from '@/components/CartIcon';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -439,6 +440,8 @@ export function McRepairNav() {
   };
 
   return (
+    <>
+    <ForceLightMode />
     <nav className={`main-nav ${scrolled ? 'scrolled' : ''}`} id="mainNav">
       <div className="nav-inner">
         {/* Logo */}
@@ -608,5 +611,6 @@ export function McRepairNav() {
         </>
       )}
     </nav>
+    </>
   );
 }

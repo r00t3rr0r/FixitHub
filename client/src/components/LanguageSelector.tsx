@@ -31,13 +31,9 @@ export function LanguageSelector() {
           variant="ghost"
           size="icon"
           title={t('header.languageSelector')}
-          className="relative group"
+          className="h-9 w-9 rounded-lg transition-colors"
         >
-          <Languages className="h-5 w-5 text-gray-700 group-hover:text-yellow-600 transition-all duration-200 group-hover:scale-110" />
-
-          {/* Subtle hover effect ring */}
-          <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 ring-2 ring-yellow-400 ring-offset-2" />
-
+          <Languages className="h-[18px] w-[18px]" />
           <span className="sr-only">{t('header.languageSelector')}</span>
         </Button>
       </DropdownMenuTrigger>
@@ -48,13 +44,13 @@ export function LanguageSelector() {
             onClick={() => changeLanguage(language.code)}
             className={`cursor-pointer transition-colors ${
               currentLanguage.code === language.code
-                ? 'bg-yellow-50 hover:bg-yellow-100'
-                : 'hover:bg-gray-50'
+                ? 'bg-accent font-semibold'
+                : ''
             }`}
           >
             <span className="font-medium">{language.nativeName}</span>
             {currentLanguage.code === language.code && (
-              <span className="ml-2 text-xs text-yellow-600 font-bold">✓</span>
+              <span className="ml-2 text-xs text-primary font-bold">✓</span>
             )}
           </DropdownMenuItem>
         ))}

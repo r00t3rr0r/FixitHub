@@ -54,10 +54,10 @@ export function DeviceSelectionHero({
                 <h4>Welches Gerät habe ich?</h4>
                 <p>Rausfinden in 3 Minuten</p>
               </div>
-              <div className="hero-helper-card">
+              <a href="/vorabdiagnose" className="hero-helper-card" style={{ textDecoration: 'none', color: 'inherit' }}>
                 <h4>Welche Reparatur brauche ich?</h4>
                 <p>Rausfinden in wenigen Schritten</p>
-              </div>
+              </a>
             </div>
           </div>
 

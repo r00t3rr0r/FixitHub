@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Phone, MapPin, User, LogOut } from 'lucide-react';
+import { Phone, MapPin, User, LogOut, ClipboardCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoginDialog } from './LoginDialog';
@@ -34,6 +34,10 @@ export function TopBar() {
             <a href="/src/McRepair-Design-System/annahmestellen.html">
               <MapPin width={14} height={14} />
               <span>{t('home.topBar.locations', 'Annahmestellen')}</span>
+            </a>
+            <a href="/vorabdiagnose" className="top-bar-diagnose-link">
+              <ClipboardCheck width={14} height={14} />
+              <span>{t('vorabdiagnose.title', 'Vorabdiagnose')}</span>
             </a>
           </div>
           <div className="top-bar-right">

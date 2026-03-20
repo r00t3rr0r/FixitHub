@@ -195,7 +195,7 @@ export function BookingsManagement() {
   const [filteredBookings, setFilteredBookings] = useState<ExpandedBooking[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("pending")
   const [billingStatusFilter, setBillingStatusFilter] = useState("all")
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [showDetailDialog, setShowDetailDialog] = useState(false)

@@ -113,8 +113,8 @@ export function RepairRequestQuestionnaire() {
     } catch (error) {
       console.error("Error loading device types:", error)
       toast({
-        title: "Fehler",
-        description: "Gerätetypen konnten nicht geladen werden",
+        title: t('repairRequest.errorTitle'),
+        description: t('repairRequest.errorLoadingDeviceTypes'),
         variant: "destructive"
       })
     }
@@ -137,8 +137,8 @@ export function RepairRequestQuestionnaire() {
     } catch (error) {
       console.error("Error loading manufacturers:", error)
       toast({
-        title: "Fehler",
-        description: "Marken konnten nicht geladen werden",
+        title: t('repairRequest.errorTitle'),
+        description: t('repairRequest.errorLoadingBrands'),
         variant: "destructive"
       })
     } finally {
@@ -161,8 +161,8 @@ export function RepairRequestQuestionnaire() {
     } catch (error) {
       console.error("Error loading models:", error)
       toast({
-        title: "Fehler",
-        description: "Modelle konnten nicht geladen werden",
+        title: t('repairRequest.errorTitle'),
+        description: t('repairRequest.errorLoadingModels'),
         variant: "destructive"
       })
     } finally {
@@ -174,8 +174,8 @@ export function RepairRequestQuestionnaire() {
   const handleConfirmDeviceChange = () => {
     if (!selectedModel) {
       toast({
-        title: "Hinweis",
-        description: "Bitte wählen Sie ein Modell aus",
+        title: t('repairRequest.errorTitle'),
+        description: t('repairRequest.selectModel'),
         variant: "destructive"
       })
       return
@@ -196,8 +196,8 @@ export function RepairRequestQuestionnaire() {
       })
 
       toast({
-        title: "Erfolg!",
-        description: `Gerät wurde geändert zu ${selectedModelData.name}`
+        title: t('repairRequest.successTitle'),
+        description: t('repairRequest.deviceChangedSuccess', { name: selectedModelData.name })
       })
 
       setShowDeviceDialog(false)
@@ -212,16 +212,16 @@ export function RepairRequestQuestionnaire() {
           <div className="mcrepair-card-header">
             <h2 className="mcrepair-card-title" style={{ color: 'var(--mcrepair-danger)' }}>
               <AlertCircle className="h-6 w-6" />
-              Kein Gerät ausgewählt
+              {t('repairRequest.noDeviceSelected')}
             </h2>
           </div>
           <div className="mcrepair-card-content">
             <p style={{ marginBottom: '20px', color: 'var(--mcrepair-gray-500)' }}>
-              Bitte wählen Sie zuerst ein Gerät aus, bevor Sie eine Reparatur anfragen.
+              {t('repairRequest.noDeviceSelectedDesc')}
             </p>
             <button onClick={() => navigate("/new-order")} className="mcrepair-btn mcrepair-btn-primary">
               <ArrowLeft className="h-4 w-4" />
-              Zurück zum Bestellformular
+              {t('repairRequest.backToOrderForm')}
             </button>
           </div>
         </div>
@@ -242,8 +242,8 @@ export function RepairRequestQuestionnaire() {
 
     if (files.length + images.length > 5) {
       toast({
-        title: "Zu viele Bilder",
-        description: "Sie können maximal 5 Bilder hochladen",
+        title: t('repairRequest.tooManyImages'),
+        description: t('repairRequest.tooManyImagesDesc'),
         variant: "destructive"
       })
       return
@@ -253,16 +253,16 @@ export function RepairRequestQuestionnaire() {
     const validFiles = files.filter(file => {
       if (!file.type.startsWith('image/')) {
         toast({
-          title: "Ungültiger Dateityp",
-          description: `${file.name} ist keine Bilddatei`,
+          title: t('repairRequest.invalidFileType'),
+          description: t('repairRequest.invalidFileTypeDesc', { name: file.name }),
           variant: "destructive"
         })
         return false
       }
       if (file.size > 5 * 1024 * 1024) { // 5MB limit
         toast({
-          title: "Datei zu groß",
-          description: `${file.name} überschreitet die 5MB-Grenze`,
+          title: t('repairRequest.fileTooLarge'),
+          description: t('repairRequest.fileTooLargeDesc', { name: file.name }),
           variant: "destructive"
         })
         return false
@@ -291,13 +291,13 @@ export function RepairRequestQuestionnaire() {
     const newErrors: Record<string, string> = {}
 
     if (!formData.issueDescription.trim()) {
-      newErrors.issueDescription = "Problembeschreibung ist erforderlich"
+      newErrors.issueDescription = t('repairRequest.issueDescriptionRequired')
     } else if (formData.issueDescription.trim().length < 20) {
-      newErrors.issueDescription = "Bitte geben Sie eine detailliertere Beschreibung an (mindestens 20 Zeichen)"
+      newErrors.issueDescription = t('repairRequest.issueDescriptionMinLength')
     }
 
     if (!formData.issueOccurredDate) {
-      newErrors.issueOccurredDate = "Bitte geben Sie an, wann das Problem aufgetreten ist"
+      newErrors.issueOccurredDate = t('repairRequest.whenRequired')
     }
 
     setErrors(newErrors)
@@ -310,8 +310,8 @@ export function RepairRequestQuestionnaire() {
     // Check if user is authenticated
     if (!isAuthenticated) {
       toast({
-        title: "Anmeldung erforderlich",
-        description: "Bitte melden Sie sich an, um eine Reparaturanfrage zu stellen",
+        title: t('repairRequest.loginRequired'),
+        description: t('repairRequest.loginRequiredDesc'),
         variant: "default"
       })
       setShowLoginDialog(true)
@@ -320,8 +320,8 @@ export function RepairRequestQuestionnaire() {
 
     if (!validateForm()) {
       toast({
-        title: "Validierungsfehler",
-        description: "Bitte füllen Sie alle erforderlichen Felder korrekt aus",
+        title: t('repairRequest.validationError'),
+        description: t('repairRequest.validationErrorDesc'),
         variant: "destructive"
       })
       return
@@ -355,8 +355,8 @@ export function RepairRequestQuestionnaire() {
       const response = await createRepairRequest(requestData)
 
       toast({
-        title: "Erfolg!",
-        description: "Ihre Reparaturanfrage wurde erfolgreich übermittelt. Unser Team wird sie prüfen und sich bald bei Ihnen melden.",
+        title: t('repairRequest.successTitle'),
+        description: t('repairRequest.successMessage'),
       })
 
       // Navigate to customer orders/requests page
@@ -364,8 +364,8 @@ export function RepairRequestQuestionnaire() {
     } catch (error: any) {
       console.error("Error submitting repair request:", error)
       toast({
-        title: "Fehler",
-        description: error.message || "Reparaturanfrage konnte nicht übermittelt werden. Bitte versuchen Sie es erneut.",
+        title: t('repairRequest.errorTitle'),
+        description: error.message || t('repairRequest.errorMessage'),
         variant: "destructive"
       })
     } finally {
@@ -395,16 +395,16 @@ export function RepairRequestQuestionnaire() {
           className="repair-request-back-btn"
         >
           <ArrowLeft className="h-4 w-4" />
-          Zurück zum Bestellformular
+          {t('repairRequest.backToOrderForm')}
         </button>
         <div className="repair-request-title">
           <div className="repair-request-title-icon">
             <FileText className="h-6 w-6" style={{ color: 'var(--mcrepair-white)' }} />
           </div>
           <div>
-            <h1>Reparaturanfrage stellen</h1>
+            <h1>{t('repairRequest.title')}</h1>
             <p className="repair-request-subtitle">
-              Geben Sie Details zu Ihrem Geräteproblem an und unser Team wird Ihre Anfrage prüfen
+              {t('repairRequest.subtitle')}
             </p>
           </div>
         </div>
@@ -416,7 +416,7 @@ export function RepairRequestQuestionnaire() {
           <div className="device-header-content">
             <h2 className="mcrepair-card-title">
               <CheckCircle className="h-5 w-5" style={{ color: 'var(--mcrepair-success)' }} />
-              Ausgewähltes Gerät
+              {t('repairRequest.selectedDevice')}
             </h2>
             <button
               type="button"
@@ -424,7 +424,7 @@ export function RepairRequestQuestionnaire() {
               className="device-change-button"
             >
               <Edit2 className="h-4 w-4" />
-              Gerät ändern
+              {t('repairRequest.changeDevice')}
             </button>
           </div>
         </div>
@@ -451,23 +451,23 @@ export function RepairRequestQuestionnaire() {
               <h3 className="device-name">{selectedDevice.name}</h3>
               <div className="device-meta">
                 <div className="device-meta-item">
-                  <span className="device-meta-label">Hersteller</span>
+                  <span className="device-meta-label">{t('repairRequest.manufacturer')}</span>
                   <span className="device-meta-value">{selectedDevice.manufacturer}</span>
                 </div>
                 <div className="device-meta-item">
-                  <span className="device-meta-label">Gerätetyp</span>
+                  <span className="device-meta-label">{t('repairRequest.deviceType')}</span>
                   <span className="device-meta-value">{selectedDevice.deviceType}</span>
                 </div>
               </div>
               <div className="device-model-number-field">
                 <label htmlFor="modelNumber" className="model-number-label">
                   <Info className="h-3 w-3" />
-                  Modellnummer (optional)
+                  {t('repairRequest.modelNumber')}
                 </label>
                 <input
                   type="text"
                   id="modelNumber"
-                  placeholder="z.B. A2215, SM-G998B, iPhone14,2..."
+                  placeholder={t('repairRequest.modelNumberPlaceholder')}
                   value={formData.modelNumber}
                   onChange={(e) => handleInputChange("modelNumber", e.target.value)}
                   className="model-number-input"
@@ -482,8 +482,7 @@ export function RepairRequestQuestionnaire() {
       <div className="mcrepair-alert">
         <Info className="h-5 w-5" />
         <div className="mcrepair-alert-content">
-          Bitte geben Sie so viele Details wie möglich zu Ihrem Geräteproblem an. Dies hilft unseren Technikern,
-          die richtigen Werkzeuge und Teile vorzubereiten und Ihnen ein genaues Angebot zu erstellen.
+          {t('repairRequest.infoAlert')}
         </div>
       </div>
 
@@ -494,7 +493,7 @@ export function RepairRequestQuestionnaire() {
           <div className="mcrepair-card-header-compact">
             <h2 className="mcrepair-card-title-compact">
               <AlertCircle className="h-4 w-4" />
-              Problembeschreibung & Details
+              {t('repairRequest.issueDetailsTitle')}
             </h2>
           </div>
           <div className="mcrepair-card-content-compact">
@@ -502,11 +501,11 @@ export function RepairRequestQuestionnaire() {
               {/* Issue Description */}
               <div className="issue-description-field">
                 <label htmlFor="issueDescription" className="mcrepair-label-compact">
-                  Was ist mit Ihrem Gerät nicht in Ordnung? <span className="required">*</span>
+                  {t('repairRequest.issueDescriptionLabel')} <span className="required">*</span>
                 </label>
                 <textarea
                   id="issueDescription"
-                  placeholder="Beispiel: Das Display ist gesprungen und reagiert nicht auf Berührungen..."
+                  placeholder={t('repairRequest.issueDescriptionPlaceholder')}
                   value={formData.issueDescription}
                   onChange={(e) => handleInputChange("issueDescription", e.target.value)}
                   rows={4}
@@ -524,12 +523,12 @@ export function RepairRequestQuestionnaire() {
               <div className="issue-date-field">
                 <label htmlFor="issueOccurredDate" className="mcrepair-label-compact">
                   <Calendar className="h-3 w-3" />
-                  Wann ist das passiert? <span className="required">*</span>
+                  {t('repairRequest.whenDidItHappen')} <span className="required">*</span>
                 </label>
                 <input
                   id="issueOccurredDate"
                   type="text"
-                  placeholder="z.B. Gestern, Letzte Woche..."
+                  placeholder={t('repairRequest.whenPlaceholder')}
                   value={formData.issueOccurredDate}
                   onChange={(e) => handleInputChange("issueOccurredDate", e.target.value)}
                   className={`mcrepair-input-compact ${errors.issueOccurredDate ? 'error' : ''}`}
@@ -541,7 +540,7 @@ export function RepairRequestQuestionnaire() {
                   </span>
                 )}
                 <span className="mcrepair-helper-text-compact">
-                  Ungefähres Datum oder Zeitraum
+                  {t('repairRequest.approximateDate')}
                 </span>
               </div>
             </div>
@@ -558,10 +557,10 @@ export function RepairRequestQuestionnaire() {
             <Info className="h-5 w-5" style={{ color: 'var(--mcrepair-primary)', flexShrink: 0 }} />
             <div style={{ flex: 1, textAlign: 'left' }}>
               <h4 className="extended-info-title">
-                Weitere Informationen angeben
+                {t('repairRequest.extendedInfoTitle')}
               </h4>
               <p className="extended-info-subtitle">
-                Je mehr Informationen Sie uns zur Verfügung stellen, desto besser können wir Ihre Reparatur durchführen und Ihnen ein genaues Angebot machen.
+                {t('repairRequest.extendedInfoSubtitle')}
               </p>
             </div>
             {showExtendedInfo ? 
@@ -578,7 +577,7 @@ export function RepairRequestQuestionnaire() {
             <div className="extended-info-field">
               <label className="extended-info-label">
                 <Droplets className="h-4 w-4" style={{ color: 'var(--mcrepair-primary)' }} />
-                Wasserschaden?
+                {t('repairRequest.waterDamage')}
               </label>
               <div className="extended-info-options">
                 {['no', 'yes', 'unsure'].map((option) => (
@@ -588,7 +587,7 @@ export function RepairRequestQuestionnaire() {
                     onClick={() => setWaterDamage(option as any)}
                     className={`extended-info-option ${waterDamage === option ? 'selected' : ''}`}
                   >
-                    {option === 'no' ? 'Nein' : option === 'yes' ? 'Ja' : 'Nicht sicher'}
+                    {option === 'no' ? t('repairRequest.waterDamageNo') : option === 'yes' ? t('repairRequest.waterDamageYes') : t('repairRequest.waterDamageUnsure')}
                   </button>
                 ))}
               </div>
@@ -598,17 +597,17 @@ export function RepairRequestQuestionnaire() {
             <div className="extended-info-field">
               <label className="extended-info-label">
                 <Wrench className="h-4 w-4" style={{ color: 'var(--mcrepair-primary)' }} />
-                Details zu vorherigen Reparaturversuchen
+                {t('repairRequest.previousRepairDetails')}
               </label>
               <textarea
-                placeholder="Beschreiben Sie frühere Reparaturversuche, falls vorhanden..."
+                placeholder={t('repairRequest.previousRepairPlaceholder')}
                 value={previousRepairDetails}
                 onChange={(e) => setPreviousRepairDetails(e.target.value)}
                 rows={3}
                 className="mcrepair-textarea"
               />
               <span className="mcrepair-helper-text">
-                Optional - nur ausfüllen, wenn bereits Reparaturversuche unternommen wurden
+                {t('repairRequest.previousRepairHint')}
               </span>
             </div>
 
@@ -616,7 +615,7 @@ export function RepairRequestQuestionnaire() {
             <div className="extended-info-field">
               <label className="extended-info-label">
                 <Package className="h-4 w-4" style={{ color: 'var(--mcrepair-primary)' }} />
-                Zustand des Geräts
+                {t('repairRequest.itemCondition')}
               </label>
               <div className="extended-info-options">
                 {['original', 'refurbished', 'unsure'].map((option) => (
@@ -626,7 +625,7 @@ export function RepairRequestQuestionnaire() {
                     onClick={() => setItemCondition(option as any)}
                     className={`extended-info-option ${itemCondition === option ? 'selected' : ''}`}
                   >
-                    {option === 'original' ? 'Original' : option === 'refurbished' ? 'Generalüberholt' : 'Nicht sicher'}
+                    {option === 'original' ? t('repairRequest.conditionOriginal') : option === 'refurbished' ? t('repairRequest.conditionRefurbished') : t('repairRequest.conditionUnsure')}
                   </button>
                 ))}
               </div>
@@ -639,16 +638,16 @@ export function RepairRequestQuestionnaire() {
           <div className="mcrepair-card-header mcrepair-card-header-primary">
             <h2 className="mcrepair-card-title">
               <Upload className="h-5 w-5" />
-              Bilder hochladen
+              {t('repairRequest.uploadImages')}
             </h2>
             <p className="mcrepair-card-description">
-              Fotos vom Schaden oder Problem (optional, max. 5 Bilder)
+              {t('repairRequest.uploadImagesDesc')}
             </p>
           </div>
           <div className="mcrepair-card-content">
             <div className="mcrepair-form-group">
               <label htmlFor="images" className="mcrepair-label">
-                Fügen Sie Fotos Ihres Geräts hinzu
+                {t('repairRequest.addPhotos')}
               </label>
               <input
                 id="images"
@@ -660,7 +659,7 @@ export function RepairRequestQuestionnaire() {
                 disabled={images.length >= 5}
               />
               <span className="mcrepair-helper-text">
-                JPG, PNG oder GIF. Max. 5MB pro Bild. {images.length}/5 Bilder hochgeladen
+                {t('repairRequest.imageHint', { count: images.length })}
               </span>
             </div>
 
@@ -671,13 +670,13 @@ export function RepairRequestQuestionnaire() {
                   <div key={index} className="image-preview-item">
                     <img
                       src={url}
-                      alt={`Vorschau ${index + 1}`}
+                      alt={t('repairRequest.previewAlt', { index: index + 1 })}
                     />
                     <button
                       type="button"
                       onClick={() => removeImage(index)}
                       className="image-remove-btn"
-                      aria-label="Bild entfernen"
+                      aria-label={t('repairRequest.removeImage')}
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -695,8 +694,7 @@ export function RepairRequestQuestionnaire() {
               <div className="mcrepair-alert mcrepair-alert-success" style={{ marginBottom: '24px' }}>
                 <CheckCircle className="h-5 w-5" />
                 <div className="mcrepair-alert-content">
-                  Nach Einreichung wird unser Team Ihre Anfrage prüfen und sich innerhalb von 24 Stunden
-                  mit einem Kostenvoranschlag und der geschätzten Reparaturzeit bei Ihnen melden.
+                  {t('repairRequest.submitInfo')}
                 </div>
               </div>
 
@@ -707,7 +705,7 @@ export function RepairRequestQuestionnaire() {
                   disabled={submitting}
                   className="mcrepair-btn mcrepair-btn-outline"
                 >
-                  Abbrechen
+                  {t('repairRequest.cancel')}
                 </button>
                 <button
                   type="submit"
@@ -718,12 +716,12 @@ export function RepairRequestQuestionnaire() {
                   {submitting ? (
                     <>
                       <Loader2 className="h-5 w-5 animate-spin" />
-                      Wird gesendet...
+                      {t('repairRequest.submitting')}
                     </>
                   ) : (
                     <>
                       <CheckCircle className="h-5 w-5" />
-                      Reparaturanfrage absenden
+                      {t('repairRequest.submitButton')}
                     </>
                   )}
                 </button>
@@ -739,10 +737,10 @@ export function RepairRequestQuestionnaire() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <Edit2 className="h-5 w-5" />
-              Gerät ändern
+              {t('repairRequest.changeDeviceTitle')}
             </DialogTitle>
             <DialogDescription>
-              Wählen Sie ein anderes Gerät für Ihre Reparaturanfrage aus
+              {t('repairRequest.changeDeviceDesc')}
             </DialogDescription>
           </DialogHeader>
 
@@ -750,11 +748,11 @@ export function RepairRequestQuestionnaire() {
             {/* Device Type Selection */}
             <div className="space-y-2">
               <label className="text-sm font-semibold text-gray-700">
-                1. Gerätetyp auswählen <span className="text-red-500">*</span>
+                1. {t('repairRequest.selectDeviceType')} <span className="text-red-500">*</span>
               </label>
               <Select value={selectedDeviceType} onValueChange={handleDeviceTypeChange}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Gerätetyp wählen..." />
+                  <SelectValue placeholder={t('repairRequest.selectDeviceTypePlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {deviceTypes.map((type) => (
@@ -770,7 +768,7 @@ export function RepairRequestQuestionnaire() {
             {/* Manufacturer Selection */}
             <div className="space-y-2">
               <label className="text-sm font-semibold text-gray-700">
-                2. Marke auswählen <span className="text-red-500">*</span>
+                2. {t('repairRequest.selectBrand')} <span className="text-red-500">*</span>
               </label>
               <Select 
                 value={selectedManufacturer} 
@@ -779,16 +777,16 @@ export function RepairRequestQuestionnaire() {
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder={
-                    loadingManufacturers ? "Lädt..." : 
-                    !selectedDeviceType ? "Bitte zuerst Gerätetyp wählen" : 
-                    "Marke wählen..."
+                    loadingManufacturers ? t('repairRequest.loading') : 
+                    !selectedDeviceType ? t('repairRequest.selectBrandFirst') : 
+                    t('repairRequest.selectBrandPlaceholder')
                   } />
                 </SelectTrigger>
                 <SelectContent>
                   {manufacturers.map((manufacturer) => (
                     <SelectItem key={manufacturer._id} value={manufacturer._id}>
                       {manufacturer.name}
-                      <span className="text-xs text-gray-500 ml-2">({manufacturer.count} Modelle)</span>
+                      <span className="text-xs text-gray-500 ml-2">({manufacturer.count} {t('repairRequest.models')})</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -798,7 +796,7 @@ export function RepairRequestQuestionnaire() {
             {/* Model Selection */}
             <div className="space-y-2">
               <label className="text-sm font-semibold text-gray-700">
-                3. Modell auswählen <span className="text-red-500">*</span>
+                3. {t('repairRequest.selectModelLabel')} <span className="text-red-500">*</span>
               </label>
               <Select 
                 value={selectedModel} 
@@ -807,9 +805,9 @@ export function RepairRequestQuestionnaire() {
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder={
-                    loadingModels ? "Lädt..." : 
-                    !selectedManufacturer ? "Bitte zuerst Marke wählen" : 
-                    "Modell wählen..."
+                    loadingModels ? t('repairRequest.loading') : 
+                    !selectedManufacturer ? t('repairRequest.selectManufacturerFirst') : 
+                    t('repairRequest.selectModelPlaceholder')
                   } />
                 </SelectTrigger>
                 <SelectContent>
@@ -861,7 +859,7 @@ export function RepairRequestQuestionnaire() {
               variant="outline"
               onClick={() => setShowDeviceDialog(false)}
             >
-              Abbrechen
+              {t('repairRequest.cancel')}
             </Button>
             <Button
               onClick={handleConfirmDeviceChange}
@@ -869,7 +867,7 @@ export function RepairRequestQuestionnaire() {
               className="bg-[#1a2a5e] hover:bg-[#0f1d45]"
             >
               <CheckCircle className="h-4 w-4 mr-2" />
-              Gerät übernehmen
+              {t('repairRequest.confirmDevice')}
             </Button>
           </DialogFooter>
         </DialogContent>
