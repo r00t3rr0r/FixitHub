@@ -10,9 +10,10 @@ import {
   markMessagesAsRead,
   sendFeedbackRequest,
   createQuickAction,
+  sendMessage,
 } from "@/api/inspectionCommunication"
 import { getUserProfile, UserProfile } from "@/api/user"
-import { CheckCircle2, MessageCircle, AlertCircle, Plus, Send, Clock, User, HelpCircle } from "lucide-react"
+import { CheckCircle2, MessageCircle, AlertCircle, Plus, Send, Clock, User, HelpCircle, X, Trash2 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -101,11 +102,13 @@ export function CommunicationPanel({
   const [sendingQuickAction, setSendingQuickAction] = useState(false)
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false)
   const [showQuickActionDialog, setShowQuickActionDialog] = useState(false)
+  const [newMessage, setNewMessage] = useState("")
+  const [sendingMessage, setSendingMessage] = useState(false)
   const [feedbackQuestion, setFeedbackQuestion] = useState("")
-  const [feedbackOption1Label, setFeedbackOption1Label] = useState("")
-  const [feedbackOption1Value, setFeedbackOption1Value] = useState("")
-  const [feedbackOption2Label, setFeedbackOption2Label] = useState("")
-  const [feedbackOption2Value, setFeedbackOption2Value] = useState("")
+  const [feedbackOptions, setFeedbackOptions] = useState<Array<{ label: string; value: string }>>([
+    { label: "", value: "" },
+    { label: "", value: "" },
+  ])
   const [quickActionType, setQuickActionType] = useState<'part_replacement' | 'incorrect_device' | 'incorrect_unlock_code' | 'additional_costs'>('part_replacement')
   const [quickActionDescription, setQuickActionDescription] = useState("")
   const isUserEditingRef = useRef(false)
@@ -127,19 +130,20 @@ export function CommunicationPanel({
 
   // Track whether the user is actively editing so background polling does not interrupt input.
   useEffect(() => {
+    const hasFeedbackOptions = feedbackOptions.some(opt => opt.label.trim().length > 0)
     isUserEditingRef.current =
       showFeedbackDialog ||
       showQuickActionDialog ||
+      newMessage.trim().length > 0 ||
       feedbackQuestion.trim().length > 0 ||
-      feedbackOption1Label.trim().length > 0 ||
-      feedbackOption2Label.trim().length > 0 ||
+      hasFeedbackOptions ||
       quickActionDescription.trim().length > 0
   }, [
     showFeedbackDialog,
     showQuickActionDialog,
+    newMessage,
     feedbackQuestion,
-    feedbackOption1Label,
-    feedbackOption2Label,
+    feedbackOptions,
     quickActionDescription,
   ])
 
@@ -234,11 +238,70 @@ export function CommunicationPanel({
     }
   }
 
-  const handleSendFeedback = async () => {
-    if (!feedbackQuestion.trim() || !feedbackOption1Label.trim() || !feedbackOption2Label.trim()) {
+  const handleSendMessage = async () => {
+    if (!newMessage.trim()) {
       toast({
         title: t('common.error'),
-        description: t('communicationPanel.errorFillAllFields'),
+        description: t('communicationPanel.errorEnterMessage'),
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setSendingMessage(true)
+      console.log("CommunicationPanel: Sending message:", newMessage)
+      const updated = await sendMessage(orderId, newMessage)
+      console.log("CommunicationPanel: Message sent successfully, state updated with", updated?.messages?.length || 0, "messages")
+      setCommunication(updated)
+      setNewMessage("")
+      toast({
+        title: t('common.success'),
+        description: "Nachricht erfolgreich versendet",
+      })
+    } catch (error: any) {
+      console.error("CommunicationPanel: Error sending message:", error)
+      toast({
+        title: t('common.error'),
+        description: error.message || "Fehler beim Versenden der Nachricht",
+        variant: "destructive",
+      })
+    } finally {
+      setSendingMessage(false)
+    }
+  }
+
+  const handleAddFeedbackOption = () => {
+    setFeedbackOptions([...feedbackOptions, { label: "", value: "" }])
+  }
+
+  const handleRemoveFeedbackOption = (index: number) => {
+    if (feedbackOptions.length > 2) {
+      setFeedbackOptions(feedbackOptions.filter((_, i) => i !== index))
+    } else {
+      toast({
+        title: t('common.error'),
+        description: "Mindestens 2 Optionen sind erforderlich",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleUpdateFeedbackOption = (index: number, field: 'label' | 'value', value: string) => {
+    const updated = [...feedbackOptions]
+    updated[index] = { ...updated[index], [field]: value }
+    if (field === 'label' && !updated[index].value) {
+      updated[index].value = value.toLowerCase()
+    }
+    setFeedbackOptions(updated)
+  }
+
+  const handleSendFeedback = async () => {
+    const validOptions = feedbackOptions.filter(opt => opt.label.trim())
+    if (!feedbackQuestion.trim() || validOptions.length < 2) {
+      toast({
+        title: t('common.error'),
+        description: validOptions.length < 2 ? "Mindestens 2 Optionen sind erforderlich" : t('communicationPanel.errorFillAllFields'),
         variant: "destructive",
       })
       return
@@ -246,12 +309,8 @@ export function CommunicationPanel({
 
     try {
       setSendingFeedback(true)
-      const options = [
-        { label: feedbackOption1Label, value: feedbackOption1Value || feedbackOption1Label.toLowerCase() },
-        { label: feedbackOption2Label, value: feedbackOption2Value || feedbackOption2Label.toLowerCase() },
-      ]
-      console.log("CommunicationPanel: Sending feedback request:", { orderId, question: feedbackQuestion, options })
-      const updated = await sendFeedbackRequest(orderId, inspectionId || "", feedbackQuestion, options)
+      console.log("CommunicationPanel: Sending feedback request:", { orderId, question: feedbackQuestion, options: validOptions })
+      const updated = await sendFeedbackRequest(orderId, inspectionId || "", feedbackQuestion, validOptions)
       console.log("CommunicationPanel: Received updated communication after sending feedback:", updated)
       setCommunication(updated)
       console.log("CommunicationPanel: Feedback request sent successfully, state updated with", updated?.messages?.length || 0, "messages")
@@ -261,10 +320,10 @@ export function CommunicationPanel({
       })
       // Reset form
       setFeedbackQuestion("")
-      setFeedbackOption1Label("")
-      setFeedbackOption1Value("")
-      setFeedbackOption2Label("")
-      setFeedbackOption2Value("")
+      setFeedbackOptions([
+        { label: "", value: "" },
+        { label: "", value: "" },
+      ])
       setShowFeedbackDialog(false)
     } catch (error: any) {
       console.error("CommunicationPanel: Error sending feedback:", error)
@@ -374,6 +433,54 @@ export function CommunicationPanel({
             </div>
           )}
         </div>
+
+        {/* Message Input Area - Staff/Admin Only */}
+        {isStaffOrAdmin && (
+          <div className="inspection-comm-input-section border rounded-lg p-3 bg-blue-50">
+            <Label htmlFor="message-input" className="text-xs font-semibold mb-2 block">
+              Nachricht senden
+            </Label>
+            <div className="flex gap-2">
+              <Textarea
+                id="message-input"
+                placeholder="Nachricht eingeben..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                className="min-h-[60px] resize-none text-xs"
+                disabled={sendingMessage}
+              />
+            </div>
+            <div className="flex justify-end gap-2 mt-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setNewMessage("")}
+                disabled={sendingMessage || !newMessage.trim()}
+                className="h-7 text-xs"
+              >
+                Löschen
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSendMessage}
+                disabled={sendingMessage || !newMessage.trim()}
+                className="h-7 text-xs gap-1"
+              >
+                {sendingMessage ? (
+                  <>
+                    <span className="inline-block animate-spin">⏳</span>
+                    Sendet...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3 h-3" />
+                    Senden
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Communication Messages - Scrollable History */}
         {communicationMessages.length > 0 && (
@@ -518,7 +625,7 @@ export function CommunicationPanel({
               <Label htmlFor="question" className="flex items-center gap-2">
                 <span>{t('communicationPanel.question')}</span>
                 <span className={`inspection-comm-required text-xs ${feedbackQuestion.trim() ? "is-valid" : "is-empty"}`}>
-                  {feedbackQuestion.trim() ? "✓" : "required"}
+                  {feedbackQuestion.trim() ? "✓" : "erforderlich"}
                 </span>
               </Label>
               <Textarea
@@ -533,78 +640,78 @@ export function CommunicationPanel({
                 }`}
               />
               <p className="inspection-comm-help text-xs">
-                Ask a clear question that requires a yes/no or choice-based answer. Example: "Do you approve the $45 battery replacement?"
+                Stellen Sie eine klare Frage, die eine Ja/Nein- oder Multiple-Choice-Antwort erfordert. Beispiel: "Genehmigen Sie den Austausch der Batterie für 45 €?"
               </p>
             </div>
 
             <div className="inspection-comm-tips border rounded-lg p-3">
-              <p className="inspection-comm-tips-title text-xs font-medium mb-2">Tips for effective feedback:</p>
+              <p className="inspection-comm-tips-title text-xs font-medium mb-2">Tipps für effektive Rückmeldungen:</p>
               <ul className="inspection-comm-tips-list text-xs space-y-1 list-disc list-inside">
-                <li>Be specific about what you need from the customer</li>
-                <li>Offer 2-3 clear response options</li>
-                <li>Avoid open-ended questions</li>
+                <li>Seien Sie spezifisch, was Sie vom Kunden brauchen</li>
+                <li>Bieten Sie 2-4 klare Antwortoptionen an</li>
+                <li>Vermeiden Sie offene Fragen</li>
               </ul>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="option1" className="flex items-center gap-2">
-                <span>{t('communicationPanel.firstOption')}</span>
-                <span className={`inspection-comm-required text-xs ${feedbackOption1Label.trim() ? "is-valid" : "is-empty"}`}>
-                  {feedbackOption1Label.trim() ? "✓" : "required"}
-                </span>
-              </Label>
-              <Input
-                id="option1"
-                placeholder={t('communicationPanel.exampleOption1')}
-                value={feedbackOption1Label}
-                onChange={(e) => setFeedbackOption1Label(e.target.value)}
-                className={`inspection-comm-input transition-colors ${
-                  feedbackOption1Label.trim()
-                    ? "is-valid"
-                    : "is-empty"
-                }`}
-              />
-            </div>
+            {/* Dynamic Feedback Options */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-medium">Antwortoptionen ({feedbackOptions.filter(opt => opt.label.trim()).length} von {feedbackOptions.length})</Label>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleAddFeedbackOption}
+                  className="h-6 text-xs gap-1"
+                  disabled={feedbackOptions.length >= 5}
+                >
+                  <Plus className="w-3 h-3" />
+                  Option hinzufügen
+                </Button>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="option2" className="flex items-center gap-2">
-                <span>{t('communicationPanel.secondOption')}</span>
-                <span className={`inspection-comm-required text-xs ${feedbackOption2Label.trim() ? "is-valid" : "is-empty"}`}>
-                  {feedbackOption2Label.trim() ? "✓" : "required"}
-                </span>
-              </Label>
-              <Input
-                id="option2"
-                placeholder={t('communicationPanel.exampleOption2')}
-                value={feedbackOption2Label}
-                onChange={(e) => setFeedbackOption2Label(e.target.value)}
-                className={`inspection-comm-input transition-colors ${
-                  feedbackOption2Label.trim()
-                    ? "is-valid"
-                    : "is-empty"
-                }`}
-              />
+              {feedbackOptions.map((option, index) => (
+                <div key={index} className="space-y-1 pb-2 border-b">
+                  <Label htmlFor={`option-${index}`} className="text-xs flex items-center gap-2">
+                    <span>Option {index + 1}</span>
+                    {option.label.trim() && <span className="text-green-600">✓</span>}
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id={`option-${index}`}
+                      placeholder={`z.B. Ja, fortfahren / Nein, ablehnen`}
+                      value={option.label}
+                      onChange={(e) => handleUpdateFeedbackOption(index, 'label', e.target.value)}
+                      className="flex-1 text-xs"
+                    />
+                    {feedbackOptions.length > 2 && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleRemoveFeedbackOption(index)}
+                        className="h-8 w-8 p-0"
+                        title="Option entfernen"
+                      >
+                        <Trash2 className="w-3 h-3 text-red-500" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Preview Section */}
-            {feedbackQuestion.trim() && (feedbackOption1Label.trim() || feedbackOption2Label.trim()) && (
+            {feedbackQuestion.trim() && feedbackOptions.filter(opt => opt.label.trim()).length >= 2 && (
               <div className="inspection-comm-preview border rounded-lg p-3">
-                <p className="inspection-comm-preview-title text-xs font-medium mb-2">Preview:</p>
-                <div className="inspection-comm-preview-content space-y-2 border-l-4 p-3 rounded">
+                <p className="inspection-comm-preview-title text-xs font-medium mb-2">Vorschau:</p>
+                <div className="inspection-comm-preview-content space-y-2 border-l-4 p-3 rounded bg-gray-50">
                   <p className="font-medium text-sm">{feedbackQuestion}</p>
                   <div className="space-y-1 text-xs">
-                    {feedbackOption1Label.trim() && (
-                      <div className="inspection-comm-preview-option flex items-center gap-2 p-2 rounded border">
+                    {feedbackOptions.filter(opt => opt.label.trim()).map((option, idx) => (
+                      <div key={idx} className="inspection-comm-preview-option flex items-center gap-2 p-2 rounded border bg-white">
                         <div className="inspection-comm-preview-dot w-3 h-3 rounded-full border" />
-                        <span>{feedbackOption1Label}</span>
+                        <span>{option.label}</span>
                       </div>
-                    )}
-                    {feedbackOption2Label.trim() && (
-                      <div className="inspection-comm-preview-option flex items-center gap-2 p-2 rounded border">
-                        <div className="inspection-comm-preview-dot w-3 h-3 rounded-full border" />
-                        <span>{feedbackOption2Label}</span>
-                      </div>
-                    )}
+                    ))}
                   </div>
                 </div>
               </div>
@@ -621,7 +728,7 @@ export function CommunicationPanel({
             </Button>
             <Button
               onClick={handleSendFeedback}
-              disabled={sendingFeedback || !feedbackQuestion.trim() || !feedbackOption1Label.trim() || !feedbackOption2Label.trim()}
+              disabled={sendingFeedback || !feedbackQuestion.trim() || feedbackOptions.filter(opt => opt.label.trim()).length < 2}
               className="gap-2"
             >
               {sendingFeedback ? (
