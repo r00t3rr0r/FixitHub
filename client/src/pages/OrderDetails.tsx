@@ -22,15 +22,16 @@ import { searchDevices, SearchResult } from "@/api/devices"
 import EPartSelectionDialog from "@/components/admin/EPartSelectionDialog"
 import { ShopProductSelectionDialog } from "@/components/admin/ShopProductSelectionDialog"
 import { RepairServiceDialog } from "@/components/inspection/RepairServiceDialog"
+import { DeviceInspectionForm } from "@/components/inspection/DeviceInspectionForm"
 import { WorkflowExecutionView } from "@/components/workflow/WorkflowExecutionView"
 import { WorkflowCard } from "@/components/admin/WorkflowCard"
 import { WorkflowExecutionModal } from "@/components/admin/WorkflowExecutionModal"
 import { InspectionResultsDisplay } from "@/components/inspection/InspectionResultsDisplay"
 import { OrderProgressTimeline } from "@/components/OrderProgressTimeline"
-import { UnlockInformationDisplay } from "@/components/inspection/UnlockInformationDisplay"
 import { ConfirmUnlockDialog } from "@/components/inspection/ConfirmUnlockDialog"
 import { DeviceChangeDialog } from "@/components/admin/DeviceChangeDialog"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
+import { generateInspectionReport } from "@/api/deviceInspection"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -67,7 +68,6 @@ import {
   CheckCircle,
   AlertCircle,
   Calendar,
-  DollarSign,
   MessageSquare,
   Camera,
   Send,
@@ -95,6 +95,7 @@ import {
   Droplets,
   Info,
   ChevronDown,
+  Download,
   Zap
 } from "lucide-react"
 
@@ -157,6 +158,9 @@ export function OrderDetails() {
   const [selectedDeviceForChange, setSelectedDeviceForChange] = useState<SearchResult | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
+  const [inspectionDialogOpen, setInspectionDialogOpen] = useState(false)
+  const [inspectionRefreshKey, setInspectionRefreshKey] = useState(0)
+  const [generatingInspectionReport, setGeneratingInspectionReport] = useState(false)
   const { toast } = useToast()
 
   // Fetch user profile
@@ -360,6 +364,13 @@ export function OrderDetails() {
       }
     }
   }, [id, user])
+
+  useEffect(() => {
+    document.body.classList.add('order-details-page')
+    return () => {
+      document.body.classList.remove('order-details-page')
+    }
+  }, [])
 
   // Fetch progress timeline for order
   useEffect(() => {
@@ -1325,6 +1336,43 @@ export function OrderDetails() {
     return null
   }
 
+  const handleGenerateInspectionReport = async () => {
+    if (!id) return
+
+    try {
+      setGeneratingInspectionReport(true)
+      const result = await generateInspectionReport(id)
+
+      if (result.reportUrl) {
+        const link = document.createElement("a")
+        link.href = result.reportUrl
+        link.download = `inspection-report-${id}.pdf`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
+
+      toast({
+        title: t('common.success') || "Success",
+        description: t('deviceInspection.downloadPdf') || "Inspection report downloaded"
+      })
+    } catch (error: any) {
+      toast({
+        title: t('common.error') || "Error",
+        description: error?.message || "Failed to generate inspection report",
+        variant: "destructive"
+      })
+    } finally {
+      setGeneratingInspectionReport(false)
+    }
+  }
+
+  const handleInspectionComplete = () => {
+    setInspectionDialogOpen(false)
+    setInspectionRefreshKey((current) => current + 1)
+    refreshOrder()
+  }
+
   if (loading) {
     return (
       <div className="order-details-container">
@@ -1410,7 +1458,7 @@ export function OrderDetails() {
           </Button>
         )}
       </CardHeader>
-      <CardContent className="space-y-3 pt-3">
+      <CardContent className="space-y-4 pt-3">
         <div className="device-info-card">
           {getDeviceImage(order) ? (
             <img
@@ -1460,117 +1508,687 @@ export function OrderDetails() {
             <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{order.customerNotes}</p>
           </div>
         )}
+
+        <div id="order-device-lock" className="space-y-2 border-t pt-3">
+          <h4 className="font-medium text-sm flex items-center gap-1.5">
+            <Lock className="h-4 w-4 text-blue-600" />
+            {t('orderDetails.deviceLockInformation', 'Device Lock Information')}
+          </h4>
+
+          {order.unlockPattern && order.unlockPattern.length > 0 && (
+            <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-0.5">
+                {t('orderDetails.unlockPattern', 'Unlock Pattern')}
+              </p>
+              <div className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
+                {order.unlockPattern.join(' → ')}
+              </div>
+              <span className="text-xs text-slate-500">({order.unlockPattern.length} {t('orderDetails.dots', 'dots')})</span>
+            </div>
+          )}
+
+          {order.unlockCode && (
+            <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-0.5">
+                {t('orderDetails.unlockCode', 'Unlock Code')}
+              </p>
+              <input
+                type="password"
+                value={order.unlockCode}
+                readOnly
+                className="w-full px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-mono text-xs"
+              />
+            </div>
+          )}
+
+          {order.noLock && (
+            <div className="p-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+              <div className="flex items-center gap-2">
+                <X className="h-3 w-3 text-green-600 dark:text-green-400" />
+                <p className="text-xs font-medium text-green-700 dark:text-green-300">
+                  {t('orderDetails.unlockNoLock', 'Device has no lock')}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {order.unlockConfirmation && order.unlockConfirmation.confirmationStatus && (
+            <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                {t('orderDetails.confirmationStatus', 'Confirmation Status')}
+              </p>
+              <div className="space-y-0.5 text-xs text-slate-600 dark:text-slate-400">
+                <div className="flex items-center gap-2">
+                  {order.unlockConfirmation.confirmationStatus === 'verified' && (
+                    <Badge className="bg-green-100 border-green-300 text-green-800 text-xs px-1.5 py-0">
+                      <CheckCircle className="h-3 w-3 mr-0.5" />
+                      {t('orderDetails.unlockVerified', 'Verified')}
+                    </Badge>
+                  )}
+                  {order.unlockConfirmation.confirmationStatus === 'incorrect' && (
+                    <Badge className="bg-red-100 border-red-300 text-red-800 text-xs px-1.5 py-0">
+                      <AlertCircle className="h-3 w-3 mr-0.5" />
+                      {t('orderDetails.unlockIncorrect', 'Incorrect')}
+                    </Badge>
+                  )}
+                  {order.unlockConfirmation.confirmationStatus === 'unable-to-verify' && (
+                    <Badge variant="outline" className="bg-gray-50 border-gray-300 text-gray-800 text-xs px-1.5 py-0">
+                      <HelpCircle className="h-3 w-3 mr-0.5" />
+                      {t('orderDetails.unlockUnableToVerify', 'Unable to Verify')}
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs">
+                  <span className="font-medium">{t('orderDetails.confirmedBy', 'Confirmed by:')}</span>{' '}
+                  {order.unlockConfirmation.confirmedByName}
+                </p>
+                {order.unlockConfirmation.notes && (
+                  <p className="text-xs">
+                    <span className="font-medium">{t('orderDetails.notes', 'Notes:')}</span>{' '}
+                    {order.unlockConfirmation.notes}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {!order.unlockPattern?.length && !order.unlockCode && !order.noLock && !order.unlockConfirmation?.confirmationStatus && (
+            <div className="bg-muted/50 p-2 rounded-lg text-xs text-muted-foreground">
+              {t('orderDetails.repairInfo.noInformationProvided') || 'No information provided'}
+            </div>
+          )}
+
+          {(user?.role === 'admin' || user?.role === 'staff') && (order.unlockPattern?.length || order.unlockCode || order.noLock || order.unlockConfirmation) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setUnlockConfirmDialogOpen(true)}
+              className="w-full text-xs px-2 h-8"
+            >
+              {order.unlockConfirmation
+                ? t('orderDetails.updateConfirmation', 'Update Confirmation')
+                : t('orderDetails.confirmUnlock', 'Confirm Unlock Information')}
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   )
 
-  const renderDeviceLockInformationCard = () => (
-    <Card id="order-device-lock" className="order-section-card">
+  const renderDeviceInspectionCard = () => (
+    <Card id="order-device-inspection" className="order-section-card">
       <CardHeader className="order-section-header">
         <CardTitle className="order-section-title">
-          <Lock className="h-5 w-5" />
-          {t('orderDetails.deviceLockInformation', 'Device Lock Information')}
+          <FileText className="h-5 w-5" />
+          {t('orderDetails.deviceInspection', 'Device Inspection')}
         </CardTitle>
+        <p className="order-section-description">
+          {t('orderDetails.deviceInspectionInlineHint', 'Start, continue, or review the inspection directly from device details.')}
+        </p>
       </CardHeader>
-      <CardContent className="space-y-2 pt-2">
-        {order.unlockPattern && order.unlockPattern.length > 0 && (
-          <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
-            <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-0.5">
-              {t('orderDetails.unlockPattern', 'Unlock Pattern')}
-            </p>
-            <div className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
-              {order.unlockPattern.join(' → ')}
-            </div>
-            <span className="text-xs text-slate-500">({order.unlockPattern.length} {t('orderDetails.dots', 'dots')})</span>
-          </div>
-        )}
+      <CardContent className="pt-3">
+        <InspectionResultsDisplay
+          key={`inspection-${id}-${inspectionRefreshKey}`}
+          orderId={id!}
+          userRole={user?.role}
+          onStartInspection={() => setInspectionDialogOpen(true)}
+        />
+      </CardContent>
+    </Card>
+  )
 
-        {order.unlockCode && (
-          <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
-            <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-0.5">
-              {t('orderDetails.unlockCode', 'Unlock Code')}
-            </p>
-            <input
-              type="password"
-              value={order.unlockCode}
-              readOnly
-              className="w-full px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-mono text-xs"
-            />
-          </div>
-        )}
-
-        {order.noLock && (
-          <div className="p-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
-            <div className="flex items-center gap-2">
-              <X className="h-3 w-3 text-green-600 dark:text-green-400" />
-              <p className="text-xs font-medium text-green-700 dark:text-green-300">
-                {t('orderDetails.unlockNoLock', 'Device has no lock')}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {order.unlockConfirmation && order.unlockConfirmation.confirmationStatus && (
-          <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
-              {t('orderDetails.confirmationStatus', 'Confirmation Status')}
-            </p>
-            <div className="space-y-0.5 text-xs text-slate-600 dark:text-slate-400">
-              <div className="flex items-center gap-2">
-                {order.unlockConfirmation.confirmationStatus === 'verified' && (
-                  <Badge className="bg-green-100 border-green-300 text-green-800 text-xs px-1.5 py-0">
-                    <CheckCircle className="h-3 w-3 mr-0.5" />
-                    {t('orderDetails.unlockVerified', 'Verified')}
-                  </Badge>
-                )}
-                {order.unlockConfirmation.confirmationStatus === 'incorrect' && (
-                  <Badge className="bg-red-100 border-red-300 text-red-800 text-xs px-1.5 py-0">
-                    <AlertCircle className="h-3 w-3 mr-0.5" />
-                    {t('orderDetails.unlockIncorrect', 'Incorrect')}
-                  </Badge>
-                )}
-                {order.unlockConfirmation.confirmationStatus === 'unable-to-verify' && (
-                  <Badge variant="outline" className="bg-gray-50 border-gray-300 text-gray-800 text-xs px-1.5 py-0">
-                    <HelpCircle className="h-3 w-3 mr-0.5" />
-                    {t('orderDetails.unlockUnableToVerify', 'Unable to Verify')}
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs">
-                <span className="font-medium">{t('orderDetails.confirmedBy', 'Confirmed by:')}</span>{' '}
-                {order.unlockConfirmation.confirmedByName}
-              </p>
-              {order.unlockConfirmation.notes && (
-                <p className="text-xs">
-                  <span className="font-medium">{t('orderDetails.notes', 'Notes:')}</span>{' '}
-                  {order.unlockConfirmation.notes}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {!order.unlockPattern?.length && !order.unlockCode && !order.noLock && !order.unlockConfirmation?.confirmationStatus && (
-          <div className="bg-muted/50 p-2 rounded-lg text-xs text-muted-foreground">
-            {t('orderDetails.repairInfo.noInformationProvided') || 'No information provided'}
-          </div>
-        )}
-
-        {(user?.role === 'admin' || user?.role === 'staff') && (order.unlockPattern?.length || order.unlockCode || order.noLock || order.unlockConfirmation) && (
+  const renderRepairServicesSection = () => (
+    <div className="repair-info-subsection repair-info-subsection-services">
+      <div className="repair-info-subsection-header flex items-start justify-between gap-3">
+        <div>
+          <h4 className="font-medium text-sm flex items-center gap-1.5">
+            <Wrench className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            {t('orderDetails.repairServices')}
+          </h4>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Selected repair work and technician notes for this order.
+          </p>
+        </div>
+        {(user?.role === 'admin' || user?.role === 'staff') && (
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setUnlockConfirmDialogOpen(true)}
-            className="w-full text-xs px-2 h-8"
+            onClick={() => {
+              setEditingService(null)
+              setServiceDialogOpen(true)
+            }}
+            className="text-xs px-2 h-8"
           >
-            {order.unlockConfirmation
-              ? t('orderDetails.updateConfirmation', 'Update Confirmation')
-              : t('orderDetails.confirmUnlock', 'Confirm Unlock Information')}
+            <PlusCircle className="h-3 w-3 mr-1" />
+            {t('orderDetails.addService')}
           </Button>
         )}
-      </CardContent>
-    </Card>
+      </div>
+
+      {repairServices && repairServices.filter((s) => s && s._id).length > 0 ? (
+        <div className="repair-info-subsection-body space-y-2">
+          {repairServices.filter((s) => s && s._id).map((service, index) => (
+            <div key={service._id || `service-${index}`} className="service-list-item">
+              <div className="service-info flex-1">
+                <h4>{service.serviceId?.name || 'Service'}</h4>
+                {service.serviceId?.description && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{service.serviceId.description}</p>
+                )}
+                {service.notes && (
+                  <p className="text-xs text-muted-foreground italic mt-1">{service.notes}</p>
+                )}
+              </div>
+              <div className="service-meta">
+                {service.estimatedTime && (
+                  <span>
+                    <Clock className="h-3 w-3 inline mr-0.5" />
+                    {safeToNumber(service.estimatedTime)} min
+                  </span>
+                )}
+                <span className="service-price">${safeToNumber(service.price).toFixed(2)}</span>
+              </div>
+              {(user?.role === 'admin' || user?.role === 'staff') && (
+                <div className="service-actions">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setEditingService(service)
+                      setServiceDialogOpen(true)
+                    }}
+                    className="order-btn-icon text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => service._id && handleDeleteRepairService(service._id)}
+                    className="order-btn-icon text-red-500 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="repair-info-empty-state bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800 text-center text-muted-foreground">
+          <Wrench className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">{t('orderDetails.noRepairServices')}</p>
+          {(user?.role === 'admin' || user?.role === 'staff') && (
+            <p className="text-xs mt-1">{t('orderDetails.clickToAddService')}</p>
+          )}
+        </div>
+      )}
+    </div>
   )
+
+  const renderAddOnServicesSection = () => (
+    <div className="repair-info-subsection repair-info-subsection-addons">
+      <div className="repair-info-subsection-header flex items-start justify-between gap-3">
+        <div>
+          <h4 className="font-medium text-sm flex items-center gap-1.5">
+            <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            {t('orderDetails.addOnServices')}
+          </h4>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Additional optional services associated with this repair order.
+          </p>
+        </div>
+        {(user?.role === 'admin' || user?.role === 'staff') && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAddAddonDialogOpen(true)}
+            className="text-xs px-2 h-8"
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            {t('orderDetails.addAddOn')}
+          </Button>
+        )}
+      </div>
+
+      {order.addOns && order.addOns.length > 0 ? (
+        <div className="repair-info-subsection-body space-y-2">
+          {order.addOns.map((addOn) => (
+            <div key={addOn._id} className="repair-info-addon-item flex items-center justify-between p-3 border rounded-lg bg-white/50 dark:bg-gray-900/20">
+              <div className="flex items-center gap-2 flex-1">
+                <div className={`w-2 h-2 rounded-full ${
+                  addOn.status === 'completed' ? 'bg-green-500' :
+                  addOn.status === 'in-progress' ? 'bg-blue-500' :
+                  'bg-gray-500'
+                }`} />
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-medium text-sm">{addOn.name}</h4>
+                  <p className="text-xs text-muted-foreground">{addOn.description}</p>
+                  {addOn.estimatedTime && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      <Clock className="h-3 w-3 inline mr-0.5" />
+                      {safeToNumber(addOn.estimatedTime)}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 ml-2">
+                <div className="text-right">
+                  <Badge className={`${getStatusColor(addOn.status)} text-xs px-2 py-0.5`}>
+                    {addOn.status}
+                  </Badge>
+                  <p className="text-xs text-muted-foreground mt-1">+${safeToNumber(addOn.price).toFixed(2)}</p>
+                </div>
+                {(user?.role === 'admin' || user?.role === 'staff') && (
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openEditAddonDialog(addOn)}
+                      className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 h-8 w-8"
+                    >
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openAssignAddonStaffDialog(addOn)}
+                      className="text-green-500 hover:text-green-700 hover:bg-green-50 h-8 w-8"
+                    >
+                      <UserPlus className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveAddon(addOn._id)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="repair-info-empty-state bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800 text-center text-muted-foreground">
+          <Shield className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">{t('orderDetails.noAddOnServices')}</p>
+          {(user?.role === 'admin' || user?.role === 'staff') && (
+            <p className="text-xs mt-1">{t('orderDetails.clickAddAddOn')}</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
+  const renderShopProductsSection = () => (
+    <div className="repair-info-subsection repair-info-subsection-shop-products">
+      <div className="repair-info-subsection-header flex items-start justify-between gap-3">
+        <div>
+          <h4 className="font-medium text-sm flex items-center gap-1.5">
+            <ShoppingCart className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            Shop Products
+          </h4>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Products added from shop inventory for this specific repair order.
+          </p>
+        </div>
+        {(user?.role === 'admin' || user?.role === 'staff') && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShopProductDialogOpen(true)}
+            className="text-xs px-2 h-8"
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            Add Product
+          </Button>
+        )}
+      </div>
+
+      {(order as any).shopProducts && (order as any).shopProducts.length > 0 ? (
+        <div className="repair-info-subsection-body space-y-2">
+          {(order as any).shopProducts.map((shopProduct: any) => {
+            const product = shopProduct.productId;
+            const totalPrice = shopProduct.priceAtOrder * shopProduct.quantity;
+
+            return (
+              <div key={shopProduct._id} className="repair-info-addon-item flex items-center justify-between p-3 border rounded-lg bg-white/50 dark:bg-gray-900/20">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  {product?.images && product.images.length > 0 && (
+                    <img
+                      src={product.images[0]}
+                      alt={product.name}
+                      className="w-14 h-14 object-cover rounded-md flex-shrink-0"
+                    />
+                  )}
+                  <div className="flex-1 space-y-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium text-sm">{product?.name || 'Unknown Product'}</h4>
+                      <Badge variant="outline" className="text-xs px-1.5 py-0">
+                        {product?.category}
+                      </Badge>
+                    </div>
+                    <div className="flex gap-3 text-xs text-muted-foreground flex-wrap">
+                      <div className="flex items-center gap-1">
+                        <span>Brand:</span>
+                        <span className="font-medium text-foreground">{product?.brand || 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span>Price:</span>
+                        <span className="font-medium text-foreground">${shopProduct.priceAtOrder?.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span>Qty:</span>
+                        <Input
+                          type="number"
+                          min="1"
+                          max={product?.stock || 999}
+                          value={shopProduct.quantity}
+                          onChange={(e) => {
+                            const newQty = parseInt(e.target.value) || 1;
+                            if (newQty > 0) {
+                              handleUpdateShopProductQuantity(shopProduct._id, newQty);
+                            }
+                          }}
+                          className="w-16 h-7 text-xs"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span>Total:</span>
+                        <span className="font-bold text-foreground">${totalPrice.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>
+                        Added: {new Date(shopProduct.addedAt).toLocaleDateString()}
+                      </span>
+                      {shopProduct.addedBy && (
+                        <span>
+                          By: {shopProduct.addedBy.name}
+                        </span>
+                      )}
+                      {product?.stock !== undefined && (
+                        <Badge variant={product.stock > 10 ? 'default' : product.stock > 0 ? 'secondary' : 'destructive'} className="text-xs px-1.5 py-0">
+                          Stock: {product.stock}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleRemoveShopProduct(shopProduct._id)}
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 ml-2 flex-shrink-0"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="repair-info-empty-state bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800 text-center text-muted-foreground">
+          <ShoppingCart className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">No shop products added</p>
+          {(user?.role === 'admin' || user?.role === 'staff') && (
+            <p className="text-xs mt-1">Click "Add Product" to add products from the shop to this order</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
+  const renderEPartsCard = () => {
+    if (!isStaffOrAdmin) {
+      return null
+    }
+
+    return (
+      <Card id="order-eparts" className="order-section-card">
+        <CardHeader className="order-section-header">
+          <CardTitle className="order-section-title">
+            <Wrench className="h-5 w-5" />
+            {t('orderDetails.electronicParts')}
+          </CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setEPartDialogOpen(true)}
+            className="text-xs px-2 h-8"
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            {t('orderDetails.addEPart')}
+          </Button>
+        </CardHeader>
+        <CardContent className="pt-3">
+          {(order as any).eParts && (order as any).eParts.length > 0 ? (
+            <div className="space-y-2">
+              {(order as any).eParts.map((ePart: any) => {
+                const version = ePart.partId?.versions?.find((v: any) => v._id === ePart.versionId)
+
+                return (
+                  <div key={ePart._id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-medium text-sm">{ePart.partId?.itemName || 'Unknown Part'}</h4>
+                        {version && (
+                          <Badge className={`${getVersionTypeColor(version.versionType)} text-xs px-2 py-0.5`}>
+                            {version.versionType.toUpperCase()}
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className={`text-xs px-2 py-0.5 ${
+                          ePart.status === 'used' ? 'bg-green-50 text-green-700' :
+                          ePart.status === 'allocated' ? 'bg-blue-50 text-blue-700' :
+                          'bg-gray-50 text-gray-700'
+                        }`}>
+                          {ePart.status}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {ePart.partId?.itemDescription || 'No description available'}
+                      </p>
+                      <div className="flex gap-3 mt-1 text-xs flex-wrap">
+                        <span className="text-muted-foreground">
+                          SKU: <span className="font-medium text-foreground">{ePart.partId?.sku || 'N/A'}</span>
+                        </span>
+                        <span className="text-muted-foreground">
+                          Qty: <span className="font-medium text-foreground">{ePart.quantity}</span>
+                        </span>
+                        {version && (
+                          <span className="text-muted-foreground">
+                            Price: <span className="font-medium text-foreground">${version.sellingPrice?.toFixed(2) || '0.00'}</span>
+                          </span>
+                        )}
+                        <span className="text-muted-foreground">
+                          Assigned: <span className="font-medium text-foreground">
+                            {new Date(ePart.assignedAt).toLocaleDateString()}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveEPart(ePart._id)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 ml-2"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="text-center text-muted-foreground py-6">
+              <Wrench className="h-10 w-10 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">{t('orderDetails.noElectronicParts')}</p>
+              <p className="text-xs mt-1">{t('orderDetails.clickAddEPart')}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const renderRepairProgressCard = () => {
+    const progressValue = Math.max(0, Math.min(100, safeToNumber(order.progress)))
+    const progressLabel =
+      progressValue >= 100 ? 'Completed' :
+      progressValue >= 75 ? 'Quality Check' :
+      progressValue >= 50 ? 'Repair in Progress' :
+      progressValue >= 25 ? 'Diagnostic Assessment' :
+      'Order Received'
+
+    const progressSteps = progressTimeline?.stages?.length
+      ? progressTimeline.stages.map((stage: any, index: number) => ({
+          key: stage.name || `stage-${index}`,
+          label: stage.name || `Stage ${index + 1}`,
+          completed: Boolean(stage.completed) || index < (progressTimeline.currentStage ?? 0),
+          active: index === (progressTimeline.currentStage ?? 0),
+        }))
+      : [
+          { key: 'received', label: 'Order Received', completed: true, active: progressValue < 25 },
+          { key: 'diagnostic', label: 'Diagnostic Assessment', completed: progressValue >= 25, active: progressValue >= 25 && progressValue < 50 },
+          { key: 'repair', label: 'Repair in Progress', completed: progressValue >= 50, active: progressValue >= 50 && progressValue < 75 },
+          { key: 'quality', label: 'Quality Check', completed: progressValue >= 75, active: progressValue >= 75 && progressValue < 100 },
+          { key: 'pickup', label: 'Ready for Pickup', completed: progressValue >= 100, active: progressValue >= 100 },
+        ]
+
+    return (
+      <Card id="order-progress" className="order-section-card order-repair-progress-card">
+        <CardHeader className="order-section-header">
+          <CardTitle className="order-section-title">
+            <Clock className="h-5 w-5" />
+            {t('orderDetails.repairProgress')}
+          </CardTitle>
+          <p className="order-section-description">
+            Clear overview of the current order status and remaining repair steps.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Current Status</p>
+              <div className="mt-1 flex items-center gap-2 flex-wrap">
+                <Badge className={`${getStatusColor(order.status)} text-xs px-2 py-0.5`}>
+                  {order.status.replace('-', ' ')}
+                </Badge>
+                <span className="text-sm font-semibold">{progressLabel}</span>
+              </div>
+            </div>
+            <div className="text-left lg:text-right">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Completion</p>
+              <p className="text-2xl font-bold text-foreground">{progressValue}%</p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Progress value={progressValue} className="h-3" />
+            <div className="flex flex-col gap-1 text-xs text-muted-foreground md:flex-row md:items-center md:justify-between">
+              <span>{t('orderDetails.currentProgress')}</span>
+              {order.estimatedCompletion && order.status !== 'completed' ? (
+                <span>
+                  {t('orderDetails.estimatedCompletion')}: {new Date(order.estimatedCompletion).toLocaleDateString()}
+                </span>
+              ) : (
+                <span>Updated: {lastUpdate}</span>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-2 md:grid-cols-5">
+            {progressSteps.map((step: any) => (
+              <div
+                key={step.key}
+                className={`rounded-lg border px-3 py-2 text-xs ${
+                  step.completed
+                    ? 'border-green-200 bg-green-50 text-green-900'
+                    : step.active
+                    ? 'border-blue-200 bg-blue-50 text-blue-900'
+                    : 'border-slate-200 bg-slate-50 text-slate-500'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold ${
+                    step.completed
+                      ? 'bg-green-500 text-white'
+                      : step.active
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {step.completed ? '✓' : step.active ? '•' : '○'}
+                  </span>
+                  <span className="font-medium leading-tight">{step.label}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const renderWorkflowsCard = () => {
+    if (!isStaffOrAdmin) {
+      return null
+    }
+
+    return (
+      <Card id="order-workflows" className="order-section-card">
+        <CardHeader className="order-section-header">
+          <CardTitle className="order-section-title">
+            <CheckCircle className="h-5 w-5" />
+            {t('orderDetails.workflows')}
+          </CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setWorkflowDialogOpen(true)}
+            className="text-xs px-2 h-8"
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            {t('orderDetails.assignWorkflow')}
+          </Button>
+        </CardHeader>
+        {workflows.length > 0 && (
+          <CardDescription className="text-xs mt-1 px-4">
+            {workflows.length} workflow{workflows.length !== 1 ? 's' : ''} assigned to this order
+          </CardDescription>
+        )}
+        <CardContent className="pt-3">
+          {workflows.length > 0 ? (
+            <div className="grid gap-3 md:grid-cols-1 lg:grid-cols-2">
+              {workflows.map((workflow: any) => (
+                <WorkflowCard
+                  key={workflow._id}
+                  workflow={workflow}
+                  orderId={id!}
+                  onDelete={handleDeleteWorkflow}
+                  onStart={handleStartWorkflow}
+                  onPause={handlePauseWorkflow}
+                  onResume={handleResumeWorkflow}
+                  isDeleting={deletingWorkflowId === workflow._id}
+                  isActionInProgress={
+                    workflowActionInProgress?.workflowId === workflow._id
+                  }
+                  actionInProgressType={workflowActionInProgress?.action}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center text-muted-foreground py-6">
+              <CheckCircle className="h-10 w-10 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">{t('orderDetails.noWorkflowsAssigned')}</p>
+              <p className="text-xs mt-1">{t('orderDetails.clickAssignWorkflow')}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <div className={`order-details-container ${isStaffOrAdmin ? 'admin-order-workspace' : ''}`}>
@@ -1694,6 +2312,12 @@ export function OrderDetails() {
         {/* Main Content */}
         <div className="order-main-content space-y-4">
           <div className={`order-nested-block order-nested-top-grid ${isStaffOrAdmin ? 'is-admin-nested' : ''}`}>
+          {renderDeviceInformationCard()}
+          {renderDeviceInspectionCard()}
+          {renderEPartsCard()}
+          {renderRepairProgressCard()}
+          {renderWorkflowsCard()}
+
           {/* Additional Repair Information - Always visible */}
           <Card id="order-repair-info" className="order-section-card border-2 border-amber-300 dark:border-amber-700 order-card-repair-info">
             <CardHeader className="order-section-header bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40">
@@ -1874,90 +2498,15 @@ export function OrderDetails() {
                     </p>
                   </div>
                 </div>
+
+                {renderRepairServicesSection()}
+
+                {renderAddOnServicesSection()}
+
+                {renderShopProductsSection()}
               </div>
             </CardContent>
           </Card>
-
-          {/* Customer Information */}
-          <Card id="order-customer" className="order-section-card">
-            <CardHeader className="order-section-header">
-              <CardTitle className="order-section-title">
-                <User className="h-5 w-5" />
-                {t('orderDetails.customerInformation')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="customer-info-card">
-                <Avatar className="avatar w-16 h-16">
-                  <AvatarImage src={customer.avatar} />
-                  <AvatarFallback className="text-lg">
-                    {customerInitials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="details flex-1">
-                  <h3>{customer.name}</h3>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                    <Mail className="h-3 w-3" />
-                    {customer.email}
-                  </p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                    <Phone className="h-3 w-3" />
-                    {customer.phone || '-'}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {t('orderDetails.customerSince')} {customerSinceText}
-                  </p>
-                </div>
-              </div>
-
-              {/* Address Information */}
-              {customer.address && (
-                <div className="bg-muted/50 p-3 rounded-lg">
-                  <h4 className="font-medium mb-1 flex items-center gap-1 text-xs">
-                    <Home className="h-3 w-3" />
-                    {t('orderDetails.address')}
-                  </h4>
-                  <div className="text-xs text-muted-foreground space-y-0.5">
-                    <p>{customer.address.street}</p>
-                    <p>{customer.address.city}, {customer.address.state} {customer.address.zipCode}</p>
-                    <p>{customer.address.country}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Payment Methods */}
-              {customer.paymentMethods && customer.paymentMethods.length > 0 && (
-                <div className="bg-muted/50 p-3 rounded-lg">
-                  <h4 className="font-medium mb-1 flex items-center gap-1 text-xs">
-                    <CreditCard className="h-3 w-3" />
-                    {t('orderDetails.paymentMethods')}
-                  </h4>
-                  <div className="space-y-1">
-                    {customer.paymentMethods.map((method) => (
-                      <div key={`${method.type}-${method.last4}`} className="flex items-center justify-between text-xs">
-                        <span className="capitalize">{method.type} ending in {method.last4}</span>
-                        <div className="flex items-center gap-1">
-                          <span className="text-muted-foreground">
-                            {method.expiryMonth}/{method.expiryYear}
-                          </span>
-                          {method.isDefault && (
-                            <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{t('orderDetails.default')}</Badge>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <div id="order-device-inspection">
-            <InspectionResultsDisplay orderId={id!} userRole={user?.role} />
-          </div>
-
-          {renderDeviceInformationCard()}
-          {renderDeviceLockInformationCard()}
 
           {/* Quick Actions */}
           <Card id="order-quick-actions" className="order-section-card order-quick-actions-card">
@@ -1967,7 +2516,7 @@ export function OrderDetails() {
                 Quick Actions
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-1 pt-2">
+            <CardContent className="space-y-4 pt-2">
               {isStaffOrAdmin ? (
                 <>
                   <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => setStatusDropdownOpen(true)}>
@@ -1990,7 +2539,7 @@ export function OrderDetails() {
                     <PlusCircle className="h-3 w-3 mr-1" />
                     Add Repair Service
                   </Button>
-                  <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => scrollToSection('order-messages')}>
+                  <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => scrollToSection('order-quick-actions-communication')}>
                     <MessageSquare className="h-3 w-3 mr-1" />
                     Open Messages
                   </Button>
@@ -2011,83 +2560,94 @@ export function OrderDetails() {
                   </Button>
                 </>
               )}
-            </CardContent>
-          </Card>
 
-          {/* Order Summary Card - Moved from Sidebar */}
-          <Card id="order-summary" className="order-section-card">
-            <CardHeader className="order-section-header">
-              <CardTitle className="order-section-title">
-                <DollarSign className="h-5 w-5" />
-                {t('orderDetails.orderSummary')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-3">
-              <div className="space-y-1">
-                {order.services && order.services.length > 0 ? (
-                  order.services.map((service) => (
-                    <div key={service._id} className="flex justify-between text-xs">
-                      <span>Service #{service._id.substring(0, 8)}</span>
-                      <span>${safeToNumber(service.price).toFixed(2)}</span>
+              <div className="border-t pt-3 space-y-3">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-blue-600" />
+                  <h4 className="font-medium text-sm">{t('orderDetails.customerInformation')}</h4>
+                </div>
+
+                <div className="p-3 rounded-lg border bg-muted/30">
+                  <div className="flex items-start gap-3">
+                    <Avatar className="w-10 h-10">
+                      <AvatarImage src={customer.avatar} />
+                      <AvatarFallback className="text-xs">
+                        {customerInitials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm">{customer.name}</p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 break-all">
+                        <Mail className="h-3 w-3" />
+                        {customer.email}
+                      </p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                        <Phone className="h-3 w-3" />
+                        {customer.phone || '-'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t('orderDetails.customerSince')} {customerSinceText}
+                      </p>
                     </div>
-                  ))
-                ) : (
-                  <div className="flex justify-between text-xs">
-                    <span>No services</span>
-                    <span>$0</span>
+                  </div>
+
+                  {customer.address && (
+                    <div className="mt-3 pt-3 border-t">
+                      <p className="text-xs font-medium flex items-center gap-1">
+                        <Home className="h-3 w-3" />
+                        {t('orderDetails.address')}
+                      </p>
+                      <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                        <p>{customer.address.street}</p>
+                        <p>{customer.address.city}, {customer.address.state} {customer.address.zipCode}</p>
+                        <p>{customer.address.country}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {customer.paymentMethods && customer.paymentMethods.length > 0 && (
+                    <div className="mt-3 pt-3 border-t">
+                      <p className="text-xs font-medium flex items-center gap-1 mb-1">
+                        <CreditCard className="h-3 w-3" />
+                        {t('orderDetails.paymentMethods')}
+                      </p>
+                      <div className="space-y-1">
+                        {customer.paymentMethods.slice(0, 2).map((method) => (
+                          <div key={`${method.type}-${method.last4}`} className="flex items-center justify-between text-xs">
+                            <span className="capitalize">{method.type} ending in {method.last4}</span>
+                            {method.isDefault && (
+                              <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{t('orderDetails.default')}</Badge>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div id="order-quick-actions-communication" className="border-t pt-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4 text-blue-600" />
+                    <h4 className="font-medium text-sm">Customer Communication</h4>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Manage customer feedback, requests, and quick follow-ups in one place.
+                </p>
+                {id && (
+                  <div className="rounded-lg border p-2 bg-background">
+                    <CommunicationPanel
+                      orderId={id}
+                      inspectionId={order?._id}
+                    />
                   </div>
                 )}
-                {order.addOns && order.addOns.map((addOn) => (
-                  <div key={addOn._id} className="flex justify-between text-xs">
-                    <span>{addOn.name}</span>
-                    <span>${safeToNumber(addOn.price).toFixed(2)}</span>
-                  </div>
-                ))}
-                {(order as any).shopProducts && (order as any).shopProducts.map((shopProduct: any) => (
-                  <div key={shopProduct._id} className="flex justify-between text-xs">
-                    <span>{shopProduct.productId?.name || 'Product'} x{shopProduct.quantity}</span>
-                    <span>${(shopProduct.priceAtOrder * shopProduct.quantity).toFixed(2)}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="border-t pt-1 mt-1 flex justify-between font-semibold text-sm">
-                <span>Total</span>
-                <span>${safeToNumber(order.totalCost).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-xs mt-2">
-                <span>Payment Status</span>
-                <Badge className={`${getPaymentStatusColor(order.paymentStatus)} text-xs px-2 py-0.5`}>
-                  {order.paymentStatus}
-                </Badge>
               </div>
             </CardContent>
           </Card>
 
-          {/* Customer Communication Panel - Moved from Sidebar */}
-          {id && (
-            <div id="order-communication">
-              <Card className="border-l-4 border-l-blue-500 order-section-card">
-                <CardHeader className="order-section-header">
-                  <CardTitle className="order-section-title flex items-center gap-2">
-                    <MessageSquare className="w-5 h-5" />
-                    Customer Communication
-                  </CardTitle>
-                  <CardDescription className="order-section-description">
-                    Manage customer feedback, requests, and quick actions
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-3">
-                  <CommunicationPanel
-                    orderId={id}
-                    inspectionId={order?._id}
-                  />
-                </CardContent>
-              </Card>
-            </div>
-          )}
-          </div>
-
-          <div className={`order-nested-block order-nested-ops-grid ${isStaffOrAdmin ? 'is-admin-nested' : ''}`}>
           {/* Assigned Staff - Only visible to admin/staff */}
           {isStaffOrAdmin && (
           <Card id="order-staff" className="order-section-card">
@@ -2103,8 +2663,8 @@ export function OrderDetails() {
                       {t('orderDetails.assignStaff')}
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
+                  <DialogContent className="order-dialog-content sm:max-w-md">
+                    <DialogHeader className="order-dialog-header">
                       <DialogTitle className="text-base">{t('orderDetails.assignStaffToOrder')}</DialogTitle>
                       <DialogDescription className="text-xs">
                         {t('orderDetails.selectStaffMembers')}
@@ -2140,7 +2700,6 @@ export function OrderDetails() {
                                   </Badge>
                                 )}
                               </div>
-                              {/* Workload Information */}
                               {staff.currentWorkload && (
                                 <div className="mt-2 text-xs text-muted-foreground space-y-1">
                                   <div className="flex items-center justify-between gap-2">
@@ -2204,10 +2763,13 @@ export function OrderDetails() {
           </Card>
           )}
 
+          </div>
+
+          <div className={`order-nested-block order-nested-ops-grid ${isStaffOrAdmin ? 'is-admin-nested' : ''}`}>
           {/* Device Change Dialog */}
           <Dialog open={deviceChangeDialogOpen} onOpenChange={setDeviceChangeDialogOpen}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
+            <DialogContent className="order-dialog-content max-w-md">
+              <DialogHeader className="order-dialog-header">
                 <DialogTitle>{t('orderDetails.changeDevice') || 'Change Device Information'}</DialogTitle>
                 <DialogDescription>
                   {t('orderDetails.changeDeviceDescription') || 'Search and select a device or manually enter device information'}
@@ -2313,519 +2875,104 @@ export function OrderDetails() {
             </DialogContent>
           </Dialog>
 
-          {/* Unlock Information Display - Prominently display device unlock details */}
-          {(order?.unlockPattern?.length > 0 || order?.unlockCode || order?.noLock) && (
-            <>
-              <UnlockInformationDisplay
-                unlockPattern={order?.unlockPattern}
-                unlockCode={order?.unlockCode}
-                noLock={order?.noLock}
-                unlockConfirmation={order?.unlockConfirmation}
-                onConfirmClick={() => setUnlockConfirmDialogOpen(true)}
-                canConfirm={user?.role === 'admin' || user?.role === 'staff'}
-              />
-              <ConfirmUnlockDialog
-                isOpen={unlockConfirmDialogOpen}
-                onOpenChange={setUnlockConfirmDialogOpen}
-                onConfirm={handleConfirmUnlock}
-                unlockPattern={order?.unlockPattern}
-                unlockCode={order?.unlockCode}
-                noLock={order?.noLock}
-                isLoading={confirmingUnlock}
-                orderId={id}
-              />
-            </>
+          {(order?.unlockPattern?.length > 0 || order?.unlockCode || order?.noLock || order?.unlockConfirmation?.confirmationStatus) && (
+            <ConfirmUnlockDialog
+              isOpen={unlockConfirmDialogOpen}
+              onOpenChange={setUnlockConfirmDialogOpen}
+              onConfirm={handleConfirmUnlock}
+              unlockPattern={order?.unlockPattern}
+              unlockCode={order?.unlockCode}
+              noLock={order?.noLock}
+              isLoading={confirmingUnlock}
+              orderId={id}
+            />
           )}
 
-          {/* Repair Services - Visible to all users */}
-          <Card id="order-repair-services" className="order-section-card">
-            <CardHeader className="order-section-header">
-              <CardTitle className="order-section-title">
-                <Wrench className="h-5 w-5" />
-                {t('orderDetails.repairServices')}
-              </CardTitle>
-              {(user?.role === 'admin' || user?.role === 'staff') && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setEditingService(null)
-                    setServiceDialogOpen(true)
-                  }}
-                  className="text-xs px-2 h-8"
-                >
-                  <PlusCircle className="h-3 w-3 mr-1" />
-                  {t('orderDetails.addService')}
-                </Button>
-              )}
-            </CardHeader>
-            <CardContent className="pt-3">
-              {repairServices && repairServices.filter((s) => s && s._id).length > 0 ? (
-                <div className="space-y-2">
-                  {repairServices.filter((s) => s && s._id).map((service, index) => (
-                    <div key={service._id || `service-${index}`} className="service-list-item">
-                      <div className="service-info flex-1">
-                        <h4>{service.serviceId?.name || 'Service'}</h4>
-                        {service.serviceId?.description && (
-                          <p className="text-xs text-muted-foreground mt-0.5">{service.serviceId.description}</p>
-                        )}
-                        {service.notes && (
-                          <p className="text-xs text-muted-foreground italic mt-1">{service.notes}</p>
-                        )}
-                      </div>
-                      <div className="service-meta">
-                        {service.estimatedTime && (
-                          <span>
-                            <Clock className="h-3 w-3 inline mr-0.5" />
-                            {safeToNumber(service.estimatedTime)} min
-                          </span>
-                        )}
-                        <span className="service-price">${safeToNumber(service.price).toFixed(2)}</span>
-                      </div>
-                      {(user?.role === 'admin' || user?.role === 'staff') && (
-                        <div className="service-actions">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setEditingService(service)
-                              setServiceDialogOpen(true)
-                            }}
-                            className="order-btn-icon text-blue-500 hover:text-blue-700 hover:bg-blue-50"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => service._id && handleDeleteRepairService(service._id)}
-                            className="order-btn-icon text-red-500 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="order-empty-state">
-                  <Wrench className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                  <h3>{t('orderDetails.noRepairServices')}</h3>
-                  {(user?.role === 'admin' || user?.role === 'staff') && (
-                    <p className="text-xs mt-1">{t('orderDetails.clickToAddService')}</p>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Add-On Services - Visible to all users */}
-          <Card id="order-addons" className="order-section-card">
-            <CardHeader className="order-section-header">
-              <CardTitle className="order-section-title">
-                <Shield className="h-5 w-5" />
-                {t('orderDetails.addOnServices')}
-              </CardTitle>
-              {(user?.role === 'admin' || user?.role === 'staff') && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setAddAddonDialogOpen(true)}
-                  className="text-xs px-2 h-8"
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  {t('orderDetails.addAddOn')}
-                </Button>
-              )}
-            </CardHeader>
-            <CardContent className="pt-3">
-              {order.addOns && order.addOns.length > 0 ? (
-                <div className="space-y-2">
-                  {order.addOns.map((addOn) => (
-                    <div key={addOn._id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-2 flex-1">
-                        <div className={`w-2 h-2 rounded-full ${
-                          addOn.status === 'completed' ? 'bg-green-500' :
-                          addOn.status === 'in-progress' ? 'bg-blue-500' :
-                          'bg-gray-500'
-                        }`} />
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-sm">{addOn.name}</h4>
-                          <p className="text-xs text-muted-foreground">{addOn.description}</p>
-                          {addOn.estimatedTime && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              <Clock className="h-3 w-3 inline mr-0.5" />
-                              {safeToNumber(addOn.estimatedTime)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 ml-2">
-                        <div className="text-right">
-                          <Badge className={`${getStatusColor(addOn.status)} text-xs px-2 py-0.5`}>
-                            {addOn.status}
-                          </Badge>
-                          <p className="text-xs text-muted-foreground mt-1">+${safeToNumber(addOn.price).toFixed(2)}</p>
-                        </div>
-                        {(user?.role === 'admin' || user?.role === 'staff') && (
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openEditAddonDialog(addOn)}
-                              className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 h-8 w-8"
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openAssignAddonStaffDialog(addOn)}
-                              className="text-green-500 hover:text-green-700 hover:bg-green-50 h-8 w-8"
-                            >
-                              <UserPlus className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleRemoveAddon(addOn._id)}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center text-muted-foreground py-6">
-                  <Shield className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">{t('orderDetails.noAddOnServices')}</p>
-                  {(user?.role === 'admin' || user?.role === 'staff') && (
-                    <p className="text-xs mt-1">{t('orderDetails.clickAddAddOn')}</p>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-          </div>
-
-          {/* EParts - Only visible to admin/staff */}
-          <div className={`order-nested-block order-nested-admin-grid ${isStaffOrAdmin ? 'is-admin-nested' : ''}`}>
-          {isStaffOrAdmin && (
-            <Card id="order-eparts" className="order-section-card">
-              <CardHeader className="order-section-header">
-                <CardTitle className="order-section-title">
-                  <Wrench className="h-5 w-5" />
-                  {t('orderDetails.electronicParts')}
-                </CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEPartDialogOpen(true)}
-                  className="text-xs px-2 h-8"
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  {t('orderDetails.addEPart')}
-                </Button>
-              </CardHeader>
-              <CardContent className="pt-3">
-                {(order as any).eParts && (order as any).eParts.length > 0 ? (
-                  <div className="space-y-2">
-                    {(order as any).eParts.map((ePart: any) => {
-                      const version = ePart.partId?.versions?.find((v: any) => v._id === ePart.versionId);
-
-                      return (
-                        <div key={ePart._id} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-medium text-sm">{ePart.partId?.itemName || 'Unknown Part'}</h4>
-                              {version && (
-                                <Badge className={`${getVersionTypeColor(version.versionType)} text-xs px-2 py-0.5`}>
-                                  {version.versionType.toUpperCase()}
-                                </Badge>
-                              )}
-                              <Badge variant="outline" className={`text-xs px-2 py-0.5 ${
-                                ePart.status === 'used' ? 'bg-green-50 text-green-700' :
-                                ePart.status === 'allocated' ? 'bg-blue-50 text-blue-700' :
-                                'bg-gray-50 text-gray-700'
-                              }`}>
-                                {ePart.status}
-                              </Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {ePart.partId?.itemDescription || 'No description available'}
-                            </p>
-                            <div className="flex gap-3 mt-1 text-xs flex-wrap">
-                              <span className="text-muted-foreground">
-                                SKU: <span className="font-medium text-foreground">{ePart.partId?.sku || 'N/A'}</span>
-                              </span>
-                              <span className="text-muted-foreground">
-                                Qty: <span className="font-medium text-foreground">{ePart.quantity}</span>
-                              </span>
-                              {version && (
-                                <span className="text-muted-foreground">
-                                  Price: <span className="font-medium text-foreground">${version.sellingPrice?.toFixed(2) || '0.00'}</span>
-                                </span>
-                              )}
-                              <span className="text-muted-foreground">
-                                Assigned: <span className="font-medium text-foreground">
-                                  {new Date(ePart.assignedAt).toLocaleDateString()}
-                                </span>
-                              </span>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemoveEPart(ePart._id)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 ml-2"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center text-muted-foreground py-6">
-                    <Wrench className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">{t('orderDetails.noElectronicParts')}</p>
-                    <p className="text-xs mt-1">{t('orderDetails.clickAddEPart')}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Shop Products - Only visible to admin/staff */}
-          {isStaffOrAdmin && (
-            <Card id="order-shop-products" className="order-section-card">
-              <CardHeader className="order-section-header">
-                <CardTitle className="order-section-title">
-                  <ShoppingCart className="h-5 w-5" />
-                  Shop Products
-                </CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShopProductDialogOpen(true)}
-                  className="text-xs px-2 h-8"
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  Add Product
-                </Button>
-              </CardHeader>
-              <CardContent className="pt-3">
-                {(order as any).shopProducts && (order as any).shopProducts.length > 0 ? (
-                  <div className="space-y-2">
-                    {(order as any).shopProducts.map((shopProduct: any) => {
-                      const product = shopProduct.productId;
-                      const totalPrice = shopProduct.priceAtOrder * shopProduct.quantity;
-
-                      return (
-                        <div key={shopProduct._id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50">
-                          <div className="flex items-start gap-3 flex-1 min-w-0">
-                            {product?.images && product.images.length > 0 && (
-                              <img
-                                src={product.images[0]}
-                                alt={product.name}
-                                className="w-14 h-14 object-cover rounded-md flex-shrink-0"
-                              />
-                            )}
-                            <div className="flex-1 space-y-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-medium text-sm">{product?.name || 'Unknown Product'}</h4>
-                                <Badge variant="outline" className="text-xs px-1.5 py-0">
-                                  {product?.category}
-                                </Badge>
-                              </div>
-                              <div className="flex gap-3 text-xs text-muted-foreground flex-wrap">
-                                <div className="flex items-center gap-1">
-                                  <span>Brand:</span>
-                                  <span className="font-medium text-foreground">{product?.brand || 'N/A'}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span>Price:</span>
-                                  <span className="font-medium text-foreground">${shopProduct.priceAtOrder?.toFixed(2)}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span>Qty:</span>
-                                  <Input
-                                    type="number"
-                                    min="1"
-                                    max={product?.stock || 999}
-                                    value={shopProduct.quantity}
-                                    onChange={(e) => {
-                                      const newQty = parseInt(e.target.value) || 1;
-                                      if (newQty > 0) {
-                                        handleUpdateShopProductQuantity(shopProduct._id, newQty);
-                                      }
-                                    }}
-                                    className="w-16 h-7 text-xs"
-                                  />
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span>Total:</span>
-                                  <span className="font-bold text-foreground">${totalPrice.toFixed(2)}</span>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <span>
-                                  Added: {new Date(shopProduct.addedAt).toLocaleDateString()}
-                                </span>
-                                {shopProduct.addedBy && (
-                                  <span>
-                                    By: {shopProduct.addedBy.name}
-                                  </span>
-                                )}
-                                {product?.stock !== undefined && (
-                                  <Badge variant={product.stock > 10 ? 'default' : product.stock > 0 ? 'secondary' : 'destructive'} className="text-xs px-1.5 py-0">
-                                    Stock: {product.stock}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemoveShopProduct(shopProduct._id)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 ml-2 flex-shrink-0"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center text-muted-foreground py-6">
-                    <ShoppingCart className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No shop products added</p>
-                    <p className="text-xs mt-1">Click "Add Product" to add products from the shop to this order</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Workflows - Only visible to admin/staff */}
-          {isStaffOrAdmin && (
-            <Card id="order-workflows" className="order-section-card">
-              <CardHeader className="order-section-header">
-                <CardTitle className="order-section-title">
-                  <CheckCircle className="h-5 w-5" />
-                  {t('orderDetails.workflows')}
-                </CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setWorkflowDialogOpen(true)}
-                  className="text-xs px-2 h-8"
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  {t('orderDetails.assignWorkflow')}
-                </Button>
-              </CardHeader>
-              {workflows.length > 0 && (
-                <CardDescription className="text-xs mt-1 px-4">
-                  {workflows.length} workflow{workflows.length !== 1 ? 's' : ''} assigned to this order
-                </CardDescription>
-              )}
-              <CardContent className="pt-3">
-                {workflows.length > 0 ? (
-                  <div className="grid gap-3 md:grid-cols-1 lg:grid-cols-2">
-                    {workflows.map((workflow: any) => (
-                      <WorkflowCard
-                        key={workflow._id}
-                        workflow={workflow}
-                        orderId={id!}
-                        onDelete={handleDeleteWorkflow}
-                        onStart={handleStartWorkflow}
-                        onPause={handlePauseWorkflow}
-                        onResume={handleResumeWorkflow}
-                        isDeleting={deletingWorkflowId === workflow._id}
-                        isActionInProgress={
-                          workflowActionInProgress?.workflowId === workflow._id
-                        }
-                        actionInProgressType={workflowActionInProgress?.action}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center text-muted-foreground py-6">
-                    <CheckCircle className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">{t('orderDetails.noWorkflowsAssigned')}</p>
-                    <p className="text-xs mt-1">{t('orderDetails.clickAssignWorkflow')}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Progress Timeline */}
-          <Card id="order-progress" className="order-section-card">
-            <CardHeader className="order-section-header">
-              <CardTitle className="order-section-title">
-                <Clock className="h-5 w-5" />
-                {t('orderDetails.repairProgress')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-3">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span>{t('orderDetails.currentProgress')}</span>
-                  <span className="font-semibold text-muted-foreground">{order.progress}%</span>
-                </div>
-                <Progress value={order.progress} className="h-2" />
-                {order.estimatedCompletion && order.status !== 'completed' && (
-                  <p className="text-xs text-muted-foreground">
-                    {t('orderDetails.estimatedCompletion')}: {new Date(order.estimatedCompletion).toLocaleDateString()}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm">{t('orderDetails.repairTimeline')}</h4>
-                <div className="space-y-2">
-                  {[
-                    { step: "Order Received", completed: true, date: order.createdAt },
-                    { step: "Diagnostic Assessment", completed: order.progress >= 25, date: order.createdAt },
-                    { step: "Repair in Progress", completed: order.progress >= 50, date: null },
-                    { step: "Quality Check", completed: order.progress >= 75, date: null },
-                    { step: "Ready for Pickup", completed: order.progress >= 100, date: null }
-                  ].map((step) => (
-                    <div key={step.step} className="flex items-center gap-2">
-                      <div className={`w-3 h-3 rounded-full border-2 flex-shrink-0 ${
-                        step.completed
-                          ? 'bg-green-500 border-green-500'
-                          : 'border-gray-300 bg-background'
-                      }`}>
-                        {step.completed && <CheckCircle className="h-2 w-2 text-white" />}
-                      </div>
-                      <div className="flex-1">
-                        <p className={`font-medium text-sm ${step.completed ? 'text-foreground' : 'text-muted-foreground'}`}>
-                          {step.step}
-                        </p>
-                        {step.date && (
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(step.date).toLocaleString()}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
           </div>
         </div>
       </div>
+
+      {/* Device Inspection Dialog */}
+      {id && order && isStaffOrAdmin && (
+        <Dialog open={inspectionDialogOpen} onOpenChange={setInspectionDialogOpen}>
+          <DialogContent className="order-dialog-content inspection-dialog-content w-[96vw] max-w-[1180px]">
+            <DialogHeader className="order-dialog-header inspection-dialog-header">
+              <div className="inspection-dialog-title-row">
+                <div>
+                  <DialogTitle className="inspection-dialog-title">Device Inspection</DialogTitle>
+                  <DialogDescription className="inspection-dialog-description">
+                    {order.orderNumber ? `Order ${order.orderNumber}` : "Complete the device inspection directly from order details"}
+                  </DialogDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateInspectionReport}
+                  disabled={generatingInspectionReport}
+                  className="inspection-dialog-report-button"
+                >
+                  <Download className="h-3.5 w-3.5 mr-1.5" />
+                  {generatingInspectionReport ? "Generating..." : "Report"}
+                </Button>
+              </div>
+            </DialogHeader>
+
+            <div className="inspection-dialog-grid">
+              <div className="inspection-dialog-form-column">
+                <DeviceInspectionForm
+                  orderId={id}
+                  customerId={(order as any)?.customerId?._id || null}
+                  deviceType={order.deviceType}
+                  deviceBrand={(order as any)?.deviceBrand || ''}
+                  deviceModel={(order as any)?.deviceModel || ''}
+                  onComplete={handleInspectionComplete}
+                />
+              </div>
+
+              <div className="inspection-dialog-side-column">
+                <Card className="order-section-card inspection-dialog-order-card">
+                  <CardHeader className="order-section-header">
+                    <CardTitle className="order-section-title">
+                      <FileText className="h-4 w-4" />
+                      Order Snapshot
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="inspection-dialog-order-content">
+                    <div className="inspection-dialog-meta-item">
+                      <span className="inspection-dialog-meta-label">Order</span>
+                      <span className="inspection-dialog-meta-value">{order.orderNumber || "-"}</span>
+                    </div>
+                    <div className="inspection-dialog-meta-item">
+                      <span className="inspection-dialog-meta-label">Device</span>
+                      <span className="inspection-dialog-meta-value">{order.deviceBrand} {order.deviceModel}</span>
+                    </div>
+                    <div className="inspection-dialog-meta-item">
+                      <span className="inspection-dialog-meta-label">Type</span>
+                      <span className="inspection-dialog-meta-value">{order.deviceType || "-"}</span>
+                    </div>
+                    <div className="inspection-dialog-meta-item">
+                      <span className="inspection-dialog-meta-label">Customer</span>
+                      <span className="inspection-dialog-meta-value">{(order as any)?.customerId?.name || "Guest"}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="order-section-card inspection-dialog-communication-card">
+                  <CardHeader className="order-section-header">
+                    <CardTitle className="order-section-title">
+                      <MessageSquare className="h-4 w-4" />
+                      Customer Communication
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="inspection-dialog-communication-content">
+                    <CommunicationPanel orderId={id} inspectionId={order?._id} />
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* EPart Selection Dialog */}
       {id && (user?.role === 'admin' || user?.role === 'staff') && (
@@ -2839,8 +2986,8 @@ export function OrderDetails() {
 
       {/* Add Add-On Dialog */}
       <Dialog open={addAddonDialogOpen} onOpenChange={setAddAddonDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
+        <DialogContent className="order-dialog-content sm:max-w-[500px]">
+          <DialogHeader className="order-dialog-header">
             <DialogTitle>Add Add-On Service</DialogTitle>
             <DialogDescription>
               Select an existing add-on service or create a custom one
@@ -2953,8 +3100,8 @@ export function OrderDetails() {
 
       {/* Edit Add-On Dialog */}
       <Dialog open={editAddonDialogOpen} onOpenChange={setEditAddonDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
+        <DialogContent className="order-dialog-content sm:max-w-[500px]">
+          <DialogHeader className="order-dialog-header">
             <DialogTitle>Edit Add-On Service</DialogTitle>
             <DialogDescription>
               Update the add-on service details
@@ -3025,8 +3172,8 @@ export function OrderDetails() {
 
       {/* Assign Staff to Add-On Dialog */}
       <Dialog open={assignAddonStaffDialogOpen} onOpenChange={setAssignAddonStaffDialogOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
+        <DialogContent className="order-dialog-content sm:max-w-[400px]">
+          <DialogHeader className="order-dialog-header">
             <DialogTitle>Assign Staff to Add-On</DialogTitle>
             <DialogDescription>
               Select a staff member to handle this add-on service
@@ -3080,8 +3227,8 @@ export function OrderDetails() {
 
       {/* Workflow Assignment Dialog */}
       <Dialog open={workflowDialogOpen} onOpenChange={setWorkflowDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
+        <DialogContent className="order-dialog-content sm:max-w-[600px]">
+          <DialogHeader className="order-dialog-header">
             <DialogTitle>Assign Workflow to Order</DialogTitle>
             <DialogDescription>
               Select a workflow template that matches this order's device type and services
