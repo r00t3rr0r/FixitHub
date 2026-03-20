@@ -31,6 +31,8 @@ interface DeviceInspectionFormProps {
   orderId: string;
   customerId?: string | null;
   deviceType: string;
+  deviceBrand?: string;
+  deviceModel?: string;
   onComplete?: () => void;
 }
 
@@ -38,6 +40,8 @@ export function DeviceInspectionForm({
   orderId,
   customerId,
   deviceType,
+  deviceBrand,
+  deviceModel,
   onComplete,
 }: DeviceInspectionFormProps) {
   const { toast } = useToast();
@@ -125,6 +129,15 @@ export function DeviceInspectionForm({
             setVerificationStatus(insp.modelVerification.verificationStatus);
             setCostDifference(insp.modelVerification.costDifference);
             setModelNotes(insp.modelVerification.notes);
+          } else {
+            // Pre-fill with order's device model for a new inspection
+            // Combine brand and model, but skip placeholder values like 'N/A'
+            const brandPart = deviceBrand && deviceBrand !== 'N/A' ? deviceBrand : '';
+            const orderDeviceModel = [brandPart, deviceModel].filter(Boolean).join(' ');
+            if (orderDeviceModel) {
+              setReportedModel(orderDeviceModel);
+              setActualModel(orderDeviceModel);
+            }
           }
 
           if (insp.identification) {
