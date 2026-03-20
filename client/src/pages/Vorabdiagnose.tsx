@@ -49,7 +49,7 @@ export function Vorabdiagnose() {
               </div>
               <div className="diagnose-info-text">
                 <h4>{t('vorabdiagnose.onsite', 'Vor-Ort-Diagnose')}</h4>
-                <p>{t('vorabdiagnose.visitUs', 'Besuchen Sie eine unserer')}<br /><a href="/about">108 {t('vorabdiagnose.locations', 'Annahmestellen')}</a></p>
+                <p>{t('vorabdiagnose.visitUs', 'Besuchen Sie eine unserer')}<br /><a href="/annahmestellen">108 {t('vorabdiagnose.locations', 'Annahmestellen')}</a></p>
               </div>
             </div>
             <div className="diagnose-info-card">

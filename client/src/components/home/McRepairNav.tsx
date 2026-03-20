@@ -517,7 +517,7 @@ export function McRepairNav() {
               <Phone width={16} height={16} />
               {t('home.topBar.hotline', '0170 123 4567')}
             </a>
-            <a href="/src/McRepair-Design-System/annahmestellen.html">
+            <a href="/annahmestellen">
               <MapPin width={16} height={16} />
               {t('home.topBar.locations', 'Annahmestellen')}
             </a>
