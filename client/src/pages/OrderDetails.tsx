@@ -361,6 +361,13 @@ export function OrderDetails() {
     }
   }, [id, user])
 
+  useEffect(() => {
+    document.body.classList.add('order-details-page')
+    return () => {
+      document.body.classList.remove('order-details-page')
+    }
+  }, [])
+
   // Fetch progress timeline for order
   useEffect(() => {
     const fetchProgressTimeline = async () => {
@@ -2103,8 +2110,8 @@ export function OrderDetails() {
                       {t('orderDetails.assignStaff')}
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
+                  <DialogContent className="order-dialog-content sm:max-w-md">
+                    <DialogHeader className="order-dialog-header">
                       <DialogTitle className="text-base">{t('orderDetails.assignStaffToOrder')}</DialogTitle>
                       <DialogDescription className="text-xs">
                         {t('orderDetails.selectStaffMembers')}
@@ -2206,8 +2213,8 @@ export function OrderDetails() {
 
           {/* Device Change Dialog */}
           <Dialog open={deviceChangeDialogOpen} onOpenChange={setDeviceChangeDialogOpen}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
+            <DialogContent className="order-dialog-content max-w-md">
+              <DialogHeader className="order-dialog-header">
                 <DialogTitle>{t('orderDetails.changeDevice') || 'Change Device Information'}</DialogTitle>
                 <DialogDescription>
                   {t('orderDetails.changeDeviceDescription') || 'Search and select a device or manually enter device information'}
@@ -2839,8 +2846,8 @@ export function OrderDetails() {
 
       {/* Add Add-On Dialog */}
       <Dialog open={addAddonDialogOpen} onOpenChange={setAddAddonDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
+        <DialogContent className="order-dialog-content sm:max-w-[500px]">
+          <DialogHeader className="order-dialog-header">
             <DialogTitle>Add Add-On Service</DialogTitle>
             <DialogDescription>
               Select an existing add-on service or create a custom one
@@ -2953,8 +2960,8 @@ export function OrderDetails() {
 
       {/* Edit Add-On Dialog */}
       <Dialog open={editAddonDialogOpen} onOpenChange={setEditAddonDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
+        <DialogContent className="order-dialog-content sm:max-w-[500px]">
+          <DialogHeader className="order-dialog-header">
             <DialogTitle>Edit Add-On Service</DialogTitle>
             <DialogDescription>
               Update the add-on service details
@@ -3025,8 +3032,8 @@ export function OrderDetails() {
 
       {/* Assign Staff to Add-On Dialog */}
       <Dialog open={assignAddonStaffDialogOpen} onOpenChange={setAssignAddonStaffDialogOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
+        <DialogContent className="order-dialog-content sm:max-w-[400px]">
+          <DialogHeader className="order-dialog-header">
             <DialogTitle>Assign Staff to Add-On</DialogTitle>
             <DialogDescription>
               Select a staff member to handle this add-on service
@@ -3080,8 +3087,8 @@ export function OrderDetails() {
 
       {/* Workflow Assignment Dialog */}
       <Dialog open={workflowDialogOpen} onOpenChange={setWorkflowDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
+        <DialogContent className="order-dialog-content sm:max-w-[600px]">
+          <DialogHeader className="order-dialog-header">
             <DialogTitle>Assign Workflow to Order</DialogTitle>
             <DialogDescription>
               Select a workflow template that matches this order's device type and services
