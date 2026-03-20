@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { MapPin, Phone, Mail, Search, Map, List, Home, ChevronRight, Shield, Clock, MapPinned } from 'lucide-react'
+import { MapPin, Search, Map, List, Home, ChevronRight, Shield, Clock, MapPinned } from 'lucide-react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { McRepairNav } from '@/components/home/McRepairNav'
@@ -151,13 +151,13 @@ export function Annahmestellen() {
       })
 
       if (!('ontouchstart' in window)) {
-        marker.on('mouseover', function () {
+        marker.on('mouseover', () => {
           if (markersRef.current[loc.id] !== marker) return
-          this.setIcon(createPinIcon(loc.id, true))
+          marker.setIcon(createPinIcon(loc.id, true))
         })
-        marker.on('mouseout', function () {
+        marker.on('mouseout', () => {
           if (loc.id === activeLocationId) return
-          this.setIcon(createPinIcon(loc.id, false))
+          marker.setIcon(createPinIcon(loc.id, false))
         })
       }
 
