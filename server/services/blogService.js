@@ -473,6 +473,21 @@ class BlogService {
       throw error;
     }
   }
+
+  static async deletePost(id) {
+    try {
+      console.log('BlogService: Deleting post:', id);
+      const post = await BlogPost.findByIdAndDelete(id);
+      if (!post) {
+        throw new Error('Blog post not found');
+      }
+      console.log('BlogService: Post deleted successfully');
+      return { success: true, message: 'Post deleted successfully' };
+    } catch (error) {
+      console.error('BlogService: Error deleting post:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = BlogService;
