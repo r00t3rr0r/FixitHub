@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { getNotifications } from "@/api/notifications"
+import "./StaffSidebar.css"
 
 interface StaffSidebarProps {
   isCollapsed: boolean
@@ -61,18 +62,17 @@ export function StaffSidebar({ isCollapsed }: StaffSidebarProps) {
     badge?: number
     onClick?: () => void
   }) => {
+    const active = Boolean(to && isActive(to))
+    const label = typeof children === "string" ? children : undefined
+
     const content = (
-      <div className={`flex items-center justify-between w-full px-3 py-2 rounded-lg transition-colors ${
-        to && isActive(to) 
-          ? 'bg-primary text-primary-foreground' 
-          : 'text-foreground hover:bg-accent hover:text-accent-foreground'
-      }`}>
-        <div className="flex items-center space-x-3">
-          <Icon className="h-5 w-5 flex-shrink-0" />
-          {!isCollapsed && <span className="text-sm font-medium">{children}</span>}
+      <div className={`staff-nav-item ${active ? "active" : ""}`} title={isCollapsed ? label : undefined}>
+        <div className="staff-nav-item__content">
+          <Icon className="staff-nav-item__icon" />
+          {!isCollapsed && <span className="staff-nav-item__text">{children}</span>}
         </div>
         {!isCollapsed && badge && badge > 0 && (
-          <Badge variant="secondary" className="ml-auto">
+          <Badge variant="secondary" className="staff-nav-badge border-0 bg-transparent px-0 py-0 shadow-none">
             {badge > 99 ? '99+' : badge}
           </Badge>
         )}
@@ -81,14 +81,14 @@ export function StaffSidebar({ isCollapsed }: StaffSidebarProps) {
 
     if (to) {
       return (
-        <Link to={to} className="block">
+        <Link to={to} className="block" aria-label={label}>
           {content}
         </Link>
       )
     }
 
     return (
-      <button onClick={onClick} className="w-full text-left">
+      <button onClick={onClick} className="w-full text-left" aria-label={label}>
         {content}
       </button>
     )
@@ -111,19 +111,19 @@ export function StaffSidebar({ isCollapsed }: StaffSidebarProps) {
       <CollapsibleTrigger asChild>
         <Button 
           variant="ghost" 
-          className={`w-full justify-between px-3 py-2 h-auto font-medium ${
-            isCollapsed ? 'px-2' : ''
-          }`}
+          className="staff-collapsible-trigger h-auto"
+          title={isCollapsed ? title : undefined}
+          aria-label={title}
         >
-          <div className="flex items-center space-x-3">
-            <Icon className="h-5 w-5 flex-shrink-0" />
-            {!isCollapsed && <span className="text-sm">{title}</span>}
+          <div className="staff-collapsible-trigger__content">
+            <Icon className="staff-collapsible-trigger__icon" />
+            {!isCollapsed && <span className="staff-collapsible-trigger__text">{title}</span>}
           </div>
-          {!isCollapsed && (isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
+          {!isCollapsed && (isOpen ? <ChevronDown className="staff-collapsible-trigger__chevron" /> : <ChevronRight className="staff-collapsible-trigger__chevron" />)}
         </Button>
       </CollapsibleTrigger>
       {!isCollapsed && (
-        <CollapsibleContent className="space-y-1 ml-6">
+        <CollapsibleContent className="staff-collapsible-content space-y-1">
           {children}
         </CollapsibleContent>
       )}
@@ -131,13 +131,13 @@ export function StaffSidebar({ isCollapsed }: StaffSidebarProps) {
   )
 
   return (
-    <nav className="flex flex-col h-full p-4 space-y-1">
+    <nav className={`staff-sidebar ${isCollapsed ? "collapsed" : ""}`}>
       {/* Main Dashboard */}
       <NavItem to="/staff" icon={Home}>
         {t('staff.menu.dashboard')}
       </NavItem>
 
-      <div className="my-2 border-t border-border" />
+      <div className="staff-sidebar__separator" />
 
       {/* Repair Work Section */}
       <CollapsibleSection
@@ -166,7 +166,7 @@ export function StaffSidebar({ isCollapsed }: StaffSidebarProps) {
         {t('staff.menu.schedule')}
       </NavItem>
 
-      <div className="my-2 border-t border-border" />
+      <div className="staff-sidebar__separator" />
 
       {/* Tools & Resources Section */}
       <CollapsibleSection
@@ -186,7 +186,7 @@ export function StaffSidebar({ isCollapsed }: StaffSidebarProps) {
         </NavItem>
       </CollapsibleSection>
 
-      <div className="my-2 border-t border-border" />
+      <div className="staff-sidebar__separator" />
 
       {/* Communication & Profile */}
       <NavItem to="/messages" icon={MessageSquare}>

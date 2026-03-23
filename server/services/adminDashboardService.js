@@ -27,7 +27,49 @@ class AdminDashboardService {
         .limit(limit)
         .lean();
 
+      const bookingIds = bookings.map((booking) => booking._id);
+      const orderAssignmentsByBooking = bookingIds.length
+        ? await Order.aggregate([
+            { $match: { bookingId: { $in: bookingIds } } },
+            {
+              $project: {
+                bookingId: 1,
+                hasAssignedStaff: {
+                  $gt: [{ $size: { $ifNull: ['$assignedStaff', []] } }, 0]
+                }
+              }
+            },
+            {
+              $group: {
+                _id: '$bookingId',
+                hasAssignedStaff: { $max: '$hasAssignedStaff' },
+                totalOrders: { $sum: 1 },
+                assignedOrders: {
+                  $sum: {
+                    $cond: ['$hasAssignedStaff', 1, 0]
+                  }
+                }
+              }
+            }
+          ])
+        : [];
+
+      const assignmentLookup = new Map(
+        orderAssignmentsByBooking.map((entry) => [String(entry._id), entry])
+      );
+
       const formattedBookings = bookings.map(booking => ({
+        ...(assignmentLookup.has(String(booking._id))
+          ? {
+              hasAssignedStaff: Boolean(assignmentLookup.get(String(booking._id)).hasAssignedStaff),
+              assignedOrdersCount: Number(assignmentLookup.get(String(booking._id)).assignedOrders || 0),
+              totalOrdersCount: Number(assignmentLookup.get(String(booking._id)).totalOrders || 0)
+            }
+          : {
+              hasAssignedStaff: false,
+              assignedOrdersCount: 0,
+              totalOrdersCount: 0
+            }),
         _id: booking._id,
         bookingNumber: booking.bookingNumber,
         customer: booking.customerId ? {

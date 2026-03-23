@@ -4,6 +4,43 @@ const Order = require('../models/Order');
 const Task = require('../models/Task');
 const { v4: uuidv4 } = require('uuid');
 
+const MS_PER_MINUTE = 1000 * 60;
+
+const getOverlapMinutes = (start, end, rangeStart, rangeEnd) => {
+  const safeStart = new Date(start);
+  const safeEnd = end ? new Date(end) : new Date();
+  const overlapStart = Math.max(safeStart.getTime(), rangeStart.getTime());
+  const overlapEnd = Math.min(safeEnd.getTime(), rangeEnd.getTime());
+
+  if (!Number.isFinite(overlapStart) || !Number.isFinite(overlapEnd) || overlapEnd <= overlapStart) {
+    return 0;
+  }
+
+  return Math.round((overlapEnd - overlapStart) / MS_PER_MINUTE);
+};
+
+const roundHours = (minutes) => Math.round(((minutes || 0) / 60) * 100) / 100;
+
+const mapBreakInterval = (breakItem, rangeStart, rangeEnd) => {
+  const durationMinutes = getOverlapMinutes(
+    breakItem?.startTime,
+    breakItem?.endTime || rangeEnd,
+    rangeStart,
+    rangeEnd
+  );
+
+  if (durationMinutes <= 0) {
+    return null;
+  }
+
+  return {
+    startTime: breakItem.startTime,
+    endTime: breakItem.endTime || null,
+    durationHours: roundHours(durationMinutes),
+    reason: breakItem.reason || ''
+  };
+};
+
 /**
  * TimeTrackingService
  * Handles automatic time tracking for staff members
@@ -693,7 +730,7 @@ class TimeTrackingService {
   /**
    * Get time tracking summary for a staff member
    */
-  static async getTimeTrackingSummary(staffId) {
+  static async getTimeTrackingSummary(staffId, filters = {}) {
     try {
       const staff = await User.findById(staffId).select(
         'currentStatus lastClockIn lastClockOut hoursThisWeek hoursThisMonth totalHoursWorked'
@@ -703,17 +740,114 @@ class TimeTrackingService {
         throw new Error('Staff member not found');
       }
 
-      // Get today's sessions
-      const startOfDay = new Date();
+      const requestedDate = filters?.date ? new Date(filters.date) : null;
+      const hasRequestedDate = requestedDate && Number.isFinite(requestedDate.getTime());
+      const dayReference = hasRequestedDate ? requestedDate : new Date();
+      const now = new Date();
+      const rangeEnd = hasRequestedDate
+        ? new Date(dayReference.getFullYear(), dayReference.getMonth(), dayReference.getDate(), 23, 59, 59, 999)
+        : now;
+      const startOfDay = new Date(dayReference);
       startOfDay.setHours(0, 0, 0, 0);
 
-      const todaySessions = await WorkSession.find({
-        staffId,
-        clockInTime: { $gte: startOfDay }
+      const [todaySessions, allSessions] = await Promise.all([
+        WorkSession.find({
+          staffId,
+          $or: [
+            { clockInTime: { $gte: startOfDay, $lte: rangeEnd } },
+            { clockOutTime: { $gte: startOfDay } },
+            { status: { $in: ['active', 'on_break'] }, clockInTime: { $lte: rangeEnd } }
+          ]
+        }).lean(),
+        WorkSession.find({ staffId }).select('breakDuration status breaks').lean()
+      ]);
+
+      let workMinutesToday = 0;
+      let breakMinutesToday = 0;
+      const breaksToday = [];
+      const ordersTodayMap = new Map();
+
+      todaySessions.forEach((session) => {
+        const sessionEnd = session.clockOutTime || now;
+        const sessionMinutesToday = getOverlapMinutes(session.clockInTime, sessionEnd, startOfDay, rangeEnd);
+
+        if (sessionMinutesToday <= 0) {
+          return;
+        }
+
+        const sessionBreakMinutes = (session.breaks || []).reduce((sum, breakItem) => {
+          const mappedBreak = mapBreakInterval(breakItem, startOfDay, rangeEnd);
+          if (mappedBreak) {
+            breaksToday.push(mappedBreak);
+            return sum + Math.round((mappedBreak.durationHours || 0) * 60);
+          }
+          return sum;
+        }, 0);
+
+        breakMinutesToday += sessionBreakMinutes;
+        workMinutesToday += Math.max(sessionMinutesToday - sessionBreakMinutes, 0);
+
+        (session.ordersWorked || []).forEach((orderWork) => {
+          const orderMinutesToday = getOverlapMinutes(
+            orderWork.startTime,
+            orderWork.endTime || now,
+            startOfDay,
+            rangeEnd
+          );
+
+          if (orderMinutesToday <= 0) {
+            return;
+          }
+
+          const orderKey = String(orderWork.orderId || orderWork.orderNumber || `order-${ordersTodayMap.size}`);
+          const existing = ordersTodayMap.get(orderKey);
+
+          if (existing) {
+            existing.durationMinutes += orderMinutesToday;
+            existing.startTime = new Date(existing.startTime) < new Date(orderWork.startTime)
+              ? existing.startTime
+              : orderWork.startTime;
+            existing.endTime = orderWork.endTime || existing.endTime;
+            return;
+          }
+
+          ordersTodayMap.set(orderKey, {
+            orderId: orderWork.orderId || null,
+            orderNumber: orderWork.orderNumber || 'Ohne Nummer',
+            startTime: orderWork.startTime,
+            endTime: orderWork.endTime || null,
+            durationMinutes: orderMinutesToday
+          });
+        });
       });
 
-      const hoursToday = todaySessions.reduce((sum, session) =>
-        sum + (session.workDuration || 0), 0) / 60;
+      const totalBreakMinutes = allSessions.reduce((sum, session) => {
+        const sessionBreakMinutes = (session.breaks || []).reduce((breakSum, breakItem) => {
+          if (!breakItem?.startTime) {
+            return breakSum;
+          }
+
+          if (breakItem.duration && breakItem.endTime) {
+            return breakSum + breakItem.duration;
+          }
+
+          return breakSum + getOverlapMinutes(breakItem.startTime, breakItem.endTime || now, breakItem.startTime, now);
+        }, 0);
+
+        return sum + sessionBreakMinutes;
+      }, 0);
+
+      const ordersToday = Array.from(ordersTodayMap.values())
+        .map((orderWork) => ({
+          orderId: orderWork.orderId,
+          orderNumber: orderWork.orderNumber,
+          startTime: orderWork.startTime,
+          endTime: orderWork.endTime,
+          durationHours: roundHours(orderWork.durationMinutes)
+        }))
+        .sort((a, b) => b.durationHours - a.durationHours);
+
+      breaksToday.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
       // Calculate average hours per day this month
       const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -726,11 +860,16 @@ class TimeTrackingService {
           currentStatus: staff.currentStatus || 'offline',
           lastClockIn: staff.lastClockIn,
           lastClockOut: staff.lastClockOut,
-          hoursToday: Math.round(hoursToday * 100) / 100,
+          hoursToday: roundHours(workMinutesToday),
           hoursThisWeek: staff.hoursThisWeek || 0,
           hoursThisMonth: staff.hoursThisMonth || 0,
           totalHoursWorked: staff.totalHoursWorked || 0,
-          averageHoursPerDay: Math.round(averageHoursPerDay * 100) / 100
+          totalBreakHours: roundHours(totalBreakMinutes),
+          breakHoursToday: roundHours(breakMinutesToday),
+          averageHoursPerDay: Math.round(averageHoursPerDay * 100) / 100,
+          selectedDate: startOfDay,
+          breaksToday,
+          ordersToday
         }
       };
     } catch (error) {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import "./RepairRequestsManagement.css"
@@ -101,6 +101,7 @@ import { RepairRequestMessagesPanel } from "@/components/repair-request/RepairRe
 export function RepairRequestsManagement() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { toast } = useToast()
 
   const [requests, setRequests] = useState<RepairRequest[]>([])
@@ -137,6 +138,18 @@ export function RepairRequestsManagement() {
   useEffect(() => {
     filterRequests()
   }, [requests, searchTerm, statusFilter, priorityFilter])
+
+  useEffect(() => {
+    const requestId = searchParams.get("requestId")
+    if (!requestId || requests.length === 0) return
+
+    const request = requests.find((req) => req._id === requestId)
+    if (!request) return
+    if (showDetailsDialog && selectedRequest?._id === requestId) return
+
+    setSelectedRequest(request)
+    setShowDetailsDialog(true)
+  }, [searchParams, requests, selectedRequest?._id, showDetailsDialog])
 
   const fetchData = async () => {
     try {
@@ -500,6 +513,22 @@ export function RepairRequestsManagement() {
   const openDetailsDialog = (request: RepairRequest) => {
     setSelectedRequest(request)
     setShowDetailsDialog(true)
+    setSearchParams((currentParams) => {
+      const nextParams = new URLSearchParams(currentParams)
+      nextParams.set("requestId", request._id)
+      return nextParams
+    }, { replace: true })
+  }
+
+  const handleDetailsDialogOpenChange = (open: boolean) => {
+    setShowDetailsDialog(open)
+    if (open) return
+
+    setSearchParams((currentParams) => {
+      const nextParams = new URLSearchParams(currentParams)
+      nextParams.delete("requestId")
+      return nextParams
+    }, { replace: true })
   }
 
   const openMessageDialog = (request: RepairRequest) => {
@@ -799,7 +828,7 @@ export function RepairRequestsManagement() {
       </div>
 
       {/* Details Dialog */}
-      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+      <Dialog open={showDetailsDialog} onOpenChange={handleDetailsDialogOpenChange}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="mcrepair-dialog-header">
             <DialogTitle className="mcrepair-dialog-title">Anfrage Details – {selectedRequest?.requestNumber}</DialogTitle>

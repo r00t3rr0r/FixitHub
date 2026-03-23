@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const teamChatMessageSchema = new mongoose.Schema({
+  roomId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'TeamChatRoom',
+    required: true
+  },
   senderId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -58,7 +63,7 @@ const teamChatRoomSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['general', 'team', 'project', 'announcement'],
+    enum: ['general', 'team', 'project', 'announcement', 'private'],
     default: 'general'
   },
   members: [{
@@ -103,6 +108,11 @@ teamChatRoomSchema.pre('save', function(next) {
   this.updatedAt = new Date();
   next();
 });
+
+// Indexes
+teamChatMessageSchema.index({ roomId: 1, createdAt: 1 });
+teamChatMessageSchema.index({ senderId: 1 });
+teamChatRoomSchema.index({ 'members.userId': 1, isActive: 1, updatedAt: -1 });
 
 const TeamChatMessage = mongoose.model('TeamChatMessage', teamChatMessageSchema);
 const TeamChatRoom = mongoose.model('TeamChatRoom', teamChatRoomSchema);

@@ -16,7 +16,13 @@ export function Layout() {
   const shouldShowSidebar = sidebarOpen
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20">
+    <div
+      className="min-h-screen"
+      style={{
+        background: 'linear-gradient(180deg, var(--off-white, #f8f9fc) 0%, var(--white, #ffffff) 24%, var(--gray-50, #f5f6f8) 100%)',
+        fontFamily: 'var(--font-main, Inter, sans-serif)'
+      }}
+    >
       <Header onToggleSidebar={toggleSidebar} sidebarOpen={sidebarOpen} />
       <div className="flex h-[calc(100vh-4rem)] pt-16">
         <Sidebar 
@@ -25,11 +31,11 @@ export function Layout() {
           isCollapsed={!sidebarOpen}
         />
         <main 
-          className={`flex-1 overflow-y-auto p-6 transition-all duration-300 ease-in-out ${
+          className={`flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-5 lg:px-6 lg:py-6 transition-all duration-300 ease-in-out ${
             isMobile ? 'ml-0' : (shouldShowSidebar ? 'ml-64' : 'ml-16')
           }`}
         >
-          <div className="mx-auto max-w-7xl">
+          <div className="mx-auto w-full max-w-7xl">
             <Outlet />
           </div>
         </main>
