@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { login as apiLogin, register as apiRegister } from "../api/auth";
 import { mergeGuestCartWithUserCart } from "../utils/guestCart";
 import { addToCart, addRepairOrderToCart } from "../api/shop";
@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         throw new Error('Login failed');
       }
-    } catch (error) {
+    } catch (error: any) {
       localStorage.removeItem("refreshToken");
       localStorage.removeItem("accessToken");
       localStorage.removeItem("user");
@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await apiRegister(email, password, firstName, lastName, phone);
       console.log('Registration successful:', response);
-    } catch (error) {
+    } catch (error: any) {
       localStorage.removeItem("refreshToken");
       localStorage.removeItem("accessToken");
       localStorage.removeItem("user");
@@ -114,8 +114,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Initialize auth state on mount
   useEffect(() => {
-    // Mark as hydrated after initial state load from localStorage
     setIsHydrated(true);
+
+    // Cross-tab logout: detect when another tab removes the access token
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "accessToken" && !e.newValue) {
+        setUser(null);
+        setIsAuthenticated(false);
+      }
+    };
 
     // Listen for auth logout events (e.g., from API interceptor)
     const handleAuthLogout = () => {
@@ -127,8 +134,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem('user');
     };
 
+    window.addEventListener("storage", handleStorageChange);
     window.addEventListener('auth-logout', handleAuthLogout);
-    return () => window.removeEventListener('auth-logout', handleAuthLogout);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener('auth-logout', handleAuthLogout);
+    };
   }, []);
 
   return (
