@@ -11,8 +11,20 @@ function getRoleHome(role?: string): string {
 }
 
 export function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode; requiredRole?: string | string[] }) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isHydrated } = useAuth();
   const location = useLocation();
+
+  // Show nothing while hydrating from localStorage
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600 text-sm">Wird geladen...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;

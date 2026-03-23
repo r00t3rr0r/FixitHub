@@ -17,6 +17,7 @@ type AuthContextType = {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, firstName?: string, lastName?: string, phone?: string) => Promise<void>;
   logout: () => void;
+  isHydrated: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -38,6 +39,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     return null;
   });
+
+  const [isHydrated, setIsHydrated] = useState(false);
 
   const login = async (email: string, password: string) => {
     try {
@@ -109,20 +112,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.reload();
   };
 
-  // Cross-tab logout: detect when another tab removes the access token
+  // Initialize auth state on mount
   useEffect(() => {
+    setIsHydrated(true);
+
+    // Cross-tab logout: detect when another tab removes the access token
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "accessToken" && !e.newValue) {
         setUser(null);
         setIsAuthenticated(false);
       }
     };
+
+    // Listen for auth logout events (e.g., from API interceptor)
+    const handleAuthLogout = () => {
+      console.log('AuthContext: Auth logout event received, clearing auth state');
+      setIsAuthenticated(false);
+      setUser(null);
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+    };
+
     window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
+    window.addEventListener('auth-logout', handleAuthLogout);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener('auth-logout', handleAuthLogout);
+    };
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, register, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, login, register, logout, isHydrated }}>
       {children}
     </AuthContext.Provider>
   );

@@ -236,13 +236,13 @@ router.get('/sessions', auth, async (req, res) => {
 
 // Description: Get time tracking summary for logged-in staff member
 // Endpoint: GET /api/time-tracking/summary
-// Request: {}
+// Request: { date?: string }
 // Response: { success: boolean, summary: { currentStatus, lastClockIn, lastClockOut, hoursToday, hoursThisWeek, hoursThisMonth, totalHoursWorked, averageHoursPerDay } }
 router.get('/summary', auth, async (req, res) => {
   try {
     console.log(`GET /api/time-tracking/summary - User: ${req.user.email}`);
 
-    const result = await TimeTrackingService.getTimeTrackingSummary(req.user._id);
+    const result = await TimeTrackingService.getTimeTrackingSummary(req.user._id, req.query);
 
     res.status(200).json(result);
   } catch (error) {
@@ -276,13 +276,13 @@ router.get('/admin/all-staff-status', ...requireAdmin, async (req, res) => {
 
 // Description: Get time tracking summary for any staff member (admin only)
 // Endpoint: GET /api/time-tracking/admin/staff/:staffId/summary
-// Request: {}
+// Request: { date?: string }
 // Response: { success: boolean, summary: object }
 router.get('/admin/staff/:staffId/summary', ...requireAdmin, async (req, res) => {
   try {
     console.log(`GET /api/time-tracking/admin/staff/${req.params.staffId}/summary - Admin: ${req.user.email}`);
 
-    const result = await TimeTrackingService.getTimeTrackingSummary(req.params.staffId);
+    const result = await TimeTrackingService.getTimeTrackingSummary(req.params.staffId, req.query);
 
     res.status(200).json(result);
   } catch (error) {

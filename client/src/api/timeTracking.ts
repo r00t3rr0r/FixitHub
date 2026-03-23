@@ -68,7 +68,23 @@ export interface TimeTrackingSummary {
     hoursThisWeek: number;
     hoursThisMonth: number;
     totalHoursWorked: number;
+    totalBreakHours: number;
+    breakHoursToday: number;
     averageHoursPerDay: number;
+    selectedDate?: Date;
+    breaksToday: Array<{
+      startTime: Date;
+      endTime?: Date | null;
+      durationHours: number;
+      reason?: string;
+    }>;
+    ordersToday: Array<{
+      orderId?: string | null;
+      orderNumber: string;
+      startTime: Date;
+      endTime?: Date | null;
+      durationHours: number;
+    }>;
   };
 }
 
@@ -225,11 +241,11 @@ export const getWorkSessions = async (filters?: {
 
 // Description: Get time tracking summary
 // Endpoint: GET /api/time-tracking/summary
-// Request: {}
+// Request: { date?: string }
 // Response: TimeTrackingSummary
-export const getTimeTrackingSummary = async (): Promise<TimeTrackingSummary> => {
+export const getTimeTrackingSummary = async (filters?: { date?: string }): Promise<TimeTrackingSummary> => {
   try {
-    const response = await api.get('/api/time-tracking/summary');
+    const response = await api.get('/api/time-tracking/summary', { params: filters });
     return response.data;
   } catch (error) {
     console.error('Get time tracking summary error:', error);
@@ -253,11 +269,11 @@ export const getAllStaffStatus = async () => {
 
 // Description: Get time tracking summary for any staff member (admin only)
 // Endpoint: GET /api/time-tracking/admin/staff/:staffId/summary
-// Request: {}
+// Request: { date?: string }
 // Response: TimeTrackingSummary
-export const getStaffTimeTrackingSummary = async (staffId: string): Promise<TimeTrackingSummary> => {
+export const getStaffTimeTrackingSummary = async (staffId: string, filters?: { date?: string }): Promise<TimeTrackingSummary> => {
   try {
-    const response = await api.get(`/api/time-tracking/admin/staff/${staffId}/summary`);
+    const response = await api.get(`/api/time-tracking/admin/staff/${staffId}/summary`, { params: filters });
     return response.data;
   } catch (error) {
     console.error('Get staff time tracking summary error:', error);

@@ -1,6 +1,7 @@
 const express = require('express');
 const TeamChatService = require('../services/teamChatService');
 const { requireUser } = require('./middleware/auth');
+const User = require('../models/User');
 const multer = require('multer');
 const path = require('path');
 
@@ -139,6 +140,38 @@ router.put('/rooms/:roomId/read', requireUser, requireStaffOrAdmin, async (req, 
   } catch (error) {
     console.error('Error marking messages as read:', error);
     return res.status(500).json({ error: error.message || 'Failed to mark messages as read' });
+  }
+});
+
+// Get all staff members for chat room creation
+router.get('/staff-members', requireUser, requireStaffOrAdmin, async (req, res) => {
+  try {
+    const users = await User.find(
+      { role: { $in: ['staff', 'admin'] } },
+      { _id: 1, name: 1, firstName: 1, lastName: 1, role: 1, avatar: 1 }
+    ).sort({ name: 1 });
+    return res.status(200).json({ members: users });
+  } catch (error) {
+    console.error('Error getting staff members:', error);
+    return res.status(500).json({ error: error.message || 'Failed to get staff members' });
+  }
+});
+
+// Add member to a chat room
+router.post('/rooms/:roomId/members', requireUser, requireStaffOrAdmin, async (req, res) => {
+  try {
+    const { TeamChatRoom } = require('../models/TeamChat');
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    const room = await TeamChatRoom.findOneAndUpdate(
+      { _id: req.params.roomId, 'members.userId': { $ne: userId } },
+      { $push: { members: { userId, role: 'member' } } },
+      { new: true }
+    ).populate('members.userId', 'name role avatar');
+    if (!room) return res.status(404).json({ error: 'Room not found or user already member' });
+    return res.status(200).json({ success: true, room });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 });
 

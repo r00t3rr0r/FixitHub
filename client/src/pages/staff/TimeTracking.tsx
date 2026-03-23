@@ -1,313 +1,472 @@
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { useEffect, useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/useToast"
 import {
+  CalendarDays,
   Clock,
+  Coffee,
+  Loader2,
+  LogIn,
+  LogOut,
   Play,
-  Pause,
-  Square,
-  Calendar,
-  BarChart3,
   Timer,
-  CheckCircle,
-  Coffee
 } from "lucide-react"
+import {
+  clockIn,
+  clockOut,
+  endBreak,
+  getCurrentStatus,
+  getTimeEntries,
+  getTimeTrackingSummary,
+  startBreak,
+  type CurrentStatus,
+  type TimeTrackingSummary,
+} from "@/api/timeTracking"
+import { TimeTrackingBreakdown } from "@/components/staff/TimeTrackingBreakdown"
 
-interface TimeEntry {
+interface TimelineEntry {
   _id: string
-  orderId: string
-  orderNumber: string
-  taskType: string
-  startTime: string
-  endTime?: string
-  duration: number
-  status: 'active' | 'paused' | 'completed'
-  description: string
+  type: "clock_in" | "clock_out" | "break_start" | "break_end" | "order_start" | "order_end"
+  timestamp: string
+  orderNumber?: string
+  duration?: number
+  notes?: string
+}
+
+const toDateInputValue = (value?: string | Date | null) => {
+  const date = value ? new Date(value) : new Date()
+  if (!Number.isFinite(date.getTime())) return new Date().toISOString().slice(0, 10)
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+}
+
+const toDayBounds = (value: string) => {
+  const [year, month, day] = value.split("-").map(Number)
+  const start = new Date(year, (month || 1) - 1, day || 1, 0, 0, 0, 0)
+  const end = new Date(year, (month || 1) - 1, day || 1, 23, 59, 59, 999)
+  return {
+    startDate: start.toISOString(),
+    endDate: end.toISOString(),
+  }
+}
+
+const formatHours = (hours?: number) => {
+  if (!hours || !Number.isFinite(hours)) return "0h"
+  const fullHours = Math.floor(hours)
+  const minutes = Math.round((hours - fullHours) * 60)
+  return minutes > 0 ? `${fullHours}h ${minutes}m` : `${fullHours}h`
+}
+
+const formatMinutes = (minutes?: number) => {
+  if (!minutes || !Number.isFinite(minutes)) return "0m"
+  const fullHours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  if (fullHours <= 0) return `${remainingMinutes}m`
+  return remainingMinutes > 0 ? `${fullHours}h ${remainingMinutes}m` : `${fullHours}h`
+}
+
+const formatTimestamp = (value?: string | Date | null) => {
+  if (!value) return "-"
+  const date = new Date(value)
+  if (!Number.isFinite(date.getTime())) return "-"
+  return date.toLocaleString("de-CH", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
+const formatClock = (value?: string | Date | null) => {
+  if (!value) return "-"
+  const date = new Date(value)
+  if (!Number.isFinite(date.getTime())) return "-"
+  return date.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })
+}
+
+const getStatusMeta = (status?: CurrentStatus["status"]) => {
+  switch (status) {
+    case "working":
+      return { label: "In Arbeit", badge: "bg-emerald-100 text-emerald-800 border-emerald-200" }
+    case "on_break":
+      return { label: "Pause", badge: "bg-amber-100 text-amber-800 border-amber-200" }
+    case "online":
+      return { label: "Eingestempelt", badge: "bg-sky-100 text-sky-800 border-sky-200" }
+    case "pending":
+      return { label: "Ausstehend", badge: "bg-orange-100 text-orange-800 border-orange-200" }
+    default:
+      return { label: "Offline", badge: "bg-slate-100 text-slate-700 border-slate-200" }
+  }
+}
+
+const getEntryLabel = (entry: TimelineEntry) => {
+  switch (entry.type) {
+    case "clock_in":
+      return "Eingestempelt"
+    case "clock_out":
+      return "Ausgestempelt"
+    case "break_start":
+      return "Pause gestartet"
+    case "break_end":
+      return "Pause beendet"
+    case "order_start":
+      return `Auftrag gestartet${entry.orderNumber ? ` #${entry.orderNumber}` : ""}`
+    case "order_end":
+      return `Auftrag beendet${entry.orderNumber ? ` #${entry.orderNumber}` : ""}`
+    default:
+      return entry.type
+  }
+}
+
+const getActiveSessionMinutes = (status: CurrentStatus | null) => {
+  if (!status?.activeSession?.clockInTime) return 0
+  const start = new Date(status.activeSession.clockInTime).getTime()
+  if (!Number.isFinite(start)) return 0
+
+  const breakMinutes = (status.activeSession.breaks || []).reduce((sum, breakItem) => {
+    const breakStart = new Date(breakItem.startTime).getTime()
+    const breakEnd = new Date(breakItem.endTime || new Date()).getTime()
+    if (!Number.isFinite(breakStart) || !Number.isFinite(breakEnd) || breakEnd <= breakStart) {
+      return sum
+    }
+    return sum + Math.round((breakEnd - breakStart) / 60000)
+  }, 0)
+
+  const totalMinutes = Math.max(Math.round((Date.now() - start) / 60000), 0)
+  return Math.max(totalMinutes - breakMinutes, 0)
 }
 
 export function TimeTracking() {
-  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([])
-  const [activeTimer, setActiveTimer] = useState<string | null>(null)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [loading, setLoading] = useState(true)
   const { toast } = useToast()
+  const [selectedDate, setSelectedDate] = useState(() => toDateInputValue(new Date()))
+  const [status, setStatus] = useState<CurrentStatus | null>(null)
+  const [summary, setSummary] = useState<TimeTrackingSummary | null>(null)
+  const [entries, setEntries] = useState<TimelineEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [actionLoading, setActionLoading] = useState<null | "clockIn" | "clockOut" | "breakStart" | "breakEnd">(null)
+  const [activeMinutes, setActiveMinutes] = useState(0)
 
-  useEffect(() => {
-    const fetchTimeEntries = async () => {
-      try {
-        // Mock data for time entries
-        const mockEntries: TimeEntry[] = [
-          {
-            _id: '1',
-            orderId: 'order1',
-            orderNumber: 'ORD-2024-001',
-            taskType: 'Screen Replacement',
-            startTime: '2024-01-15T09:00:00Z',
-            endTime: '2024-01-15T11:30:00Z',
-            duration: 150,
-            status: 'completed',
-            description: 'iPhone 15 Pro screen replacement'
-          },
-          {
-            _id: '2',
-            orderId: 'order2',
-            orderNumber: 'ORD-2024-002',
-            taskType: 'Battery Replacement',
-            startTime: '2024-01-15T13:00:00Z',
-            duration: 45,
-            status: 'active',
-            description: 'Samsung Galaxy S24 battery replacement'
-          }
-        ]
-        setTimeEntries(mockEntries)
-        
-        // Find active timer
-        const active = mockEntries.find(entry => entry.status === 'active')
-        if (active) {
-          setActiveTimer(active._id)
-          setCurrentTime(active.duration)
-        }
-      } catch (error) {
-        console.error("Error fetching time entries:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load time tracking data",
-          variant: "destructive"
-        })
-      } finally {
-        setLoading(false)
+  const fetchData = async (background = false) => {
+    try {
+      if (background) setRefreshing(true)
+      else setLoading(true)
+
+      const dayBounds = toDayBounds(selectedDate)
+      const [statusResult, summaryResult, entriesResult] = await Promise.allSettled([
+        getCurrentStatus(),
+        getTimeTrackingSummary({ date: selectedDate }),
+        getTimeEntries({ ...dayBounds, limit: 25 }),
+      ])
+
+      if (statusResult.status === "fulfilled") {
+        setStatus(statusResult.value)
+        setActiveMinutes(getActiveSessionMinutes(statusResult.value))
       }
+
+      if (summaryResult.status === "fulfilled") {
+        setSummary(summaryResult.value)
+      }
+
+      if (entriesResult.status === "fulfilled") {
+        setEntries((entriesResult.value?.entries || []) as TimelineEntry[])
+      }
+    } catch (error) {
+      console.error("Error fetching time tracking data:", error)
+      toast({
+        title: "Fehler",
+        description: "Zeiterfassungsdaten konnten nicht geladen werden.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
+  }
 
-    fetchTimeEntries()
-  }, [toast])
-
-  // Timer effect
   useEffect(() => {
-    let interval: NodeJS.Timeout
-    if (activeTimer) {
-      interval = setInterval(() => {
-        setCurrentTime(prev => prev + 1)
-      }, 60000) // Update every minute
-    }
+    fetchData()
+  }, [selectedDate])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchData(true)
+    }, 30000)
+
     return () => clearInterval(interval)
-  }, [activeTimer])
+  }, [selectedDate])
 
-  const formatTime = (minutes: number) => {
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
-    return `${hours}h ${mins}m`
+  useEffect(() => {
+    setActiveMinutes(getActiveSessionMinutes(status))
+
+    if (!status || (status.status !== "working" && status.status !== "online" && status.status !== "on_break")) {
+      return
+    }
+
+    const interval = setInterval(() => {
+      setActiveMinutes(getActiveSessionMinutes(status))
+    }, 60000)
+
+    return () => clearInterval(interval)
+  }, [status])
+
+  const handleAction = async (
+    action: "clockIn" | "clockOut" | "breakStart" | "breakEnd",
+    handler: () => Promise<unknown>,
+    successTitle: string,
+    successDescription: string,
+  ) => {
+    setActionLoading(action)
+    try {
+      await handler()
+      await fetchData(true)
+      toast({ title: successTitle, description: successDescription })
+    } catch (error: any) {
+      toast({
+        title: "Fehler",
+        description: error?.message || "Aktion konnte nicht ausgefuehrt werden.",
+        variant: "destructive",
+      })
+    } finally {
+      setActionLoading(null)
+    }
   }
 
-  const handleStartTimer = (entryId: string) => {
-    setActiveTimer(entryId)
-    setCurrentTime(0)
-    toast({
-      title: "Timer Started",
-      description: "Time tracking has begun for this task"
-    })
-  }
+  const statusMeta = getStatusMeta(status?.status)
+  const selectedSummary = summary?.summary
 
-  const handlePauseTimer = () => {
-    setActiveTimer(null)
-    toast({
-      title: "Timer Paused",
-      description: "Time tracking has been paused"
-    })
-  }
-
-  const handleStopTimer = () => {
-    setActiveTimer(null)
-    setCurrentTime(0)
-    toast({
-      title: "Timer Stopped",
-      description: "Time entry has been completed"
-    })
-  }
+  const stats = useMemo(() => {
+    const orderHours = (selectedSummary?.ordersToday || []).reduce((sum, order) => sum + (order.durationHours || 0), 0)
+    return [
+      {
+        label: "Arbeitszeit Tag",
+        value: formatHours(selectedSummary?.hoursToday),
+      },
+      {
+        label: "Pausen Tag",
+        value: formatHours(selectedSummary?.breakHoursToday),
+      },
+      {
+        label: "Auftragszeit Tag",
+        value: formatHours(orderHours),
+      },
+      {
+        label: "Sitzung live",
+        value: formatMinutes(activeMinutes),
+      },
+    ]
+  }, [activeMinutes, selectedSummary])
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="h-8 bg-muted rounded w-48 animate-pulse"></div>
-        <Card className="animate-pulse">
-          <CardHeader>
-            <div className="h-6 bg-muted rounded w-1/3"></div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-16 bg-muted rounded"></div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="space-y-3">
+        <div className="h-28 animate-pulse rounded-2xl bg-slate-200" />
+        <div className="grid gap-3 md:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="h-20 animate-pulse rounded-xl bg-slate-100" />
+          ))}
+        </div>
       </div>
     )
   }
 
-  const todayEntries = timeEntries.filter(entry => 
-    new Date(entry.startTime).toDateString() === new Date().toDateString()
-  )
-  const totalToday = todayEntries.reduce((sum, entry) => sum + entry.duration, 0)
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Clock className="h-8 w-8" />
-          Time Tracking
-        </h1>
-        <p className="text-muted-foreground">
-          Track your work hours and manage time entries
-        </p>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
-              Today's Hours
-            </CardTitle>
-            <Timer className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-              {formatTime(totalToday)}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">
-              Active Tasks
-            </CardTitle>
-            <Play className="h-4 w-4 text-green-600 dark:text-green-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-900 dark:text-green-100">
-              {timeEntries.filter(e => e.status === 'active').length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">
-              Completed Today
-            </CardTitle>
-            <CheckCircle className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
-              {todayEntries.filter(e => e.status === 'completed').length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300">
-              Break Time
-            </CardTitle>
-            <Coffee className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">
-              0h 30m
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Active Timer */}
-      {activeTimer && (
-        <Card className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-green-200 dark:border-green-800">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-800 dark:text-green-200">
-              <Play className="h-5 w-5" />
-              Active Timer
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      <div className="rounded-2xl bg-[#1b2552] px-4 py-4 text-white shadow-sm md:px-5 md:py-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="rounded-xl bg-white/14 p-2">
+                <Clock className="h-5 w-5" />
+              </div>
               <div>
-                <p className="text-2xl font-bold text-green-900 dark:text-green-100">
-                  {formatTime(currentTime)}
-                </p>
-                <p className="text-green-700 dark:text-green-300">
-                  {timeEntries.find(e => e._id === activeTimer)?.description}
+                <h1 className="text-xl font-semibold leading-tight md:text-2xl">Zeiterfassung</h1>
+                <p className="mt-0.5 text-sm text-blue-50/90">
+                  Kompakte Tagesansicht mit Status, Pausen und Auftragszeiten.
                 </p>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={handlePauseTimer}>
-                  <Pause className="h-4 w-4 mr-2" />
-                  Pause
-                </Button>
-                <Button variant="destructive" onClick={handleStopTimer}>
-                  <Square className="h-4 w-4 mr-2" />
-                  Stop
-                </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Badge className={`border ${statusMeta.badge} justify-center px-2.5 py-1 text-xs font-semibold`}>
+              {statusMeta.label}
+            </Badge>
+            <div className="flex items-center gap-2 rounded-xl bg-white/12 px-3 py-2 backdrop-blur-sm">
+              <CalendarDays className="h-4 w-4 text-blue-50" />
+              <Input
+                type="date"
+                value={selectedDate}
+                onChange={(event) => setSelectedDate(event.target.value)}
+                className="h-8 border-white/20 bg-white/10 px-2 text-xs text-white [color-scheme:dark] placeholder:text-blue-100/70 focus-visible:ring-white/40"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-4">
+        {stats.map((stat) => (
+          <Card key={stat.label} className="border-slate-200 shadow-sm">
+            <CardContent className="px-3 py-3">
+              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">{stat.label}</p>
+              <div className="mt-1 text-lg font-semibold text-slate-900">{stat.value}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid gap-3 xl:grid-cols-[1.05fr_0.95fr]">
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="px-4 py-3">
+            <CardTitle className="text-sm font-semibold text-slate-800">Aktuelle Schicht</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 px-4 py-3 pt-0">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Eingestempelt seit</p>
+                <div className="mt-1 text-sm font-semibold text-slate-900">{formatClock(status?.lastClockIn)}</div>
               </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Letzte Aktivitaet</p>
+                <div className="mt-1 text-sm font-semibold text-slate-900">{formatTimestamp(status?.lastActivity)}</div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Aktueller Auftrag</p>
+                <div className="mt-1 truncate text-sm font-semibold text-slate-900">{status?.currentOrder?.orderNumber ? `#${status.currentOrder.orderNumber}` : "Kein Auftrag"}</div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {(!status || status.status === "offline") && (
+                <Button
+                  size="sm"
+                  className="h-8 bg-blue-700 px-3 text-xs hover:bg-blue-800"
+                  disabled={actionLoading !== null}
+                  onClick={() => handleAction("clockIn", clockIn, "Eingestempelt", "Deine Arbeitszeit wurde gestartet.")}
+                >
+                  {actionLoading === "clockIn" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <LogIn className="mr-1.5 h-3.5 w-3.5" />}
+                  Einstempeln
+                </Button>
+              )}
+
+              {(status?.status === "online" || status?.status === "working") && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-3 text-xs"
+                    disabled={actionLoading !== null}
+                    onClick={() => handleAction("breakStart", startBreak, "Pause gestartet", "Die Pause wurde erfasst.")}
+                  >
+                    {actionLoading === "breakStart" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Coffee className="mr-1.5 h-3.5 w-3.5" />}
+                    Pause starten
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-3 text-xs"
+                    disabled={actionLoading !== null}
+                    onClick={() => handleAction("clockOut", clockOut, "Ausgestempelt", "Die Arbeitszeit wurde beendet.")}
+                  >
+                    {actionLoading === "clockOut" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <LogOut className="mr-1.5 h-3.5 w-3.5" />}
+                    Ausstempeln
+                  </Button>
+                </>
+              )}
+
+              {status?.status === "on_break" && (
+                <>
+                  <Button
+                    size="sm"
+                    className="h-8 bg-blue-700 px-3 text-xs hover:bg-blue-800"
+                    disabled={actionLoading !== null}
+                    onClick={() => handleAction("breakEnd", endBreak, "Pause beendet", "Die Arbeitszeit laeuft wieder.")}
+                  >
+                    {actionLoading === "breakEnd" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Play className="mr-1.5 h-3.5 w-3.5" />}
+                    Pause beenden
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-3 text-xs"
+                    disabled={actionLoading !== null}
+                    onClick={() => handleAction("clockOut", clockOut, "Ausgestempelt", "Die Arbeitszeit wurde beendet.")}
+                  >
+                    {actionLoading === "clockOut" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <LogOut className="mr-1.5 h-3.5 w-3.5" />}
+                    Ausstempeln
+                  </Button>
+                </>
+              )}
+
+              <Button size="sm" variant="ghost" className="ml-auto h-8 px-3 text-xs text-slate-600" disabled={refreshing} onClick={() => fetchData(true)}>
+                {refreshing ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Timer className="mr-1.5 h-3.5 w-3.5" />}
+                Aktualisieren
+              </Button>
             </div>
           </CardContent>
         </Card>
-      )}
 
-      {/* Time Entries */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Time Entries</CardTitle>
-          <CardDescription>
-            Your recent time tracking entries and active tasks
-          </CardDescription>
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="px-4 py-3">
+            <CardTitle className="text-sm font-semibold text-slate-800">Zusammenfassung</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-2 px-4 py-3 pt-0">
+            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+              <span className="text-slate-600">Woche</span>
+              <strong className="text-slate-900">{formatHours(selectedSummary?.hoursThisWeek)}</strong>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+              <span className="text-slate-600">Monat</span>
+              <strong className="text-slate-900">{formatHours(selectedSummary?.hoursThisMonth)}</strong>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+              <span className="text-slate-600">Gesamt Arbeitszeit</span>
+              <strong className="text-slate-900">{formatHours(selectedSummary?.totalHoursWorked)}</strong>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+              <span className="text-slate-600">Gesamt Pausenzeit</span>
+              <strong className="text-slate-900">{formatHours(selectedSummary?.totalBreakHours)}</strong>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <TimeTrackingBreakdown
+        breakHours={selectedSummary?.breakHoursToday || 0}
+        breaks={selectedSummary?.breaksToday || []}
+        orders={selectedSummary?.ordersToday || []}
+        selectedDate={selectedSummary?.selectedDate || selectedDate}
+      />
+
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between px-4 py-3">
+          <CardTitle className="text-sm font-semibold text-slate-800">Zeitereignisse des Tages</CardTitle>
+          <Badge variant="outline" className="text-[11px] text-slate-600">{entries.length} Eintraege</Badge>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {timeEntries.map((entry) => (
-              <div key={entry._id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center gap-4">
-                  <div className={`w-3 h-3 rounded-full ${
-                    entry.status === 'active' ? 'bg-green-500 animate-pulse' :
-                    entry.status === 'paused' ? 'bg-yellow-500' :
-                    'bg-gray-500'
-                  }`} />
-                  <div>
-                    <p className="font-medium">{entry.orderNumber}</p>
-                    <p className="text-sm text-muted-foreground">{entry.description}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Started: {new Date(entry.startTime).toLocaleTimeString()}
-                    </p>
+        <CardContent className="px-4 py-3 pt-0">
+          {entries.length > 0 ? (
+            <div className="grid gap-2">
+              {entries.map((entry) => (
+                <div key={entry._id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-800">{getEntryLabel(entry)}</p>
+                    <p className="text-[11px] text-slate-500">{entry.notes || "Automatisch erfasst"}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-xs font-semibold text-slate-900">{formatTimestamp(entry.timestamp)}</p>
+                    <p className="text-[11px] text-slate-500">{entry.duration ? formatMinutes(entry.duration) : entry.orderNumber ? `#${entry.orderNumber}` : ""}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <p className="font-medium">{formatTime(entry.duration)}</p>
-                    <Badge variant={
-                      entry.status === 'active' ? 'default' :
-                      entry.status === 'paused' ? 'secondary' :
-                      'outline'
-                    }>
-                      {entry.status}
-                    </Badge>
-                  </div>
-                  {entry.status !== 'active' && entry.status !== 'completed' && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleStartTimer(entry._id)}
-                    >
-                      <Play className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-500">
+              Fuer das ausgewaehlte Datum liegen keine Zeiteintraege vor.
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
