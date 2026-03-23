@@ -126,7 +126,7 @@
 }
 
 .order-details-page .order-dialog-content {
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 0;
   overflow: hidden;
 }
@@ -136,7 +136,7 @@
 .order-details-page [data-slot="dialog-content"] > div:first-child {
   background: #1a2a5e;
   color: #ffffff;
-  padding: 12px 14px;
+  padding: 10px 12px;
   margin: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
@@ -145,7 +145,7 @@
 .order-details-page [data-slot="dialog-content"] > [data-slot="dialog-header"] h2,
 .order-details-page [data-slot="dialog-content"] > div:first-child h2 {
   color: #ffffff;
-  font-size: 0.95rem;
+  font-size: 0.86rem;
   line-height: 1.2;
 }
 
@@ -153,26 +153,39 @@
 .order-details-page [data-slot="dialog-content"] > [data-slot="dialog-header"] p,
 .order-details-page [data-slot="dialog-content"] > div:first-child p {
   color: rgba(255, 255, 255, 0.88);
-  font-size: 0.72rem;
+  font-size: 0.69rem;
   line-height: 1.25;
 }
 
 .order-details-page [data-slot="dialog-content"] > :not(.order-dialog-header):not([data-slot="dialog-header"]) {
-  padding-left: 14px;
-  padding-right: 14px;
+  padding-left: 12px;
+  padding-right: 12px;
 }
 
 .order-details-page [data-slot="dialog-content"] [data-slot="dialog-footer"] {
-  padding: 10px 14px 14px;
-  gap: 6px;
+  padding: 8px 12px 12px;
+  gap: 5px;
 }
 
 .order-details-page [data-slot="dialog-content"] button,
 .order-details-page [data-slot="dialog-content"] input,
 .order-details-page [data-slot="dialog-content"] textarea,
 .order-details-page [data-slot="dialog-content"] [role="combobox"] {
-  min-height: 34px;
-  font-size: 0.78rem;
+  min-height: 30px;
+  font-size: 0.74rem;
+}
+
+.order-details-page [data-slot="dialog-content"] [data-slot="dialog-close"],
+.order-details-page [data-slot="dialog-content"] > button.absolute {
+  color: rgba(255, 255, 255, 0.9);
+  top: 8px;
+  right: 8px;
+}
+
+.order-details-page [data-slot="dialog-content"] [data-slot="dialog-close"]:hover,
+.order-details-page [data-slot="dialog-content"] > button.absolute:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .order-details-page [data-slot="dialog-content"] [data-slot="dialog-header"] {

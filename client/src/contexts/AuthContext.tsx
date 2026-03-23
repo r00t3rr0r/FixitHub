@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { login as apiLogin, register as apiRegister } from "../api/auth";
 import { mergeGuestCartWithUserCart } from "../utils/guestCart";
 import { addToCart, addRepairOrderToCart } from "../api/shop";
@@ -17,6 +17,7 @@ type AuthContextType = {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, firstName?: string, lastName?: string, phone?: string) => Promise<void>;
   logout: () => void;
+  isHydrated: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -38,6 +39,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     return null;
   });
+
+  const [isHydrated, setIsHydrated] = useState(false);
 
   const login = async (email: string, password: string) => {
     try {
@@ -109,8 +112,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.reload();
   };
 
+  // Initialize auth state on mount
+  useEffect(() => {
+    // Mark as hydrated after initial state load from localStorage
+    setIsHydrated(true);
+
+    // Listen for auth logout events (e.g., from API interceptor)
+    const handleAuthLogout = () => {
+      console.log('AuthContext: Auth logout event received, clearing auth state');
+      setIsAuthenticated(false);
+      setUser(null);
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+    };
+
+    window.addEventListener('auth-logout', handleAuthLogout);
+    return () => window.removeEventListener('auth-logout', handleAuthLogout);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, register, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, login, register, logout, isHydrated }}>
       {children}
     </AuthContext.Provider>
   );

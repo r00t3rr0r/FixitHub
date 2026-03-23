@@ -7,8 +7,10 @@ const localApi = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // Accept all status codes so interceptors can handle them properly
+  // Especially important for 401/403 token refresh logic
   validateStatus: (status) => {
-    return status >= 200 && status < 300;
+    return true;
   },
   transformResponse: [(data) => {
     // Handle empty responses
@@ -39,8 +41,6 @@ const localApi = axios.create({
 
 
 
-let accessToken: string | null = null;
-
 const getApiInstance = (url: string) => {
   return localApi;
 };
@@ -58,9 +58,9 @@ const setupInterceptors = (apiInstance: typeof axios) => {
   apiInstance.interceptors.request.use(
     (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
 
-      if (!accessToken) {
-        accessToken = localStorage.getItem('accessToken');
-      }
+      // Always read the latest token from localStorage to ensure auth persistence
+      const accessToken = localStorage.getItem('accessToken');
+      
       // Only add Authorization header if token is valid (not null, undefined, or string "null")
       if (accessToken && accessToken !== 'null' && accessToken !== 'undefined' && config.headers) {
         config.headers.Authorization = `Bearer ${accessToken}`;
@@ -72,14 +72,28 @@ const setupInterceptors = (apiInstance: typeof axios) => {
   );
 
   apiInstance.interceptors.response.use(
-    (response) => response,
-    async (error: AxiosError): Promise<any> => {
+    (response) => {
+      // Log successful responses (for debugging)
+      console.log(`[API] ${response.config.method?.toUpperCase()} ${response.config.url} → ${response.status}`);
+      
+      // Handle error status codes
+      if (response.status >= 400) {
+        console.warn(`[API] Error response: ${response.status} from ${response.config.url}`, response.data);
+        return Promise.reject(response);
+      }
+      return response;
+    },
+    async (error: AxiosError | any): Promise<any> => {
       const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+      const status = error.response?.status || error.status;
+
+      console.warn(`[API] Error: ${status} from ${originalRequest.url}`, error.response?.data || error.message);
 
       // Only refresh token when we get a 401/403 error (token is invalid/expired)
-      if (error.response?.status && [401, 403].includes(error.response.status) &&
+      if (status && [401, 403].includes(status) &&
           !originalRequest._retry &&
           originalRequest.url && !isRefreshTokenEndpoint(originalRequest.url)) {
+        console.log(`[API] Attempting token refresh for ${originalRequest.url}`);
         originalRequest._retry = true;
 
         try {
@@ -88,9 +102,14 @@ const setupInterceptors = (apiInstance: typeof axios) => {
             throw new Error('No refresh token available');
           }
 
+          console.log('[API] Sending refresh token request');
           const response = await localApi.post(`/api/auth/refresh`, {
             refreshToken,
           });
+
+          if (response.status >= 400) {
+            throw new Error(`Token refresh failed: ${response.status}`);
+          }
 
           if (response.data.data) {
             const newAccessToken = response.data.data.accessToken;
@@ -98,7 +117,7 @@ const setupInterceptors = (apiInstance: typeof axios) => {
 
             localStorage.setItem('accessToken', newAccessToken);
             localStorage.setItem('refreshToken', newRefreshToken);
-            accessToken = newAccessToken;
+            console.log('[API] Tokens refreshed successfully');
 
             if (originalRequest.headers) {
               originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
@@ -108,13 +127,18 @@ const setupInterceptors = (apiInstance: typeof axios) => {
           }
 
           if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+            originalRequest.headers.Authorization = `Bearer ${localStorage.getItem('accessToken')}`;
           }
+          console.log(`[API] Retrying original request: ${originalRequest.url}`);
           return getApiInstance(originalRequest.url || '')(originalRequest);
         } catch (err) {
+          console.error('[API] Token refresh failed:', err);
           localStorage.removeItem('refreshToken');
           localStorage.removeItem('accessToken');
-          accessToken = null;
+          localStorage.removeItem('user');
+          // Dispatch event so AuthContext can react
+          window.dispatchEvent(new CustomEvent('auth-logout'));
+          console.log('[API] Redirecting to login');
           window.location.href = '/login';
           return Promise.reject(err);
         }

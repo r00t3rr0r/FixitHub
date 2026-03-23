@@ -19,6 +19,7 @@ export function Sidebar({ isOpen, onMouseEnter, onMouseLeave, onRequestClose, is
   const [loading, setLoading] = useState(true)
   const isMobile = useIsMobile()
   const { toast } = useToast()
+  const usesBrandedSidebar = userProfile?.role === 'admin' || userProfile?.role === 'staff'
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -87,19 +88,23 @@ export function Sidebar({ isOpen, onMouseEnter, onMouseLeave, onRequestClose, is
             ? (isOpen ? 'translate-x-0 w-72' : '-translate-x-full w-72')
             : (isOpen ? 'w-64' : 'w-16')
         } ${
-          userProfile?.role === 'admin' 
+          usesBrandedSidebar 
             ? '' 
             : 'bg-background/95 backdrop-blur-sm border-border'
         }`}
-        style={userProfile?.role === 'admin'
-          ? { backgroundColor: 'var(--primary-blue, #1a2a5e)', borderColor: 'var(--primary-blue-light, #2a3f7e)' }
+        style={usesBrandedSidebar
+          ? {
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%), var(--primary-blue, #1a2a5e)',
+              borderColor: 'var(--primary-blue-light, #2a3f7e)',
+              boxShadow: 'var(--shadow-lg, 0 8px 30px rgba(0,0,0,0.12))'
+            }
           : undefined
         }
         onMouseEnter={isMobile ? undefined : onMouseEnter}
         onMouseLeave={isMobile ? undefined : onMouseLeave}
       >
         <div className={`h-full overflow-y-auto ${
-          userProfile?.role === 'admin' 
+          usesBrandedSidebar 
             ? '' 
             : 'scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent'
         }`}>

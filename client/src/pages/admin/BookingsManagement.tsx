@@ -1822,7 +1822,7 @@ function BookingDetailDialog({
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div 
-              className="p-4 rounded"
+              className="p-4 rounded hover:shadow-md"
               style={{
                 background: 'var(--white, #ffffff)',
                 border: '2px solid var(--primary-blue, #1a2a5e)',
@@ -1830,7 +1830,6 @@ function BookingDetailDialog({
                 boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
                 transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
               }}
-              className="hover:shadow-md"
             >
               <p className="text-xs" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
                 Total Cost
@@ -1840,7 +1839,7 @@ function BookingDetailDialog({
               </p>
             </div>
             <div 
-              className="p-4 rounded"
+              className="p-4 rounded hover:shadow-md"
               style={{
                 background: 'var(--white, #ffffff)',
                 border: '2px solid var(--success, #38a169)',
@@ -1848,7 +1847,6 @@ function BookingDetailDialog({
                 boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
                 transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
               }}
-              className="hover:shadow-md"
             >
               <p className="text-xs" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
                 Final Cost
@@ -1858,7 +1856,7 @@ function BookingDetailDialog({
               </p>
             </div>
             <div 
-              className="p-4 rounded"
+              className="p-4 rounded hover:shadow-md"
               style={{
                 background: 'var(--white, #ffffff)',
                 border: '2px solid var(--accent-yellow, #f5b800)',
@@ -1866,7 +1864,6 @@ function BookingDetailDialog({
                 boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
                 transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
               }}
-              className="hover:shadow-md"
             >
               <p className="text-xs" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
                 Items Count
