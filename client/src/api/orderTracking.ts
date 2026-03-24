@@ -84,3 +84,22 @@ export const trackBooking = async (data: TrackingData): Promise<BookingTrackingR
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+export interface BookingNumberTrackingData {
+  bookingNumber: string;
+  email: string;
+}
+
+export const trackBookingByNumber = async (data: BookingNumberTrackingData): Promise<BookingTrackingResponse> => {
+  try {
+    const response = await api.get('/api/track-order/by-number', {
+      params: {
+        bookingNumber: data.bookingNumber,
+        email: data.email
+      }
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
