@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useToast } from "@/hooks/useToast";
-import { trackBooking, TrackedOrder } from "@/api/orderTracking";
+import { trackBooking, trackBookingByNumber, TrackedOrder } from "@/api/orderTracking";
 import { useTranslation } from 'react-i18next';
 import {
   Package,
@@ -33,13 +33,45 @@ export function GuestBookingTracking() {
   useEffect(() => {
     const urlToken = searchParams.get("token");
     const urlEmail = searchParams.get("email");
+    const urlBookingNumber = searchParams.get("bookingNumber");
 
-    if (urlToken && urlEmail) {
+    if (urlBookingNumber && urlEmail) {
+      setEmail(urlEmail);
+      handleTrackByNumber(urlBookingNumber, urlEmail);
+    } else if (urlToken && urlEmail) {
       setToken(urlToken);
       setEmail(urlEmail);
       handleTrackBooking(urlToken, urlEmail);
     }
   }, [searchParams]);
+
+  const handleTrackByNumber = async (bookingNumber: string, trackingEmail: string) => {
+    try {
+      setLoading(true);
+      const response = await trackBookingByNumber({
+        bookingNumber,
+        email: trackingEmail
+      });
+
+      setBooking(response.booking);
+      setOrders(response.orders || []);
+
+      toast({
+        title: t('common.success'),
+        description: t('orderTracking.bookingFound')
+      });
+    } catch (error: any) {
+      toast({
+        title: t('common.error'),
+        description: error.message || t('orderTracking.bookingNotFound'),
+        variant: "destructive"
+      });
+      setBooking(null);
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleTrackBooking = async (trackingToken?: string, trackingEmail?: string) => {
     const finalToken = trackingToken || token;

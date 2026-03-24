@@ -113,6 +113,13 @@ interface Booking {
     phone: string
     avatar?: string
   } | null
+  guestInfo?: {
+    email?: string
+    firstName?: string
+    lastName?: string
+    phone?: string
+    isGuest?: boolean
+  }
   orderIds?: Array<any>
   repairOrderIds?: Array<any>
   items: Array<{
@@ -175,8 +182,20 @@ const FALLBACK_BOOKING_CUSTOMER = {
   avatar: ''
 }
 
-const getSafeBookingCustomer = (booking: Pick<Booking, 'customerId'>) => {
-  return booking.customerId ?? FALLBACK_BOOKING_CUSTOMER
+const getSafeBookingCustomer = (booking: Pick<Booking, 'customerId' | 'guestInfo'>) => {
+  if (booking.customerId) return booking.customerId
+  if (booking.guestInfo?.isGuest || booking.guestInfo?.email) {
+    return {
+      _id: '',
+      firstName: booking.guestInfo.firstName || '',
+      lastName: booking.guestInfo.lastName || '',
+      name: `${booking.guestInfo.firstName || ''} ${booking.guestInfo.lastName || ''}`.trim() || 'Guest',
+      email: booking.guestInfo.email || '',
+      phone: booking.guestInfo.phone || '',
+      avatar: ''
+    }
+  }
+  return FALLBACK_BOOKING_CUSTOMER
 }
 
 const getCustomerDisplayName = (customer: typeof FALLBACK_BOOKING_CUSTOMER) => {

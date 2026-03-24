@@ -88,6 +88,7 @@ class BookingService {
       // Create booking data
       const booking = new Booking({
         customerId: bookingData.customerId,
+        guestInfo: bookingData.guestInfo || undefined,
         orderIds: bookingData.orderIds,
         repairOrderIds: repairOrderIds,
         shopProductOrderId: shopProductOrderId,
