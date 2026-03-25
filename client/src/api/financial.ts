@@ -1,8 +1,13 @@
 import api from './api';
 
+export type InvoiceStatus =
+  | 'draft' | 'pending_approval' | 'sent' | 'viewed'
+  | 'partially_paid' | 'paid' | 'overdue' | 'cancelled' | 'credited';
+
 export interface Payment {
   _id: string;
-  orderId: string;
+  orderId?: string;
+  invoiceId?: string;
   orderNumber: string;
   customerId: string;
   customerName: string;
@@ -17,14 +22,22 @@ export interface Payment {
   refundedAt?: string;
   refundAmount?: number;
   refundReason?: string;
+  refundMode?: 'gateway' | 'manual';
+  refundGatewayProvider?: PaymentGateway['provider'] | 'manual';
+  refundGatewayReference?: string;
   disputeReason?: string;
   disputeStatus?: 'open' | 'under_review' | 'resolved' | 'closed';
+  metadata?: Record<string, unknown>;
 }
 
 export interface Invoice {
   _id: string;
   invoiceNumber: string;
-  orderId: string;
+  numberPrefix?: string;
+  orderId?: string;
+  repairOrderIds?: string[];
+  creditNoteOf?: string;
+  isCreditNote?: boolean;
   customerId: string;
   customerName: string;
   customerEmail: string;
@@ -33,10 +46,15 @@ export interface Invoice {
   tax: number;
   discount: number;
   total: number;
-  status: 'draft' | 'sent' | 'viewed' | 'paid' | 'overdue' | 'cancelled';
+  paidAmount: number;
+  status: InvoiceStatus;
+  dunningLevel?: number;
+  dunningNotifiedAt?: string;
   dueDate: string;
   sentAt?: string;
+  approvedAt?: string;
   paidAt?: string;
+  cancelledAt?: string;
   createdAt: string;
   updatedAt: string;
   notes?: string;
@@ -50,7 +68,48 @@ export interface InvoiceItem {
   quantity: number;
   unitPrice: number;
   total: number;
-  type: 'service' | 'addon' | 'product' | 'fee';
+  type: 'service' | 'addon' | 'product' | 'fee' | 'discount';
+}
+
+export interface DunningAction {
+  invoiceId: string;
+  invoiceNumber: string;
+  customerName: string;
+  customerEmail: string;
+  dunningLevel: number;
+  daysPastDue: number;
+  amount: number;
+  action: string;
+}
+
+export interface DunningRunItem {
+  invoiceId: string;
+  invoiceNumber: string;
+  customerName: string;
+  customerEmail?: string;
+  dueDate?: string;
+  amountOpen: number;
+  dunningLevel?: number;
+  status: 'pending' | 'processing' | 'sent' | 'escalated' | 'skipped' | 'failed';
+  note?: string;
+  lastActionAt?: string;
+}
+
+export interface DunningRun {
+  _id: string;
+  name: string;
+  status: 'draft' | 'running' | 'paused' | 'completed' | 'cancelled';
+  defaultStatus: InvoiceStatus;
+  defaultNote?: string;
+  items: DunningRunItem[];
+  logs: Array<{
+    at: string;
+    type: string;
+    message: string;
+    invoiceId?: string;
+  }>;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface FinancialReport {
@@ -118,10 +177,7 @@ export interface CustomerSearchResult {
   };
 }
 
-// Description: Search customers for invoice creation
-// Endpoint: GET /api/admin/financial/customers/search
-// Request: { query: string }
-// Response: { customers: CustomerSearchResult[] }
+// ── Customer Search ──────────────────────────────────────────────────────────
 export const searchCustomers = async (query: string) => {
   try {
     const response = await api.get('/api/admin/financial/customers/search', { params: { query } });
@@ -131,10 +187,7 @@ export const searchCustomers = async (query: string) => {
   }
 };
 
-// Description: Get all payments with filtering
-// Endpoint: GET /api/admin/financial/payments
-// Request: { status?: string, method?: string, dateFrom?: string, dateTo?: string, page?: number, limit?: number }
-// Response: { payments: Payment[], totalPages: number, currentPage: number, totalAmount: number }
+// ── Payments ──────────────────────────────────────────────────────────────────
 export const getPayments = async (filters: any = {}) => {
   try {
     const response = await api.get('/api/admin/financial/payments', { params: filters });
@@ -144,15 +197,21 @@ export const getPayments = async (filters: any = {}) => {
   }
 };
 
-// Description: Process a refund for a payment
-// Endpoint: POST /api/admin/financial/payments/:id/refund
-// Request: { amount: number, reason: string }
-// Response: { success: boolean, message: string, refund: object }
-export const processRefund = async (paymentId: string, amount: number, reason: string) => {
+export const processRefund = async (
+  paymentId: string,
+  amount: number,
+  reason: string,
+  options?: {
+    mode?: 'gateway' | 'manual';
+    gatewayProvider?: PaymentGateway['provider'];
+    gatewayReference?: string;
+  }
+) => {
   try {
     const response = await api.post(`/api/admin/financial/payments/${paymentId}/refund`, {
       amount,
-      reason
+      reason,
+      ...options
     });
     return response.data;
   } catch (error: any) {
@@ -160,10 +219,7 @@ export const processRefund = async (paymentId: string, amount: number, reason: s
   }
 };
 
-// Description: Get all invoices with filtering
-// Endpoint: GET /api/admin/financial/invoices
-// Request: { status?: string, dateFrom?: string, dateTo?: string, page?: number, limit?: number }
-// Response: { invoices: Invoice[], totalPages: number, currentPage: number, totalAmount: number }
+// ── Invoices ──────────────────────────────────────────────────────────────────
 export const getInvoices = async (filters: any = {}) => {
   try {
     const response = await api.get('/api/admin/financial/invoices', { params: filters });
@@ -173,10 +229,19 @@ export const getInvoices = async (filters: any = {}) => {
   }
 };
 
-// Description: Create a new invoice
-// Endpoint: POST /api/admin/financial/invoices
-// Request: Partial<Invoice>
-// Response: { success: boolean, invoice: Invoice }
+export const getInvoiceDetails = async (invoiceId: string): Promise<{
+  invoice: Invoice & { creditNoteOf?: Partial<Invoice> | string };
+  payments: Payment[];
+  creditNotes: Partial<Invoice>[];
+}> => {
+  try {
+    const response = await api.get(`/api/admin/financial/invoices/${invoiceId}`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
 export const createInvoice = async (invoiceData: Partial<Invoice>) => {
   try {
     const response = await api.post('/api/admin/financial/invoices', invoiceData);
@@ -186,26 +251,202 @@ export const createInvoice = async (invoiceData: Partial<Invoice>) => {
   }
 };
 
-// Description: Send invoice to customer
-// Endpoint: POST /api/admin/financial/invoices/:id/send
-// Request: { email?: string, message?: string }
-// Response: { success: boolean, message: string }
-export const sendInvoice = async (invoiceId: string, email?: string, message?: string) => {
+export const generateInvoiceFromRepairs = async (
+  repairOrderIds: string[],
+  options?: Partial<{
+    taxRate: number;
+    discount: number;
+    dueDate: string;
+    paymentTerms: string;
+    notes: string;
+    numberPrefix: string;
+  }>
+) => {
   try {
-    const response = await api.post(`/api/admin/financial/invoices/${invoiceId}/send`, {
-      email,
-      message
-    });
+    const response = await api.post('/api/admin/financial/invoices/from-repairs', { repairOrderIds, options });
     return response.data;
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
 
-// Description: Get financial reports
-// Endpoint: GET /api/admin/financial/reports
-// Request: { period?: string, dateFrom?: string, dateTo?: string }
-// Response: { report: FinancialReport }
+export const changeInvoiceStatus = async (invoiceId: string, status: InvoiceStatus, notes?: string) => {
+  try {
+    const response = await api.patch(`/api/admin/financial/invoices/${invoiceId}/status`, { status, notes });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export const addInvoicePayment = async (
+  invoiceId: string,
+  paymentData: {
+    amount: number;
+    currency?: string;
+    paymentMethod: string;
+    gatewayResponse?: string;
+    metadata?: Record<string, unknown>;
+  }
+) => {
+  try {
+    const response = await api.post(`/api/admin/financial/invoices/${invoiceId}/payments`, paymentData);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export const createCreditNote = async (invoiceId: string, options: {
+  reason?: string;
+  taxRate?: number;
+  discount?: number;
+  dueDate?: string;
+  numberPrefix?: string;
+  items?: Array<{
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    total: number;
+    type: InvoiceItem['type'];
+  }>;
+}) => {
+  try {
+    const response = await api.post(`/api/admin/financial/invoices/${invoiceId}/credit-note`, options);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export const getOverdueInvoices = async () => {
+  try {
+    const response = await api.get('/api/admin/financial/invoices/overdue');
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export const runDunningJob = async () => {
+  try {
+    const response = await api.post('/api/admin/financial/dunning/run');
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export const createDunningRun = async (payload: {
+  name: string;
+  defaultStatus?: InvoiceStatus;
+  defaultNote?: string;
+  invoiceIds: string[];
+  status?: 'draft' | 'running' | 'paused' | 'completed' | 'cancelled';
+}) => {
+  try {
+    const response = await api.post('/api/admin/financial/dunning/runs', payload);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export const getDunningRuns = async (filters: { status?: string } = {}) => {
+  try {
+    const response = await api.get('/api/admin/financial/dunning/runs', { params: filters });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export const getDunningRunById = async (runId: string) => {
+  try {
+    const response = await api.get(`/api/admin/financial/dunning/runs/${runId}`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export const updateDunningRun = async (runId: string, updates: Partial<{
+  name: string;
+  status: 'draft' | 'running' | 'paused' | 'completed' | 'cancelled';
+  defaultStatus: InvoiceStatus;
+  defaultNote: string;
+  logType: string;
+  logMessage: string;
+}>) => {
+  try {
+    const response = await api.patch(`/api/admin/financial/dunning/runs/${runId}`, updates);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export const updateDunningRunItem = async (
+  runId: string,
+  invoiceId: string,
+  updates: Partial<{
+    status: DunningRunItem['status'];
+    note: string;
+    amountOpen: number;
+    logMessage: string;
+  }>
+) => {
+  try {
+    const response = await api.patch(`/api/admin/financial/dunning/runs/${runId}/items/${invoiceId}`, updates);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export const addDunningRunItem = async (runId: string, invoiceId: string) => {
+  try {
+    const response = await api.post(`/api/admin/financial/dunning/runs/${runId}/items`, { invoiceId });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export const sendInvoice = async (invoiceId: string, email?: string, message?: string) => {
+  try {
+    const response = await api.post(`/api/admin/financial/invoices/${invoiceId}/send`, { email, message });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export const exportPayments = async (filters: any = {}, format: 'csv' | 'json' = 'csv') => {
+  try {
+    const response = await api.get('/api/admin/financial/export/payments', {
+      params: { ...filters, format },
+      responseType: format === 'csv' ? 'blob' : 'json'
+    });
+    return response;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export const exportInvoicesData = async (filters: any = {}, format: 'csv' | 'json' = 'csv') => {
+  try {
+    const response = await api.get('/api/admin/financial/export/invoices', {
+      params: { ...filters, format },
+      responseType: format === 'csv' ? 'blob' : 'json'
+    });
+    return response;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// ── Reports ───────────────────────────────────────────────────────────────────
 export const getFinancialReports = async (filters: any = {}) => {
   try {
     const response = await api.get('/api/admin/financial/reports', { params: filters });
@@ -215,10 +456,7 @@ export const getFinancialReports = async (filters: any = {}) => {
   }
 };
 
-// Description: Get payment gateways
-// Endpoint: GET /api/admin/financial/gateways
-// Request: {}
-// Response: { gateways: PaymentGateway[] }
+// ── Payment Gateways ──────────────────────────────────────────────────────────
 export const getPaymentGateways = async () => {
   try {
     const response = await api.get('/api/admin/financial/gateways');
@@ -228,10 +466,6 @@ export const getPaymentGateways = async () => {
   }
 };
 
-// Description: Update payment gateway configuration
-// Endpoint: PUT /api/admin/financial/gateways/:id
-// Request: Partial<PaymentGateway>
-// Response: { success: boolean, gateway: PaymentGateway }
 export const updatePaymentGateway = async (gatewayId: string, updates: Partial<PaymentGateway>) => {
   try {
     const response = await api.put(`/api/admin/financial/gateways/${gatewayId}`, updates);

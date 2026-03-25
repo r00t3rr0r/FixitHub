@@ -170,6 +170,10 @@ const api = {
     const apiInstance = getApiInstance(url);
     return apiInstance.put(url, data, config);
   },
+  patch: (url: string, data?: any, config?: AxiosRequestConfig) => {
+    const apiInstance = getApiInstance(url);
+    return apiInstance.patch(url, data, config);
+  },
   delete: (url: string, config?: AxiosRequestConfig) => {
     const apiInstance = getApiInstance(url);
     return apiInstance.delete(url, config);
