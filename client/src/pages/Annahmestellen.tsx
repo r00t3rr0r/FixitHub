@@ -7,9 +7,31 @@ import 'leaflet/dist/leaflet.css'
 import { McRepairNav } from '@/components/home/McRepairNav'
 import { LOCATIONS, type LocationData } from '@/data/annahmestellenData'
 
-function createPinIcon(letter: string, isActive: boolean) {
+const ZOOM_LABEL_THRESHOLD = 9
+
+function getLabel(name: string) {
+  return name.replace(/^(EP:|SP:|SP\s|EP\s)/, '').trim().substring(0, 2).toUpperCase()
+}
+
+function createPinIcon(label: string, isActive: boolean, isHQ = false, zoomed = false) {
+  if (isHQ) return createHQPinIcon(isActive, zoomed)
+
   const color = isActive ? '#1a2a5e' : '#e53e3e'
   const shadowColor = isActive ? 'rgba(26,42,94,0.4)' : 'rgba(229,62,62,0.35)'
+
+  if (!zoomed) {
+    // Zoomed out: simple small dot
+    const size = isActive ? 18 : 14
+    return L.divIcon({
+      className: 'as-leaflet-pin',
+      html: `<div class="as-pin-dot ${isActive ? 'active' : ''}" style="width:${size}px;height:${size}px;background:${color};box-shadow:0 2px 6px ${shadowColor}"></div>`,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+      popupAnchor: [0, -size / 2]
+    })
+  }
+
+  // Zoomed in: pin with 2-letter label
   const size = isActive ? 42 : 36
   return L.divIcon({
     className: 'as-leaflet-pin',
@@ -18,7 +40,7 @@ function createPinIcon(letter: string, isActive: boolean) {
         <svg width="${size}" height="${Math.round(size * 1.5)}" viewBox="0 0 36 54" fill="none">
           <path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 36 18 36s18-22.5 18-36C36 8.06 27.94 0 18 0z" fill="${color}"/>
           <circle cx="18" cy="16" r="11" fill="#fff"/>
-          <text x="18" y="20.5" text-anchor="middle" font-family="Inter,sans-serif" font-size="13" font-weight="800" fill="${color}">${letter}</text>
+          <text x="18" y="20.5" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="800" fill="${color}">${label}</text>
         </svg>
       </div>
     `,
@@ -28,14 +50,54 @@ function createPinIcon(letter: string, isActive: boolean) {
   })
 }
 
+function createHQPinIcon(isActive: boolean, zoomed = false) {
+  if (!zoomed) {
+    // Zoomed out: golden dot, bigger than others
+    const size = isActive ? 22 : 18
+    return L.divIcon({
+      className: 'as-leaflet-pin as-leaflet-pin-hq',
+      html: `<div class="as-pin-dot as-pin-dot-hq ${isActive ? 'active' : ''}" style="width:${size}px;height:${size}px"></div>`,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+      popupAnchor: [0, -size / 2]
+    })
+  }
+
+  const size = isActive ? 54 : 48
+  return L.divIcon({
+    className: 'as-leaflet-pin as-leaflet-pin-hq',
+    html: `
+      <div class="as-pin-wrapper as-pin-hq ${isActive ? 'active' : ''}">
+        <svg width="${size}" height="${Math.round(size * 1.4)}" viewBox="0 0 48 67" fill="none">
+          <defs>
+            <linearGradient id="hqGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#f59e0b"/>
+              <stop offset="100%" stop-color="#d97706"/>
+            </linearGradient>
+            <filter id="hqShadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(245,158,11,0.5)"/></filter>
+          </defs>
+          <path d="M24 0C10.75 0 0 10.75 0 24c0 18 24 43 24 43s24-25 24-43C48 10.75 37.25 0 24 0z" fill="url(#hqGrad)" filter="url(#hqShadow)"/>
+          <circle cx="24" cy="21" r="14" fill="#fff"/>
+          <text x="24" y="19" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" font-weight="700" fill="#d97706">★</text>
+          <text x="24" y="28" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" font-weight="800" fill="#1a2a5e">HQ</text>
+        </svg>
+      </div>
+    `,
+    iconSize: [size, Math.round(size * 1.4)],
+    iconAnchor: [size / 2, Math.round(size * 1.4)],
+    popupAnchor: [0, -Math.round(size * 1.25)]
+  })
+}
+
 function buildPopupHTML(loc: LocationData) {
+  const hqBadge = loc.isHQ ? '<span class="as-popup-hq-badge">★ Hauptzentrale</span>' : ''
   return `
-    <div class="as-leaflet-popup">
+    <div class="as-leaflet-popup${loc.isHQ ? ' as-popup-hq' : ''}">
       <div class="as-leaflet-popup-header">
-        <span class="as-leaflet-popup-marker">${loc.id}</span>
+        <span class="as-leaflet-popup-marker${loc.isHQ ? ' as-marker-hq' : ''}">${loc.isHQ ? '★' : loc.id}</span>
         <div class="as-leaflet-popup-title">
           <div class="as-leaflet-popup-name">${loc.name}</div>
-          <div class="as-leaflet-popup-dist">${loc.distance} entfernt</div>
+          ${hqBadge}
         </div>
       </div>
       <div class="as-leaflet-popup-body">
@@ -121,11 +183,14 @@ export function Annahmestellen() {
     markersLayer.clearLayers()
     markersRef.current = {}
     const bounds: L.LatLngTuple[] = []
+    const zoomed = map.getZoom() >= ZOOM_LABEL_THRESHOLD
 
     filtered.forEach(loc => {
+      const label = getLabel(loc.name)
       const marker = L.marker([loc.lat, loc.lng], {
-        icon: createPinIcon(loc.id, false),
+        icon: createPinIcon(label, false, loc.isHQ, zoomed),
         riseOnHover: true,
+        zIndexOffset: loc.isHQ ? 1000 : 0,
       })
 
       marker.bindPopup(buildPopupHTML(loc), {
@@ -137,13 +202,13 @@ export function Annahmestellen() {
       })
 
       marker.on('click', () => {
-        // Reset previous active
+        const z = map.getZoom() >= ZOOM_LABEL_THRESHOLD
         Object.entries(markersRef.current).forEach(([id, m]) => {
-          if (id !== loc.id) m.setIcon(createPinIcon(id, false))
+          const otherLoc = filtered.find(l => l.id === id)
+          if (id !== loc.id) m.setIcon(createPinIcon(getLabel(otherLoc?.name ?? ''), false, otherLoc?.isHQ, z))
         })
-        marker.setIcon(createPinIcon(loc.id, true))
+        marker.setIcon(createPinIcon(label, true, loc.isHQ, z))
         setActiveLocationId(loc.id)
-        // Scroll sidebar
         if (sidebarRef.current) {
           const el = sidebarRef.current.querySelector(`[data-loc-id="${loc.id}"]`)
           el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
@@ -153,11 +218,11 @@ export function Annahmestellen() {
       if (!('ontouchstart' in window)) {
         marker.on('mouseover', () => {
           if (markersRef.current[loc.id] !== marker) return
-          marker.setIcon(createPinIcon(loc.id, true))
+          marker.setIcon(createPinIcon(label, true, loc.isHQ, map.getZoom() >= ZOOM_LABEL_THRESHOLD))
         })
         marker.on('mouseout', () => {
           if (loc.id === activeLocationId) return
-          marker.setIcon(createPinIcon(loc.id, false))
+          marker.setIcon(createPinIcon(label, false, loc.isHQ, map.getZoom() >= ZOOM_LABEL_THRESHOLD))
         })
       }
 
@@ -174,13 +239,31 @@ export function Annahmestellen() {
     }
   }, [filtered, activeView])
 
+  // Update marker icons on zoom change
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const onZoom = () => {
+      const z = map.getZoom() >= ZOOM_LABEL_THRESHOLD
+      Object.entries(markersRef.current).forEach(([id, m]) => {
+        const loc = LOCATIONS.find(l => l.id === id)
+        const isActive = id === activeLocationId
+        m.setIcon(createPinIcon(getLabel(loc?.name ?? ''), isActive, loc?.isHQ, z))
+      })
+    }
+    map.on('zoomend', onZoom)
+    return () => { map.off('zoomend', onZoom) }
+  }, [activeView, activeLocationId])
+
   // Close popup resets active
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
     const handler = () => {
+      const z = map.getZoom() >= ZOOM_LABEL_THRESHOLD
       Object.entries(markersRef.current).forEach(([id, m]) => {
-        m.setIcon(createPinIcon(id, false))
+        const loc = LOCATIONS.find(l => l.id === id)
+        m.setIcon(createPinIcon(getLabel(loc?.name ?? ''), false, loc?.isHQ, z))
       })
       setActiveLocationId(null)
     }
@@ -195,10 +278,11 @@ export function Annahmestellen() {
 
     // Reset all markers
     Object.entries(markersRef.current).forEach(([id, m]) => {
-      m.setIcon(createPinIcon(id, false))
+      const otherLoc = LOCATIONS.find(l => l.id === id)
+      m.setIcon(createPinIcon(getLabel(otherLoc?.name ?? ''), false, otherLoc?.isHQ, map.getZoom() >= ZOOM_LABEL_THRESHOLD))
     })
     setActiveLocationId(loc.id)
-    marker.setIcon(createPinIcon(loc.id, true))
+    marker.setIcon(createPinIcon(getLabel(loc.name), true, loc.isHQ, true))
     map.flyTo([loc.lat, loc.lng], 12, { duration: 0.8 })
     setTimeout(() => marker.openPopup(), 850)
   }, [])
@@ -292,14 +376,14 @@ export function Annahmestellen() {
                     <div
                       key={loc.id}
                       data-loc-id={loc.id}
-                      className={`as-location-item ${activeLocationId === loc.id ? 'active' : ''}`}
+                      className={`as-location-item ${activeLocationId === loc.id ? 'active' : ''}${loc.isHQ ? ' as-location-hq' : ''}`}
                       onClick={() => handleLocationClick(loc)}
                     >
-                      <div className="as-location-marker">{loc.id}</div>
+                      <div className={`as-location-marker${loc.isHQ ? ' as-marker-hq' : ''}`}>{loc.isHQ ? '★' : loc.id}</div>
                       <div className="as-location-info">
                         <div className="as-location-name">
                           {loc.name}
-                          <span className="as-location-distance">({loc.distance})</span>
+                          {loc.isHQ && <span className="as-hq-badge">Hauptzentrale</span>}
                         </div>
                         <div className="as-location-address">{loc.address}</div>
                         <div className="as-location-contact">
@@ -322,13 +406,13 @@ export function Annahmestellen() {
           <div className="container">
             <div className="as-list-grid">
               {filtered.map((loc) => (
-                <div key={loc.id} className="as-list-card">
+                <div key={loc.id} className={`as-list-card${loc.isHQ ? ' as-list-card-hq' : ''}`}>
                   <div className="as-card-logo">
                     <div className="as-card-logo-placeholder">
-                      <div className="as-card-logo-icon">{loc.logo}</div>
+                      <div className="as-card-logo-icon">{loc.isHQ ? '★' : loc.logo}</div>
                       <span>{loc.name.length > 22 ? loc.name.substring(0, 22) + '…' : loc.name}</span>
                     </div>
-                    <span className="as-card-partner-badge">Partner</span>
+                    <span className={`as-card-partner-badge${loc.isHQ ? ' as-badge-hq' : ''}`}>{loc.isHQ ? '★ Hauptzentrale' : 'Partner'}</span>
                   </div>
                   <div className="as-card-body">
                     <div className="as-card-name">{loc.name}</div>

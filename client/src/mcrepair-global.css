@@ -694,6 +694,76 @@ ul, ol {
   color: rgba(255,255,255,0.5);
 }
 
+/* Hero Booking Tracking Bar */
+.hero-tracking-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-top: 12px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: var(--transition);
+}
+
+.hero-tracking-bar:focus-within {
+  border-color: rgba(245, 184, 0, 0.4);
+  background: rgba(255,255,255,0.10);
+}
+
+.hero-tracking-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  color: var(--accent-yellow);
+  flex-shrink: 0;
+}
+
+.hero-tracking-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.hero-tracking-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  border-left: 1px solid rgba(255,255,255,0.10);
+  padding: 12px 14px;
+  font-size: 0.82rem;
+  color: #fff;
+  outline: none;
+}
+
+.hero-tracking-input::placeholder {
+  color: rgba(255,255,255,0.4);
+}
+
+.hero-tracking-btn {
+  flex-shrink: 0;
+  background: var(--accent-yellow);
+  color: var(--primary-blue);
+  border: none;
+  padding: 12px 20px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.hero-tracking-btn:hover:not(:disabled) {
+  background: #ffd000;
+}
+
+.hero-tracking-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ============================================
    REPAIR CONFIGURATOR (Primary Conversion)
    ============================================ */
@@ -1844,6 +1914,24 @@ ul, ol {
     justify-content: center;
   }
 
+  .hero-tracking-bar {
+    flex-wrap: wrap;
+  }
+
+  .hero-tracking-icon {
+    display: none;
+  }
+
+  .hero-tracking-input {
+    flex: 1 1 40%;
+    border-left: none;
+    border-bottom: 1px solid rgba(255,255,255,0.10);
+  }
+
+  .hero-tracking-btn {
+    width: 100%;
+  }
+
   .hero-woman {
     left: 50%;
     transform: translateX(-50%);
@@ -2207,6 +2295,25 @@ ul, ol {
 
   .hero-helpers {
     flex-direction: column;
+  }
+
+  .hero-tracking-bar {
+    flex-direction: column;
+  }
+
+  .hero-tracking-icon {
+    display: none;
+  }
+
+  .hero-tracking-input {
+    border-left: none;
+    border-bottom: 1px solid rgba(255,255,255,0.10);
+    width: 100%;
+  }
+
+  .hero-tracking-btn {
+    width: 100%;
+    text-align: center;
   }
 
   .device-grid {
@@ -4167,4 +4274,112 @@ ul, ol {
   .as-location-marker { width: 24px; height: 24px; min-width: 24px; font-size: 0.6rem; }
   .as-location-name { font-size: 0.82rem; }
   .as-card-body { padding: 14px; }
+}
+
+/* --- Annahmestellen: HQ Special Styling --- */
+.as-pin-dot {
+  border-radius: 50%;
+  border: 2px solid #fff;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.as-pin-dot:hover,
+.as-pin-dot.active {
+  transform: scale(1.3);
+}
+.as-pin-dot-hq {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  border: 2.5px solid #fff;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.5) !important;
+  animation: as-hq-pulse 2s ease-in-out infinite;
+}
+.as-pin-dot-hq.active {
+  animation: none;
+}
+
+.as-pin-hq {
+  z-index: 1000 !important;
+  filter: drop-shadow(0 4px 12px rgba(245, 158, 11, 0.5));
+  animation: as-hq-pulse 2s ease-in-out infinite;
+}
+@keyframes as-hq-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+.as-pin-hq.active {
+  animation: none;
+  filter: drop-shadow(0 6px 16px rgba(245, 158, 11, 0.7));
+}
+
+/* HQ marker circle (sidebar + popup) */
+.as-marker-hq {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  color: #fff !important;
+  border-color: #d97706 !important;
+  font-size: 1rem !important;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+}
+
+/* HQ badge in sidebar */
+.as-hq-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  border-radius: 10px;
+  vertical-align: middle;
+}
+
+/* HQ sidebar item highlight */
+.as-location-hq {
+  border-left: 3px solid #f59e0b !important;
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.06), transparent) !important;
+}
+.as-location-hq:hover {
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.12), transparent) !important;
+}
+
+/* HQ popup styling */
+.as-popup-hq {
+  border-top: 3px solid #f59e0b;
+}
+.as-popup-hq-badge {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  border-radius: 10px;
+  letter-spacing: 0.3px;
+}
+
+/* HQ list card */
+.as-list-card-hq {
+  border: 2px solid #f59e0b !important;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.2) !important;
+  position: relative;
+}
+.as-list-card-hq::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+  border-radius: 6px 6px 0 0;
+}
+.as-badge-hq {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  color: #fff !important;
+}
+.as-list-card-hq .as-card-logo-icon {
+  color: #f59e0b;
+  font-size: 1.2rem;
 }

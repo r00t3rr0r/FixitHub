@@ -188,4 +188,73 @@ router.get('/booking', async (req, res) => {
   }
 });
 
+// Description: Track guest booking using booking number and email
+// Endpoint: GET /api/track-order/by-number
+// Query Params: bookingNumber (e.g. BKG-2026-0001), email (guest email)
+// Response: { success: boolean, booking: Booking, orders: Order[] }
+router.get('/by-number', async (req, res) => {
+  try {
+    const { bookingNumber, email } = req.query;
+
+    if (!bookingNumber || !email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Booking number and email are required'
+      });
+    }
+
+    const booking = await Booking.findOne({ bookingNumber: bookingNumber.toString().trim() })
+      .populate({
+        path: 'orderIds',
+        populate: [
+          { path: 'services.serviceId', select: 'name description price estimatedTime category' },
+          { path: 'shopProducts.productId', select: 'name price images category' }
+        ]
+      })
+      .lean();
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        error: 'Booking not found. Please check your booking number.'
+      });
+    }
+
+    // Verify email matches (check guestInfo for guests, populate customerId for registered users)
+    let bookingEmail = booking.guestInfo?.email;
+    if (!bookingEmail && booking.customerId) {
+      const User = require('../models/User');
+      const user = await User.findById(booking.customerId).select('email').lean();
+      bookingEmail = user?.email;
+    }
+    if (!bookingEmail || bookingEmail.toLowerCase() !== email.toString().trim().toLowerCase()) {
+      return res.status(403).json({
+        success: false,
+        error: 'Email does not match booking records'
+      });
+    }
+
+    const responseOrders = (booking.orderIds || []).map(order => ({
+      ...order,
+      unlockPattern: undefined,
+      unlockCode: undefined,
+      unlockConfirmation: undefined,
+      staffNotes: undefined,
+      eParts: undefined,
+    }));
+
+    res.json({
+      success: true,
+      booking: { ...booking, orderIds: responseOrders },
+      orders: responseOrders
+    });
+  } catch (error) {
+    console.error('OrderTrackingRoutes: Error tracking booking by number:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

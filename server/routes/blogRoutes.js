@@ -84,6 +84,27 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
+// Delete post (author or admin)
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    console.log('BlogRoutes: DELETE /:id - ID:', req.params.id, 'User:', req.user.email);
+
+    const existingPost = await BlogService.getPost(req.params.id);
+    if (existingPost.author._id.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied. You can only delete your own posts.' });
+    }
+
+    const result = await BlogService.deletePost(req.params.id);
+    res.json(result);
+  } catch (error) {
+    console.error('BlogRoutes: Error deleting post:', error);
+    if (error.message === 'Blog post not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Update post status (admin only)
 router.put('/:id/status', auth, async (req, res) => {
   try {

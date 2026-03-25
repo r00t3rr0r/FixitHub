@@ -326,6 +326,18 @@ export const updateBlogPost = async (postId: string, postData: Partial<BlogPost>
   }
 };
 
+// Description: Delete blog post
+// Endpoint: DELETE /api/blog-posts/:id
+// Response: { success: boolean, message: string }
+export const deleteBlogPost = async (postId: string) => {
+  try {
+    const response = await api.delete(`/api/blog-posts/${postId}`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
 // Description: Update blog post status
 // Endpoint: PUT /api/blog-posts/:id/status
 // Request: { status: string, reviewNotes?: string }

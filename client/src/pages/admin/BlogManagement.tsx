@@ -43,6 +43,8 @@ import {
   getBlogAuthors,
   createBlogPost,
   updateBlogPost,
+  deleteBlogPost,
+  createCategory,
   BlogPost,
   BlogCategory,
   BlogAuthor
@@ -51,7 +53,7 @@ import {
 export function BlogManagement() {
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [categories, setCategories] = useState<BlogCategory[]>([])
-  const [authors, setAuthors] = useState<BlogAuthor[]>([])
+  const [_authors, setAuthors] = useState<BlogAuthor[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -59,6 +61,9 @@ export function BlogManagement() {
   const [isCreating, setIsCreating] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   const [editingPost, setEditingPost] = useState<BlogPost | null>(null)
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false)
   const { toast } = useToast()
 
   // Form state for new blog post
@@ -90,7 +95,7 @@ export function BlogManagement() {
 
       setPosts(postsResponse.posts || [])
       setCategories(categoriesResponse.categories || [])
-      setAuthors(authorsResponse.authors || [])
+      setAuthors((authorsResponse as any).authors || [])
     } catch (error) {
       console.error("Error fetching blog data:", error)
       toast({
@@ -100,6 +105,26 @@ export function BlogManagement() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) return
+    try {
+      setIsCreatingCategory(true)
+      const name = newCategoryName.trim()
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      const response = await createCategory({ name, slug })
+      if (response.category) {
+        setCategories(prev => [...prev, response.category])
+        toast({ title: "Success", description: `Category "${response.category.name}" created` })
+        setNewCategoryName('')
+        setIsCategoryDialogOpen(false)
+      }
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to create category", variant: "destructive" })
+    } finally {
+      setIsCreatingCategory(false)
     }
   }
 
@@ -118,11 +143,11 @@ export function BlogManagement() {
 
       const postData = {
         ...newPost,
-        tags: newPost.tags ? newPost.tags.split(',').map(tag => tag.trim()) : [],
+        tags: [],
         seoKeywords: newPost.seoKeywords ? newPost.seoKeywords.split(',').map(keyword => keyword.trim()) : []
       }
 
-      const response = await createBlogPost(postData)
+      const response = await createBlogPost(postData as any)
 
       if (response.success) {
         toast({
@@ -197,7 +222,7 @@ export function BlogManagement() {
         seoKeywords: Array.isArray(editingPost.seoKeywords) ? editingPost.seoKeywords : []
       }
 
-      const response = await updateBlogPost(editingPost._id, postData)
+      const response = await updateBlogPost(editingPost._id, postData as any)
 
       if (response.success) {
         toast({
@@ -220,6 +245,19 @@ export function BlogManagement() {
       })
     } finally {
       setIsUpdating(false)
+    }
+  }
+
+  const handleDeletePost = async (postId: string) => {
+    if (!window.confirm('Are you sure you want to delete this post?')) return
+    try {
+      const response = await deleteBlogPost(postId)
+      if (response.success) {
+        toast({ title: "Success", description: "Blog post deleted successfully" })
+        setPosts(prev => prev.filter(p => p._id !== postId))
+      }
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to delete blog post", variant: "destructive" })
     }
   }
 
@@ -281,21 +319,26 @@ export function BlogManagement() {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="category" className="text-xs">Category *</Label>
-                  <Select
-                    value={newPost.category}
-                    onValueChange={(value) => setNewPost({ ...newPost, category: value })}
-                  >
-                    <SelectTrigger className="h-9 text-sm">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category._id} value={category._id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2">
+                    <Select
+                      value={newPost.category}
+                      onValueChange={(value) => setNewPost({ ...newPost, category: value })}
+                    >
+                      <SelectTrigger className="h-9 text-sm flex-1">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category._id} value={category._id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" variant="outline" size="sm" className="h-9 px-2" onClick={() => setIsCategoryDialogOpen(true)}>
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -453,21 +496,26 @@ export function BlogManagement() {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="edit-category" className="text-xs">Category *</Label>
-                  <Select
-                    value={typeof editingPost.category === 'string' ? editingPost.category : editingPost.category._id}
-                    onValueChange={(value) => setEditingPost({ ...editingPost, category: value as any })}
-                  >
-                    <SelectTrigger className="h-9 text-sm">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category._id} value={category._id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2">
+                    <Select
+                      value={typeof editingPost.category === 'string' ? editingPost.category : editingPost.category._id}
+                      onValueChange={(value) => setEditingPost({ ...editingPost, category: value as any })}
+                    >
+                      <SelectTrigger className="h-9 text-sm flex-1">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category._id} value={category._id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" variant="outline" size="sm" className="h-9 px-2" onClick={() => setIsCategoryDialogOpen(true)}>
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -734,7 +782,7 @@ export function BlogManagement() {
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditPost(post)}>
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeletePost(post._id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -744,6 +792,37 @@ export function BlogManagement() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Create Category Dialog */}
+      <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>New Category</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="new-category-name" className="text-xs">Category Name *</Label>
+              <Input
+                id="new-category-name"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="e.g. Technology, Tutorials..."
+                className="h-9 text-sm"
+                onKeyDown={(e) => { if (e.key === 'Enter') handleCreateCategory() }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setIsCategoryDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleCreateCategory} disabled={isCreatingCategory || !newCategoryName.trim()}>
+              {isCreatingCategory ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
