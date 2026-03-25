@@ -3,12 +3,15 @@ const mongoose = require('mongoose');
 const paymentSchema = new mongoose.Schema({
   orderId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Order',
-    required: true
+    ref: 'Order'
+  },
+  invoiceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Invoice'
   },
   orderNumber: {
     type: String,
-    required: true
+    default: ''
   },
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -42,7 +45,8 @@ const paymentSchema = new mongoose.Schema({
   transactionId: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
+    default: () => `txn_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
   },
   gatewayResponse: {
     type: String,
@@ -59,6 +63,17 @@ const paymentSchema = new mongoose.Schema({
     min: 0
   },
   refundReason: {
+    type: String
+  },
+  refundMode: {
+    type: String,
+    enum: ['gateway', 'manual']
+  },
+  refundGatewayProvider: {
+    type: String,
+    enum: ['stripe', 'paypal', 'square', 'authorize_net', 'manual']
+  },
+  refundGatewayReference: {
     type: String
   },
   disputeReason: {

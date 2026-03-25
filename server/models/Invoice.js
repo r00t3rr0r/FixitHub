@@ -12,17 +12,15 @@ const invoiceItemSchema = new mongoose.Schema({
   },
   unitPrice: {
     type: Number,
-    required: true,
-    min: 0
+    required: true
   },
   total: {
     type: Number,
-    required: true,
-    min: 0
+    required: true
   },
   type: {
     type: String,
-    enum: ['service', 'addon', 'product', 'fee'],
+    enum: ['service', 'addon', 'product', 'fee', 'discount'],
     required: true
   }
 }, { _id: true });
@@ -32,14 +30,29 @@ const invoiceSchema = new mongoose.Schema({
     type: String,
     unique: true
   },
+  numberPrefix: {
+    type: String,
+    default: 'INV'
+  },
   orderId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Order'
   },
+  repairOrderIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Order'
+  }],
   bookingId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Booking',
-    required: true
+    ref: 'Booking'
+  },
+  creditNoteOf: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Invoice'
+  },
+  isCreditNote: {
+    type: Boolean,
+    default: false
   },
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -57,13 +70,11 @@ const invoiceSchema = new mongoose.Schema({
   items: [invoiceItemSchema],
   subtotal: {
     type: Number,
-    required: true,
-    min: 0
+    required: true
   },
   tax: {
     type: Number,
-    default: 0,
-    min: 0
+    default: 0
   },
   discount: {
     type: Number,
@@ -72,13 +83,26 @@ const invoiceSchema = new mongoose.Schema({
   },
   total: {
     type: Number,
-    required: true,
-    min: 0
+    required: true
   },
   status: {
     type: String,
-    enum: ['draft', 'sent', 'viewed', 'paid', 'overdue', 'cancelled'],
+    enum: ['draft', 'pending_approval', 'sent', 'viewed', 'partially_paid', 'paid', 'overdue', 'cancelled', 'credited'],
     default: 'draft'
+  },
+  paidAmount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  dunningLevel: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 3
+  },
+  dunningNotifiedAt: {
+    type: Date
   },
   dueDate: {
     type: Date,
@@ -87,7 +111,13 @@ const invoiceSchema = new mongoose.Schema({
   sentAt: {
     type: Date
   },
+  approvedAt: {
+    type: Date
+  },
   paidAt: {
+    type: Date
+  },
+  cancelledAt: {
     type: Date
   },
   notes: {
@@ -114,13 +144,16 @@ const invoiceSchema = new mongoose.Schema({
   versionKey: false
 });
 
-// Generate invoice number before saving
+// Generate invoice number before saving (configurable prefix)
 invoiceSchema.pre('save', async function(next) {
   if (this.isNew && !this.invoiceNumber) {
     try {
       const year = new Date().getFullYear();
+      const prefix = this.isCreditNote
+        ? (this.numberPrefix || 'INV') + '-CN'
+        : (this.numberPrefix || 'INV');
       const count = await this.constructor.countDocuments();
-      this.invoiceNumber = `INV-${year}-${String(count + 1).padStart(3, '0')}`;
+      this.invoiceNumber = `${prefix}-${year}-${String(count + 1).padStart(4, '0')}`;
     } catch (error) {
       console.error('Error generating invoice number:', error);
       this.invoiceNumber = `INV-${Date.now()}`;

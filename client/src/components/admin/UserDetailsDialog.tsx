@@ -113,7 +113,7 @@ export function UserDetailsDialog({ userId, open, onOpenChange }: UserDetailsDia
     // Close the user details dialog first
     onOpenChange(false)
     // Navigate to financial management page with invoices tab
-    navigate('/admin/financial-management')
+    navigate('/admin/financial')
   }
 
   const getRoleColor = (role: string) => {
