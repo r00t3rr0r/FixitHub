@@ -12,6 +12,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/useToast';
 import {
   addDunningRunItem,
@@ -47,6 +54,11 @@ import {
   type Payment,
   type PaymentGateway
 } from '@/api/financial';
+import {
+  getSystemConfig,
+  updateSystemConfig,
+  type SystemConfig,
+} from '@/api/systemConfig';
 import {
   AlertTriangle,
   Banknote,
@@ -102,7 +114,7 @@ const paymentMethodLabel: Record<Payment['paymentMethod'], string> = {
   stripe: 'Stripe'
 };
 
-const formatCurrency = (value: number, currency = 'EUR') =>
+const formatCurrencyValue = (value: number, currency = 'EUR') =>
   new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(Number(value || 0));
 
 const toAmountNumber = (value: unknown): number => {
@@ -218,11 +230,126 @@ type SendInvoiceForm = {
   detailLevel: 'compact' | 'detailed';
 };
 
+type FinancialSettingsState = NonNullable<SystemConfig['financialSettings']>;
+
+const DEFAULT_FINANCIAL_SETTINGS: FinancialSettingsState = {
+  defaults: {
+    currency: 'EUR',
+    locale: 'de-DE',
+    taxRate: 19,
+    defaultDiscount: 0,
+    paymentTerms: 'Net 14',
+    paymentDueDays: 14,
+    invoicePrefix: 'INV-',
+    creditNotePrefix: 'CN',
+    defaultPaymentMethod: 'bank_transfer',
+  },
+  discountPolicy: {
+    allowManualDiscounts: true,
+    maxDiscountPercent: 20,
+    earlyPaymentDiscountPercent: 2,
+    lateFeePercent: 5,
+  },
+  invoiceMetadata: {
+    sellerName: 'FixitHub',
+    sellerVatId: '',
+    sellerRegistrationNumber: '',
+    issuerEmail: 'billing@fixithub.com',
+    issuerPhone: '',
+    invoiceFooter: 'Vielen Dank fuer Ihr Vertrauen.',
+    legalFooter: 'Diese Nachricht wurde automatisch erstellt.',
+  },
+  paymentPreferences: {
+    partialPaymentsAllowed: true,
+    autoAttachPdf: true,
+    sendInternalCopy: false,
+    internalCopyEmail: '',
+    showTaxBreakdown: true,
+    showDiscountBreakdown: true,
+    defaultVisualTheme: 'modern',
+    accentColor: '#1a2a5e',
+  },
+};
+
+const getDueDateByDays = (days: number) =>
+  new Date(Date.now() + Math.max(0, Number(days || 0)) * 86400000).toISOString().slice(0, 10);
+
+const mergeFinancialSettings = (settings?: Partial<FinancialSettingsState> | null): FinancialSettingsState => ({
+  defaults: {
+    ...DEFAULT_FINANCIAL_SETTINGS.defaults,
+    ...(settings?.defaults || {}),
+  },
+  discountPolicy: {
+    ...DEFAULT_FINANCIAL_SETTINGS.discountPolicy,
+    ...(settings?.discountPolicy || {}),
+  },
+  invoiceMetadata: {
+    ...DEFAULT_FINANCIAL_SETTINGS.invoiceMetadata,
+    ...(settings?.invoiceMetadata || {}),
+  },
+  paymentPreferences: {
+    ...DEFAULT_FINANCIAL_SETTINGS.paymentPreferences,
+    ...(settings?.paymentPreferences || {}),
+  },
+});
+
+const createInvoiceFormState = (settings: FinancialSettingsState) => ({
+  orderId: '',
+  customerId: '',
+  customerName: '',
+  customerEmail: '',
+  taxRate: String(settings.defaults.taxRate),
+  discount: String(settings.defaults.defaultDiscount),
+  currency: settings.defaults.currency,
+  dueDate: getDueDateByDays(settings.defaults.paymentDueDays),
+  paymentTerms: settings.defaults.paymentTerms,
+  notes: '',
+  items: [emptyLineItem()],
+});
+
+const createFromRepairFormState = (settings: FinancialSettingsState) => ({
+  repairOrderIds: '',
+  taxRate: String(settings.defaults.taxRate),
+  discount: String(settings.defaults.defaultDiscount),
+  dueDate: getDueDateByDays(settings.defaults.paymentDueDays),
+  paymentTerms: settings.defaults.paymentTerms,
+  notes: '',
+  numberPrefix: settings.defaults.invoicePrefix,
+});
+
+const createPaymentFormState = (
+  settings: FinancialSettingsState,
+  amount = '',
+  scope: 'partial' | 'full' = 'partial'
+) => ({
+  amount,
+  currency: settings.defaults.currency,
+  paymentMethod: settings.defaults.defaultPaymentMethod,
+  gatewayResponse: '',
+  scope,
+  reference: '',
+  internalNote: '',
+  paymentDate: new Date().toISOString().slice(0, 10),
+  notifyCustomer: false,
+});
+
+const createCreditFormState = (settings: FinancialSettingsState) => ({
+  reason: '',
+  taxRate: String(settings.defaults.taxRate),
+  scope: 'full' as 'full' | 'partial',
+  discount: String(settings.defaults.defaultDiscount),
+  dueDate: getDueDateByDays(settings.defaults.paymentDueDays),
+  numberPrefix: settings.defaults.creditNotePrefix,
+  notifyCustomer: false,
+});
+
 export function FinancialManagement() {
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [systemConfig, setSystemConfig] = useState<SystemConfig | null>(null);
+  const [savingFinancialSettings, setSavingFinancialSettings] = useState(false);
 
   const [payments, setPayments] = useState<Payment[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -254,53 +381,22 @@ export function FinancialManagement() {
   const [customerQuery, setCustomerQuery] = useState('');
   const [customerResults, setCustomerResults] = useState<CustomerSearchResult[]>([]);
 
-  const [invoiceForm, setInvoiceForm] = useState({
-    orderId: '',
-    customerId: '',
-    customerName: '',
-    customerEmail: '',
-    dueDate: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
-    paymentTerms: 'Net 14',
-    notes: '',
-    items: [emptyLineItem()]
-  });
+  const financialSettings = useMemo(() => mergeFinancialSettings(systemConfig?.financialSettings), [systemConfig]);
+  const formatCurrency = (value: number, currency = financialSettings.defaults.currency) =>
+    formatCurrencyValue(value, currency || financialSettings.defaults.currency);
 
-  const [fromRepairForm, setFromRepairForm] = useState({
-    repairOrderIds: '',
-    taxRate: '19',
-    discount: '0',
-    dueDate: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
-    paymentTerms: 'Net 14',
-    notes: '',
-    numberPrefix: 'INV-'
-  });
+  const [invoiceForm, setInvoiceForm] = useState(() => createInvoiceFormState(DEFAULT_FINANCIAL_SETTINGS));
+
+  const [fromRepairForm, setFromRepairForm] = useState(() => createFromRepairFormState(DEFAULT_FINANCIAL_SETTINGS));
 
   const [statusForm, setStatusForm] = useState<{ status: InvoiceStatus; notes: string }>({
     status: 'pending_approval',
     notes: ''
   });
 
-  const [paymentForm, setPaymentForm] = useState({
-    amount: '',
-    currency: 'EUR',
-    paymentMethod: 'bank_transfer',
-    gatewayResponse: '',
-    scope: 'partial' as 'partial' | 'full',
-    reference: '',
-    internalNote: '',
-    paymentDate: new Date().toISOString().slice(0, 10),
-    notifyCustomer: false,
-  });
+  const [paymentForm, setPaymentForm] = useState(() => createPaymentFormState(DEFAULT_FINANCIAL_SETTINGS));
 
-  const [creditForm, setCreditForm] = useState({
-    reason: '',
-    taxRate: '19',
-    scope: 'full' as 'full' | 'partial',
-    discount: '0',
-    dueDate: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
-    numberPrefix: 'CN',
-    notifyCustomer: false,
-  });
+  const [creditForm, setCreditForm] = useState(() => createCreditFormState(DEFAULT_FINANCIAL_SETTINGS));
   const [creditItemOverrides, setCreditItemOverrides] = useState<Array<{ included: boolean; quantity: string; unitPrice: string }>>([]);
 
   const [refundForm, setRefundForm] = useState({
@@ -737,20 +833,25 @@ export function FinancialManagement() {
 
   const invoiceDraftTotals = useMemo(() => {
     const subtotal = invoiceForm.items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitPrice || 0), 0);
-    const tax = subtotal * 0.19;
-    return { subtotal, tax, total: subtotal + tax };
-  }, [invoiceForm.items]);
+    const taxRate = Number(invoiceForm.taxRate || financialSettings.defaults.taxRate);
+    const discount = Number(invoiceForm.discount || 0);
+    const discountAmount = subtotal * (discount / 100);
+    const taxableAmount = subtotal - discountAmount;
+    const tax = taxableAmount * (taxRate / 100);
+    return { subtotal, discount: discountAmount, tax, total: subtotal - discountAmount + tax };
+  }, [invoiceForm.taxRate, invoiceForm.discount, invoiceForm.items, financialSettings.defaults.taxRate]);
 
   const fetchFinancialData = async () => {
     setLoading(true);
     try {
-      const [paymentsRes, invoicesRes, reportRes, gatewaysRes, overdueRes, dunningRunsRes] = await Promise.all([
+      const [paymentsRes, invoicesRes, reportRes, gatewaysRes, overdueRes, dunningRunsRes, systemConfigRes] = await Promise.all([
         getPayments(),
         getInvoices(),
         getFinancialReports(),
         getPaymentGateways(),
         getOverdueInvoices(),
-        getDunningRuns()
+        getDunningRuns(),
+        getSystemConfig()
       ]);
 
       setPayments(paymentsRes?.payments || []);
@@ -759,6 +860,7 @@ export function FinancialManagement() {
       setGateways(gatewaysRes?.gateways || []);
       setOverdueInvoices(overdueRes?.invoices || []);
       setDunningRuns(dunningRunsRes?.runs || []);
+      setSystemConfig(systemConfigRes?.config || null);
     } catch (error: any) {
       toast({
         title: 'Fehler',
@@ -773,6 +875,65 @@ export function FinancialManagement() {
   useEffect(() => {
     fetchFinancialData();
   }, []);
+
+  useEffect(() => {
+    if (!systemConfig) return;
+
+    setInvoiceForm((prev) => {
+      const hasEdited = Boolean(
+        prev.orderId ||
+        prev.customerId ||
+        prev.customerName ||
+        prev.customerEmail ||
+        prev.notes ||
+        prev.items.some((item) => item.description || Number(item.quantity) !== 1 || Number(item.unitPrice) !== 0)
+      );
+      return hasEdited ? prev : createInvoiceFormState(financialSettings);
+    });
+
+    setFromRepairForm((prev) => {
+      const hasEdited = Boolean(prev.repairOrderIds || prev.notes);
+      return hasEdited ? prev : createFromRepairFormState(financialSettings);
+    });
+  }, [financialSettings, systemConfig]);
+
+  const updateFinancialSetting = <Section extends keyof FinancialSettingsState, Key extends keyof FinancialSettingsState[Section]>(
+    section: Section,
+    key: Key,
+    value: FinancialSettingsState[Section][Key]
+  ) => {
+    setSystemConfig((prev) => {
+      if (!prev) return prev;
+
+      const merged = mergeFinancialSettings(prev.financialSettings);
+
+      return {
+        ...prev,
+        financialSettings: {
+          ...merged,
+          [section]: {
+            ...merged[section],
+            [key]: value,
+          },
+        },
+      };
+    });
+  };
+
+  const onSaveFinancialSettings = async () => {
+    if (!systemConfig) return;
+
+    setSavingFinancialSettings(true);
+    try {
+      const response = await updateSystemConfig(systemConfig);
+      setSystemConfig(response.config || systemConfig);
+      toast({ title: 'Erfolg', description: 'Finanzparameter gespeichert.' });
+    } catch (error: any) {
+      toast({ title: 'Fehler', description: error.message || 'Finanzparameter konnten nicht gespeichert werden.', variant: 'destructive' });
+    } finally {
+      setSavingFinancialSettings(false);
+    }
+  };
 
   const onSearchCustomers = async (query: string) => {
     setCustomerQuery(query);
@@ -860,7 +1021,10 @@ export function FinancialManagement() {
     }
 
     const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-    const tax = subtotal * 0.19;
+    const discountAmount = subtotal * (Number(invoiceForm.discount || 0) / 100);
+    const taxableAmount = subtotal - discountAmount;
+    const taxRate = Number(invoiceForm.taxRate || financialSettings.defaults.taxRate);
+    const tax = taxableAmount * (taxRate / 100);
 
     try {
       await createInvoice({
@@ -871,8 +1035,8 @@ export function FinancialManagement() {
         items,
         subtotal,
         tax,
-        discount: 0,
-        total: subtotal + tax,
+        discount: discountAmount,
+        total: subtotal - discountAmount + tax,
         dueDate: invoiceForm.dueDate,
         notes: invoiceForm.notes,
         paymentTerms: invoiceForm.paymentTerms,
@@ -881,6 +1045,7 @@ export function FinancialManagement() {
 
       toast({ title: 'Erfolg', description: 'Rechnung erstellt.' });
       setInvoiceDialogOpen(false);
+      setInvoiceForm(createInvoiceFormState(financialSettings));
       fetchFinancialData();
     } catch (error: any) {
       toast({ title: 'Fehler', description: error.message || 'Rechnungserstellung fehlgeschlagen.', variant: 'destructive' });
@@ -888,6 +1053,7 @@ export function FinancialManagement() {
   };
 
   const onCreateInvoiceFromRepairs = async () => {
+        setFromRepairForm(createFromRepairFormState(financialSettings));
     const repairOrderIds = fromRepairForm.repairOrderIds.split(',').map((id) => id.trim()).filter(Boolean);
     if (repairOrderIds.length === 0) {
       toast({ title: 'Fehler', description: 'Bitte mindestens eine RepairOrder-ID angeben.', variant: 'destructive' });
@@ -949,24 +1115,24 @@ export function FinancialManagement() {
           ? `dies ist eine freundliche Erinnerung zu Ihrer offenen Rechnung ueber ${formatCurrency(defaultOpenAmount)}.`
           : 'anbei erhalten Sie Ihre Rechnung.',
       paymentInstructions: 'Bitte begleichen Sie den offenen Betrag fristgerecht unter Angabe der Rechnungsnummer.',
-      closingText: 'Vielen Dank fuer Ihr Vertrauen.',
-      legalFooter: 'Diese Nachricht wurde automatisch erstellt.',
+      closingText: financialSettings.invoiceMetadata.invoiceFooter,
+      legalFooter: financialSettings.invoiceMetadata.legalFooter,
       includeItems: true,
-      includeTaxBreakdown: true,
-      includeDiscountBreakdown: true,
+      includeTaxBreakdown: financialSettings.paymentPreferences.showTaxBreakdown,
+      includeDiscountBreakdown: financialSettings.paymentPreferences.showDiscountBreakdown,
       includePaymentTerms: true,
-      allowPartialPayment: mode === 'reminder',
+      allowPartialPayment: mode === 'reminder' && financialSettings.paymentPreferences.partialPaymentsAllowed,
       applyLateFee: mode === 'reminder',
-      lateFeePercent: '5',
+      lateFeePercent: String(financialSettings.discountPolicy.lateFeePercent),
       applyEarlyDiscount: false,
-      earlyDiscountPercent: '2',
-      attachPdf: true,
-      sendCopyInternal: false,
-      internalCopyEmail: '',
+      earlyDiscountPercent: String(financialSettings.discountPolicy.earlyPaymentDiscountPercent),
+      attachPdf: financialSettings.paymentPreferences.autoAttachPdf,
+      sendCopyInternal: financialSettings.paymentPreferences.sendInternalCopy,
+      internalCopyEmail: financialSettings.paymentPreferences.internalCopyEmail,
       customMessage: '',
       previewFormat: 'html',
-      visualTheme: 'modern',
-      accentColor: '#1a2a5e',
+      visualTheme: financialSettings.paymentPreferences.defaultVisualTheme,
+      accentColor: financialSettings.paymentPreferences.accentColor,
       fontScale: 'md',
       compactSpacing: false,
       emphasizeTotals: true,
@@ -1047,17 +1213,13 @@ export function FinancialManagement() {
     const initialAmount = Math.max(0, Math.min(Number(presetAmount ?? remaining), remaining));
 
     setSelectedInvoice(invoice);
-    setPaymentForm({
-      amount: String(initialAmount || ''),
-      currency: 'EUR',
-      paymentMethod: 'bank_transfer',
-      gatewayResponse: '',
-      scope: initialAmount >= remaining && remaining > 0 ? 'full' : 'partial',
-      reference: '',
-      internalNote: '',
-      paymentDate: new Date().toISOString().slice(0, 10),
-      notifyCustomer: false,
-    });
+    setPaymentForm(
+      createPaymentFormState(
+        financialSettings,
+        String(initialAmount || ''),
+        initialAmount >= remaining && remaining > 0 ? 'full' : 'partial'
+      )
+    );
     setPaymentDialogOpen(true);
   };
 
@@ -1105,7 +1267,7 @@ export function FinancialManagement() {
       toast({ title: 'Erfolg', description: paymentForm.scope === 'full' ? 'Zahlung vollständig verbucht.' : 'Teilzahlung verbucht.' });
       setPaymentDialogOpen(false);
       setSelectedInvoice(null);
-      setPaymentForm({ amount: '', currency: 'EUR', paymentMethod: 'bank_transfer', gatewayResponse: '', scope: 'partial', reference: '', internalNote: '', paymentDate: new Date().toISOString().slice(0, 10), notifyCustomer: false });
+      setPaymentForm(createPaymentFormState(financialSettings));
       fetchFinancialData();
     } catch (error: any) {
       toast({ title: 'Fehler', description: error.message || 'Teilzahlung fehlgeschlagen.', variant: 'destructive' });
@@ -1114,19 +1276,111 @@ export function FinancialManagement() {
 
   const openCreditDialog = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
-    setCreditForm({
-      reason: '',
-      taxRate: '19',
-      scope: 'full',
-      discount: '0',
-      dueDate: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
-      numberPrefix: 'CN',
-      notifyCustomer: false,
-    });
+    setCreditForm(createCreditFormState(financialSettings));
     setCreditItemOverrides(
       (invoice.items || []).map(() => ({ included: true, quantity: '', unitPrice: '' }))
     );
     setCreditDialogOpen(true);
+  };
+
+  const openStatusDialog = (invoice: Invoice) => {
+    setSelectedInvoice(invoice);
+    setStatusForm({ status: invoice.status, notes: '' });
+    setStatusDialogOpen(true);
+  };
+
+  const openRefundDialogFromDetails = () => {
+    const refundable = invoiceDetailPayments.find((payment) => payment.status === 'completed');
+    if (!refundable) return;
+
+    setSelectedPayment(refundable);
+    setRefundForm({
+      amount: String(refundable.amount),
+      reason: '',
+      reasonCategory: '',
+      internalNote: '',
+      mode: (['paypal', 'stripe'].includes(refundable.paymentMethod) ? 'gateway' : 'manual') as 'gateway' | 'manual',
+      gatewayProvider: (['paypal', 'stripe'].includes(refundable.paymentMethod) ? refundable.paymentMethod : '') as any,
+      gatewayReference: '',
+      notifyCustomer: false,
+    });
+    setInvoiceDetailsDialogOpen(false);
+    setRefundDialogOpen(true);
+  };
+
+  const renderInvoiceActionsMenu = ({
+    invoice,
+    includeDetails = true,
+    inDetailsDialog = false,
+  }: {
+    invoice: Invoice;
+    includeDetails?: boolean;
+    inDetailsDialog?: boolean;
+  }) => {
+    const paymentAllowed = canRecordPayment(invoice);
+    const creditAllowed = inDetailsDialog
+      ? ['paid', 'cancelled', 'credited'].includes(invoice.status) && !invoice.isCreditNote && invoiceDetailCreditNotes.length === 0
+      : !invoice.isCreditNote;
+    const refundAllowed = inDetailsDialog && invoiceDetailPayments.some((payment) => payment.status === 'completed');
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="outline" className="min-w-[110px]">
+            Aktionen
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          {includeDetails && (
+            <DropdownMenuItem onClick={() => openInvoiceDetails(invoice)}>
+              <Eye className="mr-2 h-4 w-4" />Details
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem
+            onClick={() => {
+              if (inDetailsDialog) setInvoiceDetailsDialogOpen(false);
+              openSendComposer(invoice, 'invoice');
+            }}
+          >
+            <Send className="mr-2 h-4 w-4" />Senden
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              if (inDetailsDialog) setInvoiceDetailsDialogOpen(false);
+              openStatusDialog(invoice);
+            }}
+          >
+            <CheckCircle2 className="mr-2 h-4 w-4" />Status aendern
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuItem
+            disabled={!paymentAllowed}
+            onClick={() => {
+              if (inDetailsDialog) setInvoiceDetailsDialogOpen(false);
+              openPaymentDialog(invoice);
+            }}
+          >
+            <Banknote className="mr-2 h-4 w-4" />Teilzahlung
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={!creditAllowed}
+            onClick={() => {
+              if (inDetailsDialog) setInvoiceDetailsDialogOpen(false);
+              openCreditDialog(invoice);
+            }}
+          >
+            Gutschrift erstellen
+          </DropdownMenuItem>
+          {inDetailsDialog && (
+            <DropdownMenuItem disabled={!refundAllowed} onClick={openRefundDialogFromDetails}>
+              <Wallet className="mr-2 h-4 w-4" />Erstattung
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
   };
 
   const onCreateCredit = async () => {
@@ -1144,7 +1398,7 @@ export function FinancialManagement() {
         taxRate: Number(creditForm.taxRate) / 100,
         discount: Number(creditForm.discount) || 0,
         dueDate: creditForm.dueDate,
-        numberPrefix: creditForm.numberPrefix || 'CN',
+        numberPrefix: creditForm.numberPrefix || financialSettings.defaults.creditNotePrefix,
         items: creditForm.scope === 'partial'
           ? preview.items.map((i) => ({
               description: i.description,
@@ -1159,7 +1413,7 @@ export function FinancialManagement() {
       toast({ title: 'Erfolg', description: 'Gutschrift erstellt.' });
       setCreditDialogOpen(false);
       setSelectedInvoice(null);
-      setCreditForm({ reason: '', taxRate: '19', scope: 'full', discount: '0', dueDate: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10), numberPrefix: 'CN', notifyCustomer: false });
+      setCreditForm(createCreditFormState(financialSettings));
       setCreditItemOverrides([]);
       fetchFinancialData();
     } catch (error: any) {
@@ -1492,8 +1746,94 @@ export function FinancialManagement() {
     }
   };
 
+  const validateGatewayConfiguration = (): { valid: boolean; errors: string[] } => {
+    if (!selectedGateway) return { valid: false, errors: ['Gateway nicht ausgewählt'] };
+
+    const errors: string[] = [];
+    const config = selectedGateway.configuration;
+
+    // Basis-Validierung (alle Gateways)
+    if (!selectedGateway.name?.trim()) errors.push('Name ist erforderlich');
+    if (!config.currency?.trim()) errors.push('Currency ist erforderlich');
+    if (typeof config.processingFee !== 'number' || config.processingFee < 0) errors.push('Processing Fee muss >= 0 sein');
+
+    // PayPal-spezifische Validierung
+    if (selectedGateway.provider === 'paypal') {
+      if (!config.environment) errors.push('environment ist erforderlich');
+      if (!config.sandbox_client_id?.trim()) errors.push('sandbox_client_id ist erforderlich');
+      if (!config.sandbox_client_secret?.trim()) errors.push('sandbox_client_secret ist erforderlich');
+      if (!config.default_currency?.trim()) errors.push('default_currency ist erforderlich');
+      if (!config.payment_intent) errors.push('payment_intent ist erforderlich');
+      if (!config.amount_source) errors.push('amount_source ist erforderlich');
+      if (!config.return_url?.trim()) errors.push('return_url ist erforderlich');
+      if (!config.cancel_url?.trim()) errors.push('cancel_url ist erforderlich');
+
+      // URLs validieren
+      const urlFields = ['return_url', 'cancel_url', 'webhook_url'];
+      for (const field of urlFields) {
+        const value = config[field as keyof typeof config];
+        if (value && typeof value === 'string' && value.trim() !== '' && !value.startsWith('http')) {
+          errors.push(`${field} muss mit http:// oder https:// beginnen`);
+        }
+      }
+    }
+
+    // Stripe-spezifische Validierung
+    if (selectedGateway.provider === 'stripe') {
+      if (!config.mode) errors.push('mode ist erforderlich');
+      if (!config.test_publishable_key?.trim()) errors.push('test_publishable_key ist erforderlich');
+      if (!config.test_secret_key?.trim()) errors.push('test_secret_key ist erforderlich');
+      if (!config.default_currency?.trim()) errors.push('default_currency ist erforderlich');
+      if (!config.amount_source) errors.push('amount_source ist erforderlich');
+      if (!config.payment_mode) errors.push('payment_mode ist erforderlich');
+      if (!config.success_url?.trim()) errors.push('success_url ist erforderlich');
+      if (!config.cancel_url?.trim()) errors.push('cancel_url ist erforderlich');
+
+      // URLs validieren
+      const urlFields = ['success_url', 'cancel_url', 'webhook_url'];
+      for (const field of urlFields) {
+        const value = config[field as keyof typeof config];
+        if (value && typeof value === 'string' && value.trim() !== '' && !value.startsWith('http')) {
+          errors.push(`${field} muss mit http:// oder https:// beginnen`);
+        }
+      }
+    }
+
+    // Banküberweisung-spezifische Validierung
+    if (selectedGateway.provider === 'bank_transfer') {
+      if (!config.code?.trim()) errors.push('code ist erforderlich');
+      if (!config.title?.trim()) errors.push('title ist erforderlich');
+      if (!config.account_holder?.trim()) errors.push('Kontoinhaber ist erforderlich');
+      if (!config.iban?.trim()) errors.push('IBAN ist erforderlich');
+      if (!config.payment_reference_template?.trim()) errors.push('payment_reference_template ist erforderlich');
+      if (!config.initial_order_status?.trim()) errors.push('initial_order_status ist erforderlich');
+      if (config.admin_can_mark_paid === undefined || config.admin_can_mark_paid === null) errors.push('admin_can_mark_paid ist erforderlich');
+    }
+
+    // Barzahlung-spezifische Validierung
+    if (selectedGateway.provider === 'cash') {
+      if (!config.code?.trim()) errors.push('code ist erforderlich');
+      if (!config.title?.trim()) errors.push('title ist erforderlich');
+      if (!config.cash_mode) errors.push('Modus ist erforderlich');
+      if (!config.initial_order_status?.trim()) errors.push('initial_order_status ist erforderlich');
+      if (config.admin_can_mark_paid === undefined || config.admin_can_mark_paid === null) errors.push('admin_can_mark_paid ist erforderlich');
+    }
+
+    return { valid: errors.length === 0, errors };
+  };
+
   const onUpdateGateway = async () => {
     if (!selectedGateway) return;
+
+    const validation = validateGatewayConfiguration();
+    if (!validation.valid) {
+      toast({
+        title: 'Validierungsfehler',
+        description: validation.errors.join('; '),
+        variant: 'destructive'
+      });
+      return;
+    }
 
     try {
       await updatePaymentGateway(selectedGateway._id, selectedGateway);
@@ -1505,6 +1845,45 @@ export function FinancialManagement() {
       toast({ title: 'Fehler', description: error.message || 'Gateway-Update fehlgeschlagen.', variant: 'destructive' });
     }
   };
+
+  const updateGatewayConfiguration = (key: keyof PaymentGateway['configuration'], value: unknown) => {
+    setSelectedGateway((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        configuration: {
+          ...prev.configuration,
+          [key]: value
+        }
+      };
+    });
+  };
+
+  const getConfigString = (key: keyof PaymentGateway['configuration'], fallback = '') => {
+    const value = selectedGateway?.configuration?.[key];
+    return typeof value === 'string' ? value : fallback;
+  };
+
+  const getConfigNumber = (key: keyof PaymentGateway['configuration'], fallback: number) => {
+    const value = selectedGateway?.configuration?.[key];
+    return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  };
+
+  const getConfigBoolean = (key: keyof PaymentGateway['configuration'], fallback = false) => {
+    const value = selectedGateway?.configuration?.[key];
+    return typeof value === 'boolean' ? value : fallback;
+  };
+
+  const getConfigStringList = (key: keyof PaymentGateway['configuration']) => {
+    const value = selectedGateway?.configuration?.[key];
+    return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
+  };
+
+  const parseStringList = (value: string) =>
+    value
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
 
   const onExport = async (type: 'payments' | 'invoices', format: 'csv' | 'json') => {
     try {
@@ -1565,12 +1944,13 @@ export function FinancialManagement() {
       </section>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6 border border-[#d8dce6] bg-[#f8f9fc]">
+        <TabsList className="grid w-full grid-cols-7 border border-[#d8dce6] bg-[#f8f9fc]">
           <TabsTrigger value="overview">Uebersicht</TabsTrigger>
           <TabsTrigger value="dunning">Mahnlaeufe</TabsTrigger>
           <TabsTrigger value="invoices">Rechnungen</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="providers">Provider</TabsTrigger>
+          <TabsTrigger value="settings">Konfiguration</TabsTrigger>
           <TabsTrigger value="exports">Export</TabsTrigger>
         </TabsList>
 
@@ -1897,6 +2277,8 @@ export function FinancialManagement() {
                           <div><Label>E-Mail</Label><Input value={invoiceForm.customerEmail} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerEmail: e.target.value }))} /></div>
                           <div><Label>Faelligkeit</Label><Input type="date" value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
                           <div><Label>Zahlungsziel</Label><Input value={invoiceForm.paymentTerms} onChange={(e) => setInvoiceForm((p) => ({ ...p, paymentTerms: e.target.value }))} /></div>
+                          <div><Label>Steuer %</Label><Input type="number" min="0" max="100" step="0.1" value={invoiceForm.taxRate} onChange={(e) => setInvoiceForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
+                          <div><Label>Rabatt %</Label><Input type="number" min="0" max="100" step="0.1" value={invoiceForm.discount} onChange={(e) => setInvoiceForm((p) => ({ ...p, discount: e.target.value }))} /></div>
                         </div>
 
                         <Separator />
@@ -1930,9 +2312,10 @@ export function FinancialManagement() {
                         </div>
 
                         <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 text-sm">
-                          <div className="flex justify-between"><span>Netto</span><span>{formatCurrency(invoiceDraftTotals.subtotal)}</span></div>
-                          <div className="flex justify-between"><span>Steuer (19%)</span><span>{formatCurrency(invoiceDraftTotals.tax)}</span></div>
-                          <div className="mt-1 flex justify-between font-semibold text-[#1a2a5e]"><span>Gesamt</span><span>{formatCurrency(invoiceDraftTotals.total)}</span></div>
+                          <div className="flex justify-between"><span>Netto</span><span>{formatCurrency(invoiceDraftTotals.subtotal, invoiceForm.currency)}</span></div>
+                          {invoiceDraftTotals.discount > 0 && <div className="flex justify-between text-orange-600"><span>Rabatt ({invoiceForm.discount}%)</span><span>-{formatCurrency(invoiceDraftTotals.discount, invoiceForm.currency)}</span></div>}
+                          <div className="flex justify-between"><span>Steuer ({invoiceForm.taxRate}%)</span><span>{formatCurrency(invoiceDraftTotals.tax, invoiceForm.currency)}</span></div>
+                          <div className="mt-1 flex justify-between font-semibold text-[#1a2a5e]"><span>Gesamt</span><span>{formatCurrency(invoiceDraftTotals.total, invoiceForm.currency)}</span></div>
                         </div>
 
                         <div><Label>Notiz</Label><Textarea value={invoiceForm.notes} onChange={(e) => setInvoiceForm((p) => ({ ...p, notes: e.target.value }))} /></div>
@@ -1993,36 +2376,19 @@ export function FinancialManagement() {
                   <TableHeader><TableRow><TableHead>Rechnung</TableHead><TableHead>Kunde</TableHead><TableHead>Status</TableHead><TableHead>Faelligkeit</TableHead><TableHead>Betrag</TableHead><TableHead>Bezahlt</TableHead><TableHead className="text-right">Aktionen</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {invoices.map((invoice) => (
-                      <TableRow key={invoice._id}>
+                      <TableRow
+                        key={invoice._id}
+                        className="cursor-pointer"
+                        onClick={() => openInvoiceDetails(invoice)}
+                      >
                         <TableCell>{invoice.invoiceNumber}</TableCell>
                         <TableCell>{invoice.customerName}</TableCell>
                         <TableCell><Badge variant="outline" className={invoiceStatusClass[invoice.status]}>{invoice.status}</Badge></TableCell>
                         <TableCell><Calendar className="mr-1 inline h-3.5 w-3.5" />{formatDate(invoice.dueDate)}</TableCell>
                         <TableCell>{formatCurrency(invoice.total)}</TableCell>
                         <TableCell>{formatCurrency(invoice.paidAmount || 0)}</TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap justify-end gap-2">
-                            <Button size="sm" variant="outline" onClick={() => openInvoiceDetails(invoice)}><Eye className="mr-1 h-3.5 w-3.5" />Details</Button>
-                            <Button size="sm" variant="outline" onClick={() => openSendComposer(invoice, 'invoice')}><Send className="mr-1 h-3.5 w-3.5" />Senden</Button>
-                            <Button size="sm" variant="outline" onClick={() => { setSelectedInvoice(invoice); setStatusForm({ status: invoice.status, notes: '' }); setStatusDialogOpen(true); }}><CheckCircle2 className="mr-1 h-3.5 w-3.5" />Status</Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={!canRecordPayment(invoice)}
-                              title={canRecordPayment(invoice) ? 'Teilzahlung erfassen' : `Teilzahlung nicht möglich (Status: ${invoice.status}, Offen: ${formatCurrency(Math.max(0, toAmountNumber(invoice.total) - toAmountNumber(invoice.paidAmount)))})`}
-                              onClick={() => openPaymentDialog(invoice)}
-                            >
-                              <Banknote className="mr-1 h-3.5 w-3.5" />Teilzahlung
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={invoice.isCreditNote}
-                              onClick={() => openCreditDialog(invoice)}
-                            >
-                              Gutschrift
-                            </Button>
-                          </div>
+                        <TableCell onClick={(event) => event.stopPropagation()}>
+                          <div className="flex justify-end">{renderInvoiceActionsMenu({ invoice })}</div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -2216,10 +2582,224 @@ export function FinancialManagement() {
                       <div className="font-medium text-[#1a2a5e]">{gateway.name}</div>
                       <div className="text-xs text-muted-foreground">{gateway.provider} · {gateway.configuration.currency} · Fee {gateway.configuration.processingFee}</div>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => { setSelectedGateway({ ...gateway }); setGatewayDialogOpen(true); }}><Settings className="mr-1 h-3.5 w-3.5" />Konfigurieren</Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedGateway({
+                          ...gateway,
+                          configuration: { ...gateway.configuration }
+                        });
+                        setGatewayDialogOpen(true);
+                      }}
+                    >
+                      <Settings className="mr-1 h-3.5 w-3.5" />Konfigurieren
+                    </Button>
                   </div>
                 </div>
               ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="settings" className="space-y-4">
+          <Card className="border-[#d8dce6]">
+            <CardHeader>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <CardTitle className="text-[#1a2a5e]">Abrechnungs- und Zahlungsparameter</CardTitle>
+                  <CardDescription>
+                    Konfiguriere zentrale Defaults fuer Steuer, Waehrung, Rabatte, Rechnungs-Metadaten und Versandlogik.
+                  </CardDescription>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                  <span>Letzte Aenderung: {systemConfig?.updatedAt ? formatDateTime(systemConfig.updatedAt) : '-'}</span>
+                  <Button className="bg-[#1a2a5e] hover:bg-[#2a3f7e]" onClick={onSaveFinancialSettings} disabled={savingFinancialSettings || !systemConfig}>
+                    <RefreshCw className={`mr-2 h-4 w-4 ${savingFinancialSettings ? 'animate-spin' : ''}`} />Speichern
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
+
+          <div className="grid gap-4 xl:grid-cols-3">
+            <Card className="border-[#d8dce6]">
+              <CardHeader>
+                <CardTitle className="text-[#1a2a5e]">Steuer, Waehrung & Fristen</CardTitle>
+                <CardDescription>Defaults fuer neue Rechnungen, Zahlungsbuchungen und Gutschriften.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                  <div>
+                    <Label>Standardwaehrung</Label>
+                    <Input value={financialSettings.defaults.currency} onChange={(e) => updateFinancialSetting('defaults', 'currency', e.target.value.toUpperCase())} maxLength={3} />
+                  </div>
+                  <div>
+                    <Label>Locale</Label>
+                    <Input value={financialSettings.defaults.locale} onChange={(e) => updateFinancialSetting('defaults', 'locale', e.target.value)} placeholder="de-DE" />
+                  </div>
+                  <div>
+                    <Label>Steuersatz %</Label>
+                    <Input type="number" value={financialSettings.defaults.taxRate} onChange={(e) => updateFinancialSetting('defaults', 'taxRate', Number(e.target.value || 0))} />
+                  </div>
+                  <div>
+                    <Label>Zahlungsziel in Tagen</Label>
+                    <Input type="number" value={financialSettings.defaults.paymentDueDays} onChange={(e) => updateFinancialSetting('defaults', 'paymentDueDays', Number(e.target.value || 0))} />
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Standard-Zahlungsbedingungen</Label>
+                  <Input value={financialSettings.defaults.paymentTerms} onChange={(e) => updateFinancialSetting('defaults', 'paymentTerms', e.target.value)} />
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                  <div>
+                    <Label>Rechnungs-Prefix</Label>
+                    <Input value={financialSettings.defaults.invoicePrefix} onChange={(e) => updateFinancialSetting('defaults', 'invoicePrefix', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Gutschrift-Prefix</Label>
+                    <Input value={financialSettings.defaults.creditNotePrefix} onChange={(e) => updateFinancialSetting('defaults', 'creditNotePrefix', e.target.value)} />
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Standard-Zahlungsmethode</Label>
+                  <Select
+                    value={financialSettings.defaults.defaultPaymentMethod}
+                    onValueChange={(value) => updateFinancialSetting('defaults', 'defaultPaymentMethod', value as FinancialSettingsState['defaults']['defaultPaymentMethod'])}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="bank_transfer">Bankueberweisung</SelectItem>
+                      <SelectItem value="credit_card">Kreditkarte</SelectItem>
+                      <SelectItem value="debit_card">Debitkarte</SelectItem>
+                      <SelectItem value="paypal">PayPal</SelectItem>
+                      <SelectItem value="stripe">Stripe</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-[#d8dce6]">
+              <CardHeader>
+                <CardTitle className="text-[#1a2a5e]">Rabatte & Zahlungslogik</CardTitle>
+                <CardDescription>Steuere Nachlaesse, Teilzahlungen und Versandverhalten zentral.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                  <div>
+                    <Label>Standardrabatt</Label>
+                    <Input type="number" value={financialSettings.defaults.defaultDiscount} onChange={(e) => updateFinancialSetting('defaults', 'defaultDiscount', Number(e.target.value || 0))} />
+                  </div>
+                  <div>
+                    <Label>Max. Rabatt %</Label>
+                    <Input type="number" value={financialSettings.discountPolicy.maxDiscountPercent} onChange={(e) => updateFinancialSetting('discountPolicy', 'maxDiscountPercent', Number(e.target.value || 0))} />
+                  </div>
+                  <div>
+                    <Label>Skonto %</Label>
+                    <Input type="number" value={financialSettings.discountPolicy.earlyPaymentDiscountPercent} onChange={(e) => updateFinancialSetting('discountPolicy', 'earlyPaymentDiscountPercent', Number(e.target.value || 0))} />
+                  </div>
+                  <div>
+                    <Label>Verzugspauschale %</Label>
+                    <Input type="number" value={financialSettings.discountPolicy.lateFeePercent} onChange={(e) => updateFinancialSetting('discountPolicy', 'lateFeePercent', Number(e.target.value || 0))} />
+                  </div>
+                </div>
+
+                <div className="space-y-2 rounded-lg border border-[#d8dce6] bg-[#f8f9fc] p-3">
+                  <div className="flex items-center justify-between"><span className="text-sm">Manuelle Rabatte erlauben</span><Switch checked={financialSettings.discountPolicy.allowManualDiscounts} onCheckedChange={(value) => updateFinancialSetting('discountPolicy', 'allowManualDiscounts', value)} /></div>
+                  <div className="flex items-center justify-between"><span className="text-sm">Teilzahlungen erlauben</span><Switch checked={financialSettings.paymentPreferences.partialPaymentsAllowed} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'partialPaymentsAllowed', value)} /></div>
+                  <div className="flex items-center justify-between"><span className="text-sm">PDF automatisch anhaengen</span><Switch checked={financialSettings.paymentPreferences.autoAttachPdf} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'autoAttachPdf', value)} /></div>
+                  <div className="flex items-center justify-between"><span className="text-sm">Interne Versandkopie senden</span><Switch checked={financialSettings.paymentPreferences.sendInternalCopy} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'sendInternalCopy', value)} /></div>
+                  <div className="flex items-center justify-between"><span className="text-sm">Steueraufschluesselung zeigen</span><Switch checked={financialSettings.paymentPreferences.showTaxBreakdown} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'showTaxBreakdown', value)} /></div>
+                  <div className="flex items-center justify-between"><span className="text-sm">Rabattaufschluesselung zeigen</span><Switch checked={financialSettings.paymentPreferences.showDiscountBreakdown} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'showDiscountBreakdown', value)} /></div>
+                </div>
+
+                {financialSettings.paymentPreferences.sendInternalCopy && (
+                  <div>
+                    <Label>Interne Kopie an</Label>
+                    <Input value={financialSettings.paymentPreferences.internalCopyEmail} onChange={(e) => updateFinancialSetting('paymentPreferences', 'internalCopyEmail', e.target.value)} placeholder="finance@fixithub.com" />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-[#d8dce6]">
+              <CardHeader>
+                <CardTitle className="text-[#1a2a5e]">Rechnungs-Meta-Daten</CardTitle>
+                <CardDescription>Absender, Kennungen und visuelle Versand-Defaults fuer Rechnungen.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                  <div>
+                    <Label>Absender / Firma</Label>
+                    <Input value={financialSettings.invoiceMetadata.sellerName} onChange={(e) => updateFinancialSetting('invoiceMetadata', 'sellerName', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>VAT / USt-ID</Label>
+                    <Input value={financialSettings.invoiceMetadata.sellerVatId} onChange={(e) => updateFinancialSetting('invoiceMetadata', 'sellerVatId', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Handelsregister / Reg.-Nr.</Label>
+                    <Input value={financialSettings.invoiceMetadata.sellerRegistrationNumber} onChange={(e) => updateFinancialSetting('invoiceMetadata', 'sellerRegistrationNumber', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Billing E-Mail</Label>
+                    <Input value={financialSettings.invoiceMetadata.issuerEmail} onChange={(e) => updateFinancialSetting('invoiceMetadata', 'issuerEmail', e.target.value)} />
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Billing Telefon</Label>
+                  <Input value={financialSettings.invoiceMetadata.issuerPhone} onChange={(e) => updateFinancialSetting('invoiceMetadata', 'issuerPhone', e.target.value)} />
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div>
+                    <Label>Default Theme</Label>
+                    <Select
+                      value={financialSettings.paymentPreferences.defaultVisualTheme}
+                      onValueChange={(value) => updateFinancialSetting('paymentPreferences', 'defaultVisualTheme', value as FinancialSettingsState['paymentPreferences']['defaultVisualTheme'])}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="modern">Modern</SelectItem>
+                        <SelectItem value="classic">Classic</SelectItem>
+                        <SelectItem value="minimal">Minimal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Akzentfarbe</Label>
+                    <Input type="color" value={financialSettings.paymentPreferences.accentColor} onChange={(e) => updateFinancialSetting('paymentPreferences', 'accentColor', e.target.value)} className="h-10 p-1" />
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Rechnungs-Footer</Label>
+                  <Textarea value={financialSettings.invoiceMetadata.invoiceFooter} onChange={(e) => updateFinancialSetting('invoiceMetadata', 'invoiceFooter', e.target.value)} className="min-h-[90px]" />
+                </div>
+
+                <div>
+                  <Label>Rechtlicher Footer</Label>
+                  <Textarea value={financialSettings.invoiceMetadata.legalFooter} onChange={(e) => updateFinancialSetting('invoiceMetadata', 'legalFooter', e.target.value)} className="min-h-[90px]" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="border-[#d8dce6]">
+            <CardHeader>
+              <CardTitle className="text-[#1a2a5e]">Wirkung der aktuellen Defaults</CardTitle>
+              <CardDescription>Die Werte unten fliessen direkt in neue Rechnungen, Teilzahlungen, Gutschriften und den Versand-Composer ein.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">Standardsteuer:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.defaults.taxRate}%</div></div>
+              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">Standardwaehrung:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.defaults.currency}</div></div>
+              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">Zahlungsziel:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.defaults.paymentTerms} / {financialSettings.defaults.paymentDueDays} Tage</div></div>
+              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">Versandtheme:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.paymentPreferences.defaultVisualTheme}</div></div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -2781,6 +3361,66 @@ export function FinancialManagement() {
                 </div>
               </div>
 
+              <Card className="border-[#d8dce6]">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base text-[#1a2a5e]">Schnellaktionen</CardTitle>
+                  <CardDescription>Aktionen direkt aus den Rechnungsdetails ausfuehren.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setInvoiceDetailsDialogOpen(false);
+                        openSendComposer(selectedInvoice, 'invoice');
+                      }}
+                    >
+                      <Send className="mr-1 h-3.5 w-3.5" />Senden
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setInvoiceDetailsDialogOpen(false);
+                        openStatusDialog(selectedInvoice);
+                      }}
+                    >
+                      <CheckCircle2 className="mr-1 h-3.5 w-3.5" />Status aendern
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!canRecordPayment(selectedInvoice)}
+                      title={canRecordPayment(selectedInvoice)
+                        ? 'Teilzahlung erfassen'
+                        : `Teilzahlung nicht moeglich (Status: ${selectedInvoice.status})`}
+                      onClick={() => {
+                        setInvoiceDetailsDialogOpen(false);
+                        openPaymentDialog(selectedInvoice);
+                      }}
+                    >
+                      <Banknote className="mr-1 h-3.5 w-3.5" />Teilzahlung
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={
+                        !['paid', 'cancelled', 'credited'].includes(selectedInvoice.status) ||
+                        selectedInvoice.isCreditNote ||
+                        invoiceDetailCreditNotes.length > 0
+                      }
+                      onClick={() => {
+                        setInvoiceDetailsDialogOpen(false);
+                        openCreditDialog(selectedInvoice);
+                      }}
+                    >
+                      Gutschrift erstellen
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* ── Customer & Lifecycle ─────────────────────────────────── */}
               <div className="grid gap-4 md:grid-cols-2">
                 <Card className="border-[#d8dce6]">
@@ -3018,57 +3658,6 @@ export function FinancialManagement() {
           )}
 
           <DialogFooter className="mt-2 flex-wrap gap-2">
-            {/* Quick actions */}
-            {selectedInvoice && canRecordPayment(selectedInvoice) && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setInvoiceDetailsDialogOpen(false);
-                  openPaymentDialog(selectedInvoice);
-                }}
-              >
-                <Banknote className="mr-1 h-3.5 w-3.5" />Teilzahlung
-              </Button>
-            )}
-            {selectedInvoice && ['paid', 'cancelled', 'credited'].includes(selectedInvoice.status) && !selectedInvoice.isCreditNote && invoiceDetailCreditNotes.length === 0 && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setInvoiceDetailsDialogOpen(false);
-                  openCreditDialog(selectedInvoice);
-                }}
-              >
-                Gutschrift erstellen
-              </Button>
-            )}
-            {selectedInvoice && invoiceDetailPayments.some(p => p.status === 'completed') && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  const refundable = invoiceDetailPayments.find(p => p.status === 'completed');
-                  if (refundable) {
-                    setSelectedPayment(refundable);
-                    setRefundForm({
-                      amount: String(refundable.amount),
-                      reason: '',
-                      reasonCategory: '',
-                      internalNote: '',
-                      mode: (['paypal', 'stripe'].includes(refundable.paymentMethod) ? 'gateway' : 'manual') as 'gateway' | 'manual',
-                      gatewayProvider: (['paypal', 'stripe'].includes(refundable.paymentMethod) ? refundable.paymentMethod : '') as any,
-                      gatewayReference: '',
-                      notifyCustomer: false,
-                    });
-                  }
-                  setInvoiceDetailsDialogOpen(false);
-                  setRefundDialogOpen(true);
-                }}
-              >
-                <Wallet className="mr-1 h-3.5 w-3.5" />Erstattung
-              </Button>
-            )}
             <Button variant="outline" onClick={() => setInvoiceDetailsDialogOpen(false)}>Schliessen</Button>
           </DialogFooter>
         </DialogContent>
@@ -3706,7 +4295,1360 @@ export function FinancialManagement() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={gatewayDialogOpen} onOpenChange={setGatewayDialogOpen}><DialogContent><DialogHeader><DialogTitle>Gateway konfigurieren</DialogTitle></DialogHeader>{selectedGateway && <div className="space-y-2"><Label>Name</Label><Input value={selectedGateway.name} onChange={(e) => setSelectedGateway((p) => p ? { ...p, name: e.target.value } : p)} /><Label>Currency</Label><Input value={selectedGateway.configuration.currency} onChange={(e) => setSelectedGateway((p) => p ? { ...p, configuration: { ...p.configuration, currency: e.target.value } } : p)} /><Label>Processing Fee</Label><Input type="number" value={selectedGateway.configuration.processingFee} onChange={(e) => setSelectedGateway((p) => p ? { ...p, configuration: { ...p.configuration, processingFee: Number(e.target.value) } } : p)} /><div className="rounded-md border border-input px-3 py-2"><div className="flex items-center justify-between text-sm"><span>Aktiv</span><Switch checked={selectedGateway.isActive} onCheckedChange={(v) => setSelectedGateway((p) => p ? { ...p, isActive: v } : p)} /></div></div><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] px-3 py-2"><div className="flex items-center justify-between text-sm"><span><ShieldCheck className="mr-1 inline h-4 w-4" />Fraud Protection</span><Switch checked={selectedGateway.configuration.fraudProtection} onCheckedChange={(v) => setSelectedGateway((p) => p ? { ...p, configuration: { ...p.configuration, fraudProtection: v } } : p)} /></div></div></div>}<DialogFooter><Button variant="outline" onClick={() => setGatewayDialogOpen(false)}>Abbrechen</Button><Button onClick={onUpdateGateway}>Speichern</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={gatewayDialogOpen} onOpenChange={setGatewayDialogOpen}>
+        <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Gateway konfigurieren</DialogTitle>
+            <DialogDescription>
+              Einstellungen fuer Zahlungsanbieter bearbeiten und speichern.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedGateway && (
+            <div className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1">
+                  <Label>Name *</Label>
+                  <Input
+                    required
+                    value={selectedGateway.name}
+                    onChange={(e) => setSelectedGateway((p) => (p ? { ...p, name: e.target.value } : p))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Currency *</Label>
+                  <Input
+                    required
+                    value={selectedGateway.configuration.currency}
+                    onChange={(e) => updateGatewayConfiguration('currency', e.target.value.toUpperCase())}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Processing Fee *</Label>
+                  <Input
+                    required
+                    type="number"
+                    step="0.1"
+                    value={selectedGateway.configuration.processingFee}
+                    onChange={(e) => updateGatewayConfiguration('processingFee', Number(e.target.value) || 0)}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-md border border-input px-3 py-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span>Aktiv</span>
+                  <Switch
+                    checked={selectedGateway.isActive}
+                    onCheckedChange={(v) => setSelectedGateway((p) => (p ? { ...p, isActive: v } : p))}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] px-3 py-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span><ShieldCheck className="mr-1 inline h-4 w-4" />Fraud Protection</span>
+                  <Switch
+                    checked={Boolean(selectedGateway.configuration.fraudProtection)}
+                    onCheckedChange={(v) => updateGatewayConfiguration('fraudProtection', v)}
+                  />
+                </div>
+              </div>
+
+              {selectedGateway.provider === 'paypal' && (
+                <>
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-[#1a2a5e]">Zugang & Umgebung</h4>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label>environment *</Label>
+                        <Select
+                          value={(getConfigString('environment', 'sandbox') as 'sandbox' | 'live')}
+                          onValueChange={(value) => updateGatewayConfiguration('environment', value as 'sandbox' | 'live')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="sandbox">sandbox</SelectItem>
+                            <SelectItem value="live">live</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>merchant_id</Label>
+                        <Input
+                          value={getConfigString('merchant_id')}
+                          onChange={(e) => updateGatewayConfiguration('merchant_id', e.target.value)}
+                          placeholder="ABCDEF1234567"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>sandbox_client_id *</Label>
+                        <Input
+                          required
+                          value={getConfigString('sandbox_client_id')}
+                          onChange={(e) => updateGatewayConfiguration('sandbox_client_id', e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>sandbox_client_secret *</Label>
+                        <Input
+                          required
+                          type="password"
+                          value={getConfigString('sandbox_client_secret')}
+                          onChange={(e) => updateGatewayConfiguration('sandbox_client_secret', e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>live_client_id</Label>
+                        <Input
+                          value={getConfigString('live_client_id')}
+                          onChange={(e) => updateGatewayConfiguration('live_client_id', e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>live_client_secret</Label>
+                        <Input
+                          type="password"
+                          value={getConfigString('live_client_secret')}
+                          onChange={(e) => updateGatewayConfiguration('live_client_secret', e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>api_base_url_sandbox</Label>
+                        <Input value={getConfigString('api_base_url_sandbox', 'https://api-m.sandbox.paypal.com')} disabled />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>api_base_url_live</Label>
+                        <Input value={getConfigString('api_base_url_live', 'https://api-m.paypal.com')} disabled />
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-[#1a2a5e]">Checkout & Betragslogik</h4>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label>default_currency *</Label>
+                        <Input
+                          required
+                          value={getConfigString('default_currency', 'EUR')}
+                          onChange={(e) => updateGatewayConfiguration('default_currency', e.target.value.toUpperCase())}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>allowed_currencies</Label>
+                        <Input
+                          value={getConfigStringList('allowed_currencies').join(', ')}
+                          onChange={(e) => updateGatewayConfiguration('allowed_currencies', parseStringList(e.target.value).map((v) => v.toUpperCase()))}
+                          placeholder="EUR, USD"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>payment_intent *</Label>
+                        <Select
+                          value={(getConfigString('payment_intent', 'CAPTURE') as 'CAPTURE' | 'AUTHORIZE')}
+                          onValueChange={(value) => updateGatewayConfiguration('payment_intent', value as 'CAPTURE' | 'AUTHORIZE')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="CAPTURE">CAPTURE</SelectItem>
+                            <SelectItem value="AUTHORIZE">AUTHORIZE</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>amount_source *</Label>
+                        <Select
+                          value={(getConfigString('amount_source', 'system') as 'system' | 'manual')}
+                          onValueChange={(value) => updateGatewayConfiguration('amount_source', value as 'system' | 'manual')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="system">system</SelectItem>
+                            <SelectItem value="manual">manual</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>description_template</Label>
+                        <Input
+                          value={getConfigString('description_template')}
+                          onChange={(e) => updateGatewayConfiguration('description_template', e.target.value)}
+                          placeholder="Bestellung {{orderId}}"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>invoice_id_source</Label>
+                        <Select
+                          value={(getConfigString('invoice_id_source', 'orderId') as 'orderId' | 'uuid')}
+                          onValueChange={(value) => updateGatewayConfiguration('invoice_id_source', value as 'orderId' | 'uuid')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="orderId">orderId</SelectItem>
+                            <SelectItem value="uuid">uuid</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>return_url *</Label>
+                        <Input
+                          required
+                          value={getConfigString('return_url')}
+                          onChange={(e) => updateGatewayConfiguration('return_url', e.target.value)}
+                          placeholder="https://shop.de/paypal/success"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>cancel_url *</Label>
+                        <Input
+                          required
+                          value={getConfigString('cancel_url')}
+                          onChange={(e) => updateGatewayConfiguration('cancel_url', e.target.value)}
+                          placeholder="https://shop.de/paypal/cancel"
+                        />
+                      </div>
+                    </div>
+                    <div className="rounded-md border border-input px-3 py-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span>send_breakdown</span>
+                        <Switch
+                          checked={getConfigBoolean('send_breakdown', true)}
+                          onCheckedChange={(value) => updateGatewayConfiguration('send_breakdown', value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-[#1a2a5e]">Frontend / Button / UX</h4>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label>button_layout</Label>
+                        <Select
+                          value={(getConfigString('button_layout', 'vertical') as 'vertical' | 'horizontal')}
+                          onValueChange={(value) => updateGatewayConfiguration('button_layout', value as 'vertical' | 'horizontal')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="vertical">vertical</SelectItem>
+                            <SelectItem value="horizontal">horizontal</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>button_color</Label>
+                        <Select
+                          value={(getConfigString('button_color', 'gold') as 'gold' | 'blue' | 'silver')}
+                          onValueChange={(value) => updateGatewayConfiguration('button_color', value as 'gold' | 'blue' | 'silver')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="gold">gold</SelectItem>
+                            <SelectItem value="blue">blue</SelectItem>
+                            <SelectItem value="silver">silver</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>button_shape</Label>
+                        <Select
+                          value={(getConfigString('button_shape', 'rect') as 'rect' | 'pill')}
+                          onValueChange={(value) => updateGatewayConfiguration('button_shape', value as 'rect' | 'pill')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="rect">rect</SelectItem>
+                            <SelectItem value="pill">pill</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>button_label</Label>
+                        <Select
+                          value={(getConfigString('button_label', 'paypal') as 'paypal' | 'pay' | 'checkout')}
+                          onValueChange={(value) => updateGatewayConfiguration('button_label', value as 'paypal' | 'pay' | 'checkout')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="paypal">paypal</SelectItem>
+                            <SelectItem value="pay">pay</SelectItem>
+                            <SelectItem value="checkout">checkout</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>locale</Label>
+                        <Input
+                          value={getConfigString('locale', 'de-DE')}
+                          onChange={(e) => updateGatewayConfiguration('locale', e.target.value)}
+                          placeholder="de-DE"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>funding_sources_allowed</Label>
+                        <Input
+                          value={getConfigStringList('funding_sources_allowed').join(', ')}
+                          onChange={(e) => updateGatewayConfiguration('funding_sources_allowed', parseStringList(e.target.value))}
+                          placeholder="paypal"
+                        />
+                      </div>
+                    </div>
+                    <div className="rounded-md border border-input px-3 py-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span>button_enabled</span>
+                        <Switch
+                          checked={getConfigBoolean('button_enabled', true)}
+                          onCheckedChange={(value) => updateGatewayConfiguration('button_enabled', value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-[#1a2a5e]">Webhooks & Events</h4>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1 md:col-span-2">
+                        <Label>webhook_url</Label>
+                        <Input
+                          value={getConfigString('webhook_url')}
+                          onChange={(e) => updateGatewayConfiguration('webhook_url', e.target.value)}
+                          placeholder="https://api.de/paypal/webhook"
+                        />
+                      </div>
+                      <div className="space-y-1 md:col-span-2">
+                        <Label>webhook_events</Label>
+                        <Textarea
+                          value={getConfigStringList('webhook_events').join(', ')}
+                          onChange={(e) => updateGatewayConfiguration('webhook_events', parseStringList(e.target.value))}
+                          placeholder="CHECKOUT.ORDER.APPROVED, PAYMENT.CAPTURE.COMPLETED"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>webhook_id</Label>
+                        <Input
+                          value={getConfigString('webhook_id')}
+                          onChange={(e) => updateGatewayConfiguration('webhook_id', e.target.value)}
+                          placeholder="WH-1234..."
+                        />
+                      </div>
+                    </div>
+                    <div className="rounded-md border border-input px-3 py-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span>webhooks_enabled</span>
+                        <Switch
+                          checked={getConfigBoolean('webhooks_enabled', true)}
+                          onCheckedChange={(value) => updateGatewayConfiguration('webhooks_enabled', value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-[#1a2a5e]">Erweiterte / Dev-Settings</h4>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label>http_timeout_ms</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={getConfigNumber('http_timeout_ms', 10000)}
+                          onChange={(e) => updateGatewayConfiguration('http_timeout_ms', Number(e.target.value) || 0)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>http_max_retries</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={getConfigNumber('http_max_retries', 2)}
+                          onChange={(e) => updateGatewayConfiguration('http_max_retries', Number(e.target.value) || 0)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>idempotency_key_source</Label>
+                        <Select
+                          value={(getConfigString('idempotency_key_source', 'orderId') as 'orderId' | 'uuid')}
+                          onValueChange={(value) => updateGatewayConfiguration('idempotency_key_source', value as 'orderId' | 'uuid')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="orderId">orderId</SelectItem>
+                            <SelectItem value="uuid">uuid</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>logging_level</Label>
+                        <Select
+                          value={(getConfigString('logging_level', 'error') as 'none' | 'error' | 'debug')}
+                          onValueChange={(value) => updateGatewayConfiguration('logging_level', value as 'none' | 'error' | 'debug')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">none</SelectItem>
+                            <SelectItem value="error">error</SelectItem>
+                            <SelectItem value="debug">debug</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>list_page_size_default</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={getConfigNumber('list_page_size_default', 50)}
+                          onChange={(e) => updateGatewayConfiguration('list_page_size_default', Number(e.target.value) || 1)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>list_max_page_size</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={getConfigNumber('list_max_page_size', 100)}
+                          onChange={(e) => updateGatewayConfiguration('list_max_page_size', Number(e.target.value) || 1)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <div className="rounded-md border border-input px-3 py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>idempotency_enabled</span>
+                          <Switch
+                            checked={getConfigBoolean('idempotency_enabled', true)}
+                            onCheckedChange={(value) => updateGatewayConfiguration('idempotency_enabled', value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="rounded-md border border-input px-3 py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>log_request_bodies</span>
+                          <Switch
+                            checked={getConfigBoolean('log_request_bodies', false)}
+                            onCheckedChange={(value) => updateGatewayConfiguration('log_request_bodies', value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="rounded-md border border-input px-3 py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>log_response_bodies</span>
+                          <Switch
+                            checked={getConfigBoolean('log_response_bodies', false)}
+                            onCheckedChange={(value) => updateGatewayConfiguration('log_response_bodies', value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {selectedGateway.provider === 'stripe' && (
+                <>
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-[#1a2a5e]">Environment & API-Keys</h4>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label>mode *</Label>
+                        <Select
+                          value={(getConfigString('mode', 'test') as 'test' | 'live')}
+                          onValueChange={(value) => updateGatewayConfiguration('mode', value as 'test' | 'live')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="test">test</SelectItem>
+                            <SelectItem value="live">live</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>test_publishable_key *</Label>
+                        <Input
+                          required
+                          value={getConfigString('test_publishable_key', '')}
+                          onChange={(e) => updateGatewayConfiguration('test_publishable_key', e.target.value)}
+                          placeholder="pk_test_..."
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>test_secret_key *</Label>
+                        <Input
+                          required
+                          type="password"
+                          value={getConfigString('test_secret_key', '')}
+                          onChange={(e) => updateGatewayConfiguration('test_secret_key', e.target.value)}
+                          placeholder="sk_test_..."
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>live_publishable_key</Label>
+                        <Input
+                          value={getConfigString('live_publishable_key', '')}
+                          onChange={(e) => updateGatewayConfiguration('live_publishable_key', e.target.value)}
+                          placeholder="pk_live_..."
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>live_secret_key</Label>
+                        <Input
+                          type="password"
+                          value={getConfigString('live_secret_key', '')}
+                          onChange={(e) => updateGatewayConfiguration('live_secret_key', e.target.value)}
+                          placeholder="sk_live_..."
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>account_id</Label>
+                        <Input
+                          value={getConfigString('account_id', '')}
+                          onChange={(e) => updateGatewayConfiguration('account_id', e.target.value)}
+                          placeholder="acct_..."
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>api_version</Label>
+                        <Input
+                          value={getConfigString('api_version', '')}
+                          onChange={(e) => updateGatewayConfiguration('api_version', e.target.value)}
+                          placeholder="2023-08-16"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-[#1a2a5e]">Checkout & Betragslogik</h4>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="rounded-md border border-input px-3 py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>use_stripe_checkout</span>
+                          <Switch
+                            checked={getConfigBoolean('use_stripe_checkout', true)}
+                            onCheckedChange={(value) => updateGatewayConfiguration('use_stripe_checkout', value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>payment_mode *</Label>
+                        <Select
+                          value={(getConfigString('payment_mode', 'payment') as 'payment' | 'subscription')}
+                          onValueChange={(value) => updateGatewayConfiguration('payment_mode', value as 'payment' | 'subscription')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="payment">payment</SelectItem>
+                            <SelectItem value="subscription">subscription</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>capture_method</Label>
+                        <Select
+                          value={(getConfigString('capture_method', 'automatic') as 'automatic' | 'manual')}
+                          onValueChange={(value) => updateGatewayConfiguration('capture_method', value as 'automatic' | 'manual')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="automatic">automatic</SelectItem>
+                            <SelectItem value="manual">manual</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>statement_descriptor</Label>
+                        <Input
+                          value={getConfigString('statement_descriptor', '')}
+                          onChange={(e) => updateGatewayConfiguration('statement_descriptor', e.target.value)}
+                          placeholder="FixitHub Repair"
+                          maxLength={22}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>success_url *</Label>
+                        <Input
+                          required
+                          value={getConfigString('success_url', '')}
+                          onChange={(e) => updateGatewayConfiguration('success_url', e.target.value)}
+                          placeholder="https://..."
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>cancel_url *</Label>
+                        <Input
+                          required
+                          value={getConfigString('cancel_url', '')}
+                          onChange={(e) => updateGatewayConfiguration('cancel_url', e.target.value)}
+                          placeholder="https://..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-[#1a2a5e]">Payment-Methoden & Frontend</h4>
+                    <div className="space-y-1">
+                      <Label>allowed_payment_methods</Label>
+                      <Textarea
+                        value={getConfigStringList('allowed_payment_methods', ['card', 'paypal']).join(', ')}
+                        onChange={(e) => updateGatewayConfiguration('allowed_payment_methods', parseStringList(e.target.value))}
+                        placeholder="card, paypal, klarna (kommagetrennt)"
+                        className="min-h-20"
+                      />
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="rounded-md border border-input px-3 py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>allow_saved_payment_method</span>
+                          <Switch
+                            checked={getConfigBoolean('allow_saved_payment_method', true)}
+                            onCheckedChange={(value) => updateGatewayConfiguration('allow_saved_payment_method', value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>payment_method_config_id</Label>
+                        <Input
+                          value={getConfigString('payment_method_config_id', '')}
+                          onChange={(e) => updateGatewayConfiguration('payment_method_config_id', e.target.value)}
+                          placeholder="pmc_..."
+                        />
+                      </div>
+                      <div className="rounded-md border border-input px-3 py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>automatic_payment_methods</span>
+                          <Switch
+                            checked={getConfigBoolean('automatic_payment_methods', true)}
+                            onCheckedChange={(value) => updateGatewayConfiguration('automatic_payment_methods', value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>billing_address_collection</Label>
+                        <Select
+                          value={(getConfigString('billing_address_collection', 'auto') as 'auto' | 'required')}
+                          onValueChange={(value) => updateGatewayConfiguration('billing_address_collection', value as 'auto' | 'required')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="auto">auto</SelectItem>
+                            <SelectItem value="required">required</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="rounded-md border border-input px-3 py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>shipping_address_collection</span>
+                          <Switch
+                            checked={getConfigBoolean('shipping_address_collection', false)}
+                            onCheckedChange={(value) => updateGatewayConfiguration('shipping_address_collection', value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>customer_creation</Label>
+                        <Select
+                          value={(getConfigString('customer_creation', 'if_required') as 'always' | 'if_required' | 'none')}
+                          onValueChange={(value) => updateGatewayConfiguration('customer_creation', value as 'always' | 'if_required' | 'none')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="always">always</SelectItem>
+                            <SelectItem value="if_required">if_required</SelectItem>
+                            <SelectItem value="none">none</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-[#1a2a5e]">Webhooks & Events</h4>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label>webhook_url</Label>
+                        <Input
+                          value={getConfigString('webhook_url', '')}
+                          onChange={(e) => updateGatewayConfiguration('webhook_url', e.target.value)}
+                          placeholder="https://api.de/stripe/webhook"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>webhook_endpoint_secret</Label>
+                        <Input
+                          type="password"
+                          value={getConfigString('webhook_endpoint_secret', '')}
+                          onChange={(e) => updateGatewayConfiguration('webhook_endpoint_secret', e.target.value)}
+                          placeholder="whsec_..."
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>webhook_tolerance_sec</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={getConfigNumber('webhook_tolerance_sec', 300)}
+                          onChange={(e) => updateGatewayConfiguration('webhook_tolerance_sec', Number(e.target.value) || 0)}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>webhook_events</Label>
+                      <Textarea
+                        value={getConfigStringList('webhook_events', ['payment_intent.succeeded']).join(', ')}
+                        onChange={(e) => updateGatewayConfiguration('webhook_events', parseStringList(e.target.value))}
+                        placeholder="payment_intent.succeeded, charge.refunded (kommagetrennt)"
+                        className="min-h-20"
+                      />
+                    </div>
+                    <div className="rounded-md border border-input px-3 py-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span>webhooks_enabled</span>
+                        <Switch
+                          checked={getConfigBoolean('webhooks_enabled', true)}
+                          onCheckedChange={(value) => updateGatewayConfiguration('webhooks_enabled', value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-[#1a2a5e]">Erweiterte/Dev-Settings</h4>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label>http_timeout_ms</Label>
+                        <Input
+                          type="number"
+                          min="1000"
+                          value={getConfigNumber('http_timeout_ms', 10000)}
+                          onChange={(e) => updateGatewayConfiguration('http_timeout_ms', Number(e.target.value) || 10000)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>http_max_retries</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={getConfigNumber('http_max_retries', 2)}
+                          onChange={(e) => updateGatewayConfiguration('http_max_retries', Number(e.target.value) || 0)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>idempotency_key_source</Label>
+                        <Select
+                          value={(getConfigString('idempotency_key_source', 'orderId') as 'orderId' | 'uuid')}
+                          onValueChange={(value) => updateGatewayConfiguration('idempotency_key_source', value as 'orderId' | 'uuid')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="orderId">orderId</SelectItem>
+                            <SelectItem value="uuid">uuid</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>logging_level</Label>
+                        <Select
+                          value={(getConfigString('logging_level', 'error') as 'none' | 'error' | 'debug')}
+                          onValueChange={(value) => updateGatewayConfiguration('logging_level', value as 'none' | 'error' | 'debug')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">none</SelectItem>
+                            <SelectItem value="error">error</SelectItem>
+                            <SelectItem value="debug">debug</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>list_page_size_default</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={getConfigNumber('list_page_size_default', 50)}
+                          onChange={(e) => updateGatewayConfiguration('list_page_size_default', Number(e.target.value) || 1)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>list_max_page_size</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={getConfigNumber('list_max_page_size', 100)}
+                          onChange={(e) => updateGatewayConfiguration('list_max_page_size', Number(e.target.value) || 1)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <div className="rounded-md border border-input px-3 py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>idempotency_enabled</span>
+                          <Switch
+                            checked={getConfigBoolean('idempotency_enabled', true)}
+                            onCheckedChange={(value) => updateGatewayConfiguration('idempotency_enabled', value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="rounded-md border border-input px-3 py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>log_request_bodies</span>
+                          <Switch
+                            checked={getConfigBoolean('log_request_bodies', false)}
+                            onCheckedChange={(value) => updateGatewayConfiguration('log_request_bodies', value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="rounded-md border border-input px-3 py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>log_response_bodies</span>
+                          <Switch
+                            checked={getConfigBoolean('log_response_bodies', false)}
+                            onCheckedChange={(value) => updateGatewayConfiguration('log_response_bodies', value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {selectedGateway.provider === 'bank_transfer' && (
+                <>
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-[#1a2a5e]">Grundeinstellungen</h4>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="rounded-md border border-input px-3 py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>enabled</span>
+                          <Switch
+                            checked={getConfigBoolean('enabled', true)}
+                            onCheckedChange={(value) => updateGatewayConfiguration('enabled', value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>code *</Label>
+                        <Input
+                          required
+                          value={getConfigString('code', 'bank_transfer')}
+                          onChange={(e) => updateGatewayConfiguration('code', e.target.value)}
+                          placeholder="bank_transfer"
+                        />
+                      </div>
+                      <div className="space-y-1 md:col-span-2">
+                        <Label>title *</Label>
+                        <Input
+                          required
+                          value={getConfigString('title', '')}
+                          onChange={(e) => updateGatewayConfiguration('title', e.target.value)}
+                          placeholder="Vorkasse / Banküberweisung"
+                        />
+                      </div>
+                      <div className="space-y-1 md:col-span-2">
+                        <Label>description_checkout</Label>
+                        <Textarea
+                          value={getConfigString('description_checkout', '')}
+                          onChange={(e) => updateGatewayConfiguration('description_checkout', e.target.value)}
+                          placeholder="Bitte überweisen Sie den Betrag auf das unten angegebene Konto."
+                          className="min-h-16"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-[#1a2a5e]">Bankverbindung</h4>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label>account_holder *</Label>
+                        <Input
+                          required
+                          value={getConfigString('account_holder', '')}
+                          onChange={(e) => updateGatewayConfiguration('account_holder', e.target.value)}
+                          placeholder="Max Mustermann"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>iban *</Label>
+                        <Input
+                          required
+                          value={getConfigString('iban', '')}
+                          onChange={(e) => updateGatewayConfiguration('iban', e.target.value)}
+                          placeholder="DE00 0000 0000 0000 0000 00"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>bic</Label>
+                        <Input
+                          value={getConfigString('bic', '')}
+                          onChange={(e) => updateGatewayConfiguration('bic', e.target.value)}
+                          placeholder="ABCDEFGHXXX"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>bank_name</Label>
+                        <Input
+                          value={getConfigString('bank_name', '')}
+                          onChange={(e) => updateGatewayConfiguration('bank_name', e.target.value)}
+                          placeholder="Musterbank"
+                        />
+                      </div>
+                      <div className="space-y-1 md:col-span-2">
+                        <Label>payment_reference_template *</Label>
+                        <Input
+                          required
+                          value={getConfigString('payment_reference_template', '')}
+                          onChange={(e) => updateGatewayConfiguration('payment_reference_template', e.target.value)}
+                          placeholder="Bestellnr. {{orderId}}"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-[#1a2a5e]">Betrag & Regeln</h4>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label>payment_term_days</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={getConfigNumber('payment_term_days', 14)}
+                          onChange={(e) => updateGatewayConfiguration('payment_term_days', Number(e.target.value) || 0)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>initial_order_status *</Label>
+                        <Input
+                          required
+                          value={getConfigString('initial_order_status', 'pending_payment')}
+                          onChange={(e) => updateGatewayConfiguration('initial_order_status', e.target.value)}
+                          placeholder="pending_payment"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>min_order_total</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={getConfigNumber('min_order_total', 0)}
+                          onChange={(e) => updateGatewayConfiguration('min_order_total', Number(e.target.value) || 0)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>max_order_total</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={getConfigNumber('max_order_total', 10000)}
+                          onChange={(e) => updateGatewayConfiguration('max_order_total', Number(e.target.value) || 0)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>expire_action</Label>
+                        <Select
+                          value={(getConfigString('expire_action', 'cancel') as 'cancel' | 'mark_expired' | 'none')}
+                          onValueChange={(value) => updateGatewayConfiguration('expire_action', value as 'cancel' | 'mark_expired' | 'none')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="cancel">cancel</SelectItem>
+                            <SelectItem value="mark_expired">mark_expired</SelectItem>
+                            <SelectItem value="none">none</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>reporting_tag</Label>
+                        <Input
+                          value={getConfigString('reporting_tag', 'BANK_TRANSFER')}
+                          onChange={(e) => updateGatewayConfiguration('reporting_tag', e.target.value)}
+                          placeholder="BANK_TRANSFER"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>allowed_customer_groups</Label>
+                      <Textarea
+                        value={getConfigStringList('allowed_customer_groups', ['b2c', 'b2b']).join(', ')}
+                        onChange={(e) => updateGatewayConfiguration('allowed_customer_groups', parseStringList(e.target.value))}
+                        placeholder="b2c, b2b (kommagetrennt)"
+                        className="min-h-16"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>allowed_countries</Label>
+                      <Textarea
+                        value={getConfigStringList('allowed_countries', ['DE', 'AT', 'CH']).join(', ')}
+                        onChange={(e) => updateGatewayConfiguration('allowed_countries', parseStringList(e.target.value))}
+                        placeholder="DE, AT, CH (kommagetrennt)"
+                        className="min-h-16"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>allowed_shipping_methods</Label>
+                      <Textarea
+                        value={getConfigStringList('allowed_shipping_methods', []).join(', ')}
+                        onChange={(e) => updateGatewayConfiguration('allowed_shipping_methods', parseStringList(e.target.value))}
+                        placeholder="standard, express (kommagetrennt)"
+                        className="min-h-16"
+                      />
+                    </div>
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <div className="rounded-md border border-input px-3 py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>expire_unpaid_orders</span>
+                          <Switch
+                            checked={getConfigBoolean('expire_unpaid_orders', true)}
+                            onCheckedChange={(value) => updateGatewayConfiguration('expire_unpaid_orders', value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-[#1a2a5e]">Backoffice & E-Mail</h4>
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <div className="rounded-md border border-input px-3 py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>admin_can_mark_paid *</span>
+                          <Switch
+                            checked={getConfigBoolean('admin_can_mark_paid', true)}
+                            onCheckedChange={(value) => updateGatewayConfiguration('admin_can_mark_paid', value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="rounded-md border border-input px-3 py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>email_instructions_enabled</span>
+                          <Switch
+                            checked={getConfigBoolean('email_instructions_enabled', true)}
+                            onCheckedChange={(value) => updateGatewayConfiguration('email_instructions_enabled', value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>mark_paid_requires_fields</Label>
+                      <Textarea
+                        value={getConfigStringList('mark_paid_requires_fields', ['amount', 'payment_date']).join(', ')}
+                        onChange={(e) => updateGatewayConfiguration('mark_paid_requires_fields', parseStringList(e.target.value))}
+                        placeholder="amount, payment_date (kommagetrennt)"
+                        className="min-h-16"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>email_instructions_text</Label>
+                      <Textarea
+                        value={getConfigString('email_instructions_text', '')}
+                        onChange={(e) => updateGatewayConfiguration('email_instructions_text', e.target.value)}
+                        placeholder="Bitte überweisen Sie den Betrag innerhalb von 14 Tagen..."
+                        className="min-h-20"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {selectedGateway.provider === 'cash' && (
+                <>
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-[#1a2a5e]">Grundeinstellungen</h4>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="rounded-md border border-input px-3 py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>enabled</span>
+                          <Switch
+                            checked={getConfigBoolean('enabled', true)}
+                            onCheckedChange={(value) => updateGatewayConfiguration('enabled', value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>code *</Label>
+                        <Input
+                          required
+                          value={getConfigString('code', 'cash_on_pickup')}
+                          onChange={(e) => updateGatewayConfiguration('code', e.target.value)}
+                          placeholder="cash_on_pickup"
+                        />
+                      </div>
+                      <div className="space-y-1 md:col-span-2">
+                        <Label>title *</Label>
+                        <Input
+                          required
+                          value={getConfigString('title', '')}
+                          onChange={(e) => updateGatewayConfiguration('title', e.target.value)}
+                          placeholder="Barzahlung bei Abholung"
+                        />
+                      </div>
+                      <div className="space-y-1 md:col-span-2">
+                        <Label>description_checkout</Label>
+                        <Textarea
+                          value={getConfigString('description_checkout', '')}
+                          onChange={(e) => updateGatewayConfiguration('description_checkout', e.target.value)}
+                          placeholder="Sie bezahlen bei Abholung in bar."
+                          className="min-h-16"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>mode *</Label>
+                        <Select
+                          value={(getConfigString('cash_mode', 'pickup') as 'pickup' | 'delivery' | 'both')}
+                          onValueChange={(value) => updateGatewayConfiguration('cash_mode', value as 'pickup' | 'delivery' | 'both')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pickup">pickup</SelectItem>
+                            <SelectItem value="delivery">delivery</SelectItem>
+                            <SelectItem value="both">both</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>initial_order_status *</Label>
+                        <Input
+                          required
+                          value={getConfigString('initial_order_status', 'waiting_for_pickup')}
+                          onChange={(e) => updateGatewayConfiguration('initial_order_status', e.target.value)}
+                          placeholder="waiting_for_pickup"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>sort_order</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={getConfigNumber('sort_order', 20)}
+                          onChange={(e) => updateGatewayConfiguration('sort_order', Number(e.target.value) || 0)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>reporting_tag</Label>
+                        <Input
+                          value={getConfigString('reporting_tag', 'CASH')}
+                          onChange={(e) => updateGatewayConfiguration('reporting_tag', e.target.value)}
+                          placeholder="CASH"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-[#1a2a5e]">Betrag & Regeln</h4>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label>min_order_total</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={getConfigNumber('min_order_total', 0)}
+                          onChange={(e) => updateGatewayConfiguration('min_order_total', Number(e.target.value) || 0)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>max_order_total</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={getConfigNumber('max_order_total', 1000)}
+                          onChange={(e) => updateGatewayConfiguration('max_order_total', Number(e.target.value) || 0)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>fee_type</Label>
+                        <Select
+                          value={(getConfigString('fee_type', 'none') as 'none' | 'surcharge' | 'discount')}
+                          onValueChange={(value) => updateGatewayConfiguration('fee_type', value as 'none' | 'surcharge' | 'discount')}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">none</SelectItem>
+                            <SelectItem value="surcharge">surcharge</SelectItem>
+                            <SelectItem value="discount">discount</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>fee_value</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={getConfigNumber('fee_value', 0)}
+                          onChange={(e) => updateGatewayConfiguration('fee_value', Number(e.target.value) || 0)}
+                        />
+                      </div>
+                      <div className="rounded-md border border-input px-3 py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>fee_is_percentage</span>
+                          <Switch
+                            checked={getConfigBoolean('fee_is_percentage', false)}
+                            onCheckedChange={(value) => updateGatewayConfiguration('fee_is_percentage', value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>allowed_customer_groups</Label>
+                      <Textarea
+                        value={getConfigStringList('allowed_customer_groups', ['b2c']).join(', ')}
+                        onChange={(e) => updateGatewayConfiguration('allowed_customer_groups', parseStringList(e.target.value))}
+                        placeholder="b2c, b2b (kommagetrennt)"
+                        className="min-h-16"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>allowed_shipping_methods</Label>
+                      <Textarea
+                        value={getConfigStringList('allowed_shipping_methods', []).join(', ')}
+                        onChange={(e) => updateGatewayConfiguration('allowed_shipping_methods', parseStringList(e.target.value))}
+                        placeholder="pickup_store_1 (kommagetrennt)"
+                        className="min-h-16"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>allowed_product_types</Label>
+                      <Textarea
+                        value={getConfigStringList('allowed_product_types', ['physical']).join(', ')}
+                        onChange={(e) => updateGatewayConfiguration('allowed_product_types', parseStringList(e.target.value))}
+                        placeholder="physical (kommagetrennt)"
+                        className="min-h-16"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-[#1a2a5e]">Kassenbeleg & Backoffice</h4>
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <div className="rounded-md border border-input px-3 py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>admin_can_mark_paid *</span>
+                          <Switch
+                            checked={getConfigBoolean('admin_can_mark_paid', true)}
+                            onCheckedChange={(value) => updateGatewayConfiguration('admin_can_mark_paid', value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="rounded-md border border-input px-3 py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>mark_paid_on_fulfillment</span>
+                          <Switch
+                            checked={getConfigBoolean('mark_paid_on_fulfillment', false)}
+                            onCheckedChange={(value) => updateGatewayConfiguration('mark_paid_on_fulfillment', value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="rounded-md border border-input px-3 py-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>cash_receipt_number_enabled</span>
+                          <Switch
+                            checked={getConfigBoolean('cash_receipt_number_enabled', true)}
+                            onCheckedChange={(value) => updateGatewayConfiguration('cash_receipt_number_enabled', value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>cash_receipt_number_format</Label>
+                      <Input
+                        value={getConfigString('cash_receipt_number_format', '')}
+                        onChange={(e) => updateGatewayConfiguration('cash_receipt_number_format', e.target.value)}
+                        placeholder="POS{{storeId}}-{{yyyy}}{{MM}}{{dd}}-{{seq}}"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>mark_paid_requires_fields</Label>
+                      <Textarea
+                        value={getConfigStringList('mark_paid_requires_fields', ['amount', 'payment_date', 'receipt_no']).join(', ')}
+                        onChange={(e) => updateGatewayConfiguration('mark_paid_requires_fields', parseStringList(e.target.value))}
+                        placeholder="amount, payment_date, receipt_no (kommagetrennt)"
+                        className="min-h-16"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-[#1a2a5e]">E-Mail-Hinweise</h4>
+                    <div className="rounded-md border border-input px-3 py-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span>email_instructions_enabled</span>
+                        <Switch
+                          checked={getConfigBoolean('email_instructions_enabled', true)}
+                          onCheckedChange={(value) => updateGatewayConfiguration('email_instructions_enabled', value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>email_instructions_text</Label>
+                      <Textarea
+                        value={getConfigString('email_instructions_text', '')}
+                        onChange={(e) => updateGatewayConfiguration('email_instructions_text', e.target.value)}
+                        placeholder="Bitte halten Sie den Betrag passend bereit."
+                        className="min-h-20"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {selectedGateway && (() => {
+            const validation = validateGatewayConfiguration();
+            return (
+              <>
+                {!validation.valid && (
+                  <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm">
+                    <div className="font-semibold text-red-900 mb-2">Validierungsfehler:</div>
+                    <ul className="list-inside list-disc space-y-1 text-red-800">
+                      {validation.errors.map((error, idx) => (
+                        <li key={idx}>{error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
+            );
+          })()}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGatewayDialogOpen(false)}>Abbrechen</Button>
+            <Button
+              onClick={onUpdateGateway}
+              disabled={(() => {
+                const validation = validateGatewayConfiguration();
+                return !validation.valid;
+              })()}
+            >
+              Speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

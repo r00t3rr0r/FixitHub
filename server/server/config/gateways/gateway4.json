@@ -1,0 +1,54 @@
+{
+  "_id": "gateway4",
+  "name": "Barzahlung",
+  "provider": "cash",
+  "isActive": true,
+  "configuration": {
+    "enabled": true,
+    "code": "cash_on_pickup",
+    "title": "Barzahlung bei Abholung",
+    "description_checkout": "Sie bezahlen bei Abholung in bar.",
+    "cash_mode": "pickup",
+    "allowed_shipping_methods": [
+      "pickup_store_1"
+    ],
+    "min_order_total": 0,
+    "max_order_total": 1000,
+    "allowed_customer_groups": [
+      "b2c"
+    ],
+    "allowed_product_types": [
+      "physical"
+    ],
+    "initial_order_status": "waiting_for_pickup",
+    "mark_paid_on_fulfillment": false,
+    "admin_can_mark_paid": true,
+    "mark_paid_requires_fields": [
+      "amount",
+      "payment_date",
+      "receipt_no"
+    ],
+    "cash_receipt_number_enabled": true,
+    "cash_receipt_number_format": "POS{{storeId}}-{{yyyy}}{{MM}}{{dd}}-{{seq}}",
+    "email_instructions_enabled": true,
+    "email_instructions_text": "Bitte halten Sie den Betrag passend bereit.",
+    "fee_type": "none",
+    "fee_value": 0,
+    "fee_is_percentage": false,
+    "reporting_tag": "CASH",
+    "sort_order": 20,
+    "currency": "EUR",
+    "processingFee": 0,
+    "fraudProtection": false
+  },
+  "supportedMethods": [
+    "cash"
+  ],
+  "countries": [
+    "DE",
+    "AT",
+    "CH"
+  ],
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2026-03-25T10:15:49.460Z"
+}

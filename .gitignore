@@ -12,3 +12,9 @@ package-lock.json
 .env.local
 .env.*.local
 .env.example
+
+# Sensitive gateway configurations
+server/config/gateways/
+server/config/secrets/
+*.key
+*.cert
