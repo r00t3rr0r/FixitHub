@@ -3,6 +3,7 @@ const Invoice = require('../models/Invoice');
 const DunningRun = require('../models/DunningRun');
 const Order = require('../models/Order');
 const User = require('../models/User');
+const SystemConfiguration = require('../models/SystemConfiguration');
 
 // Valid invoice status transitions
 const INVOICE_STATUS_TRANSITIONS = {
@@ -17,7 +18,63 @@ const INVOICE_STATUS_TRANSITIONS = {
   credited:         []
 };
 
+// Default financial settings (fallback if no config exists)
+const DEFAULT_FINANCIAL_SETTINGS = {
+  defaults: {
+    currency: 'EUR',
+    locale: 'de-DE',
+    taxRate: 19,
+    paymentDueDays: 14,
+    paymentTerms: 'Net 14',
+    invoicePrefix: 'INV-',
+    creditNotePrefix: 'CN-',
+    defaultDiscount: 0,
+    defaultPaymentMethod: 'credit_card'
+  },
+  discountPolicy: {
+    allowManualDiscounts: true,
+    maxDiscountPercent: 20,
+    earlyPaymentDiscountPercent: 2,
+    lateFeePercent: 5
+  },
+  invoiceMetadata: {
+    sellerName: 'FixitHub',
+    sellerVatId: '',
+    registrationNumber: '',
+    issuerEmail: '',
+    issuerPhone: '',
+    invoiceFooter: '',
+    legalFooter: ''
+  },
+  paymentPreferences: {
+    partialPaymentsAllowed: true,
+    autoAttachPdf: true,
+    showTaxBreakdown: true,
+    defaultVisualTheme: 'modern',
+    accentColor: '#1a2a5e'
+  }
+};
+
 class FinancialService {
+  // Helper: Load financial settings from SystemConfiguration
+  static async getFinancialSettings() {
+    try {
+      const config = await SystemConfiguration.findOne().lean();
+      if (!config || !config.financialSettings) {
+        return DEFAULT_FINANCIAL_SETTINGS;
+      }
+      // Deep merge with defaults to ensure all fields exist
+      return {
+        defaults: { ...DEFAULT_FINANCIAL_SETTINGS.defaults, ...(config.financialSettings.defaults || {}) },
+        discountPolicy: { ...DEFAULT_FINANCIAL_SETTINGS.discountPolicy, ...(config.financialSettings.discountPolicy || {}) },
+        invoiceMetadata: { ...DEFAULT_FINANCIAL_SETTINGS.invoiceMetadata, ...(config.financialSettings.invoiceMetadata || {}) },
+        paymentPreferences: { ...DEFAULT_FINANCIAL_SETTINGS.paymentPreferences, ...(config.financialSettings.paymentPreferences || {}) }
+      };
+    } catch (error) {
+      console.error('FinancialService: Error loading financial settings, using defaults:', error.message);
+      return DEFAULT_FINANCIAL_SETTINGS;
+    }
+  }
   static mapPaymentMethodToGateway(paymentMethod) {
     if (paymentMethod === 'paypal') return 'paypal';
     if (paymentMethod === 'stripe') return 'stripe';
@@ -245,6 +302,9 @@ class FinancialService {
     console.log('FinancialService: Creating invoice');
 
     try {
+      // Load financial settings
+      const settings = await FinancialService.getFinancialSettings();
+      
       // Clean the invoice data - remove empty strings for ObjectId fields
       const cleanedInvoiceData = { ...invoiceData };
       
@@ -284,11 +344,25 @@ class FinancialService {
         }
       }
 
+      // Apply financial defaults if not explicitly provided
+      if (!cleanedInvoiceData.numberPrefix && !cleanedInvoiceData.invoiceNumber) {
+        cleanedInvoiceData.numberPrefix = settings.defaults.invoicePrefix;
+      }
+      
+      if (!cleanedInvoiceData.dueDate && cleanedInvoiceData.dueDate !== false) {
+        const dueDays = settings.defaults.paymentDueDays || 14;
+        cleanedInvoiceData.dueDate = new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000);
+      }
+      
+      if (!cleanedInvoiceData.paymentTerms) {
+        cleanedInvoiceData.paymentTerms = settings.defaults.paymentTerms;
+      }
+
       // Create invoice
       const invoice = new Invoice(cleanedInvoiceData);
       await invoice.save();
 
-      console.log('FinancialService: Invoice created successfully');
+      console.log('FinancialService: Invoice created successfully with defaults applied');
       return invoice;
     } catch (error) {
       console.error('FinancialService: Error creating invoice:', error);
@@ -454,7 +528,10 @@ class FinancialService {
     console.log('FinancialService: Getting payment gateways');
 
     try {
-      // For now, return mock data as this would typically be stored in system configuration
+      const fs = require('fs');
+      const path = require('path');
+
+      // Base gateways with default configuration
       const gateways = [
         {
           _id: 'gateway1',
@@ -462,15 +539,48 @@ class FinancialService {
           provider: 'stripe',
           isActive: true,
           configuration: {
-            publicKey: 'pk_test_***',
-            secretKey: 'sk_test_***',
-            webhookUrl: 'https://api.fixithub.com/webhooks/stripe',
-            currency: 'USD',
+            mode: 'test',
+            test_publishable_key: 'pk_test_51...',
+            test_secret_key: 'sk_test_51...',
+            live_publishable_key: '',
+            live_secret_key: '',
+            account_id: 'acct_1A2B3C4D5E6F7G8H9',
+            api_version: '2023-08-16',
+            use_stripe_checkout: true,
+            payment_mode: 'payment',
+            capture_method: 'automatic',
+            statement_descriptor: 'FixitHub Repair',
+            success_url: 'https://shop.de/stripe/success',
+            cancel_url: 'https://shop.de/stripe/cancel',
+            allowed_payment_methods: ['card', 'paypal', 'klarna'],
+            allow_saved_payment_method: true,
+            payment_method_config_id: '',
+            automatic_payment_methods: true,
+            billing_address_collection: 'auto',
+            shipping_address_collection: false,
+            customer_creation: 'if_required',
+            webhook_url: 'https://api.de/stripe/webhook',
+            webhook_endpoint_secret: 'whsec_test_...',
+            webhook_tolerance_sec: 300,
+            webhook_events: ['payment_intent.succeeded', 'charge.refunded'],
+            webhooks_enabled: true,
+            http_timeout_ms: 10000,
+            http_max_retries: 2,
+            idempotency_enabled: true,
+            idempotency_key_source: 'orderId',
+            logging_level: 'error',
+            log_request_bodies: false,
+            log_response_bodies: false,
+            list_page_size_default: 50,
+            list_max_page_size: 100,
+            currency: 'EUR',
             processingFee: 2.9,
-            fraudProtection: true
+            fraudProtection: true,
+            default_currency: 'EUR',
+            amount_source: 'system'
           },
-          supportedMethods: ['credit_card', 'debit_card', 'apple_pay', 'google_pay'],
-          countries: ['US', 'CA', 'GB', 'AU'],
+          supportedMethods: ['card', 'paypal', 'klarna', 'ideal'],
+          countries: ['US', 'CA', 'GB', 'AU', 'DE', 'FR'],
           createdAt: new Date('2024-01-01'),
           updatedAt: new Date()
         },
@@ -482,7 +592,44 @@ class FinancialService {
           configuration: {
             publicKey: 'paypal_client_id',
             secretKey: 'paypal_client_secret',
-            currency: 'USD',
+            environment: 'sandbox',
+            sandbox_client_id: 'Abc123...',
+            sandbox_client_secret: 'Efg456...',
+            live_client_id: '',
+            live_client_secret: '',
+            merchant_id: 'ABCDEF1234567',
+            api_base_url_sandbox: 'https://api-m.sandbox.paypal.com',
+            api_base_url_live: 'https://api-m.paypal.com',
+            default_currency: 'EUR',
+            allowed_currencies: ['EUR', 'USD'],
+            payment_intent: 'CAPTURE',
+            amount_source: 'system',
+            send_breakdown: true,
+            description_template: 'Bestellung {{orderId}}',
+            invoice_id_source: 'orderId',
+            return_url: 'https://shop.de/paypal/success',
+            cancel_url: 'https://shop.de/paypal/cancel',
+            button_enabled: true,
+            button_layout: 'vertical',
+            button_color: 'gold',
+            button_shape: 'rect',
+            button_label: 'paypal',
+            locale: 'de-DE',
+            funding_sources_allowed: ['paypal'],
+            webhooks_enabled: true,
+            webhook_url: 'https://api.de/paypal/webhook',
+            webhook_events: ['CHECKOUT.ORDER.APPROVED', 'PAYMENT.CAPTURE.COMPLETED'],
+            webhook_id: 'WH-1234...',
+            http_timeout_ms: 10000,
+            http_max_retries: 2,
+            idempotency_enabled: true,
+            idempotency_key_source: 'orderId',
+            logging_level: 'error',
+            log_request_bodies: false,
+            log_response_bodies: false,
+            list_page_size_default: 50,
+            list_max_page_size: 100,
+            currency: 'EUR',
             processingFee: 3.5,
             fraudProtection: true
           },
@@ -490,8 +637,107 @@ class FinancialService {
           countries: ['US', 'CA', 'GB', 'AU', 'DE', 'FR'],
           createdAt: new Date('2024-01-01'),
           updatedAt: new Date()
+        },
+        {
+          _id: 'gateway3',
+          name: 'Banküberweisung',
+          provider: 'bank_transfer',
+          isActive: true,
+          configuration: {
+            enabled: true,
+            code: 'bank_transfer',
+            title: 'Vorkasse / Banküberweisung',
+            description_checkout: 'Bitte überweisen Sie den Betrag auf das unten angegebene Konto.',
+            account_holder: 'Max Mustermann',
+            iban: 'DE00 0000 0000 0000 0000 00',
+            bic: 'ABCDEFGHXXX',
+            bank_name: 'Musterbank',
+            payment_reference_template: 'Bestellnr. {{orderId}}',
+            payment_term_days: 14,
+            min_order_total: 0,
+            max_order_total: 10000,
+            allowed_customer_groups: ['b2c', 'b2b'],
+            allowed_countries: ['DE', 'AT', 'CH'],
+            allowed_shipping_methods: ['standard', 'express'],
+            initial_order_status: 'pending_payment',
+            expire_unpaid_orders: true,
+            expire_action: 'cancel',
+            email_instructions_enabled: true,
+            email_instructions_text: 'Bitte überweisen Sie den Betrag innerhalb von 14 Tagen auf das angegebene Konto.',
+            admin_can_mark_paid: true,
+            mark_paid_requires_fields: ['amount', 'payment_date'],
+            reporting_tag: 'BANK_TRANSFER',
+            currency: 'EUR',
+            processingFee: 0,
+            fraudProtection: false
+          },
+          supportedMethods: ['bank_transfer'],
+          countries: ['DE', 'AT', 'CH'],
+          createdAt: new Date('2024-01-01'),
+          updatedAt: new Date()
+        },
+        {
+          _id: 'gateway4',
+          name: 'Barzahlung',
+          provider: 'cash',
+          isActive: true,
+          configuration: {
+            enabled: true,
+            code: 'cash_on_pickup',
+            title: 'Barzahlung bei Abholung',
+            description_checkout: 'Sie bezahlen bei Abholung in bar.',
+            cash_mode: 'pickup',
+            allowed_shipping_methods: ['pickup_store_1'],
+            min_order_total: 0,
+            max_order_total: 1000,
+            allowed_customer_groups: ['b2c'],
+            allowed_product_types: ['physical'],
+            initial_order_status: 'waiting_for_pickup',
+            mark_paid_on_fulfillment: false,
+            admin_can_mark_paid: true,
+            mark_paid_requires_fields: ['amount', 'payment_date', 'receipt_no'],
+            cash_receipt_number_enabled: true,
+            cash_receipt_number_format: 'POS{{storeId}}-{{yyyy}}{{MM}}{{dd}}-{{seq}}',
+            email_instructions_enabled: true,
+            email_instructions_text: 'Bitte halten Sie den Betrag passend bereit.',
+            fee_type: 'none',
+            fee_value: 0,
+            fee_is_percentage: false,
+            reporting_tag: 'CASH',
+            sort_order: 20,
+            currency: 'EUR',
+            processingFee: 0,
+            fraudProtection: false
+          },
+          supportedMethods: ['cash'],
+          countries: ['DE', 'AT', 'CH'],
+          createdAt: new Date('2024-01-01'),
+          updatedAt: new Date()
         }
       ];
+
+      // Try to load persisted configurations from files
+      const configDir = path.join(process.cwd(), 'server', 'config', 'gateways');
+      if (fs.existsSync(configDir)) {
+        const files = fs.readdirSync(configDir);
+        for (const file of files) {
+          if (file.endsWith('.json')) {
+            try {
+              const configFile = path.join(configDir, file);
+              const persisted = JSON.parse(fs.readFileSync(configFile, 'utf-8'));
+              const gatewayId = file.replace('.json', '');
+              
+              // Find and merge with base gateway
+              const idx = gateways.findIndex(g => g._id === gatewayId);
+              if (idx >= 0) {
+                gateways[idx] = { ...gateways[idx], ...persisted };
+              }
+            } catch (e) {
+              console.warn(`Failed to load gateway config from ${file}:`, e.message);
+            }
+          }
+        }
+      }
 
       console.log('FinancialService: Payment gateways retrieved successfully');
       return gateways;
@@ -501,18 +747,106 @@ class FinancialService {
     }
   }
 
+  static validateGatewayConfiguration(gateway) {
+    const errors = [];
+    const config = gateway?.configuration || {};
+
+    // Basic validation (all gateways)
+    if (!gateway?.name?.trim()) errors.push('Name is required');
+    if (!config.currency?.trim()) errors.push('Currency is required');
+    if (typeof config.processingFee !== 'number' || config.processingFee < 0) errors.push('Processing Fee must be >= 0');
+
+    // PayPal-specific validation
+    if (gateway?.provider === 'paypal') {
+      if (!config.environment) errors.push('environment is required');
+      if (!config.sandbox_client_id?.trim()) errors.push('sandbox_client_id is required');
+      if (!config.sandbox_client_secret?.trim()) errors.push('sandbox_client_secret is required');
+      if (!config.default_currency?.trim()) errors.push('default_currency is required');
+      if (!config.payment_intent) errors.push('payment_intent is required');
+      if (!config.amount_source) errors.push('amount_source is required');
+      if (!config.return_url?.trim()) errors.push('return_url is required');
+      if (!config.cancel_url?.trim()) errors.push('cancel_url is required');
+
+      // Validate URLs
+      const urlFields = ['return_url', 'cancel_url', 'webhook_url'];
+      for (const field of urlFields) {
+        const value = config[field];
+        if (value && typeof value === 'string' && value.trim() !== '' && !value.startsWith('http')) {
+          errors.push(`${field} must start with http:// or https://`);
+        }
+      }
+    }
+
+    // Stripe-specific validation
+    if (gateway?.provider === 'stripe') {
+      if (!config.mode) errors.push('mode is required');
+      if (!config.test_publishable_key?.trim()) errors.push('test_publishable_key is required');
+      if (!config.test_secret_key?.trim()) errors.push('test_secret_key is required');
+      if (!config.default_currency?.trim()) errors.push('default_currency is required');
+      if (!config.amount_source) errors.push('amount_source is required');
+      if (!config.payment_mode) errors.push('payment_mode is required');
+      if (!config.success_url?.trim()) errors.push('success_url is required');
+      if (!config.cancel_url?.trim()) errors.push('cancel_url is required');
+
+      // Validate URLs
+      const urlFields = ['success_url', 'cancel_url', 'webhook_url'];
+      for (const field of urlFields) {
+        const value = config[field];
+        if (value && typeof value === 'string' && value.trim() !== '' && !value.startsWith('http')) {
+          errors.push(`${field} must start with http:// or https://`);
+        }
+      }
+    }
+
+    // bank_transfer-specific validation
+    if (gateway?.provider === 'bank_transfer') {
+      if (!config.code?.trim()) errors.push('code is required');
+      if (!config.title?.trim()) errors.push('title is required');
+      if (!config.account_holder?.trim()) errors.push('account_holder is required');
+      if (!config.iban?.trim()) errors.push('iban is required');
+      if (!config.payment_reference_template?.trim()) errors.push('payment_reference_template is required');
+      if (!config.initial_order_status?.trim()) errors.push('initial_order_status is required');
+      if (config.admin_can_mark_paid === undefined || config.admin_can_mark_paid === null) errors.push('admin_can_mark_paid is required');
+    }
+
+    // cash-specific validation
+    if (gateway?.provider === 'cash') {
+      if (!config.code?.trim()) errors.push('code is required');
+      if (!config.title?.trim()) errors.push('title is required');
+      if (!config.cash_mode) errors.push('mode is required');
+      if (!config.initial_order_status?.trim()) errors.push('initial_order_status is required');
+      if (config.admin_can_mark_paid === undefined || config.admin_can_mark_paid === null) errors.push('admin_can_mark_paid is required');
+    }
+
+    return { valid: errors.length === 0, errors };
+  }
+
   static async updatePaymentGateway(gatewayId, updates) {
     console.log('FinancialService: Updating payment gateway:', gatewayId);
 
     try {
-      // Mock implementation - in real app this would update system configuration
+      const fs = require('fs');
+      const path = require('path');
+
+      // Path to store gateway configurations
+      const configDir = path.join(process.cwd(), 'server', 'config', 'gateways');
+      const configFile = path.join(configDir, `${gatewayId}.json`);
+
+      // Ensure directory exists
+      if (!fs.existsSync(configDir)) {
+        fs.mkdirSync(configDir, { recursive: true });
+      }
+
+      // Update timestamp
       const updatedGateway = {
-        _id: gatewayId,
         ...updates,
-        updatedAt: new Date()
+        updatedAt: new Date().toISOString()
       };
 
-      console.log('FinancialService: Payment gateway updated successfully');
+      // Persist to file
+      fs.writeFileSync(configFile, JSON.stringify(updatedGateway, null, 2), 'utf-8');
+
+      console.log('FinancialService: Payment gateway updated and persisted successfully:', configFile);
       return updatedGateway;
     } catch (error) {
       console.error('FinancialService: Error updating payment gateway:', error);
@@ -531,7 +865,11 @@ class FinancialService {
         throw new Error('Order not found');
       }
 
+      // Load financial settings
+      const settings = await FinancialService.getFinancialSettings();
+
       const amount = typeof order.totalCost === 'object' ? Number(order.totalCost) : order.totalCost;
+      const paymentMethod = settings.defaults.defaultPaymentMethod || 'credit_card';
 
       const payment = new Payment({
         orderId: order._id,
@@ -539,13 +877,13 @@ class FinancialService {
         customerId: order.customerId._id,
         customerName: order.customerId.name,
         amount: amount,
-        paymentMethod: 'credit_card', // Default method
+        paymentMethod: paymentMethod,
         gatewayResponse: 'Payment created'
       });
 
       await payment.save();
 
-      console.log('FinancialService: Payment created from order successfully');
+      console.log('FinancialService: Payment created from order successfully with configured method:', paymentMethod);
       return payment;
     } catch (error) {
       console.error('FinancialService: Error creating payment from order:', error);
@@ -563,6 +901,9 @@ class FinancialService {
       if (!order) {
         throw new Error('Order not found');
       }
+
+      // Load financial settings
+      const settings = await FinancialService.getFinancialSettings();
 
       // Convert totalCost to number if it's a Decimal128
       const totalCost = typeof order.totalCost === 'object' ? Number(order.totalCost) : order.totalCost;
@@ -592,6 +933,11 @@ class FinancialService {
         });
       });
 
+      // Use configured tax rate instead of hard-coded 8%
+      const taxRate = settings.defaults.taxRate / 100;
+      const dueDays = settings.defaults.paymentDueDays || 30;
+      const invoicePrefix = settings.defaults.invoicePrefix;
+
       const invoice = new Invoice({
         orderId: order._id,
         customerId: order.customerId._id,
@@ -599,14 +945,15 @@ class FinancialService {
         customerEmail: order.customerId.email,
         items,
         subtotal: totalCost,
-        tax: totalCost * 0.08, // 8% tax
-        total: totalCost * 1.08,
-        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+        tax: totalCost * taxRate,
+        total: totalCost * (1 + taxRate),
+        dueDate: new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000),
+        numberPrefix: invoicePrefix
       });
 
       await invoice.save();
 
-      console.log('FinancialService: Invoice created from order successfully');
+      console.log('FinancialService: Invoice created from order successfully with configured tax rate:', settings.defaults.taxRate + '%');
       return invoice;
     } catch (error) {
       console.error('FinancialService: Error creating invoice from order:', error);
@@ -799,6 +1146,9 @@ class FinancialService {
       throw new Error(`Credit notes can only be created for paid or cancelled invoices (current: "${original.status}")`);
     }
 
+    // Load financial settings
+    const settings = await FinancialService.getFinancialSettings();
+
     // Build credit note items (negative amounts)
     const creditItems = (options.items || original.items).map(item => ({
       description: `Gutschrift: ${item.description}`,
@@ -809,14 +1159,16 @@ class FinancialService {
     }));
 
     const subtotal  = creditItems.reduce((s, i) => s + i.total, 0);
-    const tax       = subtotal * (options.taxRate != null ? options.taxRate : 0.19);
-    const discount  = Math.abs(Number(options.discount) || 0);
-    const total     = subtotal + tax - discount;
+    const taxRate = options.taxRate != null ? (options.taxRate / 100) : (settings.defaults.taxRate / 100);
+    const tax = subtotal * taxRate;
+    const discount = Math.abs(Number(options.discount) || 0);
+    const total = subtotal + tax - discount;
+    const creditNotePrefix = options.numberPrefix || settings.defaults.creditNotePrefix;
 
     const creditNote = new Invoice({
       creditNoteOf:  original._id,
       isCreditNote:  true,
-      numberPrefix:  options.numberPrefix || 'CN',
+      numberPrefix:  creditNotePrefix,
       repairOrderIds: original.repairOrderIds,
       orderId:       original.orderId,
       customerId:    original.customerId,
@@ -839,6 +1191,7 @@ class FinancialService {
     original.status = 'credited';
     await original.save();
 
+    console.log('FinancialService: Credit note created successfully with configured tax rate:', settings.defaults.taxRate + '%');
     return creditNote;
   }
 

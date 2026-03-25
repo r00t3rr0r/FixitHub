@@ -279,6 +279,132 @@ const systemConfigurationSchema = new mongoose.Schema({
     }
   },
 
+  // Financial Settings
+  financialSettings: {
+    defaults: {
+      currency: {
+        type: String,
+        default: 'EUR'
+      },
+      locale: {
+        type: String,
+        default: 'de-DE'
+      },
+      taxRate: {
+        type: Number,
+        default: 19
+      },
+      defaultDiscount: {
+        type: Number,
+        default: 0
+      },
+      paymentTerms: {
+        type: String,
+        default: 'Net 14'
+      },
+      paymentDueDays: {
+        type: Number,
+        default: 14
+      },
+      invoicePrefix: {
+        type: String,
+        default: 'INV-'
+      },
+      creditNotePrefix: {
+        type: String,
+        default: 'CN'
+      },
+      defaultPaymentMethod: {
+        type: String,
+        enum: ['credit_card', 'debit_card', 'paypal', 'stripe', 'bank_transfer'],
+        default: 'bank_transfer'
+      }
+    },
+    discountPolicy: {
+      allowManualDiscounts: {
+        type: Boolean,
+        default: true
+      },
+      maxDiscountPercent: {
+        type: Number,
+        default: 20
+      },
+      earlyPaymentDiscountPercent: {
+        type: Number,
+        default: 2
+      },
+      lateFeePercent: {
+        type: Number,
+        default: 5
+      }
+    },
+    invoiceMetadata: {
+      sellerName: {
+        type: String,
+        default: 'FixitHub'
+      },
+      sellerVatId: {
+        type: String,
+        default: ''
+      },
+      sellerRegistrationNumber: {
+        type: String,
+        default: ''
+      },
+      issuerEmail: {
+        type: String,
+        default: 'billing@fixithub.com'
+      },
+      issuerPhone: {
+        type: String,
+        default: ''
+      },
+      invoiceFooter: {
+        type: String,
+        default: 'Vielen Dank fuer Ihr Vertrauen.'
+      },
+      legalFooter: {
+        type: String,
+        default: 'Diese Nachricht wurde automatisch erstellt.'
+      }
+    },
+    paymentPreferences: {
+      partialPaymentsAllowed: {
+        type: Boolean,
+        default: true
+      },
+      autoAttachPdf: {
+        type: Boolean,
+        default: true
+      },
+      sendInternalCopy: {
+        type: Boolean,
+        default: false
+      },
+      internalCopyEmail: {
+        type: String,
+        default: ''
+      },
+      showTaxBreakdown: {
+        type: Boolean,
+        default: true
+      },
+      showDiscountBreakdown: {
+        type: Boolean,
+        default: true
+      },
+      defaultVisualTheme: {
+        type: String,
+        enum: ['classic', 'modern', 'minimal'],
+        default: 'modern'
+      },
+      accentColor: {
+        type: String,
+        default: '#1a2a5e'
+      }
+    }
+  },
+
   // Third-party Integrations
   integrations: [integrationSchema],
 

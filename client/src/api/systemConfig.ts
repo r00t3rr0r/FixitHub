@@ -30,6 +30,45 @@ export interface Integration {
   testStatus: 'success' | 'failed' | 'pending';
 }
 
+export interface FinancialSettings {
+  defaults: {
+    currency: string;
+    locale: string;
+    taxRate: number;
+    defaultDiscount: number;
+    paymentTerms: string;
+    paymentDueDays: number;
+    invoicePrefix: string;
+    creditNotePrefix: string;
+    defaultPaymentMethod: 'credit_card' | 'debit_card' | 'paypal' | 'stripe' | 'bank_transfer';
+  };
+  discountPolicy: {
+    allowManualDiscounts: boolean;
+    maxDiscountPercent: number;
+    earlyPaymentDiscountPercent: number;
+    lateFeePercent: number;
+  };
+  invoiceMetadata: {
+    sellerName: string;
+    sellerVatId: string;
+    sellerRegistrationNumber: string;
+    issuerEmail: string;
+    issuerPhone: string;
+    invoiceFooter: string;
+    legalFooter: string;
+  };
+  paymentPreferences: {
+    partialPaymentsAllowed: boolean;
+    autoAttachPdf: boolean;
+    sendInternalCopy: boolean;
+    internalCopyEmail: string;
+    showTaxBreakdown: boolean;
+    showDiscountBreakdown: boolean;
+    defaultVisualTheme: 'classic' | 'modern' | 'minimal';
+    accentColor: string;
+  };
+}
+
 export interface SystemConfig {
   _id?: string;
   siteName: string;
@@ -83,6 +122,7 @@ export interface SystemConfig {
     enablePromoCode: boolean;
     abandonmentEmailDelay: number;
   };
+  financialSettings: FinancialSettings;
   updatedAt: string;
 }
 

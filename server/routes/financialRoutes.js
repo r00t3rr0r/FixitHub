@@ -231,6 +231,15 @@ router.put('/gateways/:id', requireUser, requireRole(['admin']), async (req, res
   console.log('PUT /api/admin/financial/gateways/:id - Updating payment gateway:', req.params.id);
 
   try {
+    // Validate required fields
+    const validation = FinancialService.validateGatewayConfiguration(req.body);
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed: ' + validation.errors.join('; ')
+      });
+    }
+
     const gateway = await FinancialService.updatePaymentGateway(req.params.id, req.body);
 
     return res.status(200).json({
