@@ -102,7 +102,7 @@ router.put('/:id/status', requireUser, requireAdminOrStaff, async (req, res) => 
       return res.status(400).json({ error: 'Status is required' });
     }
 
-    const validStatuses = ['pending', 'in-progress', 'quality-check', 'completed', 'ready-for-pickup', 'cancelled'];
+    const validStatuses = ['pending', 'in-progress', 'paused', 'quality-check', 'completed', 'ready-for-pickup', 'cancelled'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }

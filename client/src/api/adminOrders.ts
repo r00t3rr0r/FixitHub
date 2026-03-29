@@ -94,7 +94,7 @@ export interface AdminOrder {
     status: string;
     estimatedTime: string;
   }[];
-  status: 'pending' | 'in-progress' | 'quality-check' | 'completed' | 'ready-for-pickup' | 'cancelled';
+  status: 'pending' | 'in-progress' | 'paused' | 'quality-check' | 'completed' | 'ready-for-pickup' | 'cancelled';
   priority: 'low' | 'normal' | 'high' | 'urgent';
   assignedStaff: {
     _id: string;

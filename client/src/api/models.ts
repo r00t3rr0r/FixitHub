@@ -76,7 +76,7 @@ export interface Order {
   deviceType: string
   services: string[]
   addOns: AddOn[]
-  status: 'pending' | 'diagnostic-assessment' | 'in-progress' | 'quality-check' | 'ready-for-pickup' | 'completed' | 'cancelled'
+  status: 'pending' | 'diagnostic-assessment' | 'in-progress' | 'paused' | 'quality-check' | 'ready-for-pickup' | 'completed' | 'cancelled'
   priority: 'low' | 'normal' | 'high' | 'urgent'
   totalCost: number
   photos: string[]
@@ -230,6 +230,7 @@ export type ProfileFormData = Omit<UpdateProfileRequest, 'avatar'> & {
 export const ORDER_STATUSES = {
   PENDING: 'pending',
   IN_PROGRESS: 'in-progress',
+  PAUSED: 'paused',
   QUALITY_CHECK: 'quality-check',
   READY_FOR_PICKUP: 'ready-for-pickup',
   COMPLETED: 'completed',

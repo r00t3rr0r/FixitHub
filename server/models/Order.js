@@ -453,7 +453,7 @@ const orderSchema = new mongoose.Schema({
   addOns: [addOnServiceSchema],
   status: {
     type: String,
-    enum: ['pending', 'diagnostic-assessment', 'in-progress', 'quality-check', 'completed', 'ready-for-pickup', 'cancelled'],
+    enum: ['pending', 'diagnostic-assessment', 'in-progress', 'paused', 'quality-check', 'completed', 'ready-for-pickup', 'cancelled'],
     default: 'pending',
   },
   priority: {

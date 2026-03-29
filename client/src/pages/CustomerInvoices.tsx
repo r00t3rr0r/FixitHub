@@ -9,8 +9,6 @@ import {
   Download,
   Search,
   Filter,
-  TrendingUp,
-  TrendingDown,
   AlertCircle,
   CheckCircle,
 } from "lucide-react";
@@ -44,7 +42,6 @@ import {
   confirmInvoicePayment,
   getCustomerInvoices,
   getInvoicePaymentGateways,
-  getInvoiceStats,
   initializeInvoicePayment,
   markInvoiceAsViewed,
   payInvoice,
@@ -59,7 +56,6 @@ export function CustomerInvoices() {
   const navigate = useNavigate();
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -86,7 +82,6 @@ export function CustomerInvoices() {
 
   useEffect(() => {
     fetchInvoices();
-    fetchStats();
   }, [statusFilter]);
 
   const fetchInvoices = async () => {
@@ -112,17 +107,6 @@ export function CustomerInvoices() {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchStats = async () => {
-    try {
-      console.log('CustomerInvoices: Fetching invoice statistics');
-      const response = await getInvoiceStats();
-      console.log('CustomerInvoices: Received stats:', response.stats);
-      setStats(response.stats);
-    } catch (error: any) {
-      console.error('CustomerInvoices: Error fetching stats:', error);
     }
   };
 
@@ -373,7 +357,6 @@ export function CustomerInvoices() {
         });
 
         await fetchInvoices();
-        await fetchStats();
 
         toast({
           title: t('common.success'),
@@ -477,65 +460,6 @@ export function CustomerInvoices() {
             <p className="text-blue-100 text-base md:text-lg">{t('invoices.manageYourInvoices')}</p>
           </div>
         </div>
-
-        {/* Statistics Cards */}
-        {stats && (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-none shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e]">{t('invoices.totalInvoices')}</CardTitle>
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-[#1a2a5e] to-[#2a3f7e] flex items-center justify-center">
-                  <FileText className="h-6 w-6 text-white" />
-                </div>
-              </CardHeader>
-              <CardContent className="pt-2">
-                <div className="text-3xl font-extrabold text-[#1a2a5e]">{stats.totalInvoices}</div>
-                <p className="text-sm text-slate-500 mt-1">Alle Rechnungen</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e]">{t('invoices.totalAmount')}</CardTitle>
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
-                  <DollarSign className="h-6 w-6 text-white" />
-                </div>
-              </CardHeader>
-              <CardContent className="pt-2">
-                <div className="text-3xl font-extrabold text-[#1a2a5e]">${stats.totalAmount?.toFixed(2) || '0.00'}</div>
-                <p className="text-sm text-slate-500 mt-1">Gesamtbetrag</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e]">{t('invoices.unpaid')}</CardTitle>
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-[#f5b800] to-[#e5ab00] flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-white" />
-                </div>
-              </CardHeader>
-              <CardContent className="pt-2">
-                <div className="text-3xl font-extrabold text-[#f5b800]">${stats.unpaidAmount?.toFixed(2) || '0.00'}</div>
-                <p className="text-sm text-slate-500 mt-1">
-                  {stats.unpaidInvoices} {t('invoices.invoices')}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e]">{t('invoices.overdue')}</CardTitle>
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
-                  <AlertCircle className="h-6 w-6 text-white" />
-                </div>
-              </CardHeader>
-              <CardContent className="pt-2">
-                <div className="text-3xl font-extrabold text-red-600">{stats.overdueInvoices}</div>
-                <p className="text-sm text-slate-500 mt-1">Überfällige Rechnungen</p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
 
         {/* Filters */}
         <Card className="border-none shadow-lg bg-white">

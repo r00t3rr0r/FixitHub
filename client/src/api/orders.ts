@@ -34,7 +34,7 @@ export interface Order {
   deviceType?: string;
   services: string[];
   addOns: AddOnService[];
-  status: 'pending' | 'in-progress' | 'quality-check' | 'completed' | 'ready-for-pickup';
+  status: 'pending' | 'in-progress' | 'paused' | 'quality-check' | 'completed' | 'ready-for-pickup';
   estimatedCompletion: string;
   totalCost: number;
   createdAt: string;

@@ -31,7 +31,7 @@ import { OrderProgressTimeline } from "@/components/OrderProgressTimeline"
 import { ConfirmUnlockDialog } from "@/components/inspection/ConfirmUnlockDialog"
 import { DeviceChangeDialog } from "@/components/admin/DeviceChangeDialog"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
-import { generateInspectionReport } from "@/api/deviceInspection"
+import { generateInspectionReport, getInspection } from "@/api/deviceInspection"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -170,6 +170,11 @@ export function OrderDetails() {
   const [inspectionRefreshKey, setInspectionRefreshKey] = useState(0)
   const [generatingInspectionReport, setGeneratingInspectionReport] = useState(false)
   const [deviceHistoryOpen, setDeviceHistoryOpen] = useState(false)
+  const [customerInspection, setCustomerInspection] = useState<any>(null)
+  const [customerInspectionLoading, setCustomerInspectionLoading] = useState(false)
+  const [diagnosisPopupOpen, setDiagnosisPopupOpen] = useState(false)
+  const [repairDetailsPopupOpen, setRepairDetailsPopupOpen] = useState(false)
+  const [repairServicesPopupOpen, setRepairServicesPopupOpen] = useState(false)
   const { toast } = useToast()
 
   const requestedWorkflowId = (() => {
@@ -376,6 +381,27 @@ export function OrderDetails() {
 
     fetchWorkflows()
   }, [id, user])
+
+  useEffect(() => {
+    const fetchCustomerInspection = async () => {
+      if (!id || !user || user.role === 'admin' || user.role === 'staff') {
+        return
+      }
+
+      try {
+        setCustomerInspectionLoading(true)
+        const response = await getInspection(id)
+        setCustomerInspection((response as any)?.inspection || null)
+      } catch (error) {
+        console.error('OrderDetails: Error loading customer inspection summary:', error)
+        setCustomerInspection(null)
+      } finally {
+        setCustomerInspectionLoading(false)
+      }
+    }
+
+    fetchCustomerInspection()
+  }, [id, user, inspectionRefreshKey])
 
   // Cleanup: End time tracking when leaving the page
   useEffect(() => {
@@ -1360,6 +1386,8 @@ export function OrderDetails() {
         return 'status-in-progress'
       case 'in-progress':
         return 'status-in-progress'
+      case 'paused':
+        return 'status-paused'
       case 'quality-check':
         return 'status-quality-check'
       case 'ready-for-pickup':
@@ -1380,6 +1408,8 @@ export function OrderDetails() {
       case 'diagnostic-assessment':
         return <Smartphone className="h-4 w-4" />
       case 'in-progress':
+        return <Clock className="h-4 w-4" />
+      case 'paused':
         return <Clock className="h-4 w-4" />
       case 'quality-check':
         return <AlertCircle className="h-4 w-4" />
@@ -1685,6 +1715,7 @@ export function OrderDetails() {
       'return_exchange_requested': 'Rückgabe/Umtausch angefordert',
       'pending': 'Ausstehend',
       'in-progress': 'In Bearbeitung',
+      'paused': 'Pausiert',
       'completed': 'Abgeschlossen',
       'on-hold': 'Pausiert',
       'diagnosed': 'Diagnostiziert',
@@ -1698,6 +1729,44 @@ export function OrderDetails() {
     if (status.startsWith('return_exchange_')) return `Rückgabe/Umtausch – ${status.replace('return_exchange_', '').replace('_', ' ')}`
     return status
   }
+
+  const orderCreatedText = new Date(order.createdAt).toLocaleDateString('de-DE')
+  const estimatedCompletionText = order.estimatedCompletion
+    ? new Date(order.estimatedCompletion).toLocaleDateString('de-DE')
+    : 'Wird aktualisiert'
+  const latestMessagePreview = [...messages]
+    .sort((left: any, right: any) => {
+      const leftTime = new Date(left?.timestamp || left?.createdAt || 0).getTime()
+      const rightTime = new Date(right?.timestamp || right?.createdAt || 0).getTime()
+      return leftTime - rightTime
+    })
+    .slice(-6)
+  const activeTimelineStage = Array.isArray(progressTimeline?.stages)
+    ? progressTimeline.stages.find((stage: any, index: number) => {
+        const stageId = stage?.id
+        const currentStage = progressTimeline?.currentStage
+        return stageId === currentStage || index === currentStage || stage?.status === 'in-progress'
+      })
+    : null
+  const currentStageLabel = activeTimelineStage
+    ? translateOrderStatus(activeTimelineStage.label || activeTimelineStage.name || 'Aktiver Schritt')
+    : translateOrderStatus(order.status)
+  const customerNextStepText = (() => {
+    switch (order.status) {
+      case 'completed':
+        return 'Der Auftrag ist abgeschlossen. Prüfen Sie die Abschlussinfos und melden Sie sich bei Rückfragen direkt über den Nachrichtenbereich.'
+      case 'ready-for-pickup':
+        return 'Ihr Gerät ist bereit. Nutzen Sie den Nachrichtenbereich, falls Sie Rückgabe, Versand oder Abholung abstimmen möchten.'
+      case 'quality-check':
+        return 'Ihr Gerät befindet sich in der finalen Qualitätskontrolle. Danach erhalten Sie das Ergebnis oder die Freigabe zur Rückgabe.'
+      case 'in-progress':
+        return 'Die Reparatur läuft aktuell. Wenn zusätzliche Informationen benötigt werden, meldet sich das Team direkt in diesem Auftrag.'
+      case 'paused':
+        return 'Der Auftrag ist vorübergehend pausiert. Prüfen Sie die Nachrichten auf eventuelle Rückfragen oder Freigaben.'
+      default:
+        return 'Der Auftrag wurde aufgenommen und vorbereitet. Der Reparaturfortschritt wird fortlaufend auf dieser Seite aktualisiert.'
+    }
+  })()
 
   const translateOrderDescription = (desc: string): string => {
     if (!desc) return desc
@@ -2010,8 +2079,20 @@ export function OrderDetails() {
     }
   }
 
+  const openDiagnosisPopup = () => {
+    setDiagnosisPopupOpen(true)
+  }
+
+  const openRepairDetailsPopup = () => {
+    setRepairDetailsPopupOpen(true)
+  }
+
+  const openRepairServicesPopup = () => {
+    setRepairServicesPopupOpen(true)
+  }
+
   const renderDeviceInformationCard = () => (
-    <Card id="order-device-info" className="order-section-card">
+    <Card id="order-device-info" className={`order-section-card ${!isStaffOrAdmin ? 'customer-device-card-shell' : ''}`}>
       <CardHeader className="order-section-header">
         <CardTitle className="order-section-title">
           <Camera className="h-5 w-5" />
@@ -2034,8 +2115,8 @@ export function OrderDetails() {
           </Button>
         )}
       </CardHeader>
-      <CardContent className="space-y-4 pt-3">
-        <div className="device-info-card">
+      <CardContent className={`space-y-4 pt-3 ${!isStaffOrAdmin ? 'customer-device-card-content' : ''}`}>
+        <div className={`device-info-card ${!isStaffOrAdmin ? 'customer-device-info-card' : ''}`}>
           {getDeviceImage(order) ? (
             <img
               src={getDeviceImage(order)}
@@ -2051,7 +2132,7 @@ export function OrderDetails() {
           <div className="device-placeholder" style={{ display: getDeviceImage(order) ? 'none' : 'flex' }}>
             <Smartphone className="h-10 w-10" />
           </div>
-          <div className="details flex-1">
+          <div className={`details flex-1 ${!isStaffOrAdmin ? 'customer-device-details' : ''}`}>
             <h3>{order.deviceBrand} {order.deviceModel}</h3>
             <p>Repair Services</p>
             <div className="services-tags">
@@ -2079,7 +2160,7 @@ export function OrderDetails() {
         </div>
 
         {getDeviceModelPreviewImage(order) && (
-          <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-lg p-3">
+          <div className={`bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-lg p-3 ${!isStaffOrAdmin ? 'customer-device-preview-card' : ''}`}>
             <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">Modellbild Vorschau</p>
             <img
               src={getDeviceModelPreviewImage(order) as string}
@@ -2093,13 +2174,13 @@ export function OrderDetails() {
         )}
 
         {order.customerNotes && (
-          <div className="bg-muted/50 p-2 rounded-lg">
+          <div className={`bg-muted/50 p-2 rounded-lg ${!isStaffOrAdmin ? 'customer-device-notes-card' : ''}`}>
             <h4 className="font-medium text-xs">{t('orderDetails.notes', 'Notes:')}</h4>
             <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{order.customerNotes}</p>
           </div>
         )}
 
-        <div id="order-device-lock" className="space-y-2 border-t pt-3">
+        <div id="order-device-lock" className={`space-y-2 border-t pt-3 ${!isStaffOrAdmin ? 'customer-device-lock-card' : ''}`}>
           <h4 className="font-medium text-sm flex items-center gap-1.5">
             <Lock className="h-4 w-4 text-blue-600" />
             {t('orderDetails.deviceLockInformation', 'Device Lock Information')}
@@ -2735,6 +2816,14 @@ export function OrderDetails() {
           { key: 'pickup', label: 'Abgeschlossen', completed: progressValue >= 100, active: progressValue >= 100 },
         ]
 
+    const resolvedActiveStepIndex = progressSteps.findIndex((step: any) => step.active)
+    const firstPendingIndex = progressSteps.findIndex((step: any) => !step.completed)
+    const activeStepIndex = resolvedActiveStepIndex >= 0
+      ? resolvedActiveStepIndex
+      : firstPendingIndex >= 0
+        ? firstPendingIndex
+        : Math.max(progressSteps.length - 1, 0)
+
     return (
       <Card id="order-progress" className="order-section-card order-repair-progress-card">
         <CardHeader className="order-section-header">
@@ -2746,8 +2835,8 @@ export function OrderDetails() {
             Übersicht über den aktuellen Auftragsstatus und die verbleibenden Reparaturschritte.
           </p>
         </CardHeader>
-        <CardContent className="space-y-4 pt-3">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <CardContent className={`space-y-4 pt-3 ${!isStaffOrAdmin ? 'customer-progress-card-content' : ''}`}>
+            <div className={`flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between ${!isStaffOrAdmin ? 'customer-progress-hero' : ''}`}>
             <div>
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Aktueller Status</p>
               <div className="mt-1 flex items-center gap-2 flex-wrap">
@@ -2763,7 +2852,7 @@ export function OrderDetails() {
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className={`space-y-2 ${!isStaffOrAdmin ? 'customer-progress-bar-wrap' : ''}`}>
             <Progress value={progressValue} className="h-3" />
             <div className="flex flex-col gap-1 text-xs text-muted-foreground md:flex-row md:items-center md:justify-between">
               <span>{t('orderDetails.currentProgress')}</span>
@@ -2777,8 +2866,36 @@ export function OrderDetails() {
             </div>
           </div>
 
-          <div className="grid gap-2 md:grid-cols-5">
-            {progressSteps.map((step: any) => (
+          <div className={`grid gap-2 md:grid-cols-5 ${!isStaffOrAdmin ? 'customer-progress-steps-grid' : ''}`}>
+            {progressSteps.map((step: any, index: number) => {
+              const distanceFromActive = Math.abs(index - activeStepIndex)
+              const normalizedStepLabel = String(step?.label || '').toLowerCase()
+              const isDiagnosticStep = normalizedStepLabel.includes('diagnose')
+              const isRepairInProgressStep = normalizedStepLabel.includes('reparatur in bearbeitung')
+                || normalizedStepLabel.includes('repair in progress')
+                || step.key === 'repair'
+              const isOrderReceivedStep = normalizedStepLabel.includes('auftrag erhalten') || step.key === 'received'
+              const isInspectionJumpEnabled = !isStaffOrAdmin && isDiagnosticStep
+              const isRepairPopupEnabled = !isStaffOrAdmin && isRepairInProgressStep
+              const isRepairDetailsJumpEnabled = !isStaffOrAdmin && isOrderReceivedStep
+              const progressStepAction = isInspectionJumpEnabled
+                ? openDiagnosisPopup
+                : isRepairPopupEnabled
+                  ? openRepairServicesPopup
+                : isRepairDetailsJumpEnabled
+                  ? openRepairDetailsPopup
+                  : null
+              const progressiveTone = step.active
+                ? 'active'
+                : step.completed
+                  ? 'completed'
+                  : distanceFromActive === 1
+                    ? 'near'
+                    : index > activeStepIndex
+                      ? 'future'
+                      : 'base'
+
+              return (
               <div
                 key={step.key}
                 className={`rounded-lg border px-3 py-2 text-xs ${
@@ -2787,7 +2904,16 @@ export function OrderDetails() {
                     : step.active
                     ? 'border-blue-200 bg-blue-50 text-blue-900'
                     : 'border-slate-200 bg-slate-50 text-slate-500'
-                }`}
+                } ${!isStaffOrAdmin ? `customer-progress-step-card customer-progress-step--${progressiveTone}` : ''} ${progressStepAction ? 'customer-progress-step--interactive' : ''}`}
+                onClick={progressStepAction || undefined}
+                role={progressStepAction ? 'button' : undefined}
+                tabIndex={progressStepAction ? 0 : undefined}
+                onKeyDown={progressStepAction ? (event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    progressStepAction()
+                  }
+                } : undefined}
               >
                 <div className="flex items-center gap-2">
                   <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold ${
@@ -2802,10 +2928,44 @@ export function OrderDetails() {
                   <span className="font-medium leading-tight">{step.label}</span>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         </CardContent>
       </Card>
+    )
+  }
+
+  const renderCustomerInspectionSummaryContent = () => {
+    if (customerInspectionLoading) {
+      return (
+        <div className="customer-inspection-empty-state">
+          <Clock className="h-4 w-4 animate-spin" />
+          <span>Diagnosebewertung wird geladen…</span>
+        </div>
+      )
+    }
+
+    if (customerInspection) {
+      return (
+        <InspectionResultsDisplay
+          key={`customer-inspection-${id}-${inspectionRefreshKey}`}
+          orderId={id!}
+          userRole={user?.role || 'customer'}
+        />
+      )
+    }
+
+    return (
+      <div className="customer-inspection-empty-state">
+        <AlertCircle className="h-4 w-4" />
+        <div>
+          <strong>Noch keine Diagnosebewertung verfügbar</strong>
+          <p>
+            Die Diagnose wird durch unser Team erstellt. Sobald Ergebnisse vorliegen, erscheint hier automatisch eine verständliche Zusammenfassung.
+          </p>
+        </div>
+      </div>
     )
   }
 
@@ -2868,8 +3028,446 @@ export function OrderDetails() {
     )
   }
 
+  const renderCustomerRepairDetailsContent = () => (
+    <div className="space-y-4 pt-1">
+      <div className="customer-repair-issue-card">
+        <div className="customer-repair-issue-header">
+          <AlertCircle className="h-4 w-4" />
+          <span>Gemeldetes Problem</span>
+        </div>
+        <p>
+          {order.errorDescription && order.errorDescription.trim()
+            ? order.errorDescription
+            : 'Es wurde noch keine detaillierte Fehlerbeschreibung hinterlegt.'}
+        </p>
+      </div>
+
+      <div className="customer-repair-meta-grid">
+        <div className="customer-repair-meta-card">
+          <div className="customer-repair-meta-label">
+            <Droplets className="h-4 w-4" />
+            Wasserschaden
+          </div>
+          <strong>
+            {order.waterDamage
+              ? t(`orderDetails.repairInfo.waterDamage.${order.waterDamage}`) || order.waterDamage
+              : 'Nicht angegeben'}
+          </strong>
+        </div>
+        <div className="customer-repair-meta-card">
+          <div className="customer-repair-meta-label">
+            <Wrench className="h-4 w-4" />
+            Frühere Reparaturen
+          </div>
+          <strong>
+            {order.previousRepairAttempts
+              ? t(`orderDetails.repairInfo.previousRepair.${order.previousRepairAttempts}`) || order.previousRepairAttempts
+              : 'Nicht angegeben'}
+          </strong>
+          {order.previousRepairAttempts === 'yes' && order.previousRepairDetails && (
+            <p>{order.previousRepairDetails}</p>
+          )}
+        </div>
+        <div className="customer-repair-meta-card">
+          <div className="customer-repair-meta-label">
+            <Package className="h-4 w-4" />
+            Gerätezustand
+          </div>
+          <strong>
+            {order.itemCondition
+              ? t(`orderDetails.repairInfo.itemCondition.${order.itemCondition}`) || order.itemCondition
+              : 'Nicht angegeben'}
+          </strong>
+        </div>
+      </div>
+
+      <div className="customer-repair-note">
+        <Info className="h-4 w-4" />
+        <p>
+          Diese Angaben helfen dem Reparaturteam bei der Einschätzung Ihres Geräts. Falls Rückfragen entstehen, erhalten Sie sie direkt im Nachrichtenbereich dieser Seite.
+        </p>
+      </div>
+
+      {renderRepairServicesSection()}
+      {renderAddOnServicesSection()}
+      {renderShopProductsSection()}
+    </div>
+  )
+
+  const renderCustomerSummaryCard = () => (
+    <Card id="order-customer-summary" className="order-section-card customer-order-summary-card">
+      <CardHeader className="order-section-header">
+        <CardTitle className="order-section-title">
+          <FileText className="h-5 w-5" />
+          Auftragsübersicht
+        </CardTitle>
+        <p className="order-section-description">
+          Kompakte Zusammenfassung der wichtigsten Auftrags-, Zahlungs- und Versanddaten.
+        </p>
+      </CardHeader>
+      <CardContent className="pt-3 space-y-4">
+        <div className="customer-summary-list">
+          <div className="customer-summary-row">
+            <span>Auftragsnummer</span>
+            <strong>{order.orderNumber || order._id.slice(-6)}</strong>
+          </div>
+          <div className="customer-summary-row">
+            <span>Status</span>
+            <strong>{translateOrderStatus(order.status)}</strong>
+          </div>
+          <div className="customer-summary-row">
+            <span>Aktiver Schritt</span>
+            <strong>{currentStageLabel}</strong>
+          </div>
+          <div className="customer-summary-row">
+            <span>Erstellt am</span>
+            <strong>{orderCreatedText}</strong>
+          </div>
+          <div className="customer-summary-row">
+            <span>Letzte Aktualisierung</span>
+            <strong>{lastUpdate}</strong>
+          </div>
+          <div className="customer-summary-row">
+            <span>Voraussichtliche Fertigstellung</span>
+            <strong>{estimatedCompletionText}</strong>
+          </div>
+          <div className="customer-summary-row">
+            <span>Zahlung</span>
+            <strong>{order.paymentStatus}</strong>
+          </div>
+          <div className="customer-summary-row">
+            <span>Gesamtbetrag</span>
+            <strong>{formatPrice(safeToNumber(order.totalCost))}</strong>
+          </div>
+        </div>
+
+        {(order.shippingAddress || order.trackingNumber) && (
+          <div className="customer-summary-subcard">
+            <div className="customer-summary-subcard-title">
+              <MapPin className="h-4 w-4" />
+              Versand & Rücksendung
+            </div>
+            {order.shippingAddress && (
+              <div className="customer-summary-address">
+                <p>{order.shippingAddress.street}</p>
+                <p>{order.shippingAddress.zipCode} {order.shippingAddress.city}</p>
+                <p>{order.shippingAddress.country}</p>
+              </div>
+            )}
+            {order.trackingNumber && (
+              <div className="customer-summary-tracking">
+                <span>Tracking</span>
+                <strong>{order.trackingNumber}</strong>
+                {order.carrier && <p>{order.carrier}</p>}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="customer-summary-subcard">
+          <div className="customer-summary-subcard-title">
+            <User className="h-4 w-4" />
+            Kontaktdaten
+          </div>
+          <div className="customer-summary-contact-list">
+            <div>
+              <Mail className="h-3.5 w-3.5" />
+              <span>{customer.email}</span>
+            </div>
+            <div>
+              <Phone className="h-3.5 w-3.5" />
+              <span>{customer.phone || 'Keine Telefonnummer hinterlegt'}</span>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+
+  const renderCustomerSupportCard = () => (
+    <Card id="order-customer-support" className="order-section-card customer-order-support-card">
+      <CardHeader className="order-section-header">
+        <CardTitle className="order-section-title">
+          <Zap className="h-5 w-5" />
+          Nächste Schritte
+        </CardTitle>
+        <p className="order-section-description">
+          Relevante Hinweise und direkte Sprungziele für den weiteren Ablauf Ihres Auftrags.
+        </p>
+      </CardHeader>
+      <CardContent className="pt-3 space-y-4">
+        <div className="customer-next-step-panel">
+          <span className="customer-next-step-eyebrow">Was passiert als Nächstes?</span>
+          <p>{customerNextStepText}</p>
+        </div>
+
+        <div className="customer-support-actions">
+          <Button variant="outline" size="sm" onClick={() => scrollToSection('order-progress')}>
+            <Clock className="h-3.5 w-3.5 mr-1.5" />
+            Fortschritt ansehen
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => scrollToSection('order-device-info')}>
+            <Smartphone className="h-3.5 w-3.5 mr-1.5" />
+            Gerätedetails öffnen
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => scrollToSection('order-customer-messages')}>
+            <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
+            Nachricht schreiben
+          </Button>
+        </div>
+
+        <div className="customer-support-note">
+          <Shield className="h-4 w-4" />
+          <p>
+            Rückfragen, Freigaben oder zusätzliche Informationen laufen gesammelt über diesen Auftrag. So bleibt die Kommunikation nachvollziehbar und schnell auffindbar.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  )
+
+  const renderCustomerMessagesCard = () => (
+    <Card id="order-customer-messages" className="order-section-card customer-order-messages-card">
+      <CardHeader className="order-section-header">
+        <CardTitle className="order-section-title">
+          <MessageSquare className="h-5 w-5" />
+          Nachrichten zum Auftrag
+        </CardTitle>
+        <p className="order-section-description">
+          Schreiben Sie direkt an das Reparaturteam. Antworten bleiben dem Auftrag zugeordnet und sind jederzeit nachvollziehbar.
+        </p>
+      </CardHeader>
+      <CardContent className="pt-3 space-y-4">
+        <div className="customer-message-thread">
+          {latestMessagePreview.length > 0 ? (
+            latestMessagePreview.map((message: any) => {
+              const isCustomerMessage = message?.senderRole === 'customer'
+              const timestamp = message?.timestamp || message?.createdAt
+              const senderLabel = isCustomerMessage ? 'Sie' : message?.senderName || 'Service-Team'
+
+              return (
+                <div
+                  key={message?._id || `${senderLabel}-${timestamp}`}
+                  className={`customer-message-bubble ${isCustomerMessage ? 'is-customer' : 'is-team'}`}
+                >
+                  <div className="customer-message-bubble-head">
+                    <span>{senderLabel}</span>
+                    <time>{timestamp ? new Date(timestamp).toLocaleString('de-DE') : 'Gerade eben'}</time>
+                  </div>
+                  <p>{message?.content || ''}</p>
+                </div>
+              )
+            })
+          ) : (
+            <div className="customer-message-empty-state">
+              <MessageSquare className="h-8 w-8" />
+              <div>
+                <strong>Noch keine Nachrichten</strong>
+                <p>Nutzen Sie das Formular unten, um direkt eine Frage oder Rückmeldung zum Auftrag zu senden.</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="customer-message-composer">
+          <Label htmlFor="order-customer-message-input">Neue Nachricht</Label>
+          <Textarea
+            id="order-customer-message-input"
+            value={newMessage}
+            onChange={(event) => setNewMessage(event.target.value)}
+            placeholder="Beschreiben Sie Ihre Rückfrage oder ergänzen Sie wichtige Informationen zu Ihrem Auftrag."
+            rows={4}
+            onKeyDown={(event) => {
+              if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                event.preventDefault()
+                handleSendMessage()
+              }
+            }}
+          />
+          <div className="customer-message-composer-footer">
+            <span>Mit Cmd/Ctrl + Enter senden</span>
+            <Button onClick={handleSendMessage} disabled={sending || !newMessage.trim()}>
+              <Send className="h-4 w-4 mr-1.5" />
+              {sending ? 'Wird gesendet...' : 'Nachricht senden'}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+
+  const renderCustomerLayout = () => (
+    <div className="customer-order-flow">
+      <div className="customer-dashboard-hero">
+        <div className="customer-dashboard-hero-main customer-dashboard-device-main">
+          <span className="customer-dashboard-hero-eyebrow">Geräteinformationen</span>
+          <div className="customer-dashboard-device-head">
+            {getDeviceImage(order) ? (
+              <img
+                src={getDeviceImage(order)}
+                alt={`${order.deviceBrand} ${order.deviceModel}`}
+                className="customer-dashboard-device-image"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                  const fallback = e.currentTarget.nextElementSibling as HTMLElement
+                  if (fallback) fallback.style.display = 'flex'
+                }}
+              />
+            ) : null}
+            <div className="customer-dashboard-device-placeholder" style={{ display: getDeviceImage(order) ? 'none' : 'flex' }}>
+              <Smartphone className="h-6 w-6" />
+            </div>
+            <div className="customer-dashboard-device-copy">
+              <h2>{order.deviceBrand} {order.deviceModel}</h2>
+              <p>Auftrag #{order.orderNumber || order._id.slice(-6)} • Erstellt am {orderCreatedText}</p>
+            </div>
+          </div>
+        </div>
+        <div className="customer-dashboard-hero-stats">
+          <div>
+            <span>Auftrag</span>
+            <strong>#{order.orderNumber || order._id.slice(-6)}</strong>
+          </div>
+          <div>
+            <span>Gerät</span>
+            <strong>{order.deviceBrand} {order.deviceModel}</strong>
+          </div>
+          <div>
+            <span>Aktiver Schritt</span>
+            <strong>{currentStageLabel}</strong>
+          </div>
+        </div>
+      </div>
+
+      {renderRepairProgressCard()}
+
+      <div className="customer-order-secondary">
+        {renderCustomerSummaryCard()}
+        {renderCustomerSupportCard()}
+        {renderCustomerMessagesCard()}
+      </div>
+
+      <Dialog open={repairDetailsPopupOpen} onOpenChange={setRepairDetailsPopupOpen}>
+        <DialogContent className="order-dialog-content customer-repair-details-popup-dialog sm:max-w-3xl">
+          <DialogHeader className="order-dialog-header">
+            <DialogTitle className="text-base flex items-center gap-2">
+              <Wrench className="h-4 w-4" />
+              Reparaturdetails
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Alle kundenrelevanten Informationen zu Fehlerbild, Leistungsumfang und optionalen Zusatzleistungen auf einen Blick.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="customer-repair-details-popup-body">
+            {renderCustomerRepairDetailsContent()}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={diagnosisPopupOpen} onOpenChange={setDiagnosisPopupOpen}>
+        <DialogContent className="order-dialog-content customer-diagnosis-popup-dialog sm:max-w-2xl">
+          <DialogHeader className="order-dialog-header">
+            <DialogTitle className="text-base flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Diagnosebewertung
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Übersicht der technischen Diagnose und aller bisher erfassten Prüfergebnisse.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="customer-diagnosis-popup-body">
+            {renderCustomerInspectionSummaryContent()}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={repairServicesPopupOpen} onOpenChange={setRepairServicesPopupOpen}>
+        <DialogContent className="order-dialog-content customer-repair-services-dialog sm:max-w-2xl">
+          <DialogHeader className="order-dialog-header">
+            <DialogTitle className="text-base flex items-center gap-2">
+              <Wrench className="h-4 w-4" />
+              Reparatur in Bearbeitung
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Hier sehen Sie die aktuell geplanten Reparaturdienste und Zusatzdienste für diesen Auftrag.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="customer-repair-services-popup-body">
+            <section className="customer-repair-services-popup-section">
+              <h4>Reparaturdienste</h4>
+              {repairServices && repairServices.filter((s) => s && s._id).length > 0 ? (
+                <div className="customer-repair-services-popup-list">
+                  {repairServices.filter((s) => s && s._id).map((service, index) => (
+                    <div key={service._id || `popup-service-${index}`} className="customer-repair-services-popup-item">
+                      <div>
+                        <p className="title">{service.serviceId?.name || 'Reparaturdienst'}</p>
+                        {service.serviceId?.description && (
+                          <p className="description">{service.serviceId.description}</p>
+                        )}
+                        {service.notes && (
+                          <p className="notes">Hinweis: {service.notes}</p>
+                        )}
+                      </div>
+                      <div className="meta">
+                        <Badge variant="outline" className="text-xs">
+                          {formatPrice(safeToNumber(service.price))}
+                        </Badge>
+                        {service.estimatedTime && (
+                          <Badge variant="secondary" className="text-xs">
+                            {safeToNumber(service.estimatedTime)} min
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="customer-repair-services-popup-empty">
+                  Noch keine Reparaturdienste hinterlegt.
+                </div>
+              )}
+            </section>
+
+            <section className="customer-repair-services-popup-section">
+              <h4>Zusatzdienste</h4>
+              {order.addOns && order.addOns.length > 0 ? (
+                <div className="customer-repair-services-popup-list">
+                  {order.addOns.map((addOn) => (
+                    <div key={addOn._id} className="customer-repair-services-popup-item">
+                      <div>
+                        <p className="title">{addOn.name}</p>
+                        {addOn.description && <p className="description">{addOn.description}</p>}
+                      </div>
+                      <div className="meta">
+                        <Badge variant="outline" className="text-xs">
+                          {formatPrice(safeToNumber(addOn.price))}
+                        </Badge>
+                        {addOn.estimatedTime && (
+                          <Badge variant="secondary" className="text-xs">
+                            {safeToNumber(addOn.estimatedTime)}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="customer-repair-services-popup-empty">
+                  Keine Zusatzdienste für diesen Auftrag ausgewählt.
+                </div>
+              )}
+            </section>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+
   return (
-    <div className={`order-details-container ${isStaffOrAdmin ? 'admin-order-workspace' : ''}`}>
+    <div className={`order-details-container ${isStaffOrAdmin ? 'admin-order-workspace' : 'customer-order-workspace'}`}>
       {/* Back Button */}
       <Link to={backLinkPath} className="order-back-button">
         <ArrowLeft className="h-4 w-4" />
@@ -2913,6 +3511,10 @@ export function OrderDetails() {
                   <DropdownMenuItem onClick={() => handleStatusChange('in-progress')} disabled={updatingStatus || order.status === 'in-progress'} className="text-xs cursor-pointer">
                     <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
                     In Bearbeitung
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleStatusChange('paused')} disabled={updatingStatus || order.status === 'paused'} className="text-xs cursor-pointer">
+                    <span className="inline-block w-2 h-2 bg-slate-500 rounded-full mr-2"></span>
+                    Pausiert
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleStatusChange('quality-check')} disabled={updatingStatus || order.status === 'quality-check'} className="text-xs cursor-pointer">
                     <span className="inline-block w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
@@ -2976,43 +3578,47 @@ export function OrderDetails() {
         )}
       </div>
 
-      {/* Overall Progress Timeline */}
-      {progressTimeline && (
-        <div className="order-section-card">
-          <OrderProgressTimeline
-            stages={progressTimeline.stages.map((stage: any, index: number) => ({
-              ...stage,
-              id: stage.id || `stage-${index}`,
-              label: translateOrderStatus(stage.label || stage.name || `Schritt ${index + 1}`),
-            }))}
-            currentStage={progressTimeline.currentStage}
-          />
-        </div>
-      )}
+      {!isStaffOrAdmin ? (
+        renderCustomerLayout()
+      ) : (
+        <>
+          {/* Overall Progress Timeline */}
+          {progressTimeline && (
+            <div className="order-section-card">
+              <OrderProgressTimeline
+                stages={progressTimeline.stages.map((stage: any, index: number) => ({
+                  ...stage,
+                  id: stage.id || `stage-${index}`,
+                  label: translateOrderStatus(stage.label || stage.name || `Schritt ${index + 1}`),
+                }))}
+                currentStage={progressTimeline.currentStage}
+              />
+            </div>
+          )}
 
-      <div className="order-grid">
-        {/* Main Content */}
-        <div className="order-main-content space-y-4">
-          <div className={`order-nested-block order-nested-top-grid ${isStaffOrAdmin ? 'is-admin-nested' : ''}`}>
-          {renderDeviceInformationCard()}
-          {renderDeviceInspectionCard()}
-          {renderEPartsCard()}
-          {renderRepairProgressCard()}
-          {renderWorkflowsCard()}
+          <div className="order-grid">
+            {/* Main Content */}
+            <div className="order-main-content space-y-4">
+              <div className={`order-nested-block order-nested-top-grid ${isStaffOrAdmin ? 'is-admin-nested' : ''}`}>
+              {renderDeviceInformationCard()}
+              {renderDeviceInspectionCard()}
+              {renderEPartsCard()}
+              {renderRepairProgressCard()}
+              {renderWorkflowsCard()}
 
-          {/* Additional Repair Information - Always visible */}
-          <Card id="order-repair-info" className="order-section-card border-2 border-amber-300 dark:border-amber-700 order-card-repair-info">
-            <CardHeader className="order-section-header bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40">
-              <CardTitle className="order-section-title">
-                <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                Zusätzliche Reparaturinformationen
-              </CardTitle>
-              <p className="order-section-description">
-                {t('orderDetails.repairInfo.description') || 'Vom Kunden bereitgestellte Informationen zum Gerät und zu den Reparaturanforderungen'}
-              </p>
-            </CardHeader>
-            <CardContent className="pt-3 space-y-3">
-              <div>
+              {/* Additional Repair Information - Always visible */}
+              <Card id="order-repair-info" className="order-section-card border-2 border-amber-300 dark:border-amber-700 order-card-repair-info">
+                <CardHeader className="order-section-header bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40">
+                  <CardTitle className="order-section-title">
+                    <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                    Zusätzliche Reparaturinformationen
+                  </CardTitle>
+                  <p className="order-section-description">
+                    {t('orderDetails.repairInfo.description') || 'Vom Kunden bereitgestellte Informationen zum Gerät und zu den Reparaturanforderungen'}
+                  </p>
+                </CardHeader>
+                <CardContent className="pt-3 space-y-3">
+                  <div>
                 {/* Error Description */}
                 {order.errorDescription && order.errorDescription.trim() ? (
                   <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
@@ -3186,153 +3792,138 @@ export function OrderDetails() {
                 {renderAddOnServicesSection()}
 
                 {renderShopProductsSection()}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card id="order-quick-actions" className="order-section-card order-quick-actions-card">
-            <CardHeader className="order-section-header">
-              <CardTitle className="order-section-title">
-                <Zap className="h-5 w-5" />
-                Schnellaktionen
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-2">
-              {isStaffOrAdmin ? (
-                <>
-                  <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => setStatusDropdownOpen(true)}>
-                    <Clock className="h-3 w-3 mr-1" />
-                    Status aktualisieren
-                  </Button>
-                  <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => scrollToSection('order-staff')}>
-                    <Users className="h-3 w-3 mr-1" />
-                    Personal verwalten
-                  </Button>
-                  <Button
-                    className="w-full text-xs h-8"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setEditingService(null)
-                      setServiceDialogOpen(true)
-                    }}
-                  >
-                    <PlusCircle className="h-3 w-3 mr-1" />
-                    Reparaturservice hinzufügen
-                  </Button>
-                  <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => scrollToSection('order-quick-actions-communication')}>
-                    <MessageSquare className="h-3 w-3 mr-1" />
-                    Nachrichten öffnen
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button className="w-full text-xs h-8" variant="outline" size="sm">
-                    <MessageSquare className="h-3 w-3 mr-1" />
-                    Nachricht senden
-                  </Button>
-                  <Button className="w-full text-xs h-8" variant="outline" size="sm">
-                    <Camera className="h-3 w-3 mr-1" />
-                    Fotos hochladen
-                  </Button>
-                  <Button className="w-full text-xs h-8" variant="outline" size="sm">
-                    <Star className="h-3 w-3 mr-1" />
-                    Service bewerten
-                  </Button>
-                </>
-              )}
-
-              <div className="border-t pt-3 space-y-3">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-blue-600" />
-                  <h4 className="font-medium text-sm">{t('orderDetails.customerInformation')}</h4>
-                </div>
-
-                <div className="p-3 rounded-lg border bg-muted/30">
-                  <div className="flex items-start gap-3">
-                    <Avatar className="w-10 h-10">
-                      <AvatarImage src={customer.avatar} />
-                      <AvatarFallback className="text-xs">
-                        {customerInitials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm">{customer.name}</p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 break-all">
-                        <Mail className="h-3 w-3" />
-                        {customer.email}
-                      </p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                        <Phone className="h-3 w-3" />
-                        {customer.phone || '-'}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {t('orderDetails.customerSince')} {customerSinceText}
-                      </p>
-                    </div>
                   </div>
+                </CardContent>
+              </Card>
 
-                  {customer.address && (
-                    <div className="mt-3 pt-3 border-t">
-                      <p className="text-xs font-medium flex items-center gap-1">
-                        <Home className="h-3 w-3" />
-                        {t('orderDetails.address')}
-                      </p>
-                      <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-                        <p>{customer.address.street}</p>
-                        <p>{customer.address.city}, {customer.address.state} {customer.address.zipCode}</p>
-                        <p>{customer.address.country}</p>
-                      </div>
+              {/* Quick Actions */}
+              <Card id="order-quick-actions" className="order-section-card order-quick-actions-card">
+                <CardHeader className="order-section-header">
+                  <CardTitle className="order-section-title">
+                    <Zap className="h-5 w-5" />
+                    Schnellaktionen
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-2">
+                  {isStaffOrAdmin ? (
+                    <>
+                      <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => setStatusDropdownOpen(true)}>
+                        <Clock className="h-3 w-3 mr-1" />
+                        Status aktualisieren
+                      </Button>
+                      <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => scrollToSection('order-staff')}>
+                        <Users className="h-3 w-3 mr-1" />
+                        Personal verwalten
+                      </Button>
+                      <Button
+                        className="w-full text-xs h-8"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingService(null)
+                          setServiceDialogOpen(true)
+                        }}
+                      >
+                        <PlusCircle className="h-3 w-3 mr-1" />
+                        Reparaturservice hinzufügen
+                      </Button>
+                      <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => scrollToSection('order-quick-actions-communication')}>
+                        <MessageSquare className="h-3 w-3 mr-1" />
+                        Nachrichten öffnen
+                      </Button>
+                    </>
+                  ) : null}
+
+                  <div className="border-t pt-3 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-blue-600" />
+                      <h4 className="font-medium text-sm">{t('orderDetails.customerInformation')}</h4>
                     </div>
-                  )}
 
-                  {customer.paymentMethods && customer.paymentMethods.length > 0 && (
-                    <div className="mt-3 pt-3 border-t">
-                      <p className="text-xs font-medium flex items-center gap-1 mb-1">
-                        <CreditCard className="h-3 w-3" />
-                        {t('orderDetails.paymentMethods')}
-                      </p>
-                      <div className="space-y-1">
-                        {customer.paymentMethods.slice(0, 2).map((method) => (
-                          <div key={`${method.type}-${method.last4}`} className="flex items-center justify-between text-xs">
-                            <span className="capitalize">{method.type} ending in {method.last4}</span>
-                            {method.isDefault && (
-                              <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{t('orderDetails.default')}</Badge>
-                            )}
+                    <div className="p-3 rounded-lg border bg-muted/30">
+                      <div className="flex items-start gap-3">
+                        <Avatar className="w-10 h-10">
+                          <AvatarImage src={customer.avatar} />
+                          <AvatarFallback className="text-xs">
+                            {customerInitials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm">{customer.name}</p>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 break-all">
+                            <Mail className="h-3 w-3" />
+                            {customer.email}
+                          </p>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                            <Phone className="h-3 w-3" />
+                            {customer.phone || '-'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {t('orderDetails.customerSince')} {customerSinceText}
+                          </p>
+                        </div>
+                      </div>
+
+                      {customer.address && (
+                        <div className="mt-3 pt-3 border-t">
+                          <p className="text-xs font-medium flex items-center gap-1">
+                            <Home className="h-3 w-3" />
+                            {t('orderDetails.address')}
+                          </p>
+                          <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                            <p>{customer.address.street}</p>
+                            <p>{customer.address.city}, {customer.address.state} {customer.address.zipCode}</p>
+                            <p>{customer.address.country}</p>
                           </div>
-                        ))}
+                        </div>
+                      )}
+
+                      {customer.paymentMethods && customer.paymentMethods.length > 0 && (
+                        <div className="mt-3 pt-3 border-t">
+                          <p className="text-xs font-medium flex items-center gap-1 mb-1">
+                            <CreditCard className="h-3 w-3" />
+                            {t('orderDetails.paymentMethods')}
+                          </p>
+                          <div className="space-y-1">
+                            {customer.paymentMethods.slice(0, 2).map((method) => (
+                              <div key={`${method.type}-${method.last4}`} className="flex items-center justify-between text-xs">
+                                <span className="capitalize">{method.type} ending in {method.last4}</span>
+                                {method.isDefault && (
+                                  <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{t('orderDetails.default')}</Badge>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div id="order-quick-actions-communication" className="border-t pt-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4 text-blue-600" />
+                        <h4 className="font-medium text-sm">Customer Communication</h4>
                       </div>
                     </div>
-                  )}
-                </div>
-              </div>
-
-              <div id="order-quick-actions-communication" className="border-t pt-3 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4 text-blue-600" />
-                    <h4 className="font-medium text-sm">Customer Communication</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Manage customer feedback, requests, and quick follow-ups in one place.
+                    </p>
+                    {id && (
+                      <div className="rounded-lg border p-2 bg-background">
+                        <CommunicationPanel
+                          orderId={id}
+                          inspectionId={order?._id}
+                        />
+                      </div>
+                    )}
                   </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Manage customer feedback, requests, and quick follow-ups in one place.
-                </p>
-                {id && (
-                  <div className="rounded-lg border p-2 bg-background">
-                    <CommunicationPanel
-                      orderId={id}
-                      inspectionId={order?._id}
-                    />
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
 
-          {/* Assigned Staff - Only visible to admin/staff */}
-          {isStaffOrAdmin && (
-          <Card id="order-staff" className="order-section-card">
+              {/* Assigned Staff - Only visible to admin/staff */}
+              {isStaffOrAdmin && (
+              <Card id="order-staff" className="order-section-card">
             <CardHeader className="order-section-header">
               <CardTitle className="order-section-title">
                 <Users className="h-5 w-5" />
@@ -3442,28 +4033,30 @@ export function OrderDetails() {
                 </div>
               )}
             </CardContent>
-          </Card>
-          )}
+              </Card>
+              )}
 
+              </div>
+
+              <div className={`order-nested-block order-nested-ops-grid ${isStaffOrAdmin ? 'is-admin-nested' : ''}`}>
+              {(order?.unlockPattern?.length > 0 || order?.unlockCode || order?.noLock || order?.unlockConfirmation?.confirmationStatus) && (
+                <ConfirmUnlockDialog
+                  isOpen={unlockConfirmDialogOpen}
+                  onOpenChange={setUnlockConfirmDialogOpen}
+                  onConfirm={handleConfirmUnlock}
+                  unlockPattern={order?.unlockPattern}
+                  unlockCode={order?.unlockCode}
+                  noLock={order?.noLock}
+                  isLoading={confirmingUnlock}
+                  orderId={id}
+                />
+              )}
+
+              </div>
+            </div>
           </div>
-
-          <div className={`order-nested-block order-nested-ops-grid ${isStaffOrAdmin ? 'is-admin-nested' : ''}`}>
-          {(order?.unlockPattern?.length > 0 || order?.unlockCode || order?.noLock || order?.unlockConfirmation?.confirmationStatus) && (
-            <ConfirmUnlockDialog
-              isOpen={unlockConfirmDialogOpen}
-              onOpenChange={setUnlockConfirmDialogOpen}
-              onConfirm={handleConfirmUnlock}
-              unlockPattern={order?.unlockPattern}
-              unlockCode={order?.unlockCode}
-              noLock={order?.noLock}
-              isLoading={confirmingUnlock}
-              orderId={id}
-            />
-          )}
-
-          </div>
-        </div>
-      </div>
+        </>
+      )}
 
       {/* Device Inspection Dialog */}
       {id && order && isStaffOrAdmin && (

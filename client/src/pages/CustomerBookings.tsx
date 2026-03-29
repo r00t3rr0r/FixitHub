@@ -5,7 +5,6 @@ import "./CustomerBookings.css";
 import {
   Package,
   Calendar,
-  DollarSign,
   Clock,
   ChevronDown,
   ChevronUp,
@@ -469,61 +468,6 @@ export function CustomerBookings() {
             </div>
             <p className="text-blue-100 text-base md:text-lg">{t('bookings.manageYourBookings')}</p>
           </div>
-        </div>
-
-        {/* Statistics Cards */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="border-none shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e]">{t('bookings.totalBookings')}</CardTitle>
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-[#1a2a5e] to-[#2a3f7e] flex items-center justify-center">
-                <Package className="h-6 w-6 text-white" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-2">
-              <div className="text-3xl font-extrabold text-[#1a2a5e]">{totalBookings}</div>
-              <p className="text-sm text-slate-500 mt-1">Alle Buchungen</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e]">{t('status.pending')}</CardTitle>
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-[#f5b800] to-[#e5ab00] flex items-center justify-center">
-                <Clock className="h-6 w-6 text-white" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-2">
-              <div className="text-3xl font-extrabold text-[#1a2a5e]">{bookings.filter(b => b.status === 'pending').length}</div>
-              <p className="text-sm text-slate-500 mt-1">Wartende Buchungen</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e]">{t('status.processing')}</CardTitle>
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-white" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-2">
-              <div className="text-3xl font-extrabold text-[#1a2a5e]">{bookings.filter(b => b.status === 'processing').length}</div>
-              <p className="text-sm text-slate-500 mt-1">In Bearbeitung</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e]">{t('status.completed')}</CardTitle>
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-white" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-2">
-              <div className="text-3xl font-extrabold text-[#1a2a5e]">{bookings.filter(b => b.status === 'completed').length}</div>
-              <p className="text-sm text-slate-500 mt-1">Abgeschlossen</p>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Filters */}

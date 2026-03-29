@@ -1,12 +1,7 @@
 import { useEffect, useState } from "react"
-import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import {
-  getConversations,
-  getConversationMessages,
-  sendMessage,
-  markMessagesAsRead,
   getInspectionCommunications,
   getRepairRequestCommunications,
   sendInspectionMessage,
@@ -23,37 +18,20 @@ import {
   Search,
   Send,
   Paperclip,
-  Phone,
-  Video,
-  MoreVertical,
   Clock,
-  CheckCheck,
   Circle,
   X,
-  Paperclip as AttachIcon,
-  Smile,
   Plus,
   AlertCircle,
   CheckCircle,
   ClipboardList,
-  MessageCircle,
   RefreshCw
 } from "lucide-react"
 import "../styles/messages.css"
 
-type TabType = 'conversations' | 'feedback'
-
 export function Messages() {
-  const { t } = useTranslation()
   const { user } = useAuth()
   const userRole = user?.role || 'customer'
-  const [activeTab, setActiveTab] = useState<TabType>('conversations')
-  const [conversations, setConversations] = useState<any[]>([])
-  const [selectedConversation, setSelectedConversation] = useState<any>(null)
-  const [messages, setMessages] = useState<any[]>([])
-  const [newMessage, setNewMessage] = useState("")
-  const [loading, setLoading] = useState(true)
-  const [sending, setSending] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -133,79 +111,24 @@ export function Messages() {
       + (feedback.pendingActionsCount || 0)
   }
 
-  const hasConversationMarker = (conversation: any) => {
-    if (userRole !== 'staff' && userRole !== 'admin') {
-      return false
-    }
-
-    const unreadCount = Number(conversation?.unreadCount || 0)
-    if (unreadCount <= 0) {
-      return false
-    }
-
-    const senderRole = conversation?.lastMessage?.senderRole
-    if (!senderRole) {
-      return true
-    }
-
-    return senderRole === 'customer'
-  }
-
-  const getConversationMarkerCount = (conversation: any) => {
-    if (!hasConversationMarker(conversation)) {
-      return 0
-    }
-
-    return Number(conversation?.unreadCount || 0)
-  }
-
-  const orderLink = (orderId?: string) => orderId ? `/orders/${orderId}` : '#'
-
-  // Load conversations
-  useEffect(() => {
-    const fetchConversations = async () => {
-      try {
-        console.log("Fetching conversations...")
-        const response = await getConversations()
-        const conversationsData = (response as any).conversations || []
-        console.log("Conversations data:", conversationsData)
-        setConversations(conversationsData)
-        
-        if (conversationsData.length > 0) {
-          setSelectedConversation(conversationsData[0])
-          const messagesResponse = await getConversationMessages(conversationsData[0]._id)
-          setMessages((messagesResponse as any).messages || [])
-        }
-      } catch (error) {
-        console.error("Error fetching conversations:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchConversations()
-  }, [])
-
   // Initial feedback load
   useEffect(() => {
     loadOrderFeedbacks()
   }, [])
 
-  // Polling mechanism: Refresh feedbacks every 5 seconds when on feedback tab
+  // Polling mechanism: refresh feedbacks while the page is open
   useEffect(() => {
-    if (activeTab === 'feedback') {
-      console.log("Starting feedback polling...")
-      const pollInterval = setInterval(() => {
-        console.log("Polling for new feedback data...")
-        loadOrderFeedbacks()
-      }, 5000)
+    console.log("Starting feedback polling...")
+    const pollInterval = setInterval(() => {
+      console.log("Polling for new feedback data...")
+      loadOrderFeedbacks()
+    }, 5000)
 
-      return () => {
-        console.log("Stopping feedback polling...")
-        clearInterval(pollInterval)
-      }
+    return () => {
+      console.log("Stopping feedback polling...")
+      clearInterval(pollInterval)
     }
-  }, [activeTab])
+  }, [])
 
   const loadOrderFeedbacks = async () => {
     try {
@@ -258,43 +181,6 @@ export function Messages() {
       console.error("Error loading order feedbacks:", error)
     } finally {
       setFeedbackLoading(false)
-    }
-  }
-
-  const handleConversationSelect = async (conversation: any) => {
-    setSelectedConversation(conversation)
-    setMobileMenuOpen(false)
-    try {
-      const response = await getConversationMessages(conversation._id)
-      setMessages((response as any).messages || [])
-      
-      if (conversation.unreadCount > 0) {
-        await markMessagesAsRead(conversation._id)
-        setConversations(prev => 
-          prev.map(conv => 
-            conv._id === conversation._id 
-              ? { ...conv, unreadCount: 0 }
-              : conv
-          )
-        )
-      }
-    } catch (error) {
-      console.error("Error loading messages:", error)
-    }
-  }
-
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation) return
-
-    try {
-      setSending(true)
-      const response = await sendMessage(selectedConversation._id, newMessage)
-      setMessages([...messages, (response as any).message])
-      setNewMessage("")
-    } catch (error: any) {
-      console.error("Error sending message:", error)
-    } finally {
-      setSending(false)
     }
   }
 
@@ -393,13 +279,6 @@ export function Messages() {
     }
   }
 
-  const filteredConversations = conversations.filter(conv => {
-    const orderNumber = (conv.orderNumber || '').toString().toLowerCase()
-    const deviceInfo = (conv.deviceInfo || '').toString().toLowerCase()
-    const search = searchTerm.toLowerCase()
-    return orderNumber.includes(search) || deviceInfo.includes(search)
-  })
-
   const filteredOrderFeedbacks = orderFeedbacks.filter(feedback => {
     const orderId = (feedback.orderId || '').toString().toLowerCase()
     const repairRequestId = (feedback.repairRequestId || '').toString().toLowerCase()
@@ -416,13 +295,6 @@ export function Messages() {
       deviceInfo.includes(search)
     )
   })
-
-  const getStatusBadge = (unreadCount: number) => {
-    if (unreadCount > 0) {
-      return <span className="messages-unread-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
-    }
-    return null
-  }
 
   const getFeedbackCountBadges = (feedback: OrderCommunication) => {
     const badges = []
@@ -458,17 +330,6 @@ export function Messages() {
     return date.toLocaleDateString('de-DE', { month: 'short', day: 'numeric' })
   }
 
-  if (loading && activeTab === 'conversations') {
-    return (
-      <div className="messages-container">
-        <div className="messages-loading">
-          <div className="messages-loading-spinner"></div>
-          <p>Nachrichten werden geladen...</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="messages-page">
       {/* Header */}
@@ -486,318 +347,9 @@ export function Messages() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="container">
-        <div className="messages-tabs">
-          <button
-            className={`messages-tab ${activeTab === 'conversations' ? 'active' : ''}`}
-            onClick={() => setActiveTab('conversations')}
-          >
-            <MessageCircle size={18} />
-            Konversationen
-            {conversations.some(c => getConversationMarkerCount(c) > 0) && (
-              <span className="messages-tab-badge">
-                {conversations.reduce((sum, c) => sum + getConversationMarkerCount(c), 0)}
-              </span>
-            )}
-          </button>
-          <button
-            className={`messages-tab ${activeTab === 'feedback' ? 'active' : ''}`}
-            onClick={() => setActiveTab('feedback')}
-          >
-            <ClipboardList size={18} />
-            Order-Feedback & Aktionen
-            {orderFeedbacks.reduce((sum, f) => sum + getFeedbackMarkerCount(f), 0) > 0 && (
-              <span className="messages-tab-badge">
-                {orderFeedbacks.reduce((sum, f) => sum + getFeedbackMarkerCount(f), 0)}
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="container">
-        {activeTab === 'conversations' ? (
-          // Conversations Tab
-          <div className="messages-wrapper">
-            {/* Conversations Sidebar */}
-            <div className={`messages-sidebar ${mobileMenuOpen ? 'open' : ''}`}>
-              <div className="messages-sidebar-header">
-                <h2>Konversationen</h2>
-                <button 
-                  className="messages-sidebar-close"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              {/* Search Box */}
-              <div className="messages-search-box">
-                <Search size={18} />
-                <input
-                  type="text"
-                  placeholder="Suchen..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="messages-search-input"
-                />
-              </div>
-
-              {/* Conversations List */}
-              <div className="messages-list">
-                {filteredConversations.length === 0 ? (
-                  <div className="messages-empty">
-                    <MessageSquare size={32} />
-                    <p>Keine Konversationen</p>
-                  </div>
-                ) : (
-                  filteredConversations.map((conversation) => (
-                    <div
-                      key={conversation._id}
-                      className={`messages-list-item ${
-                        selectedConversation?._id === conversation._id ? 'active' : ''
-                      }`}
-                      onClick={() => handleConversationSelect(conversation)}
-                    >
-                      <div className="messages-list-item-avatar">
-                        <div className="messages-avatar">
-                          {conversation.participants[1]?.avatar ? (
-                            <img src={conversation.participants[1]?.avatar} alt="" />
-                          ) : (
-                            <span>
-                              {conversation.participants[1]?.name
-                                .split(' ')
-                                .map((n: string) => n[0])
-                                .join('')}
-                            </span>
-                          )}
-                        </div>
-                        {conversation.participants[1]?.isOnline && (
-                          <div className="messages-status-online"></div>
-                        )}
-                      </div>
-
-                      <div className="messages-list-item-content">
-                        <div className="messages-list-item-header">
-                          <h3>{conversation.orderNumber}</h3>
-                          {getStatusBadge(getConversationMarkerCount(conversation))}
-                        </div>
-                        <p className="messages-list-device">
-                          {conversation.deviceInfo}
-                        </p>
-                        {conversation.customer && (
-                          <p className="messages-list-customer">
-                            Kunde: {conversation.customer.name}
-                            {conversation.customer.email ? ` (${conversation.customer.email})` : ''}
-                          </p>
-                        )}
-                        {conversation.createdBy && (userRole === 'staff' || userRole === 'admin') && (
-                          <p className="messages-list-creator">
-                            von {conversation.createdBy.name} ({conversation.createdBy.role})
-                          </p>
-                        )}
-                        {conversation.orderId && (
-                          <Link
-                            to={orderLink(conversation.orderId)}
-                            className="messages-order-link"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            Zur Order
-                          </Link>
-                        )}
-                        <p className="messages-list-preview">
-                          {conversation.lastMessage?.content || 'Keine Nachrichten'}
-                        </p>
-                        <span className="messages-list-time">
-                          {formatLastUpdated(conversation.lastMessage?.timestamp || new Date().toISOString())}
-                        </span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Chat Area */}
-            <div className="messages-chat">
-              {selectedConversation ? (
-                <>
-                  {/* Chat Header */}
-                  <div className="messages-chat-header">
-                    <button 
-                      className="messages-mobile-back"
-                      onClick={() => setMobileMenuOpen(true)}
-                    >
-                      ←
-                    </button>
-                    <div className="messages-chat-header-info">
-                      <div className="messages-chat-header-avatar">
-                        {selectedConversation.participants[1]?.avatar ? (
-                          <img src={selectedConversation.participants[1]?.avatar} alt="" />
-                        ) : (
-                          <span>
-                            {selectedConversation.participants[1]?.name
-                              .split(' ')
-                              .map((n: string) => n[0])
-                              .join('')}
-                          </span>
-                        )}
-                        {selectedConversation.participants[1]?.isOnline && (
-                          <div className="messages-status-online-lg"></div>
-                        )}
-                      </div>
-                      <div>
-                        <h3>{selectedConversation.orderNumber}</h3>
-                        <p>{selectedConversation.deviceInfo}</p>
-                        {selectedConversation.customer && (
-                          <p className="messages-chat-customer">
-                            Kunde: {selectedConversation.customer.name}
-                            {selectedConversation.customer.email ? ` • ${selectedConversation.customer.email}` : ''}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="messages-chat-actions">
-                      <button className="messages-action-btn" title="Anrufen">
-                        <Phone size={18} />
-                      </button>
-                      <button className="messages-action-btn" title="Video">
-                        <Video size={18} />
-                      </button>
-                      <button className="messages-action-btn" title="Mehr">
-                        <MoreVertical size={18} />
-                      </button>
-                      {selectedConversation.orderId && (
-                        <Link
-                          to={orderLink(selectedConversation.orderId)}
-                          className="messages-order-link-btn"
-                        >
-                          Zur Order
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Messages */}
-                  <div className="messages-chat-body">
-                    {messages.length === 0 ? (
-                      <div className="messages-chat-empty">
-                        <MessageSquare size={48} />
-                        <p>Noch keine Nachrichten</p>
-                        <span>Starten Sie ein Gespräch, indem Sie eine Nachricht senden</span>
-                      </div>
-                    ) : (
-                      messages.map((message) => (
-                        <div
-                          key={message._id}
-                          className={`messages-message-wrapper ${
-                            message.senderRole === 'customer' ? 'sent' : 'received'
-                          }`}
-                        >
-                          {message.senderRole !== 'customer' && (
-                            <div className="messages-message-avatar">
-                              {message.senderAvatar ? (
-                                <img src={message.senderAvatar} alt="" />
-                              ) : (
-                                <span>
-                                  {message.senderName
-                                    .split(' ')
-                                    .map((n: string) => n[0])
-                                    .join('')}
-                                </span>
-                              )}
-                            </div>
-                          )}
-
-                          <div className="messages-message-group">
-                            <div className={`messages-message ${
-                              message.senderRole === 'customer'
-                                ? 'message-sent'
-                                : message.messageType === 'system'
-                                ? 'message-system'
-                                : 'message-received'
-                            }`}>
-                              <p>{message.content}</p>
-                              {message.attachments?.length > 0 && (
-                                <div className="messages-attachments">
-                                  {message.attachments.map((attachment: any) => (
-                                    <div key={attachment._id} className="messages-attachment">
-                                      <AttachIcon size={14} />
-                                      <span>{attachment.name}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            <div className="messages-message-meta">
-                              <span className="messages-message-time">
-                                {new Date(message.timestamp).toLocaleTimeString('de-DE', {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </span>
-                              {message.senderRole === 'customer' && (
-                                <span className={`messages-message-status ${message.isRead ? 'read' : 'sent'}`}>
-                                  <CheckCheck size={14} />
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  {/* Message Input */}
-                  <div className="messages-chat-input">
-                    <div className="messages-input-wrapper">
-                      <button className="messages-input-btn" title="Datei anhängen">
-                        <Paperclip size={20} />
-                      </button>
-                      <textarea
-                        placeholder="Geben Sie Ihre Nachricht ein..."
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        className="messages-textarea"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault()
-                            handleSendMessage()
-                          }
-                        }}
-                        rows={1}
-                      />
-                      <button className="messages-input-btn" title="Emoji">
-                        <Smile size={20} />
-                      </button>
-                      <button
-                        className={`messages-send-btn ${
-                          !newMessage.trim() || sending ? 'disabled' : ''
-                        }`}
-                        onClick={handleSendMessage}
-                        disabled={!newMessage.trim() || sending}
-                        title="Senden"
-                      >
-                        <Send size={20} />
-                      </button>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="messages-no-selection">
-                  <MessageSquare size={64} />
-                  <h3>Wählen Sie eine Konversation aus</h3>
-                  <p>Wählen Sie eine Konversation aus der Liste, um zu beginnen</p>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          // Feedback Tab
-          <div className="messages-wrapper">
+        <div className="messages-wrapper">
             {/* Feedback Sidebar */}
             <div className={`messages-sidebar ${mobileMenuOpen ? 'open' : ''}`}>
               <div className="messages-sidebar-header">
@@ -1080,8 +632,7 @@ export function Messages() {
                 </div>
               )}
             </div>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   )
