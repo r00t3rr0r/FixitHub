@@ -16,6 +16,12 @@
   padding: 48px 0;
   border-bottom: 1px solid var(--primary-blue-light);
   margin-bottom: 32px;
+  border-radius: var(--radius-xl, 18px);
+  overflow: hidden;
+  max-width: 1200px;
+  width: calc(100% - 2rem);
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .messages-header-content {
@@ -1649,6 +1655,12 @@
   padding: 48px 0;
   border-bottom: 1px solid var(--primary-blue-light);
   margin-bottom: 32px;
+  border-radius: var(--radius-xl, 18px);
+  overflow: hidden;
+  max-width: 1200px;
+  width: calc(100% - 2rem);
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .messages-header-content {

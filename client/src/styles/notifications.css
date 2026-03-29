@@ -18,7 +18,11 @@
   color: var(--white);
   padding: 48px 0 40px;
   border-bottom: 1px solid var(--primary-blue-light);
-  margin-bottom: 0;
+  margin: 12px auto 0;
+  border-radius: var(--radius-xl, 18px);
+  overflow: hidden;
+  max-width: 1200px;
+  width: calc(100% - 2rem);
 }
 
 .notifications-header-content {

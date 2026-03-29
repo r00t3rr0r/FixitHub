@@ -4,6 +4,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/useToast"
 import { getCart, updateCartItem, removeFromCart, removeRepairOrderFromCart, applyPromoCode, Cart, Product } from "@/api/shop"
 import { CheckoutDialog } from "@/components/checkout/CheckoutDialog"
@@ -119,6 +129,8 @@ export function ShoppingCartPage() {
   const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false)
   const [selectedProductItem, setSelectedProductItem] = useState<{ product: Product; quantity: number } | null>(null)
   const [selectedRepairOrderGroup, setSelectedRepairOrderGroup] = useState<{ order: any; quantity: number } | null>(null)
+  const [confirmRepairDeleteOpen, setConfirmRepairDeleteOpen] = useState(false)
+  const [pendingRepairOrderIds, setPendingRepairOrderIds] = useState<string[]>([])
   const { toast } = useToast()
 
   useEffect(() => {
@@ -142,21 +154,26 @@ export function ShoppingCartPage() {
     fetchCart()
   }, [toast, t])
 
-  const handleUpdateQuantity = async (productId: string, newQuantity: number) => {
+  const isUserAuthenticated = () => Boolean(localStorage.getItem("accessToken"))
+
+  const handleUpdateQuantity = async (itemId: string, productId: string, newQuantity: number) => {
     if (newQuantity < 0) return
 
     try {
-      setUpdating(productId)
-      console.log("Updating cart item:", productId, newQuantity)
+      const cartItemIdentifier = isUserAuthenticated() ? productId : itemId
+      const updatingKey = newQuantity === 0 ? itemId : cartItemIdentifier
+
+      setUpdating(updatingKey)
+      console.log("Updating cart item:", { itemId, productId, newQuantity, cartItemIdentifier })
 
       if (newQuantity === 0) {
-        await removeFromCart(productId)
+        await removeFromCart(itemId)
         toast({
           title: t('cart.itemRemoved'),
           description: t('cart.itemRemovedDesc')
         })
       } else {
-        await updateCartItem(productId, newQuantity)
+        await updateCartItem(cartItemIdentifier, newQuantity)
         toast({
           title: t('cart.cartUpdated'),
           description: t('cart.cartUpdatedDesc')
@@ -207,12 +224,26 @@ export function ShoppingCartPage() {
     }
   }
 
-  const handleRemoveRepairOrder = async (repairOrderId: string) => {
-    try {
-      setUpdating(repairOrderId)
-      console.log("Removing repair order:", repairOrderId)
+  const requestRemoveRepairOrders = (repairOrderIds: string[]) => {
+    if (!repairOrderIds.length) return
+    setPendingRepairOrderIds(repairOrderIds)
+    setConfirmRepairDeleteOpen(true)
+  }
 
-      await removeRepairOrderFromCart(repairOrderId)
+  const handleConfirmRemoveRepairOrders = async () => {
+    if (!pendingRepairOrderIds.length) {
+      setConfirmRepairDeleteOpen(false)
+      return
+    }
+
+    try {
+      setUpdating(pendingRepairOrderIds[0])
+      console.log("Removing repair orders:", pendingRepairOrderIds)
+
+      for (const repairOrderId of pendingRepairOrderIds) {
+        await removeRepairOrderFromCart(repairOrderId)
+      }
+
       toast({
         title: t('cart.itemRemoved'),
         description: t('cart.itemRemovedDesc')
@@ -230,6 +261,8 @@ export function ShoppingCartPage() {
       })
     } finally {
       setUpdating(null)
+      setConfirmRepairDeleteOpen(false)
+      setPendingRepairOrderIds([])
     }
   }
 
@@ -395,24 +428,24 @@ export function ShoppingCartPage() {
                         }
                       }}
                     >
-                      <div className="mb-2 flex items-center justify-between gap-2 border-b border-[#e7eaf1] pb-2">
+                      <div className="mb-3 flex items-center justify-between gap-2 rounded-lg bg-[#1a2a5e] px-3 py-2.5 sm:px-3.5">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <Badge className="border-0 bg-[#eef3fb] px-2 py-0.5 text-[11px] font-semibold text-[#1a2a5e] shadow-none">
+                            <Badge className="border-0 bg-white/15 px-2 py-0.5 text-[11px] font-semibold text-white shadow-none">
                               <Package className="mr-1 h-3 w-3" />
                               Shopping-Artikel
                             </Badge>
                             {!item.productId.inStock && (
-                              <Badge variant="destructive" className="text-[11px]">
+                              <Badge variant="destructive" className="border-0 text-[11px] shadow-none">
                                 {t('shop.outOfStock')}
                               </Badge>
                             )}
                           </div>
-                          <p className="mt-1 text-[11px] font-medium text-[#636e85] sm:text-xs">
+                          <p className="mt-1 text-[11px] font-medium text-blue-100 sm:text-xs">
                             Tippen fuer Detailansicht
                           </p>
                         </div>
-                        <span className="text-[11px] font-semibold text-[#1a2a5e] sm:text-xs">Details ansehen</span>
+                        <span className="text-[11px] font-semibold text-white sm:text-xs">Details ansehen</span>
                       </div>
 
                       <div className="flex gap-3">
@@ -472,9 +505,9 @@ export function ShoppingCartPage() {
                           }}
                           onClick={(event) => {
                             event.stopPropagation()
-                            handleUpdateQuantity(item.productId._id, item.quantity - 1)
+                            handleUpdateQuantity(item._id, item.productId._id, item.quantity - 1)
                           }}
-                          disabled={updating === item.productId._id || item.quantity <= 1}
+                          disabled={(updating === item.productId._id || updating === item._id) || item.quantity <= 1}
                         >
                           <Minus className="h-3.5 w-3.5" />
                         </Button>
@@ -490,9 +523,9 @@ export function ShoppingCartPage() {
                           }}
                           onClick={(event) => {
                             event.stopPropagation()
-                            handleUpdateQuantity(item.productId._id, item.quantity + 1)
+                            handleUpdateQuantity(item._id, item.productId._id, item.quantity + 1)
                           }}
-                          disabled={updating === item.productId._id || !item.productId.inStock}
+                          disabled={(updating === item.productId._id || updating === item._id) || !item.productId.inStock}
                         >
                           <Plus className="h-3.5 w-3.5" />
                         </Button>
@@ -512,9 +545,9 @@ export function ShoppingCartPage() {
                           size="icon"
                           onClick={(event) => {
                             event.stopPropagation()
-                            handleUpdateQuantity(item.productId._id, 0)
+                            handleUpdateQuantity(item._id, item.productId._id, 0)
                           }}
-                          disabled={updating === item.productId._id}
+                          disabled={updating === item.productId._id || updating === item._id}
                           className="h-7 w-7 shrink-0 transition-colors hover:bg-red-50 hover:text-red-600"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -579,7 +612,7 @@ export function ShoppingCartPage() {
                             size="icon"
                             onClick={(event) => {
                               event.stopPropagation()
-                              ordersGroup.forEach((groupedOrder) => handleRemoveRepairOrder(groupedOrder._id))
+                              requestRemoveRepairOrders(ordersGroup.map((groupedOrder) => groupedOrder._id))
                             }}
                             disabled={ordersGroup.some((groupedOrder) => updating === groupedOrder._id)}
                             className="h-7 w-7 shrink-0 text-white/90 transition-colors hover:bg-white/10 hover:text-white"
@@ -817,6 +850,38 @@ export function ShoppingCartPage() {
           </div>
         </div>
       </div>
+
+      <AlertDialog
+        open={confirmRepairDeleteOpen}
+        onOpenChange={(open) => {
+          setConfirmRepairDeleteOpen(open)
+          if (!open) {
+            setPendingRepairOrderIds([])
+          }
+        }}
+      >
+        <AlertDialogContent className="gap-0 overflow-hidden border-[#d8dce6] p-0">
+          <AlertDialogHeader className="space-y-1 border-b border-[#2a3f7e] bg-[#1a2a5e] px-4 py-3 text-left">
+            <AlertDialogTitle className="text-base font-semibold text-[#f5b800]">
+              Reparaturauftrag entfernen?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-[#d8dce6] sm:text-sm">
+              {pendingRepairOrderIds.length > 1
+                ? 'Die ausgewaehlten Reparaturauftraege werden aus dem Warenkorb entfernt.'
+                : 'Der ausgewaehlte Reparaturauftrag wird aus dem Warenkorb entfernt.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="px-4 py-4">
+            <AlertDialogCancel className="border-[#d8dce6] text-[#1a2a5e]">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmRemoveRepairOrders}
+              className="bg-[#c53030] text-white hover:bg-[#9b2c2c]"
+            >
+              {pendingRepairOrderIds.length > 1 ? 'Auftraege entfernen' : 'Auftrag entfernen'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Checkout Dialog */}
       <CheckoutDialog

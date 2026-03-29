@@ -102,7 +102,7 @@ export function RepairOrderDetailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl gap-0 overflow-hidden border-0 bg-white p-0 shadow-2xl">
+      <DialogContent className="max-w-3xl gap-0 overflow-hidden border-0 bg-white p-0 shadow-2xl [&>button]:text-[#f5b800] [&>button]:opacity-100 [&>button:hover]:text-[#f5b800]">
         <DialogHeader className="gap-2 bg-[#1a2a5e] px-5 py-4 text-left sm:px-6 sm:py-5">
           <div className="flex items-start justify-between gap-4 pr-8">
             <div className="space-y-2">
@@ -118,7 +118,7 @@ export function RepairOrderDetailsDialog({
                   </Badge>
                 )}
               </div>
-              <DialogTitle className="text-xl font-bold tracking-tight text-white sm:text-[1.35rem]">
+              <DialogTitle className="text-xl font-bold tracking-tight sm:text-[1.35rem]" style={{ color: "#f5b800" }}>
                 {deviceLabel}
               </DialogTitle>
               <DialogDescription className="text-xs leading-5 text-blue-100 sm:text-sm">

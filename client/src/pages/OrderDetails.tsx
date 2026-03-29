@@ -163,6 +163,7 @@ export function OrderDetails() {
   const [deviceSearchResults, setDeviceSearchResults] = useState<SearchResult[]>([])
   const [showDeviceResults, setShowDeviceResults] = useState(false)
   const [selectedDeviceForChange, setSelectedDeviceForChange] = useState<SearchResult | null>(null)
+  const [resolvedDeviceImage, setResolvedDeviceImage] = useState<string | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
   const [inspectionDialogOpen, setInspectionDialogOpen] = useState(false)
@@ -1404,12 +1405,131 @@ export function OrderDetails() {
     }
   }
 
+  useEffect(() => {
+    let isCancelled = false
+
+    const pickImageUrl = (value: unknown): string | null => {
+      return typeof value === 'string' && value.trim() ? value.trim() : null
+    }
+
+    const normalize = (value: string = '') => value.toLowerCase().replace(/\s+/g, ' ').trim()
+
+    const resolveDeviceImage = async () => {
+      if (!order) {
+        setResolvedDeviceImage(null)
+        return
+      }
+
+      const orderAny = order as any
+      // Only use model images managed in the devices catalog.
+      const directCandidates: unknown[] = [
+        orderAny.deviceModelId?.image,
+        orderAny.deviceModelId?.images?.[0]?.url,
+        orderAny.deviceModelId?.images?.[0]?.base64,
+        orderAny.deviceModel?.image,
+        orderAny.deviceModel?.images?.[0]?.url,
+        orderAny.deviceModel?.images?.[0]?.base64,
+      ]
+
+      const directImage = directCandidates
+        .map((candidate) => pickImageUrl(candidate))
+        .find((candidate): candidate is string => Boolean(candidate))
+
+      if (directImage) {
+        if (!isCancelled) {
+          setResolvedDeviceImage(directImage)
+        }
+        return
+      }
+
+      const brand = normalize(order.deviceBrand)
+      const model = normalize(order.deviceModel)
+      if (!model) {
+        if (!isCancelled) {
+          setResolvedDeviceImage(null)
+        }
+        return
+      }
+
+      try {
+        const query = `${order.deviceBrand || ''} ${order.deviceModel || ''}`.trim() || order.deviceModel
+        const response = await searchDevices(query)
+        const devices: SearchResult[] = ((response as any)?.devices || []) as SearchResult[]
+
+        const exactBrandAndModel = devices.find((device) => {
+          const name = normalize(device.name)
+          const manufacturer = normalize(device.manufacturer)
+          return Boolean(device.image) && name === model && (!brand || manufacturer === brand)
+        })
+
+        const sameModel = devices.find((device) => {
+          const name = normalize(device.name)
+          return Boolean(device.image) && name === model
+        })
+
+        const fuzzyMatch = devices.find((device) => {
+          const name = normalize(device.name)
+          const displayName = normalize(device.displayName)
+          return Boolean(device.image) && (displayName.includes(model) || model.includes(name))
+        })
+
+        const bestMatch = exactBrandAndModel || sameModel || fuzzyMatch || devices.find((device) => Boolean(device.image))
+        if (!isCancelled) {
+          setResolvedDeviceImage(bestMatch?.image || null)
+        }
+      } catch (error) {
+        console.error('OrderDetails: Failed to resolve catalog device image:', error)
+        if (!isCancelled) {
+          setResolvedDeviceImage(null)
+        }
+      }
+    }
+
+    resolveDeviceImage()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [order?._id, order?.deviceBrand, order?.deviceModel])
+
   // Helper function to get device image or fallback
   const getDeviceImage = (order: Order) => {
+    const orderAny = order as any
+    const firstAvailableModelImage = [
+      resolvedDeviceImage,
+      orderAny.deviceImage,
+      orderAny.deviceModelImage,
+      orderAny.device?.image,
+      orderAny.deviceModel?.image,
+      orderAny.deviceModelId?.image,
+      orderAny.deviceModelId?.images?.[0]?.url,
+      orderAny.deviceModelId?.images?.[0]?.base64,
+    ].find((value) => typeof value === 'string' && value.trim())
+
+    if (typeof firstAvailableModelImage === 'string') {
+      return firstAvailableModelImage
+    }
+
     if (order.photos && order.photos.length > 0) {
       return order.photos[0]
     }
     return null
+  }
+
+  const getDeviceModelPreviewImage = (order: Order) => {
+    const orderAny = order as any
+    const modelImageCandidates: unknown[] = [
+      resolvedDeviceImage,
+      orderAny.deviceModelId?.image,
+      orderAny.deviceModelId?.images?.[0]?.url,
+      orderAny.deviceModelId?.images?.[0]?.base64,
+      orderAny.deviceModel?.image,
+      orderAny.deviceModel?.images?.[0]?.url,
+      orderAny.deviceModel?.images?.[0]?.base64,
+    ]
+
+    const modelImage = modelImageCandidates.find((value) => typeof value === 'string' && value.trim())
+    return typeof modelImage === 'string' ? modelImage : null
   }
 
   const handleGenerateInspectionReport = async () => {
@@ -1957,6 +2077,20 @@ export function OrderDetails() {
             </div>
           </div>
         </div>
+
+        {getDeviceModelPreviewImage(order) && (
+          <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-lg p-3">
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">Modellbild Vorschau</p>
+            <img
+              src={getDeviceModelPreviewImage(order) as string}
+              alt={`${order.deviceBrand} ${order.deviceModel} Modellbild`}
+              className="h-20 w-20 rounded-md object-cover border border-slate-200 dark:border-slate-700"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+              }}
+            />
+          </div>
+        )}
 
         {order.customerNotes && (
           <div className="bg-muted/50 p-2 rounded-lg">

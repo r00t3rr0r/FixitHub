@@ -147,6 +147,30 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
   const [cardCvc, setCardCvc] = useState("")
   const [paypalEmail, setPaypalEmail] = useState("")
 
+  const getProductImage = (product: any) => {
+    if (Array.isArray(product?.images) && product.images.length > 0) {
+      return product.images[0]
+    }
+
+    if (typeof product?.image === "string" && product.image.trim()) {
+      return product.image
+    }
+
+    return null
+  }
+
+  const getRepairOrderImage = (order: any) => {
+    if (typeof order?.deviceImage === "string" && order.deviceImage.trim()) {
+      return order.deviceImage
+    }
+
+    if (Array.isArray(order?.photos) && order.photos.length > 0) {
+      return order.photos[0]
+    }
+
+    return null
+  }
+
   const totals = useMemo(() => {
     const subtotal = Number(reviewCart?.subtotal || 0)
     const tax = Number(reviewCart?.tax || 0)
@@ -685,10 +709,25 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
         {reviewCart.items.map((item) => {
           const product = item.productId as any
           const lineTotal = (Number(product?.price || item.price || 0) * Number(item.quantity || 1)).toFixed(2)
+          const productImage = getProductImage(product)
           return (
             <div key={`product-${item._id}`} className="flex items-start gap-2.5 rounded-lg border border-[#e5eaf4] bg-white p-2.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#eef3ff]">
-                <Package className="h-4 w-4 text-[#1a2a5e]" />
+              <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-[#eef3ff]">
+                {productImage ? (
+                  <img
+                    src={productImage}
+                    alt={product?.name || t("checkout.article")}
+                    className="h-full w-full object-cover"
+                    onError={(event) => {
+                      event.currentTarget.style.display = "none"
+                      const fallback = event.currentTarget.nextElementSibling as HTMLElement | null
+                      fallback?.classList.remove("hidden")
+                    }}
+                  />
+                ) : null}
+                <div className={`${productImage ? "hidden" : "flex"} h-full w-full items-center justify-center`}>
+                  <Package className="h-4 w-4 text-[#1a2a5e]" />
+                </div>
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
@@ -716,10 +755,25 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
         {(reviewCart.repairOrders || []).map((order: any) => {
           const services: string[] = order.serviceNames || []
           const addOns: Array<{ name: string; price: number }> = order.addOns || []
+          const deviceImage = getRepairOrderImage(order)
           return (
             <div key={`repair-${order._id}`} className="flex items-start gap-2.5 rounded-lg border border-[#dbe8ff] bg-[#f5f9ff] p-2.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#dbe8ff]">
-                <Wrench className="h-4 w-4 text-[#1a2a5e]" />
+              <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-[#dbe8ff]">
+                {deviceImage ? (
+                  <img
+                    src={deviceImage}
+                    alt={[order.deviceBrand, order.deviceModel].filter(Boolean).join(" ") || t("checkout.repairOrder")}
+                    className="h-full w-full object-cover"
+                    onError={(event) => {
+                      event.currentTarget.style.display = "none"
+                      const fallback = event.currentTarget.nextElementSibling as HTMLElement | null
+                      fallback?.classList.remove("hidden")
+                    }}
+                  />
+                ) : null}
+                <div className={`${deviceImage ? "hidden" : "flex"} h-full w-full items-center justify-center`}>
+                  <Wrench className="h-4 w-4 text-[#1a2a5e]" />
+                </div>
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
@@ -800,7 +854,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] max-w-[95vw] overflow-y-auto rounded-xl border border-[#d8dce6] p-0 sm:max-w-4xl">
+      <DialogContent className="max-h-[92vh] max-w-[95vw] overflow-y-auto rounded-xl border border-[#d8dce6] p-0 sm:max-w-4xl [&>button]:text-[#f5b800] [&>button]:opacity-100 [&>button:hover]:text-[#f5b800]">
         {guestCheckoutResult ? (
           <div className="p-4 sm:p-5">
             <DialogHeader className="space-y-2 border-b border-[#e7eaf1] pb-3 text-left">

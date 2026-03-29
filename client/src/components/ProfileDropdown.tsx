@@ -16,6 +16,8 @@ import {
   User,
   Calendar,
   FileText,
+  MessageSquare,
+  Bell,
   LogOut,
   Wrench
 } from 'lucide-react';
@@ -158,6 +160,20 @@ export function ProfileDropdown() {
             <Link to="/invoices" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               <span>{t('navigation.invoices')}</span>
+            </Link>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem asChild className="cursor-pointer transition-colors hover:bg-yellow-50">
+            <Link to="/messages" className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              <span>{t('navigation.messages', 'Nachrichten')}</span>
+            </Link>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem asChild className="cursor-pointer transition-colors hover:bg-yellow-50">
+            <Link to="/notifications" className="flex items-center gap-2">
+              <Bell className="h-4 w-4" />
+              <span>{t('navigation.notifications', 'Benachrichtigungen')}</span>
             </Link>
           </DropdownMenuItem>
 

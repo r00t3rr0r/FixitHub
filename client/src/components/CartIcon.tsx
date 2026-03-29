@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { ShoppingCart, Package, Wrench, X, ArrowRight, Phone } from 'lucide-react';
+import { ShoppingCart, Package, Wrench, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getCart, Cart } from '@/api/shop';
-import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,8 +18,47 @@ const getRepairOrderDeviceImage = (order: Cart['repairOrders'] extends Array<inf
   return Array.isArray(order?.photos) && order.photos.length > 0 ? order.photos[0] : null;
 };
 
+type CartPreviewImageProps = {
+  src: string | null;
+  alt: string;
+  imageClassName: string;
+  icon: React.ComponentType<{ className?: string }>;
+  iconClassName: string;
+};
+
+function CartPreviewImage({
+  src,
+  alt,
+  imageClassName,
+  icon: Icon,
+  iconClassName,
+}: CartPreviewImageProps) {
+  const [hasImageError, setHasImageError] = useState(false);
+
+  useEffect(() => {
+    setHasImageError(false);
+  }, [src]);
+
+  if (!src || hasImageError) {
+    return (
+      <div className="cart-item-placeholder" aria-hidden="true">
+        <Icon className={iconClassName} />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={imageClassName}
+      loading="lazy"
+      onError={() => setHasImageError(true)}
+    />
+  );
+}
+
 export function CartIcon() {
-  const { isAuthenticated } = useAuth();
   const [cart, setCart] = useState<Cart | null>(null);
   const [itemCount, setItemCount] = useState(0);
   const [shouldBounce, setShouldBounce] = useState(false);
@@ -258,22 +296,13 @@ export function CartIcon() {
                           >
                             <div className="flex items-start gap-3">
                               {/* Device Image or Icon */}
-                              {deviceImage ? (
-                                <img 
-                                  src={deviceImage} 
-                                  alt={`${order.deviceBrand} ${order.deviceModel}`}
-                                  className="cart-device-image"
-                                  loading="lazy"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                    const placeholder = e.currentTarget.nextElementSibling;
-                                    if (placeholder) placeholder.classList.remove('hidden');
-                                  }}
-                                />
-                              ) : null}
-                              <div className={`cart-item-placeholder ${deviceImage ? 'hidden' : ''}`}>
-                                <Wrench className="h-6 w-6 text-[#1a2a5e]" />
-                              </div>
+                              <CartPreviewImage
+                                src={deviceImage}
+                                alt={`${order.deviceBrand} ${order.deviceModel}`}
+                                imageClassName="cart-device-image"
+                                icon={Wrench}
+                                iconClassName="h-6 w-6 text-[#1a2a5e]"
+                              />
 
                               <div className="flex-1 min-w-0">
                                 <h4 className="font-semibold text-sm text-[#1a2a5e] truncate leading-tight">
@@ -313,22 +342,13 @@ export function CartIcon() {
                           >
                             <div className="flex items-start gap-3">
                               {/* Product Image or Icon */}
-                              {productImage ? (
-                                <img 
-                                  src={productImage} 
-                                  alt={product.name}
-                                  className="cart-item-image"
-                                  loading="lazy"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                    const placeholder = e.currentTarget.nextElementSibling;
-                                    if (placeholder) placeholder.classList.remove('hidden');
-                                  }}
-                                />
-                              ) : null}
-                              <div className={`cart-item-placeholder ${productImage ? 'hidden' : ''}`}>
-                                <Package className="h-6 w-6 text-[#636e85]" />
-                              </div>
+                              <CartPreviewImage
+                                src={productImage}
+                                alt={product.name}
+                                imageClassName="cart-item-image"
+                                icon={Package}
+                                iconClassName="h-6 w-6 text-[#636e85]"
+                              />
 
                               <div className="flex-1 min-w-0">
                                 <h4 className="font-semibold text-sm text-[#1a2a5e] leading-tight line-clamp-2">
