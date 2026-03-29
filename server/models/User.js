@@ -204,6 +204,16 @@ const schema = new mongoose.Schema({
     index: true,
     default: () => randomUUID(),
   },
+  // Password reset functionality
+  passwordResetToken: {
+    type: String,
+    default: null,
+    index: true,
+  },
+  passwordResetExpires: {
+    type: Date,
+    default: null,
+  },
   // Time Tracking & Status Management
   currentStatus: {
     type: String,

@@ -3,6 +3,34 @@ const router = express.Router();
 const InspectionCommunicationService = require('../services/inspectionCommunicationService');
 const { auth, requireUser } = require('./middleware/auth');
 
+// Description: Get communication threads visible to current user
+// Endpoint: GET /api/inspection-communication
+// Request: { page?: number, limit?: number, search?: string }
+// Response: { communications: Array<Object>, totalPages: number, currentPage: number, totalCount: number }
+// NOTE: This route MUST be defined before /:orderId routes to avoid route collision
+router.get('/', requireUser, async (req, res) => {
+  try {
+    const filters = {
+      page: req.query.page,
+      limit: req.query.limit,
+      search: req.query.search,
+    };
+
+    console.log(`InspectionCommunicationRoutes: GET / - Listing communications for user ${req.user._id}`);
+
+    const result = await InspectionCommunicationService.getCommunicationsForUser(
+      req.user._id,
+      req.user.role,
+      filters
+    );
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error(`InspectionCommunicationRoutes: Error listing communication threads: ${error}`);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Description: Get unread message counts for multiple orders
 // Endpoint: POST /api/inspection-communication/unread-counts
 // Request: { orderIds: Array<string> }

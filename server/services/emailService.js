@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const SystemConfigService = require('./systemConfigService');
+const NotificationTemplateService = require('./notificationTemplateService');
 
 class EmailService {
   /**
@@ -185,6 +186,205 @@ The FixitHub Team
 © ${new Date().getFullYear()} FixitHub. All rights reserved.
 This is an automated email. Please do not reply to this message.
     `;
+  }
+
+  // ===== TEMPLATE-BASED EMAIL SENDING METHODS =====
+
+  /**
+   * Generic method to send template-based email
+   * @param {string} templateName - Template name (e.g., 'Registrierung und Kontoaktivierung')
+   * @param {string} toEmail - Recipient email address
+   * @param {object} variables - Template variables object
+   * @returns {Promise<object>} { success, messageId, error }
+   */
+  static async sendTemplateEmail(templateName, toEmail, variables = {}) {
+    try {
+      console.log(`EmailService: Sending template email "${templateName}" to ${toEmail}`);
+
+      // Validate required variables
+      const validation = await NotificationTemplateService.validateTemplateVariables(
+        templateName,
+        'email',
+        variables
+      );
+
+      if (!validation.isValid) {
+        console.error(`EmailService: Missing required variables: ${validation.missingVariables.join(', ')}`);
+        return {
+          success: false,
+          error: `Missing required variables: ${validation.missingVariables.join(', ')}`
+        };
+      }
+
+      // Render template
+      const rendered = await NotificationTemplateService.renderTemplate(templateName, 'email', variables);
+      
+      if (!rendered) {
+        return {
+          success: false,
+          error: `Template "${templateName}" not found or inactive`
+        };
+      }
+
+      const transporter = await this.getTransporter();
+      const mailOptions = {
+        from: process.env.SMTP_FROM || 'noreply@fixithub.com',
+        to: toEmail,
+        subject: rendered.subject,
+        html: rendered.content,
+        text: rendered.text
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      console.log(`EmailService: Template email sent successfully to ${toEmail}:`, info.messageId);
+      return { success: true, messageId: info.messageId };
+    } catch (error) {
+      console.error(`EmailService: Error sending template email: ${error.message}`);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Send registration/account activation email
+   */
+  static async sendRegistrationEmail(toEmail, customerName, verificationUrl, companyName = 'FixitHub') {
+    return this.sendTemplateEmail('Registrierung und Kontoaktivierung', toEmail, {
+      companyName,
+      customerName,
+      customerEmail: toEmail,
+      verificationUrl,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+    });
+  }
+
+  /**
+   * Send password reset email
+   */
+  static async sendPasswordResetEmail(toEmail, customerName, passwordResetUrl, resetExpiresAt, companyName = 'FixitHub') {
+    return this.sendTemplateEmail('Passwort zurücksetzen', toEmail, {
+      companyName,
+      customerName,
+      customerEmail: toEmail,
+      passwordResetUrl,
+      resetExpiresAt,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+    });
+  }
+
+  /**
+   * Send order confirmation email
+   */
+  static async sendOrderConfirmationEmail(toEmail, orderData, companyName = 'FixitHub') {
+    return this.sendTemplateEmail('Auftragsbestätigung Reparatur', toEmail, {
+      companyName,
+      customerName: orderData.customerName || 'Valued Customer',
+      customerEmail: toEmail,
+      orderNumber: orderData.orderNumber,
+      deviceBrand: orderData.deviceBrand,
+      deviceModel: orderData.deviceModel,
+      serviceName: orderData.serviceName,
+      estimatedCompletion: orderData.estimatedCompletion,
+      trackingUrl: orderData.trackingUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders/${orderData.orderId}`,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+    });
+  }
+
+  /**
+   * Send order status update email
+   */
+  static async sendOrderStatusUpdateEmail(toEmail, orderData, companyName = 'FixitHub') {
+    return this.sendTemplateEmail('Statusupdate Auftrag oder Buchung', toEmail, {
+      companyName,
+      customerName: orderData.customerName || 'Valued Customer',
+      orderNumber: orderData.orderNumber,
+      orderStatus: orderData.orderStatus,
+      statusMessage: orderData.statusMessage,
+      statusUpdatedAt: new Date(orderData.statusUpdatedAt || Date.now()).toLocaleDateString('de-DE'),
+      trackingUrl: orderData.trackingUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders/${orderData.orderId}`,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+    });
+  }
+
+  /**
+   * Send device received email
+   */
+  static async sendDeviceReceivedEmail(toEmail, orderData, companyName = 'FixitHub') {
+    return this.sendTemplateEmail('Gerät eingegangen', toEmail, {
+      companyName,
+      customerName: orderData.customerName || 'Valued Customer',
+      orderNumber: orderData.orderNumber,
+      deviceBrand: orderData.deviceBrand,
+      deviceModel: orderData.deviceModel,
+      receivedAt: new Date(orderData.receivedAt || Date.now()).toLocaleDateString('de-DE'),
+      trackingUrl: orderData.trackingUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders/${orderData.orderId}`,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+    });
+  }
+
+  /**
+   * Send quote approval request email
+   */
+  static async sendQuoteApprovalEmail(toEmail, orderData, companyName = 'FixitHub') {
+    return this.sendTemplateEmail('Kostenvoranschlag zur Freigabe', toEmail, {
+      companyName,
+      customerName: orderData.customerName || 'Valued Customer',
+      orderNumber: orderData.orderNumber,
+      deviceBrand: orderData.deviceBrand,
+      deviceModel: orderData.deviceModel,
+      serviceName: orderData.serviceName,
+      quoteAmount: `€${(orderData.quoteAmount || 0).toFixed(2)}`,
+      approvalDeadline: orderData.approvalDeadline || 'within 5 business days',
+      approvalUrl: orderData.approvalUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders/${orderData.orderId}/approve`,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+    });
+  }
+
+  /**
+   * Send repair completion and return shipping email
+   */
+  static async sendCompletionEmail(toEmail, orderData, companyName = 'FixitHub') {
+    return this.sendTemplateEmail('Reparatur abgeschlossen und Rückversand', toEmail, {
+      companyName,
+      customerName: orderData.customerName || 'Valued Customer',
+      orderNumber: orderData.orderNumber,
+      deviceBrand: orderData.deviceBrand,
+      deviceModel: orderData.deviceModel,
+      returnShipmentStatus: orderData.returnShipmentStatus || 'dispatched',
+      returnTrackingNumber: orderData.returnTrackingNumber || 'Tracking info will be updated soon',
+      trackingUrl: orderData.trackingUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders/${orderData.orderId}`,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+    });
+  }
+
+  /**
+   * Send payment confirmation email
+   */
+  static async sendPaymentConfirmationEmail(toEmail, paymentData, companyName = 'FixitHub') {
+    return this.sendTemplateEmail('Zahlung bestätigt', toEmail, {
+      companyName,
+      customerName: paymentData.customerName || 'Valued Customer',
+      orderNumber: paymentData.orderNumber,
+      amountPaid: `€${(paymentData.amountPaid || 0).toFixed(2)}`,
+      paymentMethod: paymentData.paymentMethod || 'Card',
+      paidAt: new Date(paymentData.paidAt || Date.now()).toLocaleDateString('de-DE', { 
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      invoiceNumber: paymentData.invoiceNumber,
+      invoiceUrl: paymentData.invoiceUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/invoices/${paymentData.invoiceId}`,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+    });
   }
 }
 

@@ -15,6 +15,10 @@ const Language = require('../models/Language');
 const SystemConfiguration = require('../models/SystemConfiguration');
 const ServiceCategory = require('../models/ServiceCategory');
 const { generatePasswordHash } = require('../utils/password');
+const {
+  DEFAULT_NOTIFICATION_TEMPLATE_VERSION,
+  getDefaultNotificationTemplates
+} = require('./defaultNotificationTemplates');
 
 class SeedService {
   static async seedAdminUser() {
@@ -1690,7 +1694,8 @@ class SeedService {
             testStatus: 'pending'
           }
         ],
-        notificationTemplates: [],
+        notificationTemplates: getDefaultNotificationTemplates(),
+        notificationTemplateDefaultsVersion: DEFAULT_NOTIFICATION_TEMPLATE_VERSION,
         emailSettings: {
           provider: 'SendGrid',
           apiKey: process.env.SENDGRID_API_KEY || '',
@@ -1788,17 +1793,13 @@ class SeedService {
   }
 
   // —GERMAN_WORKFLOWS_SEEDING (file `server/services/seedService.js`) —
-  // Description: Seed 5 example German workflows for repair and quality check processes available for all device and service types
+  // Description: Seed German workflows for repair, quality check, and device-specific diagnostics
   static async seedGermanWorkflows() {
     try {
       console.log('SeedService.seedGermanWorkflows: Starting German workflows seeding...');
 
-      // Check if German workflows already exist
-      const existingGermanWorkflows = await WorkflowTemplate.findOne({ name: /Allgemeiner/ });
-      if (existingGermanWorkflows) {
-        console.log('SeedService.seedGermanWorkflows: German workflows already exist, skipping...');
-        return [];
-      }
+      const existingWorkflowNames = await WorkflowTemplate.find({}, 'name').lean();
+      const existingWorkflowNameSet = new Set(existingWorkflowNames.map((workflow) => workflow.name));
 
       const germanWorkflows = [
         {
@@ -3035,13 +3036,1000 @@ class SeedService {
             requireStrictOrder: true,
             autoProgressOnCompletion: true
           }
+        },
+        {
+          name: 'Smartphone-Diagnose Standard',
+          description: 'Strukturierter Diagnose-Workflow für Smartphones mit reproduzierbarer Fehleraufnahme, Hardware-Schnelltests und Abschlussbericht.',
+          deviceTypes: ['Smartphone'],
+          serviceTypes: [],
+          isActive: true,
+          steps: [
+            {
+              name: 'Annahme und Fehlerbild erfassen',
+              description: 'Dokumentieren Sie den Fehler aus Kundensicht und erfassen Sie auffällige Vorbedingungen für die Diagnose.',
+              estimatedTime: 10,
+              isRequired: true,
+              order: 1,
+              category: 'diagnostic',
+              dependencies: [],
+              tools: ['Service-Portal', 'Kamera', 'Inspektionslampe'],
+              skills: ['Kundenkommunikation', 'Fehleraufnahme', 'Dokumentation'],
+              checklistItems: [
+                'Fehlerbeschreibung wortgetreu erfassen',
+                'Sichtprüfung auf äußere Schäden durchführen',
+                'SIM/SD-Status dokumentieren',
+                'Fehlerzeitpunkt und Nutzungsszenario aufnehmen'
+              ],
+              formFields: [
+                {
+                  id: 'smartphone_issue_type',
+                  name: 'smartphone_issue_type',
+                  label: 'Fehlertyp',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'display_touch', label: 'Display/Touch' },
+                    { value: 'power_charge', label: 'Strom/Laden' },
+                    { value: 'camera_audio', label: 'Kamera/Audio' },
+                    { value: 'network_signal', label: 'Netzwerk/Signal' },
+                    { value: 'performance', label: 'Leistung/Absturz' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'smartphone_issue_reproducible',
+                  name: 'smartphone_issue_reproducible',
+                  label: 'Fehler reproduzierbar?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'no', label: 'Nein' },
+                    { value: 'intermittent', label: 'Nur sporadisch' }
+                  ],
+                  order: 2
+                },
+                {
+                  id: 'smartphone_liquid_contact',
+                  name: 'smartphone_liquid_contact',
+                  label: 'Hinweis auf Flüssigkeitskontakt?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 3
+                },
+                {
+                  id: 'smartphone_intake_notes',
+                  name: 'smartphone_intake_notes',
+                  label: 'Annahmenotiz',
+                  type: 'textarea',
+                  required: true,
+                  placeholder: 'Kurze, präzise Zusammenfassung der Annahme',
+                  validation: { minLength: 15, maxLength: 600 },
+                  order: 4
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [
+                {
+                  trigger: 'form_submission',
+                  condition: JSON.stringify({ field: 'smartphone_liquid_contact', value: 'yes' }),
+                  action: 'create_task',
+                  actionData: { taskType: 'liquid_damage_precheck', priority: 'high' },
+                  isActive: true
+                },
+                {
+                  trigger: 'form_submission',
+                  condition: JSON.stringify({ field: 'smartphone_issue_reproducible', value: 'no' }),
+                  action: 'create_task',
+                  actionData: { taskType: 'customer_callback_for_reproduction', priority: 'medium' },
+                  isActive: true
+                }
+              ],
+              position: { x: 0, y: 0 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: true,
+                onComplete: false,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Hardware-Schnelltest',
+              description: 'Prüfen Sie kritische Hardware-Funktionen, um defekte Baugruppen früh einzugrenzen.',
+              estimatedTime: 20,
+              isRequired: true,
+              order: 2,
+              category: 'diagnostic',
+              dependencies: [],
+              tools: ['USB-Messgerät', 'Diagnose-App', 'Testladegerät'],
+              skills: ['Hardware-Diagnose', 'Messdatenauswertung'],
+              checklistItems: [
+                'Display- und Touchzonen prüfen',
+                'Ladeverhalten unter Last testen',
+                'Mikrofon und Lautsprecher testen',
+                'Kamera vorne/hinten validieren'
+              ],
+              formFields: [
+                {
+                  id: 'smartphone_display_touch_result',
+                  name: 'smartphone_display_touch_result',
+                  label: 'Display/Touch Ergebnis',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'ok', label: 'In Ordnung' },
+                    { value: 'partial', label: 'Teilweise funktionsfähig' },
+                    { value: 'failed', label: 'Fehlerhaft' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'smartphone_charging_result',
+                  name: 'smartphone_charging_result',
+                  label: 'Ladefunktion in Ordnung?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 2
+                },
+                {
+                  id: 'smartphone_camera_audio_result',
+                  name: 'smartphone_camera_audio_result',
+                  label: 'Kamera/Audio Ergebnis',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'ok', label: 'In Ordnung' },
+                    { value: 'minor_issue', label: 'Kleine Abweichung' },
+                    { value: 'critical_issue', label: 'Kritischer Fehler' }
+                  ],
+                  order: 3
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [
+                {
+                  trigger: 'form_submission',
+                  condition: JSON.stringify({ field: 'smartphone_charging_result', value: 'no' }),
+                  action: 'assign_staff',
+                  actionData: { role: 'power-specialist', reason: 'charging_path_diagnostic' },
+                  isActive: true
+                }
+              ],
+              position: { x: 0, y: 100 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: false,
+                onComplete: false,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Software- und Funkdiagnose',
+              description: 'Validieren Sie Bootverhalten, Funkmodule und Systemprotokolle zur Ursachenanalyse.',
+              estimatedTime: 25,
+              isRequired: true,
+              order: 3,
+              category: 'diagnostic',
+              dependencies: [],
+              tools: ['Hersteller-Diagnosetool', 'ADB/Service-Tools'],
+              skills: ['Log-Analyse', 'Firmware-Diagnose'],
+              checklistItems: [
+                'Bootsequenz dokumentieren',
+                'Mobilfunk/WLAN/Bluetooth prüfen',
+                'Systemlogs auf wiederkehrende Fehler auswerten',
+                'Batteriegesundheit erfassen'
+              ],
+              formFields: [
+                {
+                  id: 'smartphone_boot_state',
+                  name: 'smartphone_boot_state',
+                  label: 'Bootzustand',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'normal', label: 'Normal' },
+                    { value: 'bootloop', label: 'Bootloop' },
+                    { value: 'no_boot', label: 'Kein Boot' },
+                    { value: 'unstable', label: 'Instabil' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'smartphone_radio_status',
+                  name: 'smartphone_radio_status',
+                  label: 'Funkmodule',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'all_ok', label: 'Alle in Ordnung' },
+                    { value: 'limited', label: 'Teilweise eingeschränkt' },
+                    { value: 'failed', label: 'Ausfall' }
+                  ],
+                  order: 2
+                },
+                {
+                  id: 'smartphone_battery_health',
+                  name: 'smartphone_battery_health',
+                  label: 'Batteriegesundheit (%)',
+                  type: 'number',
+                  required: true,
+                  validation: { min: 0, max: 100 },
+                  order: 3
+                },
+                {
+                  id: 'smartphone_system_log_summary',
+                  name: 'smartphone_system_log_summary',
+                  label: 'Log-Zusammenfassung',
+                  type: 'textarea',
+                  required: true,
+                  placeholder: 'Wichtigste Log-Befunde und Fehlercodes',
+                  validation: { minLength: 10, maxLength: 1000 },
+                  order: 4
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [
+                {
+                  trigger: 'form_submission',
+                  condition: JSON.stringify({ field: 'smartphone_battery_health', operator: 'lt', value: 80 }),
+                  action: 'create_task',
+                  actionData: { taskType: 'battery_replacement_recommendation', priority: 'medium' },
+                  isActive: true
+                }
+              ],
+              position: { x: 0, y: 200 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: false,
+                onComplete: false,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Diagnoseabschluss Smartphone',
+              description: 'Bewerten Sie die Reparierbarkeit und erstellen Sie eine nachvollziehbare Handlungsempfehlung.',
+              estimatedTime: 10,
+              isRequired: true,
+              order: 4,
+              category: 'completion',
+              dependencies: [],
+              tools: ['Service-Portal'],
+              skills: ['Technische Bewertung', 'Angebotserstellung'],
+              checklistItems: [
+                'Diagnoseergebnis zusammenfassen',
+                'Empfohlene Maßnahmen dokumentieren',
+                'Ersatzteilbedarf erfassen',
+                'Priorität und Risiko transparent machen'
+              ],
+              formFields: [
+                {
+                  id: 'smartphone_diagnosis_result',
+                  name: 'smartphone_diagnosis_result',
+                  label: 'Diagnoseergebnis',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'repairable', label: 'Reparierbar' },
+                    { value: 'limited_repair', label: 'Eingeschränkt reparierbar' },
+                    { value: 'not_repairable', label: 'Nicht wirtschaftlich reparierbar' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'smartphone_required_parts',
+                  name: 'smartphone_required_parts',
+                  label: 'Benötigte Ersatzteile',
+                  type: 'multiselect',
+                  required: false,
+                  options: [
+                    { value: 'display_unit', label: 'Display-Einheit' },
+                    { value: 'battery', label: 'Batterie' },
+                    { value: 'charging_port', label: 'Ladebuchse' },
+                    { value: 'camera_module', label: 'Kameramodul' },
+                    { value: 'mainboard', label: 'Mainboard' }
+                  ],
+                  order: 2
+                },
+                {
+                  id: 'smartphone_recommendation',
+                  name: 'smartphone_recommendation',
+                  label: 'Empfehlung für den Auftrag',
+                  type: 'textarea',
+                  required: true,
+                  placeholder: 'Klare Empfehlung inkl. Aufwand, Risiken und nächstem Schritt',
+                  validation: { minLength: 20, maxLength: 1200 },
+                  order: 3
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [
+                {
+                  trigger: 'form_submission',
+                  condition: JSON.stringify({ field: 'smartphone_diagnosis_result', value: 'repairable' }),
+                  action: 'update_status',
+                  actionData: { orderStatus: 'diagnosis-complete' },
+                  isActive: true
+                },
+                {
+                  trigger: 'form_submission',
+                  condition: JSON.stringify({ field: 'smartphone_diagnosis_result', value: 'not_repairable' }),
+                  action: 'send_notification',
+                  actionData: { target: 'service_desk', message: 'Smartphone nicht wirtschaftlich reparierbar - Rücksprache erforderlich.' },
+                  isActive: true
+                }
+              ],
+              position: { x: 0, y: 300 },
+              canSkip: false,
+              requiresApproval: true,
+              notificationSettings: {
+                onStart: false,
+                onComplete: true,
+                onDelay: false
+              }
+            }
+          ],
+          estimatedTotalTime: 65,
+          globalAutomationRules: [],
+          workflowSettings: {
+            allowParallelSteps: false,
+            requireStrictOrder: true,
+            autoProgressOnCompletion: false
+          }
+        },
+        {
+          name: 'Notebook-Diagnose Standard',
+          description: 'Arbeitsgerechter Diagnose-Workflow für Notebooks mit Fokus auf Bootpfad, Thermik, Energieversorgung und Abschlussbewertung.',
+          deviceTypes: ['Laptop', 'Notebook'],
+          serviceTypes: [],
+          isActive: true,
+          steps: [
+            {
+              name: 'Annahme und Vorprüfung Notebook',
+              description: 'Erfassen Sie das Fehlerbild und dokumentieren Sie optische sowie mechanische Auffälligkeiten.',
+              estimatedTime: 12,
+              isRequired: true,
+              order: 1,
+              category: 'diagnostic',
+              dependencies: [],
+              tools: ['Kamera', 'Inspektionslampe', 'Service-Portal'],
+              skills: ['Fehleraufnahme', 'Dokumentation'],
+              checklistItems: [
+                'Gehäuse, Scharniere und Ports prüfen',
+                'Netzteilzustand und Kabel dokumentieren',
+                'Kundensymptom priorisieren',
+                'Vorherige Reparaturhistorie prüfen'
+              ],
+              formFields: [
+                {
+                  id: 'notebook_primary_issue',
+                  name: 'notebook_primary_issue',
+                  label: 'Primäres Problem',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'no_power', label: 'Startet nicht' },
+                    { value: 'display_issue', label: 'Displayproblem' },
+                    { value: 'overheating', label: 'Überhitzung' },
+                    { value: 'performance', label: 'Leistungsproblem' },
+                    { value: 'input_devices', label: 'Tastatur/Touchpad' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'notebook_liquid_trace',
+                  name: 'notebook_liquid_trace',
+                  label: 'Flüssigkeitsspuren vorhanden?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 2
+                },
+                {
+                  id: 'notebook_precheck_notes',
+                  name: 'notebook_precheck_notes',
+                  label: 'Vorprüfungsnotiz',
+                  type: 'textarea',
+                  required: true,
+                  placeholder: 'Kurzprotokoll zur Vorprüfung',
+                  validation: { minLength: 15, maxLength: 800 },
+                  order: 3
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [
+                {
+                  trigger: 'form_submission',
+                  condition: JSON.stringify({ field: 'notebook_liquid_trace', value: 'yes' }),
+                  action: 'assign_staff',
+                  actionData: { role: 'board-repair-specialist', reason: 'liquid_trace_detected' },
+                  isActive: true
+                }
+              ],
+              position: { x: 0, y: 0 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: true,
+                onComplete: false,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Boot-, BIOS- und Speicherdiagnose',
+              description: 'Prüfen Sie POST/Bootpfad sowie SSD/HDD-Rohdaten und RAM-Stabilität.',
+              estimatedTime: 25,
+              isRequired: true,
+              order: 2,
+              category: 'diagnostic',
+              dependencies: [],
+              tools: ['POST-Diagnosekarte', 'MemTest', 'SMART-Tool'],
+              skills: ['Bootdiagnose', 'Speicheranalyse'],
+              checklistItems: [
+                'BIOS/UEFI Status prüfen',
+                'Bootmedium und Reihenfolge verifizieren',
+                'SMART-Werte auslesen',
+                'Kurzen RAM-Test ausführen'
+              ],
+              formFields: [
+                {
+                  id: 'notebook_boot_result',
+                  name: 'notebook_boot_result',
+                  label: 'Boot-Ergebnis',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'boots_normal', label: 'Bootet normal' },
+                    { value: 'boots_with_errors', label: 'Bootet mit Fehlern' },
+                    { value: 'no_boot', label: 'Bootet nicht' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'notebook_storage_health',
+                  name: 'notebook_storage_health',
+                  label: 'Speicherzustand',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'good', label: 'Gut' },
+                    { value: 'warning', label: 'Warnung' },
+                    { value: 'critical', label: 'Kritisch' }
+                  ],
+                  order: 2
+                },
+                {
+                  id: 'notebook_memory_errors',
+                  name: 'notebook_memory_errors',
+                  label: 'RAM-Fehler gefunden?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 3
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [
+                {
+                  trigger: 'form_submission',
+                  condition: JSON.stringify({ field: 'notebook_storage_health', value: 'critical' }),
+                  action: 'create_task',
+                  actionData: { taskType: 'data_backup_consultation', priority: 'high' },
+                  isActive: true
+                },
+                {
+                  trigger: 'form_submission',
+                  condition: JSON.stringify({ field: 'notebook_memory_errors', value: 'yes' }),
+                  action: 'create_task',
+                  actionData: { taskType: 'ram_module_retest', priority: 'medium' },
+                  isActive: true
+                }
+              ],
+              position: { x: 0, y: 100 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: false,
+                onComplete: false,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Thermik- und Energieanalyse',
+              description: 'Bewerten Sie Temperaturen, Lüfterverhalten und Laststabilität.',
+              estimatedTime: 22,
+              isRequired: true,
+              order: 3,
+              category: 'diagnostic',
+              dependencies: [],
+              tools: ['Thermal-Monitoring', 'Netzteil-Messgerät', 'Stresstest-Tool'],
+              skills: ['Thermikanalyse', 'Leistungsdiagnose'],
+              checklistItems: [
+                'Idle- und Lasttemperaturen messen',
+                'Lüfterkennlinie prüfen',
+                'Stromaufnahme unter Last dokumentieren',
+                'Throttling-Ereignisse auswerten'
+              ],
+              formFields: [
+                {
+                  id: 'notebook_cpu_temp_peak',
+                  name: 'notebook_cpu_temp_peak',
+                  label: 'Max. CPU-Temperatur (°C)',
+                  type: 'number',
+                  required: true,
+                  validation: { min: 20, max: 120 },
+                  order: 1
+                },
+                {
+                  id: 'notebook_throttling',
+                  name: 'notebook_throttling',
+                  label: 'Thermisches Drosseln festgestellt?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 2
+                },
+                {
+                  id: 'notebook_power_behavior',
+                  name: 'notebook_power_behavior',
+                  label: 'Verhalten Stromversorgung',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'stable', label: 'Stabil' },
+                    { value: 'unstable', label: 'Instabil' },
+                    { value: 'drops', label: 'Spannungseinbrüche' }
+                  ],
+                  order: 3
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [
+                {
+                  trigger: 'form_submission',
+                  condition: JSON.stringify({ field: 'notebook_throttling', value: 'yes' }),
+                  action: 'create_task',
+                  actionData: { taskType: 'cooling_system_service', priority: 'high' },
+                  isActive: true
+                }
+              ],
+              position: { x: 0, y: 200 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: false,
+                onComplete: false,
+                onDelay: true
+              }
+            },
+            {
+              name: 'Diagnoseabschluss Notebook',
+              description: 'Erstellen Sie den Abschlussbericht inklusive Aufwandsschätzung und Freigabeempfehlung.',
+              estimatedTime: 12,
+              isRequired: true,
+              order: 4,
+              category: 'completion',
+              dependencies: [],
+              tools: ['Service-Portal'],
+              skills: ['Technische Bewertung', 'Dokumentation'],
+              checklistItems: [
+                'Diagnosepfad nachvollziehbar dokumentieren',
+                'Ersatzteile und Aufwand einordnen',
+                'Reparaturfreigabe oder Ablehnung begründen',
+                'Nächsten operativen Schritt festlegen'
+              ],
+              formFields: [
+                {
+                  id: 'notebook_diagnosis_decision',
+                  name: 'notebook_diagnosis_decision',
+                  label: 'Entscheidung',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'approve_repair', label: 'Reparatur freigeben' },
+                    { value: 'needs_customer_approval', label: 'Kundenfreigabe erforderlich' },
+                    { value: 'decline_repair', label: 'Reparatur ablehnen' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'notebook_estimated_effort',
+                  name: 'notebook_estimated_effort',
+                  label: 'Geschätzter Aufwand (Minuten)',
+                  type: 'number',
+                  required: true,
+                  validation: { min: 10, max: 1440 },
+                  order: 2
+                },
+                {
+                  id: 'notebook_final_comment',
+                  name: 'notebook_final_comment',
+                  label: 'Abschlusskommentar',
+                  type: 'textarea',
+                  required: true,
+                  placeholder: 'Begründung und Empfehlung für den nächsten Schritt',
+                  validation: { minLength: 20, maxLength: 1200 },
+                  order: 3
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [
+                {
+                  trigger: 'form_submission',
+                  condition: JSON.stringify({ field: 'notebook_diagnosis_decision', value: 'approve_repair' }),
+                  action: 'update_status',
+                  actionData: { orderStatus: 'diagnosis-complete' },
+                  isActive: true
+                },
+                {
+                  trigger: 'form_submission',
+                  condition: JSON.stringify({ field: 'notebook_diagnosis_decision', value: 'needs_customer_approval' }),
+                  action: 'send_notification',
+                  actionData: { target: 'service_desk', message: 'Notebook-Diagnose abgeschlossen, Kundenfreigabe erforderlich.' },
+                  isActive: true
+                }
+              ],
+              position: { x: 0, y: 300 },
+              canSkip: false,
+              requiresApproval: true,
+              notificationSettings: {
+                onStart: false,
+                onComplete: true,
+                onDelay: false
+              }
+            }
+          ],
+          estimatedTotalTime: 71,
+          globalAutomationRules: [],
+          workflowSettings: {
+            allowParallelSteps: false,
+            requireStrictOrder: true,
+            autoProgressOnCompletion: false
+          }
+        },
+        {
+          name: 'Tablet-Diagnose Standard',
+          description: 'Diagnose-Workflow für Tablets mit Fokus auf Touch-/Pen-Funktion, Energiepfad und Konnektivität.',
+          deviceTypes: ['Tablet'],
+          serviceTypes: [],
+          isActive: true,
+          steps: [
+            {
+              name: 'Annahme und Sichtprüfung Tablet',
+              description: 'Erfassen Sie Fehlerbild, Gehäusezustand und mögliche Einflussfaktoren für die Diagnose.',
+              estimatedTime: 9,
+              isRequired: true,
+              order: 1,
+              category: 'diagnostic',
+              dependencies: [],
+              tools: ['Kamera', 'Inspektionslampe'],
+              skills: ['Sichtprüfung', 'Dokumentation'],
+              checklistItems: [
+                'Displayglas und Rahmen inspizieren',
+                'Ports und Tasten prüfen',
+                'Zubehör (Pen, Tastaturcover) erfassen',
+                'Kundensymptom priorisieren'
+              ],
+              formFields: [
+                {
+                  id: 'tablet_primary_issue',
+                  name: 'tablet_primary_issue',
+                  label: 'Primäres Problem',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'touch_pen', label: 'Touch/Pen' },
+                    { value: 'charging_battery', label: 'Laden/Batterie' },
+                    { value: 'wifi_bt', label: 'WLAN/Bluetooth' },
+                    { value: 'camera_audio', label: 'Kamera/Audio' },
+                    { value: 'performance', label: 'Leistung/System' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'tablet_accessory_present',
+                  name: 'tablet_accessory_present',
+                  label: 'Relevantes Zubehör vorhanden?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 2
+                },
+                {
+                  id: 'tablet_intake_notes',
+                  name: 'tablet_intake_notes',
+                  label: 'Annahmenotiz',
+                  type: 'textarea',
+                  required: true,
+                  placeholder: 'Kurze Zusammenfassung der Annahme',
+                  validation: { minLength: 10, maxLength: 600 },
+                  order: 3
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [
+                {
+                  trigger: 'form_submission',
+                  condition: JSON.stringify({ field: 'tablet_accessory_present', value: 'no' }),
+                  action: 'create_task',
+                  actionData: { taskType: 'request_tablet_accessory_for_test', priority: 'medium' },
+                  isActive: true
+                }
+              ],
+              position: { x: 0, y: 0 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: true,
+                onComplete: false,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Touch-, Pen- und Sensorprüfung',
+              description: 'Testen Sie Eingabepräzision, Sensorik und Lageerkennung.',
+              estimatedTime: 18,
+              isRequired: true,
+              order: 2,
+              category: 'diagnostic',
+              dependencies: [],
+              tools: ['Touch-Test-App', 'Sensor-Test-App', 'Pen-Testfläche'],
+              skills: ['Eingabediagnose', 'Sensoranalyse'],
+              checklistItems: [
+                'Touchmatrix in allen Bereichen prüfen',
+                'Pen-Druckstufen und Latenz testen',
+                'Lage-/Bewegungssensoren prüfen',
+                'Palm-Rejection Verhalten dokumentieren'
+              ],
+              formFields: [
+                {
+                  id: 'tablet_touch_result',
+                  name: 'tablet_touch_result',
+                  label: 'Touch-Test Ergebnis',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'ok', label: 'In Ordnung' },
+                    { value: 'partial', label: 'Teilweise fehlerhaft' },
+                    { value: 'failed', label: 'Ausfall' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'tablet_pen_result',
+                  name: 'tablet_pen_result',
+                  label: 'Pen-Test Ergebnis',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'ok', label: 'In Ordnung' },
+                    { value: 'limited', label: 'Eingeschränkt' },
+                    { value: 'not_available', label: 'Nicht testbar' }
+                  ],
+                  order: 2
+                },
+                {
+                  id: 'tablet_sensor_result',
+                  name: 'tablet_sensor_result',
+                  label: 'Sensorik Ergebnis',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'ok', label: 'In Ordnung' },
+                    { value: 'partial', label: 'Teilweise eingeschränkt' },
+                    { value: 'failed', label: 'Fehlerhaft' }
+                  ],
+                  order: 3
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [
+                {
+                  trigger: 'form_submission',
+                  condition: JSON.stringify({ field: 'tablet_touch_result', value: 'failed' }),
+                  action: 'create_task',
+                  actionData: { taskType: 'digitizer_deep_test', priority: 'high' },
+                  isActive: true
+                }
+              ],
+              position: { x: 0, y: 100 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: false,
+                onComplete: false,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Energie- und Konnektivitätsdiagnose',
+              description: 'Untersuchen Sie Ladepfad, Batteriezustand und Funkverbindungen.',
+              estimatedTime: 20,
+              isRequired: true,
+              order: 3,
+              category: 'diagnostic',
+              dependencies: [],
+              tools: ['USB-Messgerät', 'Diagnose-App', 'Netzwerk-Testtool'],
+              skills: ['Power-Diagnose', 'Konnektivitätsanalyse'],
+              checklistItems: [
+                'Ladestrom und Spannung prüfen',
+                'Batteriegesundheit bewerten',
+                'WLAN/Bluetooth Reichweite und Stabilität testen',
+                'Abbrüche oder Verbindungsfehler dokumentieren'
+              ],
+              formFields: [
+                {
+                  id: 'tablet_charging_ok',
+                  name: 'tablet_charging_ok',
+                  label: 'Laden funktioniert?',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'yes', label: 'Ja' },
+                    { value: 'no', label: 'Nein' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'tablet_battery_health',
+                  name: 'tablet_battery_health',
+                  label: 'Batteriegesundheit (%)',
+                  type: 'number',
+                  required: true,
+                  validation: { min: 0, max: 100 },
+                  order: 2
+                },
+                {
+                  id: 'tablet_connectivity_status',
+                  name: 'tablet_connectivity_status',
+                  label: 'Konnektivität',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'stable', label: 'Stabil' },
+                    { value: 'unstable', label: 'Instabil' },
+                    { value: 'failed', label: 'Ausfall' }
+                  ],
+                  order: 3
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [
+                {
+                  trigger: 'form_submission',
+                  condition: JSON.stringify({ field: 'tablet_charging_ok', value: 'no' }),
+                  action: 'assign_staff',
+                  actionData: { role: 'power-specialist', reason: 'tablet_charging_issue' },
+                  isActive: true
+                },
+                {
+                  trigger: 'form_submission',
+                  condition: JSON.stringify({ field: 'tablet_battery_health', operator: 'lt', value: 75 }),
+                  action: 'create_task',
+                  actionData: { taskType: 'battery_service_recommendation', priority: 'medium' },
+                  isActive: true
+                }
+              ],
+              position: { x: 0, y: 200 },
+              canSkip: false,
+              requiresApproval: false,
+              notificationSettings: {
+                onStart: false,
+                onComplete: false,
+                onDelay: false
+              }
+            },
+            {
+              name: 'Diagnoseabschluss Tablet',
+              description: 'Führen Sie die Ergebnisbewertung zusammen und leiten Sie den nächsten Bearbeitungsschritt ein.',
+              estimatedTime: 10,
+              isRequired: true,
+              order: 4,
+              category: 'completion',
+              dependencies: [],
+              tools: ['Service-Portal'],
+              skills: ['Bewertung', 'Dokumentation'],
+              checklistItems: [
+                'Diagnoseergebnisse konsolidieren',
+                'Reparaturempfehlung ableiten',
+                'Ersatzteilbedarf markieren',
+                'Abschluss freigeben'
+              ],
+              formFields: [
+                {
+                  id: 'tablet_diagnosis_decision',
+                  name: 'tablet_diagnosis_decision',
+                  label: 'Diagnoseentscheidung',
+                  type: 'radio',
+                  required: true,
+                  options: [
+                    { value: 'repairable', label: 'Reparierbar' },
+                    { value: 'needs_approval', label: 'Kundenfreigabe erforderlich' },
+                    { value: 'not_repairable', label: 'Nicht reparierbar' }
+                  ],
+                  order: 1
+                },
+                {
+                  id: 'tablet_repair_recommendation',
+                  name: 'tablet_repair_recommendation',
+                  label: 'Reparaturempfehlung',
+                  type: 'textarea',
+                  required: true,
+                  placeholder: 'Empfehlung mit Begründung und nächstem operativen Schritt',
+                  validation: { minLength: 20, maxLength: 1000 },
+                  order: 2
+                }
+              ],
+              requiresFormCompletion: true,
+              automationRules: [
+                {
+                  trigger: 'form_submission',
+                  condition: JSON.stringify({ field: 'tablet_diagnosis_decision', value: 'repairable' }),
+                  action: 'update_status',
+                  actionData: { orderStatus: 'diagnosis-complete' },
+                  isActive: true
+                },
+                {
+                  trigger: 'form_submission',
+                  condition: JSON.stringify({ field: 'tablet_diagnosis_decision', value: 'needs_approval' }),
+                  action: 'send_notification',
+                  actionData: { target: 'service_desk', message: 'Tablet-Diagnose abgeschlossen, bitte Kundenfreigabe einholen.' },
+                  isActive: true
+                }
+              ],
+              position: { x: 0, y: 300 },
+              canSkip: false,
+              requiresApproval: true,
+              notificationSettings: {
+                onStart: false,
+                onComplete: true,
+                onDelay: false
+              }
+            }
+          ],
+          estimatedTotalTime: 57,
+          globalAutomationRules: [],
+          workflowSettings: {
+            allowParallelSteps: false,
+            requireStrictOrder: true,
+            autoProgressOnCompletion: false
+          }
         }
       ];
 
       const createdWorkflows = [];
+      let skippedWorkflows = 0;
 
       for (const workflowData of germanWorkflows) {
         try {
+          if (existingWorkflowNameSet.has(workflowData.name)) {
+            skippedWorkflows += 1;
+            console.log(`SeedService.seedGermanWorkflows: Workflow already exists, skipping: ${workflowData.name}`);
+            continue;
+          }
+
           const workflow = new WorkflowTemplate(workflowData);
           await workflow.save();
           createdWorkflows.push(workflow);
@@ -3052,7 +4040,7 @@ class SeedService {
         }
       }
 
-      console.log(`SeedService.seedGermanWorkflows: German workflows created successfully, count: ${createdWorkflows.length}`);
+      console.log(`SeedService.seedGermanWorkflows: German workflows created successfully, count: ${createdWorkflows.length}, skipped: ${skippedWorkflows}`);
       return createdWorkflows;
     } catch (error) {
       console.error('SeedService.seedGermanWorkflows: Error creating German workflows:', error);

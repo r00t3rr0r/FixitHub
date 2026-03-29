@@ -480,9 +480,33 @@ export const startWorkflow = async (orderId: string, workflowId: string) => {
   }
 };
 
+// Description: Assign one or multiple staff members to a workflow step
+// Endpoint: PUT /api/admin/orders/:orderId/workflows/:workflowId/steps/:stepId/assign
+// Request: { staffIds: string[] }
+// Response: { success: boolean, message: string, order: Order }
+export const assignWorkflowStepStaff = async (
+  orderId: string,
+  workflowId: string,
+  stepId: string,
+  staffIds: string[]
+) => {
+  try {
+    console.log("OrderWorkflowAPI: Assigning workflow step staff:", { orderId, workflowId, stepId, staffIds });
+    const response = await api.put(
+      `/api/admin/orders/${orderId}/workflows/${workflowId}/steps/${stepId}/assign`,
+      { staffIds }
+    );
+    console.log("OrderWorkflowAPI: Workflow step staff assigned successfully:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("OrderWorkflowAPI: Error assigning workflow step staff:", error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
 // Description: Complete workflow step
 // Endpoint: POST /api/admin/orders/:orderId/workflows/:workflowId/steps/:stepId/complete
-// Request: { formData?: object, checklistData?: object, notes?: string, photos?: string[] }
+// Request: { formData?: object, checklistData?: object, notes?: string, photos?: string[], timing?: { elapsedMinutes?: number, estimatedMinutes?: number, deltaMinutes?: number, startedAt?: string, pausedMinutes?: number } }
 // Response: { success: boolean, message: string, order: Order }
 export const completeWorkflowStep = async (
   orderId: string,
@@ -493,6 +517,13 @@ export const completeWorkflowStep = async (
     checklistData?: any;
     notes?: string;
     photos?: string[];
+    timing?: {
+      elapsedMinutes?: number;
+      estimatedMinutes?: number;
+      deltaMinutes?: number;
+      startedAt?: string;
+      pausedMinutes?: number;
+    };
   }
 ) => {
   try {

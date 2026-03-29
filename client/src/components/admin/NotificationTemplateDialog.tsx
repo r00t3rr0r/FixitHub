@@ -9,16 +9,18 @@ import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/useToast"
-import { NotificationTemplate } from "@/api/systemConfig"
+import { NotificationTemplate, NotificationTemplateInput } from "@/api/systemConfig"
 import { Plus, X, Save, Eye } from "lucide-react"
 
 interface NotificationTemplateDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   template?: NotificationTemplate | null
-  onSave: (template: Omit<NotificationTemplate, '_id'>) => Promise<void>
+  onSave: (template: NotificationTemplateInput) => Promise<void>
   mode: 'create' | 'edit'
 }
+
+const containsHtml = (value: string) => /<\/?[a-z][\s\S]*>/i.test(value)
 
 export function NotificationTemplateDialog({
   open,
@@ -31,7 +33,7 @@ export function NotificationTemplateDialog({
   const [loading, setLoading] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
 
-  const [formData, setFormData] = useState<Omit<NotificationTemplate, '_id'>>({
+  const [formData, setFormData] = useState<NotificationTemplateInput>({
     name: '',
     type: 'email',
     subject: '',
@@ -47,15 +49,24 @@ export function NotificationTemplateDialog({
   })
 
   const commonVariables = [
-    { name: 'customerName', description: 'Customer full name', required: false },
-    { name: 'orderNumber', description: 'Order number', required: false },
-    { name: 'deviceBrand', description: 'Device brand', required: false },
-    { name: 'deviceModel', description: 'Device model', required: false },
-    { name: 'serviceName', description: 'Service name', required: false },
-    { name: 'totalCost', description: 'Total cost', required: false },
-    { name: 'estimatedCompletion', description: 'Estimated completion date', required: false },
-    { name: 'companyName', description: 'Company name', required: false },
-    { name: 'supportEmail', description: 'Support email', required: false }
+    { name: 'customerName', description: 'Vor- und Nachname des Kunden', required: false },
+    { name: 'customerEmail', description: 'E-Mail-Adresse des Kunden', required: false },
+    { name: 'orderNumber', description: 'Auftragsnummer', required: false },
+    { name: 'deviceBrand', description: 'Geraetemarke', required: false },
+    { name: 'deviceModel', description: 'Geraetemodell', required: false },
+    { name: 'serviceName', description: 'Name der Reparaturleistung', required: false },
+    { name: 'orderStatus', description: 'Aktueller Auftragsstatus', required: false },
+    { name: 'bookingStatus', description: 'Aktueller Buchungsstatus', required: false },
+    { name: 'statusMessage', description: 'Zusatzhinweis zum Status', required: false },
+    { name: 'estimatedCompletion', description: 'Voraussichtliche Fertigstellung', required: false },
+    { name: 'companyName', description: 'Unternehmensname', required: false },
+    { name: 'supportEmail', description: 'Support-E-Mail', required: false },
+    { name: 'supportPhone', description: 'Support-Telefonnummer', required: false },
+    { name: 'trackingUrl', description: 'Link zur Sendungs- oder Auftragsverfolgung', required: false },
+    { name: 'verificationUrl', description: 'Link zur Kontoaktivierung', required: false },
+    { name: 'passwordResetUrl', description: 'Link zum Zuruecksetzen des Passworts', required: false },
+    { name: 'invoiceUrl', description: 'Link zur Rechnung', required: false },
+    { name: 'amountPaid', description: 'Gebuchter Zahlbetrag', required: false }
   ]
 
   useEffect(() => {
@@ -83,8 +94,8 @@ export function NotificationTemplateDialog({
   const handleSave = async () => {
     if (!formData.name || !formData.content) {
       toast({
-        title: "Error",
-        description: "Name and content are required",
+        title: "Fehler",
+        description: "Name und Inhalt sind erforderlich",
         variant: "destructive"
       })
       return
@@ -92,8 +103,8 @@ export function NotificationTemplateDialog({
 
     if (formData.type === 'email' && !formData.subject) {
       toast({
-        title: "Error",
-        description: "Subject is required for email templates",
+        title: "Fehler",
+        description: "Ein Betreff ist fuer E-Mail-Vorlagen erforderlich",
         variant: "destructive"
       })
       return
@@ -104,12 +115,12 @@ export function NotificationTemplateDialog({
       await onSave(formData)
       onOpenChange(false)
       toast({
-        title: "Success",
-        description: `Template ${mode === 'create' ? 'created' : 'updated'} successfully`
+        title: "Erfolg",
+        description: `Vorlage wurde erfolgreich ${mode === 'create' ? 'erstellt' : 'aktualisiert'}`
       })
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message,
         variant: "destructive"
       })
@@ -121,8 +132,8 @@ export function NotificationTemplateDialog({
   const addVariable = () => {
     if (!newVariable.name) {
       toast({
-        title: "Error",
-        description: "Variable name is required",
+        title: "Fehler",
+        description: "Ein Variablenname ist erforderlich",
         variant: "destructive"
       })
       return
@@ -130,8 +141,8 @@ export function NotificationTemplateDialog({
 
     if (formData.variables.some(v => v.name === newVariable.name)) {
       toast({
-        title: "Error",
-        description: "Variable with this name already exists",
+        title: "Fehler",
+        description: "Eine Variable mit diesem Namen existiert bereits",
         variant: "destructive"
       })
       return
@@ -155,8 +166,8 @@ export function NotificationTemplateDialog({
   const addCommonVariable = (variable: typeof commonVariables[0]) => {
     if (formData.variables.some(v => v.name === variable.name)) {
       toast({
-        title: "Error",
-        description: "Variable already exists",
+        title: "Fehler",
+        description: "Die Variable ist bereits vorhanden",
         variant: "destructive"
       })
       return
@@ -181,28 +192,40 @@ export function NotificationTemplateDialog({
 
   const getSampleValue = (variableName: string) => {
     const sampleValues: Record<string, string> = {
-      customerName: 'John Doe',
-      orderNumber: 'ORD-001',
+      customerName: 'Max Mustermann',
+      customerEmail: 'max.mustermann@example.de',
+      orderNumber: 'REP-2026-1042',
       deviceBrand: 'Apple',
-      deviceModel: 'iPhone 12',
-      serviceName: 'Screen Replacement',
-      totalCost: '$299.99',
-      estimatedCompletion: 'March 15, 2024',
-      companyName: 'FixitHub',
-      supportEmail: 'support@fixithub.com'
+      deviceModel: 'iPhone 14 Pro',
+      serviceName: 'Displayreparatur',
+      orderStatus: 'In Bearbeitung',
+      bookingStatus: 'Diagnose abgeschlossen',
+      statusMessage: 'Ihr Geraet ist in der Werkstatt eingegangen und wird aktuell geprueft.',
+      estimatedCompletion: '02. April 2026',
+      companyName: 'McRepair',
+      supportEmail: 'service@mcrepair.de',
+      supportPhone: '+49 40 1234567',
+      trackingUrl: 'https://mcrepair.de/konto/auftraege/REP-2026-1042',
+      verificationUrl: 'https://mcrepair.de/aktivieren/token-123',
+      passwordResetUrl: 'https://mcrepair.de/passwort-zuruecksetzen/token-456',
+      invoiceUrl: 'https://mcrepair.de/rechnungen/RE-2026-0091',
+      amountPaid: '189,00 EUR'
     }
     return sampleValues[variableName] || `[${variableName}]`
   }
+
+  const previewContent = renderPreview()
+  const previewContainsHtml = containsHtml(previewContent)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0">
         <DialogHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white p-6 rounded-t-lg">
           <DialogTitle className="text-xl">
-            {mode === 'create' ? 'Create Notification Template' : 'Edit Notification Template'}
+            {mode === 'create' ? 'Benachrichtigungsvorlage erstellen' : 'Benachrichtigungsvorlage bearbeiten'}
           </DialogTitle>
           <DialogDescription className="text-blue-100 text-sm mt-2">
-            Create customizable notification templates with dynamic variables
+            Erstellen Sie professionelle Vorlagen mit dynamischen Variablen und Live-Vorschau
           </DialogDescription>
         </DialogHeader>
 
@@ -210,17 +233,17 @@ export function NotificationTemplateDialog({
           {/* Basic Information */}
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1">
-              <Label htmlFor="name" className="text-sm">Template Name *</Label>
+              <Label htmlFor="name" className="text-sm">Vorlagenname *</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Enter template name"
+                placeholder="z. B. Auftragsbestaetigung Reparatur"
                 className="h-9 text-sm"
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="type" className="text-sm">Type *</Label>
+              <Label htmlFor="type" className="text-sm">Typ *</Label>
               <Select
                 value={formData.type}
                 onValueChange={(value: 'email' | 'sms' | 'push') => 
@@ -231,9 +254,9 @@ export function NotificationTemplateDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="email">E-Mail</SelectItem>
                   <SelectItem value="sms">SMS</SelectItem>
-                  <SelectItem value="push">Push Notification</SelectItem>
+                  <SelectItem value="push">Push-Benachrichtigung</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -242,21 +265,20 @@ export function NotificationTemplateDialog({
           {/* Subject (for email) */}
           {formData.type === 'email' && (
             <div className="space-y-1">
-              <Label htmlFor="subject" className="text-sm">Subject *</Label>
+              <Label htmlFor="subject" className="text-sm">Betreff *</Label>
               <Input
                 id="subject"
                 value={formData.subject}
                 onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
-                placeholder="Enter email subject"
+                placeholder="z. B. Ihr Reparaturauftrag {{orderNumber}} ist eingegangen"
                 className="h-9 text-sm"
               />
             </div>
           )}
 
-          {/* Content */}
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-2">
-              <Label htmlFor="content" className="text-sm">Content *</Label>
+              <Label htmlFor="content" className="text-sm">Inhalt *</Label>
               <Button
                 type="button"
                 variant="outline"
@@ -265,40 +287,48 @@ export function NotificationTemplateDialog({
                 className="h-8 text-xs"
               >
                 <Eye className="h-3 w-3 mr-1" />
-                {showPreview ? 'Hide Preview' : 'Show Preview'}
+                {showPreview ? 'Vorschau ausblenden' : 'Vorschau anzeigen'}
               </Button>
             </div>
             <Textarea
               id="content"
               value={formData.content}
               onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-              placeholder="Enter template content. Use {{variableName}} for dynamic content."
-              rows={6}
+              placeholder="Fuegen Sie hier Text oder HTML mit {{variableName}}-Platzhaltern ein."
+              rows={10}
               className="text-sm"
             />
+            <p className="text-xs text-muted-foreground">
+              Fuer E-Mail-Vorlagen koennen Sie komplettes HTML mit Inline-Styles verwenden. Platzhalter bleiben im Format {'{{variableName}}'}.
+            </p>
             {showPreview && (
               <Card className="mt-2 border-blue-200 bg-blue-50">
                 <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t p-3">
-                  <CardTitle className="text-sm">Preview</CardTitle>
+                  <CardTitle className="text-sm">Vorschau</CardTitle>
                 </CardHeader>
                 <CardContent className="p-3">
-                  <div className="whitespace-pre-wrap text-xs bg-white p-2 rounded border border-blue-200">
-                    {renderPreview()}
-                  </div>
+                  {previewContainsHtml ? (
+                    <div
+                      className="bg-white p-2 rounded border border-blue-200 overflow-auto max-h-[420px]"
+                      dangerouslySetInnerHTML={{ __html: previewContent }}
+                    />
+                  ) : (
+                    <div className="whitespace-pre-wrap text-xs bg-white p-2 rounded border border-blue-200">
+                      {previewContent}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
           </div>
 
-          {/* Variables */}
           <div className="space-y-2">
-            <Label className="text-sm">Variables</Label>
+            <Label className="text-sm">Variablen</Label>
             
-            {/* Common Variables */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Common Variables</CardTitle>
-                <CardDescription>Click to add commonly used variables</CardDescription>
+                <CardTitle className="text-sm">Haeufige Variablen</CardTitle>
+                <CardDescription>Per Klick koennen Sie gaengige Platzhalter uebernehmen</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
@@ -319,20 +349,19 @@ export function NotificationTemplateDialog({
               </CardContent>
             </Card>
 
-            {/* Add Custom Variable */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Add Custom Variable</CardTitle>
+                <CardTitle className="text-sm">Eigene Variable hinzufuegen</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-4">
                   <Input
-                    placeholder="Variable name"
+                    placeholder="Variablenname"
                     value={newVariable.name}
                     onChange={(e) => setNewVariable(prev => ({ ...prev, name: e.target.value }))}
                   />
                   <Input
-                    placeholder="Description"
+                    placeholder="Beschreibung"
                     value={newVariable.description}
                     onChange={(e) => setNewVariable(prev => ({ ...prev, description: e.target.value }))}
                   />
@@ -341,21 +370,20 @@ export function NotificationTemplateDialog({
                       checked={newVariable.required}
                       onCheckedChange={(checked) => setNewVariable(prev => ({ ...prev, required: checked }))}
                     />
-                    <Label className="text-sm">Required</Label>
+                    <Label className="text-sm">Pflichtfeld</Label>
                   </div>
                   <Button type="button" onClick={addVariable}>
                     <Plus className="h-4 w-4 mr-2" />
-                    Add
+                    Hinzufuegen
                   </Button>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Current Variables */}
             {formData.variables.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-sm">Current Variables</CardTitle>
+                  <CardTitle className="text-sm">Aktuelle Variablen</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
@@ -370,7 +398,7 @@ export function NotificationTemplateDialog({
                           </span>
                           {variable.required && (
                             <Badge variant="destructive" className="text-xs">
-                              Required
+                              Pflicht
                             </Badge>
                           )}
                         </div>
@@ -390,30 +418,29 @@ export function NotificationTemplateDialog({
             )}
           </div>
 
-          {/* Active Status */}
           <div className="flex items-center space-x-2">
             <Switch
               checked={formData.isActive}
               onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
             />
-            <Label>Active Template</Label>
+            <Label>Vorlage aktiv</Label>
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            Abbrechen
           </Button>
           <Button onClick={handleSave} disabled={loading}>
             {loading ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Saving...
+                Speichert...
               </>
             ) : (
               <>
                 <Save className="h-4 w-4 mr-2" />
-                {mode === 'create' ? 'Create Template' : 'Update Template'}
+                {mode === 'create' ? 'Vorlage erstellen' : 'Vorlage aktualisieren'}
               </>
             )}
           </Button>

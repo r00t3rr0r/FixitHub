@@ -370,6 +370,12 @@ export function RepairRequestMessagesPanel({
                   ? `${(communication?.pendingFeedbackCount || 0) + (communication?.pendingActionsCount || 0)} pending interactions`
                   : "All caught up"}
               </CardDescription>
+              {/* Created By Information - Staff/Admin Only */}
+              {isStaffOrAdmin && communication?.createdBy && (
+                <div className="text-xs text-gray-600 mt-2">
+                  Created by {communication.createdBy.name} ({communication.createdBy.role})
+                </div>
+              )}
             </div>
 
             {/* Staff/Admin Action Buttons */}

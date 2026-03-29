@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -56,6 +56,15 @@ interface WorkflowStep {
   canSkip?: boolean
   startedAt?: string
   completedAt?: string
+  actualDurationMinutes?: number
+  totalPausedMinutes?: number
+  currentPauseStartedAt?: string
+  pauseHistory?: Array<{
+    pausedAt: string
+    resumedAt?: string
+    durationMinutes?: number
+    reason?: string
+  }>
 }
 
 interface WorkflowStepExecutionPanelProps {
@@ -66,6 +75,8 @@ interface WorkflowStepExecutionPanelProps {
   onStepComplete: (stepData: any) => Promise<void>
   onStepSkip?: (reason: string) => Promise<void>
   isLoading?: boolean
+  workflowStatus?: 'not-started' | 'in-progress' | 'completed' | 'on-hold'
+  workflowPauseReason?: string
 }
 
 export function WorkflowStepExecutionPanel({
@@ -76,6 +87,8 @@ export function WorkflowStepExecutionPanel({
   onStepComplete,
   onStepSkip,
   isLoading = false,
+  workflowStatus,
+  workflowPauseReason,
 }: WorkflowStepExecutionPanelProps) {
   const { t } = useTranslation()
   const { toast } = useToast()
@@ -96,11 +109,82 @@ export function WorkflowStepExecutionPanel({
   const [showSkipConfirm, setShowSkipConfirm] = useState(false)
   const [skipReason, setSkipReason] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [timerTick, setTimerTick] = useState(() => Date.now())
+  const [fallbackStartedAt, setFallbackStartedAt] = useState<string>(() => new Date().toISOString())
 
   const canGoNext = currentStepIndex < steps.length - 1
   const canGoPrev = currentStepIndex > 0
   const completedSteps = steps.filter((s) => s.status === 'completed').length
   const progressPercentage = (completedSteps / steps.length) * 100
+
+  useEffect(() => {
+    if (normalizedStep.startedAt) {
+      setFallbackStartedAt(normalizedStep.startedAt)
+    } else {
+      setFallbackStartedAt(new Date().toISOString())
+    }
+  }, [normalizedStep._id, normalizedStep.startedAt])
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setTimerTick(Date.now())
+    }, 1000)
+
+    return () => {
+      window.clearInterval(interval)
+    }
+  }, [])
+
+  const effectiveStartedAt = normalizedStep.startedAt || fallbackStartedAt
+  const storedPausedMinutes = Number(normalizedStep.totalPausedMinutes || 0)
+  const activePauseMinutes = useMemo(() => {
+    if (workflowStatus !== 'on-hold' || !normalizedStep.currentPauseStartedAt) {
+      return 0
+    }
+
+    const pauseStart = new Date(normalizedStep.currentPauseStartedAt).getTime()
+    if (!Number.isFinite(pauseStart) || timerTick <= pauseStart) {
+      return 0
+    }
+
+    return Math.max(0, Math.round((timerTick - pauseStart) / 60000))
+  }, [workflowStatus, normalizedStep.currentPauseStartedAt, timerTick])
+
+  const totalPausedMinutes = Math.max(0, storedPausedMinutes + activePauseMinutes)
+
+  const stepElapsedMinutes = useMemo(() => {
+    if (normalizedStep.actualDurationMinutes && normalizedStep.actualDurationMinutes > 0) {
+      return normalizedStep.actualDurationMinutes
+    }
+
+    const start = new Date(effectiveStartedAt).getTime()
+    const end = normalizedStep.completedAt
+      ? new Date(normalizedStep.completedAt).getTime()
+      : timerTick
+
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+      return 0
+    }
+
+    const rawMinutes = Math.max(0, Math.round((end - start) / 60000))
+    return Math.max(0, rawMinutes - totalPausedMinutes)
+  }, [effectiveStartedAt, normalizedStep.actualDurationMinutes, normalizedStep.completedAt, timerTick, totalPausedMinutes])
+
+  const estimatedMinutes = normalizedStep.estimatedTime || 0
+  const deltaMinutes = stepElapsedMinutes - estimatedMinutes
+  const stepTimingProgress = estimatedMinutes > 0
+    ? Math.min(100, Math.round((stepElapsedMinutes / estimatedMinutes) * 100))
+    : 0
+  const isStepOverEstimate = estimatedMinutes > 0 && stepElapsedMinutes > estimatedMinutes
+
+  const formatMinutes = (minutes: number) => {
+    if (!Number.isFinite(minutes) || minutes < 0) return "0m"
+    const hours = Math.floor(minutes / 60)
+    const remaining = minutes % 60
+    if (hours <= 0) return `${remaining}m`
+    if (remaining <= 0) return `${hours}h`
+    return `${hours}h ${remaining}m`
+  }
 
   const validateForm = (): boolean => {
     if (!normalizedStep.formFields || normalizedStep.formFields.length === 0) return true
@@ -116,8 +200,8 @@ export function WorkflowStepExecutionPanel({
 
       if (field.required && isEmpty) {
         toast({
-          title: "Validation Error",
-          description: `${field.label} is required`,
+          title: "Validierungsfehler",
+          description: `${field.label} ist erforderlich`,
           variant: "destructive",
         })
         return false
@@ -128,24 +212,24 @@ export function WorkflowStepExecutionPanel({
         const value = parseFloat(fieldValue)
         if (isNaN(value)) {
           toast({
-            title: "Validation Error",
-            description: `${field.label} must be a valid number`,
+            title: "Validierungsfehler",
+            description: `${field.label} muss eine gueltige Zahl sein`,
             variant: "destructive",
           })
           return false
         }
         if (field.validation?.min !== undefined && value < field.validation.min) {
           toast({
-            title: "Validation Error",
-            description: `${field.label} must be at least ${field.validation.min}`,
+            title: "Validierungsfehler",
+            description: `${field.label} muss mindestens ${field.validation.min} sein`,
             variant: "destructive",
           })
           return false
         }
         if (field.validation?.max !== undefined && value > field.validation.max) {
           toast({
-            title: "Validation Error",
-            description: `${field.label} must be at most ${field.validation.max}`,
+            title: "Validierungsfehler",
+            description: `${field.label} darf hoechstens ${field.validation.max} sein`,
             variant: "destructive",
           })
           return false
@@ -157,16 +241,16 @@ export function WorkflowStepExecutionPanel({
         const value = fieldValue as string
         if (field.validation?.minLength && value.length < field.validation.minLength) {
           toast({
-            title: "Validation Error",
-            description: `${field.label} must be at least ${field.validation.minLength} characters`,
+            title: "Validierungsfehler",
+            description: `${field.label} muss mindestens ${field.validation.minLength} Zeichen haben`,
             variant: "destructive",
           })
           return false
         }
         if (field.validation?.maxLength && value.length > field.validation.maxLength) {
           toast({
-            title: "Validation Error",
-            description: `${field.label} must be at most ${field.validation.maxLength} characters`,
+            title: "Validierungsfehler",
+            description: `${field.label} darf hoechstens ${field.validation.maxLength} Zeichen haben`,
             variant: "destructive",
           })
           return false
@@ -178,16 +262,16 @@ export function WorkflowStepExecutionPanel({
         const value = fieldValue as string
         if (field.validation?.minLength && value.length < field.validation.minLength) {
           toast({
-            title: "Validation Error",
-            description: `${field.label} must be at least ${field.validation.minLength} characters`,
+            title: "Validierungsfehler",
+            description: `${field.label} muss mindestens ${field.validation.minLength} Zeichen haben`,
             variant: "destructive",
           })
           return false
         }
         if (field.validation?.maxLength && value.length > field.validation.maxLength) {
           toast({
-            title: "Validation Error",
-            description: `${field.label} must be at most ${field.validation.maxLength} characters`,
+            title: "Validierungsfehler",
+            description: `${field.label} darf hoechstens ${field.validation.maxLength} Zeichen haben`,
             variant: "destructive",
           })
           return false
@@ -198,8 +282,8 @@ export function WorkflowStepExecutionPanel({
       if (field.type === 'multiselect' && field.required) {
         if (!Array.isArray(fieldValue) || fieldValue.length === 0) {
           toast({
-            title: "Validation Error",
-            description: `Please select at least one option for ${field.label}`,
+            title: "Validierungsfehler",
+            description: `Bitte waehle mindestens eine Option fuer ${field.label}`,
             variant: "destructive",
           })
           return false
@@ -222,11 +306,18 @@ export function WorkflowStepExecutionPanel({
         checklistData: Object.keys(checklistData).length > 0 ? checklistData : undefined,
         notes: notes || undefined,
         photos: photos.length > 0 ? photos : undefined,
+        timing: {
+          elapsedMinutes: stepElapsedMinutes,
+          estimatedMinutes,
+          deltaMinutes,
+          startedAt: effectiveStartedAt,
+          pausedMinutes: totalPausedMinutes,
+        },
       })
 
       toast({
-        title: "Success",
-        description: `Step "${step.name}" completed successfully`,
+        title: "Erfolg",
+        description: `Schritt "${step.name}" wurde erfolgreich abgeschlossen`,
       })
 
       // Reset form for next step if available
@@ -242,8 +333,8 @@ export function WorkflowStepExecutionPanel({
     } catch (error: any) {
       console.error("Error completing step:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to complete step",
+        title: "Fehler",
+        description: error.message || "Schritt konnte nicht abgeschlossen werden",
         variant: "destructive",
       })
     } finally {
@@ -254,8 +345,8 @@ export function WorkflowStepExecutionPanel({
   const handleSkipStep = async () => {
     if (!step.canSkip) {
       toast({
-        title: "Cannot Skip",
-        description: "This step cannot be skipped",
+        title: "Ueberspringen nicht moeglich",
+        description: "Dieser Schritt kann nicht uebersprungen werden",
         variant: "destructive",
       })
       return
@@ -269,8 +360,8 @@ export function WorkflowStepExecutionPanel({
         await onStepSkip(skipReason)
 
         toast({
-          title: "Success",
-          description: `Step "${step.name}" skipped`,
+          title: "Erfolg",
+          description: `Schritt "${step.name}" wurde uebersprungen`,
         })
 
         setSkipReason("")
@@ -283,8 +374,8 @@ export function WorkflowStepExecutionPanel({
     } catch (error: any) {
       console.error("Error skipping step:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to skip step",
+        title: "Fehler",
+        description: error.message || "Schritt konnte nicht uebersprungen werden",
         variant: "destructive",
       })
     } finally {
@@ -314,28 +405,30 @@ export function WorkflowStepExecutionPanel({
 
   const completedChecklistItems = Object.values(checklistData).filter(Boolean).length
   const totalChecklistItems = normalizedStep.checklistItems?.length || 0
+  const fieldControlClass = "bg-white border-slate-300 text-slate-900 focus-visible:ring-[#1a2a5e] focus-visible:ring-offset-1"
+  const choiceControlClass = "border-slate-400 data-[state=checked]:border-[#1a2a5e] data-[state=checked]:bg-[#1a2a5e]"
 
   return (
     <>
-      <Card className="border-gray-200 bg-white shadow-sm">
-        <CardHeader>
+      <Card className="border-gray-200 bg-white shadow-sm overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] text-white">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
-              <CardTitle className="text-lg">
-                Step {currentStepIndex + 1}: {normalizedStep.name}
+              <CardTitle className="text-lg text-white">
+                Schritt {currentStepIndex + 1}: {normalizedStep.name}
               </CardTitle>
-              <CardDescription className="mt-2">
-                {normalizedStep.description || "No description provided"}
+              <CardDescription className="mt-2 text-blue-100">
+                {normalizedStep.description || "Keine Beschreibung vorhanden"}
               </CardDescription>
             </div>
             <Badge
               variant="outline"
               className={`whitespace-nowrap ${
                 normalizedStep.status === 'completed'
-                  ? 'bg-green-500/10 text-green-700 border-green-200'
+                  ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
                   : normalizedStep.status === 'in-progress'
-                    ? 'bg-blue-500/10 text-blue-700 border-blue-200'
-                    : 'bg-gray-500/10 text-gray-700 border-gray-200'
+                    ? 'bg-white text-[#1a2a5e] border-blue-100'
+                    : 'bg-slate-100 text-slate-700 border-slate-200'
               }`}
             >
               {normalizedStep.status === 'completed' && <CheckCircle2 className="h-4 w-4 mr-1" />}
@@ -346,12 +439,82 @@ export function WorkflowStepExecutionPanel({
         </CardHeader>
 
         <CardContent className="space-y-6">
+          {/* Step Timing Guidance */}
+          <div className={`rounded-lg border p-4 ${
+            isStepOverEstimate
+              ? 'border-amber-300 bg-amber-50'
+              : 'border-blue-100 bg-blue-50/60'
+          }`}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Zeitstatus dieses Steps</p>
+                <p className="text-xs text-slate-600">
+                  {estimatedMinutes > 0
+                    ? 'Die Soll-Zeit ist eine Richtlinie. Du siehst hier live, ob du im Plan bist.'
+                    : 'Für diesen Step wurde keine Soll-Zeit hinterlegt.'}
+                </p>
+              </div>
+              <Badge
+                variant="outline"
+                className={isStepOverEstimate
+                  ? 'border-amber-300 bg-amber-100 text-amber-800'
+                  : 'border-emerald-200 bg-emerald-100 text-emerald-800'}
+              >
+                {isStepOverEstimate ? 'Ueber Sollzeit' : 'Im Zeitplan'}
+              </Badge>
+            </div>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-md bg-white p-3 border border-slate-100">
+                <p className="text-xs text-slate-500">Soll-Zeit</p>
+                <p className="text-lg font-semibold text-slate-900">{formatMinutes(estimatedMinutes)}</p>
+              </div>
+              <div className="rounded-md bg-white p-3 border border-slate-100">
+                <p className="text-xs text-slate-500">Laufzeit</p>
+                <p className="text-lg font-semibold text-slate-900">{formatMinutes(stepElapsedMinutes)}</p>
+              </div>
+              <div className="rounded-md bg-white p-3 border border-slate-100">
+                <p className="text-xs text-slate-500">Abweichung</p>
+                <p className={`text-lg font-semibold ${deltaMinutes > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                  {deltaMinutes > 0 ? '+' : ''}{formatMinutes(Math.abs(deltaMinutes))}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-md bg-white p-3 border border-slate-100">
+                <p className="text-xs text-slate-500">Pausenzeit in diesem Schritt</p>
+                <p className="text-lg font-semibold text-slate-900">{formatMinutes(totalPausedMinutes)}</p>
+              </div>
+              <div className="rounded-md bg-white p-3 border border-slate-100">
+                <p className="text-xs text-slate-500">Aktueller Workflow-Status</p>
+                <p className={`text-sm font-semibold ${workflowStatus === 'on-hold' ? 'text-amber-700' : 'text-slate-900'}`}>
+                  {workflowStatus === 'on-hold' ? 'Pausiert' : 'Aktiv'}
+                </p>
+                {workflowStatus === 'on-hold' && workflowPauseReason && (
+                  <p className="mt-1 text-xs text-slate-600">Grund: {workflowPauseReason}</p>
+                )}
+              </div>
+            </div>
+
+            {estimatedMinutes > 0 && (
+              <div className="mt-3 space-y-1">
+                <Progress value={stepTimingProgress} className="h-2" />
+                <p className="text-xs text-slate-500">
+                  {isStepOverEstimate
+                    ? `Du arbeitest seit ${formatMinutes(stepElapsedMinutes)} an diesem Step und liegst ${formatMinutes(Math.abs(deltaMinutes))} ueber der Richtzeit.`
+                    : `Du arbeitest seit ${formatMinutes(stepElapsedMinutes)} an diesem Step und liegst im Zeitkorridor.`}
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* Overall Progress */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Workflow Progress</span>
+              <span className="text-sm font-medium">Workflow-Fortschritt</span>
               <span className="text-sm text-muted-foreground">
-                {completedSteps}/{steps.length} steps
+                {completedSteps}/{steps.length} Schritte
               </span>
             </div>
             <Progress value={progressPercentage} className="h-2" />
@@ -361,7 +524,7 @@ export function WorkflowStepExecutionPanel({
           {normalizedStep.estimatedTime && (
             <div className="flex items-center gap-2 text-sm">
               <Clock className="h-4 w-4 text-muted-foreground" />
-              <span>Estimated time: {normalizedStep.estimatedTime} minutes</span>
+              <span>Richtzeit: {normalizedStep.estimatedTime} Minuten</span>
             </div>
           )}
 
@@ -370,7 +533,7 @@ export function WorkflowStepExecutionPanel({
             <div className="space-y-3">
               <h4 className="font-medium flex items-center gap-2">
                 <AlertCircle className="h-4 w-4" />
-                Checklist Items ({completedChecklistItems}/{totalChecklistItems})
+                Checkliste ({completedChecklistItems}/{totalChecklistItems})
               </h4>
               <div className="space-y-2 bg-white p-3 rounded-lg border">
                 {normalizedStep.checklistItems.map((item, index) => (
@@ -380,10 +543,11 @@ export function WorkflowStepExecutionPanel({
                       checked={checklistData[index] || false}
                       onCheckedChange={() => handleChecklistItemToggle(index)}
                       disabled={isSubmitting}
+                      className={choiceControlClass}
                     />
                     <label
                       htmlFor={`checklist-${index}`}
-                      className="text-sm flex-1 cursor-pointer"
+                      className="text-sm text-slate-800 flex-1 cursor-pointer"
                     >
                       {item}
                     </label>
@@ -396,11 +560,11 @@ export function WorkflowStepExecutionPanel({
           {/* Form Fields */}
           {normalizedStep.formFields && normalizedStep.formFields.length > 0 && (
             <div className="space-y-3">
-              <h4 className="font-medium">Form Information</h4>
-              <div className="space-y-4 bg-white p-3 rounded-lg border">
+              <h4 className="font-medium">Formularangaben</h4>
+              <div className="space-y-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
                 {normalizedStep.formFields.map((field) => (
-                  <div key={field.id} className="space-y-1">
-                    <label className="text-sm font-medium">
+                  <div key={field.id} className="space-y-2 rounded-md border border-slate-200 bg-white p-3">
+                    <label className="text-sm font-semibold text-slate-800">
                       {field.label}
                       {field.required && <span className="text-red-500 ml-1">*</span>}
                     </label>
@@ -411,6 +575,7 @@ export function WorkflowStepExecutionPanel({
                         value={formData[field.name] || ""}
                         onChange={(e) => handleFormFieldChange(field.name, e.target.value)}
                         disabled={isSubmitting}
+                        className={fieldControlClass}
                       />
                     )}
 
@@ -421,6 +586,7 @@ export function WorkflowStepExecutionPanel({
                         onChange={(e) => handleFormFieldChange(field.name, e.target.value)}
                         disabled={isSubmitting}
                         rows={3}
+                        className={fieldControlClass}
                       />
                     )}
 
@@ -433,6 +599,7 @@ export function WorkflowStepExecutionPanel({
                         disabled={isSubmitting}
                         min={field.validation?.min}
                         max={field.validation?.max}
+                        className={fieldControlClass}
                       />
                     )}
 
@@ -442,6 +609,7 @@ export function WorkflowStepExecutionPanel({
                         value={formData[field.name] || ""}
                         onChange={(e) => handleFormFieldChange(field.name, e.target.value)}
                         disabled={isSubmitting}
+                        className={fieldControlClass}
                       />
                     )}
 
@@ -451,6 +619,7 @@ export function WorkflowStepExecutionPanel({
                         value={formData[field.name] || ""}
                         onChange={(e) => handleFormFieldChange(field.name, e.target.value)}
                         disabled={isSubmitting}
+                        className={fieldControlClass}
                       />
                     )}
 
@@ -460,12 +629,16 @@ export function WorkflowStepExecutionPanel({
                         onValueChange={(value) => handleFormFieldChange(field.name, value)}
                         disabled={isSubmitting}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className={fieldControlClass}>
                           <SelectValue placeholder={field.placeholder} />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="border-slate-300">
                           {field.options.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
+                            <SelectItem
+                              key={option.value}
+                              value={option.value}
+                              className="text-slate-800 focus:bg-blue-50 focus:text-[#1a2a5e]"
+                            >
                               {option.label}
                             </SelectItem>
                           ))}
@@ -479,8 +652,9 @@ export function WorkflowStepExecutionPanel({
                           checked={formData[field.name] || false}
                           onCheckedChange={(checked) => handleFormFieldChange(field.name, checked)}
                           disabled={isSubmitting}
+                          className={choiceControlClass}
                         />
-                        <span className="text-sm">{field.placeholder}</span>
+                        <span className="text-sm text-slate-800">{field.placeholder}</span>
                       </div>
                     )}
 
@@ -497,10 +671,11 @@ export function WorkflowStepExecutionPanel({
                                 value={option.value}
                                 id={`${field.id}-${option.value}`}
                                 disabled={isSubmitting}
+                                className="border-slate-400 text-[#1a2a5e]"
                               />
                               <label
                                 htmlFor={`${field.id}-${option.value}`}
-                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                className="text-sm text-slate-800 font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                               >
                                 {option.label}
                               </label>
@@ -529,10 +704,11 @@ export function WorkflowStepExecutionPanel({
                                 }
                               }}
                               disabled={isSubmitting}
+                              className={choiceControlClass}
                             />
                             <label
                               htmlFor={`${field.id}-${option.value}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                              className="text-sm text-slate-800 font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                             >
                               {option.label}
                             </label>
@@ -543,7 +719,7 @@ export function WorkflowStepExecutionPanel({
 
                     {field.type === 'file' && (
                       <div className="space-y-2">
-                        <div className="border-2 border-dashed rounded-lg p-3 text-center">
+                        <div className="border-2 border-dashed border-slate-300 rounded-lg p-3 text-center bg-slate-50">
                           <input
                             type="file"
                             multiple
@@ -562,9 +738,9 @@ export function WorkflowStepExecutionPanel({
                             htmlFor={`file-${field.id}`}
                             className="cursor-pointer flex flex-col items-center gap-1"
                           >
-                            <FileUp className="h-5 w-5 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">
-                              Click to upload files
+                            <FileUp className="h-5 w-5 text-slate-500" />
+                            <span className="text-xs text-slate-700">
+                              Klicken, um Dateien hochzuladen
                             </span>
                           </label>
                         </div>
@@ -593,7 +769,7 @@ export function WorkflowStepExecutionPanel({
                     )}
 
                     {field.helpText && (
-                      <p className="text-xs text-muted-foreground">{field.helpText}</p>
+                      <p className="text-xs text-slate-600">{field.helpText}</p>
                     )}
                   </div>
                 ))}
@@ -603,9 +779,9 @@ export function WorkflowStepExecutionPanel({
 
           {/* Notes */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Additional Notes</label>
+            <label className="text-sm font-medium">Zusaetzliche Notizen</label>
             <Textarea
-              placeholder="Add any notes or observations about this step..."
+              placeholder="Notizen oder Beobachtungen zu diesem Schritt..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               disabled={isSubmitting}
@@ -615,7 +791,7 @@ export function WorkflowStepExecutionPanel({
 
           {/* Photo Upload */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Upload Photos</label>
+            <label className="text-sm font-medium">Fotos hochladen</label>
             <div className="border-2 border-dashed rounded-lg p-4 text-center">
               <input
                 type="file"
@@ -632,13 +808,13 @@ export function WorkflowStepExecutionPanel({
               >
                 <FileUp className="h-6 w-6 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">
-                  Click to upload photos or drag and drop
+                  Klicken, um Fotos hochzuladen, oder per Drag and Drop ablegen
                 </span>
               </label>
             </div>
             {photos.length > 0 && (
               <div className="text-sm text-muted-foreground">
-                {photos.length} photo(s) selected
+                {photos.length} Foto(s) ausgewaehlt
               </div>
             )}
           </div>
@@ -652,11 +828,11 @@ export function WorkflowStepExecutionPanel({
               disabled={!canGoPrev || isSubmitting || isLoading}
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
-              Previous
+              Zurueck
             </Button>
 
             <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-              Step {currentStepIndex + 1} / {steps.length}
+              Schritt {currentStepIndex + 1} / {steps.length}
             </div>
 
             <Button
@@ -665,7 +841,7 @@ export function WorkflowStepExecutionPanel({
               onClick={() => onStepChange(Math.min(steps.length - 1, currentStepIndex + 1))}
               disabled={!canGoNext || isSubmitting || isLoading}
             >
-              Next
+              Weiter
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
@@ -679,7 +855,7 @@ export function WorkflowStepExecutionPanel({
                   disabled={isSubmitting || isLoading}
                   className="flex-1"
                 >
-                  {isSubmitting ? "Completing..." : `Complete Step ${currentStepIndex + 1}`}
+                  {isSubmitting ? "Schliesse ab..." : `Schritt ${currentStepIndex + 1} abschliessen`}
                 </Button>
 
                 {normalizedStep.canSkip && (
@@ -688,7 +864,7 @@ export function WorkflowStepExecutionPanel({
                     onClick={() => setShowSkipConfirm(true)}
                     disabled={isSubmitting || isLoading}
                   >
-                    Skip Step
+                    Schritt ueberspringen
                   </Button>
                 )}
               </>
@@ -697,7 +873,7 @@ export function WorkflowStepExecutionPanel({
             {normalizedStep.status === 'completed' && (
               <div className="flex-1 flex items-center justify-center gap-2 text-green-600">
                 <CheckCircle2 className="h-5 w-5" />
-                <span>Step Completed</span>
+                <span>Schritt abgeschlossen</span>
               </div>
             )}
           </div>
@@ -708,15 +884,15 @@ export function WorkflowStepExecutionPanel({
       <AlertDialog open={showCompleteConfirm} onOpenChange={setShowCompleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Complete Step?</AlertDialogTitle>
+            <AlertDialogTitle>Schritt abschliessen?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to mark "{normalizedStep.name}" as complete? You will be automatically guided to the next step.
+              Moechtest du "{normalizedStep.name}" wirklich als abgeschlossen markieren? Danach wirst du automatisch zum naechsten Schritt gefuehrt.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isSubmitting}>Abbrechen</AlertDialogCancel>
             <AlertDialogAction onClick={handleCompleteStep} disabled={isSubmitting}>
-              {isSubmitting ? "Completing..." : "Complete Step"}
+              {isSubmitting ? "Schliesse ab..." : "Schritt abschliessen"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -727,14 +903,14 @@ export function WorkflowStepExecutionPanel({
         <AlertDialog open={showSkipConfirm} onOpenChange={setShowSkipConfirm}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Skip Step?</AlertDialogTitle>
+              <AlertDialogTitle>Schritt ueberspringen?</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to skip "{normalizedStep.name}"? Please provide a reason for skipping this step.
+                Moechtest du "{normalizedStep.name}" wirklich ueberspringen? Bitte gib einen Grund an.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="space-y-4 py-4">
               <Textarea
-                placeholder="Why are you skipping this step?"
+                placeholder="Warum ueberspringst du diesen Schritt?"
                 value={skipReason}
                 onChange={(e) => setSkipReason(e.target.value)}
                 disabled={isSubmitting}
@@ -742,9 +918,9 @@ export function WorkflowStepExecutionPanel({
               />
             </div>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={isSubmitting}>Abbrechen</AlertDialogCancel>
               <AlertDialogAction onClick={handleSkipStep} disabled={isSubmitting || !skipReason}>
-                {isSubmitting ? "Skipping..." : "Skip Step"}
+                {isSubmitting ? "Ueberspringe..." : "Schritt ueberspringen"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

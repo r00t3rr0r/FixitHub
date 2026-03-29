@@ -1,10 +1,4 @@
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
+import { useState, useEffect, useMemo } from "react"
 import {
   Dialog,
   DialogContent,
@@ -13,7 +7,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/useToast"
-import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead, Notification } from "@/api/notifications"
+import {
+  getNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  deleteNotification,
+  deleteAllNotifications,
+  Notification,
+} from "@/api/notifications"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import {
   Bell,
@@ -24,318 +25,480 @@ import {
   Check,
   Clock,
   CheckCheck,
-  Filter
+  Search,
+  Trash2,
+  CalendarDays,
+  AlertCircle,
+  Repeat2,
+  UserCheck,
+  ArrowRight,
+  RefreshCw,
 } from "lucide-react"
 import { Link } from "react-router-dom"
+import "../styles/notifications.css"
+
+type FilterType = "all" | "unread" | "order_update" | "payment" | "message" | "system" | "assignment" | "reminder"
+
+const TYPE_LABELS: Record<string, string> = {
+  order_update: "Auftrag",
+  payment: "Zahlung",
+  message: "Nachricht",
+  system: "System",
+  assignment: "Zuweisung",
+  reminder: "Erinnerung",
+}
 
 export function Notifications() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'unread'>('all')
-  const { toast } = useToast()
+  const [filter, setFilter] = useState<FilterType>("all")
+  const [searchTerm, setSearchTerm] = useState("")
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false)
   const [showCommunicationPanel, setShowCommunicationPanel] = useState(false)
   const [selectedOrderForCommunication, setSelectedOrderForCommunication] = useState<string | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
     fetchNotifications()
-  }, [filter])
+  }, [])
 
   const fetchNotifications = async () => {
     try {
       setLoading(true)
-      const response = await getNotifications({ 
-        limit: 50,
-        unreadOnly: filter === 'unread' ? 'true' : 'false'
-      })
-      const data = response as any
-      setNotifications(data.notifications || [])
+      const response = await getNotifications({ limit: 100 }) as any
+      setNotifications(response.notifications || [])
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to load notifications",
-        variant: "destructive"
-      })
+      toast({ title: "Fehler", description: error.message || "Benachrichtigungen konnten nicht geladen werden", variant: "destructive" })
     } finally {
       setLoading(false)
     }
   }
 
-  const handleMarkAsRead = async (notificationId: string) => {
+  const handleMarkAsRead = async (notificationId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation()
     try {
       await markNotificationAsRead(notificationId)
       setNotifications(prev =>
-        prev.map(notif =>
-          notif._id === notificationId ? { ...notif, isRead: true } : notif
-        )
+        prev.map(n => n._id === notificationId ? { ...n, isRead: true } : n)
       )
-      toast({
-        title: "Success",
-        description: "Notification marked as read"
-      })
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to mark notification as read",
-        variant: "destructive"
-      })
+      toast({ title: "Fehler", description: error.message, variant: "destructive" })
     }
   }
 
   const handleMarkAllAsRead = async () => {
     try {
       await markAllNotificationsAsRead()
-      setNotifications(prev =>
-        prev.map(notif => ({ ...notif, isRead: true }))
-      )
-      toast({
-        title: "Success",
-        description: "All notifications marked as read"
-      })
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
+      toast({ title: "Erledigt", description: "Alle als gelesen markiert" })
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to mark all notifications as read",
-        variant: "destructive"
-      })
+      toast({ title: "Fehler", description: error.message, variant: "destructive" })
     }
   }
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'order_update':
-        return <Package className="h-5 w-5 text-blue-500" />
-      case 'payment':
-        return <CreditCard className="h-5 w-5 text-green-500" />
-      case 'message':
-        return <MessageSquare className="h-5 w-5 text-purple-500" />
-      case 'assignment':
-        return <Bell className="h-5 w-5 text-orange-500" />
-      default:
-        return <Settings className="h-5 w-5 text-gray-500" />
-    }
-  }
-
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
-
-    if (diffInMinutes < 60) {
-      return `${diffInMinutes}m ago`
-    } else if (diffInMinutes < 1440) {
-      return `${Math.floor(diffInMinutes / 60)}h ago`
-    } else {
-      return `${Math.floor(diffInMinutes / 1440)}d ago`
-    }
-  }
-
-  const unreadCount = notifications.filter(n => !n.isRead).length
-
-  const handleOpenCommunication = (orderId: string) => {
-    console.log('Opening communication panel for order:', orderId)
-    setSelectedOrderForCommunication(orderId)
-    setShowCommunicationPanel(true)
-  }
-
-  const extractOrderIdFromMetadata = (notification: Notification): string | null => {
+  const handleDelete = async (notificationId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation()
     try {
-      if (notification.metadata && typeof notification.metadata === 'object') {
-        return (notification.metadata as any).orderId || null
-      }
-      return null
-    } catch {
-      return null
+      await deleteNotification(notificationId)
+      setNotifications(prev => prev.filter(n => n._id !== notificationId))
+    } catch (error: any) {
+      toast({ title: "Fehler", description: error.message, variant: "destructive" })
+    }
+  }
+
+  const handleDeleteAll = async () => {
+    try {
+      await deleteAllNotifications()
+      setNotifications([])
+      setShowDeleteAllConfirm(false)
+      toast({ title: "Erledigt", description: "Alle Benachrichtigungen gelöscht" })
+    } catch (error: any) {
+      toast({ title: "Fehler", description: error.message, variant: "destructive" })
     }
   }
 
   const handleNotificationClick = (notification: Notification) => {
-    if (!notification.isRead) {
-      handleMarkAsRead(notification._id)
-    }
-
-    // If it's a message notification, open the communication panel
-    if (notification.type === 'message') {
-      const orderId = extractOrderIdFromMetadata(notification)
+    if (!notification.isRead) handleMarkAsRead(notification._id)
+    if (notification.type === "message") {
+      const orderId = (notification as any).metadata?.orderId as string | undefined
       if (orderId) {
-        handleOpenCommunication(orderId)
+        setSelectedOrderForCommunication(orderId)
+        setShowCommunicationPanel(true)
       }
     }
   }
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Notifications</h1>
-        </div>
-        <Card className="animate-pulse">
-          <CardHeader>
-            <div className="h-4 bg-muted rounded w-1/4"></div>
-            <div className="h-4 bg-muted rounded w-1/2"></div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-16 bg-muted rounded"></div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
+  // Derived counts
+  const counts = useMemo(() => {
+    const base: Record<string, number> = { all: notifications.length, unread: 0 }
+    notifications.forEach(n => {
+      if (!n.isRead) base.unread = (base.unread || 0) + 1
+      base[n.type] = (base[n.type] || 0) + 1
+    })
+    return base
+  }, [notifications])
+
+  // Filtered list
+  const filtered = useMemo(() => {
+    let list = notifications
+    if (filter === "unread") list = list.filter(n => !n.isRead)
+    else if (filter !== "all") list = list.filter(n => n.type === filter)
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase()
+      list = list.filter(n =>
+        n.title.toLowerCase().includes(term) || n.message.toLowerCase().includes(term)
+      )
+    }
+    return list
+  }, [notifications, filter, searchTerm])
+
+  // Group by date
+  const grouped = useMemo(() => {
+    const groups: Record<string, Notification[]> = {}
+    filtered.forEach(n => {
+      const label = getDateLabel(n.createdAt)
+      if (!groups[label]) groups[label] = []
+      groups[label].push(n)
+    })
+    return groups
+  }, [filtered])
+
+  const unreadCount = counts.unread || 0
+
+  function getDateLabel(dateStr: string): string {
+    const d = new Date(dateStr)
+    const now = new Date()
+    const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000)
+    if (diffDays === 0) return "Heute"
+    if (diffDays === 1) return "Gestern"
+    if (diffDays < 7) return "Diese Woche"
+    if (diffDays < 30) return "Dieser Monat"
+    return "Älter"
   }
 
+  function formatTime(dateStr: string): string {
+    const d = new Date(dateStr)
+    const now = new Date()
+    const diff = Math.floor((now.getTime() - d.getTime()) / 60000)
+    if (diff < 1) return "Gerade eben"
+    if (diff < 60) return `vor ${diff} Min`
+    if (diff < 1440) return `vor ${Math.floor(diff / 60)} Std`
+    if (diff < 10080) return `vor ${Math.floor(diff / 1440)} Tag${Math.floor(diff / 1440) > 1 ? "en" : ""}`
+    return d.toLocaleDateString("de-DE", { day: "2-digit", month: "short" })
+  }
+
+  function getIcon(type: string) {
+    const cls = "h-5 w-5"
+    switch (type) {
+      case "order_update": return <Package className={cls} />
+      case "payment":      return <CreditCard className={cls} />
+      case "message":      return <MessageSquare className={cls} />
+      case "assignment":   return <UserCheck className={cls} />
+      case "reminder":     return <AlertCircle className={cls} />
+      default:             return <Settings className={cls} />
+    }
+  }
+
+  // Tab definitions
+  const tabs: { key: FilterType; label: string; icon?: React.ReactNode }[] = [
+    { key: "all",          label: "Alle" },
+    { key: "unread",       label: "Ungelesen" },
+    { key: "order_update", label: "Aufträge",    icon: <Package className="h-3.5 w-3.5" /> },
+    { key: "payment",      label: "Zahlungen",   icon: <CreditCard className="h-3.5 w-3.5" /> },
+    { key: "message",      label: "Nachrichten", icon: <MessageSquare className="h-3.5 w-3.5" /> },
+    { key: "assignment",   label: "Zuweisungen", icon: <UserCheck className="h-3.5 w-3.5" /> },
+    { key: "reminder",     label: "Erinnerungen",icon: <AlertCircle className="h-3.5 w-3.5" /> },
+    { key: "system",       label: "System",      icon: <Settings className="h-3.5 w-3.5" /> },
+  ]
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Notifications</h1>
-          <p className="text-muted-foreground">
-            Stay updated with your repair orders and system updates
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant={filter === 'all' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter('all')}
-          >
-            All
-          </Button>
-          <Button
-            variant={filter === 'unread' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter('unread')}
-          >
-            <Filter className="h-4 w-4 mr-2" />
-            Unread ({unreadCount})
-          </Button>
-          {unreadCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleMarkAllAsRead}
-            >
-              <CheckCheck className="h-4 w-4 mr-2" />
-              Mark All Read
-            </Button>
-          )}
+    <div className="notifications-page">
+      {/* ── HERO HEADER ── */}
+      <div className="notifications-header">
+        <div className="notifications-header-content">
+          <div className="notifications-header-top">
+            <div className="notifications-header-title">
+              <Bell className="notifications-icon-lg" />
+              <div>
+                <h1>Benachrichtigungen</h1>
+                <p>Bleib über deine Reparaturaufträge und Systemmeldungen auf dem Laufenden</p>
+              </div>
+            </div>
+            <div className="notifications-header-actions">
+              {unreadCount > 0 && (
+                <button className="notifications-btn-primary" onClick={handleMarkAllAsRead}>
+                  <CheckCheck className="h-4 w-4" />
+                  <span>Alle gelesen</span>
+                </button>
+              )}
+              <button className="notifications-btn-ghost" onClick={fetchNotifications}>
+                <RefreshCw className="h-4 w-4" />
+                <span>Aktualisieren</span>
+              </button>
+              {notifications.length > 0 && (
+                <button className="notifications-btn-ghost" onClick={() => setShowDeleteAllConfirm(true)}>
+                  <Trash2 className="h-4 w-4" />
+                  <span>Alle löschen</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="notifications-stats">
+            <div className="notifications-stat">
+              <div className="notifications-stat-value">{counts.all || 0}</div>
+              <div className="notifications-stat-label">Gesamt</div>
+            </div>
+            {unreadCount > 0 && (
+              <div className="notifications-stat">
+                <div className="notifications-stat-value" style={{ color: "#fbbf24" }}>{unreadCount}</div>
+                <div className="notifications-stat-label">Ungelesen</div>
+              </div>
+            )}
+            {(counts.order_update || 0) > 0 && (
+              <div className="notifications-stat">
+                <div className="notifications-stat-value">{counts.order_update}</div>
+                <div className="notifications-stat-label">Aufträge</div>
+              </div>
+            )}
+            {(counts.message || 0) > 0 && (
+              <div className="notifications-stat">
+                <div className="notifications-stat-value">{counts.message}</div>
+                <div className="notifications-stat-label">Nachrichten</div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
-            Your Notifications
-          </CardTitle>
-          <CardDescription>
-            {notifications.length === 0 
-              ? "No notifications to display"
-              : `${notifications.length} notification${notifications.length > 1 ? 's' : ''}`
-            }
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          {notifications.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">
-              <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium mb-2">No notifications</p>
-              <p>You're all caught up! New notifications will appear here.</p>
-            </div>
-          ) : (
-            <ScrollArea className="h-[600px]">
-              <div className="space-y-1">
-                {notifications.map((notification, index) => (
-                  <div key={notification._id}>
-                    <div
-                      className={`p-4 hover:bg-accent transition-colors cursor-pointer ${
-                        !notification.isRead ? 'bg-blue-50 dark:bg-blue-950/20' : ''
-                      }`}
-                      onClick={() => handleNotificationClick(notification)}
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0 mt-1">
-                          {getNotificationIcon(notification.type)}
+      {/* ── TOOLBAR ── */}
+      <div className="notifications-toolbar">
+        <div className="notifications-search-box">
+          <Search />
+          <input
+            className="notifications-search-input"
+            type="text"
+            placeholder="Benachrichtigungen suchen…"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* ── TABS ── */}
+      <div className="notifications-tabs">
+        {tabs.map(tab => {
+          const count = tab.key === "unread" ? unreadCount : (counts[tab.key] || 0)
+          const showCount = tab.key === "all" || count > 0
+          return (
+            <button
+              key={tab.key}
+              className={`notifications-tab${filter === tab.key ? " active" : ""}`}
+              onClick={() => setFilter(tab.key)}
+            >
+              {tab.icon}
+              {tab.label}
+              {showCount && (
+                <span className={`notifications-tab-count${tab.key === "unread" && unreadCount > 0 ? " unread" : ""}`}>
+                  {tab.key === "all" ? notifications.length : count}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* ── CONTENT ── */}
+      <div className="notifications-content">
+        {loading ? (
+          <LoadingSkeleton />
+        ) : filtered.length === 0 ? (
+          <EmptyState filter={filter} searchTerm={searchTerm} />
+        ) : (
+          Object.entries(grouped).map(([dateLabel, items]) => (
+            <div key={dateLabel} className="notifications-date-group">
+              <div className="notifications-date-label">
+                <CalendarDays className="h-3.5 w-3.5" />
+                {dateLabel}
+              </div>
+              <div className="notifications-list">
+                {items.map(notification => (
+                  <div
+                    key={notification._id}
+                    className={`notification-item${!notification.isRead ? " unread" : ""}`}
+                    onClick={() => handleNotificationClick(notification)}
+                  >
+                    {/* Icon */}
+                    <div className={`notification-icon-wrap ${notification.type}`}>
+                      {getIcon(notification.type)}
+                    </div>
+
+                    {/* Body */}
+                    <div className="notification-body">
+                      <div className="notification-row-top">
+                        <span className="notification-title">{notification.title}</span>
+                        <div className="notification-meta">
+                          <span className="notification-time">
+                            <Clock className="h-3 w-3" />
+                            {formatTime(notification.createdAt)}
+                          </span>
+                          {!notification.isRead && (
+                            <span className="notification-unread-dot" title="Ungelesen" />
+                          )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-semibold text-sm">
-                              {notification.title}
-                            </h4>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {formatTime(notification.createdAt)}
-                              </span>
-                              {!notification.isRead && (
-                                <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                              )}
-                            </div>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {notification.message}
-                          </p>
-                          <div className="flex items-center justify-between">
-                            <Badge variant="outline" className="text-xs">
-                              {notification.type.replace('_', ' ')}
-                            </Badge>
-                            {notification.actionUrl && (
-                              <Link
-                                to={notification.actionUrl}
-                                className="text-xs text-primary hover:underline"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                View Details →
-                              </Link>
-                            )}
-                          </div>
+                      </div>
+
+                      <p className="notification-message">{notification.message}</p>
+
+                      <div className="notification-footer">
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <span className={`notification-type-badge ${notification.type}`}>
+                            {getIcon(notification.type)}
+                            {TYPE_LABELS[notification.type] || notification.type}
+                          </span>
+                          {notification.actionUrl && (
+                            <Link
+                              to={notification.actionUrl}
+                              className="notification-link"
+                              onClick={e => e.stopPropagation()}
+                            >
+                              Details <ArrowRight className="h-3 w-3" />
+                            </Link>
+                          )}
+                          {notification.type === "message" && (notification as any).metadata?.orderId && (
+                            <button
+                              className="notification-link"
+                              style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                              onClick={e => {
+                                e.stopPropagation()
+                                const oid = (notification as any).metadata?.orderId as string
+                                setSelectedOrderForCommunication(oid)
+                                setShowCommunicationPanel(true)
+                              }}
+                            >
+                              Nachricht öffnen <ArrowRight className="h-3 w-3" />
+                            </button>
+                          )}
                         </div>
-                        {!notification.isRead && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleMarkAsRead(notification._id)
-                            }}
+
+                        <div className="notification-actions">
+                          {!notification.isRead && (
+                            <button
+                              className="notification-action-btn"
+                              title="Als gelesen markieren"
+                              onClick={e => handleMarkAsRead(notification._id, e)}
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <button
+                            className="notification-action-btn delete"
+                            title="Löschen"
+                            onClick={e => handleDelete(notification._id, e)}
                           >
-                            <Check className="h-4 w-4" />
-                          </Button>
-                        )}
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    {index < notifications.length - 1 && <Separator />}
                   </div>
                 ))}
               </div>
-            </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
+            </div>
+          ))
+        )}
+      </div>
 
-      {/* Communication Panel Dialog */}
+      {/* ── DELETE ALL CONFIRM ── */}
+      {showDeleteAllConfirm && (
+        <div className="notifications-confirm-overlay" onClick={() => setShowDeleteAllConfirm(false)}>
+          <div className="notifications-confirm-dialog" onClick={e => e.stopPropagation()}>
+            <h3>Alle Benachrichtigungen löschen?</h3>
+            <p>
+              Dieser Vorgang löscht alle {notifications.length} Benachrichtigungen unwiderruflich.
+              Du kannst dies nicht rückgängig machen.
+            </p>
+            <div className="notifications-confirm-btns">
+              <button className="notif-btn-sm outline" onClick={() => setShowDeleteAllConfirm(false)}>
+                Abbrechen
+              </button>
+              <button
+                className="notif-btn-sm danger"
+                style={{ background: "#ef4444", color: "#fff", borderColor: "#ef4444" }}
+                onClick={handleDeleteAll}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Alle löschen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── COMMUNICATION PANEL ── */}
       {selectedOrderForCommunication && (
-        <Dialog open={showCommunicationPanel} onOpenChange={(open) => {
+        <Dialog open={showCommunicationPanel} onOpenChange={open => {
           setShowCommunicationPanel(open)
-          if (!open) {
-            setSelectedOrderForCommunication(null)
-          }
+          if (!open) setSelectedOrderForCommunication(null)
         }}>
           <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader className="pb-2">
               <DialogTitle className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5" />
-                Order Communication
+                Auftragskommunikation
               </DialogTitle>
               <DialogDescription>
-                Communicate with our support team about your repair order
+                Kommuniziere mit unserem Support-Team über deinen Reparaturauftrag
               </DialogDescription>
             </DialogHeader>
             <CommunicationPanel orderId={selectedOrderForCommunication} />
           </DialogContent>
         </Dialog>
       )}
+    </div>
+  )
+}
+
+/* ──────────────────────────────────────────
+   Sub-components
+────────────────────────────────────────── */
+
+function LoadingSkeleton() {
+  return (
+    <div className="notifications-skeleton">
+      {[...Array(6)].map((_, i) => (
+        <div key={i} className="notification-skeleton-item">
+          <div className="skeleton-circle" />
+          <div className="skeleton-lines">
+            <div className="skeleton-line medium" />
+            <div className="skeleton-line long" />
+            <div className="skeleton-line short" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function EmptyState({ filter, searchTerm }: { filter: string; searchTerm: string }) {
+  return (
+    <div className="notifications-empty">
+      <Bell style={{ width: 64, height: 64 }} />
+      <h3>
+        {searchTerm
+          ? "Keine Ergebnisse"
+          : filter === "unread"
+          ? "Keine ungelesenen Benachrichtigungen"
+          : "Keine Benachrichtigungen"}
+      </h3>
+      <p>
+        {searchTerm
+          ? `Für „${searchTerm}" wurden keine Benachrichtigungen gefunden.`
+          : filter === "unread"
+          ? "Du bist auf dem neuesten Stand – alle Benachrichtigungen wurden gelesen."
+          : "Neue Benachrichtigungen erscheinen hier, sobald etwas passiert."}
+      </p>
     </div>
   )
 }

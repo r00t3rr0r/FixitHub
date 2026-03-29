@@ -11,10 +11,6 @@ export default defineConfig({
   },
   server: {
     host: true,
-    hmr: {
-      host: 'preview-121yj2z0.ui.pythagora.ai',
-      protocol: 'https',
-    },
     proxy: {
       '/api': {
         target: 'http://localhost:3000',

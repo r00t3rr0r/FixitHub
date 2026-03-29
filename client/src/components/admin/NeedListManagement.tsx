@@ -66,6 +66,38 @@ interface NeedListManagementProps {
 export default function NeedListManagement({ onOrderCreated }: NeedListManagementProps = {}) {
   const { toast } = useToast();
 
+  const renderNotesWithLinks = (notes?: string) => {
+    if (!notes) {
+      return '-';
+    }
+
+    const urlSplitRegex = /(https?:\/\/[^\s]+)/g;
+    const urlMatchRegex = /^https?:\/\/[^\s]+$/;
+    const segments = notes.split(urlSplitRegex);
+
+    return (
+      <span className="break-words whitespace-pre-wrap">
+        {segments.map((segment, index) => {
+          if (urlMatchRegex.test(segment)) {
+            return (
+              <a
+                key={`${segment}-${index}`}
+                href={segment}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline"
+              >
+                {segment}
+              </a>
+            );
+          }
+
+          return <span key={`${segment}-${index}`}>{segment}</span>;
+        })}
+      </span>
+    );
+  };
+
   // State
   const [needLists, setNeedLists] = useState<NeedList[]>([]);
   const [parts, setParts] = useState<Part[]>([]);
@@ -897,7 +929,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                             {item.currentStock}
                           </Badge>
                         </TableCell>
-                        <TableCell>{item.notes || '-'}</TableCell>
+                        <TableCell>{renderNotesWithLinks(item.notes)}</TableCell>
                         {selectedNeedList.status !== 'ordered' && (
                           <TableCell>
                             <Button

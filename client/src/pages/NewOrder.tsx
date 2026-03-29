@@ -82,6 +82,14 @@ interface SelectedDevice {
 }
 
 const getDeviceTypeIcon = (deviceType: string) => {
+  const getDeviceModelImage = (model?: DeviceModel | SearchResult | null) => {
+    if (!model) return ''
+    if ('image' in model && model.image) return model.image
+    if ('images' in model && Array.isArray(model.images) && model.images.length > 0) {
+      return model.images[0]?.url || model.images[0]?.base64 || ''
+    }
+    return ''
+  }
   switch (deviceType.toLowerCase()) {
     case 'smartphone':
       return <Smartphone className="h-5 w-5" />
@@ -605,7 +613,11 @@ export function NewOrder() {
         deviceType: selectedDeviceTypeObj?.name || data.deviceType,
         deviceBrand: deviceBrandName || data.deviceManufacturer,
         deviceModel: deviceModelName || data.deviceModel,
+        deviceImage: getDeviceModelImage(selectedModelDetails || selectedModelObj),
         services: selectedServices,
+        serviceNames: services
+          .filter(service => selectedServices.includes(service._id))
+          .map(service => service.name),
         addOns: selectedAddOnObjects,
         customerNotes: data.customerNotes || '',
         photos: photoUrls,
@@ -2415,7 +2427,11 @@ export function NewOrder() {
                           deviceType: selectedDeviceTypeObj?.name || selectedDeviceType,
                           deviceBrand: deviceBrandName,
                           deviceModel: deviceModelName,
+                          deviceImage: getDeviceModelImage(selectedModelDetails || selectedDevice || models.find(m => m._id === selectedModel) || null),
                           services: selectedServices,
+                          serviceNames: services
+                            .filter(service => selectedServices.includes(service._id))
+                            .map(service => service.name),
                           addOns: selectedAddOnObjects,
                           customerNotes: watch("customerNotes") || '',
                           photos: photoUrls,

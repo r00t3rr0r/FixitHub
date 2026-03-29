@@ -1,5 +1,23 @@
 import api from './api';
 
+export interface CreatedBy {
+  userId: string;
+  name: string;
+  role: string;
+}
+
+export interface RepairCommunication {
+  _id: string;
+  repairRequestId: string;
+  messages: any[];
+  status: 'active' | 'archived' | 'resolved';
+  pendingFeedbackCount: number;
+  pendingActionsCount: number;
+  createdBy?: CreatedBy;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Description: Get communication thread for a repair request
 // Endpoint: GET /api/repair-request-communication/:repairRequestId
 // Request: {}

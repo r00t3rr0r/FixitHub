@@ -57,6 +57,14 @@ const getDeviceIcon = (deviceType: string) => {
   return Package;
 };
 
+const getModelImage = (model: any, fallbackImage?: string) => {
+  if (model?.image) return model.image;
+  if (Array.isArray(model?.images) && model.images.length > 0) {
+    return model.images[0]?.url || model.images[0]?.base64 || fallbackImage || '';
+  }
+  return fallbackImage || '';
+};
+
 // Device images based on device type
 const deviceImages: Record<string, string> = {
   smartphone: '/images/smartphone_mu.png',
@@ -809,11 +817,14 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
       // Add each device as a separate repair order to the cart
       for (const device of allDevices) {
+        const previewImage = deviceImages[String(device.deviceType?.name || device.deviceType || '').toLowerCase()] || deviceImages.smartphone;
         const repairOrderData = {
           deviceType: device.deviceType?.name || device.deviceType,
           deviceBrand: device.brand?.name || device.brand,
           deviceModel: device.model?.name || device.model,
+          deviceImage: getModelImage(device.model, previewImage),
           services: device.repairs.map((r: any) => r._id || r),
+          serviceNames: device.repairs.map((r: any) => r?.name || String(r)).filter(Boolean),
           addOns: device.addOns.map((a: any) => ({
             name: a.name,
             description: a.description || '',
@@ -874,13 +885,18 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     if (!selectedDeviceType || !selectedModel) return null;
     
     const deviceTypeKey = selectedDeviceType.name.toLowerCase();
-    const image = deviceImages[deviceTypeKey] || deviceImages.smartphone;
-    const problems = deviceProblems[deviceTypeKey] || deviceProblems.smartphone;
+    const fallbackImage = deviceImages[deviceTypeKey] || deviceImages.smartphone;
+    const image = getModelImage(selectedModel, fallbackImage);
+    const modelProblems = Array.isArray(selectedModel.commonProblems)
+      ? selectedModel.commonProblems.filter((problem) => String(problem || '').trim().length > 0)
+      : [];
+    const selectedBrandName = manufacturers.find((manufacturer) => manufacturer._id === selectedBrand)?.name || '';
     
     return {
       image,
+      brandName: selectedBrandName,
       modelName: selectedModel.name,
-      problems
+      problems: modelProblems
     };
   };
 
@@ -1952,7 +1968,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           </div>
           <div className="device-preview-panel-body">
             <div className="device-preview-panel-model" id="devicePreviewModel">
-              {previewData?.modelName || ''}
+              {[previewData?.brandName, previewData?.modelName].filter(Boolean).join(' ')}
             </div>
             <div className="device-preview-panel-problems">
               <div className="device-preview-panel-problems-title">
@@ -1960,9 +1976,13 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 Häufige Probleme
               </div>
               <ul className="device-preview-panel-list" id="devicePreviewList">
-                {previewData?.problems.map((problem, index) => (
-                  <li key={index}>{problem}</li>
-                ))}
+                {previewData?.problems.length ? (
+                  previewData.problems.map((problem, index) => (
+                    <li key={index}>{problem}</li>
+                  ))
+                ) : (
+                  <li>Keine häufigen Probleme hinterlegt</li>
+                )}
               </ul>
             </div>
           </div>

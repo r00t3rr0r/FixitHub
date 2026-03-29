@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useParams, Link } from "react-router-dom"
+import { useParams, Link, useLocation, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -60,6 +60,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import {
   ArrowLeft,
   Package,
@@ -101,6 +102,8 @@ import {
 
 export function OrderDetails() {
   const { id } = useParams<{ id: string }>()
+  const location = useLocation()
+  const navigate = useNavigate()
   const { isAuthenticated } = useAuth()
   const { t } = useTranslation()
   const [user, setUser] = useState<UserProfile | null>(null)
@@ -120,6 +123,10 @@ export function OrderDetails() {
   const [assignAddonStaffDialogOpen, setAssignAddonStaffDialogOpen] = useState(false)
   const [availableAddons, setAvailableAddons] = useState<AddOnServiceType[]>([])
   const [selectedAddonService, setSelectedAddonService] = useState<AddOnServiceType | null>(null)
+  const [addonInputMode, setAddonInputMode] = useState<'catalog' | 'custom'>('catalog')
+  const [addonSearchTerm, setAddonSearchTerm] = useState("")
+  const [showAddonSuggestions, setShowAddonSuggestions] = useState(false)
+  const [submittingAddon, setSubmittingAddon] = useState(false)
   const [customAddonName, setCustomAddonName] = useState("")
   const [customAddonPrice, setCustomAddonPrice] = useState("")
   const [customAddonDescription, setCustomAddonDescription] = useState("")
@@ -161,7 +168,26 @@ export function OrderDetails() {
   const [inspectionDialogOpen, setInspectionDialogOpen] = useState(false)
   const [inspectionRefreshKey, setInspectionRefreshKey] = useState(0)
   const [generatingInspectionReport, setGeneratingInspectionReport] = useState(false)
+  const [deviceHistoryOpen, setDeviceHistoryOpen] = useState(false)
   const { toast } = useToast()
+
+  const requestedWorkflowId = (() => {
+    const state = location.state as {
+      openWorkflowId?: string
+      workflowMode?: 'start' | 'resume' | 'execute' | 'view'
+    } | null
+
+    return state?.openWorkflowId ? String(state.openWorkflowId) : ""
+  })()
+
+  const requestedWorkflowMode = (() => {
+    const state = location.state as {
+      openWorkflowId?: string
+      workflowMode?: 'start' | 'resume' | 'execute' | 'view'
+    } | null
+
+    return state?.workflowMode
+  })()
 
   // Fetch user profile
   useEffect(() => {
@@ -372,6 +398,38 @@ export function OrderDetails() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!requestedWorkflowId) return
+
+    const matchedWorkflow = workflows.find((workflow: any) => String(workflow?._id) === requestedWorkflowId)
+    if (!matchedWorkflow) {
+      if (workflows.length === 0) return
+
+      toast({
+        title: "Workflow nicht gefunden",
+        description: "Der ausgewaehlte Workflow konnte in diesem Auftrag nicht geladen werden.",
+        variant: "destructive",
+      })
+      navigate(location.pathname, { replace: true })
+      return
+    }
+
+    const workflowStatus = String(matchedWorkflow?.status || "").toLowerCase()
+    const safeMode = requestedWorkflowMode
+      || (workflowStatus === 'not-started'
+        ? 'start'
+        : workflowStatus === 'on-hold'
+          ? 'resume'
+          : workflowStatus === 'in-progress'
+            ? 'execute'
+            : 'view')
+
+    setSelectedWorkflowForExecution(matchedWorkflow)
+    setWorkflowExecutionMode(safeMode)
+    setWorkflowExecutionModalOpen(true)
+    navigate(location.pathname, { replace: true })
+  }, [location.pathname, navigate, requestedWorkflowId, requestedWorkflowMode, toast, workflows])
+
   // Fetch progress timeline for order
   useEffect(() => {
     const fetchProgressTimeline = async () => {
@@ -561,9 +619,10 @@ export function OrderDetails() {
     if (!id) return
 
     try {
+      setSubmittingAddon(true)
       let addonData;
 
-      if (selectedAddonService) {
+      if (addonInputMode === 'catalog' && selectedAddonService) {
         // Use selected add-on service
         addonData = {
           name: selectedAddonService.name,
@@ -576,8 +635,18 @@ export function OrderDetails() {
         // Use custom add-on data
         if (!customAddonName || !customAddonPrice) {
           toast({
-            title: "Error",
-            description: "Please provide add-on name and price",
+            title: "Fehler",
+            description: "Bitte geben Sie Name und Preis fuer den Zusatzservice an.",
+            variant: "destructive"
+          })
+          return
+        }
+
+        const parsedCustomPrice = parseFloat(customAddonPrice)
+        if (Number.isNaN(parsedCustomPrice) || parsedCustomPrice <= 0) {
+          toast({
+            title: "Fehler",
+            description: "Der Preis muss groesser als 0 sein.",
             variant: "destructive"
           })
           return
@@ -586,7 +655,7 @@ export function OrderDetails() {
         addonData = {
           name: customAddonName,
           description: customAddonDescription,
-          price: parseFloat(customAddonPrice),
+          price: parsedCustomPrice,
           estimatedTime: customAddonTime,
           status: 'pending'
         }
@@ -595,16 +664,12 @@ export function OrderDetails() {
       await addAddonToOrder(id, addonData)
 
       toast({
-        title: "Success",
-        description: "Add-on service added successfully"
+        title: "Erfolg",
+        description: "Zusatzservice wurde erfolgreich hinzugefuegt."
       })
 
       // Reset form
-      setSelectedAddonService(null)
-      setCustomAddonName("")
-      setCustomAddonPrice("")
-      setCustomAddonDescription("")
-      setCustomAddonTime("")
+      resetAddOnForm()
       setAddAddonDialogOpen(false)
 
       // Refresh order data
@@ -612,11 +677,24 @@ export function OrderDetails() {
     } catch (error: any) {
       console.error("Error adding add-on:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to add add-on service",
+        title: "Fehler",
+        description: error.message || "Zusatzservice konnte nicht hinzugefuegt werden.",
         variant: "destructive"
       })
+    } finally {
+      setSubmittingAddon(false)
     }
+  }
+
+  const resetAddOnForm = () => {
+    setSelectedAddonService(null)
+    setAddonInputMode('catalog')
+    setAddonSearchTerm("")
+    setShowAddonSuggestions(false)
+    setCustomAddonName("")
+    setCustomAddonPrice("")
+    setCustomAddonDescription("")
+    setCustomAddonTime("")
   }
 
   const handleEditAddon = async () => {
@@ -807,8 +885,6 @@ export function OrderDetails() {
         title: "Success",
         description: "Repair service added successfully"
       })
-
-      setServiceDialogOpen(false)
 
       // Refresh repair services
       const orderServicesResponse = await getOrderServices(id)
@@ -1426,6 +1502,386 @@ export function OrderDetails() {
   const staffCount = order.assignedStaff?.length || 0
   const serviceCount = (repairServices?.filter((s) => s && s._id).length || 0) + (order.addOns?.length || 0)
   const lastUpdate = order.updatedAt ? new Date(order.updatedAt).toLocaleString() : '-'
+  const normalizedAddonSearch = addonSearchTerm.trim().toLowerCase()
+  const filteredAvailableAddons = availableAddons.filter((addon) => {
+    if (!normalizedAddonSearch) return true
+    const searchable = `${addon.name} ${addon.description || ''}`.toLowerCase()
+    return searchable.includes(normalizedAddonSearch)
+  })
+  const addonSearchResults = normalizedAddonSearch
+    ? filteredAvailableAddons.slice(0, 8)
+    : []
+  const addonPreviewName = addonInputMode === 'catalog' ? (selectedAddonService?.name || '') : customAddonName.trim()
+  const addonPreviewPrice = addonInputMode === 'catalog'
+    ? safeToNumber(selectedAddonService?.price)
+    : safeToNumber(customAddonPrice)
+  const addonPreviewTime = addonInputMode === 'catalog'
+    ? selectedAddonService?.estimatedTime
+    : customAddonTime
+  const orderTotalBeforeAddon = safeToNumber((order as any)?.totalCost)
+  const orderTotalAfterAddon = orderTotalBeforeAddon + addonPreviewPrice
+  const canSubmitAddon = addonInputMode === 'catalog'
+    ? Boolean(selectedAddonService)
+    : Boolean(customAddonName.trim() && safeToNumber(customAddonPrice) > 0)
+
+  const translateOrderStatus = (status: string): string => {
+    const statusMap: Record<string, string> = {
+      'Order Received': 'Auftrag erhalten',
+      'Booking Created': 'Buchung erstellt',
+      'Order Status Updated': 'Auftragsstatus aktualisiert',
+      'Repair in Progress': 'Reparatur in Bearbeitung',
+      'Add-on Service Added': 'Zusatzservice hinzugefügt',
+      'Add-on Service Removed': 'Zusatzservice entfernt',
+      'Add-on Service Updated': 'Zusatzservice aktualisiert',
+      'Add-on Staff Assigned': 'Mitarbeiter für Zusatzservice zugewiesen',
+      'Device Changed': 'Gerät Änderungen',
+      'Device Change': 'Gerät Änderungen',
+      'Device change': 'Gerät Änderungen',
+      'EPart Assigned': 'Ersatzteil zugewiesen',
+      'EPart Removed': 'Ersatzteil entfernt',
+      'EPart Status Updated': 'Ersatzteilstatus aktualisiert',
+      'Staff Assigned': 'Mitarbeiter zugewiesen',
+      'Workflow Assigned': 'Workflow zugewiesen',
+      'Workflow Navigation': 'Workflow-Navigation',
+      'Workflow Removed': 'Workflow entfernt',
+      'Workflow Started': 'Workflow gestartet',
+      'Workflow Step Completed': 'Workflow-Schritt abgeschlossen',
+      'Workflow Step Skipped': 'Workflow-Schritt übersprungen',
+      'Workflow Task Assigned': 'Workflow-Aufgabe zugewiesen',
+      'Workflow Paused': 'Workflow pausiert',
+      'Workflow Resumed': 'Workflow fortgesetzt',
+      'Workflow Status Updated': 'Workflow-Status aktualisiert',
+      'Diagnostic Assessment': 'Diagnosebewertung',
+      'Quality Check': 'Qualitätskontrolle',
+      'Completed': 'Abgeschlossen',
+      'Ready for Pickup': 'Abholbereit',
+      'Shipping Label Created': 'Versandetikett erstellt',
+      'Return Label Created': 'Rückgabeetikett erstellt',
+      'Return Status Updated': 'Rückgabestatus aktualisiert',
+      'cancelled': 'Storniert',
+      'items_received': 'Artikel erhalten',
+      'payment_updated': 'Zahlung aktualisiert',
+      'invoice_uploaded': 'Rechnung hochgeladen',
+      'return_exchange_requested': 'Rückgabe/Umtausch angefordert',
+      'pending': 'Ausstehend',
+      'in-progress': 'In Bearbeitung',
+      'completed': 'Abgeschlossen',
+      'on-hold': 'Pausiert',
+      'diagnosed': 'Diagnostiziert',
+      'awaiting-parts': 'Wartet auf Teile',
+      'ready-for-pickup': 'Abholbereit',
+    }
+    if (statusMap[status]) return statusMap[status]
+    // Handle dynamic shipping status prefix
+    if (status.startsWith('Shipping Status:')) return `Versandstatus:${status.slice('Shipping Status:'.length)}`
+    // Handle dynamic return_exchange status
+    if (status.startsWith('return_exchange_')) return `Rückgabe/Umtausch – ${status.replace('return_exchange_', '').replace('_', ' ')}`
+    return status
+  }
+
+  const translateOrderDescription = (desc: string): string => {
+    if (!desc) return desc
+
+    // Static exact matches
+    const exact: Record<string, string> = {
+      'Order placed by customer': 'Auftrag vom Kunden erteilt',
+      'Orders consolidated into booking': 'Aufträge in Buchung zusammengefasst',
+      'Booking status automatically updated based on order progress': 'Buchungsstatus automatisch anhand des Auftragsfortschritts aktualisiert',
+      'Booking cancelled': 'Buchung storniert',
+      'Order cancelled': 'Auftrag storniert',
+      'Device inspection has been initiated by technician': 'Geräteinspektion wurde vom Techniker eingeleitet',
+      'Not provided': 'Nicht angegeben',
+    }
+    if (exact[desc]) return exact[desc]
+
+    let d = desc
+
+    // Workflow status change: Workflow "X" status changed from A to B[ - Reason: R]
+    d = d.replace(
+      /^Workflow "(.+?)" status changed from (.+?) to (.+?)( - Reason: (.+))?$/,
+      (_, wf, from, to, _unused, reason) =>
+        `Workflow „${wf}" Statusänderung von ${translateOrderStatus(from)} zu ${translateOrderStatus(to)}${reason ? ` – Grund: ${reason}` : ''}`
+    )
+    if (d !== desc) return d
+
+    // Order status changed … due to workflow being paused
+    d = d.replace(
+      /^Order status changed from (.+?) to (.+?) due to workflow being paused$/,
+      (_, from, to) => `Auftragsstatus geändert von ${translateOrderStatus(from)} zu ${translateOrderStatus(to)} – Workflow wurde pausiert`
+    )
+    if (d !== desc) return d
+
+    // Order status updated to "Repair in Progress" and assigned to X upon workflow initiation
+    d = d.replace(
+      /^Order status updated to "Repair in Progress" and assigned to (.+?) upon workflow initiation$/,
+      (_, name) => `Auftragsstatus auf „Reparatur in Bearbeitung" gesetzt und ${name} bei Workflow-Start zugewiesen`
+    )
+    if (d !== desc) return d
+
+    // Step "X" completed in workflow "Y" (actual N min[ vs estimated M min])
+    d = d.replace(
+      /^Step "(.+?)" completed in workflow "(.+?)"\s*\(actual (\d+) min(?: vs estimated (\d+) min)?\)$/,
+      (_, step, wf, actual, estimated) =>
+        estimated
+          ? `Schritt „${step}" in Workflow „${wf}" abgeschlossen (tatsächlich ${actual} Min. vs. geschätzt ${estimated} Min.)`
+          : `Schritt „${step}" in Workflow „${wf}" abgeschlossen (tatsächlich ${actual} Min.)`
+    )
+    if (d !== desc) return d
+
+    // Step "X" completed in workflow "Y" (no timing)
+    d = d.replace(
+      /^Step "(.+?)" completed in workflow "(.+?)"$/,
+      (_, step, wf) => `Schritt „${step}" in Workflow „${wf}" abgeschlossen`
+    )
+    if (d !== desc) return d
+
+    // Step "X" in workflow "Y" assigned to: Z
+    d = d.replace(
+      /^Step "(.+?)" in workflow "(.+?)" assigned to: (.+)$/,
+      (_, step, wf, who) => `Schritt „${step}" in Workflow „${wf}" zugewiesen an: ${who}`
+    )
+    if (d !== desc) return d
+
+    // Step "X" skipped in workflow "Y". Reason: R
+    d = d.replace(
+      /^Step "(.+?)" skipped in workflow "(.+?)"\. Reason: (.+)$/,
+      (_, step, wf, reason) => `Schritt „${step}" in Workflow „${wf}" übersprungen. Grund: ${reason === 'Not provided' ? 'Nicht angegeben' : reason}`
+    )
+    if (d !== desc) return d
+
+    // Navigated back to step "X" in workflow "Y"
+    d = d.replace(
+      /^Navigated back to step "(.+?)" in workflow "(.+?)"$/,
+      (_, step, wf) => `Zurück zu Schritt „${step}" in Workflow „${wf}" navigiert`
+    )
+    if (d !== desc) return d
+
+    // Workflow "X" started by Y
+    d = d.replace(
+      /^Workflow "(.+?)" started by (.+)$/,
+      (_, wf, who) => `Workflow „${wf}" gestartet von ${who}`
+    )
+    if (d !== desc) return d
+
+    // Workflow "X" assigned to order
+    d = d.replace(
+      /^Workflow "(.+?)" assigned to order$/,
+      (_, wf) => `Workflow „${wf}" dem Auftrag zugewiesen`
+    )
+    if (d !== desc) return d
+
+    // Workflow "X" removed from order
+    d = d.replace(
+      /^Workflow "(.+?)" removed from order$/,
+      (_, wf) => `Workflow „${wf}" vom Auftrag entfernt`
+    )
+    if (d !== desc) return d
+
+    // Assigned to: X
+    d = d.replace(/^Assigned to: (.+)$/, (_, who) => `Zugewiesen an: ${who}`)
+    if (d !== desc) return d
+
+    // X assigned to Y (staff to addon)
+    d = d.replace(/^(.+?) assigned to (.+)$/, (_, who, what) => `${who} ${what} zugewiesen`)
+    if (d !== desc) return d
+
+    // Device changed from A B to C D
+    d = d.replace(
+      /^Device changed from (.+?) to (.+)$/,
+      (_, from, to) => `Gerät geändert von ${from} zu ${to}`
+    )
+    if (d !== desc) return d
+
+    // Device Changed from A B to C D (capitalized variant)
+    d = d.replace(
+      /^Device Changed from (.+?) to (.+)$/,
+      (_, from, to) => `Gerät geändert von ${from} zu ${to}`
+    )
+    if (d !== desc) return d
+
+    // Device change from A B to C D (alternate wording)
+    d = d.replace(
+      /^Device change from (.+?) to (.+)$/,
+      (_, from, to) => `Gerät geändert von ${from} zu ${to}`
+    )
+    if (d !== desc) return d
+
+    // X added to order (+$Y)
+    d = d.replace(
+      /^(.+?) added to order \(\+\$(.+?)\)$/,
+      (_, name, price) => `${name} zum Auftrag hinzugefügt (+${price} €)`
+    )
+    if (d !== desc) return d
+
+    // X removed from order (-$Y)
+    d = d.replace(
+      /^(.+?) removed from order \(-\$(.+?)\)$/,
+      (_, name, price) => `${name} vom Auftrag entfernt (-${price} €)`
+    )
+    if (d !== desc) return d
+
+    // X (type) xN assigned to order
+    d = d.replace(
+      /^(.+?) \((.+?)\) x(\d+) assigned to order$/,
+      (_, part, type, qty) => `${part} (${type}) ×${qty} dem Auftrag zugewiesen`
+    )
+    if (d !== desc) return d
+
+    // X (type) xN removed from order
+    d = d.replace(
+      /^(.+?) \((.+?)\) x(\d+) removed from order$/,
+      (_, part, type, qty) => `${part} (${type}) ×${qty} vom Auftrag entfernt`
+    )
+    if (d !== desc) return d
+
+    // X status changed from A to B
+    d = d.replace(
+      /^(.+?) status changed from (.+?) to (.+)$/,
+      (_, item, from, to) => `${item} Statusänderung von ${translateOrderStatus(from)} zu ${translateOrderStatus(to)}`
+    )
+    if (d !== desc) return d
+
+    // Status changed from A to B
+    d = d.replace(
+      /^Status changed from (.+?) to (.+)$/,
+      (_, from, to) => `Statusänderung von ${translateOrderStatus(from)} zu ${translateOrderStatus(to)}`
+    )
+    if (d !== desc) return d
+
+    // Status updated to X
+    d = d.replace(
+      /^Status updated to (.+)$/,
+      (_, to) => `Status aktualisiert auf ${translateOrderStatus(to)}`
+    )
+    if (d !== desc) return d
+
+    // Billing status updated to X
+    d = d.replace(
+      /^Billing status updated to (.+)$/,
+      (_, to) => `Rechnungsstatus aktualisiert auf ${to}`
+    )
+    if (d !== desc) return d
+
+    // Order status changed to X
+    d = d.replace(
+      /^Order status changed to (.+)$/,
+      (_, to) => `Auftragsstatus geändert auf ${translateOrderStatus(to)}`
+    )
+    if (d !== desc) return d
+
+    // Payment status changed to X
+    d = d.replace(
+      /^Payment status changed to (.+)$/,
+      (_, to) => `Zahlungsstatus geändert auf ${to}`
+    )
+    if (d !== desc) return d
+
+    // Received N units of X
+    d = d.replace(
+      /^Received (\d+) units of (.+)$/,
+      (_, qty, part) => `${qty} Einheiten von ${part} erhalten`
+    )
+    if (d !== desc) return d
+
+    // Return/Exchange Y
+    d = d.replace(
+      /^Return\/Exchange (.+)$/,
+      (_, status) => `Rückgabe/Umtausch ${status}`
+    )
+    if (d !== desc) return d
+
+    // Return or Exchange requested: R
+    d = d.replace(
+      /^(Return|Exchange) requested: (.+)$/,
+      (_, type, reason) => `${type === 'Return' ? 'Rückgabe' : 'Umtausch'} angefordert: ${reason}`
+    )
+    if (d !== desc) return d
+
+    // Invoice file "X" uploaded
+    d = d.replace(
+      /^Invoice file "(.+?)" uploaded$/,
+      (_, file) => `Rechnungsdatei „${file}" hochgeladen`
+    )
+    if (d !== desc) return d
+
+    // DHL Parcel shipping label created. Tracking number: X
+    d = d.replace(
+      /^DHL Parcel shipping label created\. Tracking number: (.+)$/,
+      (_, tracking) => `DHL-Versandetikett erstellt. Sendungsnummer: ${tracking}`
+    )
+    if (d !== desc) return d
+
+    // Return shipment status: X
+    d = d.replace(
+      /^Return shipment status: (.+)$/,
+      (_, status) => `Status der Rücksendung: ${status}`
+    )
+    if (d !== desc) return d
+
+    // DHL return label generated (Tracking: X)
+    d = d.replace(
+      /^DHL return label generated \(Tracking: (.+?)\)$/,
+      (_, tracking) => `DHL-Rücksendeetikett erstellt (Sendungsnummer: ${tracking})`
+    )
+    if (d !== desc) return d
+
+    // X updated (addon name updated – short form)
+    d = d.replace(/^(.+?) updated$/, (_, name) => `${name} aktualisiert`)
+    if (d !== desc) return d
+
+    return d
+  }
+
+  const progressHistoryEntries = Array.isArray(progressTimeline?.stages)
+    ? progressTimeline.stages.map((stage: any, index: number) => {
+        const isActiveStage = stage.id === progressTimeline?.currentStage || stage.status === 'in-progress'
+
+        return {
+          id: `progress-${stage.id || index}`,
+          title: translateOrderStatus(stage.label || stage.name || `Schritt ${index + 1}`),
+          description:
+            stage.status === 'completed'
+              ? 'Meilenstein abgeschlossen'
+              : isActiveStage
+                ? 'Aktueller Prozessschritt'
+                : 'Ausstehender Prozessschritt',
+          meta: stage.date || 'Noch kein Zeitstempel vorhanden',
+          statusLabel:
+            stage.status === 'completed'
+              ? 'Abgeschlossen'
+              : isActiveStage
+                ? 'Aktiv'
+                : 'Offen',
+          tone:
+            stage.status === 'completed'
+              ? 'completed'
+              : isActiveStage
+                ? 'active'
+                : 'pending',
+        }
+      })
+    : []
+  const orderHistoryEntries = Array.isArray(order.timeline)
+    ? [...order.timeline]
+        .filter((entry) => entry && (entry.status || entry.description || entry.completedAt))
+        .sort((left, right) => {
+          const leftTime = left?.completedAt ? new Date(left.completedAt).getTime() : 0
+          const rightTime = right?.completedAt ? new Date(right.completedAt).getTime() : 0
+          return rightTime - leftTime
+        })
+        .map((entry, index) => ({
+          id: entry._id || `history-${index}`,
+          title: entry.status ? translateOrderStatus(entry.status) : 'Statusänderung',
+          description: entry.description ? translateOrderDescription(entry.description) : 'Kein Beschreibungstext verfügbar',
+          meta: [
+            entry.completedAt ? new Date(entry.completedAt).toLocaleString('de-DE') : 'Noch kein Zeitstempel vorhanden',
+            entry.staffName || '',
+          ].filter(Boolean).join(' • '),
+          statusLabel: entry.staffName ? 'Historie' : 'System',
+          tone: 'history',
+        }))
+    : []
+  const hasDeviceHistoryTimeline = isStaffOrAdmin && (progressHistoryEntries.length > 0 || orderHistoryEntries.length > 0)
 
   const scrollToSection = (sectionId: string) => {
     const target = document.getElementById(sectionId)
@@ -1599,17 +2055,102 @@ export function OrderDetails() {
           )}
 
           {(user?.role === 'admin' || user?.role === 'staff') && (order.unlockPattern?.length || order.unlockCode || order.noLock || order.unlockConfirmation) && (
-            <Button
-              variant="outline"
-              size="sm"
+            <button
+              type="button"
               onClick={() => setUnlockConfirmDialogOpen(true)}
-              className="w-full text-xs px-2 h-8"
+              className="unlock-confirm-btn"
             >
-              {order.unlockConfirmation
-                ? t('orderDetails.updateConfirmation', 'Update Confirmation')
-                : t('orderDetails.confirmUnlock', 'Confirm Unlock Information')}
-            </Button>
+              <span className="unlock-confirm-btn-icon-wrap">
+                {order.unlockConfirmation?.confirmationStatus === 'verified' ? (
+                  <CheckCircle className="h-3.5 w-3.5" />
+                ) : order.unlockConfirmation?.confirmationStatus === 'incorrect' ? (
+                  <AlertCircle className="h-3.5 w-3.5" />
+                ) : (
+                  <Lock className="h-3.5 w-3.5" />
+                )}
+              </span>
+              <span className="unlock-confirm-btn-label">
+                {order.unlockConfirmation
+                  ? t('orderDetails.updateConfirmation', 'Update Confirmation')
+                  : t('orderDetails.confirmUnlock', 'Confirm Unlock Information')}
+              </span>
+              <ChevronDown className="unlock-confirm-btn-arrow" style={{ transform: 'rotate(-90deg)' }} />
+            </button>
           )}
+
+          {hasDeviceHistoryTimeline && (
+            <Collapsible open={deviceHistoryOpen} onOpenChange={setDeviceHistoryOpen}>
+              <div className="device-history-collapsible">
+                <CollapsibleTrigger asChild>
+                  <button type="button" className="device-history-trigger">
+                    <div className="device-history-trigger-copy">
+                      <span className="device-history-trigger-title">Auftragsverlauf &amp; Historie</span>
+                      <span className="device-history-trigger-summary">
+                        {progressHistoryEntries.length} Meilensteine • {orderHistoryEntries.length} Historieneinträge
+                      </span>
+                    </div>
+                    <ChevronDown className={`device-history-trigger-icon ${deviceHistoryOpen ? 'is-open' : ''}`} />
+                  </button>
+                </CollapsibleTrigger>
+
+                <CollapsibleContent className="device-history-content">
+                  <div className="device-history-section">
+                    <div className="device-history-section-heading">
+                      <Calendar className="h-3.5 w-3.5" />
+                      <span>Fortschritt</span>
+                    </div>
+                    {progressHistoryEntries.length > 0 ? (
+                      <div className="device-history-list">
+                        {progressHistoryEntries.map((entry) => (
+                          <div key={entry.id} className="device-history-item">
+                            <div className={`device-history-marker is-${entry.tone}`} />
+                            <div className="device-history-item-body">
+                              <div className="device-history-item-head">
+                                <p className="device-history-item-title">{entry.title}</p>
+                                <span className={`device-history-badge is-${entry.tone}`}>{entry.statusLabel}</span>
+                              </div>
+                              <p className="device-history-item-description">{entry.description}</p>
+                              <p className="device-history-item-meta">{entry.meta}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="device-history-empty-state">Keine Fortschrittsmeilensteine verfügbar.</div>
+                    )}
+                  </div>
+
+                  <div className="device-history-section">
+                    <div className="device-history-section-heading">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>Historie</span>
+                    </div>
+                    {orderHistoryEntries.length > 0 ? (
+                      <div className="device-history-list">
+                        {orderHistoryEntries.map((entry) => (
+                          <div key={entry.id} className="device-history-item">
+                            <div className={`device-history-marker is-${entry.tone}`} />
+                            <div className="device-history-item-body">
+                              <div className="device-history-item-head">
+                                <p className="device-history-item-title">{entry.title}</p>
+                                <span className={`device-history-badge is-${entry.tone}`}>{entry.statusLabel}</span>
+                              </div>
+                              <p className="device-history-item-description">{entry.description}</p>
+                              <p className="device-history-item-meta">{entry.meta}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="device-history-empty-state">Keine Historieneinträge vorhanden.</div>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
+          )}
+
+
         </div>
       </CardContent>
     </Card>
@@ -1741,7 +2282,10 @@ export function OrderDetails() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setAddAddonDialogOpen(true)}
+            onClick={() => {
+              resetAddOnForm()
+              setAddAddonDialogOpen(true)
+            }}
             className="text-xs px-2 h-8"
           >
             <Plus className="h-3 w-3 mr-1" />
@@ -1828,10 +2372,10 @@ export function OrderDetails() {
         <div>
           <h4 className="font-medium text-sm flex items-center gap-1.5">
             <ShoppingCart className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            Shop Products
+            Shop-Produkte
           </h4>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Products added from shop inventory for this specific repair order.
+            Produkte aus dem Shop-Bestand, die diesem Reparaturauftrag hinzugefügt wurden.
           </p>
         </div>
         {(user?.role === 'admin' || user?.role === 'staff') && (
@@ -1842,7 +2386,7 @@ export function OrderDetails() {
             className="text-xs px-2 h-8"
           >
             <Plus className="h-3 w-3 mr-1" />
-            Add Product
+            Produkt hinzufügen
           </Button>
         )}
       </div>
@@ -1865,22 +2409,22 @@ export function OrderDetails() {
                   )}
                   <div className="flex-1 space-y-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h4 className="font-medium text-sm">{product?.name || 'Unknown Product'}</h4>
+                      <h4 className="font-medium text-sm">{product?.name || 'Unbekanntes Produkt'}</h4>
                       <Badge variant="outline" className="text-xs px-1.5 py-0">
                         {product?.category}
                       </Badge>
                     </div>
                     <div className="flex gap-3 text-xs text-muted-foreground flex-wrap">
                       <div className="flex items-center gap-1">
-                        <span>Brand:</span>
-                        <span className="font-medium text-foreground">{product?.brand || 'N/A'}</span>
+                        <span>Marke:</span>
+                        <span className="font-medium text-foreground">{product?.brand || 'k. A.'}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <span>Price:</span>
+                        <span>Preis:</span>
                         <span className="font-medium text-foreground">${shopProduct.priceAtOrder?.toFixed(2)}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <span>Qty:</span>
+                        <span>Menge:</span>
                         <Input
                           type="number"
                           min="1"
@@ -1896,22 +2440,22 @@ export function OrderDetails() {
                         />
                       </div>
                       <div className="flex items-center gap-1">
-                        <span>Total:</span>
+                        <span>Gesamt:</span>
                         <span className="font-bold text-foreground">${totalPrice.toFixed(2)}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>
-                        Added: {new Date(shopProduct.addedAt).toLocaleDateString()}
+                        Hinzugefügt: {new Date(shopProduct.addedAt).toLocaleDateString()}
                       </span>
                       {shopProduct.addedBy && (
                         <span>
-                          By: {shopProduct.addedBy.name}
+                          Von: {shopProduct.addedBy.name}
                         </span>
                       )}
                       {product?.stock !== undefined && (
                         <Badge variant={product.stock > 10 ? 'default' : product.stock > 0 ? 'secondary' : 'destructive'} className="text-xs px-1.5 py-0">
-                          Stock: {product.stock}
+                          Bestand: {product.stock}
                         </Badge>
                       )}
                     </div>
@@ -1932,9 +2476,9 @@ export function OrderDetails() {
       ) : (
         <div className="repair-info-empty-state bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800 text-center text-muted-foreground">
           <ShoppingCart className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">No shop products added</p>
+          <p className="text-sm">Keine Shop-Produkte hinzugefügt</p>
           {(user?.role === 'admin' || user?.role === 'staff') && (
-            <p className="text-xs mt-1">Click "Add Product" to add products from the shop to this order</p>
+            <p className="text-xs mt-1">Klicken Sie auf „Produkt hinzufügen“, um Produkte aus dem Shop diesem Auftrag hinzuzufügen</p>
           )}
         </div>
       )}
@@ -2036,25 +2580,25 @@ export function OrderDetails() {
   const renderRepairProgressCard = () => {
     const progressValue = Math.max(0, Math.min(100, safeToNumber(order.progress)))
     const progressLabel =
-      progressValue >= 100 ? 'Completed' :
-      progressValue >= 75 ? 'Quality Check' :
-      progressValue >= 50 ? 'Repair in Progress' :
-      progressValue >= 25 ? 'Diagnostic Assessment' :
-      'Order Received'
+      progressValue >= 100 ? 'Abgeschlossen' :
+      progressValue >= 75 ? 'Qualitätskontrolle' :
+      progressValue >= 50 ? 'Reparatur in Bearbeitung' :
+      progressValue >= 25 ? 'Diagnosebewertung' :
+      'Auftrag erhalten'
 
     const progressSteps = progressTimeline?.stages?.length
       ? progressTimeline.stages.map((stage: any, index: number) => ({
           key: stage.name || `stage-${index}`,
-          label: stage.name || `Stage ${index + 1}`,
+          label: translateOrderStatus(stage.label || stage.name || `Schritt ${index + 1}`),
           completed: Boolean(stage.completed) || index < (progressTimeline.currentStage ?? 0),
           active: index === (progressTimeline.currentStage ?? 0),
         }))
       : [
-          { key: 'received', label: 'Order Received', completed: true, active: progressValue < 25 },
-          { key: 'diagnostic', label: 'Diagnostic Assessment', completed: progressValue >= 25, active: progressValue >= 25 && progressValue < 50 },
-          { key: 'repair', label: 'Repair in Progress', completed: progressValue >= 50, active: progressValue >= 50 && progressValue < 75 },
-          { key: 'quality', label: 'Quality Check', completed: progressValue >= 75, active: progressValue >= 75 && progressValue < 100 },
-          { key: 'pickup', label: 'Ready for Pickup', completed: progressValue >= 100, active: progressValue >= 100 },
+          { key: 'received', label: 'Auftrag erhalten', completed: true, active: progressValue < 25 },
+          { key: 'diagnostic', label: 'Diagnosebewertung', completed: progressValue >= 25, active: progressValue >= 25 && progressValue < 50 },
+          { key: 'repair', label: 'Reparatur in Bearbeitung', completed: progressValue >= 50, active: progressValue >= 50 && progressValue < 75 },
+          { key: 'quality', label: 'Qualitätskontrolle', completed: progressValue >= 75, active: progressValue >= 75 && progressValue < 100 },
+          { key: 'pickup', label: 'Abgeschlossen', completed: progressValue >= 100, active: progressValue >= 100 },
         ]
 
     return (
@@ -2065,22 +2609,22 @@ export function OrderDetails() {
             {t('orderDetails.repairProgress')}
           </CardTitle>
           <p className="order-section-description">
-            Clear overview of the current order status and remaining repair steps.
+            Übersicht über den aktuellen Auftragsstatus und die verbleibenden Reparaturschritte.
           </p>
         </CardHeader>
         <CardContent className="space-y-4 pt-3">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Current Status</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Aktueller Status</p>
               <div className="mt-1 flex items-center gap-2 flex-wrap">
                 <Badge className={`${getStatusColor(order.status)} text-xs px-2 py-0.5`}>
-                  {order.status.replace('-', ' ')}
+                  {translateOrderStatus(order.status)}
                 </Badge>
                 <span className="text-sm font-semibold">{progressLabel}</span>
               </div>
             </div>
             <div className="text-left lg:text-right">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Completion</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Fertigstellung</p>
               <p className="text-2xl font-bold text-foreground">{progressValue}%</p>
             </div>
           </div>
@@ -2094,7 +2638,7 @@ export function OrderDetails() {
                   {t('orderDetails.estimatedCompletion')}: {new Date(order.estimatedCompletion).toLocaleDateString()}
                 </span>
               ) : (
-                <span>Updated: {lastUpdate}</span>
+                <span>Aktualisiert: {lastUpdate}</span>
               )}
             </div>
           </div>
@@ -2221,44 +2765,44 @@ export function OrderDetails() {
                     disabled={updatingStatus}
                   >
                     {getStatusIcon(order.status)}
-                    <span>{order.status.replace('-', ' ')}</span>
+                    <span>{translateOrderStatus(order.status)}</span>
                     <ChevronDown className="h-3 w-3 ml-1" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel className="text-xs font-semibold">Change Order Status</DropdownMenuLabel>
+                  <DropdownMenuLabel className="text-xs font-semibold">Auftragsstatus ändern</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => handleStatusChange('pending')} disabled={updatingStatus || order.status === 'pending'} className="text-xs cursor-pointer">
                     <span className="inline-block w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-                    Pending
+                    Ausstehend
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleStatusChange('in-progress')} disabled={updatingStatus || order.status === 'in-progress'} className="text-xs cursor-pointer">
                     <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-                    In Progress
+                    In Bearbeitung
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleStatusChange('quality-check')} disabled={updatingStatus || order.status === 'quality-check'} className="text-xs cursor-pointer">
                     <span className="inline-block w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
-                    Quality Check
+                    Qualitätskontrolle
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleStatusChange('ready-for-pickup')} disabled={updatingStatus || order.status === 'ready-for-pickup'} className="text-xs cursor-pointer">
                     <span className="inline-block w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
-                    Ready for Pickup
+                    Abholbereit
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleStatusChange('completed')} disabled={updatingStatus || order.status === 'completed'} className="text-xs cursor-pointer">
                     <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                    Completed
+                    Abgeschlossen
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => handleStatusChange('cancelled')} disabled={updatingStatus || order.status === 'cancelled'} className="text-xs cursor-pointer text-destructive">
                     <span className="inline-block w-2 h-2 bg-red-500 rounded-full mr-2"></span>
-                    Cancelled
+                    Storniert
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
               <span className={`order-status-badge ${getStatusColor(order.status)} text-xs px-3 py-1`}>
                 {getStatusIcon(order.status)}
-                <span className="ml-1">{order.status.replace('-', ' ')}</span>
+                <span className="ml-1">{translateOrderStatus(order.status)}</span>
               </span>
             )}
             <span className={`payment-status-badge ${getPaymentStatusColor(order.paymentStatus)}`}>
@@ -2267,7 +2811,7 @@ export function OrderDetails() {
             </span>
             <div className="order-total-cost">
               <div className="amount">${safeToNumber(order.totalCost).toFixed(2)}</div>
-              <div className="label">Total</div>
+              <div className="label">Gesamt</div>
             </div>
           </div>
         </div>
@@ -2275,23 +2819,23 @@ export function OrderDetails() {
         {isStaffOrAdmin && (
           <div className="order-admin-kpi-grid">
             <div className="order-admin-kpi-card">
-              <span>Progress</span>
+              <span>Fortschritt</span>
               <strong>{order.progress}%</strong>
             </div>
             <div className="order-admin-kpi-card">
               <span>Status</span>
-              <strong>{order.status.replace('-', ' ')}</strong>
+              <strong>{translateOrderStatus(order.status)}</strong>
             </div>
             <div className="order-admin-kpi-card">
-              <span>Assigned Staff</span>
+              <span>Zugewiesenes Personal</span>
               <strong>{staffCount}</strong>
             </div>
             <div className="order-admin-kpi-card">
-              <span>Services</span>
+              <span>Leistungen</span>
               <strong>{serviceCount}</strong>
             </div>
             <div className="order-admin-kpi-card">
-              <span>Last Update</span>
+              <span>Letzte Aktualisierung</span>
               <strong>{lastUpdate}</strong>
             </div>
           </div>
@@ -2302,7 +2846,11 @@ export function OrderDetails() {
       {progressTimeline && (
         <div className="order-section-card">
           <OrderProgressTimeline
-            stages={progressTimeline.stages}
+            stages={progressTimeline.stages.map((stage: any, index: number) => ({
+              ...stage,
+              id: stage.id || `stage-${index}`,
+              label: translateOrderStatus(stage.label || stage.name || `Schritt ${index + 1}`),
+            }))}
             currentStage={progressTimeline.currentStage}
           />
         </div>
@@ -2323,10 +2871,10 @@ export function OrderDetails() {
             <CardHeader className="order-section-header bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40">
               <CardTitle className="order-section-title">
                 <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                Additional Repair Information
+                Zusätzliche Reparaturinformationen
               </CardTitle>
               <p className="order-section-description">
-                {t('orderDetails.repairInfo.description') || 'Customer-provided information about the device and repair requirements'}
+                {t('orderDetails.repairInfo.description') || 'Vom Kunden bereitgestellte Informationen zum Gerät und zu den Reparaturanforderungen'}
               </p>
             </CardHeader>
             <CardContent className="pt-3 space-y-3">
@@ -2338,7 +2886,7 @@ export function OrderDetails() {
                       <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
                       <div className="flex-1">
                         <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100 mb-1">
-                          {t('orderDetails.repairInfo.errorDescriptionLabel') || 'Error Description'}
+                          {t('orderDetails.repairInfo.errorDescriptionLabel') || 'Fehlerbeschreibung'}
                         </h4>
                         <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                           {order.errorDescription}
@@ -2352,10 +2900,10 @@ export function OrderDetails() {
                       <AlertCircle className="h-4 w-4 text-gray-400 dark:text-gray-600" />
                       <div className="flex-1">
                         <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
-                          {t('orderDetails.repairInfo.errorDescriptionLabel') || 'Error Description'}
+                          {t('orderDetails.repairInfo.errorDescriptionLabel') || 'Fehlerbeschreibung'}
                         </h4>
                         <p className="text-xs text-gray-500 dark:text-gray-600 italic mt-1">
-                          {t('orderDetails.repairInfo.noInformationProvided') || 'No error description provided'}
+                          {t('orderDetails.repairInfo.noInformationProvided') || 'Keine Fehlerbeschreibung vorhanden'}
                         </p>
                       </div>
                     </div>
@@ -2392,11 +2940,11 @@ export function OrderDetails() {
                       <div className="flex items-center gap-2">
                         <Droplets className="h-4 w-4 text-gray-400 dark:text-gray-600" />
                         <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
-                          {t('orderDetails.repairInfo.waterDamageLabel') || 'Water Damage'}
+                          {t('orderDetails.repairInfo.waterDamageLabel') || 'Wasserschaden'}
                         </h4>
                       </div>
                       <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 text-xs px-2 py-0.5">
-                        {t('orderDetails.repairInfo.notSpecified') || 'Not specified'}
+                        {t('orderDetails.repairInfo.notSpecified') || 'Nicht angegeben'}
                       </Badge>
                     </div>
                   </div>
@@ -2410,7 +2958,7 @@ export function OrderDetails() {
                         <div className="flex items-center gap-2">
                           <Wrench className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                           <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100">
-                            {t('orderDetails.repairInfo.previousRepairLabel') || 'Previous Repair Attempts'}
+                            {t('orderDetails.repairInfo.previousRepairLabel') || 'Vorherige Reparaturversuche'}
                           </h4>
                         </div>
                         <Badge
@@ -2441,11 +2989,11 @@ export function OrderDetails() {
                       <div className="flex items-center gap-2">
                         <Wrench className="h-4 w-4 text-gray-400 dark:text-gray-600" />
                         <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
-                          {t('orderDetails.repairInfo.previousRepairLabel') || 'Previous Repair Attempts'}
+                          {t('orderDetails.repairInfo.previousRepairLabel') || 'Vorherige Reparaturversuche'}
                         </h4>
                       </div>
                       <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 text-xs px-2 py-0.5">
-                        {t('orderDetails.repairInfo.notSpecified') || 'Not specified'}
+                        {t('orderDetails.repairInfo.notSpecified') || 'Nicht angegeben'}
                       </Badge>
                     </div>
                   </div>
@@ -2458,7 +3006,7 @@ export function OrderDetails() {
                       <div className="flex items-center gap-2">
                         <Package className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                         <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100">
-                          {t('orderDetails.repairInfo.itemConditionLabel') || 'Item Condition'}
+                            {t('orderDetails.repairInfo.itemConditionLabel') || 'Gerätezustand'}
                         </h4>
                       </div>
                       <Badge
@@ -2479,11 +3027,11 @@ export function OrderDetails() {
                       <div className="flex items-center gap-2">
                         <Package className="h-4 w-4 text-gray-400 dark:text-gray-600" />
                         <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
-                          {t('orderDetails.repairInfo.itemConditionLabel') || 'Item Condition'}
+                          {t('orderDetails.repairInfo.itemConditionLabel') || 'Gerätezustand'}
                         </h4>
                       </div>
                       <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 text-xs px-2 py-0.5">
-                        {t('orderDetails.repairInfo.notSpecified') || 'Not specified'}
+                        {t('orderDetails.repairInfo.notSpecified') || 'Nicht angegeben'}
                       </Badge>
                     </div>
                   </div>
@@ -2494,7 +3042,7 @@ export function OrderDetails() {
                   <div className="flex items-start gap-2">
                     <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                     <p className="text-xs text-blue-900 dark:text-blue-100 leading-relaxed">
-                      {t('orderDetails.repairInfo.infoNotice') || 'This information helps our technicians better assess and repair your device. Additional details may be requested during the inspection process.'}
+                      {t('orderDetails.repairInfo.infoNotice') || 'Diese Informationen helfen unseren Technikern, Ihr Gerät besser zu beurteilen und zu reparieren. Während der Inspektion können zusätzliche Details angefragt werden.'}
                     </p>
                   </div>
                 </div>
@@ -2513,7 +3061,7 @@ export function OrderDetails() {
             <CardHeader className="order-section-header">
               <CardTitle className="order-section-title">
                 <Zap className="h-5 w-5" />
-                Quick Actions
+                Schnellaktionen
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 pt-2">
@@ -2521,11 +3069,11 @@ export function OrderDetails() {
                 <>
                   <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => setStatusDropdownOpen(true)}>
                     <Clock className="h-3 w-3 mr-1" />
-                    Update Status
+                    Status aktualisieren
                   </Button>
                   <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => scrollToSection('order-staff')}>
                     <Users className="h-3 w-3 mr-1" />
-                    Manage Staff
+                    Personal verwalten
                   </Button>
                   <Button
                     className="w-full text-xs h-8"
@@ -2537,26 +3085,26 @@ export function OrderDetails() {
                     }}
                   >
                     <PlusCircle className="h-3 w-3 mr-1" />
-                    Add Repair Service
+                    Reparaturservice hinzufügen
                   </Button>
                   <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => scrollToSection('order-quick-actions-communication')}>
                     <MessageSquare className="h-3 w-3 mr-1" />
-                    Open Messages
+                    Nachrichten öffnen
                   </Button>
                 </>
               ) : (
                 <>
                   <Button className="w-full text-xs h-8" variant="outline" size="sm">
                     <MessageSquare className="h-3 w-3 mr-1" />
-                    Send Message
+                    Nachricht senden
                   </Button>
                   <Button className="w-full text-xs h-8" variant="outline" size="sm">
                     <Camera className="h-3 w-3 mr-1" />
-                    Upload Photos
+                    Fotos hochladen
                   </Button>
                   <Button className="w-full text-xs h-8" variant="outline" size="sm">
                     <Star className="h-3 w-3 mr-1" />
-                    Rate Service
+                    Service bewerten
                   </Button>
                 </>
               )}
@@ -2766,115 +3314,6 @@ export function OrderDetails() {
           </div>
 
           <div className={`order-nested-block order-nested-ops-grid ${isStaffOrAdmin ? 'is-admin-nested' : ''}`}>
-          {/* Device Change Dialog */}
-          <Dialog open={deviceChangeDialogOpen} onOpenChange={setDeviceChangeDialogOpen}>
-            <DialogContent className="order-dialog-content max-w-md">
-              <DialogHeader className="order-dialog-header">
-                <DialogTitle>{t('orderDetails.changeDevice') || 'Change Device Information'}</DialogTitle>
-                <DialogDescription>
-                  {t('orderDetails.changeDeviceDescription') || 'Search and select a device or manually enter device information'}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                {/* Device Search with Autocomplete */}
-                <div className="relative">
-                  <Label htmlFor="device-search">{t('orderDetails.searchDevice') || 'Search Device'}</Label>
-                  <Input
-                    id="device-search"
-                    placeholder="e.g., iPhone 14 Pro, Galaxy S23..."
-                    value={deviceSearchQuery}
-                    onChange={(e) => handleDeviceSearch(e.target.value)}
-                    onFocus={() => deviceSearchResults.length > 0 && setShowDeviceResults(true)}
-                  />
-
-                  {/* Search Results Dropdown */}
-                  {showDeviceResults && deviceSearchResults.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-64 overflow-y-auto">
-                      {deviceSearchResults.map((device) => (
-                        <button
-                          key={device._id}
-                          onClick={() => handleSelectDeviceForChange(device)}
-                          className="w-full text-left px-4 py-2 hover:bg-gray-100 border-b last:border-b-0 transition-colors"
-                        >
-                          <div className="font-medium">{device.displayName}</div>
-                          <div className="text-sm text-gray-500">{device.deviceType}</div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Or Manual Entry Section */}
-                <div className="border-t pt-4">
-                  <p className="text-sm text-gray-500 mb-3">Or enter device details manually:</p>
-
-                  <div>
-                    <Label htmlFor="device-brand">{t('orderDetails.deviceBrand') || 'Device Brand'}</Label>
-                    <Input
-                      id="device-brand"
-                      placeholder="e.g., Apple, Samsung, Google"
-                      value={newDeviceBrand}
-                      onChange={(e) => setNewDeviceBrand(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="mt-3">
-                    <Label htmlFor="device-model">{t('orderDetails.deviceModel') || 'Device Model'}</Label>
-                    <Input
-                      id="device-model"
-                      placeholder="e.g., iPhone 14 Pro, Galaxy S23"
-                      value={newDeviceModel}
-                      onChange={(e) => setNewDeviceModel(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="mt-3">
-                    <Label htmlFor="device-type">{t('orderDetails.deviceType') || 'Device Type'}</Label>
-                    <Select value={newDeviceType} onValueChange={setNewDeviceType}>
-                      <SelectTrigger id="device-type">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Smartphone">Smartphone</SelectItem>
-                        <SelectItem value="Tablet">Tablet</SelectItem>
-                        <SelectItem value="Laptop">Laptop</SelectItem>
-                        <SelectItem value="Watch">Watch</SelectItem>
-                        <SelectItem value="Headphones">Headphones</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {selectedDeviceForChange && (
-                  <div className="bg-blue-50 border border-blue-200 rounded p-3">
-                    <p className="text-sm font-medium text-blue-900">
-                      Selected: {selectedDeviceForChange.displayName}
-                    </p>
-                    <p className="text-xs text-blue-700 mt-1">
-                      {selectedDeviceForChange.deviceType}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => {
-                  setDeviceChangeDialogOpen(false)
-                  setDeviceSearchQuery("")
-                  setDeviceSearchResults([])
-                  setShowDeviceResults(false)
-                  setSelectedDeviceForChange(null)
-                }}>
-                  {t('common.cancel') || 'Cancel'}
-                </Button>
-                <Button onClick={handleDeviceChange} disabled={updatingDevice}>
-                  {updatingDevice ? t('common.saving') || 'Saving...' : t('common.save') || 'Save'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
           {(order?.unlockPattern?.length > 0 || order?.unlockCode || order?.noLock || order?.unlockConfirmation?.confirmationStatus) && (
             <ConfirmUnlockDialog
               isOpen={unlockConfirmDialogOpen}
@@ -2899,9 +3338,9 @@ export function OrderDetails() {
             <DialogHeader className="order-dialog-header inspection-dialog-header">
               <div className="inspection-dialog-title-row">
                 <div>
-                  <DialogTitle className="inspection-dialog-title">Device Inspection</DialogTitle>
+                  <DialogTitle className="inspection-dialog-title">Geräteinspektion</DialogTitle>
                   <DialogDescription className="inspection-dialog-description">
-                    {order.orderNumber ? `Order ${order.orderNumber}` : "Complete the device inspection directly from order details"}
+                    {order.orderNumber ? `Auftrag ${order.orderNumber}` : "Führen Sie die Geräteinspektion direkt in den Auftragsdetails durch"}
                   </DialogDescription>
                 </div>
                 <Button
@@ -2917,7 +3356,28 @@ export function OrderDetails() {
               </div>
             </DialogHeader>
 
-            <div className="inspection-dialog-grid">
+            <div className="inspection-dialog-main">
+              <div className="inspection-dialog-guidance" aria-label="Empfohlener Inspektionsablauf">
+                <p className="inspection-dialog-guidance-title">Empfohlener Ablauf</p>
+                <ol className="inspection-dialog-guidance-list">
+                  <li>Gemeldetes Modell prüfen und Geräteidentifikation bestätigen.</li>
+                  <li>Zubehör erfassen und die äußere Inspektion abschließen.</li>
+                  <li>Funktionstests durchführen und mit der Reparaturzusammenfassung abschließen.</li>
+                </ol>
+              </div>
+
+              <div className="inspection-dialog-context" aria-label="Inspektionskontext">
+                <span className="inspection-dialog-context-chip">
+                  <strong>Gerät:</strong> {order.deviceBrand} {order.deviceModel}
+                </span>
+                <span className="inspection-dialog-context-chip">
+                  <strong>Typ:</strong> {order.deviceType || "-"}
+                </span>
+                <span className="inspection-dialog-context-chip">
+                  <strong>Kunde:</strong> {(order as any)?.customerId?.name || "Gast"}
+                </span>
+              </div>
+
               <div className="inspection-dialog-form-column">
                 <DeviceInspectionForm
                   orderId={id}
@@ -2927,47 +3387,6 @@ export function OrderDetails() {
                   deviceModel={(order as any)?.deviceModel || ''}
                   onComplete={handleInspectionComplete}
                 />
-              </div>
-
-              <div className="inspection-dialog-side-column">
-                <Card className="order-section-card inspection-dialog-order-card">
-                  <CardHeader className="order-section-header">
-                    <CardTitle className="order-section-title">
-                      <FileText className="h-4 w-4" />
-                      Order Snapshot
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="inspection-dialog-order-content">
-                    <div className="inspection-dialog-meta-item">
-                      <span className="inspection-dialog-meta-label">Order</span>
-                      <span className="inspection-dialog-meta-value">{order.orderNumber || "-"}</span>
-                    </div>
-                    <div className="inspection-dialog-meta-item">
-                      <span className="inspection-dialog-meta-label">Device</span>
-                      <span className="inspection-dialog-meta-value">{order.deviceBrand} {order.deviceModel}</span>
-                    </div>
-                    <div className="inspection-dialog-meta-item">
-                      <span className="inspection-dialog-meta-label">Type</span>
-                      <span className="inspection-dialog-meta-value">{order.deviceType || "-"}</span>
-                    </div>
-                    <div className="inspection-dialog-meta-item">
-                      <span className="inspection-dialog-meta-label">Customer</span>
-                      <span className="inspection-dialog-meta-value">{(order as any)?.customerId?.name || "Guest"}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="order-section-card inspection-dialog-communication-card">
-                  <CardHeader className="order-section-header">
-                    <CardTitle className="order-section-title">
-                      <MessageSquare className="h-4 w-4" />
-                      Customer Communication
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="inspection-dialog-communication-content">
-                    <CommunicationPanel orderId={id} inspectionId={order?._id} />
-                  </CardContent>
-                </Card>
               </div>
             </div>
           </DialogContent>
@@ -2980,120 +3399,256 @@ export function OrderDetails() {
           open={ePartDialogOpen}
           onOpenChange={setEPartDialogOpen}
           orderId={id}
+          orderNumber={order?.orderNumber}
           onSuccess={refreshOrder}
         />
       )}
 
       {/* Add Add-On Dialog */}
       <Dialog open={addAddonDialogOpen} onOpenChange={setAddAddonDialogOpen}>
-        <DialogContent className="order-dialog-content sm:max-w-[500px]">
+        <DialogContent className="order-dialog-content order-addon-dialog w-[96vw] max-w-[760px] max-h-[88vh] overflow-y-auto">
           <DialogHeader className="order-dialog-header">
-            <DialogTitle>Add Add-On Service</DialogTitle>
+            <DialogTitle>Zusatzservice hinzufuegen</DialogTitle>
             <DialogDescription>
-              Select an existing add-on service or create a custom one
+              Waehlen Sie eine Vorlage oder erstellen Sie einen individuellen Zusatzservice fuer diesen Auftrag.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="addon-service">Select Add-On Service (Optional)</Label>
-              <Select
-                value={selectedAddonService?._id || ""}
-                onValueChange={(value) => {
-                  const addon = availableAddons.find(a => a._id === value)
-                  setSelectedAddonService(addon || null)
-                  if (addon) {
-                    setCustomAddonName("")
-                    setCustomAddonPrice("")
-                    setCustomAddonDescription("")
-                    setCustomAddonTime("")
-                  }
-                }}
+          <div className="space-y-4 pb-2">
+            <div className="order-dialog-segmented-toggle">
+              <button
+                type="button"
+                className={`order-dialog-segmented-button ${addonInputMode === 'catalog' ? 'is-active' : ''}`}
+                onClick={() => setAddonInputMode('catalog')}
               >
-                <SelectTrigger id="addon-service">
-                  <SelectValue placeholder="Choose an add-on service..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableAddons.map((addon) => (
-                    <SelectItem key={addon._id} value={addon._id}>
-                      {addon.name} - ${safeToNumber(addon.price).toFixed(2)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="text-center text-sm text-muted-foreground">
-              OR
-            </div>
-
-            <div>
-              <Label htmlFor="custom-name">Custom Add-On Name</Label>
-              <Input
-                id="custom-name"
-                value={customAddonName}
-                onChange={(e) => {
-                  setCustomAddonName(e.target.value)
+                Vorlage waehlen
+              </button>
+              <button
+                type="button"
+                className={`order-dialog-segmented-button ${addonInputMode === 'custom' ? 'is-active' : ''}`}
+                onClick={() => {
+                  setAddonInputMode('custom')
                   setSelectedAddonService(null)
                 }}
-                placeholder="Enter add-on name"
-                disabled={!!selectedAddonService}
-              />
+              >
+                Individuell erstellen
+              </button>
             </div>
 
-            <div>
-              <Label htmlFor="custom-description">Description (Optional)</Label>
-              <Textarea
-                id="custom-description"
-                value={customAddonDescription}
-                onChange={(e) => setCustomAddonDescription(e.target.value)}
-                placeholder="Enter description"
-                disabled={!!selectedAddonService}
-              />
-            </div>
+            {addonInputMode === 'catalog' ? (
+              <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                <div className="space-y-2 relative">
+                  <Label htmlFor="addon-search">Vorlage suchen</Label>
+                  <Input
+                    id="addon-search"
+                    value={addonSearchTerm}
+                    onChange={(e) => {
+                      setAddonSearchTerm(e.target.value)
+                      setShowAddonSuggestions(true)
+                      if (selectedAddonService) {
+                        setSelectedAddonService(null)
+                      }
+                    }}
+                    onFocus={() => setShowAddonSuggestions(true)}
+                    onBlur={() => {
+                      // Delay hide to allow click selection on suggestion items.
+                      setTimeout(() => setShowAddonSuggestions(false), 120)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && showAddonSuggestions && addonSearchResults.length > 0) {
+                        e.preventDefault()
+                        const topResult = addonSearchResults[0]
+                        setSelectedAddonService(topResult)
+                        setAddonSearchTerm(topResult.name)
+                        setShowAddonSuggestions(false)
+                      }
+                    }}
+                    placeholder="Nach Name oder Beschreibung suchen"
+                  />
+                  {showAddonSuggestions && normalizedAddonSearch && (
+                    <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
+                      {addonSearchResults.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          Keine Treffer gefunden
+                        </div>
+                      ) : (
+                        addonSearchResults.map((addon) => (
+                          <button
+                            key={addon._id}
+                            type="button"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => {
+                              setSelectedAddonService(addon)
+                              setAddonSearchTerm(addon.name)
+                              setShowAddonSuggestions(false)
+                            }}
+                            className="w-full border-b border-slate-100 px-3 py-2 text-left last:border-b-0 hover:bg-slate-50"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-sm font-medium text-slate-900">{addon.name}</p>
+                              <span className="text-xs font-semibold text-slate-600">${safeToNumber(addon.price).toFixed(2)}</span>
+                            </div>
+                            {addon.description && (
+                              <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{addon.description}</p>
+                            )}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                  {normalizedAddonSearch && (
+                    <p className="text-xs text-muted-foreground">
+                      {filteredAvailableAddons.length} Treffer
+                    </p>
+                  )}
+                </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="custom-price">Price ($)</Label>
-                <Input
-                  id="custom-price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={customAddonPrice}
-                  onChange={(e) => {
-                    setCustomAddonPrice(e.target.value)
-                    setSelectedAddonService(null)
-                  }}
-                  placeholder="0.00"
-                  disabled={!!selectedAddonService}
-                />
+                <div>
+                  <Label htmlFor="addon-service">Zusatzservice auswaehlen</Label>
+                  <Select
+                    value={selectedAddonService?._id || ""}
+                    onValueChange={(value) => {
+                      const addon = availableAddons.find((a) => a._id === value)
+                      setSelectedAddonService(addon || null)
+                    }}
+                  >
+                    <SelectTrigger id="addon-service">
+                      <SelectValue placeholder="Zusatzservice auswaehlen..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredAvailableAddons.length === 0 ? (
+                        <div className="p-3 text-sm text-muted-foreground">Keine Zusatzservice-Vorlagen gefunden</div>
+                      ) : (
+                        filteredAvailableAddons.map((addon) => (
+                          <SelectItem key={addon._id} value={addon._id}>
+                            {addon.name} - ${safeToNumber(addon.price).toFixed(2)}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedAddonService && (
+                  <div className="rounded-md border bg-white p-3">
+                    <p className="text-sm font-semibold text-slate-900">{selectedAddonService.name}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{selectedAddonService.description || 'Keine Beschreibung vorhanden.'}</p>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                      <span className="rounded-full border bg-slate-50 px-2.5 py-1">${safeToNumber(selectedAddonService.price).toFixed(2)}</span>
+                      {selectedAddonService.estimatedTime && (
+                        <span className="rounded-full border bg-slate-50 px-2.5 py-1">{selectedAddonService.estimatedTime}</span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-              <div>
-                <Label htmlFor="custom-time">Estimated Time (Optional)</Label>
-                <Input
-                  id="custom-time"
-                  value={customAddonTime}
-                  onChange={(e) => setCustomAddonTime(e.target.value)}
-                  placeholder="e.g., 30 minutes"
-                  disabled={!!selectedAddonService}
-                />
+            ) : (
+              <div className="space-y-4 rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                <div>
+                  <Label htmlFor="custom-name">Name des Zusatzservices</Label>
+                  <Input
+                    id="custom-name"
+                    value={customAddonName}
+                    onChange={(e) => setCustomAddonName(e.target.value)}
+                    placeholder="Name eingeben"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="custom-description">Beschreibung (optional)</Label>
+                  <Textarea
+                    id="custom-description"
+                    value={customAddonDescription}
+                    onChange={(e) => setCustomAddonDescription(e.target.value)}
+                    placeholder="Beschreibung eingeben"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="custom-price">Preis ($)</Label>
+                    <Input
+                      id="custom-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={customAddonPrice}
+                      onChange={(e) => setCustomAddonPrice(e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="custom-time">Geschaetzte Zeit (optional)</Label>
+                    <Input
+                      id="custom-time"
+                      value={customAddonTime}
+                      onChange={(e) => setCustomAddonTime(e.target.value)}
+                      placeholder="z. B. 30 Minuten"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {['15 Minuten', '30 Minuten', '45 Minuten', '60 Minuten'].map((preset) => (
+                    <Button
+                      key={preset}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCustomAddonTime(preset)}
+                    >
+                      {preset}
+                    </Button>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCustomAddonTime('')}
+                  >
+                    Zeit leeren
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-3 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Vorschau</p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">{addonPreviewName || 'Kein Zusatzservice ausgewaehlt'}</p>
+                  <p className="text-xs text-slate-600 mt-1">
+                    {addonPreviewTime || 'Keine Zeitangabe'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-slate-900">${addonPreviewPrice.toFixed(2)}</p>
+                  <p className="text-xs text-slate-600">Auftragsgesamt nach Hinzufuegen: ${orderTotalAfterAddon.toFixed(2)}</p>
+                </div>
               </div>
             </div>
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
             <Button variant="outline" onClick={() => {
+              resetAddOnForm()
               setAddAddonDialogOpen(false)
-              setSelectedAddonService(null)
-              setCustomAddonName("")
-              setCustomAddonPrice("")
-              setCustomAddonDescription("")
-              setCustomAddonTime("")
             }}>
-              Cancel
+              Abbrechen
             </Button>
-            <Button onClick={handleAddAddon} disabled={!selectedAddonService && (!customAddonName || !customAddonPrice)}>
-              Add Add-On
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={resetAddOnForm}
+                disabled={submittingAddon}
+              >
+                Formular zuruecksetzen
+              </Button>
+              <Button onClick={handleAddAddon} disabled={!canSubmitAddon || submittingAddon}>
+                {submittingAddon ? 'Fuegt hinzu...' : 'Zusatzservice hinzufuegen'}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -3312,6 +3867,7 @@ export function OrderDetails() {
           onClose={() => setShopProductDialogOpen(false)}
           onAddProduct={handleAddShopProduct}
           orderId={id}
+          currentOrderTotal={safeToNumber((order as any)?.totalCost)}
         />
       )}
 

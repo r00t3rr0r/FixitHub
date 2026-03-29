@@ -60,7 +60,38 @@ interface AssignedOrder {
   estimatedCompletion: string
   totalCost: number
   progress: number
+  workflows?: Array<{
+    _id: string
+    workflowName?: string
+    status?: 'not-started' | 'in_progress' | 'in-progress' | 'on-hold' | 'completed'
+    currentStepIndex?: number
+    startedAt?: string
+    completedAt?: string
+    pausedAt?: string
+    steps?: Array<{
+      _id?: string
+      stepName?: string
+      name?: string
+      status?: 'not-started' | 'in_progress' | 'in-progress' | 'on-hold' | 'completed'
+    }>
+  }>
   createdAt: string
+}
+
+interface ActionableWorkflowItem {
+  id: string
+  orderId: string
+  orderNumber: string
+  orderStatus: string
+  orderPriority: string
+  workflowName: string
+  workflowStatus: string
+  activeStepLabel: string
+  pausedAt?: string
+  updatedAt?: string
+  progressPercentage: number
+  completedSteps: number
+  totalSteps: number
 }
 
 interface AssignedRepairRequest {
@@ -96,7 +127,157 @@ export function StaffOrders() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
+  const [nowTimestamp, setNowTimestamp] = useState(() => Date.now())
   const { toast } = useToast()
+
+  const normalizeWorkflowStatus = (status?: string) => {
+    const value = String(status || '').toLowerCase()
+    if (value === 'in_progress') return 'in-progress'
+    return value || 'not-started'
+  }
+
+  const getWorkflowStatusLabel = (status?: string) => {
+    switch (normalizeWorkflowStatus(status)) {
+      case 'in-progress':
+        return 'In Progress'
+      case 'on-hold':
+        return 'Paused'
+      case 'completed':
+        return 'Completed'
+      default:
+        return 'Pending'
+    }
+  }
+
+  const getWorkflowStatusColor = (status?: string) => {
+    switch (normalizeWorkflowStatus(status)) {
+      case 'in-progress':
+        return 'bg-blue-500 text-white'
+      case 'on-hold':
+        return 'bg-orange-500 text-white'
+      case 'completed':
+        return 'bg-green-500 text-white'
+      default:
+        return 'bg-yellow-400 text-black font-semibold ring-1 ring-yellow-600/40'
+    }
+  }
+
+  const getWorkflowCurrentStep = (workflow: AssignedOrder['workflows'][number]) => {
+    const steps = Array.isArray(workflow?.steps) ? workflow.steps : []
+    if (steps.length === 0) return null
+
+    const currentIndex = Number.isInteger(workflow?.currentStepIndex)
+      ? Math.min(Math.max(Number(workflow?.currentStepIndex), 0), steps.length - 1)
+      : Math.max(steps.findIndex((step) => normalizeWorkflowStatus(step?.status) === 'in-progress'), 0)
+
+    return steps[currentIndex] || steps[0] || null
+  }
+
+  const getWorkflowProgress = (workflow: AssignedOrder['workflows'][number]) => {
+    const steps = Array.isArray(workflow?.steps) ? workflow.steps : []
+    const totalSteps = steps.length
+    const completedSteps = steps.filter((step) => normalizeWorkflowStatus(step?.status) === 'completed').length
+
+    return {
+      totalSteps,
+      completedSteps,
+      percentage: totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0,
+    }
+  }
+
+  const formatDuration = (valueMs: number) => {
+    if (valueMs <= 0) return '0m'
+    const totalMinutes = Math.floor(valueMs / 60000)
+    const days = Math.floor(totalMinutes / 1440)
+    const hours = Math.floor((totalMinutes % 1440) / 60)
+    const minutes = totalMinutes % 60
+
+    if (days > 0) return `${days}d ${hours}h ${minutes}m`
+    if (hours > 0) return `${hours}h ${minutes}m`
+    return `${minutes}m`
+  }
+
+  const getPausedDurationLabel = (pausedAt?: string) => {
+    if (!pausedAt) return '-'
+    const pausedTimestamp = new Date(pausedAt).getTime()
+    if (!Number.isFinite(pausedTimestamp)) return '-'
+    return formatDuration(nowTimestamp - pausedTimestamp)
+  }
+
+  const actionableWorkflows: ActionableWorkflowItem[] = filteredOrders
+    .flatMap((order) => {
+      const workflows = Array.isArray(order.workflows) ? order.workflows : []
+
+      return workflows.map((workflow) => {
+        const workflowStatus = normalizeWorkflowStatus(workflow?.status)
+        const currentStep = getWorkflowCurrentStep(workflow)
+        const progress = getWorkflowProgress(workflow)
+
+        return {
+          id: `${order._id}-${String(workflow?._id || workflow?.workflowName || 'workflow')}`,
+          orderId: order._id,
+          orderNumber: order.orderNumber || order._id.slice(-6),
+          orderStatus: order.status,
+          orderPriority: order.priority,
+          workflowName: workflow?.workflowName || 'Workflow',
+          workflowStatus,
+          activeStepLabel: currentStep?.stepName || currentStep?.name || 'No step assigned',
+          pausedAt: workflow?.pausedAt,
+          updatedAt: workflow?.pausedAt || workflow?.completedAt || workflow?.startedAt || order.createdAt,
+          progressPercentage: progress.percentage,
+          completedSteps: progress.completedSteps,
+          totalSteps: progress.totalSteps,
+        }
+      })
+    })
+    .filter((workflow) => workflow.workflowStatus !== 'completed')
+    .sort((a, b) => {
+      const toTimestamp = (value?: string) => {
+        if (!value) return 0
+        const ts = new Date(value).getTime()
+        return Number.isFinite(ts) ? ts : 0
+      }
+
+      const statusWeight = (status: string) => {
+        switch (status) {
+          case 'not-started':
+            return 0
+          case 'on-hold':
+            return 1
+          case 'in-progress':
+            return 2
+          default:
+            return 3
+        }
+      }
+
+      const byStatus = statusWeight(a.workflowStatus) - statusWeight(b.workflowStatus)
+      if (byStatus !== 0) return byStatus
+
+      if (a.workflowStatus === 'on-hold' && b.workflowStatus === 'on-hold') {
+        const pausedA = toTimestamp(a.pausedAt)
+        const pausedB = toTimestamp(b.pausedAt)
+        if (pausedA !== pausedB) return pausedA - pausedB
+      }
+
+      const priorityWeight = (priority: string) => {
+        switch (priority) {
+          case 'urgent':
+            return 0
+          case 'high':
+            return 1
+          case 'normal':
+            return 2
+          default:
+            return 3
+        }
+      }
+
+      const byPriority = priorityWeight(a.orderPriority) - priorityWeight(b.orderPriority)
+      if (byPriority !== 0) return byPriority
+
+      return toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt)
+    })
 
   useEffect(() => {
     const fetchAssignedOrders = async () => {
@@ -142,6 +323,14 @@ export function StaffOrders() {
 
     fetchAssignedOrders()
   }, [searchTerm, statusFilter, priorityFilter, toast, user?._id])
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNowTimestamp(Date.now())
+    }, 60000)
+
+    return () => clearInterval(timer)
+  }, [])
 
   const handleViewOrder = (orderId: string) => {
     console.log('Navigating to order details:', orderId)
@@ -385,6 +574,110 @@ export function StaffOrders() {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Actionable Workflows Table */}
+      <Card>
+        <CardHeader className="rounded-t-xl bg-[#1a2a5e] px-4 py-3">
+          <CardTitle className="text-sm font-semibold text-white">Abzuarbeitende Workflows</CardTitle>
+          <CardDescription className="text-xs text-blue-100">
+            Pending Workflows sind hervorgehoben. Bei pausierten Workflows wird die Pausenzeit angezeigt.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-0 sm:p-2">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Workflow</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Order</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Status</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Current Step</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Progress</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Pause Duration</TableHead>
+                  <TableHead className="h-9 px-2 text-right text-[11px] uppercase tracking-wide">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {actionableWorkflows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-6 text-center">
+                      <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                      <p className="text-muted-foreground">Keine abzuarbeitenden Workflows gefunden</p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  actionableWorkflows.map((workflow) => {
+                    const isPending = workflow.workflowStatus === 'not-started'
+                    const rowClassName = isPending
+                      ? 'cursor-pointer bg-yellow-50/70 hover:bg-yellow-100/70'
+                      : 'cursor-pointer hover:bg-muted/50'
+
+                    return (
+                      <TableRow
+                        key={workflow.id}
+                        className={rowClassName}
+                        onClick={() => handleViewOrder(workflow.orderId)}
+                      >
+                        <TableCell className="px-2 py-2 align-middle">
+                          <p className="text-xs font-semibold">{workflow.workflowName}</p>
+                        </TableCell>
+                        <TableCell className="px-2 py-2 align-middle">
+                          <div>
+                            <p className="text-xs font-semibold">{workflow.orderNumber}</p>
+                            <p className="text-xs text-muted-foreground capitalize">{workflow.orderStatus.replace('-', ' ')}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-2 py-2 align-middle">
+                          <Badge className={`${getWorkflowStatusColor(workflow.workflowStatus)} h-5 px-1.5 text-[10px]`}>
+                            {getWorkflowStatusLabel(workflow.workflowStatus)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-2 py-2 align-middle">
+                          <span className="text-xs">{workflow.activeStepLabel}</span>
+                        </TableCell>
+                        <TableCell className="px-2 py-2 align-middle">
+                          <div className="space-y-1">
+                            <div className="h-1.5 w-24 overflow-hidden rounded bg-muted">
+                              <div
+                                className={`h-full ${workflow.workflowStatus === 'on-hold' ? 'bg-orange-500' : 'bg-blue-500'}`}
+                                style={{ width: `${workflow.progressPercentage}%` }}
+                              />
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                              {workflow.completedSteps}/{workflow.totalSteps || 0} steps
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-2 py-2 align-middle">
+                          <span className="text-xs">
+                            {workflow.workflowStatus === 'on-hold'
+                              ? getPausedDurationLabel(workflow.pausedAt)
+                              : '-'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-2 py-2 text-right align-middle">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleViewOrder(workflow.orderId)
+                            }}
+                            title="Open Order"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>

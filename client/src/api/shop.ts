@@ -55,7 +55,9 @@ export interface RepairOrderItem {
   deviceType: string;
   deviceBrand: string;
   deviceModel: string;
+  deviceImage?: string;
   services: string[];
+  serviceNames?: string[];
   addOns: Array<{
     name: string;
     description: string;
@@ -395,7 +397,9 @@ export interface RepairOrderData {
   deviceType: string;
   deviceBrand: string;
   deviceModel: string;
+  deviceImage?: string;
   services: string[];
+  serviceNames?: string[];
   addOns?: Array<{
     name: string;
     description: string;

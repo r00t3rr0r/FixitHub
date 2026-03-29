@@ -249,6 +249,10 @@ export function TimeTracking() {
         value: formatHours(selectedSummary?.breakHoursToday),
       },
       {
+        label: "Workflowzeit Tag",
+        value: formatHours(selectedSummary?.workflowHoursToday),
+      },
+      {
         label: "Auftragszeit Tag",
         value: formatHours(orderHours),
       },
@@ -263,8 +267,8 @@ export function TimeTracking() {
     return (
       <div className="space-y-3">
         <div className="h-28 animate-pulse rounded-2xl bg-slate-200" />
-        <div className="grid gap-3 md:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, index) => (
             <div key={index} className="h-20 animate-pulse rounded-xl bg-slate-100" />
           ))}
         </div>
@@ -307,7 +311,7 @@ export function TimeTracking() {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         {stats.map((stat) => (
           <Card key={stat.label} className="border-slate-200 shadow-sm">
             <CardContent className="px-3 py-3">
@@ -438,6 +442,7 @@ export function TimeTracking() {
         breakHours={selectedSummary?.breakHoursToday || 0}
         breaks={selectedSummary?.breaksToday || []}
         orders={selectedSummary?.ordersToday || []}
+        workflows={selectedSummary?.workflowsToday || []}
         selectedDate={selectedSummary?.selectedDate || selectedDate}
       />
 

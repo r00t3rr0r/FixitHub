@@ -48,6 +48,14 @@ const conversationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Message',
   },
+  createdBy: {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    name: String,
+    role: String,
+  },
   status: {
     type: String,
     enum: ['active', 'closed'],

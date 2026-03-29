@@ -38,10 +38,19 @@ export interface Order {
   estimatedCompletion: string;
   totalCost: number;
   createdAt: string;
+  updatedAt?: string;
   photos: string[];
   customerNotes: string;
   staffNotes: string[];
   progress: number;
+  timeline?: Array<{
+    _id?: string;
+    status?: string;
+    description?: string;
+    completedAt?: string;
+    staffId?: string;
+    staffName?: string;
+  }>;
   paymentStatus: 'pending' | 'paid' | 'refunded' | 'partial';
   // Device unlock information
   unlockPattern?: string[];

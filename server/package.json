@@ -10,6 +10,7 @@
     "setup-mongodb": "node scripts/setup-mongodb-auth.js",
     "setup-env": "node scripts/setup-env.js",
     "seed": "node scripts/seed-data.js",
+    "seed:german:workflows": "node scripts/seed-german-workflows.js",
     "reset-db": "node scripts/reset-database.js",
     "verify-admin": "node scripts/verify-admin.js",
     "test-login": "node scripts/test-login.js"

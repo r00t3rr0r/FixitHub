@@ -1,6 +1,8 @@
 const express = require('express');
 const OrderService = require('../services/orderService');
+const EmailService = require('../services/emailService');
 const DHLService = require('../services/dhlService');
+const NotificationService = require('../services/notificationService');
 const { requireUser, requireRole } = require('./middleware/auth');
 
 const router = express.Router();
@@ -17,6 +19,36 @@ router.post('/', requireUser, async (req, res) => {
     };
 
     const order = await OrderService.create(orderData);
+
+    // Send order confirmation email asynchronously (don't block response)
+    setImmediate(async () => {
+      try {
+        const confirmationData = {
+          customerName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.email,
+          orderNumber: order.orderNumber,
+          deviceBrand: order.deviceBrand || 'Unknown',
+          deviceModel: order.deviceModel || 'Unknown',
+          serviceName: order.serviceName || 'Repair Service',
+          estimatedCompletion: order.estimatedCompletion || 'within 7-10 business days',
+          orderId: order._id,
+          trackingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders/${order._id}`
+        };
+
+        const emailResult = await EmailService.sendOrderConfirmationEmail(
+          req.user.email,
+          confirmationData
+        );
+
+        if (emailResult.success) {
+          console.log('Order confirmation email sent to:', req.user.email);
+        } else {
+          console.error('Failed to send order confirmation email:', emailResult.error);
+        }
+      } catch (emailError) {
+        console.error('Error sending order confirmation email:', emailError.message);
+        // Don't block the response - email failure shouldn't affect order creation
+      }
+    });
 
     return res.status(201).json({
       success: true,
@@ -220,6 +252,85 @@ router.put('/:id/tracking/update', requireUser, requireRole(['admin', 'staff']),
     return res.status(500).json({
       success: false,
       error: error.message || 'Failed to update tracking information'
+    });
+  }
+});
+
+// Description: Update order status and send notification email to customer
+// Endpoint: PUT /api/orders/:id/status
+// Request: { status: string, statusMessage?: string }
+// Response: { success: boolean, order: Order }
+router.put('/:id/status', requireUser, requireRole(['admin', 'staff']), async (req, res) => {
+  console.log('Update order status request received for order:', req.params.id);
+
+  try {
+    const { status, statusMessage } = req.body;
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        error: 'Status is required'
+      });
+    }
+
+    // Update order status via service
+    const order = await OrderService.updateStatus(req.params.id, status);
+
+    // Send status update email asynchronously (don't block response)
+    setImmediate(async () => {
+      try {
+        if (order.customerId && order.customerId.email) {
+          const statusData = {
+            customerName: `${order.customerId.firstName || ''} ${order.customerId.lastName || ''}`.trim() || 'Valued Customer',
+            orderNumber: order.orderNumber,
+            orderStatus: status,
+            statusMessage: statusMessage || `Your order status is now: ${status}`,
+            statusUpdatedAt: new Date(),
+            orderId: order._id,
+            trackingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders/${order._id}`
+          };
+
+          const emailResult = await EmailService.sendOrderStatusUpdateEmail(
+            order.customerId.email,
+            statusData
+          );
+
+          if (emailResult.success) {
+            console.log('Order status update email sent to:', order.customerId.email);
+          } else {
+            console.error('Failed to send status update email:', emailResult.error);
+          }
+        }
+      } catch (emailError) {
+        console.error('Error sending status update email:', emailError.message);
+      }
+
+      // Send in-app notification to customer
+      try {
+        const customerId = order.customerId._id || order.customerId;
+        if (customerId) {
+          await NotificationService.createOrderUpdateNotification(
+            order._id,
+            customerId,
+            status,
+            statusMessage || `Dein Auftrag ${order.orderNumber} wurde aktualisiert: ${status}`
+          );
+        }
+      } catch (notifError) {
+        console.error('Error creating order status notification:', notifError.message);
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      order,
+      message: 'Order status updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    return res.status(400).json({
+      success: false,
+      error: error.message || 'Failed to update order status'
     });
   }
 });

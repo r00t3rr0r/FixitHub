@@ -127,6 +127,8 @@ console.log('Loading time tracking routes...');
 const timeTrackingRoutes = require("./routes/timeTrackingRoutes");
 console.log('Loading admin dashboard routes...');
 const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
+console.log('Loading admin analytics routes...');
+const adminAnalyticsRoutes = require("./routes/adminAnalyticsRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -438,6 +440,8 @@ app.use('/api/repair-requests', repairRequestRoutes);
 app.use('/api/time-tracking', timeTrackingRoutes);
 // Admin Dashboard Routes
 app.use('/api/admin/dashboard', adminDashboardRoutes);
+// Admin Analytics Routes
+app.use('/api/admin/analytics', adminAnalyticsRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 

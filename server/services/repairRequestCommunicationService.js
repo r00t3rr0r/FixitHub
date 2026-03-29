@@ -3,8 +3,116 @@ const RepairRequest = require('../models/RepairRequest');
 const NotificationService = require('./notificationService');
 
 class RepairRequestCommunicationService {
+  // Get communication threads visible to the current user
+  static async getCommunicationsForUser(userId, userRole = 'customer', filters = {}) {
+    try {
+      const page = parseInt(filters.page, 10) || 1;
+      const limit = parseInt(filters.limit, 10) || 20;
+      const skip = (page - 1) * limit;
+      const search = (filters.search || '').trim();
+
+      const communicationQuery = {};
+
+      // Customers can only see communication threads for their own repair requests.
+      if (userRole !== 'staff' && userRole !== 'admin') {
+        const customerRequests = await RepairRequest.find({ customerId: userId }).select('_id').lean();
+        const customerRequestIds = customerRequests.map((request) => request._id);
+
+        if (customerRequestIds.length === 0) {
+          return {
+            communications: [],
+            totalPages: 0,
+            currentPage: page,
+            totalCount: 0,
+          };
+        }
+
+        communicationQuery.repairRequestId = { $in: customerRequestIds };
+      }
+
+      if (search) {
+        const searchRegex = new RegExp(search, 'i');
+        const matchingRequestsQuery = {
+          $or: [
+            { requestNumber: { $regex: searchRegex } },
+            { deviceBrand: { $regex: searchRegex } },
+            { deviceModel: { $regex: searchRegex } },
+            { customerName: { $regex: searchRegex } },
+            { customerEmail: { $regex: searchRegex } },
+          ],
+        };
+
+        if (userRole !== 'staff' && userRole !== 'admin') {
+          matchingRequestsQuery.customerId = userId;
+        }
+
+        const matchingRequests = await RepairRequest.find(matchingRequestsQuery).select('_id').lean();
+        const matchingRequestIds = matchingRequests.map((request) => request._id);
+
+        communicationQuery.repairRequestId = { $in: matchingRequestIds };
+      }
+
+      const totalCount = await RepairRequestCommunication.countDocuments(communicationQuery);
+
+      const communications = await RepairRequestCommunication.find(communicationQuery)
+        .sort({ lastMessageAt: -1, updatedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('createdBy.userId', 'name email avatar');
+
+      const repairRequestIds = communications
+        .map((comm) => comm.repairRequestId)
+        .filter(Boolean);
+
+      const repairRequests = await RepairRequest.find({ _id: { $in: repairRequestIds } })
+        .select('_id requestNumber deviceBrand deviceModel customerId customerName customerEmail customerPhone')
+        .populate('customerId', 'name email phone')
+        .lean();
+
+      const requestById = new Map(repairRequests.map((request) => [request._id.toString(), request]));
+
+      const normalizedCommunications = communications.map((comm) => {
+        const repairRequestId = comm.repairRequestId ? comm.repairRequestId.toString() : null;
+        const repairRequest = repairRequestId ? requestById.get(repairRequestId) : null;
+
+        return {
+          _id: comm._id,
+          repairRequestId,
+          requestNumber: repairRequest?.requestNumber || '',
+          deviceInfo: repairRequest ? `${repairRequest.deviceBrand} ${repairRequest.deviceModel}` : '',
+          customer: repairRequest
+            ? {
+                name: repairRequest.customerId?.name || repairRequest.customerName || 'Kunde',
+                email: repairRequest.customerId?.email || repairRequest.customerEmail || '',
+                phone: repairRequest.customerId?.phone || repairRequest.customerPhone || '',
+                isGuest: false,
+              }
+            : null,
+          messages: comm.messages || [],
+          status: comm.status,
+          pendingFeedbackCount: comm.pendingFeedbackCount || 0,
+          pendingActionsCount: comm.pendingActionsCount || 0,
+          createdBy: comm.createdBy,
+          lastMessageAt: comm.lastMessageAt || comm.updatedAt,
+          createdAt: comm.createdAt,
+          updatedAt: comm.updatedAt,
+        };
+      });
+
+      return {
+        communications: normalizedCommunications,
+        totalPages: Math.ceil(totalCount / limit),
+        currentPage: page,
+        totalCount,
+      };
+    } catch (error) {
+      console.error(`RepairRequestCommunicationService: Error getting communications for user: ${error.message}`, error);
+      throw error;
+    }
+  }
+
   // Get or create communication thread for a repair request
-  static async getOrCreateCommunicationThread(repairRequestId) {
+  static async getOrCreateCommunicationThread(repairRequestId, initiatingUserId = null, initiatingUserName = null, initiatingUserRole = null) {
     try {
       let communication = await RepairRequestCommunication.findOne({ repairRequestId });
 
@@ -16,6 +124,11 @@ class RepairRequestCommunicationService {
           status: 'active',
           pendingFeedbackCount: 0,
           pendingActionsCount: 0,
+          createdBy: initiatingUserId ? {
+            userId: initiatingUserId,
+            name: initiatingUserName,
+            role: initiatingUserRole,
+          } : undefined,
         });
         await communication.save();
       }
@@ -63,7 +176,7 @@ class RepairRequestCommunicationService {
       let communication = await RepairRequestCommunication.findOne({ repairRequestId });
 
       if (!communication) {
-        communication = await this.getOrCreateCommunicationThread(repairRequestId);
+        communication = await this.getOrCreateCommunicationThread(repairRequestId, senderId, senderName, senderRole);
       }
 
       const message = {
@@ -144,7 +257,7 @@ class RepairRequestCommunicationService {
       let communication = await RepairRequestCommunication.findOne({ repairRequestId });
 
       if (!communication) {
-        communication = await this.getOrCreateCommunicationThread(repairRequestId);
+        communication = await this.getOrCreateCommunicationThread(repairRequestId, senderId, senderName, senderRole);
       }
 
       const expirationTime = new Date();
@@ -300,7 +413,7 @@ class RepairRequestCommunicationService {
       let communication = await RepairRequestCommunication.findOne({ repairRequestId });
 
       if (!communication) {
-        communication = await this.getOrCreateCommunicationThread(repairRequestId);
+        communication = await this.getOrCreateCommunicationThread(repairRequestId, senderId, senderName, senderRole);
       }
 
       // Map action type to label

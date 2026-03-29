@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +45,7 @@ export function DeviceInspectionForm({
   deviceModel,
   onComplete,
 }: DeviceInspectionFormProps) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [inspection, setInspection] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -95,6 +97,30 @@ export function DeviceInspectionForm({
   const [repairDescription, setRepairDescription] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
+
+  const getVerificationStatusLabel = (
+    value: 'correct' | 'incorrect-more-expensive' | 'incorrect-same-cheaper' | 'unverifiable'
+  ) => {
+    switch (value) {
+      case 'correct':
+        return t('inspection.verification.correct', 'Korrekt - Modell stimmt überein');
+      case 'incorrect-more-expensive':
+        return t('inspection.verification.incorrectMoreExpensive', 'Falsch - Teureres Modell');
+      case 'incorrect-same-cheaper':
+        return t('inspection.verification.incorrectSameCheaper', 'Falsch - Gleichwertig oder günstiger');
+      case 'unverifiable':
+        return t('inspection.verification.unverifiable', 'Nicht verifizierbar - Keine eindeutige Bestimmung');
+      default:
+        return value;
+    }
+  };
+
+  const getChecklistStatusLabel = (value: 'OK' | 'Not OK') => {
+    if (value === 'OK') {
+      return t('inspection.status.ok', 'In Ordnung');
+    }
+    return t('inspection.status.notOk', 'Nicht in Ordnung');
+  };
 
   // Initialize inspection
   useEffect(() => {
@@ -151,7 +177,10 @@ export function DeviceInspectionForm({
         setLoading(false);
       } catch (error) {
         console.error('Error initializing inspection:', error);
-        toast({ title: 'Error', description: 'Failed to initialize inspection' });
+        toast({
+          title: t('inspection.toast.errorTitle', 'Fehler'),
+          description: t('inspection.toast.initError', 'Inspektion konnte nicht initialisiert werden'),
+        });
         setLoading(false);
       }
     };
@@ -178,11 +207,14 @@ export function DeviceInspectionForm({
         costDifference,
         modelNotes
       );
-      toast({ title: 'Success', description: 'Model verification saved' });
+      toast({
+        title: t('inspection.toast.successTitle', 'Erfolg'),
+        description: t('inspection.toast.modelSaved', 'Modellprüfung gespeichert'),
+      });
       setCurrentStep(2);
       setExpandedSteps([2]);
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message });
+      toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: error.message });
     } finally {
       setSubmitting(false);
     }
@@ -192,11 +224,14 @@ export function DeviceInspectionForm({
     try {
       setSubmitting(true);
       await updateIdentification(orderId, deviceType, imei, serialNumber);
-      toast({ title: 'Success', description: 'Identification saved' });
+      toast({
+        title: t('inspection.toast.successTitle', 'Erfolg'),
+        description: t('inspection.toast.identificationSaved', 'Identifikation gespeichert'),
+      });
       setCurrentStep(3);
       setExpandedSteps([3]);
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message });
+      toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: error.message });
     } finally {
       setSubmitting(false);
     }
@@ -212,11 +247,14 @@ export function DeviceInspectionForm({
         otherAccessories: [],
         description: accessoriesNotes,
       });
-      toast({ title: 'Success', description: 'Accessories saved' });
+      toast({
+        title: t('inspection.toast.successTitle', 'Erfolg'),
+        description: t('inspection.toast.accessoriesSaved', 'Zubehör gespeichert'),
+      });
       setCurrentStep(4);
       setExpandedSteps([4]);
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message });
+      toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: error.message });
     } finally {
       setSubmitting(false);
     }
@@ -233,11 +271,14 @@ export function DeviceInspectionForm({
         visibleDamages: { hasDamage, description: damageDescription },
         uniqueNotes: externalNotes,
       });
-      toast({ title: 'Success', description: 'External inspection saved' });
+      toast({
+        title: t('inspection.toast.successTitle', 'Erfolg'),
+        description: t('inspection.toast.externalSaved', 'Äußere Inspektion gespeichert'),
+      });
       setCurrentStep(5);
       setExpandedSteps([5]);
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message });
+      toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: error.message });
     } finally {
       setSubmitting(false);
     }
@@ -253,11 +294,14 @@ export function DeviceInspectionForm({
         frontCamera: { status: frontCameraStatus },
         mainCamera: { status: mainCameraStatus },
       });
-      toast({ title: 'Success', description: 'Device tests saved' });
+      toast({
+        title: t('inspection.toast.successTitle', 'Erfolg'),
+        description: t('inspection.toast.testsSaved', 'Gerätetests gespeichert'),
+      });
       setCurrentStep(6);
       setExpandedSteps([6]);
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message });
+      toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: error.message });
     } finally {
       setSubmitting(false);
     }
@@ -270,11 +314,14 @@ export function DeviceInspectionForm({
         modemFirmware: { present: modemFirmwarePresent },
         touchIdFaceId: { applicable: touchIdFaceIdApplicable, working: touchIdFaceIdWorking },
       });
-      toast({ title: 'Success', description: 'Apple-specific checks saved' });
+      toast({
+        title: t('inspection.toast.successTitle', 'Erfolg'),
+        description: t('inspection.toast.appleSaved', 'Apple-spezifische Prüfungen gespeichert'),
+      });
       setCurrentStep(7);
       setExpandedSteps([7]);
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message });
+      toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: error.message });
     } finally {
       setSubmitting(false);
     }
@@ -288,17 +335,24 @@ export function DeviceInspectionForm({
         timeframe: repairTimeframe,
         description: repairDescription,
       });
-      toast({ title: 'Success', description: 'Inspection completed' });
+      toast({
+        title: t('inspection.toast.successTitle', 'Erfolg'),
+        description: t('inspection.toast.completed', 'Inspektion abgeschlossen'),
+      });
       onComplete?.();
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message });
+      toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: error.message });
     } finally {
       setSubmitting(false);
     }
   };
 
   if (loading) {
-    return <div className="text-center py-8 text-gray-600 font-medium">Loading inspection...</div>;
+    return (
+      <div className="text-center py-8 text-gray-600 font-medium">
+        {t('inspection.loading', 'Inspektion wird geladen...')}
+      </div>
+    );
   }
 
   return (
@@ -312,9 +366,9 @@ export function DeviceInspectionForm({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Badge variant={currentStep >= 1 ? 'default' : 'outline'} className={currentStep >= 1 ? 'inspection-step-badge' : ''}>
-                Step 1
+                {t('inspection.steps.step1', 'Schritt 1')}
               </Badge>
-              <CardTitle className="inspection-step-title">Model Verification</CardTitle>
+              <CardTitle className="inspection-step-title">{t('inspection.steps.modelVerification', 'Modellprüfung')}</CardTitle>
             </div>
             {expandedSteps.includes(1) ? <ChevronUp /> : <ChevronDown />}
           </div>
@@ -323,43 +377,43 @@ export function DeviceInspectionForm({
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="reported-model">Reported Model</Label>
+                <Label htmlFor="reported-model">{t('inspection.fields.reportedModel', 'Gemeldetes Modell')}</Label>
                 <Input
                   id="reported-model"
                   value={reportedModel}
                   onChange={(e) => setReportedModel(e.target.value)}
-                  placeholder="Model reported by customer"
+                  placeholder={t('inspection.placeholders.reportedModel', 'Vom Kunden gemeldetes Modell')}
                 />
               </div>
               <div>
-                <Label htmlFor="actual-model">Actual Model</Label>
+                <Label htmlFor="actual-model">{t('inspection.fields.actualModel', 'Tatsächliches Modell')}</Label>
                 <Input
                   id="actual-model"
                   value={actualModel}
                   onChange={(e) => setActualModel(e.target.value)}
-                  placeholder="Model found on device"
+                  placeholder={t('inspection.placeholders.actualModel', 'Auf dem Gerät festgestelltes Modell')}
                 />
               </div>
             </div>
 
             <div>
-              <Label htmlFor="verification-status">Verification Status</Label>
+              <Label htmlFor="verification-status">{t('inspection.fields.verificationStatus', 'Prüfstatus')}</Label>
               <Select value={verificationStatus} onValueChange={(value: any) => setVerificationStatus(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="correct">Correct - Model matches</SelectItem>
-                  <SelectItem value="incorrect-more-expensive">Incorrect - More expensive</SelectItem>
-                  <SelectItem value="incorrect-same-cheaper">Incorrect - Same or cheaper</SelectItem>
-                  <SelectItem value="unverifiable">Unverifiable - Cannot determine</SelectItem>
+                  <SelectItem value="correct">{getVerificationStatusLabel('correct')}</SelectItem>
+                  <SelectItem value="incorrect-more-expensive">{getVerificationStatusLabel('incorrect-more-expensive')}</SelectItem>
+                  <SelectItem value="incorrect-same-cheaper">{getVerificationStatusLabel('incorrect-same-cheaper')}</SelectItem>
+                  <SelectItem value="unverifiable">{getVerificationStatusLabel('unverifiable')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {verificationStatus !== 'correct' && (
               <div>
-                <Label htmlFor="cost-difference">Cost Difference ($)</Label>
+                <Label htmlFor="cost-difference">{t('inspection.fields.costDifference', 'Kostenabweichung ($)')}</Label>
                 <Input
                   id="cost-difference"
                   type="number"
@@ -370,17 +424,17 @@ export function DeviceInspectionForm({
             )}
 
             <div>
-              <Label htmlFor="model-notes">Notes</Label>
+              <Label htmlFor="model-notes">{t('inspection.fields.notes', 'Notizen')}</Label>
               <Textarea
                 id="model-notes"
                 value={modelNotes}
                 onChange={(e) => setModelNotes(e.target.value)}
-                placeholder="Any additional notes..."
+                placeholder={t('inspection.placeholders.notes', 'Zusätzliche Hinweise...')}
               />
             </div>
 
             <Button onClick={handleModelVerification} disabled={submitting} className="inspection-primary-button">
-              Save & Continue
+              {t('inspection.actions.saveContinue', 'Speichern & Weiter')}
             </Button>
           </CardContent>
         )}
@@ -395,9 +449,9 @@ export function DeviceInspectionForm({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Badge variant={currentStep >= 2 ? 'default' : 'outline'} className={currentStep >= 2 ? 'inspection-step-badge' : ''}>
-                Step 2
+                {t('inspection.steps.step2', 'Schritt 2')}
               </Badge>
-              <CardTitle className="inspection-step-title">Device Identification</CardTitle>
+              <CardTitle className="inspection-step-title">{t('inspection.steps.deviceIdentification', 'Geräteidentifikation')}</CardTitle>
             </div>
             {expandedSteps.includes(2) ? <ChevronUp /> : <ChevronDown />}
           </div>
@@ -406,28 +460,28 @@ export function DeviceInspectionForm({
           <CardContent className="space-y-4">
             {deviceType === 'Smartphone' ? (
               <div>
-                <Label htmlFor="imei">IMEI Number</Label>
+                <Label htmlFor="imei">{t('inspection.fields.imei', 'IMEI-Nummer')}</Label>
                 <Input
                   id="imei"
                   value={imei}
                   onChange={(e) => setImei(e.target.value)}
-                  placeholder="Enter IMEI"
+                  placeholder={t('inspection.placeholders.imei', 'IMEI eingeben')}
                 />
               </div>
             ) : (
               <div>
-                <Label htmlFor="serial">Serial Number</Label>
+                <Label htmlFor="serial">{t('inspection.fields.serialNumber', 'Seriennummer')}</Label>
                 <Input
                   id="serial"
                   value={serialNumber}
                   onChange={(e) => setSerialNumber(e.target.value)}
-                  placeholder="Enter Serial Number"
+                  placeholder={t('inspection.placeholders.serialNumber', 'Seriennummer eingeben')}
                 />
               </div>
             )}
 
             <Button onClick={handleIdentification} disabled={submitting} className="inspection-primary-button">
-              Save & Continue
+              {t('inspection.actions.saveContinue', 'Speichern & Weiter')}
             </Button>
           </CardContent>
         )}
@@ -442,9 +496,9 @@ export function DeviceInspectionForm({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Badge variant={currentStep >= 3 ? 'default' : 'outline'} className={currentStep >= 3 ? 'inspection-step-badge' : ''}>
-                Step 3
+                {t('inspection.steps.step3', 'Schritt 3')}
               </Badge>
-              <CardTitle className="inspection-step-title">Accessories & Packaging</CardTitle>
+              <CardTitle className="inspection-step-title">{t('inspection.steps.accessoriesPackaging', 'Zubehör & Verpackung')}</CardTitle>
             </div>
             {expandedSteps.includes(3) ? <ChevronUp /> : <ChevronDown />}
           </div>
@@ -458,7 +512,7 @@ export function DeviceInspectionForm({
                   checked={hasOriginalPackaging}
                   onCheckedChange={(checked) => setHasOriginalPackaging(checked as boolean)}
                 />
-                <Label htmlFor="packaging">Original Packaging Present</Label>
+                <Label htmlFor="packaging">{t('inspection.fields.originalPackaging', 'Originalverpackung vorhanden')}</Label>
               </div>
               <div className="flex items-center gap-2">
                 <Checkbox
@@ -466,7 +520,7 @@ export function DeviceInspectionForm({
                   checked={hasCaseCover}
                   onCheckedChange={(checked) => setHasCaseCover(checked as boolean)}
                 />
-                <Label htmlFor="case">Case/Cover Present</Label>
+                <Label htmlFor="case">{t('inspection.fields.caseCover', 'Hülle/Case vorhanden')}</Label>
               </div>
               <div className="flex items-center gap-2">
                 <Checkbox
@@ -474,22 +528,22 @@ export function DeviceInspectionForm({
                   checked={hasPowerAdapter}
                   onCheckedChange={(checked) => setHasPowerAdapter(checked as boolean)}
                 />
-                <Label htmlFor="adapter">Power Adapter Present (if applicable)</Label>
+                <Label htmlFor="adapter">{t('inspection.fields.powerAdapter', 'Netzteil vorhanden (falls zutreffend)')}</Label>
               </div>
             </div>
 
             <div>
-              <Label htmlFor="accessories-notes">Additional Notes</Label>
+              <Label htmlFor="accessories-notes">{t('inspection.fields.additionalNotes', 'Zusätzliche Notizen')}</Label>
               <Textarea
                 id="accessories-notes"
                 value={accessoriesNotes}
                 onChange={(e) => setAccessoriesNotes(e.target.value)}
-                placeholder="Describe any accessories or condition..."
+                placeholder={t('inspection.placeholders.accessoriesNotes', 'Zubehör oder Zustand beschreiben...')}
               />
             </div>
 
             <Button onClick={handleAccessories} disabled={submitting} className="inspection-primary-button">
-              Save & Continue
+              {t('inspection.actions.saveContinue', 'Speichern & Weiter')}
             </Button>
           </CardContent>
         )}
@@ -504,9 +558,9 @@ export function DeviceInspectionForm({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Badge variant={currentStep >= 4 ? 'default' : 'outline'} className={currentStep >= 4 ? 'inspection-step-badge' : ''}>
-                Step 4
+                {t('inspection.steps.step4', 'Schritt 4')}
               </Badge>
-              <CardTitle className="inspection-step-title">External Inspection</CardTitle>
+              <CardTitle className="inspection-step-title">{t('inspection.steps.externalInspection', 'Äußere Inspektion')}</CardTitle>
             </div>
             {expandedSteps.includes(4) ? <ChevronUp /> : <ChevronDown />}
           </div>
@@ -515,10 +569,10 @@ export function DeviceInspectionForm({
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
-                { label: 'Display', state: displayStatus, setter: setDisplayStatus },
-                { label: 'Frame', state: frameStatus, setter: setFrameStatus },
-                { label: 'Back Cover', state: backCoverStatus, setter: setBackCoverStatus },
-                { label: 'Buttons', state: buttonsStatus, setter: setButtonsStatus },
+                { label: t('inspection.fields.display', 'Bildschirm'), state: displayStatus, setter: setDisplayStatus },
+                { label: t('inspection.fields.frame', 'Rahmen'), state: frameStatus, setter: setFrameStatus },
+                { label: t('inspection.fields.backCover', 'Rückseite'), state: backCoverStatus, setter: setBackCoverStatus },
+                { label: t('inspection.fields.buttons', 'Tasten'), state: buttonsStatus, setter: setButtonsStatus },
               ].map(({ label, state, setter }) => (
                 <div key={label}>
                   <Label htmlFor={label}>{label}</Label>
@@ -527,8 +581,8 @@ export function DeviceInspectionForm({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="OK">OK</SelectItem>
-                      <SelectItem value="Not OK">Not OK</SelectItem>
+                      <SelectItem value="OK">{getChecklistStatusLabel('OK')}</SelectItem>
+                      <SelectItem value="Not OK">{getChecklistStatusLabel('Not OK')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -542,34 +596,34 @@ export function DeviceInspectionForm({
                   checked={hasDamage}
                   onCheckedChange={(checked) => setHasDamage(checked as boolean)}
                 />
-                <Label htmlFor="damage">Visible Damage Detected</Label>
+                <Label htmlFor="damage">{t('inspection.fields.visibleDamage', 'Sichtbare Schäden festgestellt')}</Label>
               </div>
 
               {hasDamage && (
                 <div>
-                  <Label htmlFor="damage-desc">Describe Damage</Label>
+                  <Label htmlFor="damage-desc">{t('inspection.fields.damageDescription', 'Schäden beschreiben')}</Label>
                   <Textarea
                     id="damage-desc"
                     value={damageDescription}
                     onChange={(e) => setDamageDescription(e.target.value)}
-                    placeholder="Describe the damage..."
+                    placeholder={t('inspection.placeholders.damageDescription', 'Schäden beschreiben...')}
                   />
                 </div>
               )}
             </div>
 
             <div>
-              <Label htmlFor="external-notes">Additional Notes</Label>
+              <Label htmlFor="external-notes">{t('inspection.fields.additionalNotes', 'Zusätzliche Notizen')}</Label>
               <Textarea
                 id="external-notes"
                 value={externalNotes}
                 onChange={(e) => setExternalNotes(e.target.value)}
-                placeholder="Any unique observations..."
+                placeholder={t('inspection.placeholders.externalNotes', 'Besondere Beobachtungen...')}
               />
             </div>
 
             <Button onClick={handleExternalInspection} disabled={submitting} className="inspection-primary-button">
-              Save & Continue
+              {t('inspection.actions.saveContinue', 'Speichern & Weiter')}
             </Button>
           </CardContent>
         )}
@@ -584,9 +638,9 @@ export function DeviceInspectionForm({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Badge variant={currentStep >= 5 ? 'default' : 'outline'} className={currentStep >= 5 ? 'inspection-step-badge' : ''}>
-                Step 5
+                {t('inspection.steps.step5', 'Schritt 5')}
               </Badge>
-              <CardTitle className="inspection-step-title">Device Testing</CardTitle>
+              <CardTitle className="inspection-step-title">{t('inspection.steps.deviceTests', 'Gerätetests')}</CardTitle>
             </div>
             {expandedSteps.includes(5) ? <ChevronUp /> : <ChevronDown />}
           </div>
@@ -595,11 +649,11 @@ export function DeviceInspectionForm({
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
-                { label: 'Charging', state: chargingStatus, setter: setChargingStatus },
-                { label: 'Power', state: powerStatus, setter: setPowerStatus },
-                { label: 'Wi-Fi', state: wifiStatus, setter: setWifiStatus },
-                { label: 'Front Camera', state: frontCameraStatus, setter: setFrontCameraStatus },
-                { label: 'Main Camera', state: mainCameraStatus, setter: setMainCameraStatus },
+                { label: t('inspection.fields.charging', 'Laden'), state: chargingStatus, setter: setChargingStatus },
+                { label: t('inspection.fields.power', 'Einschalten'), state: powerStatus, setter: setPowerStatus },
+                { label: t('inspection.fields.wifi', 'Wi-Fi'), state: wifiStatus, setter: setWifiStatus },
+                { label: t('inspection.fields.frontCamera', 'Frontkamera'), state: frontCameraStatus, setter: setFrontCameraStatus },
+                { label: t('inspection.fields.mainCamera', 'Hauptkamera'), state: mainCameraStatus, setter: setMainCameraStatus },
               ].map(({ label, state, setter }) => (
                 <div key={label}>
                   <Label htmlFor={label}>{label}</Label>
@@ -610,12 +664,12 @@ export function DeviceInspectionForm({
                     <SelectContent>
                       <SelectItem value="OK">
                         <div className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-green-500" /> OK
+                          <CheckCircle2 className="h-4 w-4 text-green-500" /> {getChecklistStatusLabel('OK')}
                         </div>
                       </SelectItem>
                       <SelectItem value="Not OK">
                         <div className="flex items-center gap-2">
-                          <AlertCircle className="h-4 w-4 text-red-500" /> Not OK
+                          <AlertCircle className="h-4 w-4 text-red-500" /> {getChecklistStatusLabel('Not OK')}
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -625,7 +679,7 @@ export function DeviceInspectionForm({
             </div>
 
             <Button onClick={handleDeviceTests} disabled={submitting} className="inspection-primary-button">
-              Save & Continue
+              {t('inspection.actions.saveContinue', 'Speichern & Weiter')}
             </Button>
           </CardContent>
         )}
@@ -640,9 +694,9 @@ export function DeviceInspectionForm({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Badge variant={currentStep >= 6 ? 'default' : 'outline'} className={currentStep >= 6 ? 'inspection-step-badge' : ''}>
-                Step 6
+                {t('inspection.steps.step6', 'Schritt 6')}
               </Badge>
-              <CardTitle className="inspection-step-title">Apple-Specific Checks</CardTitle>
+              <CardTitle className="inspection-step-title">{t('inspection.steps.appleChecks', 'Apple-spezifische Prüfungen')}</CardTitle>
             </div>
             {expandedSteps.includes(6) ? <ChevronUp /> : <ChevronDown />}
           </div>
@@ -656,7 +710,7 @@ export function DeviceInspectionForm({
                   checked={modemFirmwarePresent}
                   onCheckedChange={(checked) => setModemFirmwarePresent(checked as boolean)}
                 />
-                <Label htmlFor="modem">Modem Firmware Present</Label>
+                <Label htmlFor="modem">{t('inspection.fields.modemFirmware', 'Modem-Firmware vorhanden')}</Label>
               </div>
               <div className="flex items-center gap-2">
                 <Checkbox
@@ -664,7 +718,7 @@ export function DeviceInspectionForm({
                   checked={touchIdFaceIdApplicable}
                   onCheckedChange={(checked) => setTouchIdFaceIdApplicable(checked as boolean)}
                 />
-                <Label htmlFor="touchid-applicable">Touch ID / Face ID Applicable</Label>
+                <Label htmlFor="touchid-applicable">{t('inspection.fields.touchFaceApplicable', 'Touch ID / Face ID vorhanden')}</Label>
               </div>
               {touchIdFaceIdApplicable && (
                 <div className="ml-6 flex items-center gap-2">
@@ -673,13 +727,13 @@ export function DeviceInspectionForm({
                     checked={touchIdFaceIdWorking}
                     onCheckedChange={(checked) => setTouchIdFaceIdWorking(checked as boolean)}
                   />
-                  <Label htmlFor="touchid-working">Touch ID / Face ID Working</Label>
+                  <Label htmlFor="touchid-working">{t('inspection.fields.touchFaceWorking', 'Touch ID / Face ID funktioniert')}</Label>
                 </div>
               )}
             </div>
 
             <Button onClick={handleAppleSpecific} disabled={submitting} className="inspection-primary-button">
-              Save & Continue
+              {t('inspection.actions.saveContinue', 'Speichern & Weiter')}
             </Button>
           </CardContent>
         )}
@@ -694,9 +748,9 @@ export function DeviceInspectionForm({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Badge variant={currentStep >= 7 ? 'default' : 'outline'} className={currentStep >= 7 ? 'inspection-step-badge' : ''}>
-                Summary
+                {t('inspection.steps.summaryBadge', 'Abschluss')}
               </Badge>
-              <CardTitle className="inspection-step-title">Inspection Summary</CardTitle>
+              <CardTitle className="inspection-step-title">{t('inspection.steps.summaryTitle', 'Inspektionszusammenfassung')}</CardTitle>
             </div>
             {expandedSteps.includes(7) ? <ChevronUp /> : <ChevronDown />}
           </div>
@@ -704,7 +758,7 @@ export function DeviceInspectionForm({
         {expandedSteps.includes(7) && (
           <CardContent className="space-y-4">
             <div>
-              <Label>Is Device Repairable?</Label>
+              <Label>{t('inspection.fields.repairableQuestion', 'Ist das Gerät reparierbar?')}</Label>
               <div className="inspection-repairable-actions">
                 <Button
                   variant={isRepairable === true ? 'default' : 'outline'}
@@ -712,7 +766,7 @@ export function DeviceInspectionForm({
                   className={isRepairable === true ? 'inspection-primary-button' : ''}
                 >
                   <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Yes
+                  {t('common.yes', 'Ja')}
                 </Button>
                 <Button
                   variant={isRepairable === false ? 'destructive' : 'outline'}
@@ -721,7 +775,7 @@ export function DeviceInspectionForm({
                   data-destructive={isRepairable === false ? 'true' : 'false'}
                 >
                   <AlertTriangle className="h-4 w-4 mr-2" />
-                  No
+                  {t('common.no', 'Nein')}
                 </Button>
               </div>
             </div>
@@ -729,7 +783,7 @@ export function DeviceInspectionForm({
             {isRepairable && (
               <>
                 <div>
-                  <Label htmlFor="repair-cost">Estimated Repair Cost ($)</Label>
+                  <Label htmlFor="repair-cost">{t('inspection.fields.estimatedRepairCost', 'Geschätzte Reparaturkosten ($)')}</Label>
                   <Input
                     id="repair-cost"
                     type="number"
@@ -740,22 +794,22 @@ export function DeviceInspectionForm({
                 </div>
 
                 <div>
-                  <Label htmlFor="repair-timeframe">Repair Timeframe</Label>
+                  <Label htmlFor="repair-timeframe">{t('inspection.fields.repairTimeframe', 'Reparaturzeitraum')}</Label>
                   <Input
                     id="repair-timeframe"
                     value={repairTimeframe}
                     onChange={(e) => setRepairTimeframe(e.target.value)}
-                    placeholder="e.g., 3-5 days"
+                    placeholder={t('inspection.placeholders.repairTimeframe', 'z. B. 3-5 Tage')}
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="repair-description">Repair Description</Label>
+                  <Label htmlFor="repair-description">{t('inspection.fields.repairDescription', 'Reparaturbeschreibung')}</Label>
                   <Textarea
                     id="repair-description"
                     value={repairDescription}
                     onChange={(e) => setRepairDescription(e.target.value)}
-                    placeholder="Describe the repair needed..."
+                    placeholder={t('inspection.placeholders.repairDescription', 'Erforderliche Reparatur beschreiben...')}
                   />
                 </div>
               </>
@@ -766,7 +820,7 @@ export function DeviceInspectionForm({
               disabled={submitting || isRepairable === null}
               className="w-full inspection-primary-button"
             >
-              Complete Inspection
+              {t('inspection.actions.completeInspection', 'Inspektion abschließen')}
             </Button>
           </CardContent>
         )}

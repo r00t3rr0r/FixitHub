@@ -44,7 +44,7 @@ const integrationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['payment', 'email', 'sms', 'storage', 'analytics', 'shipping'],
+    enum: ['payment', 'email', 'sms', 'push', 'storage', 'analytics', 'shipping'],
     required: true
   },
   provider: {
@@ -160,6 +160,10 @@ const systemConfigurationSchema = new mongoose.Schema({
 
   // Notification Templates
   notificationTemplates: [notificationTemplateSchema],
+  notificationTemplateDefaultsVersion: {
+    type: Number,
+    default: 0
+  },
 
   // Workflow Settings
   workflowSettings: {
@@ -401,6 +405,193 @@ const systemConfigurationSchema = new mongoose.Schema({
       accentColor: {
         type: String,
         default: '#1a2a5e'
+      }
+    }
+  },
+
+  profitabilitySettings: {
+    labor: {
+      defaultHourlyRate: {
+        type: Number,
+        default: 92
+      },
+      includeTrackedTimeOnly: {
+        type: Boolean,
+        default: true
+      },
+      fallbackProgressWeight: {
+        type: Number,
+        default: 0.72
+      },
+      minimumProgressFactor: {
+        type: Number,
+        default: 0.18
+      },
+      productHandlingMinutes: {
+        type: Number,
+        default: 8
+      }
+    },
+    materials: {
+      repairMaterialBaseRate: {
+        type: Number,
+        default: 0.2
+      },
+      repairMaterialPerServiceRate: {
+        type: Number,
+        default: 0.035
+      },
+      minimumRepairMaterialRate: {
+        type: Number,
+        default: 0.18
+      },
+      maximumRepairMaterialRate: {
+        type: Number,
+        default: 0.42
+      },
+      productMaterialRate: {
+        type: Number,
+        default: 0.72
+      },
+      fallbackShopProductCostRate: {
+        type: Number,
+        default: 0.65
+      }
+    },
+    subcontracting: {
+      enabled: {
+        type: Boolean,
+        default: true
+      },
+      defaultRate: {
+        type: Number,
+        default: 0.12
+      },
+      keywords: {
+        type: [String],
+        default: ['logic', 'board', 'micro', 'solder', 'wasser', 'water', 'daten', 'data']
+      }
+    },
+    overhead: {
+      monthlyRent: {
+        type: Number,
+        default: 2600
+      },
+      monthlyUtilities: {
+        type: Number,
+        default: 580
+      },
+      monthlyAdminPayroll: {
+        type: Number,
+        default: 4200
+      },
+      monthlySoftware: {
+        type: Number,
+        default: 480
+      },
+      monthlyInsurance: {
+        type: Number,
+        default: 340
+      },
+      monthlyMarketing: {
+        type: Number,
+        default: 690
+      },
+      monthlyOtherFixedCosts: {
+        type: Number,
+        default: 520
+      },
+      targetMonthlyBillableHours: {
+        type: Number,
+        default: 480
+      }
+    },
+    depreciation: {
+      monthlyEquipmentDepreciation: {
+        type: Number,
+        default: 780
+      }
+    },
+    otherCosts: {
+      packagingRate: {
+        type: Number,
+        default: 0.01
+      },
+      paymentFeeRate: {
+        type: Number,
+        default: 0.015
+      },
+      flatShippingCostPerBooking: {
+        type: Number,
+        default: 6.9
+      },
+      warrantyReserveRate: {
+        type: Number,
+        default: 0.02
+      }
+    },
+    warranty: {
+      keywords: {
+        type: [String],
+        default: ['nacharbeit', 'rework', 'warranty', 'garantie', 'gewaehr']
+      },
+      defaultLabel: {
+        type: String,
+        default: '90 Tage Standard'
+      },
+      flaggedLabel: {
+        type: String,
+        default: 'Nacharbeit / Gewaehrleistung'
+      }
+    },
+    formula: {
+      profitWeights: {
+        netRevenue: {
+          type: Number,
+          default: 1
+        },
+        directCosts: {
+          type: Number,
+          default: 1
+        },
+        overheadCost: {
+          type: Number,
+          default: 1
+        },
+        depreciationCost: {
+          type: Number,
+          default: 1
+        },
+        otherOperatingCost: {
+          type: Number,
+          default: 1
+        }
+      },
+      operatingCostWeights: {
+        packaging: {
+          type: Number,
+          default: 1
+        },
+        paymentFallback: {
+          type: Number,
+          default: 1
+        },
+        paymentGateway: {
+          type: Number,
+          default: 1
+        },
+        warrantyReserve: {
+          type: Number,
+          default: 1
+        },
+        orderShipping: {
+          type: Number,
+          default: 1
+        },
+        bookingFlatShipping: {
+          type: Number,
+          default: 1
+        }
       }
     }
   },

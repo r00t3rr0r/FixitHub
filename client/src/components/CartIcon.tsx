@@ -11,6 +11,14 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 
+const getRepairOrderDeviceImage = (order: Cart['repairOrders'] extends Array<infer T> ? T : never) => {
+  if (order?.deviceImage) {
+    return order.deviceImage;
+  }
+
+  return Array.isArray(order?.photos) && order.photos.length > 0 ? order.photos[0] : null;
+};
+
 export function CartIcon() {
   const { isAuthenticated } = useAuth();
   const [cart, setCart] = useState<Cart | null>(null);
@@ -241,8 +249,7 @@ export function CartIcon() {
                   {cart.repairOrders && cart.repairOrders.length > 0 && (
                     <div className="space-y-3">
                       {cart.repairOrders.map((order, index) => {
-                        // Get device image if available from photos array
-                        const deviceImage = order.photos && order.photos.length > 0 ? order.photos[0] : null;
+                        const deviceImage = getRepairOrderDeviceImage(order);
                         
                         return (
                           <div 
@@ -272,8 +279,7 @@ export function CartIcon() {
                                 <h4 className="font-semibold text-sm text-[#1a2a5e] truncate leading-tight">
                                   {order.deviceBrand} {order.deviceModel}
                                 </h4>
-                                <div className="flex items-center gap-1 mt-1">
-                                  <Wrench className="h-3 w-3 text-[#636e85]" />
+                                <div className="mt-1">
                                   <p className="text-xs text-[#636e85]">
                                     {order.services.length} Reparatur{order.services.length !== 1 ? 'en' : ''}
                                     {order.addOns && order.addOns.length > 0 && ` + ${order.addOns.length} Extra${order.addOns.length !== 1 ? 's' : ''}`}

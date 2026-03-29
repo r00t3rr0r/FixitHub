@@ -209,6 +209,12 @@
   gap: 0.5rem;
 }
 
+.staff-dash-workflow-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
 /* ── Bottom Grid (3 panels) ──────────────────────────────── */
 .staff-dash-bottom-grid {
   display: grid;
@@ -564,6 +570,10 @@ button.staff-dash-list-item {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .staff-dash-workflow-grid {
+    grid-template-columns: 1fr;
+  }
+
   .staff-dash-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -607,6 +617,7 @@ button.staff-dash-list-item {
 
   .staff-dash-stats-grid,
   .staff-dash-alert-bar,
+  .staff-dash-workflow-grid,
   .staff-dash-main-grid,
   .staff-dash-bottom-grid,
   .staff-dash-summary-grid {

@@ -32,10 +32,17 @@ const repairOrderItemSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  deviceImage: {
+    type: String,
+    default: ''
+  },
   services: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Service',
     required: true
+  }],
+  serviceNames: [{
+    type: String
   }],
   addOns: [{
     name: String,

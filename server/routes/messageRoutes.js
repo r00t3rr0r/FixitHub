@@ -1,5 +1,7 @@
 const express = require('express');
 const MessageService = require('../services/messageService');
+const NotificationService = require('../services/notificationService');
+const Conversation = require('../models/Conversation');
 const { requireUser } = require('./middleware/auth');
 const multer = require('multer');
 const path = require('path');
@@ -47,7 +49,7 @@ router.get('/conversations', requireUser, async (req, res) => {
       search: req.query.search
     };
 
-    const result = await MessageService.getConversations(req.user._id, filters);
+    const result = await MessageService.getConversations(req.user._id, filters, req.user.role);
 
     return res.status(200).json(result);
   } catch (error) {
@@ -118,6 +120,32 @@ router.post('/conversations/:conversationId/messages', requireUser, upload.array
       content,
       attachments
     );
+
+    // Notify other participants asynchronously
+    setImmediate(async () => {
+      try {
+        const conv = await Conversation.findById(req.params.conversationId);
+        if (conv && conv.participants) {
+          const senderId = req.user._id.toString();
+          const senderName = req.user.name || req.user.email || 'Jemand';
+          const preview = content.length > 80 ? content.substring(0, 80) + '…' : content;
+          for (const participant of conv.participants) {
+            if (participant.userId.toString() !== senderId) {
+              await NotificationService.createNotification({
+                userId: participant.userId,
+                title: 'Neue Nachricht',
+                message: `${senderName}: ${preview}`,
+                type: 'message',
+                orderId: conv.orderId || null,
+                actionUrl: conv.orderId ? `/orders/${conv.orderId}` : '/messages'
+              });
+            }
+          }
+        }
+      } catch (notifError) {
+        console.error('Error creating message notification:', notifError.message);
+      }
+    });
 
     return res.status(201).json({
       success: true,

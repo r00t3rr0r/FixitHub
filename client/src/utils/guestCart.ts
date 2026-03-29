@@ -17,7 +17,9 @@ export interface GuestRepairOrder {
   deviceType: string
   deviceBrand: string
   deviceModel: string
+  deviceImage?: string
   services: any[]
+  serviceNames?: string[]
   addOns: any[]
   totalCost: number
   customerNotes?: string
@@ -156,7 +158,9 @@ export const addRepairOrderToGuestCart = (repairOrderData: any): GuestCart => {
     deviceType: repairOrderData.deviceType,
     deviceBrand: repairOrderData.deviceBrand,
     deviceModel: repairOrderData.deviceModel,
+    deviceImage: repairOrderData.deviceImage,
     services: repairOrderData.services || [],
+    serviceNames: repairOrderData.serviceNames || [],
     addOns: repairOrderData.addOns || [],
     totalCost: repairOrderData.totalCost,
     customerNotes: repairOrderData.customerNotes,

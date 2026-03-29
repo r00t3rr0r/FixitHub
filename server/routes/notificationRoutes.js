@@ -51,4 +51,38 @@ router.put('/read-all', requireUser, async (req, res) => {
   }
 });
 
+// Delete a single notification
+router.delete('/:id', requireUser, async (req, res) => {
+  console.log('Delete notification request:', req.params.id);
+
+  try {
+    const Notification = require('../models/Notification');
+    const notification = await Notification.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.user._id
+    });
+    if (!notification) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Error deleting notification:', error);
+    return res.status(500).json({ error: error.message || 'Failed to delete notification' });
+  }
+});
+
+// Delete all notifications for the current user
+router.delete('/', requireUser, async (req, res) => {
+  console.log('Delete all notifications request from user:', req.user.email);
+
+  try {
+    const Notification = require('../models/Notification');
+    const result = await Notification.deleteMany({ userId: req.user._id });
+    return res.status(200).json({ success: true, count: result.deletedCount });
+  } catch (error) {
+    console.error('Error deleting all notifications:', error);
+    return res.status(500).json({ error: error.message || 'Failed to delete all notifications' });
+  }
+});
+
 module.exports = router;

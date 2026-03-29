@@ -23,7 +23,11 @@ import {
   AlertCircle,
   FileText,
   Calendar,
-  DollarSign
+  DollarSign,
+  MessageSquare,
+  Smartphone,
+  Wrench,
+  ImageIcon
 } from "lucide-react"
 import {
   Select,
@@ -49,6 +53,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface ExtendedRepairRequest extends RepairRequest {
   unreadMessages?: number
@@ -185,6 +191,25 @@ export function CustomerRepairRequests() {
       month: 'short',
       day: 'numeric'
     })
+  }
+
+  const formatStatusLabel = (status: string) => {
+    return status.charAt(0).toUpperCase() + status.slice(1)
+  }
+
+  const getStatusBadgeClasses = (status: string) => {
+    switch (status) {
+      case 'converted':
+        return 'bg-emerald-500 text-white'
+      case 'approved':
+        return 'bg-blue-500 text-white'
+      case 'reviewing':
+        return 'bg-[#f5b800] text-[#1a2a5e]'
+      case 'rejected':
+        return 'bg-red-500 text-white'
+      default:
+        return 'bg-slate-500 text-white'
+    }
   }
 
   if (loading) {
@@ -355,418 +380,312 @@ export function CustomerRepairRequests() {
 
       {/* Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-        <DialogContent className="max-w-[56rem] overflow-hidden" style={{
-          borderRadius: '24px',
-          border: 'none',
-          boxShadow: '0 20px 60px rgba(26, 42, 94, 0.3)',
-          background: '#ffffff'
-        }}>
-          <DialogHeader style={{
-            padding: '2rem 2.5rem',
-            background: 'linear-gradient(to right, #1a2a5e 0%, #2a3f7e 100%)',
-            borderBottom: 'none',
-            position: 'relative',
-            overflow: 'hidden'
-          }}>
-            {/* Decorative background elements */}
-            <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-[0.08] blur-3xl pointer-events-none" 
-                 style={{ background: 'radial-gradient(circle, rgba(245, 184, 0, 1) 0%, transparent 70%)' }} />
-            <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full opacity-[0.06] blur-3xl pointer-events-none" 
-                 style={{ background: 'radial-gradient(circle, rgba(245, 184, 0, 1) 0%, transparent 70%)' }} />
-            
-            <div className="flex items-start justify-between pr-6 relative z-10">
-              <div>
-                <DialogTitle className="text-[1.75rem] font-extrabold text-white mb-2" style={{
-                  letterSpacing: '-0.5px'
-                }}>
+        <DialogContent className="max-w-[95vw] xl:max-w-6xl my-4 max-h-[88vh] p-0 gap-0 overflow-hidden border-none shadow-[0_20px_60px_rgba(26,42,94,0.3)] flex flex-col">
+          <DialogHeader className="px-5 sm:px-8 py-6 bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] relative overflow-hidden border-b-0">
+            <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-[0.08] blur-3xl pointer-events-none bg-[radial-gradient(circle,rgba(245,184,0,1)_0%,transparent_70%)]" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full opacity-[0.06] blur-3xl pointer-events-none bg-[radial-gradient(circle,rgba(245,184,0,1)_0%,transparent_70%)]" />
+
+            <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:pr-8">
+              <div className="space-y-2">
+                <DialogTitle className="text-2xl sm:text-[1.75rem] font-extrabold tracking-tight" style={{ color: '#f5b800' }}>
                   Request #{selectedRequest?.requestNumber}
                 </DialogTitle>
-                <DialogDescription className="text-[1.125rem] font-normal" style={{
-                  color: 'rgba(255, 255, 255, 0.9)',
-                  letterSpacing: '0.3px'
-                }}>
+                <DialogDescription className="text-base sm:text-lg text-white/90">
                   {selectedRequest?.deviceBrand} {selectedRequest?.deviceModel}
                 </DialogDescription>
+                {selectedRequest && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <Badge className={`inline-flex items-center gap-1.5 px-3 py-1.5 font-semibold ${getStatusBadgeClasses(selectedRequest.status)}`}>
+                      {getStatusIcon(selectedRequest.status)}
+                      {formatStatusLabel(selectedRequest.status)}
+                    </Badge>
+                    <Badge variant="secondary" className="bg-white/15 text-white hover:bg-white/15 capitalize">
+                      Priority: {selectedRequest.priority}
+                    </Badge>
+                  </div>
+                )}
               </div>
+
               {selectedRequest && (
-                <span className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm shadow-lg transition-all duration-200 hover:-translate-y-0.5 status-${selectedRequest.status}`}
-                      style={{
-                        background: selectedRequest.status === 'converted' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' :
-                                   selectedRequest.status === 'approved' ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' :
-                                   selectedRequest.status === 'reviewing' ? 'linear-gradient(135deg, #f5b800 0%, #e5ab00 100%)' :
-                                   selectedRequest.status === 'rejected' ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' :
-                                   'linear-gradient(135deg, #8892a8 0%, #636e85 100%)',
-                        color: selectedRequest.status === 'reviewing' ? '#1a2a5e' : '#ffffff',
-                        boxShadow: selectedRequest.status === 'converted' ? '0 4px 12px rgba(16, 185, 129, 0.35)' :
-                                  selectedRequest.status === 'approved' ? '0 4px 12px rgba(59, 130, 246, 0.35)' :
-                                  selectedRequest.status === 'reviewing' ? '0 4px 12px rgba(245, 184, 0, 0.35)' :
-                                  selectedRequest.status === 'rejected' ? '0 4px 12px rgba(239, 68, 68, 0.35)' :
-                                  '0 4px 12px rgba(136, 146, 168, 0.35)'
-                      }}>
-                  {getStatusIcon(selectedRequest.status)}
-                  <span>{selectedRequest.status}</span>
-                </span>
+                <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full sm:w-auto">
+                  <div className="rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-center min-w-[92px]">
+                    <p className="text-[11px] sm:text-xs uppercase tracking-wide text-blue-100">Submitted</p>
+                    <p className="text-xs sm:text-sm font-semibold text-white">{formatDate(selectedRequest.createdAt)}</p>
+                  </div>
+                  <div className="rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-center min-w-[92px]">
+                    <p className="text-[11px] sm:text-xs uppercase tracking-wide text-blue-100">Updated</p>
+                    <p className="text-xs sm:text-sm font-semibold text-white">{formatDate(selectedRequest.updatedAt)}</p>
+                  </div>
+                  <div className="rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-center min-w-[92px]">
+                    <p className="text-[11px] sm:text-xs uppercase tracking-wide text-blue-100">Estimate</p>
+                    <p className="text-xs sm:text-sm font-extrabold text-[#f5b800]">${selectedRequest.estimatedCost.toFixed(2)}</p>
+                  </div>
+                </div>
               )}
             </div>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 overflow-hidden pr-4">
-            <div style={{
-              padding: '2.5rem',
-              background: 'linear-gradient(to bottom, #ffffff 0%, #fafbfc 100%)'
-            }}>
-              {detailsLoading ? (
-                <div className="loading-container">
-                  <Loader2 className="h-6 w-6 animate-spin loading-spinner" />
-                </div>
-              ) : selectedRequest ? (
-                <>  
-                  {/* Device Information */}
-                  <div className="mb-10 p-8 bg-white rounded-2xl border transition-all duration-200 hover:shadow-lg hover:border-yellow-200 hover:-translate-y-1" 
-                       style={{
-                         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                         borderColor: 'rgba(26, 42, 94, 0.06)'
-                       }}>
-                    <h3 className="text-xl font-bold text-[#1a2a5e] mb-5 flex items-center gap-2.5 pb-3.5 border-b-2" style={{
-                      borderColor: 'rgba(245, 184, 0, 0.2)',
-                      letterSpacing: '-0.3px'
-                    }}>
-                      <FileText className="h-5 w-5 text-[#f5b800]" />
-                      Device Information
-                    </h3>
-                    <div className="grid gap-6" style={{
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))'
-                    }}>
-                      <div className="flex flex-col gap-2 p-4 rounded-xl border transition-all duration-200 hover:bg-white hover:border-yellow-200 hover:translate-x-1" 
-                           style={{
-                             background: 'linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)',
-                             borderColor: 'rgba(26, 42, 94, 0.05)'
-                           }}>
-                        <span className="text-[0.8125rem] font-bold uppercase tracking-wide" style={{ color: '#636e85' }}>Brand</span>
-                        <span className="text-[1.0625rem] font-semibold text-[#1a2a5e] leading-relaxed">{selectedRequest.deviceBrand}</span>
-                      </div>
-                      <div className="flex flex-col gap-2 p-4 rounded-xl border transition-all duration-200 hover:bg-white hover:border-yellow-200 hover:translate-x-1" 
-                           style={{
-                             background: 'linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)',
-                             borderColor: 'rgba(26, 42, 94, 0.05)'
-                           }}>
-                        <span className="text-[0.8125rem] font-bold uppercase tracking-wide" style={{ color: '#636e85' }}>Model</span>
-                        <span className="text-[1.0625rem] font-semibold text-[#1a2a5e] leading-relaxed">{selectedRequest.deviceModel}</span>
-                      </div>
-                      <div className="flex flex-col gap-2 p-4 rounded-xl border transition-all duration-200 hover:bg-white hover:border-yellow-200 hover:translate-x-1" 
-                           style={{
-                             background: 'linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)',
-                             borderColor: 'rgba(26, 42, 94, 0.05)'
-                           }}>
-                        <span className="text-[0.8125rem] font-bold uppercase tracking-wide" style={{ color: '#636e85' }}>Issue Description</span>
-                        <span className="text-[1.0625rem] font-semibold text-[#1a2a5e] leading-relaxed">{selectedRequest.issueDescription}</span>
-                      </div>
-                      <div className="flex flex-col gap-2 p-4 rounded-xl border transition-all duration-200 hover:bg-white hover:border-yellow-200 hover:translate-x-1" 
-                           style={{
-                             background: 'linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)',
-                             borderColor: 'rgba(26, 42, 94, 0.05)'
-                           }}>
-                        <span className="text-[0.8125rem] font-bold uppercase tracking-wide" style={{ color: '#636e85' }}>Issue Occurred</span>
-                        <span className="text-[1.0625rem] font-semibold text-[#1a2a5e] leading-relaxed">{formatDate(selectedRequest.issueOccurredDate)}</span>
-                      </div>
-                      <div className="flex flex-col gap-2 p-4 rounded-xl border transition-all duration-200 hover:bg-white hover:border-yellow-200 hover:translate-x-1" 
-                           style={{
-                             background: 'linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)',
-                             borderColor: 'rgba(26, 42, 94, 0.05)'
-                           }}>
-                        <span className="text-[0.8125rem] font-bold uppercase tracking-wide" style={{ color: '#636e85' }}>Priority</span>
-                        <span className={`inline-flex items-center px-4 py-2 rounded-xl font-bold text-sm uppercase tracking-wide shadow-md transition-all duration-200 hover:-translate-y-1 hover:shadow-lg priority-${selectedRequest.priority}`}
-                              style={{
-                                background: selectedRequest.priority === 'urgent' ? 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)' :
-                                           selectedRequest.priority === 'high' ? 'linear-gradient(135deg, #fed7aa 0%, #fdba74 100%)' :
-                                           selectedRequest.priority === 'medium' ? 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)' :
-                                           'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)',
-                                color: selectedRequest.priority === 'urgent' ? '#991b1b' :
-                                       selectedRequest.priority === 'high' ? '#9a3412' :
-                                       selectedRequest.priority === 'medium' ? '#854d0e' :
-                                       '#065f46',
-                                border: selectedRequest.priority === 'urgent' ? '2px solid #f87171' :
-                                        selectedRequest.priority === 'high' ? '2px solid #fb923c' :
-                                        selectedRequest.priority === 'medium' ? '2px solid #fbbf24' :
-                                        '2px solid #34d399'
-                              }}>
-                          {selectedRequest.priority}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Model Number */}
-                  {selectedRequest.modelNumber && (
-                    <div className="mb-10 p-8 bg-white rounded-2xl border transition-all duration-200 hover:shadow-lg hover:border-yellow-200 hover:-translate-y-1" 
-                         style={{
-                           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                           borderColor: 'rgba(26, 42, 94, 0.06)'
-                         }}>
-                      <h3 className="text-xl font-bold text-[#1a2a5e] mb-5 flex items-center gap-2.5 pb-3.5 border-b-2" style={{
-                        borderColor: 'rgba(245, 184, 0, 0.2)',
-                        letterSpacing: '-0.3px'
-                      }}>Modellnummer</h3>
-                      <p className="text-[1.0625rem] font-semibold text-[#1a2a5e] leading-relaxed">{selectedRequest.modelNumber}</p>
-                    </div>
-                  )}
-
-                  {/* Extended Information */}
-                  {(selectedRequest.waterDamage || selectedRequest.previousRepairDetails || selectedRequest.itemCondition) && (
-                    <div className="mb-10 p-8 bg-white rounded-2xl border transition-all duration-200 hover:shadow-lg hover:border-yellow-200 hover:-translate-y-1" 
-                         style={{
-                           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                           borderColor: 'rgba(26, 42, 94, 0.06)'
-                         }}>
-                      <h3 className="text-xl font-bold text-[#1a2a5e] mb-5 flex items-center gap-2.5 pb-3.5 border-b-2" style={{
-                        borderColor: 'rgba(245, 184, 0, 0.2)',
-                        letterSpacing: '-0.3px'
-                      }}>Weitere Informationen</h3>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {selectedRequest.waterDamage && (
-                          <div className="flex flex-col gap-2 p-4 rounded-xl border transition-all duration-200 hover:bg-white hover:border-yellow-200 hover:translate-x-1" 
-                               style={{
-                                 background: 'linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)',
-                                 borderColor: 'rgba(26, 42, 94, 0.05)'
-                               }}>
-                            <span className="text-[0.8125rem] font-bold uppercase tracking-wide" style={{ color: '#636e85' }}>Wasserschaden</span>
-                            <Badge variant={selectedRequest.waterDamage === 'yes' ? 'destructive' : 'secondary'}>
-                              {selectedRequest.waterDamage === 'yes' ? 'Ja' : selectedRequest.waterDamage === 'no' ? 'Nein' : 'Nicht sicher'}
-                            </Badge>
-                          </div>
-                        )}
-                        
-                        {selectedRequest.itemCondition && (
-                          <div className="flex flex-col gap-2 p-4 rounded-xl border transition-all duration-200 hover:bg-white hover:border-yellow-200 hover:translate-x-1" 
-                               style={{
-                                 background: 'linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)',
-                                 borderColor: 'rgba(26, 42, 94, 0.05)'
-                               }}>
-                            <span className="text-[0.8125rem] font-bold uppercase tracking-wide" style={{ color: '#636e85' }}>Gerätezustand</span>
-                            <Badge variant="outline">
-                              {selectedRequest.itemCondition === 'original' ? 'Original' : 
-                               selectedRequest.itemCondition === 'refurbished' ? 'Generalüberholt' : 
-                               'Nicht sicher'}
-                            </Badge>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {selectedRequest.previousRepairDetails && (
-                        <div className="mt-4 flex flex-col gap-2 p-4 rounded-xl border transition-all duration-200" 
-                             style={{
-                               background: 'linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)',
-                               borderColor: 'rgba(26, 42, 94, 0.05)'
-                             }}>
-                          <span className="text-[0.8125rem] font-bold uppercase tracking-wide" style={{ color: '#636e85' }}>Vorherige Reparaturversuche</span>
-                          <span className="text-[1.0625rem] font-semibold text-[#1a2a5e] leading-relaxed">{selectedRequest.previousRepairDetails}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Estimated Cost */}
-                  <div className="mb-10 p-8 bg-white rounded-2xl border transition-all duration-200 hover:shadow-lg hover:border-yellow-200 hover:-translate-y-1" 
-                       style={{
-                         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                         borderColor: 'rgba(26, 42, 94, 0.06)'
-                       }}>
-                    <h3 className="text-xl font-bold text-[#1a2a5e] mb-5 flex items-center gap-2.5 pb-3.5 border-b-2" style={{
-                      borderColor: 'rgba(245, 184, 0, 0.2)',
-                      letterSpacing: '-0.3px'
-                    }}>
-                      <DollarSign className="h-5 w-5 text-[#f5b800]" />
-                      Estimated Cost
-                    </h3>
-                    <p className="text-[2rem] font-extrabold" style={{
-                      background: 'linear-gradient(135deg, #1a2a5e 0%, #f5b800 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text'
-                    }}>${selectedRequest.estimatedCost.toFixed(2)}</p>
-                  </div>
-
-                  {/* Converted Order Information */}
-                  {selectedRequest.status === 'converted' && selectedRequest.convertedToOrderId && (
-                    <div className="p-7 rounded-2xl border-2 mb-10 shadow-lg" style={{
-                      background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
-                      borderColor: '#10b981'
-                    }}>
-                      <h3 className="text-xl font-extrabold mb-5 flex items-center gap-2.5" style={{
-                        color: '#065f46',
-                        letterSpacing: '-0.3px'
-                      }}>
-                        <CheckCircle className="h-5 w-5" />
-                        Converted to Order
-                      </h3>
-                      <div className="grid gap-6" style={{
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))'
-                      }}>
-                        <div className="flex flex-col gap-2 p-4 rounded-xl border transition-all duration-200 hover:bg-white hover:border-yellow-200 hover:translate-x-1" 
-                             style={{
-                               background: 'linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)',
-                               borderColor: 'rgba(26, 42, 94, 0.05)'
-                             }}>
-                          <span className="text-[0.8125rem] font-bold uppercase tracking-wide" style={{ color: '#636e85' }}>Order Number</span>
-                          <span className="text-[1.0625rem] font-semibold text-[#1a2a5e] leading-relaxed">{selectedRequest.convertedToOrderId.orderNumber}</span>
-                        </div>
-                        <div className="flex flex-col gap-2 p-4 rounded-xl border transition-all duration-200 hover:bg-white hover:border-yellow-200 hover:translate-x-1" 
-                             style={{
-                               background: 'linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)',
-                               borderColor: 'rgba(26, 42, 94, 0.05)'
-                             }}>
-                          <span className="text-[0.8125rem] font-bold uppercase tracking-wide" style={{ color: '#636e85' }}>Converted By</span>
-                          <span className="text-[1.0625rem] font-semibold text-[#1a2a5e] leading-relaxed">{selectedRequest.convertedByStaffName || 'N/A'}</span>
-                        </div>
-                        {selectedRequest.convertedAt && (
-                          <div className="flex flex-col gap-2 p-4 rounded-xl border transition-all duration-200 hover:bg-white hover:border-yellow-200 hover:translate-x-1" 
-                               style={{
-                                 background: 'linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)',
-                                 borderColor: 'rgba(26, 42, 94, 0.05)'
-                               }}>
-                            <span className="text-[0.8125rem] font-bold uppercase tracking-wide" style={{ color: '#636e85' }}>Converted Date</span>
-                            <span className="text-[1.0625rem] font-semibold text-[#1a2a5e] leading-relaxed">{formatDate(selectedRequest.convertedAt)}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Assigned Staff */}
-                  {selectedRequest.assignedStaffId && (
-                    <div className="mb-10 p-8 bg-white rounded-2xl border transition-all duration-200 hover:shadow-lg hover:border-yellow-200 hover:-translate-y-1" 
-                         style={{
-                           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                           borderColor: 'rgba(26, 42, 94, 0.06)'
-                         }}>
-                      <h3 className="text-xl font-bold text-[#1a2a5e] mb-5 flex items-center gap-2.5 pb-3.5 border-b-2" style={{
-                        borderColor: 'rgba(245, 184, 0, 0.2)',
-                        letterSpacing: '-0.3px'
-                      }}>Assigned Staff</h3>
-                      <div className="flex flex-col gap-2 p-4 rounded-xl border transition-all duration-200 hover:bg-white hover:border-yellow-200 hover:translate-x-1" 
-                           style={{
-                             background: 'linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)',
-                             borderColor: 'rgba(26, 42, 94, 0.05)'
-                           }}>
-                        <span className="text-[0.8125rem] font-bold uppercase tracking-wide" style={{ color: '#636e85' }}>Staff Member</span>
-                        <span className="text-[1.0625rem] font-semibold text-[#1a2a5e] leading-relaxed">{selectedRequest.assignedStaffName || 'N/A'}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Messaging Panel */}
-                  <div className="mb-10 p-8 bg-white rounded-2xl border transition-all duration-200 hover:shadow-lg hover:border-yellow-200" 
-                       style={{
-                         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                         borderColor: 'rgba(26, 42, 94, 0.06)'
-                       }}>
-                    <RepairRequestMessagesPanel
-                      requestId={selectedRequest._id}
-                      userRole={user?.role}
-                      isReadOnly={false}
-                    />
-                  </div>
-
-                  {/* Images */}
-                  {selectedRequest.images && selectedRequest.images.length > 0 && (
-                    <div className="mb-10 p-8 bg-white rounded-2xl border transition-all duration-200 hover:shadow-lg hover:border-yellow-200 hover:-translate-y-1" 
-                         style={{
-                           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                           borderColor: 'rgba(26, 42, 94, 0.06)'
-                         }}>
-                      <h3 className="text-xl font-bold text-[#1a2a5e] mb-5 flex items-center gap-2.5 pb-3.5 border-b-2" style={{
-                        borderColor: 'rgba(245, 184, 0, 0.2)',
-                        letterSpacing: '-0.3px'
-                      }}>Uploaded Images ({selectedRequest.images.length})</h3>
-                      <div className="grid gap-5" style={{
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))'
-                      }}>
-                        {selectedRequest.images.map((image, index) => (
-                          <img
-                            key={index}
-                            src={image}
-                            alt={`Device image ${index + 1}`}
-                            className="w-full h-[220px] object-cover rounded-2xl border-2 transition-all duration-200 hover:border-[#f5b800] hover:scale-105 hover:-translate-y-1"
-                            style={{
-                              borderColor: 'rgba(26, 42, 94, 0.08)',
-                              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
-                            }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Timeline */}
-                  <div className="mb-0 p-8 bg-white rounded-2xl border transition-all duration-200 hover:shadow-lg hover:border-yellow-200 hover:-translate-y-1" 
-                       style={{
-                         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                         borderColor: 'rgba(26, 42, 94, 0.06)'
-                       }}>
-                    <h3 className="text-xl font-bold text-[#1a2a5e] mb-5 flex items-center gap-2.5 pb-3.5 border-b-2" style={{
-                      borderColor: 'rgba(245, 184, 0, 0.2)',
-                      letterSpacing: '-0.3px'
-                    }}>
-                      <Calendar className="h-5 w-5 text-[#f5b800]" />
-                      Timeline
-                    </h3>
-                    <div className="flex flex-col gap-4">
-                      <div className="flex justify-between items-center px-5 py-4 rounded-xl border transition-all duration-200 hover:bg-white hover:border-yellow-200 hover:translate-x-1" 
-                           style={{
-                             background: 'linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)',
-                             borderColor: 'rgba(26, 42, 94, 0.06)'
-                           }}>
-                        <span className="text-[0.9375rem] font-bold text-[#1a2a5e] tracking-wide">Created</span>
-                        <span className="text-[0.9375rem] font-semibold" style={{ color: '#636e85' }}>{formatDate(selectedRequest.createdAt)}</span>
-                      </div>
-                      <div className="flex justify-between items-center px-5 py-4 rounded-xl border transition-all duration-200 hover:bg-white hover:border-yellow-200 hover:translate-x-1" 
-                           style={{
-                             background: 'linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)',
-                             borderColor: 'rgba(26, 42, 94, 0.06)'
-                           }}>
-                        <span className="text-[0.9375rem] font-bold text-[#1a2a5e] tracking-wide">Last Updated</span>
-                        <span className="text-[0.9375rem] font-semibold" style={{ color: '#636e85' }}>{formatDate(selectedRequest.updatedAt)}</span>
-                      </div>
-                      {selectedRequest.reviewDeadline && (
-                        <div className="flex justify-between items-center px-5 py-4 rounded-xl border transition-all duration-200 hover:bg-white hover:border-yellow-200 hover:translate-x-1" 
-                             style={{
-                               background: 'linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%)',
-                               borderColor: 'rgba(26, 42, 94, 0.06)'
-                             }}>
-                          <span className="text-[0.9375rem] font-bold text-[#1a2a5e] tracking-wide">Review Deadline</span>
-                          <span className="text-[0.9375rem] font-semibold" style={{ color: '#636e85' }}>{formatDate(selectedRequest.reviewDeadline)}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              ) : null}
+          {detailsLoading ? (
+            <div className="h-[60vh] flex items-center justify-center bg-gradient-to-b from-white to-slate-50">
+              <Loader2 className="h-7 w-7 animate-spin text-[#1a2a5e]" />
             </div>
-          </ScrollArea>
+          ) : selectedRequest ? (
+            <Tabs defaultValue="overview" className="flex flex-col lg:flex-row flex-1 min-h-0 bg-gradient-to-b from-white to-slate-50">
+              <div className="lg:w-72 lg:border-r lg:border-slate-200/80 bg-white/80 backdrop-blur-sm">
+                <div className="px-4 pt-4 pb-2 lg:pb-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500 mb-3">Sections</p>
+                  <TabsList className="w-full h-auto p-0 bg-transparent rounded-none flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible">
+                    <TabsTrigger value="overview" className="min-w-max lg:w-full justify-start rounded-xl px-3 py-2.5 data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white data-[state=active]:shadow">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Overview
+                    </TabsTrigger>
+                    <TabsTrigger value="device" className="min-w-max lg:w-full justify-start rounded-xl px-3 py-2.5 data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white data-[state=active]:shadow">
+                      <Smartphone className="h-4 w-4 mr-2" />
+                      Device & Issue
+                    </TabsTrigger>
+                    <TabsTrigger value="communication" className="min-w-max lg:w-full justify-start rounded-xl px-3 py-2.5 data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white data-[state=active]:shadow">
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Kommunikation
+                    </TabsTrigger>
+                    <TabsTrigger value="media" className="min-w-max lg:w-full justify-start rounded-xl px-3 py-2.5 data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white data-[state=active]:shadow">
+                      <ImageIcon className="h-4 w-4 mr-2" />
+                      Bilder
+                    </TabsTrigger>
+                    <TabsTrigger value="timeline" className="min-w-max lg:w-full justify-start rounded-xl px-3 py-2.5 data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white data-[state=active]:shadow">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Timeline
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
+              </div>
 
-          <DialogFooter className="flex justify-end gap-4 px-10 py-7 border-t" style={{
-            background: 'linear-gradient(to bottom, #fafbfc 0%, #f5f6f8 100%)',
-            borderColor: 'rgba(26, 42, 94, 0.08)'
-          }}>
-            <button 
-              className="px-10 py-3.5 rounded-2xl font-bold text-base transition-all duration-200 shadow-lg hover:-translate-y-0.5 active:translate-y-0" 
-              style={{
-                background: 'linear-gradient(135deg, #1a2a5e 0%, #2a3f7e 100%)',
-                color: '#ffffff',
-                boxShadow: '0 4px 12px rgba(26, 42, 94, 0.2)',
-                letterSpacing: '0.3px'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, #f5b800 0%, #e5ab00 100%)';
-                e.currentTarget.style.color = '#1a2a5e';
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(245, 184, 0, 0.3)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, #1a2a5e 0%, #2a3f7e 100%)';
-                e.currentTarget.style.color = '#ffffff';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(26, 42, 94, 0.2)';
-              }}
+              <div className="flex-1 min-w-0">
+                <ScrollArea className="h-full">
+                  <div className="p-4 sm:p-6 lg:p-7 space-y-5">
+                    <TabsContent value="overview" className="mt-0 space-y-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Request</p>
+                          <p className="text-base font-semibold text-[#1a2a5e] mt-1">{selectedRequest.requestNumber}</p>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Status</p>
+                          <p className="text-base font-semibold text-[#1a2a5e] mt-1">{formatStatusLabel(selectedRequest.status)}</p>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Priority</p>
+                          <p className="text-base font-semibold text-[#1a2a5e] mt-1 capitalize">{selectedRequest.priority}</p>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Estimate</p>
+                          <p className="text-base font-extrabold text-[#1a2a5e] mt-1">${selectedRequest.estimatedCost.toFixed(2)}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <h3 className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] mb-3">Device & Issue</h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Brand</p>
+                              <p className="text-sm font-semibold text-[#1a2a5e] mt-0.5">{selectedRequest.deviceBrand}</p>
+                            </div>
+                            <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Model</p>
+                              <p className="text-sm font-semibold text-[#1a2a5e] mt-0.5">{selectedRequest.deviceModel}</p>
+                            </div>
+                            <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 sm:col-span-2">
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Issue</p>
+                              <p className="text-sm text-[#1a2a5e] mt-0.5 line-clamp-2">{selectedRequest.issueDescription}</p>
+                            </div>
+                            <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 sm:col-span-2">
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Occurred</p>
+                              <p className="text-sm font-semibold text-[#1a2a5e] mt-0.5">{formatDate(selectedRequest.issueOccurredDate)}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <h3 className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] mb-3">Kommunikation</h3>
+                          <div className="grid grid-cols-2 gap-2.5 mb-2.5">
+                            <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Messages</p>
+                              <p className="text-sm font-semibold text-[#1a2a5e] mt-0.5">{selectedRequest.messages?.length || 0}</p>
+                            </div>
+                            <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Unread</p>
+                              <p className="text-sm font-semibold text-[#1a2a5e] mt-0.5">{unreadCounts[selectedRequest._id] || 0}</p>
+                            </div>
+                          </div>
+                          <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Letzte Nachricht</p>
+                            <p className="text-sm text-[#1a2a5e] mt-0.5 line-clamp-2">
+                              {selectedRequest.messages && selectedRequest.messages.length > 0
+                                ? selectedRequest.messages[selectedRequest.messages.length - 1].message
+                                : "Noch keine Nachrichten vorhanden."}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {selectedRequest.status === 'converted' && selectedRequest.convertedToOrderId && (
+                        <div className="rounded-2xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 to-white p-5">
+                          <h3 className="text-lg font-bold text-emerald-800 flex items-center gap-2 mb-3">
+                            <CheckCircle className="h-5 w-5" />
+                            Converted to Order
+                          </h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            <div className="rounded-xl border border-emerald-200 bg-white p-3">
+                              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Order Number</p>
+                              <p className="mt-1 font-semibold text-[#1a2a5e]">{selectedRequest.convertedToOrderId.orderNumber}</p>
+                            </div>
+                            <div className="rounded-xl border border-emerald-200 bg-white p-3">
+                              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Converted By</p>
+                              <p className="mt-1 font-semibold text-[#1a2a5e]">{selectedRequest.convertedByStaffName || 'N/A'}</p>
+                            </div>
+                            {selectedRequest.convertedAt && (
+                              <div className="rounded-xl border border-emerald-200 bg-white p-3">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Converted Date</p>
+                                <p className="mt-1 font-semibold text-[#1a2a5e]">{formatDate(selectedRequest.convertedAt)}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedRequest.assignedStaffName && (
+                        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                          <h3 className="text-lg font-bold text-[#1a2a5e] flex items-center gap-2 mb-2">
+                            <Wrench className="h-5 w-5 text-[#f5b800]" />
+                            Assigned Staff
+                          </h3>
+                          <p className="text-slate-700">{selectedRequest.assignedStaffName}</p>
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="device" className="mt-0 space-y-5">
+                      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                        <h3 className="text-lg font-bold text-[#1a2a5e] mb-4">Device Information</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Brand</p>
+                            <p className="mt-1 font-semibold text-[#1a2a5e]">{selectedRequest.deviceBrand}</p>
+                          </div>
+                          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Model</p>
+                            <p className="mt-1 font-semibold text-[#1a2a5e]">{selectedRequest.deviceModel}</p>
+                          </div>
+                          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 sm:col-span-2">
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Issue Description</p>
+                            <p className="mt-1 font-semibold text-[#1a2a5e] leading-relaxed">{selectedRequest.issueDescription}</p>
+                          </div>
+                          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Issue Occurred</p>
+                            <p className="mt-1 font-semibold text-[#1a2a5e]">{formatDate(selectedRequest.issueOccurredDate)}</p>
+                          </div>
+                          {selectedRequest.modelNumber && (
+                            <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Model Number</p>
+                              <p className="mt-1 font-semibold text-[#1a2a5e]">{selectedRequest.modelNumber}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {(selectedRequest.waterDamage || selectedRequest.itemCondition || selectedRequest.previousRepairDetails) && (
+                        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                          <h3 className="text-lg font-bold text-[#1a2a5e] mb-4">Additional Details</h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {selectedRequest.waterDamage && (
+                              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Water Damage</p>
+                                <Badge variant={selectedRequest.waterDamage === 'yes' ? 'destructive' : 'secondary'} className="mt-2">
+                                  {selectedRequest.waterDamage === 'yes' ? 'Yes' : selectedRequest.waterDamage === 'no' ? 'No' : 'Unsure'}
+                                </Badge>
+                              </div>
+                            )}
+                            {selectedRequest.itemCondition && (
+                              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Item Condition</p>
+                                <Badge variant="outline" className="mt-2">
+                                  {selectedRequest.itemCondition === 'original' ? 'Original' : selectedRequest.itemCondition === 'refurbished' ? 'Refurbished' : 'Unsure'}
+                                </Badge>
+                              </div>
+                            )}
+                            {selectedRequest.previousRepairDetails && (
+                              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 sm:col-span-2">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Previous Repair Attempts</p>
+                                <p className="mt-2 text-sm sm:text-base text-[#1a2a5e] leading-relaxed">{selectedRequest.previousRepairDetails}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="communication" className="mt-0 space-y-5">
+                      <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                        <h3 className="text-lg font-bold text-[#1a2a5e] mb-1">Kommunikation</h3>
+                        <p className="text-sm text-slate-600 mb-4">Hier kannst du den Verlauf verfolgen und Rueckfragen direkt mit dem Team klaeren.</p>
+                        <RepairRequestMessagesPanel
+                          requestId={selectedRequest._id}
+                          userRole={user?.role}
+                          isReadOnly={false}
+                        />
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="media" className="mt-0 space-y-5">
+                      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                        <h3 className="text-lg font-bold text-[#1a2a5e] mb-4">Uploaded Images</h3>
+                        {selectedRequest.images && selectedRequest.images.length > 0 ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {selectedRequest.images.map((image, index) => (
+                              <img
+                                key={index}
+                                src={image}
+                                alt={`Device image ${index + 1}`}
+                                className="w-full h-52 object-cover rounded-xl border border-slate-200 transition-all duration-200 hover:border-[#f5b800] hover:shadow-md"
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-slate-500 text-sm">No images uploaded for this request.</p>
+                        )}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="timeline" className="mt-0 space-y-5">
+                      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                        <h3 className="text-lg font-bold text-[#1a2a5e] mb-4">Timeline</h3>
+                        <div className="space-y-3">
+                          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 flex items-center justify-between gap-3">
+                            <span className="font-semibold text-[#1a2a5e]">Created</span>
+                            <span className="text-sm text-slate-600">{formatDate(selectedRequest.createdAt)}</span>
+                          </div>
+                          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 flex items-center justify-between gap-3">
+                            <span className="font-semibold text-[#1a2a5e]">Last Updated</span>
+                            <span className="text-sm text-slate-600">{formatDate(selectedRequest.updatedAt)}</span>
+                          </div>
+                          {selectedRequest.reviewDeadline && (
+                            <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 flex items-center justify-between gap-3">
+                              <span className="font-semibold text-[#1a2a5e]">Review Deadline</span>
+                              <span className="text-sm text-slate-600">{formatDate(selectedRequest.reviewDeadline)}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </div>
+                </ScrollArea>
+              </div>
+            </Tabs>
+          ) : null}
+
+          <DialogFooter className="px-5 sm:px-8 py-5 border-t border-slate-200 bg-gradient-to-b from-slate-50 to-slate-100">
+            <button
+              className="px-6 sm:px-8 py-2.5 rounded-xl font-bold text-sm sm:text-base transition-all duration-200 bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] text-white shadow hover:brightness-110"
               onClick={() => setShowDetailsDialog(false)}
             >
               Close

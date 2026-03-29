@@ -123,6 +123,11 @@ const RepairRequestCommunicationSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
+  createdBy: {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    name: String,
+    role: String,
+  },
   messages: [communicationMessageSchema],
   status: {
     type: String,

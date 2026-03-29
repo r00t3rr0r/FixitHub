@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -6,8 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/useToast"
 import { getStaffMemberDetails, StaffMemberDetails } from "@/api/staff"
+import { getStaffTimeTrackingSummary, type TimeTrackingSummary } from "@/api/timeTracking"
+import { TimeTrackingBreakdown } from "@/components/staff/TimeTrackingBreakdown"
 import "./StaffDetailsDialog.css"
 import "../../pages/admin/StaffManagement.overrides.css"
 import {
@@ -22,7 +25,8 @@ import {
   Briefcase,
   TrendingUp,
   MapPin,
-  ExternalLink
+  ExternalLink,
+  Loader2
 } from "lucide-react"
 import { format, formatDistanceToNow } from "date-fns"
 import { useNavigate } from "react-router-dom"
@@ -35,6 +39,9 @@ interface StaffDetailsDialogProps {
 
 export function StaffDetailsDialog({ open, onOpenChange, staffId }: StaffDetailsDialogProps) {
   const [staffDetails, setStaffDetails] = useState<StaffMemberDetails | null>(null)
+  const [timeSummary, setTimeSummary] = useState<TimeTrackingSummary | null>(null)
+  const [timeSummaryLoading, setTimeSummaryLoading] = useState(false)
+  const [selectedTimeDate, setSelectedTimeDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
   const navigate = useNavigate()
@@ -44,6 +51,12 @@ export function StaffDetailsDialog({ open, onOpenChange, staffId }: StaffDetails
       fetchStaffDetails()
     }
   }, [open, staffId])
+
+  useEffect(() => {
+    if (open && staffId) {
+      fetchTimeSummary()
+    }
+  }, [open, staffId, selectedTimeDate])
 
   const fetchStaffDetails = async () => {
     if (!staffId) return
@@ -73,6 +86,25 @@ export function StaffDetailsDialog({ open, onOpenChange, staffId }: StaffDetails
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchTimeSummary = async () => {
+    if (!staffId) return
+
+    try {
+      setTimeSummaryLoading(true)
+      const response = await getStaffTimeTrackingSummary(staffId, { date: selectedTimeDate })
+      setTimeSummary(response)
+    } catch (error: any) {
+      console.error("Error fetching staff time summary:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load time tracking summary",
+        variant: "destructive"
+      })
+    } finally {
+      setTimeSummaryLoading(false)
     }
   }
 
@@ -177,6 +209,25 @@ export function StaffDetailsDialog({ open, onOpenChange, staffId }: StaffDetails
     onOpenChange(false) // Close the dialog
     navigate(`/admin/orders/${orderId}`)
   }
+
+  const formatHours = (hours?: number) => {
+    if (!hours || !Number.isFinite(hours)) return '0h'
+    const fullHours = Math.floor(hours)
+    const minutes = Math.round((hours - fullHours) * 60)
+    return minutes > 0 ? `${fullHours}h ${minutes}m` : `${fullHours}h`
+  }
+
+  const timeSummaryStats = useMemo(() => {
+    const summary = timeSummary?.summary
+    const orderHours = (summary?.ordersToday || []).reduce((sum, order) => sum + (order.durationHours || 0), 0)
+
+    return {
+      hoursToday: formatHours(summary?.hoursToday),
+      breakHoursToday: formatHours(summary?.breakHoursToday),
+      workflowHoursToday: formatHours(summary?.workflowHoursToday),
+      orderHoursToday: formatHours(orderHours),
+    }
+  }, [timeSummary])
 
   if (loading) {
     return (
@@ -549,6 +600,24 @@ export function StaffDetailsDialog({ open, onOpenChange, staffId }: StaffDetails
 
           {/* Time Tracking Tab */}
           <TabsContent value="time" className="space-y-4">
+            <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-medium">Daily Time Tracking</div>
+                <div className="text-sm text-muted-foreground">Includes breaks, order time, and workflow processing time.</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={selectedTimeDate}
+                  onChange={(event) => setSelectedTimeDate(event.target.value)}
+                  className="h-9 w-[180px]"
+                />
+                <Button variant="outline" size="sm" onClick={fetchTimeSummary} disabled={timeSummaryLoading}>
+                  {timeSummaryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reload'}
+                </Button>
+              </div>
+            </div>
+
             <div className="grid gap-4 md:grid-cols-2">
               <Card>
                 <CardHeader>
@@ -572,6 +641,24 @@ export function StaffDetailsDialog({ open, onOpenChange, staffId }: StaffDetails
                     <div className="text-lg font-semibold">{safeRender(staffDetails.timeTracking?.averageHoursPerDay || 0)}h</div>
                     <div className="text-sm text-muted-foreground">Average Hours Per Day</div>
                   </div>
+                  <div className="grid grid-cols-2 gap-4 border-t pt-4">
+                    <div>
+                      <div className="text-lg font-semibold">{timeSummaryStats.hoursToday}</div>
+                      <div className="text-sm text-muted-foreground">Selected Day Work</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold">{timeSummaryStats.breakHoursToday}</div>
+                      <div className="text-sm text-muted-foreground">Selected Day Breaks</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold">{timeSummaryStats.workflowHoursToday}</div>
+                      <div className="text-sm text-muted-foreground">Workflow Time</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold">{timeSummaryStats.orderHoursToday}</div>
+                      <div className="text-sm text-muted-foreground">Order Time</div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -586,24 +673,41 @@ export function StaffDetailsDialog({ open, onOpenChange, staffId }: StaffDetails
                   <div>
                     <div className="text-sm font-medium">Last Clock In</div>
                     <div className="text-sm text-muted-foreground">
-                      {formatDate(staffDetails.timeTracking?.lastClockIn)}
+                      {formatDate(timeSummary?.summary?.lastClockIn || staffDetails.timeTracking?.lastClockIn)}
                     </div>
                   </div>
                   <div>
                     <div className="text-sm font-medium">Last Clock Out</div>
                     <div className="text-sm text-muted-foreground">
-                      {formatDate(staffDetails.timeTracking?.lastClockOut)}
+                      {formatDate(timeSummary?.summary?.lastClockOut || staffDetails.timeTracking?.lastClockOut)}
                     </div>
                   </div>
                   <div>
                     <div className="text-sm font-medium">Current Status</div>
-                    <Badge className={getStatusColor(staffDetails.timeTracking?.currentStatus || 'unknown')}>
-                      {safeRender(staffDetails.timeTracking?.currentStatus?.replace('_', ' ') || 'Unknown')}
+                    <Badge className={getStatusColor(timeSummary?.summary?.currentStatus || staffDetails.timeTracking?.currentStatus || 'unknown')}>
+                      {safeRender((timeSummary?.summary?.currentStatus || staffDetails.timeTracking?.currentStatus || 'Unknown').replace('_', ' '))}
                     </Badge>
                   </div>
                 </CardContent>
               </Card>
             </div>
+
+            {timeSummaryLoading ? (
+              <Card>
+                <CardContent className="flex items-center justify-center py-10 text-muted-foreground">
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Loading time breakdown...
+                </CardContent>
+              </Card>
+            ) : timeSummary ? (
+              <TimeTrackingBreakdown
+                breakHours={timeSummary.summary?.breakHoursToday || 0}
+                breaks={timeSummary.summary?.breaksToday || []}
+                orders={timeSummary.summary?.ordersToday || []}
+                workflows={timeSummary.summary?.workflowsToday || []}
+                selectedDate={timeSummary.summary?.selectedDate || selectedTimeDate}
+              />
+            ) : null}
           </TabsContent>
 
           {/* Activity Tab */}

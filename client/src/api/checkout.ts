@@ -83,11 +83,14 @@ export const registerDuringCheckout = async (data: CheckoutRegistrationData) => 
 
 // Description: Complete checkout - creates orders from cart repair orders and clears cart
 // Endpoint: POST /api/checkout/complete
-// Request: {}
+// Request: { paymentMethod?: string, paymentData?: Record<string, string> }
 // Response: { success: boolean, message: string, orders: Order[], orderIds: string[] }
-export const completeCheckout = async () => {
+export const completeCheckout = async (
+  paymentMethod?: string,
+  paymentData?: Record<string, string>
+) => {
   try {
-    const response = await api.post('/api/checkout/complete');
+    const response = await api.post('/api/checkout/complete', { paymentMethod, paymentData });
     return response.data;
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);
@@ -96,13 +99,20 @@ export const completeCheckout = async () => {
 
 // Description: Complete guest checkout - creates orders from guest cart data without authentication
 // Endpoint: POST /api/checkout/guest-complete
-// Request: { guestInfo: { email, firstName, lastName, phone, billingAddress, shippingAddress }, cartData: { items, repairOrders } }
+// Request: { guestInfo: { email, firstName, lastName, phone, billingAddress, shippingAddress }, cartData: { items, repairOrders }, paymentMethod?: string, paymentData?: Record<string, string> }
 // Response: { success: boolean, message: string, orders: Order[], orderIds: string[], guestEmail: string }
-export const completeGuestCheckout = async (guestInfo: GuestCheckoutData, cartData: GuestCartData) => {
+export const completeGuestCheckout = async (
+  guestInfo: GuestCheckoutData,
+  cartData: GuestCartData,
+  paymentMethod?: string,
+  paymentData?: Record<string, string>
+) => {
   try {
     const response = await api.post('/api/checkout/guest-complete', {
       guestInfo,
-      cartData
+      cartData,
+      paymentMethod,
+      paymentData,
     });
     return response.data;
   } catch (error: any) {

@@ -114,6 +114,57 @@ const orderTimelineSchema = new mongoose.Schema({
   }],
 }, { _id: true });
 
+const workflowPauseEventSchema = new mongoose.Schema({
+  pausedAt: {
+    type: Date,
+    required: true,
+  },
+  resumedAt: {
+    type: Date,
+  },
+  durationMinutes: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  reason: {
+    type: String,
+    default: '',
+  },
+  stepId: {
+    type: String,
+    default: '',
+  },
+  stepName: {
+    type: String,
+    default: '',
+  },
+  stepIndex: {
+    type: Number,
+    default: -1,
+  },
+}, { _id: true });
+
+const workflowAssignedStaffSchema = new mongoose.Schema({
+  staffId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+  name: {
+    type: String,
+    default: '',
+  },
+  avatar: {
+    type: String,
+    default: '',
+  },
+  assignedAt: {
+    type: Date,
+    default: Date.now,
+  },
+}, { _id: false });
+
 const workflowStepExecutionSchema = new mongoose.Schema({
   stepId: {
     type: String,
@@ -132,11 +183,35 @@ const workflowStepExecutionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   },
+  assignedStaff: [workflowAssignedStaffSchema],
   startedAt: {
     type: Date,
   },
   completedAt: {
     type: Date,
+  },
+  totalPausedMinutes: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  currentPauseStartedAt: {
+    type: Date,
+  },
+  pauseHistory: [workflowPauseEventSchema],
+  actualDurationMinutes: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  estimatedDurationMinutes: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  durationDeltaMinutes: {
+    type: Number,
+    default: 0,
   },
   formData: {
     type: mongoose.Schema.Types.Mixed,
@@ -182,6 +257,12 @@ const orderWorkflowSchema = new mongoose.Schema({
   pausedAt: {
     type: Date,
   },
+  totalPausedMinutes: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  pauseHistory: [workflowPauseEventSchema],
   pauseReason: {
     type: String,
     default: '',
@@ -610,7 +691,8 @@ orderSchema.pre(/^find/, function(next) {
       .populate('shopProducts.productId', 'name price images category brand stock')
       .populate('shopProducts.addedBy', 'name email')
       .populate('workflows.workflowTemplateId')
-      .populate('workflows.steps.assignedStaffId', 'name avatar');
+      .populate('workflows.steps.assignedStaffId', 'name avatar')
+      .populate('workflows.steps.assignedStaff.staffId', 'name avatar');
   next();
 });
 

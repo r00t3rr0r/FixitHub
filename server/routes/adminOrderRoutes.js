@@ -1,6 +1,7 @@
 const express = require('express');
 const OrderService = require('../services/orderService');
 const DeviceChangeService = require('../services/deviceChangeService');
+const NotificationService = require('../services/notificationService');
 const { requireUser } = require('./middleware/auth');
 
 const router = express.Router();
@@ -135,7 +136,22 @@ router.put('/:id/assign', requireUser, requireAdminOrStaff, async (req, res) => 
       return res.status(400).json({ error: 'Staff IDs are required' });
     }
 
-    await OrderService.assignStaff(req.params.id, staffIds);
+    const order = await OrderService.assignStaff(req.params.id, staffIds);
+
+    // Notify each assigned staff member asynchronously
+    setImmediate(async () => {
+      try {
+        for (const staffId of staffIds) {
+          await NotificationService.createAssignmentNotification(
+            staffId,
+            order._id,
+            order.orderNumber
+          );
+        }
+      } catch (notifError) {
+        console.error('Error creating assignment notification:', notifError.message);
+      }
+    });
 
     return res.status(200).json({
       success: true,
@@ -559,6 +575,46 @@ router.post('/:id/workflows/:workflowId/start', requireUser, requireAdminOrStaff
   }
 });
 
+// Description: Assign one or multiple staff members to a workflow step
+// Endpoint: PUT /api/admin/orders/:id/workflows/:workflowId/steps/:stepId/assign
+// Request: { staffIds: string[] }
+// Response: { success: boolean, message: string, order: Order }
+router.put('/:id/workflows/:workflowId/steps/:stepId/assign', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Assign workflow step staff request received:', req.params.id, req.params.workflowId, req.params.stepId, req.body);
+
+  try {
+    const { staffIds } = req.body;
+
+    if (!Array.isArray(staffIds) || staffIds.length === 0) {
+      return res.status(400).json({ error: 'At least one staff ID is required' });
+    }
+
+    const order = await OrderService.assignWorkflowStepStaff(
+      req.params.id,
+      req.params.workflowId,
+      req.params.stepId,
+      staffIds,
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Workflow step staff assigned successfully',
+      order
+    });
+  } catch (error) {
+    console.error('Error assigning workflow step staff:', error);
+    if (error.message === 'Order not found' ||
+        error.message === 'Workflow not found in order' ||
+        error.message === 'Step not found in workflow') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(400).json({
+      error: error.message || 'Failed to assign workflow step staff'
+    });
+  }
+});
+
 // Description: Complete workflow step
 // Endpoint: POST /api/admin/orders/:id/workflows/:workflowId/steps/:stepId/complete
 // Request: { formData?: object, checklistData?: object, notes?: string, photos?: string[] }
@@ -567,13 +623,13 @@ router.post('/:id/workflows/:workflowId/steps/:stepId/complete', requireUser, re
   console.log('Complete workflow step request received:', req.params.id, req.params.workflowId, req.params.stepId, req.body);
 
   try {
-    const { formData, checklistData, notes, photos } = req.body;
+    const { formData, checklistData, notes, photos, timing } = req.body;
 
     const order = await OrderService.completeWorkflowStep(
       req.params.id,
       req.params.workflowId,
       req.params.stepId,
-      { formData, checklistData, notes, photos },
+      { formData, checklistData, notes, photos, timing },
       req.user._id
     );
 

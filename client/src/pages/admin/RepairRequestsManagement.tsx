@@ -52,7 +52,8 @@ import {
   Calendar,
   FileCheck,
   AlertCircle,
-  Info
+  Info,
+  ChevronDown,
 } from "lucide-react"
 import {
   Select,
@@ -96,7 +97,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Checkbox } from "@/components/ui/checkbox"
-import { RepairRequestMessagesPanel } from "@/components/repair-request/RepairRequestMessagesPanel"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 
 export function RepairRequestsManagement() {
   const { t } = useTranslation()
@@ -129,6 +131,8 @@ export function RepairRequestsManagement() {
   const [selectedServices, setSelectedServices] = useState<string[]>([])
   const [estimatedCost, setEstimatedCost] = useState("")
   const [adminNote, setAdminNote] = useState("")
+  const [activeSidePanel, setActiveSidePanel] = useState<"communication" | "timeline">("communication")
+  const [notesExpanded, setNotesExpanded] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
 
   useEffect(() => {
@@ -138,6 +142,16 @@ export function RepairRequestsManagement() {
   useEffect(() => {
     filterRequests()
   }, [requests, searchTerm, statusFilter, priorityFilter])
+
+  useEffect(() => {
+    if (!selectedRequest) return
+    setSelectedStaffId(selectedRequest.assignedStaffId?._id || "")
+    setEstimatedCost(
+      typeof selectedRequest.estimatedCost === "number" && selectedRequest.estimatedCost > 0
+        ? String(selectedRequest.estimatedCost)
+        : ""
+    )
+  }, [selectedRequest?._id])
 
   useEffect(() => {
     const requestId = searchParams.get("requestId")
@@ -251,14 +265,52 @@ export function RepairRequestsManagement() {
     }
   }
 
+  const getStatusLabel = (status: RepairRequest["status"]) => {
+    switch (status) {
+      case "pending":
+        return "Ausstehend"
+      case "reviewing":
+        return "In Prüfung"
+      case "approved":
+        return "Genehmigt"
+      case "rejected":
+        return "Abgelehnt"
+      case "converted":
+        return "Umgewandelt"
+      default:
+        return status
+    }
+  }
+
+  const getPriorityLabel = (priority: RepairRequest["priority"]) => {
+    switch (priority) {
+      case "urgent":
+        return "Dringend"
+      case "high":
+        return "Hoch"
+      case "medium":
+        return "Mittel"
+      case "low":
+        return "Niedrig"
+      default:
+        return priority
+    }
+  }
+
+  const updateRequestInState = (requestId: string, updater: (request: RepairRequest) => RepairRequest) => {
+    setRequests((prev) => prev.map((request) => (request._id === requestId ? updater(request) : request)))
+    setSelectedRequest((prev) => {
+      if (!prev || prev._id !== requestId) return prev
+      return updater(prev)
+    })
+  }
+
   const handleStatusUpdate = async (requestId: string, newStatus: string) => {
     try {
       setActionLoading(true)
       await updateRepairRequestStatus(requestId, newStatus)
 
-      setRequests(requests.map(req =>
-        req._id === requestId ? { ...req, status: newStatus as any } : req
-      ))
+      updateRequestInState(requestId, (request) => ({ ...request, status: newStatus as any }))
 
       toast({
         title: "Success",
@@ -280,9 +332,7 @@ export function RepairRequestsManagement() {
       setActionLoading(true)
       await updateRepairRequestPriority(requestId, newPriority)
 
-      setRequests(requests.map(req =>
-        req._id === requestId ? { ...req, priority: newPriority as any } : req
-      ))
+      updateRequestInState(requestId, (request) => ({ ...request, priority: newPriority as any }))
 
       toast({
         title: "Success",
@@ -312,16 +362,14 @@ export function RepairRequestsManagement() {
 
       await updateRepairRequestEstimatedCost(selectedRequest._id, cost)
 
-      setRequests(requests.map(req =>
-        req._id === selectedRequest._id ? { ...req, estimatedCost: cost } : req
-      ))
+      updateRequestInState(selectedRequest._id, (request) => ({ ...request, estimatedCost: cost }))
 
       toast({
         title: "Success",
         description: "Estimated cost updated successfully"
       })
 
-      setEstimatedCost("")
+      setEstimatedCost(String(cost))
     } catch (error: any) {
       toast({
         title: "Error",
@@ -342,20 +390,18 @@ export function RepairRequestsManagement() {
 
       const staffMember = staff.find(s => s._id === selectedStaffId)
 
-      setRequests(requests.map(req =>
-        req._id === selectedRequest._id
+      updateRequestInState(selectedRequest._id, (request) => ({
+        ...request,
+        assignedStaffId: staffMember
           ? {
-              ...req,
-              assignedStaffId: staffMember ? {
-                _id: staffMember._id,
-                firstName: staffMember.firstName,
-                lastName: staffMember.lastName,
-                email: staffMember.email
-              } : undefined,
-              assignedStaffName: staffMember ? `${staffMember.firstName} ${staffMember.lastName}` : undefined
+              _id: staffMember._id,
+              firstName: staffMember.firstName,
+              lastName: staffMember.lastName,
+              email: staffMember.email,
             }
-          : req
-      ))
+          : undefined,
+        assignedStaffName: staffMember ? `${staffMember.firstName} ${staffMember.lastName}` : undefined,
+      }))
 
       toast({
         title: "Success",
@@ -363,7 +409,6 @@ export function RepairRequestsManagement() {
       })
 
       setShowAssignDialog(false)
-      setSelectedStaffId("")
     } catch (error: any) {
       toast({
         title: "Error",
@@ -382,9 +427,8 @@ export function RepairRequestsManagement() {
       setActionLoading(true)
       const response = await addRepairRequestMessage(selectedRequest._id, newMessage)
 
-      setRequests(requests.map(req =>
-        req._id === selectedRequest._id ? (response as any).request : req
-      ))
+      const updatedRequest = (response as any).request as RepairRequest
+      updateRequestInState(selectedRequest._id, () => updatedRequest)
 
       toast({
         title: "Success",
@@ -411,9 +455,8 @@ export function RepairRequestsManagement() {
       setActionLoading(true)
       const response = await addAdminNote(selectedRequest._id, adminNote)
 
-      setRequests(requests.map(req =>
-        req._id === selectedRequest._id ? (response as any).request : req
-      ))
+      const updatedRequest = (response as any).request as RepairRequest
+      updateRequestInState(selectedRequest._id, () => updatedRequest)
 
       toast({
         title: "Success",
@@ -450,15 +493,11 @@ export function RepairRequestsManagement() {
       })
 
       // Update the request status to converted
-      setRequests(requests.map(req =>
-        req._id === selectedRequest._id
-          ? {
-              ...req,
-              status: 'converted',
-              convertedToOrderId: (response as any).order
-            }
-          : req
-      ))
+      updateRequestInState(selectedRequest._id, (request) => ({
+        ...request,
+        status: 'converted',
+        convertedToOrderId: (response as any).order
+      }))
 
       toast({
         title: "Success",
@@ -512,6 +551,10 @@ export function RepairRequestsManagement() {
 
   const openDetailsDialog = (request: RepairRequest) => {
     setSelectedRequest(request)
+    setSelectedStaffId(request.assignedStaffId?._id || "")
+    setEstimatedCost(request.estimatedCost ? String(request.estimatedCost) : "")
+    setActiveSidePanel("communication")
+    setNotesExpanded(false)
     setShowDetailsDialog(true)
     setSearchParams((currentParams) => {
       const nextParams = new URLSearchParams(currentParams)
@@ -829,7 +872,7 @@ export function RepairRequestsManagement() {
 
       {/* Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={handleDetailsDialogOpenChange}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="repair-request-details-dialog max-w-[1100px] max-h-[88vh] overflow-hidden flex flex-col p-0">
           <DialogHeader className="mcrepair-dialog-header">
             <DialogTitle className="mcrepair-dialog-title">Anfrage Details – {selectedRequest?.requestNumber}</DialogTitle>
             <DialogDescription className="mcrepair-dialog-description">
@@ -837,260 +880,389 @@ export function RepairRequestsManagement() {
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 overflow-hidden pr-4">
+          <ScrollArea className="flex-1 overflow-hidden details-scroll-area">
             {selectedRequest && (
-            <div className="space-y-3 p-3">
-              {/* Customer Information */}
-              <Card>
-                <CardHeader className="pb-2 pt-3 px-4">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <User className="h-3.5 w-3.5" />
-                    Kundeninformationen
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-1 text-sm pb-3 px-4">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground text-xs">Name:</span>
-                    <span className="font-medium text-xs">{selectedRequest.customerName}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground text-xs">E-Mail:</span>
-                    <span className="font-medium text-xs">{selectedRequest.customerEmail}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground text-xs">Telefon:</span>
-                    <span className="font-medium text-xs">{selectedRequest.customerPhone}</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Device Information */}
-              <Card>
-                <CardHeader className="pb-2 pt-3 px-4">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Package className="h-3.5 w-3.5" />
-                    Geräteinformationen
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-1 text-sm pb-3 px-4">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground text-xs">Typ:</span>
-                    <span className="font-medium text-xs">{selectedRequest.deviceType}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground text-xs">Marke:</span>
-                    <span className="font-medium text-xs">{selectedRequest.deviceBrand}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground text-xs">Modell:</span>
-                    <span className="font-medium text-xs">{selectedRequest.deviceModel}</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Issue Details */}
-              <Card>
-                <CardHeader className="pb-2 pt-3 px-4">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <AlertCircle className="h-3.5 w-3.5" />
-                    Problemdetails
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm pb-3 px-4">
-                  <div>
-                    <Label className="text-muted-foreground">Description:</Label>
-                    <p className="mt-1 whitespace-pre-wrap">{selectedRequest.issueDescription}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">When Occurred:</Label>
-                    <p className="mt-1">{selectedRequest.issueOccurredDate}</p>
-                  </div>
-                  {selectedRequest.modelNumber && (
+              <div className="details-layout-shell">
+                <section className="details-summary-bar">
+                  <div className="details-summary-main">
                     <div>
-                      <Label className="text-muted-foreground">Modellnummer:</Label>
-                      <p className="mt-1 whitespace-pre-wrap">{selectedRequest.modelNumber}</p>
+                      <p className="details-chip-label">Kunde</p>
+                      <p className="details-chip-value">{selectedRequest.customerName}</p>
                     </div>
-                  )}
-                  
-                  {/* Extended Information */}
-                  {(selectedRequest.waterDamage || selectedRequest.previousRepairDetails || selectedRequest.itemCondition) && (
-                    <div className="pt-3 border-t">
-                      <Label className="text-muted-foreground font-semibold mb-2 block">Weitere Informationen:</Label>
-                      
-                      {selectedRequest.waterDamage && (
-                        <div className="mb-2">
-                          <Label className="text-muted-foreground text-xs">Wasserschaden:</Label>
-                          <p className="mt-1">
-                            <Badge variant={selectedRequest.waterDamage === 'yes' ? 'destructive' : 'secondary'}>
-                              {selectedRequest.waterDamage === 'yes' ? 'Ja' : selectedRequest.waterDamage === 'no' ? 'Nein' : 'Nicht sicher'}
-                            </Badge>
-                          </p>
-                        </div>
-                      )}
-                      
-                      {selectedRequest.previousRepairDetails && (
-                        <div className="mb-2">
-                          <Label className="text-muted-foreground text-xs">Vorherige Reparaturversuche:</Label>
-                          <p className="mt-1 whitespace-pre-wrap text-sm">{selectedRequest.previousRepairDetails}</p>
-                        </div>
-                      )}
-                      
-                      {selectedRequest.itemCondition && (
-                        <div className="mb-2">
-                          <Label className="text-muted-foreground text-xs">Gerätezustand:</Label>
-                          <p className="mt-1">
-                            <Badge variant="outline">
-                              {selectedRequest.itemCondition === 'original' ? 'Original' : 
-                               selectedRequest.itemCondition === 'refurbished' ? 'Generalüberholt' : 
-                               'Nicht sicher'}
-                            </Badge>
-                          </p>
-                        </div>
-                      )}
+                    <div>
+                      <p className="details-chip-label">Gerät</p>
+                      <p className="details-chip-value">{selectedRequest.deviceBrand} {selectedRequest.deviceModel}</p>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Images */}
-              {selectedRequest.images && selectedRequest.images.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-2 pt-3 px-4">
-                    <CardTitle className="text-sm">Gerätebilder</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pb-3 px-4">
-                    <div className="grid grid-cols-3 gap-2">
-                      {selectedRequest.images.map((img, idx) => (
-                        <img
-                          key={idx}
-                          src={img}
-                          alt={`Gerät ${idx + 1}`}
-                          className="w-full h-24 object-cover rounded-md border"
-                        />
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Status and Priority Updates */}
-              <Card>
-                <CardHeader className="pb-2 pt-3 px-4">
-                  <CardTitle className="text-sm">Status &amp; Priorität</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 pb-3 px-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Status</Label>
-                      <Select
-                        value={selectedRequest.status}
-                        onValueChange={(value) => handleStatusUpdate(selectedRequest._id, value)}
-                        disabled={actionLoading}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Ausstehend</SelectItem>
-                          <SelectItem value="reviewing">In Prüfung</SelectItem>
-                          <SelectItem value="approved">Genehmigt</SelectItem>
-                          <SelectItem value="rejected">Abgelehnt</SelectItem>
-                          <SelectItem value="converted">Umgewandelt</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Priorität</Label>
-                      <Select
-                        value={selectedRequest.priority}
-                        onValueChange={(value) => handlePriorityUpdate(selectedRequest._id, value)}
-                        disabled={actionLoading}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="low">Niedrig</SelectItem>
-                          <SelectItem value="medium">Mittel</SelectItem>
-                          <SelectItem value="high">Hoch</SelectItem>
-                          <SelectItem value="urgent">Dringend</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div>
+                      <p className="details-chip-label">Erstellt am</p>
+                      <p className="details-chip-value">{new Date(selectedRequest.createdAt).toLocaleDateString('de-DE')}</p>
                     </div>
                   </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs">Gesch. Kosten (€)</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        type="number"
-                        placeholder="Betrag eingeben"
-                        value={estimatedCost}
-                        onChange={(e) => setEstimatedCost(e.target.value)}
-                        className="h-8 text-xs"
-                      />
-                      <Button size="sm" onClick={handleCostUpdate} disabled={actionLoading || !estimatedCost}>
-                        {actionLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Speichern"}
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Aktuell: €{selectedRequest.estimatedCost || 0}
-                    </p>
+                  <div className="details-summary-badges">
+                    <Badge className={`status-badge status-${selectedRequest.status}`}>
+                      {getStatusLabel(selectedRequest.status)}
+                    </Badge>
+                    <Badge className={`priority-badge priority-${selectedRequest.priority}`}>
+                      {getPriorityLabel(selectedRequest.priority)}
+                    </Badge>
                   </div>
-                </CardContent>
-              </Card>
+                </section>
 
-              {/* Admin Notes */}
-              <Card>
-                <CardHeader className="pb-2 pt-3 px-4">
-                  <CardTitle className="text-sm">Admin-Notizen</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 pb-3 px-4">
-                  <div className="space-y-1">
-                    <Textarea
-                      placeholder="Interne Notiz hinzufügen..."
-                      value={adminNote}
-                      onChange={(e) => setAdminNote(e.target.value)}
-                      rows={2}
-                      className="text-xs"
-                    />
-                    <Button size="sm" onClick={handleAddNote} disabled={actionLoading || !adminNote.trim()}>
-                      Notiz speichern
-                    </Button>
-                  </div>
+                <section className="details-quick-actions">
+                  <Card className="quick-action-card">
+                    <CardHeader className="pb-1 pt-2 px-3">
+                      <CardTitle className="text-xs">Schnell bearbeiten</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pb-3 px-3 quick-actions-grid">
+                      <div className="quick-action-field">
+                        <Label className="text-xs">Status</Label>
+                        <Select
+                          value={selectedRequest.status}
+                          onValueChange={(value) => handleStatusUpdate(selectedRequest._id, value)}
+                          disabled={actionLoading}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Ausstehend</SelectItem>
+                            <SelectItem value="reviewing">In Prüfung</SelectItem>
+                            <SelectItem value="approved">Genehmigt</SelectItem>
+                            <SelectItem value="rejected">Abgelehnt</SelectItem>
+                            <SelectItem value="converted">Umgewandelt</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                  {selectedRequest.adminNotes && selectedRequest.adminNotes.length > 0 && (
-                    <div className="space-y-2">
-                      {selectedRequest.adminNotes.map((note, idx) => (
-                        <div key={idx} className="p-3 bg-muted rounded-lg text-sm">
-                          <div className="flex justify-between mb-1">
-                            <span className="font-medium">{note.staffName}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(note.createdAt).toLocaleString()}
-                            </span>
+                      <div className="quick-action-field">
+                        <Label className="text-xs">Priorität</Label>
+                        <Select
+                          value={selectedRequest.priority}
+                          onValueChange={(value) => handlePriorityUpdate(selectedRequest._id, value)}
+                          disabled={actionLoading}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low">Niedrig</SelectItem>
+                            <SelectItem value="medium">Mittel</SelectItem>
+                            <SelectItem value="high">Hoch</SelectItem>
+                            <SelectItem value="urgent">Dringend</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="quick-action-field">
+                        <Label className="text-xs">Mitarbeiter</Label>
+                        <div className="quick-action-inline">
+                          <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
+                            <SelectTrigger className="h-8 text-xs flex-1">
+                              <SelectValue placeholder="Techniker wählen" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {staff.map((member) => (
+                                <SelectItem key={member._id} value={member._id}>
+                                  {member.firstName} {member.lastName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="sm"
+                            onClick={handleAssignStaff}
+                            disabled={actionLoading || !selectedStaffId}
+                            className="h-8 px-2.5 text-xs"
+                          >
+                            {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Zuweisen"}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="quick-action-field">
+                        <Label className="text-xs">Geschätzte Kosten (€)</Label>
+                        <div className="quick-action-inline">
+                          <Input
+                            type="number"
+                            placeholder="Betrag"
+                            value={estimatedCost}
+                            onChange={(e) => setEstimatedCost(e.target.value)}
+                            className="h-8 text-xs"
+                          />
+                          <Button size="sm" onClick={handleCostUpdate} disabled={actionLoading || !estimatedCost} className="h-8 px-2.5 text-xs">
+                            {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Speichern"}
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </section>
+
+                <section className="details-content-grid">
+                  <div className="details-main-column">
+                    <Card>
+                      <CardHeader className="pb-1 pt-2 px-3">
+                        <CardTitle className="text-xs flex items-center gap-1.5">
+                          <AlertCircle className="h-3.5 w-3.5" />
+                          Problembeschreibung
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2.5 pb-3 px-3">
+                        <div className="details-description-box">
+                          <Label className="text-muted-foreground text-xs">Beschreibung</Label>
+                          <p className="mt-0.5 whitespace-pre-wrap text-xs leading-5">{selectedRequest.issueDescription}</p>
+                        </div>
+
+                        <div className="details-meta-grid details-meta-grid-compact">
+                          <div>
+                            <Label className="text-muted-foreground text-xs">Zeitpunkt</Label>
+                            <p className="mt-0.5 text-xs">{selectedRequest.issueOccurredDate}</p>
                           </div>
-                          <p className="whitespace-pre-wrap">{note.note}</p>
+                          {selectedRequest.modelNumber && (
+                            <div>
+                              <Label className="text-muted-foreground text-xs">Modellnummer</Label>
+                              <p className="mt-0.5 text-xs">{selectedRequest.modelNumber}</p>
+                            </div>
+                          )}
+                          <div>
+                            <Label className="text-muted-foreground text-xs">Status</Label>
+                            <div className="mt-1">
+                              <Badge className={`status-badge status-${selectedRequest.status}`}>
+                                {getStatusLabel(selectedRequest.status)}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground text-xs">Priorität</Label>
+                            <div className="mt-1">
+                              <Badge className={`priority-badge priority-${selectedRequest.priority}`}>
+                                {getPriorityLabel(selectedRequest.priority)}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground text-xs">Kosten</Label>
+                            <p className="mt-0.5 text-xs">
+                              {selectedRequest.estimatedCost > 0 ? `€${selectedRequest.estimatedCost}` : 'Offen'}
+                            </p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground text-xs">Zuständig</Label>
+                            <p className="mt-0.5 text-xs">
+                              {selectedRequest.assignedStaffName || 'Nicht zugewiesen'}
+                            </p>
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
 
-              {/* Communication & Messaging Panel */}
-              <Card>
-                <CardHeader className="pb-2 pt-3 px-4">
-                  <CardTitle className="text-sm">Kommunikation</CardTitle>
-                </CardHeader>
-                <CardContent className="pb-3 px-4">
-                  <RepairRequestMessagesPanel
-                    requestId={selectedRequest._id}
-                    userRole="admin"
-                    isReadOnly={false}
-                  />
-                </CardContent>
-              </Card>
-            </div>
+                        {(selectedRequest.waterDamage || selectedRequest.previousRepairDetails || selectedRequest.itemCondition) && (
+                          <div className="details-extra-box">
+                            <Label className="text-xs font-semibold">Erweiterte Angaben</Label>
+                            <div className="details-meta-grid mt-2">
+                              {selectedRequest.waterDamage && (
+                                <div>
+                                  <Label className="text-muted-foreground text-xs">Wasserschaden</Label>
+                                  <div className="mt-1">
+                                    <Badge variant={selectedRequest.waterDamage === 'yes' ? 'destructive' : 'secondary'}>
+                                      {selectedRequest.waterDamage === 'yes' ? 'Ja' : selectedRequest.waterDamage === 'no' ? 'Nein' : 'Nicht sicher'}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              )}
+                              {selectedRequest.itemCondition && (
+                                <div>
+                                  <Label className="text-muted-foreground text-xs">Gerätezustand</Label>
+                                  <div className="mt-1">
+                                    <Badge variant="outline">
+                                      {selectedRequest.itemCondition === 'original' ? 'Original' : selectedRequest.itemCondition === 'refurbished' ? 'Generalüberholt' : 'Nicht sicher'}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            {selectedRequest.previousRepairDetails && (
+                              <div className="mt-2">
+                                <Label className="text-muted-foreground text-xs">Vorherige Reparaturversuche</Label>
+                                <p className="mt-0.5 whitespace-pre-wrap text-xs leading-5">{selectedRequest.previousRepairDetails}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-1 pt-2 px-3">
+                        <CardTitle className="text-xs flex items-center gap-1.5">
+                          <Package className="h-3.5 w-3.5" />
+                          Kunden- und Geräteinformationen
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pb-3 px-3 details-info-grid details-info-grid-compact">
+                        <div className="details-info-item">
+                          <span>Kunde</span>
+                          <strong>{selectedRequest.customerName}</strong>
+                        </div>
+                        <div className="details-info-item">
+                          <span>E-Mail</span>
+                          <strong>{selectedRequest.customerEmail}</strong>
+                        </div>
+                        <div className="details-info-item">
+                          <span>Telefon</span>
+                          <strong>{selectedRequest.customerPhone || 'Nicht angegeben'}</strong>
+                        </div>
+                        <div className="details-info-item">
+                          <span>Gerätetyp</span>
+                          <strong>{selectedRequest.deviceType}</strong>
+                        </div>
+                        <div className="details-info-item">
+                          <span>Marke</span>
+                          <strong>{selectedRequest.deviceBrand}</strong>
+                        </div>
+                        <div className="details-info-item">
+                          <span>Modell</span>
+                          <strong>{selectedRequest.deviceModel}</strong>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {selectedRequest.images && selectedRequest.images.length > 0 && (
+                      <Card>
+                        <CardHeader className="pb-1 pt-2 px-3">
+                          <CardTitle className="text-xs">Gerätebilder</CardTitle>
+                        </CardHeader>
+                        <CardContent className="pb-3 px-3">
+                          <div className="details-image-grid details-image-grid-compact">
+                            {selectedRequest.images.map((img, idx) => (
+                              <img
+                                key={idx}
+                                src={img}
+                                alt={`Gerät ${idx + 1}`}
+                                className="details-image-item"
+                              />
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+
+                  <aside className="details-side-column">
+                    <Collapsible
+                      open={activeSidePanel === "communication"}
+                      onOpenChange={(open) => {
+                        setActiveSidePanel(open ? "communication" : "timeline")
+                        if (!open) {
+                          setNotesExpanded(false)
+                        }
+                      }}
+                    >
+                      <Card className="details-accordion-card">
+                        <CollapsibleTrigger asChild>
+                          <button type="button" className="details-accordion-trigger">
+                            <span className="details-accordion-trigger-title">Kommunikation</span>
+                            <ChevronDown className="details-accordion-trigger-icon" />
+                          </button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="details-accordion-content">
+                          <CardContent className="pb-3 px-3 pt-0 space-y-2.5">
+                            <div className="details-communication-panel">
+                              <CommunicationPanel
+                                orderId={selectedRequest._id}
+                                entityType="repair-request"
+                              />
+                            </div>
+
+                            <Collapsible open={notesExpanded} onOpenChange={setNotesExpanded}>
+                              <div className="details-notes-collapsible">
+                                <CollapsibleTrigger asChild>
+                                  <button type="button" className="details-notes-trigger">
+                                    <div className="details-notes-trigger-copy">
+                                      <span className="details-notes-trigger-title">Interne Notizen</span>
+                                      <span className="details-notes-trigger-meta">
+                                        {selectedRequest.adminNotes?.length || 0} Einträge
+                                      </span>
+                                    </div>
+                                    <ChevronDown className="details-notes-trigger-icon" />
+                                  </button>
+                                </CollapsibleTrigger>
+
+                                <CollapsibleContent className="details-notes-content">
+                                  <div className="space-y-2.5 pt-2.5">
+                                    <Textarea
+                                      placeholder="Interne Notiz hinzufügen..."
+                                      value={adminNote}
+                                      onChange={(e) => setAdminNote(e.target.value)}
+                                      rows={2}
+                                      className="text-xs"
+                                    />
+                                    <Button size="sm" className="h-8 px-2.5 text-xs w-fit" onClick={handleAddNote} disabled={actionLoading || !adminNote.trim()}>
+                                      Notiz speichern
+                                    </Button>
+
+                                    {selectedRequest.adminNotes && selectedRequest.adminNotes.length > 0 ? (
+                                      <div className="details-notes-list">
+                                        {selectedRequest.adminNotes.map((note, idx) => (
+                                          <div key={idx} className="details-note-item">
+                                            <div className="details-note-meta">
+                                              <span>{note.staffName}</span>
+                                              <span>{new Date(note.createdAt).toLocaleString()}</span>
+                                            </div>
+                                            <p>{note.note}</p>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="details-notes-empty">Noch keine internen Notizen vorhanden.</p>
+                                    )}
+                                  </div>
+                                </CollapsibleContent>
+                              </div>
+                            </Collapsible>
+                          </CardContent>
+                        </CollapsibleContent>
+                      </Card>
+                    </Collapsible>
+
+                    <Collapsible
+                      open={activeSidePanel === "timeline"}
+                      onOpenChange={(open) => setActiveSidePanel(open ? "timeline" : "communication")}
+                    >
+                      <Card className="details-accordion-card">
+                        <CollapsibleTrigger asChild>
+                          <button type="button" className="details-accordion-trigger">
+                            <span className="details-accordion-trigger-title">Vorgangsübersicht</span>
+                            <ChevronDown className="details-accordion-trigger-icon" />
+                          </button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="details-accordion-content">
+                          <CardContent className="pb-3 px-3 pt-0 details-timeline-list">
+                            <div className="details-timeline-item">
+                              <span>Anfrage erstellt</span>
+                              <strong>{new Date(selectedRequest.createdAt).toLocaleString('de-DE')}</strong>
+                            </div>
+                            <div className="details-timeline-item">
+                              <span>Zuletzt aktualisiert</span>
+                              <strong>{new Date(selectedRequest.updatedAt).toLocaleString('de-DE')}</strong>
+                            </div>
+                            {selectedRequest.reviewDeadline && (
+                              <div className="details-timeline-item">
+                                <span>Review-Deadline</span>
+                                <strong>{new Date(selectedRequest.reviewDeadline).toLocaleString('de-DE')}</strong>
+                              </div>
+                            )}
+                            {selectedRequest.convertedAt && (
+                              <div className="details-timeline-item">
+                                <span>In Auftrag umgewandelt</span>
+                                <strong>{new Date(selectedRequest.convertedAt).toLocaleString('de-DE')}</strong>
+                              </div>
+                            )}
+                          </CardContent>
+                        </CollapsibleContent>
+                      </Card>
+                    </Collapsible>
+                  </aside>
+                </section>
+              </div>
             )}
           </ScrollArea>
         </DialogContent>

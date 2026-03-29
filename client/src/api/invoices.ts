@@ -18,7 +18,7 @@ export interface Invoice {
   tax: number;
   discount: number;
   total: number;
-  status: 'draft' | 'sent' | 'viewed' | 'paid' | 'overdue' | 'cancelled';
+  status: 'draft' | 'pending_approval' | 'sent' | 'viewed' | 'partially_paid' | 'paid' | 'overdue' | 'cancelled' | 'credited';
   dueDate: string;
   sentAt?: string;
   paidAt?: string;
@@ -27,6 +27,23 @@ export interface Invoice {
   notes?: string;
   template: string;
   paymentTerms: string;
+  contactPerson?: string;
+  billingAddress?: string | {
+    street?: string;
+    city?: string;
+    zip?: string;
+    country?: string;
+  };
+  paymentMethod?: string;
+  amountPaid?: number;
+  paidAmount?: number;
+  paymentHistory?: Array<{
+    _id?: string;
+    date: string;
+    amount: number;
+    method?: string;
+    note?: string;
+  }>;
 }
 
 export interface InvoiceItem {
@@ -36,6 +53,8 @@ export interface InvoiceItem {
   unitPrice: number;
   total: number;
   type: 'service' | 'addon' | 'product' | 'fee';
+  discount?: number;
+  taxRate?: number;
 }
 
 export interface InvoiceStats {
@@ -46,6 +65,45 @@ export interface InvoiceStats {
   totalAmount: number;
   paidAmount: number;
   unpaidAmount: number;
+}
+
+export interface InvoicePaymentGateway {
+  _id: string;
+  name: string;
+  provider: 'stripe' | 'paypal' | 'bank_transfer';
+  supportedMethods: string[];
+  currency: string;
+  processingFee: number;
+  configuration: {
+    mode?: string;
+    payment_mode?: string;
+    success_url?: string;
+    cancel_url?: string;
+    return_url?: string;
+    account_holder?: string;
+    iban?: string;
+    bic?: string;
+    bank_name?: string;
+    payment_reference_template?: string;
+    payment_term_days?: number;
+    title?: string;
+    description_checkout?: string;
+  };
+}
+
+export interface InvoicePaymentPayload {
+  amount: number;
+  gatewayId: string;
+  gatewayProvider: 'stripe' | 'paypal' | 'bank_transfer';
+  paymentData: Record<string, any>;
+}
+
+export interface InvoicePaymentInitializationResponse {
+  success: boolean;
+  provider: 'stripe' | 'paypal';
+  gatewayId: string;
+  redirectUrl: string;
+  providerReference: string;
 }
 
 // Description: Get all invoices for the authenticated customer
@@ -106,6 +164,66 @@ export const markInvoiceAsViewed = async (invoiceId: string) => {
 export const getInvoiceStats = async () => {
   try {
     const response = await api.get('/api/invoices/stats/summary');
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Get active customer-facing payment gateways for invoice payments
+// Endpoint: GET /api/invoices/payment-gateways
+// Request: {}
+// Response: { success: boolean, gateways: InvoicePaymentGateway[] }
+export const getInvoicePaymentGateways = async () => {
+  try {
+    const response = await api.get('/api/invoices/payment-gateways');
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Pay an invoice via configured payment gateway
+// Endpoint: POST /api/invoices/:id/pay
+// Request: InvoicePaymentPayload
+// Response: { success: boolean, invoice: Invoice, payment: object }
+export const payInvoice = async (invoiceId: string, payload: InvoicePaymentPayload) => {
+  try {
+    const response = await api.post(`/api/invoices/${invoiceId}/pay`, payload);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Initialize redirect/token based payment (Stripe/PayPal)
+// Endpoint: POST /api/invoices/:id/payments/initialize
+// Request: InvoicePaymentPayload
+// Response: InvoicePaymentInitializationResponse
+export const initializeInvoicePayment = async (invoiceId: string, payload: InvoicePaymentPayload) => {
+  try {
+    const response = await api.post(`/api/invoices/${invoiceId}/payments/initialize`, payload);
+    return response.data as InvoicePaymentInitializationResponse;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Confirm redirected payment and book it to invoice
+// Endpoint: POST /api/invoices/:id/payments/confirm
+// Request: { gatewayProvider, gatewayId, providerReference, amount? }
+// Response: { success: boolean, invoice: Invoice, payment: object, remainingAmount: number }
+export const confirmInvoicePayment = async (
+  invoiceId: string,
+  payload: {
+    gatewayProvider: 'stripe' | 'paypal';
+    gatewayId: string;
+    providerReference: string;
+    amount?: number;
+  }
+) => {
+  try {
+    const response = await api.post(`/api/invoices/${invoiceId}/payments/confirm`, payload);
     return response.data;
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);

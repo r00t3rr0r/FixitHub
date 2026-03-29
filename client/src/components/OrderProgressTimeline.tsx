@@ -93,9 +93,9 @@ export function OrderProgressTimeline({ stages, currentStage }: OrderProgressTim
           <div className="flex items-center gap-1.5">
             <Clock className="h-3 w-3 text-blue-500" />
             <span className="text-xs text-muted-foreground">
-              Current:{' '}
+              Aktuell:{' '}
               <span className="font-medium text-foreground">
-                {stages.find(s => s.id === currentStage)?.label || 'Unknown'}
+                {stages.find(s => s.id === currentStage)?.label || 'Unbekannt'}
               </span>
             </span>
           </div>
