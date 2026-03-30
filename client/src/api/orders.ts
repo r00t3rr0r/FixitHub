@@ -42,6 +42,32 @@ export interface Order {
   photos: string[];
   customerNotes: string;
   staffNotes: string[];
+  ePartNeedListEntries?: Array<{
+    _id: string;
+    partId: {
+      _id: string;
+      itemName: string;
+      itemDescription: string;
+      category: string;
+      sku: string;
+    };
+    quantity: number;
+    needListId?: {
+      _id: string;
+      name: string;
+      status: 'draft' | 'ready' | 'ordered' | 'archived';
+    } | null;
+    needListName: string;
+    needListStatus: 'draft' | 'ready' | 'ordered' | 'archived';
+    targetType: 'existing' | 'new' | 'today';
+    notes?: string;
+    requestedAt: string;
+    requestedBy?: {
+      _id: string;
+      name: string;
+      email: string;
+    } | null;
+  }>;
   progress: number;
   timeline?: Array<{
     _id?: string;

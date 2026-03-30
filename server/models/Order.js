@@ -303,6 +303,52 @@ const orderEPartSchema = new mongoose.Schema({
   },
 }, { _id: true });
 
+const orderEPartNeedListEntrySchema = new mongoose.Schema({
+  partId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Inventory',
+    required: true,
+  },
+  quantity: {
+    type: Number,
+    required: true,
+    min: 1,
+  },
+  needListId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'NeedList',
+    default: null,
+  },
+  needListName: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  needListStatus: {
+    type: String,
+    enum: ['draft', 'ready', 'ordered', 'archived'],
+    default: 'draft',
+  },
+  targetType: {
+    type: String,
+    enum: ['existing', 'new', 'today'],
+    default: 'existing',
+  },
+  notes: {
+    type: String,
+    default: '',
+  },
+  requestedAt: {
+    type: Date,
+    default: Date.now,
+  },
+  requestedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false,
+  },
+}, { _id: true });
+
 // Shop products schema for orders
 const orderShopProductSchema = new mongoose.Schema({
   productId: {
@@ -493,6 +539,7 @@ const orderSchema = new mongoose.Schema({
   },
   staffNotes: [staffNoteSchema],
   eParts: [orderEPartSchema],
+  ePartNeedListEntries: [orderEPartNeedListEntrySchema],
   shopProducts: [orderShopProductSchema],
   workflows: [orderWorkflowSchema],
   progress: {
@@ -688,6 +735,9 @@ orderSchema.pre(/^find/, function(next) {
       .populate('services.serviceId', 'name description price estimatedTime category')
       .populate('eParts.partId')
       .populate('eParts.assignedBy', 'name email')
+      .populate('ePartNeedListEntries.partId')
+      .populate('ePartNeedListEntries.needListId', 'name status')
+      .populate('ePartNeedListEntries.requestedBy', 'name email')
       .populate('shopProducts.productId', 'name price images category brand stock')
       .populate('shopProducts.addedBy', 'name email')
       .populate('workflows.workflowTemplateId')

@@ -1,6 +1,7 @@
 const Order = require('../models/Order');
 const User = require('../models/User');
 const Inventory = require('../models/Inventory');
+const NeedList = require('../models/NeedList');
 const Product = require('../models/Product');
 const Service = require('../models/Service');
 const { WorkflowTemplate, AddOnWorkflow } = require('../models/Workflow');
@@ -669,6 +670,65 @@ class OrderService {
       return updatedOrder;
     } catch (error) {
       console.error('OrderService: Error updating EPart status:', error);
+      throw error;
+    }
+  }
+
+  // Record missing EPart that was added to a need list
+  static async recordEPartNeedListEntry(orderId, entryData, staffId) {
+    console.log('OrderService: Recording EPart need list entry:', { orderId, entryData, staffId });
+
+    try {
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      const part = await Inventory.findById(entryData.partId);
+      if (!part) {
+        throw new Error('Part not found');
+      }
+
+      let needList = null;
+      if (entryData.needListId) {
+        needList = await NeedList.findById(entryData.needListId);
+        if (!needList) {
+          throw new Error('Need list not found');
+        }
+      }
+
+      const resolvedNeedListName = needList?.name || entryData.needListName || '';
+      if (!resolvedNeedListName.trim()) {
+        throw new Error('Need list name is required');
+      }
+
+      order.ePartNeedListEntries.push({
+        partId: entryData.partId,
+        quantity: entryData.quantity,
+        needListId: needList?._id || null,
+        needListName: resolvedNeedListName,
+        needListStatus: needList?.status || entryData.needListStatus || 'draft',
+        targetType: entryData.targetType || 'existing',
+        notes: entryData.notes || '',
+        requestedAt: new Date(),
+        requestedBy: staffId,
+      });
+
+      const staff = await User.findById(staffId);
+      order.timeline.push({
+        status: 'EPart Need List Added',
+        description: `${part.itemName} x${entryData.quantity} added to need list "${resolvedNeedListName}"`,
+        completedAt: new Date(),
+        staffId: staffId || 'system',
+        staffName: staff ? staff.name : 'Staff Member'
+      });
+
+      const updatedOrder = await order.save();
+
+      console.log('OrderService: EPart need list entry recorded successfully');
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error recording EPart need list entry:', error);
       throw error;
     }
   }

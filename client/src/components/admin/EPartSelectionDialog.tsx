@@ -20,7 +20,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Search, Package, AlertCircle } from 'lucide-react';
 import { getParts, Part, PartVersion } from '@/api/parts';
-import { assignEPartToOrder } from '@/api/adminOrders';
+import { assignEPartToOrder, recordEPartNeedListEntry } from '@/api/adminOrders';
 import {
   addItemToNeedList,
   createNeedList,
@@ -237,6 +237,9 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
     try {
       setAddingToNeedList(true);
 
+      let recordedNeedList: NeedList | null = null;
+      let successDescription = '';
+
       if (needListTargetOption === 'existing') {
         if (!selectedNeedListId) {
           toast({
@@ -247,18 +250,13 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
           return;
         }
 
-        const selectedNeedList = needListOptions.find((needList) => needList._id === selectedNeedListId);
-
-        await addItemToNeedList(selectedNeedListId, {
+        recordedNeedList = await addItemToNeedList(selectedNeedListId, {
           part: selectedPart._id,
           quantity,
           notes: itemNote,
         });
 
-        toast({
-          title: 'Erfolg',
-          description: `Teil wurde zur Bedarfsliste "${selectedNeedList?.name || 'ausgewaehlte Liste'}" hinzugefuegt`,
-        });
+        successDescription = `Teil wurde zur Bedarfsliste "${recordedNeedList.name}" hinzugefuegt`;
       }
 
       if (needListTargetOption === 'new') {
@@ -271,7 +269,7 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
           return;
         }
 
-        const createdNeedList = await createNeedList({
+        recordedNeedList = await createNeedList({
           name: newNeedListName.trim(),
           description: `Aus Auftrag ${orderIdentifier} erstellt, weil das Teil nicht verfuegbar ist.`,
           priority: 'high',
@@ -285,10 +283,7 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
           ],
         });
 
-        toast({
-          title: 'Erfolg',
-          description: `Bedarfsliste "${createdNeedList.name}" wurde erstellt und das Teil hinzugefuegt`,
-        });
+        successDescription = `Bedarfsliste "${recordedNeedList.name}" wurde erstellt und das Teil hinzugefuegt`;
       }
 
       if (needListTargetOption === 'today') {
@@ -297,18 +292,15 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
         );
 
         if (todayNeedList) {
-          await addItemToNeedList(todayNeedList._id, {
+          recordedNeedList = await addItemToNeedList(todayNeedList._id, {
             part: selectedPart._id,
             quantity,
             notes: itemNote,
           });
 
-          toast({
-            title: 'Erfolg',
-            description: `Teil wurde zur heutigen Bedarfsliste "${todayNeedList.name}" hinzugefuegt`,
-          });
+          successDescription = `Teil wurde zur heutigen Bedarfsliste "${recordedNeedList.name}" hinzugefuegt`;
         } else {
-          const createdTodayNeedList = await createNeedList({
+          recordedNeedList = await createNeedList({
             name: `Tages-Bedarfsliste ${dateKey}`,
             description: `Automatisch erstellte Tages-Bedarfsliste fuer ${dateKey}.`,
             priority: 'medium',
@@ -322,12 +314,27 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
             ],
           });
 
-          toast({
-            title: 'Erfolg',
-            description: `Heutige Bedarfsliste "${createdTodayNeedList.name}" wurde erstellt und das Teil hinzugefuegt`,
-          });
+          successDescription = `Heutige Bedarfsliste "${recordedNeedList.name}" wurde erstellt und das Teil hinzugefuegt`;
         }
       }
+
+      if (recordedNeedList) {
+        await recordEPartNeedListEntry(orderId, {
+          partId: selectedPart._id,
+          quantity,
+          needListId: recordedNeedList._id,
+          needListName: recordedNeedList.name,
+          needListStatus: recordedNeedList.status,
+          targetType: needListTargetOption,
+          notes: itemNote,
+        });
+      }
+
+      toast({
+        title: 'Erfolg',
+        description: successDescription,
+      });
+
       setNeedListDialogOpen(false);
       setSelectedPart(null);
       setSelectedVersion(null);

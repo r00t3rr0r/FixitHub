@@ -97,7 +97,8 @@ import {
   Info,
   ChevronDown,
   Download,
-  Zap
+  Zap,
+  ExternalLink
 } from "lucide-react"
 
 export function OrderDetails() {
@@ -2705,6 +2706,10 @@ export function OrderDetails() {
       return null
     }
 
+    const assignedEParts = (order as any).eParts || []
+    const needListEntries = (order as any).ePartNeedListEntries || []
+    const hasAnyEPartData = assignedEParts.length > 0 || needListEntries.length > 0
+
     return (
       <Card id="order-eparts" className="order-section-card">
         <CardHeader className="order-section-header">
@@ -2723,9 +2728,9 @@ export function OrderDetails() {
           </Button>
         </CardHeader>
         <CardContent className="pt-3">
-          {(order as any).eParts && (order as any).eParts.length > 0 ? (
+          {hasAnyEPartData ? (
             <div className="space-y-2">
-              {(order as any).eParts.map((ePart: any) => {
+              {assignedEParts.map((ePart: any) => {
                 const version = ePart.partId?.versions?.find((v: any) => v._id === ePart.versionId)
 
                 return (
@@ -2776,6 +2781,57 @@ export function OrderDetails() {
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
+                  </div>
+                )
+              })}
+
+              {needListEntries.map((entry: any) => {
+                const resolvedNeedListStatus = entry.needListId?.status || entry.needListStatus
+                const requestedByName = entry.requestedBy?.name || 'Mitarbeiter'
+
+                return (
+                  <div key={entry._id} className="p-3 border rounded-lg border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <h4 className="font-medium text-sm">{entry.partId?.itemName || 'Unknown Part'}</h4>
+                      <Badge variant="outline" className="text-xs px-2 py-0.5 bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-800">
+                        Bedarfsliste
+                      </Badge>
+                      {resolvedNeedListStatus && (
+                        <Badge variant="outline" className="text-xs px-2 py-0.5">
+                          {resolvedNeedListStatus}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {entry.partId?.itemDescription || 'No description available'}
+                    </p>
+                    <div className="flex gap-3 mt-1 text-xs flex-wrap">
+                      <span className="text-muted-foreground">
+                        SKU: <span className="font-medium text-foreground">{entry.partId?.sku || 'N/A'}</span>
+                      </span>
+                      <span className="text-muted-foreground">
+                        Qty: <span className="font-medium text-foreground">{entry.quantity}</span>
+                      </span>
+                      <span className="text-muted-foreground inline-flex items-center gap-1">
+                        <Package className="h-3 w-3" />
+                        Liste:{' '}
+                        <Link
+                          to="/admin/epart-orders"
+                          className="font-medium text-amber-700 dark:text-amber-400 hover:underline inline-flex items-center gap-0.5"
+                          title="Zur Bedarfslisten-Übersicht"
+                        >
+                          {entry.needListId?.name || entry.needListName}
+                          <ExternalLink className="h-2.5 w-2.5" />
+                        </Link>
+                      </span>
+                      <span className="text-muted-foreground inline-flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        Hinzugefuegt: <span className="font-medium text-foreground">{new Date(entry.requestedAt).toLocaleString()}</span>
+                      </span>
+                      <span className="text-muted-foreground">
+                        Durch: <span className="font-medium text-foreground">{requestedByName}</span>
+                      </span>
+                    </div>
                   </div>
                 )
               })}

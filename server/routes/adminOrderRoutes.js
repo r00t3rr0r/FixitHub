@@ -239,6 +239,59 @@ router.post('/:id/eparts', requireUser, requireAdminOrStaff, async (req, res) =>
   }
 });
 
+// Record missing EPart added to need list (admin/staff)
+router.post('/:id/eparts/need-list', requireUser, requireAdminOrStaff, async (req, res) => {
+  console.log('Record EPart need list entry request received:', req.params.id, req.body);
+
+  try {
+    const { partId, quantity, needListId, needListName, needListStatus, targetType, notes } = req.body;
+
+    if (!partId || !quantity) {
+      return res.status(400).json({ error: 'Part ID and quantity are required' });
+    }
+
+    if (!needListId && !needListName) {
+      return res.status(400).json({ error: 'Need list ID or need list name is required' });
+    }
+
+    if (quantity <= 0) {
+      return res.status(400).json({ error: 'Quantity must be greater than 0' });
+    }
+
+    const order = await OrderService.recordEPartNeedListEntry(
+      req.params.id,
+      {
+        partId,
+        quantity,
+        needListId,
+        needListName,
+        needListStatus,
+        targetType,
+        notes,
+      },
+      req.user._id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'EPart need list entry recorded successfully',
+      order
+    });
+  } catch (error) {
+    console.error('Error recording EPart need list entry:', error);
+    if (
+      error.message === 'Order not found' ||
+      error.message === 'Part not found' ||
+      error.message === 'Need list not found'
+    ) {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(400).json({
+      error: error.message || 'Failed to record EPart need list entry'
+    });
+  }
+});
+
 // Remove EPart from order (admin/staff)
 router.delete('/:id/eparts/:ePartId', requireUser, requireAdminOrStaff, async (req, res) => {
   console.log('Remove EPart from order request received:', req.params.id, req.params.ePartId);
