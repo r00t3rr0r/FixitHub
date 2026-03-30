@@ -45,7 +45,6 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
   const [orderManagementOpen, setOrderManagementOpen] = useState(false)
   const [contentManagementOpen, setContentManagementOpen] = useState(false)
   const [systemManagementOpen, setSystemManagementOpen] = useState(false)
-  const [analyticsOpen, setAnalyticsOpen] = useState(false)
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -188,22 +187,14 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
         <NavItem to="/admin/workflow" icon={GitBranch}>
           {t('admin.menu.workflowManagement')}
         </NavItem>
+        <NavItem to="/admin/analytics" icon={BarChart3}>
+          {t('admin.menu.analytics')}
+        </NavItem>
         <NavItem to="/admin/repair-requests" icon={FileText}>
           Repair Requests
         </NavItem>
         <NavItem to="/admin/financial" icon={DollarSign}>
           {t('admin.menu.financialManagement')}
-        </NavItem>
-      </CollapsibleSection>
-
-      <CollapsibleSection
-        title={t('admin.menu.analytics')}
-        icon={BarChart3}
-        isOpen={analyticsOpen}
-        onToggle={() => setAnalyticsOpen(!analyticsOpen)}
-      >
-        <NavItem to="/admin/analytics" icon={BarChart3}>
-          {t('admin.menu.analytics')}
         </NavItem>
       </CollapsibleSection>
 

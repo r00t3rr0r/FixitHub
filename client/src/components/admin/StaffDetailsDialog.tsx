@@ -724,7 +724,7 @@ export function StaffDetailsDialog({ open, onOpenChange, staffId }: StaffDetails
                   <div className="space-y-3 max-h-96 overflow-y-auto">
                     {(staffDetails.activityLog || []).map((activity) => (
                       <div key={activity._id} className="flex items-start gap-3 p-3 border rounded-lg">
-                        <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
+                        <div className="w-2 h-2 rounded-full bg-[#1a2a5e] mt-2"></div>
                         <div className="flex-1">
                           <div className="flex justify-between items-start">
                             <div>

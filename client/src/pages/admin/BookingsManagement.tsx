@@ -33,6 +33,7 @@ import {
 import {
   getUnreadMessageCounts
 } from "@/api/inspectionCommunication"
+import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import {
   Search,
   Filter,
@@ -243,6 +244,8 @@ export function BookingsManagement() {
   // Unread message counts state
   const [unreadCounts, setUnreadCounts] = useState<Record<string, { unread: number; senderType?: string }>>({})
   const [loadingUnreadCounts, setLoadingUnreadCounts] = useState(false)
+  const [communicationDialogOpen, setCommunicationDialogOpen] = useState(false)
+  const [selectedCommunicationOrder, setSelectedCommunicationOrder] = useState<{ orderId: string; orderNumber?: string } | null>(null)
 
   const { toast } = useToast()
 
@@ -406,6 +409,12 @@ export function BookingsManagement() {
 
     setFilteredBookings(filtered)
   }, [bookings, searchTerm])
+
+  const openOrderCommunication = (orderId: string, orderNumber?: string) => {
+    if (!orderId) return
+    setSelectedCommunicationOrder({ orderId, orderNumber })
+    setCommunicationDialogOpen(true)
+  }
 
   const handleViewDetails = async (booking: Booking) => {
     try {
@@ -590,6 +599,17 @@ export function BookingsManagement() {
       total: totalUnread,
       hasCustomerMessages,
       hasStaffMessages
+    }
+  }
+
+  const getFirstUnreadOrderForBooking = (booking: Booking) => {
+    const unreadItem = booking.items.find((item) => item.orderId && (unreadCounts[item.orderId]?.unread || 0) > 0)
+    if (!unreadItem?.orderId) return null
+
+    const matchingOrder = expandedOrdersData[booking._id]?.find((order: any) => order.orderId === unreadItem.orderId)
+    return {
+      orderId: unreadItem.orderId,
+      orderNumber: matchingOrder?.orderNumber,
     }
   }
 
@@ -966,27 +986,33 @@ export function BookingsManagement() {
                         {(() => {
                           const unreadInfo = getBookingUnreadCount(booking)
                           if (unreadInfo.total > 0) {
+                            const firstUnreadOrder = getFirstUnreadOrderForBooking(booking)
                             return (
                               <div className="flex items-center justify-center gap-2">
-                                <div className={`
-                                  relative inline-flex items-center justify-center
-                                  w-8 h-8 rounded-full
-                                  font-semibold text-xs
-                                  shadow-md
-                                  ring-2 ring-offset-2
-                                  transition-all duration-200
-                                  ${unreadInfo.hasCustomerMessages
-                                    ? 'bg-red-500 dark:bg-red-600 text-white ring-red-200 dark:ring-red-800 hover:scale-110 hover:shadow-lg animate-pulse'
-                                    : 'bg-orange-500 dark:bg-orange-600 text-white ring-orange-200 dark:ring-orange-800 hover:scale-110 hover:shadow-lg animate-pulse'
-                                  }
-                                `}
-                                title={`${unreadInfo.total} total unread message${unreadInfo.total > 1 ? 's' : ''} from ${unreadInfo.hasCustomerMessages ? 'customer' : 'staff'}`}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                }}
+                                <button
+                                  type="button"
+                                  className={`
+                                    relative inline-flex items-center justify-center
+                                    w-8 h-8 rounded-full
+                                    font-semibold text-xs
+                                    shadow-md
+                                    ring-2 ring-offset-2
+                                    transition-all duration-200
+                                    ${unreadInfo.hasCustomerMessages
+                                      ? 'bg-red-500 dark:bg-red-600 text-white ring-red-200 dark:ring-red-800 hover:scale-110 hover:shadow-lg animate-pulse'
+                                      : 'bg-orange-500 dark:bg-orange-600 text-white ring-orange-200 dark:ring-orange-800 hover:scale-110 hover:shadow-lg animate-pulse'
+                                    }
+                                  `}
+                                  title={`${unreadInfo.total} total unread message${unreadInfo.total > 1 ? 's' : ''} from ${unreadInfo.hasCustomerMessages ? 'customer' : 'staff'}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    if (firstUnreadOrder?.orderId) {
+                                      openOrderCommunication(firstUnreadOrder.orderId, firstUnreadOrder.orderNumber)
+                                    }
+                                  }}
                                 >
                                   {unreadInfo.total > 99 ? '99+' : unreadInfo.total}
-                                </div>
+                                </button>
                                 <MessageSquare className="h-3 w-3 text-foreground/60 hidden sm:inline" />
                               </div>
                             )
@@ -1209,22 +1235,28 @@ export function BookingsManagement() {
                                           <TableCell className="text-center">
                                             {item.orderId && unreadCounts[item.orderId] ? (
                                               <div className="flex items-center justify-center">
-                                                <div className={`
-                                                  relative inline-flex items-center justify-center
-                                                  w-8 h-8 rounded-full
-                                                  ${unreadCounts[item.orderId].senderType === 'customer'
-                                                    ? 'bg-blue-500 dark:bg-blue-600'
-                                                    : 'bg-orange-500 dark:bg-orange-600'
-                                                  }
-                                                  text-white font-semibold text-xs
-                                                  shadow-lg
-                                                  animate-pulse
-                                                  hover:scale-110 transition-transform cursor-pointer
-                                                `}
-                                                title={`${unreadCounts[item.orderId].unread} unread message${unreadCounts[item.orderId].unread > 1 ? 's' : ''} from ${unreadCounts[item.orderId].senderType || 'user'}`}
+                                                <button
+                                                  type="button"
+                                                  className={`
+                                                    relative inline-flex items-center justify-center
+                                                    w-8 h-8 rounded-full
+                                                    ${unreadCounts[item.orderId].senderType === 'customer'
+                                                      ? 'bg-blue-500 dark:bg-blue-600'
+                                                      : 'bg-orange-500 dark:bg-orange-600'
+                                                    }
+                                                    text-white font-semibold text-xs
+                                                    shadow-lg
+                                                    animate-pulse
+                                                    hover:scale-110 transition-transform cursor-pointer
+                                                  `}
+                                                  title={`Open customer communication (${unreadCounts[item.orderId].unread} unread message${unreadCounts[item.orderId].unread > 1 ? 's' : ''})`}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    openOrderCommunication(item.orderId, item.orderNumber)
+                                                  }}
                                                 >
                                                   {unreadCounts[item.orderId].unread > 99 ? '99+' : unreadCounts[item.orderId].unread}
-                                                </div>
+                                                </button>
                                               </div>
                                             ) : (
                                               <span className="text-xs text-foreground/40">—</span>
@@ -1346,6 +1378,53 @@ export function BookingsManagement() {
               </div>
             </div>
           )}
+
+          <Dialog
+            open={communicationDialogOpen && !!selectedCommunicationOrder}
+            onOpenChange={(open) => {
+              setCommunicationDialogOpen(open)
+              if (!open) {
+                setSelectedCommunicationOrder(null)
+                fetchUnreadCounts()
+              }
+            }}
+          >
+            <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden p-0">
+              <DialogHeader className="px-6 pt-6 pb-0">
+                <DialogTitle className="sr-only">Customer Communication</DialogTitle>
+                <DialogDescription className="sr-only">
+                  Review and manage customer communication for the selected order.
+                </DialogDescription>
+              </DialogHeader>
+
+              {selectedCommunicationOrder && (
+                <div className="px-6 pb-6">
+                  <div className="border-t pt-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4 text-blue-600" />
+                        <h4 className="font-medium text-sm">Customer Communication</h4>
+                      </div>
+                      {selectedCommunicationOrder.orderNumber && (
+                        <Badge variant="outline" className="text-xs">
+                          {selectedCommunicationOrder.orderNumber}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Manage customer feedback, requests, and quick follow-ups in one place.
+                    </p>
+                    <div className="rounded-lg border p-2 bg-background">
+                      <CommunicationPanel
+                        orderId={selectedCommunicationOrder.orderId}
+                        inspectionId={selectedCommunicationOrder.orderId}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
