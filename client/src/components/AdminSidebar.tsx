@@ -18,9 +18,7 @@ import {
   Database,
   Shield,
   GitBranch,
-  Stethoscope,
   Package2,
-  Award,
   UserCheck,
   DollarSign,
   MessageSquare,
@@ -187,27 +185,16 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
         <NavItem to="/admin/epart-orders" icon={Boxes}>
           {t('admin.menu.epartOrders')}
         </NavItem>
-        <NavItem to="/admin/quality" icon={Award}>
-          {t('admin.menu.qualityControl')}
-        </NavItem>
         <NavItem to="/admin/workflow" icon={GitBranch}>
           {t('admin.menu.workflowManagement')}
-        </NavItem>
-        <NavItem to="/admin/diagnostics" icon={Stethoscope}>
-          {t('admin.menu.diagnosticTools')}
         </NavItem>
         <NavItem to="/admin/repair-requests" icon={FileText}>
           Repair Requests
         </NavItem>
+        <NavItem to="/admin/financial" icon={DollarSign}>
+          {t('admin.menu.financialManagement')}
+        </NavItem>
       </CollapsibleSection>
-
-      <NavItem to="/admin/shop" icon={ShoppingBag}>
-        {t('admin.menu.webShopManagement')}
-      </NavItem>
-
-      <NavItem to="/admin/financial" icon={DollarSign}>
-        {t('admin.menu.financialManagement')}
-      </NavItem>
 
       <CollapsibleSection
         title={t('admin.menu.analytics')}
@@ -226,6 +213,9 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
         isOpen={contentManagementOpen}
         onToggle={() => setContentManagementOpen(!contentManagementOpen)}
       >
+        <NavItem to="/admin/shop" icon={ShoppingBag}>
+          {t('admin.menu.webShopManagement')}
+        </NavItem>
         <NavItem to="/admin/blog" icon={FileText}>
           {t('admin.menu.blogManagement')}
         </NavItem>

@@ -54,6 +54,14 @@ const isRefreshTokenEndpoint = (url: string): boolean => {
   return url.includes("/api/auth/refresh");
 };
 
+const extractTokensFromRefreshResponse = (responseData: any) => {
+  const tokenContainer = responseData?.data ?? responseData;
+  return {
+    accessToken: tokenContainer?.accessToken,
+    refreshToken: tokenContainer?.refreshToken,
+  };
+};
+
 const setupInterceptors = (apiInstance: typeof axios) => {
   apiInstance.interceptors.request.use(
     (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
@@ -111,19 +119,18 @@ const setupInterceptors = (apiInstance: typeof axios) => {
             throw new Error(`Token refresh failed: ${response.status}`);
           }
 
-          if (response.data.data) {
-            const newAccessToken = response.data.data.accessToken;
-            const newRefreshToken = response.data.data.refreshToken;
+          const { accessToken: newAccessToken, refreshToken: newRefreshToken } = extractTokensFromRefreshResponse(response.data);
 
-            localStorage.setItem('accessToken', newAccessToken);
-            localStorage.setItem('refreshToken', newRefreshToken);
-            console.log('[API] Tokens refreshed successfully');
-
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-            }
-          } else {
+          if (!newAccessToken || !newRefreshToken) {
             throw new Error('Invalid response from refresh token endpoint');
+          }
+
+          localStorage.setItem('accessToken', newAccessToken);
+          localStorage.setItem('refreshToken', newRefreshToken);
+          console.log('[API] Tokens refreshed successfully');
+
+          if (originalRequest.headers) {
+            originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
           }
 
           if (originalRequest.headers) {
