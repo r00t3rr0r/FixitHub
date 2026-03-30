@@ -34,14 +34,49 @@ export interface Order {
   deviceType?: string;
   services: string[];
   addOns: AddOnService[];
-  status: 'pending' | 'in-progress' | 'quality-check' | 'completed' | 'ready-for-pickup';
+  status: 'pending' | 'in-progress' | 'paused' | 'quality-check' | 'completed' | 'ready-for-pickup';
   estimatedCompletion: string;
   totalCost: number;
   createdAt: string;
+  updatedAt?: string;
   photos: string[];
   customerNotes: string;
   staffNotes: string[];
+  ePartNeedListEntries?: Array<{
+    _id: string;
+    partId: {
+      _id: string;
+      itemName: string;
+      itemDescription: string;
+      category: string;
+      sku: string;
+    };
+    quantity: number;
+    needListId?: {
+      _id: string;
+      name: string;
+      status: 'draft' | 'ready' | 'ordered' | 'archived';
+    } | null;
+    needListName: string;
+    needListStatus: 'draft' | 'ready' | 'ordered' | 'archived';
+    targetType: 'existing' | 'new' | 'today';
+    notes?: string;
+    requestedAt: string;
+    requestedBy?: {
+      _id: string;
+      name: string;
+      email: string;
+    } | null;
+  }>;
   progress: number;
+  timeline?: Array<{
+    _id?: string;
+    status?: string;
+    description?: string;
+    completedAt?: string;
+    staffId?: string;
+    staffName?: string;
+  }>;
   paymentStatus: 'pending' | 'paid' | 'refunded' | 'partial';
   // Device unlock information
   unlockPattern?: string[];

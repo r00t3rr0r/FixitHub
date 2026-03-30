@@ -1,4 +1,19 @@
-const { DeviceBrand, DeviceModel } = require('../models/Device');
+const { DeviceBrand, DeviceModel, DeviceType } = require('../models/Device');
+
+const slugifyDeviceType = (value = '') =>
+  String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+
+const toDisplayName = (key = '') =>
+  String(key)
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 
 class DeviceService {
   // Get all brands
@@ -8,21 +23,16 @@ class DeviceService {
 
       const brands = await DeviceBrand.find({ isActive: true })
         .sort({ name: 1 })
-        .lean(); // Add .lean() to get plain JavaScript objects instead of Mongoose documents
+        .lean();
 
-      console.log('DeviceService: Raw brands from database:', brands);
-
-      // Get model count for each brand
-      for (let brand of brands) {
+      for (const brand of brands) {
         const modelCount = await DeviceModel.countDocuments({
           brandId: brand._id,
-          isActive: true
+          isActive: true,
         });
-        brand.modelCount = modelCount; // Now this will work because brands are plain objects
+        brand.modelCount = modelCount;
       }
 
-      console.log(`DeviceService: Found ${brands.length} brands`);
-      console.log('DeviceService: Brands with model counts:', brands);
       return brands;
     } catch (error) {
       console.error('DeviceService: Error getting brands:', error);
@@ -33,15 +43,12 @@ class DeviceService {
   // Get brand by ID
   static async getBrandById(brandId) {
     try {
-      console.log('DeviceService: Getting brand by ID:', brandId);
-      
       const brand = await DeviceBrand.findOne({ _id: brandId, isActive: true });
-      
+
       if (!brand) {
         throw new Error('Brand not found');
       }
 
-      console.log('DeviceService: Brand found:', brand.name);
       return brand;
     } catch (error) {
       console.error('DeviceService: Error getting brand by ID:', error);
@@ -52,16 +59,13 @@ class DeviceService {
   // Get models by brand
   static async getModelsByBrand(brandId) {
     try {
-      console.log('DeviceService: Getting models for brand:', brandId);
-      
-      const models = await DeviceModel.find({ 
-        brandId, 
-        isActive: true 
+      const models = await DeviceModel.find({
+        brandId,
+        isActive: true,
       })
         .populate('brandId', 'name logo')
         .sort({ name: 1 });
 
-      console.log(`DeviceService: Found ${models.length} models for brand`);
       return models;
     } catch (error) {
       console.error('DeviceService: Error getting models by brand:', error);
@@ -72,16 +76,12 @@ class DeviceService {
   // Get model by ID
   static async getModelById(modelId) {
     try {
-      console.log('DeviceService: Getting model by ID:', modelId);
-      
-      const model = await DeviceModel.findOne({ _id: modelId, isActive: true })
-        .populate('brandId', 'name logo');
-      
+      const model = await DeviceModel.findOne({ _id: modelId, isActive: true }).populate('brandId', 'name logo');
+
       if (!model) {
         throw new Error('Model not found');
       }
 
-      console.log('DeviceService: Model found:', model.name);
       return model;
     } catch (error) {
       console.error('DeviceService: Error getting model by ID:', error);
@@ -89,32 +89,159 @@ class DeviceService {
     }
   }
 
-  // Get device types with counts
+  // Get device types with counts (saved types + discovered types from models)
   static async getDeviceTypes() {
     try {
-      console.log('DeviceService: Getting device types');
-      
-      const deviceTypes = await DeviceModel.aggregate([
-        { $match: { isActive: true } },
-        {
-          $group: {
-            _id: '$deviceType',
-            count: { $sum: 1 }
-          }
-        },
-        { $sort: { _id: 1 } }
+      const [deviceTypeCounts, savedTypes] = await Promise.all([
+        DeviceModel.aggregate([
+          { $match: { isActive: true } },
+          {
+            $group: {
+              _id: '$deviceType',
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { _id: 1 } },
+        ]),
+        DeviceType.find({ isActive: true }).lean(),
       ]);
 
-      const formattedTypes = deviceTypes.map(type => ({
-        _id: type._id,
-        name: type._id.charAt(0).toUpperCase() + type._id.slice(1).replace('-', ' '),
-        count: type.count
-      }));
+      const countByType = new Map(
+        deviceTypeCounts.map((type) => [String(type._id), Number(type.count || 0)])
+      );
 
-      console.log(`DeviceService: Found ${formattedTypes.length} device types`);
-      return formattedTypes;
+      const mergedTypes = new Map();
+
+      for (const type of savedTypes) {
+        const id = String(type._id);
+        mergedTypes.set(id, {
+          _id: id,
+          name: type.name || toDisplayName(id),
+          count: countByType.get(id) || 0,
+        });
+      }
+
+      for (const type of deviceTypeCounts) {
+        const id = String(type._id);
+        if (!mergedTypes.has(id)) {
+          mergedTypes.set(id, {
+            _id: id,
+            name: toDisplayName(id),
+            count: Number(type.count || 0),
+          });
+        }
+      }
+
+      return Array.from(mergedTypes.values()).sort((a, b) => a.name.localeCompare(b.name));
     } catch (error) {
       console.error('DeviceService: Error getting device types:', error);
+      throw error;
+    }
+  }
+
+  // Create device type/category (admin only)
+  static async createDeviceType(typeData) {
+    try {
+      const typeName = String(typeData?.name || '').trim();
+      const typeKey = slugifyDeviceType(typeData?.key || typeName);
+
+      if (!typeName) {
+        throw new Error('Device type name is required');
+      }
+      if (!typeKey) {
+        throw new Error('A valid device type key is required');
+      }
+
+      const [existingType, existingModelType] = await Promise.all([
+        DeviceType.findOne({ _id: typeKey, isActive: true }).lean(),
+        DeviceModel.findOne({ deviceType: typeKey, isActive: true }).select('_id').lean(),
+      ]);
+
+      if (existingType || existingModelType) {
+        throw new Error('Device type already exists');
+      }
+
+      const createdType = await DeviceType.create({
+        _id: typeKey,
+        name: typeName,
+      });
+
+      return {
+        _id: createdType._id,
+        name: createdType.name,
+        count: 0,
+      };
+    } catch (error) {
+      console.error('DeviceService: Error creating device type:', error);
+      throw error;
+    }
+  }
+
+  // Update device type/category (admin only)
+  static async updateDeviceType(typeId, typeData) {
+    try {
+      const currentTypeId = slugifyDeviceType(typeId);
+      const nextName = String(typeData?.name || '').trim();
+      const nextTypeId = slugifyDeviceType(typeData?.key || nextName || currentTypeId);
+
+      if (!currentTypeId) {
+        throw new Error('Current device type is required');
+      }
+      if (!nextName) {
+        throw new Error('Device type name is required');
+      }
+      if (!nextTypeId) {
+        throw new Error('A valid device type key is required');
+      }
+
+      if (nextTypeId !== currentTypeId) {
+        const [existingType, existingModelType] = await Promise.all([
+          DeviceType.findOne({ _id: nextTypeId, isActive: true }).lean(),
+          DeviceModel.findOne({ deviceType: nextTypeId, isActive: true }).select('_id').lean(),
+        ]);
+
+        if (existingType || existingModelType) {
+          throw new Error('Target device type key already exists');
+        }
+      }
+
+      const [savedType, modelCount] = await Promise.all([
+        DeviceType.findOne({ _id: currentTypeId, isActive: true }),
+        DeviceModel.countDocuments({ deviceType: currentTypeId, isActive: true }),
+      ]);
+
+      if (!savedType && modelCount === 0) {
+        throw new Error('Device type not found');
+      }
+
+      if (nextTypeId !== currentTypeId) {
+        await DeviceModel.updateMany(
+          { deviceType: currentTypeId },
+          { $set: { deviceType: nextTypeId } }
+        );
+      }
+
+      if (savedType) {
+        if (nextTypeId !== currentTypeId) {
+          await DeviceType.deleteOne({ _id: currentTypeId });
+          await DeviceType.create({ _id: nextTypeId, name: nextName, isActive: true });
+        } else {
+          savedType.name = nextName;
+          await savedType.save();
+        }
+      } else {
+        await DeviceType.create({ _id: nextTypeId, name: nextName, isActive: true });
+      }
+
+      const updatedCount = await DeviceModel.countDocuments({ deviceType: nextTypeId, isActive: true });
+
+      return {
+        _id: nextTypeId,
+        name: nextName,
+        count: updatedCount,
+      };
+    } catch (error) {
+      console.error('DeviceService: Error updating device type:', error);
       throw error;
     }
   }
@@ -122,22 +249,20 @@ class DeviceService {
   // Get manufacturers by device type
   static async getManufacturersByDeviceType(deviceType) {
     try {
-      console.log('DeviceService: Getting manufacturers for device type:', deviceType);
-      
       const manufacturers = await DeviceModel.aggregate([
-        { 
-          $match: { 
-            deviceType, 
-            isActive: true 
-          } 
+        {
+          $match: {
+            deviceType,
+            isActive: true,
+          },
         },
         {
           $lookup: {
             from: 'devicebrands',
             localField: 'brandId',
             foreignField: '_id',
-            as: 'brand'
-          }
+            as: 'brand',
+          },
         },
         { $unwind: '$brand' },
         {
@@ -145,13 +270,12 @@ class DeviceService {
             _id: '$brand._id',
             name: { $first: '$brand.name' },
             deviceType: { $first: '$deviceType' },
-            count: { $sum: 1 }
-          }
+            count: { $sum: 1 },
+          },
         },
-        { $sort: { name: 1 } }
+        { $sort: { name: 1 } },
       ]);
 
-      console.log(`DeviceService: Found ${manufacturers.length} manufacturers for device type`);
       return manufacturers;
     } catch (error) {
       console.error('DeviceService: Error getting manufacturers by device type:', error);
@@ -162,26 +286,23 @@ class DeviceService {
   // Get models by type and manufacturer
   static async getModelsByTypeAndManufacturer(deviceType, manufacturerId) {
     try {
-      console.log('DeviceService: Getting models for type and manufacturer:', deviceType, manufacturerId);
-      
       const models = await DeviceModel.find({
         deviceType,
         brandId: manufacturerId,
-        isActive: true
+        isActive: true,
       })
         .populate('brandId', 'name logo')
         .sort({ name: 1 });
 
-      const formattedModels = models.map(model => ({
+      return models.map((model) => ({
         _id: model._id,
         name: model.name,
         manufacturer: model.brandId.name,
-        brandId: model.brandId._id,  // Include brandId for edit functionality
+        brandId: model.brandId._id,
         deviceType: model.deviceType,
         image: model.image || '',
-        // Legacy specifications field (backward compatibility)
+        commonProblems: model.commonProblems || [],
         specifications: model.specifications || {},
-        // Comprehensive specification sections
         images: model.images || [],
         network: model.network || {},
         physical: model.physical || {},
@@ -195,11 +316,8 @@ class DeviceService {
         features: model.features || { sensors: '', special: [] },
         battery: model.battery || {},
         other: model.other || { models: [], sarValues: {}, colors: [] },
-        count: 1 // This could be enhanced to show actual usage count
+        count: 1,
       }));
-
-      console.log(`DeviceService: Found ${formattedModels.length} models`);
-      return formattedModels;
     } catch (error) {
       console.error('DeviceService: Error getting models by type and manufacturer:', error);
       throw error;
@@ -209,14 +327,8 @@ class DeviceService {
   // Create brand (admin only)
   static async createBrand(brandData) {
     try {
-      console.log('DeviceService: Creating brand:', brandData.name);
-      console.log('DeviceService: Brand data received:', brandData);
-
       const brand = new DeviceBrand(brandData);
-      const savedBrand = await brand.save();
-
-      console.log('DeviceService: Brand created successfully:', savedBrand);
-      return savedBrand;
+      return await brand.save();
     } catch (error) {
       console.error('DeviceService: Error creating brand:', error);
       throw error;
@@ -226,13 +338,8 @@ class DeviceService {
   // Create model (admin only)
   static async createModel(modelData) {
     try {
-      console.log('DeviceService: Creating model:', modelData.name);
-
       const model = new DeviceModel(modelData);
-      const savedModel = await model.save();
-
-      console.log('DeviceService: Model created successfully');
-      return savedModel;
+      return await model.save();
     } catch (error) {
       console.error('DeviceService: Error creating model:', error);
       throw error;
@@ -242,10 +349,6 @@ class DeviceService {
   // Update model (admin only)
   static async updateModel(modelId, updateData) {
     try {
-      console.log('DeviceService: Updating model:', modelId);
-      console.log('DeviceService: Update data:', updateData);
-
-      // Validate required fields if they are being updated
       if (updateData.brandId !== undefined && (!updateData.brandId || updateData.brandId === '')) {
         throw new Error('Brand ID is required and cannot be empty');
       }
@@ -264,44 +367,51 @@ class DeviceService {
         throw new Error('Model not found');
       }
 
-      // Helper function to deeply merge objects
       const deepMerge = (target, source) => {
         for (const key in source) {
-          if (source.hasOwnProperty(key)) {
+          if (Object.prototype.hasOwnProperty.call(source, key)) {
             if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-              // For nested objects, merge recursively
               if (!target[key] || typeof target[key] !== 'object') {
                 target[key] = {};
               }
               deepMerge(target[key], source[key]);
             } else {
-              // For primitive values and arrays, directly assign
               target[key] = source[key];
             }
           }
         }
       };
 
-      // Update fields with deep merge for nested objects
-      Object.keys(updateData).forEach(key => {
-        if (updateData[key] && typeof updateData[key] === 'object' && !Array.isArray(updateData[key]) &&
-            ['network', 'physical', 'display', 'platform', 'memory', 'rearCamera', 'frontCamera',
-             'audio', 'connectivity', 'features', 'battery', 'other'].includes(key)) {
-          // Deep merge for specification categories
+      Object.keys(updateData).forEach((key) => {
+        if (
+          updateData[key] &&
+          typeof updateData[key] === 'object' &&
+          !Array.isArray(updateData[key]) &&
+          [
+            'network',
+            'physical',
+            'display',
+            'platform',
+            'memory',
+            'rearCamera',
+            'frontCamera',
+            'audio',
+            'connectivity',
+            'features',
+            'battery',
+            'other',
+          ].includes(key)
+        ) {
           if (!model[key]) {
             model[key] = {};
           }
           deepMerge(model[key], updateData[key]);
         } else {
-          // Direct assignment for simple fields and arrays
           model[key] = updateData[key];
         }
       });
 
-      const updatedModel = await model.save();
-
-      console.log('DeviceService: Model updated successfully');
-      return updatedModel;
+      return await model.save();
     } catch (error) {
       console.error('DeviceService: Error updating model:', error);
       throw error;
@@ -311,97 +421,65 @@ class DeviceService {
   // Update brand (admin only)
   static async updateBrand(brandId, updateData) {
     try {
-      console.log('DeviceService: Updating brand:', brandId);
-      console.log('DeviceService: Update data:', updateData);
-
       const brand = await DeviceBrand.findOne({ _id: brandId, isActive: true });
 
       if (!brand) {
         throw new Error('Brand not found');
       }
 
-      // Update fields
-      Object.keys(updateData).forEach(key => {
+      Object.keys(updateData).forEach((key) => {
         brand[key] = updateData[key];
       });
 
-      const updatedBrand = await brand.save();
-
-      console.log('DeviceService: Brand updated successfully');
-      return updatedBrand;
+      return await brand.save();
     } catch (error) {
       console.error('DeviceService: Error updating brand:', error);
       throw error;
     }
   }
 
-  // Search devices by query string (searches across type, manufacturer, and model)
+  // Search devices by query string
   static async searchDevices(searchQuery) {
     try {
       if (!searchQuery || searchQuery.trim() === '') {
-        console.log('DeviceService: Empty search query, returning empty results');
         return [];
       }
 
       const query = searchQuery.toLowerCase().trim();
-      console.log('DeviceService: Searching devices with query:', query);
 
-      // Search across device models and their brands
-      const results = await DeviceModel.find(
-        {
-          isActive: true,
-          $or: [
-            { name: { $regex: query, $options: 'i' } },
-            { deviceType: { $regex: query, $options: 'i' } }
-          ]
-        }
-      )
+      const results = await DeviceModel.find({
+        isActive: true,
+        $or: [
+          { name: { $regex: query, $options: 'i' } },
+          { deviceType: { $regex: query, $options: 'i' } },
+        ],
+      })
         .limit(20)
         .populate('brandId', 'name logo')
         .sort({ name: 1 })
         .lean();
 
-      // Also search by brand name
-      const brandMatches = await DeviceBrand.find(
-        { name: { $regex: query, $options: 'i' }, isActive: true }
-      )
-        .lean();
+      const brandMatches = await DeviceBrand.find({
+        name: { $regex: query, $options: 'i' },
+        isActive: true,
+      }).lean();
 
       let brandModelResults = [];
       if (brandMatches.length > 0) {
-        const brandIds = brandMatches.map(b => b._id);
-        brandModelResults = await DeviceModel.find(
-          { brandId: { $in: brandIds }, isActive: true }
-        )
+        const brandIds = brandMatches.map((b) => b._id);
+        brandModelResults = await DeviceModel.find({ brandId: { $in: brandIds }, isActive: true })
           .limit(20)
           .populate('brandId', 'name logo')
           .sort({ name: 1 })
           .lean();
       }
 
-      // Combine and deduplicate results
       const allResults = [...results, ...brandModelResults];
-      const uniqueResults = Array.from(
-        new Map(allResults.map(r => [r._id.toString(), r])).values()
-      );
+      const uniqueResults = Array.from(new Map(allResults.map((r) => [r._id.toString(), r])).values());
 
-      // Format results for frontend consumption
-      const formattedResults = uniqueResults
-        .filter(model => {
-          // Ensure we have required fields
-          if (!model.name || !model.deviceType) {
-            console.log('DeviceService: Filtering out incomplete model:', {
-              _id: model._id,
-              name: model.name,
-              deviceType: model.deviceType,
-              brandId: model.brandId
-            });
-            return false;
-          }
-          return true;
-        })
-        .map(model => {
-          // Extract image from images array or use image field
+      return uniqueResults
+        .filter((model) => model.name && model.deviceType)
+        .map((model) => {
           let imageUrl = null;
           if (model.images && Array.isArray(model.images) && model.images.length > 0) {
             imageUrl = model.images[0].url || model.images[0].base64 || null;
@@ -416,15 +494,9 @@ class DeviceService {
             manufacturer: (model.brandId && model.brandId.name) || 'Unknown',
             manufacturerId: (model.brandId && model.brandId._id) || null,
             image: imageUrl,
-            displayName: `${model.deviceType || 'unknown'} • ${(model.brandId && model.brandId.name) || 'Unknown'} • ${model.name || 'Unknown Device'}`
+            displayName: `${model.deviceType || 'unknown'} • ${(model.brandId && model.brandId.name) || 'Unknown'} • ${model.name || 'Unknown Device'}`,
           };
         });
-
-      console.log(`DeviceService: Found ${formattedResults.length} matching devices after filtering`);
-      if (formattedResults.length > 0) {
-        console.log('DeviceService: First result sample:', formattedResults[0]);
-      }
-      return formattedResults;
     } catch (error) {
       console.error('DeviceService: Error searching devices:', error);
       throw error;

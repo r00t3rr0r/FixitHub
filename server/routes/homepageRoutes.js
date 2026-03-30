@@ -203,4 +203,45 @@ router.post('/templates/:id/set-default', requireUser, requireRole(['admin']), a
   }
 });
 
+// Get current homepage structure (admin only - for editing)
+router.get('/admin/current', requireUser, requireRole(['admin', 'staff']), async (req, res) => {
+  try {
+    console.log('HomepageRoutes: Getting current homepage structure for admin');
+    const result = await HomepageService.getCurrentHomepageStructure();
+
+    res.json(result);
+  } catch (error) {
+    console.error('HomepageRoutes: Error getting current homepage structure:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Initialize current homepage structure (admin only)
+router.post('/admin/initialize', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    console.log('HomepageRoutes: Initializing current homepage structure');
+    const { defaultSections } = req.body;
+
+    if (!defaultSections || !Array.isArray(defaultSections)) {
+      return res.status(400).json({
+        success: false,
+        error: 'defaultSections array is required'
+      });
+    }
+
+    const result = await HomepageService.initializeCurrentHomepage(defaultSections, req.user._id);
+
+    res.json(result);
+  } catch (error) {
+    console.error('HomepageRoutes: Error initializing homepage:', error);
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

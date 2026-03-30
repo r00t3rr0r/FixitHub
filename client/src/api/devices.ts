@@ -6,6 +6,11 @@ export interface DeviceType {
   count: number;
 }
 
+export interface DeviceTypeInput {
+  name: string;
+  key?: string;
+}
+
 export interface Manufacturer {
   _id: string;
   name: string;
@@ -20,6 +25,7 @@ export interface DeviceModel {
   brandId: string;  // Added to support edit functionality
   deviceType: string;
   image?: string;
+  commonProblems?: string[];
   specifications?: Record<string, any>;  // Legacy field for backward compatibility
   // Comprehensive specification sections
   images?: Array<{
@@ -130,6 +136,32 @@ export interface SearchResult {
 export const getDeviceTypes = async () => {
   try {
     const response = await api.get('/api/devices/types');
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Create a new device type/category
+// Endpoint: POST /api/devices/types
+// Request: { name: string, key?: string }
+// Response: { success: boolean, deviceType: DeviceType }
+export const createDeviceType = async (data: DeviceTypeInput) => {
+  try {
+    const response = await api.post('/api/devices/types', data);
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Update an existing device type/category
+// Endpoint: PUT /api/devices/types/:id
+// Request: { name: string, key?: string }
+// Response: { success: boolean, deviceType: DeviceType }
+export const updateDeviceType = async (id: string, data: DeviceTypeInput) => {
+  try {
+    const response = await api.put(`/api/devices/types/${id}`, data);
     return response.data;
   } catch (error) {
     throw new Error(error?.response?.data?.error || error.message);

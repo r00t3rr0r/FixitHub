@@ -132,6 +132,11 @@ const InspectionCommunicationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'DeviceInspection',
   },
+  createdBy: {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    name: String,
+    role: String,
+  },
   messages: [communicationMessageSchema],
   status: {
     type: String,

@@ -114,6 +114,57 @@ const orderTimelineSchema = new mongoose.Schema({
   }],
 }, { _id: true });
 
+const workflowPauseEventSchema = new mongoose.Schema({
+  pausedAt: {
+    type: Date,
+    required: true,
+  },
+  resumedAt: {
+    type: Date,
+  },
+  durationMinutes: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  reason: {
+    type: String,
+    default: '',
+  },
+  stepId: {
+    type: String,
+    default: '',
+  },
+  stepName: {
+    type: String,
+    default: '',
+  },
+  stepIndex: {
+    type: Number,
+    default: -1,
+  },
+}, { _id: true });
+
+const workflowAssignedStaffSchema = new mongoose.Schema({
+  staffId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+  name: {
+    type: String,
+    default: '',
+  },
+  avatar: {
+    type: String,
+    default: '',
+  },
+  assignedAt: {
+    type: Date,
+    default: Date.now,
+  },
+}, { _id: false });
+
 const workflowStepExecutionSchema = new mongoose.Schema({
   stepId: {
     type: String,
@@ -132,11 +183,35 @@ const workflowStepExecutionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   },
+  assignedStaff: [workflowAssignedStaffSchema],
   startedAt: {
     type: Date,
   },
   completedAt: {
     type: Date,
+  },
+  totalPausedMinutes: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  currentPauseStartedAt: {
+    type: Date,
+  },
+  pauseHistory: [workflowPauseEventSchema],
+  actualDurationMinutes: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  estimatedDurationMinutes: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  durationDeltaMinutes: {
+    type: Number,
+    default: 0,
   },
   formData: {
     type: mongoose.Schema.Types.Mixed,
@@ -182,6 +257,12 @@ const orderWorkflowSchema = new mongoose.Schema({
   pausedAt: {
     type: Date,
   },
+  totalPausedMinutes: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  pauseHistory: [workflowPauseEventSchema],
   pauseReason: {
     type: String,
     default: '',
@@ -219,6 +300,52 @@ const orderEPartSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: false, // Made optional to support guest orders
+  },
+}, { _id: true });
+
+const orderEPartNeedListEntrySchema = new mongoose.Schema({
+  partId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Inventory',
+    required: true,
+  },
+  quantity: {
+    type: Number,
+    required: true,
+    min: 1,
+  },
+  needListId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'NeedList',
+    default: null,
+  },
+  needListName: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  needListStatus: {
+    type: String,
+    enum: ['draft', 'ready', 'ordered', 'archived'],
+    default: 'draft',
+  },
+  targetType: {
+    type: String,
+    enum: ['existing', 'new', 'today'],
+    default: 'existing',
+  },
+  notes: {
+    type: String,
+    default: '',
+  },
+  requestedAt: {
+    type: Date,
+    default: Date.now,
+  },
+  requestedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false,
   },
 }, { _id: true });
 
@@ -372,7 +499,7 @@ const orderSchema = new mongoose.Schema({
   addOns: [addOnServiceSchema],
   status: {
     type: String,
-    enum: ['pending', 'diagnostic-assessment', 'in-progress', 'quality-check', 'completed', 'ready-for-pickup', 'cancelled'],
+    enum: ['pending', 'diagnostic-assessment', 'in-progress', 'paused', 'quality-check', 'completed', 'ready-for-pickup', 'cancelled'],
     default: 'pending',
   },
   priority: {
@@ -412,6 +539,7 @@ const orderSchema = new mongoose.Schema({
   },
   staffNotes: [staffNoteSchema],
   eParts: [orderEPartSchema],
+  ePartNeedListEntries: [orderEPartNeedListEntrySchema],
   shopProducts: [orderShopProductSchema],
   workflows: [orderWorkflowSchema],
   progress: {
@@ -447,12 +575,12 @@ const orderSchema = new mongoose.Schema({
   },
   waterDamage: {
     type: String,
-    enum: ['yes', 'no', 'dont-know', ''],
+    enum: ['yes', 'no', 'dont-know', 'unsure', ''],
     default: '',
   },
   previousRepairAttempts: {
     type: String,
-    enum: ['yes', 'no', 'dont-know', ''],
+    enum: ['yes', 'no', 'dont-know', 'unsure', ''],
     default: '',
   },
   previousRepairDetails: {
@@ -461,7 +589,7 @@ const orderSchema = new mongoose.Schema({
   },
   itemCondition: {
     type: String,
-    enum: ['original', 'refurbished', ''],
+    enum: ['original', 'refurbished', 'unsure', ''],
     default: '',
   },
   bookingId: {
@@ -607,10 +735,14 @@ orderSchema.pre(/^find/, function(next) {
       .populate('services.serviceId', 'name description price estimatedTime category')
       .populate('eParts.partId')
       .populate('eParts.assignedBy', 'name email')
+      .populate('ePartNeedListEntries.partId')
+      .populate('ePartNeedListEntries.needListId', 'name status')
+      .populate('ePartNeedListEntries.requestedBy', 'name email')
       .populate('shopProducts.productId', 'name price images category brand stock')
       .populate('shopProducts.addedBy', 'name email')
       .populate('workflows.workflowTemplateId')
-      .populate('workflows.steps.assignedStaffId', 'name avatar');
+      .populate('workflows.steps.assignedStaffId', 'name avatar')
+      .populate('workflows.steps.assignedStaff.staffId', 'name avatar');
   next();
 });
 

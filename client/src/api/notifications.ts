@@ -49,3 +49,29 @@ export const markAllNotificationsAsRead = async () => {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// Description: Delete a single notification
+// Endpoint: DELETE /api/notifications/:id
+// Request: {}
+// Response: { success: boolean }
+export const deleteNotification = async (notificationId: string) => {
+  try {
+    const response = await api.delete(`/api/notifications/${notificationId}`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Delete all notifications
+// Endpoint: DELETE /api/notifications
+// Request: {}
+// Response: { success: boolean, count: number }
+export const deleteAllNotifications = async () => {
+  try {
+    const response = await api.delete('/api/notifications');
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};

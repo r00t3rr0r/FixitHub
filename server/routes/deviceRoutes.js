@@ -126,6 +126,51 @@ router.get('/types', async (req, res) => {
   }
 });
 
+// Create device type/category (admin only)
+router.post('/types', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const deviceType = await DeviceService.createDeviceType(req.body);
+
+    res.status(201).json({
+      success: true,
+      message: 'Device type created successfully',
+      deviceType
+    });
+  } catch (error) {
+    console.error('DeviceRoutes: Error creating device type:', error);
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Update device type/category (admin only)
+router.put('/types/:id', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const deviceType = await DeviceService.updateDeviceType(req.params.id, req.body);
+
+    res.json({
+      success: true,
+      message: 'Device type updated successfully',
+      deviceType
+    });
+  } catch (error) {
+    console.error('DeviceRoutes: Error updating device type:', error);
+    if (error.message === 'Device type not found') {
+      return res.status(404).json({
+        success: false,
+        error: error.message
+      });
+    }
+
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Get manufacturers by device type
 router.get('/manufacturers', async (req, res) => {
   try {

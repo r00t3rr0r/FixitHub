@@ -5,13 +5,21 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
 import {
-  getCommunicationThread,
-  respondToFeedback,
-  markMessagesAsRead,
-  sendFeedbackRequest,
-  createQuickAction,
-  sendMessage,
+  getCommunicationThread as getInspectionCommunicationThread,
+  respondToFeedback as respondToInspectionFeedback,
+  markMessagesAsRead as markInspectionMessagesAsRead,
+  sendFeedbackRequest as sendInspectionFeedbackRequest,
+  createQuickAction as createInspectionQuickAction,
+  sendMessage as sendInspectionMessage,
 } from "@/api/inspectionCommunication"
+import {
+  getCommunicationThread as getRepairRequestCommunicationThread,
+  respondToFeedback as respondToRepairRequestFeedback,
+  markMessagesAsRead as markRepairRequestMessagesAsRead,
+  sendFeedbackRequest as sendRepairRequestFeedbackRequest,
+  createQuickAction as createRepairRequestQuickAction,
+  sendMessage as sendRepairRequestMessage,
+} from "@/api/repairRequestCommunication"
 import { getUserProfile, UserProfile } from "@/api/user"
 import { CheckCircle2, MessageCircle, AlertCircle, Plus, Send, Clock, User, HelpCircle, X, Trash2 } from "lucide-react"
 import {
@@ -31,7 +39,89 @@ import { UnifiedMessage, UnifiedCommunication } from "./CommunicationHistoryDial
 interface CommunicationPanelProps {
   orderId: string
   inspectionId?: string
+  entityType?: "order" | "repair-request"
 }
+
+type OrderQuickActionType = 'part_replacement' | 'incorrect_device' | 'incorrect_unlock_code' | 'additional_costs'
+type RepairRequestQuickActionType = 'parts_needed' | 'approval_required' | 'additional_cost' | 'status_update' | 'schedule_appointment'
+type QuickActionType = OrderQuickActionType | RepairRequestQuickActionType
+
+interface QuickActionOption {
+  value: QuickActionType
+  label: string
+  title: string
+  description: string
+  tone: 'is-part' | 'is-device' | 'is-unlock' | 'is-cost'
+}
+
+const ORDER_QUICK_ACTION_OPTIONS: QuickActionOption[] = [
+  {
+    value: 'part_replacement',
+    label: 'Part replacement required',
+    title: '🔧 Part Replacement Required',
+    description: 'Notify customer that additional parts need to be replaced to complete the repair',
+    tone: 'is-part',
+  },
+  {
+    value: 'incorrect_device',
+    label: 'Incorrect device specification',
+    title: '❌ Incorrect Device Specified',
+    description: 'Notify customer that the device specifications provided do not match the device brought in',
+    tone: 'is-device',
+  },
+  {
+    value: 'incorrect_unlock_code',
+    label: 'Incorrect unlock code',
+    title: '🔐 Incorrect Unlock Code',
+    description: 'Notify customer that the unlock code provided is incorrect or does not work',
+    tone: 'is-unlock',
+  },
+  {
+    value: 'additional_costs',
+    label: 'Additional costs required',
+    title: '💰 Additional Costs Required',
+    description: 'Notify customer of unexpected costs that require approval before proceeding',
+    tone: 'is-cost',
+  },
+]
+
+const REPAIR_REQUEST_QUICK_ACTION_OPTIONS: QuickActionOption[] = [
+  {
+    value: 'parts_needed',
+    label: 'Parts needed',
+    title: '🔧 Parts Needed',
+    description: 'Notify customer that additional parts are required to continue the repair request',
+    tone: 'is-part',
+  },
+  {
+    value: 'approval_required',
+    label: 'Approval required',
+    title: '✅ Customer Approval Required',
+    description: 'Ask customer to approve the next repair step before work continues',
+    tone: 'is-device',
+  },
+  {
+    value: 'additional_cost',
+    label: 'Additional cost',
+    title: '💰 Additional Cost',
+    description: 'Inform customer about additional costs and request confirmation',
+    tone: 'is-cost',
+  },
+  {
+    value: 'status_update',
+    label: 'Status update',
+    title: '📌 Repair Status Update',
+    description: 'Send a structured status update with clear next steps',
+    tone: 'is-device',
+  },
+  {
+    value: 'schedule_appointment',
+    label: 'Schedule appointment',
+    title: '📅 Schedule Appointment',
+    description: 'Ask customer to schedule a handover, pickup, or follow-up appointment',
+    tone: 'is-unlock',
+  },
+]
 
 // Use unified message and communication interfaces
 type Message = UnifiedMessage
@@ -89,6 +179,7 @@ const formatMessageTime = (dateString: string): string => {
 export function CommunicationPanel({
   orderId,
   inspectionId,
+  entityType = "order",
 }: CommunicationPanelProps) {
   // Description: React component for managing inspection communication threads
   // i18n keys: communicationPanel namespace
@@ -109,9 +200,16 @@ export function CommunicationPanel({
     { label: "", value: "" },
     { label: "", value: "" },
   ])
-  const [quickActionType, setQuickActionType] = useState<'part_replacement' | 'incorrect_device' | 'incorrect_unlock_code' | 'additional_costs'>('part_replacement')
+  const [quickActionType, setQuickActionType] = useState<QuickActionType>('part_replacement')
   const [quickActionDescription, setQuickActionDescription] = useState("")
   const isUserEditingRef = useRef(false)
+  const quickActionOptions = entityType === "repair-request" ? REPAIR_REQUEST_QUICK_ACTION_OPTIONS : ORDER_QUICK_ACTION_OPTIONS
+  const defaultQuickActionType = (quickActionOptions[0]?.value || 'part_replacement') as QuickActionType
+  const selectedQuickActionOption = quickActionOptions.find((option) => option.value === quickActionType) || quickActionOptions[0]
+
+  useEffect(() => {
+    setQuickActionType(defaultQuickActionType)
+  }, [defaultQuickActionType])
 
   // Load user profile
   useEffect(() => {
@@ -155,7 +253,9 @@ export function CommunicationPanel({
       try {
         if (!isActive) return
         if (!silent) setLoading(true)
-        const thread = await getCommunicationThread(orderId)
+        const thread = entityType === "repair-request"
+          ? await getRepairRequestCommunicationThread(orderId)
+          : await getInspectionCommunicationThread(orderId)
         if (isActive) {
           setCommunication((prev) => {
             if (!hasThreadChanged(prev, thread)) {
@@ -193,29 +293,38 @@ export function CommunicationPanel({
         clearInterval(interval)
       }
     }
-  }, [orderId])
+  }, [entityType, orderId])
 
   // Mark messages as read
   useEffect(() => {
     if (communication?.messages && communication.messages.length > 0) {
-      markMessagesAsRead(orderId).catch((error) =>
+      const markAsRead = entityType === "repair-request"
+        ? markRepairRequestMessagesAsRead
+        : markInspectionMessagesAsRead
+
+      markAsRead(orderId).catch((error) =>
         console.error("Error marking messages as read:", error)
       )
     }
-  }, [communication?.messages, orderId])
+  }, [communication?.messages, entityType, orderId])
 
   const handleFeedbackResponse = async (messageId: string, response: { label: string; value: string }) => {
     try {
       setResponding(true)
       console.log("CommunicationPanel: Responding to feedback:", { messageId, response })
-      const updated = await respondToFeedback(orderId, messageId, response)
+      const updated = entityType === "repair-request"
+        ? await respondToRepairRequestFeedback(orderId, messageId, response)
+        : await respondToInspectionFeedback(orderId, messageId, response)
       console.log("CommunicationPanel: Received updated communication after feedback response:", updated)
       setCommunication(updated)
       console.log("CommunicationPanel: Feedback response recorded successfully, state updated with", updated?.messages?.length || 0, "messages")
 
       // Mark messages as read after responding to feedback
       try {
-        await markMessagesAsRead(orderId)
+        const markAsRead = entityType === "repair-request"
+          ? markRepairRequestMessagesAsRead
+          : markInspectionMessagesAsRead
+        await markAsRead(orderId)
         console.log("CommunicationPanel: Messages marked as read after feedback response")
       } catch (readError) {
         console.error("CommunicationPanel: Error marking messages as read after feedback response:", readError)
@@ -251,7 +360,9 @@ export function CommunicationPanel({
     try {
       setSendingMessage(true)
       console.log("CommunicationPanel: Sending message:", newMessage)
-      const updated = await sendMessage(orderId, newMessage)
+      const updated = entityType === "repair-request"
+        ? await sendRepairRequestMessage(orderId, newMessage)
+        : await sendInspectionMessage(orderId, newMessage)
       console.log("CommunicationPanel: Message sent successfully, state updated with", updated?.messages?.length || 0, "messages")
       setCommunication(updated)
       setNewMessage("")
@@ -310,7 +421,9 @@ export function CommunicationPanel({
     try {
       setSendingFeedback(true)
       console.log("CommunicationPanel: Sending feedback request:", { orderId, question: feedbackQuestion, options: validOptions })
-      const updated = await sendFeedbackRequest(orderId, inspectionId || "", feedbackQuestion, validOptions)
+      const updated = entityType === "repair-request"
+        ? await sendRepairRequestFeedbackRequest(orderId, feedbackQuestion, validOptions)
+        : await sendInspectionFeedbackRequest(orderId, inspectionId || "", feedbackQuestion, validOptions)
       console.log("CommunicationPanel: Received updated communication after sending feedback:", updated)
       setCommunication(updated)
       console.log("CommunicationPanel: Feedback request sent successfully, state updated with", updated?.messages?.length || 0, "messages")
@@ -350,7 +463,9 @@ export function CommunicationPanel({
     try {
       setSendingQuickAction(true)
       console.log("CommunicationPanel: Sending quick action:", { orderId, actionType: quickActionType, description: quickActionDescription })
-      const updated = await createQuickAction(orderId, inspectionId || "", quickActionType, quickActionDescription)
+      const updated = entityType === "repair-request"
+        ? await createRepairRequestQuickAction(orderId, quickActionType as RepairRequestQuickActionType, quickActionDescription)
+        : await createInspectionQuickAction(orderId, inspectionId || "", quickActionType as OrderQuickActionType, quickActionDescription)
       console.log("CommunicationPanel: Received updated communication after sending quick action:", updated)
       setCommunication(updated)
       console.log("CommunicationPanel: Quick action sent successfully, state updated with", updated?.messages?.length || 0, "messages")
@@ -360,7 +475,7 @@ export function CommunicationPanel({
       })
       // Reset form
       setQuickActionDescription("")
-      setQuickActionType('part_replacement')
+      setQuickActionType(defaultQuickActionType)
       setShowQuickActionDialog(false)
     } catch (error: any) {
       console.error("CommunicationPanel: Error sending quick action:", error)
@@ -381,9 +496,9 @@ export function CommunicationPanel({
     return null // Don't show while loading
   }
 
-  // Filter only feedback_request and quick_action messages
+  // Filter to include text messages, feedback_request and quick_action messages
   const communicationMessages = communication?.messages.filter((msg) =>
-    ["feedback_request", "quick_action"].includes(msg.messageType)
+    ["text", "feedback_request", "quick_action"].includes(msg.messageType)
   ) || []
 
   // Show panel if there are communication messages OR if user is staff/admin (so they can send)
@@ -396,40 +511,49 @@ export function CommunicationPanel({
   return (
     <>
       <div className="inspection-comm-panel mt-4 space-y-3">
-        <div className="inspection-comm-header flex items-center justify-between gap-2">
-          <div className="inspection-comm-header-left flex items-center gap-2">
-            <MessageCircle className="inspection-comm-header-icon w-4 h-4" />
-            <h3 className="inspection-comm-title text-sm font-semibold">{t('communicationPanel.communicationAndFeedback')}</h3>
-            {(communication?.pendingFeedbackCount || 0) + (communication?.pendingActionsCount || 0) > 0 && (
-              <Badge variant="secondary" className="inspection-comm-counter text-xs">
-                {(communication?.pendingFeedbackCount || 0) + (communication?.pendingActionsCount || 0)}
-              </Badge>
+        <div className="inspection-comm-header flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="inspection-comm-header-left flex items-center gap-2">
+              <MessageCircle className="inspection-comm-header-icon w-4 h-4" />
+              <h3 className="inspection-comm-title text-sm font-semibold">{t('communicationPanel.communicationAndFeedback')}</h3>
+              {(communication?.pendingFeedbackCount || 0) + (communication?.pendingActionsCount || 0) > 0 && (
+                <Badge variant="secondary" className="inspection-comm-counter text-xs">
+                  {(communication?.pendingFeedbackCount || 0) + (communication?.pendingActionsCount || 0)}
+                </Badge>
+              )}
+            </div>
+
+            {/* Staff/Admin Action Buttons */}
+            {isStaffOrAdmin && (
+              <div className="inspection-comm-toolbar flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowFeedbackDialog(true)}
+                  className="inspection-comm-toolbar-btn h-7 px-2 text-xs gap-1"
+                  title={t('communicationPanel.sendFeedbackRequest')}
+                >
+                  <HelpCircle className="w-3 h-3" />
+                  {t('communicationPanel.feedback')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowQuickActionDialog(true)}
+                  className="inspection-comm-toolbar-btn h-7 px-2 text-xs gap-1"
+                  title={t('communicationPanel.sendQuickAction')}
+                >
+                  <AlertCircle className="w-3 h-3" />
+                  {t('communicationPanel.action')}
+                </Button>
+              </div>
             )}
           </div>
 
-          {/* Staff/Admin Action Buttons */}
-          {isStaffOrAdmin && (
-            <div className="inspection-comm-toolbar flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShowFeedbackDialog(true)}
-                className="inspection-comm-toolbar-btn h-7 px-2 text-xs gap-1"
-                title={t('communicationPanel.sendFeedbackRequest')}
-              >
-                <HelpCircle className="w-3 h-3" />
-                {t('communicationPanel.feedback')}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShowQuickActionDialog(true)}
-                className="inspection-comm-toolbar-btn h-7 px-2 text-xs gap-1"
-                title={t('communicationPanel.sendQuickAction')}
-              >
-                <AlertCircle className="w-3 h-3" />
-                {t('communicationPanel.action')}
-              </Button>
+          {/* Created By Information - Staff/Admin Only */}
+          {isStaffOrAdmin && communication?.createdBy && (
+            <div className="inspection-comm-created-by text-xs text-gray-600 px-1">
+              von {communication.createdBy.name} ({communication.createdBy.role})
             </div>
           )}
         </div>
@@ -548,6 +672,31 @@ export function CommunicationPanel({
                           </span>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* Text Messages */}
+                  {message.messageType === "text" && (
+                    <div className="inspection-comm-text-message border rounded-lg p-3 bg-white hover:bg-gray-50 transition-colors">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Avatar className="w-6 h-6">
+                              <AvatarImage src={message.senderId?.avatar} />
+                              <AvatarFallback className="text-xs">
+                                {message.senderName.split(' ').map((n: string) => n[0]).join('').substring(0, 2)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">{message.senderName}</p>
+                              <p className="text-xs text-muted-foreground">{formatMessageTime(message.createdAt)}</p>
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-700 break-words whitespace-pre-wrap">
+                            {message.content}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -772,34 +921,23 @@ export function CommunicationPanel({
                 onChange={(e) => setQuickActionType(e.target.value as any)}
                 className="inspection-comm-select w-full px-3 py-2 border rounded-md bg-white text-sm transition-colors"
               >
-                <option value="part_replacement">{t('communicationPanel.partReplacementRequired')}</option>
-                <option value="incorrect_device">{t('communicationPanel.incorrectDeviceSpecification')}</option>
-                <option value="incorrect_unlock_code">{t('communicationPanel.incorrectUnlockCode')}</option>
-                <option value="additional_costs">{t('communicationPanel.additionalCostsRequired')}</option>
+                {quickActionOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </div>
 
             {/* Action Type Info Box */}
             <div className={`inspection-comm-action-type-box border rounded-lg p-3 text-xs transition-colors ${
-              quickActionType === 'part_replacement'
-                ? 'is-part'
-                : quickActionType === 'incorrect_device'
-                ? 'is-device'
-                : quickActionType === 'incorrect_unlock_code'
-                ? 'is-unlock'
-                : 'is-cost'
+              selectedQuickActionOption?.tone || 'is-cost'
             }`}>
               <p className="font-medium mb-2">
-                {quickActionType === 'part_replacement' && '🔧 Part Replacement Required'}
-                {quickActionType === 'incorrect_device' && '❌ Incorrect Device Specified'}
-                {quickActionType === 'incorrect_unlock_code' && '🔐 Incorrect Unlock Code'}
-                {quickActionType === 'additional_costs' && '💰 Additional Costs Required'}
+                {selectedQuickActionOption?.title}
               </p>
               <p className="opacity-75">
-                {quickActionType === 'part_replacement' && 'Notify customer that additional parts need to be replaced to complete the repair'}
-                {quickActionType === 'incorrect_device' && 'Notify customer that the device specifications provided do not match the device brought in'}
-                {quickActionType === 'incorrect_unlock_code' && 'Notify customer that the unlock code provided is incorrect or does not work'}
-                {quickActionType === 'additional_costs' && 'Notify customer of unexpected costs that require approval before proceeding'}
+                {selectedQuickActionOption?.description}
               </p>
             </div>
 
@@ -831,47 +969,20 @@ export function CommunicationPanel({
               <div className="inspection-comm-preview border rounded-lg p-3">
                 <p className="inspection-comm-preview-title text-xs font-medium mb-2">Preview:</p>
                 <div className={`inspection-comm-action-preview space-y-2 border-l-4 rounded p-3 ${
-                  quickActionType === 'part_replacement'
-                    ? 'is-part'
-                    : quickActionType === 'incorrect_device'
-                    ? 'is-device'
-                    : quickActionType === 'incorrect_unlock_code'
-                    ? 'is-unlock'
-                    : 'is-cost'
+                  selectedQuickActionOption?.tone || 'is-cost'
                 }`}>
                   <div className="flex items-start gap-2">
                     <AlertCircle className={`w-4 h-4 flex-shrink-0 mt-0.5 inspection-comm-preview-icon ${
-                      quickActionType === 'part_replacement'
-                        ? 'is-part'
-                        : quickActionType === 'incorrect_device'
-                        ? 'is-device'
-                        : quickActionType === 'incorrect_unlock_code'
-                        ? 'is-unlock'
-                        : 'is-cost'
+                      selectedQuickActionOption?.tone || 'is-cost'
                     }`} />
                     <div className="flex-1">
                       <p className={`font-medium text-sm mb-1 inspection-comm-preview-heading ${
-                        quickActionType === 'part_replacement'
-                          ? 'is-part'
-                          : quickActionType === 'incorrect_device'
-                          ? 'is-device'
-                          : quickActionType === 'incorrect_unlock_code'
-                          ? 'is-unlock'
-                          : 'is-cost'
+                        selectedQuickActionOption?.tone || 'is-cost'
                       }`}>
-                        {quickActionType === 'part_replacement' && '🔧 Part Replacement Required'}
-                        {quickActionType === 'incorrect_device' && '❌ Device Mismatch'}
-                        {quickActionType === 'incorrect_unlock_code' && '🔐 Unlock Code Issue'}
-                        {quickActionType === 'additional_costs' && '💰 Additional Costs'}
+                        {selectedQuickActionOption?.title}
                       </p>
                       <p className={`text-xs inspection-comm-preview-copy ${
-                        quickActionType === 'part_replacement'
-                          ? 'is-part'
-                          : quickActionType === 'incorrect_device'
-                          ? 'is-device'
-                          : quickActionType === 'incorrect_unlock_code'
-                          ? 'is-unlock'
-                          : 'is-cost'
+                        selectedQuickActionOption?.tone || 'is-cost'
                       }`}>
                         {quickActionDescription}
                       </p>

@@ -5,13 +5,22 @@ const User = require('../models/User');
 
 class MessageService {
   // Get all conversations for a user
-  static async getConversations(userId, filters = {}) {
-    console.log('MessageService: Getting conversations for user:', userId);
+  static async getConversations(userId, filters = {}, userRole = 'customer') {
+    console.log('MessageService: Getting conversations for user:', userId, 'role:', userRole);
 
     try {
-      const query = {
-        'participants.userId': userId
-      };
+      let query;
+
+      if (userRole === 'staff' || userRole === 'admin') {
+        // Staff/Admin see all conversations for their orders
+        // For now, show all conversations (can be filtered by assigned orders later)
+        query = {};
+      } else {
+        // Customers only see their own conversations
+        query = {
+          'participants.userId': userId
+        };
+      }
 
       // Apply search filter
       if (filters.search) {
@@ -27,6 +36,7 @@ class MessageService {
       const skip = (page - 1) * limit;
 
       const conversations = await Conversation.find(query)
+        .populate('createdBy.userId', 'name email avatar')
         .sort({ updatedAt: -1 })
         .skip(skip)
         .limit(limit);
@@ -43,6 +53,22 @@ class MessageService {
             isRead: false
           });
 
+          const order = conv.orderId
+            ? await Order.findById(conv.orderId)
+              .select('customerId guestInfo')
+              .populate('customerId', 'name email phone')
+              .lean()
+            : null;
+
+          const customer = order
+            ? {
+              name: order.customerId?.name || `${order.guestInfo?.firstName || ''} ${order.guestInfo?.lastName || ''}`.trim() || 'Gastkunde',
+              email: order.customerId?.email || order.guestInfo?.email || '',
+              phone: order.customerId?.phone || order.guestInfo?.phone || '',
+              isGuest: Boolean(order.guestInfo?.isGuest),
+            }
+            : null;
+
           // Get last message
           const lastMessage = await Message.findOne({
             conversationId: conv._id
@@ -54,6 +80,8 @@ class MessageService {
             orderNumber: conv.orderNumber,
             deviceInfo: conv.deviceInfo,
             participants: conv.participants,
+            customer,
+            createdBy: conv.createdBy,
             lastMessage: lastMessage || null,
             unreadCount,
             status: conv.status,
@@ -295,6 +323,11 @@ class MessageService {
           isOnline: true,
           lastSeen: new Date()
         }],
+        createdBy: {
+          userId: customerId,
+          name: customer.name,
+          role: customer.role
+        },
         status: 'active'
       });
 

@@ -16,6 +16,8 @@ export interface NotificationTemplate {
   updatedAt: string;
 }
 
+export type NotificationTemplateInput = Omit<NotificationTemplate, '_id' | 'createdAt' | 'updatedAt'>;
+
 export interface Integration {
   _id: string;
   name: string;
@@ -170,9 +172,9 @@ export const getNotificationTemplates = async () => {
 
 // Description: Create notification template
 // Endpoint: POST /api/system-config/notification-templates
-// Request: { template: Omit<NotificationTemplate, '_id'> }
+// Request: { template: NotificationTemplateInput }
 // Response: { success: boolean, template: NotificationTemplate, message: string }
-export const createNotificationTemplate = async (template: Omit<NotificationTemplate, '_id'>) => {
+export const createNotificationTemplate = async (template: NotificationTemplateInput) => {
   try {
     const response = await api.post('/api/system-config/notification-templates', template);
     return response.data;
@@ -184,9 +186,9 @@ export const createNotificationTemplate = async (template: Omit<NotificationTemp
 
 // Description: Update notification template
 // Endpoint: PUT /api/system-config/notification-templates/:id
-// Request: { template: Omit<NotificationTemplate, '_id'> }
+// Request: { template: NotificationTemplateInput }
 // Response: { success: boolean, template: NotificationTemplate, message: string }
-export const updateNotificationTemplate = async (id: string, template: Omit<NotificationTemplate, '_id'>) => {
+export const updateNotificationTemplate = async (id: string, template: NotificationTemplateInput) => {
   try {
     const response = await api.put(`/api/system-config/notification-templates/${id}`, template);
     return response.data;

@@ -1,5 +1,6 @@
 const Order = require('../models/Order');
 const Service = require('../models/Service');
+const User = require('../models/User');
 const { sendNotification } = require('./notificationService');
 
 class DeviceChangeService {
@@ -31,6 +32,12 @@ class DeviceChangeService {
         model: order.deviceModel,
         type: order.deviceType,
       };
+
+      const changedByUser = userId ? await User.findById(userId).select('name firstName lastName') : null;
+      const changedByName =
+        changedByUser?.name ||
+        [changedByUser?.firstName, changedByUser?.lastName].filter(Boolean).join(' ') ||
+        'System';
 
       const originalServices = JSON.parse(JSON.stringify(order.services || []));
       const originalTotalCost = order.totalCost;
@@ -133,6 +140,15 @@ class DeviceChangeService {
         changedAt: new Date(),
         changedBy: userId,
       };
+
+      // Add history entry so the order timeline reflects this device update immediately.
+      order.timeline.push({
+        status: 'Device Changed',
+        description: `Device changed from ${originalDevice.brand} ${originalDevice.model} to ${newDeviceInfo.deviceBrand} ${newDeviceInfo.deviceModel}`,
+        completedAt: new Date(),
+        staffId: String(userId || 'system'),
+        staffName: changedByName,
+      });
 
       // Save the order with updated device and services
       await order.save();

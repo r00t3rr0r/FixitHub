@@ -534,6 +534,58 @@ class HomepageService {
       throw error;
     }
   }
+
+  // Get current homepage structure (for admin editing)
+  static async getCurrentHomepageStructure() {
+    console.log('HomepageService: Getting current homepage structure for admin');
+
+    try {
+      const defaultTemplate = await LayoutTemplate.findOne({ isDefault: true });
+
+      if (!defaultTemplate) {
+        console.log('HomepageService: No default template found, returning empty sections');
+        return { success: true, sections: [] };
+      }
+
+      console.log('HomepageService: Found default template with', defaultTemplate.sections.length, 'sections');
+      return { success: true, sections: defaultTemplate.sections };
+    } catch (error) {
+      console.error('HomepageService: Error getting current homepage structure:', error);
+      throw error;
+    }
+  }
+
+  // Initialize current homepage structure (create default if not exists)
+  static async initializeCurrentHomepage(defaultSections, userId) {
+    console.log('HomepageService: Initializing current homepage structure');
+
+    try {
+      // Check if default template exists
+      let defaultTemplate = await LayoutTemplate.findOne({ isDefault: true });
+
+      if (defaultTemplate) {
+        console.log('HomepageService: Default template already exists');
+        return { success: true, sections: defaultTemplate.sections };
+      }
+
+      // Create default template with provided sections
+      defaultTemplate = new LayoutTemplate({
+        name: 'Default Homepage',
+        description: 'Default homepage layout with all sections',
+        sections: defaultSections,
+        isDefault: true,
+        isPublished: true,
+        createdBy: userId
+      });
+
+      await defaultTemplate.save();
+      console.log('HomepageService: Default homepage template initialized successfully');
+      return { success: true, sections: defaultTemplate.sections };
+    } catch (error) {
+      console.error('HomepageService: Error initializing current homepage:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = HomepageService;

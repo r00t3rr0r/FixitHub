@@ -326,6 +326,10 @@ const homepageSectionSchema = new mongoose.Schema({
         default: 0
       }
     },
+    customHTML: {
+      type: String,
+      default: ''
+    },
     customCSS: {
       type: String,
       default: ''

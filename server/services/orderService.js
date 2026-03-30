@@ -1,9 +1,79 @@
 const Order = require('../models/Order');
 const User = require('../models/User');
 const Inventory = require('../models/Inventory');
+const NeedList = require('../models/NeedList');
 const Product = require('../models/Product');
 const Service = require('../models/Service');
 const { WorkflowTemplate, AddOnWorkflow } = require('../models/Workflow');
+
+const toIdString = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object' && value._id) return String(value._id);
+  return String(value);
+};
+
+const getUniqueStaffIds = (staffIds = []) => {
+  if (!Array.isArray(staffIds)) return [];
+
+  const seen = new Set();
+  const uniqueIds = [];
+
+  for (const rawId of staffIds) {
+    const normalized = toIdString(rawId).trim();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    uniqueIds.push(normalized);
+  }
+
+  return uniqueIds;
+};
+
+const buildWorkflowStepAssignments = (staffMembers = []) => (
+  staffMembers.map((staff) => ({
+    staffId: staff._id,
+    name: staff.name,
+    avatar: staff.avatar || '',
+    assignedAt: new Date(),
+  }))
+);
+
+const applyWorkflowStepAssignment = (step, staffMembers = [], preferredStaffId = null) => {
+  step.assignedStaff = buildWorkflowStepAssignments(staffMembers);
+
+  if (!Array.isArray(step.assignedStaff) || step.assignedStaff.length === 0) {
+    step.assignedStaffId = undefined;
+    return;
+  }
+
+  const preferredId = toIdString(preferredStaffId);
+  const primaryAssignment = preferredId
+    ? step.assignedStaff.find((assignment) => toIdString(assignment.staffId) === preferredId)
+    : null;
+
+  step.assignedStaffId = (primaryAssignment || step.assignedStaff[0]).staffId;
+};
+
+const ensureOrderStaffAssignments = (order, staffMembers = []) => {
+  if (!Array.isArray(order.assignedStaff)) {
+    order.assignedStaff = [];
+  }
+
+  for (const staff of staffMembers) {
+    const exists = order.assignedStaff.some(
+      (assignment) => toIdString(assignment.staffId) === toIdString(staff._id)
+    );
+
+    if (!exists) {
+      order.assignedStaff.push({
+        staffId: staff._id,
+        name: staff.name,
+        avatar: staff.avatar || '',
+        assignedAt: new Date(),
+      });
+    }
+  }
+};
 
 class OrderService {
   // Create a new order
@@ -123,6 +193,7 @@ class OrderService {
 
     try {
       const query = {};
+      const andFilters = [];
 
       // Apply filters
       if (filters.status) {
@@ -138,15 +209,23 @@ class OrderService {
       }
 
       if (filters.assignedStaff) {
-        query['assignedStaff.staffId'] = filters.assignedStaff;
+        andFilters.push({
+          $or: [
+            { 'assignedStaff.staffId': filters.assignedStaff },
+            { 'workflows.steps.assignedStaffId': filters.assignedStaff },
+            { 'workflows.steps.assignedStaff.staffId': filters.assignedStaff },
+          ],
+        });
       }
 
       if (filters.search) {
-        query.$or = [
+        andFilters.push({
+          $or: [
           { orderNumber: { $regex: filters.search, $options: 'i' } },
           { deviceBrand: { $regex: filters.search, $options: 'i' } },
           { deviceModel: { $regex: filters.search, $options: 'i' } }
-        ];
+          ],
+        });
       }
 
       if (filters.dateFrom || filters.dateTo) {
@@ -157,6 +236,10 @@ class OrderService {
         if (filters.dateTo) {
           query.createdAt.$lte = new Date(filters.dateTo);
         }
+      }
+
+      if (andFilters.length > 0) {
+        query.$and = andFilters;
       }
 
       // Pagination
@@ -591,6 +674,65 @@ class OrderService {
     }
   }
 
+  // Record missing EPart that was added to a need list
+  static async recordEPartNeedListEntry(orderId, entryData, staffId) {
+    console.log('OrderService: Recording EPart need list entry:', { orderId, entryData, staffId });
+
+    try {
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      const part = await Inventory.findById(entryData.partId);
+      if (!part) {
+        throw new Error('Part not found');
+      }
+
+      let needList = null;
+      if (entryData.needListId) {
+        needList = await NeedList.findById(entryData.needListId);
+        if (!needList) {
+          throw new Error('Need list not found');
+        }
+      }
+
+      const resolvedNeedListName = needList?.name || entryData.needListName || '';
+      if (!resolvedNeedListName.trim()) {
+        throw new Error('Need list name is required');
+      }
+
+      order.ePartNeedListEntries.push({
+        partId: entryData.partId,
+        quantity: entryData.quantity,
+        needListId: needList?._id || null,
+        needListName: resolvedNeedListName,
+        needListStatus: needList?.status || entryData.needListStatus || 'draft',
+        targetType: entryData.targetType || 'existing',
+        notes: entryData.notes || '',
+        requestedAt: new Date(),
+        requestedBy: staffId,
+      });
+
+      const staff = await User.findById(staffId);
+      order.timeline.push({
+        status: 'EPart Need List Added',
+        description: `${part.itemName} x${entryData.quantity} added to need list "${resolvedNeedListName}"`,
+        completedAt: new Date(),
+        staffId: staffId || 'system',
+        staffName: staff ? staff.name : 'Staff Member'
+      });
+
+      const updatedOrder = await order.save();
+
+      console.log('OrderService: EPart need list entry recorded successfully');
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error recording EPart need list entry:', error);
+      throw error;
+    }
+  }
+
   // Add add-on service to order
   static async addAddonToOrder(orderId, addonData, staffId) {
     console.log('OrderService: Adding add-on to order:', { orderId, addonData, staffId });
@@ -914,7 +1056,7 @@ class OrderService {
       if (workflow.steps.length > 0) {
         workflow.steps[0].status = 'in-progress';
         workflow.steps[0].startedAt = new Date();
-        workflow.steps[0].assignedStaffId = staffId;
+        applyWorkflowStepAssignment(workflow.steps[0], [staff], staffId);
       }
 
       // Add timeline entries
@@ -951,6 +1093,79 @@ class OrderService {
     }
   }
 
+  // Assign one or multiple staff members to a workflow step
+  static async assignWorkflowStepStaff(orderId, workflowId, stepId, staffIds, assigningStaffId) {
+    console.log('OrderService: Assigning staff to workflow step:', {
+      orderId,
+      workflowId,
+      stepId,
+      staffIds,
+      assigningStaffId,
+    });
+
+    try {
+      const uniqueStaffIds = getUniqueStaffIds(staffIds);
+      if (uniqueStaffIds.length === 0) {
+        throw new Error('At least one valid staff ID is required');
+      }
+
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      const workflow = order.workflows.id(workflowId);
+      if (!workflow) {
+        throw new Error('Workflow not found in order');
+      }
+
+      const step = workflow.steps.id(stepId);
+      if (!step) {
+        throw new Error('Step not found in workflow');
+      }
+
+      const staffMembers = await User.find({
+        _id: { $in: uniqueStaffIds },
+        role: { $in: ['staff', 'admin'] },
+      });
+
+      if (staffMembers.length !== uniqueStaffIds.length) {
+        throw new Error('One or more staff members not found');
+      }
+
+      applyWorkflowStepAssignment(step, staffMembers, step.assignedStaffId || assigningStaffId);
+      ensureOrderStaffAssignments(order, staffMembers);
+
+      const stepIndex = workflow.steps.findIndex((stepItem) => toIdString(stepItem._id) === toIdString(step._id));
+      const isCurrentStep = Number(workflow.currentStepIndex) === stepIndex;
+
+      // Assigning an active task should make the current pending step actionable immediately.
+      if (isCurrentStep && workflow.status === 'in-progress' && step.status === 'pending') {
+        step.status = 'in-progress';
+        if (!step.startedAt) {
+          step.startedAt = new Date();
+        }
+      }
+
+      const assigningStaff = assigningStaffId ? await User.findById(assigningStaffId) : null;
+      order.timeline.push({
+        status: 'Workflow Task Assigned',
+        description: `Step "${step.stepName}" in workflow "${workflow.workflowName}" assigned to: ${staffMembers.map((staff) => staff.name).join(', ')}`,
+        completedAt: new Date(),
+        staffId: assigningStaffId || 'system',
+        staffName: assigningStaff ? assigningStaff.name : 'System',
+      });
+
+      const updatedOrder = await order.save();
+
+      console.log('OrderService: Workflow step staff assigned successfully');
+      return updatedOrder;
+    } catch (error) {
+      console.error('OrderService: Error assigning workflow step staff:', error);
+      throw error;
+    }
+  }
+
   // Complete workflow step
   static async completeWorkflowStep(orderId, workflowId, stepId, stepData, staffId) {
     console.log('OrderService: Completing workflow step:', { orderId, workflowId, stepId, staffId });
@@ -976,8 +1191,62 @@ class OrderService {
       }
 
       // Update step data
+      const completedAt = new Date();
       step.status = 'completed';
-      step.completedAt = new Date();
+      step.completedAt = completedAt;
+
+      if (!step.startedAt) {
+        const startedFromPayload = stepData?.timing?.startedAt ? new Date(stepData.timing.startedAt) : null;
+        if (startedFromPayload && Number.isFinite(startedFromPayload.getTime())) {
+          step.startedAt = startedFromPayload;
+        } else {
+          step.startedAt = completedAt;
+        }
+      }
+
+      const estimatedDurationMinutes = Number(step.estimatedTime || 0);
+      const payloadElapsedMinutes = Number(stepData?.timing?.elapsedMinutes);
+      let actualDurationMinutes = 0;
+      let effectivePausedMinutes = Number(step.totalPausedMinutes || 0);
+
+      if (step.currentPauseStartedAt) {
+        const pauseStartTs = new Date(step.currentPauseStartedAt).getTime();
+        const completedAtTs = completedAt.getTime();
+        if (Number.isFinite(pauseStartTs) && completedAtTs > pauseStartTs) {
+          const openPauseDuration = Math.round((completedAtTs - pauseStartTs) / (1000 * 60));
+          effectivePausedMinutes += openPauseDuration;
+
+          if (!Array.isArray(step.pauseHistory)) {
+            step.pauseHistory = [];
+          }
+
+          const openPauseEntry = [...step.pauseHistory].reverse().find((entry) => !entry.resumedAt);
+          if (openPauseEntry) {
+            openPauseEntry.resumedAt = completedAt;
+            openPauseEntry.durationMinutes = openPauseDuration;
+          }
+
+          step.currentPauseStartedAt = undefined;
+        }
+      }
+
+      step.totalPausedMinutes = Math.max(0, Math.round(effectivePausedMinutes));
+
+      if (Number.isFinite(payloadElapsedMinutes) && payloadElapsedMinutes >= 0) {
+        actualDurationMinutes = Math.round(payloadElapsedMinutes);
+      } else if (step.startedAt) {
+        const startedAtTs = new Date(step.startedAt).getTime();
+        const completedAtTs = completedAt.getTime();
+        if (Number.isFinite(startedAtTs) && completedAtTs > startedAtTs) {
+          const rawDuration = Math.round((completedAtTs - startedAtTs) / (1000 * 60));
+          actualDurationMinutes = Math.max(0, rawDuration - step.totalPausedMinutes);
+        }
+      }
+
+      step.actualDurationMinutes = Math.max(0, actualDurationMinutes);
+      step.estimatedDurationMinutes = Math.max(0, Math.round(estimatedDurationMinutes));
+      step.durationDeltaMinutes = step.actualDurationMinutes - step.estimatedDurationMinutes;
+
       if (stepData.formData) step.formData = stepData.formData;
       if (stepData.checklistData) step.checklistData = stepData.checklistData;
       if (stepData.notes) step.notes = stepData.notes;
@@ -991,7 +1260,12 @@ class OrderService {
         workflow.currentStepIndex = nextIndex;
         workflow.steps[nextIndex].status = 'in-progress';
         workflow.steps[nextIndex].startedAt = new Date();
-        workflow.steps[nextIndex].assignedStaffId = staffId;
+        if (staffId) {
+          const staff = await User.findById(staffId);
+          if (staff) {
+            applyWorkflowStepAssignment(workflow.steps[nextIndex], [staff], staffId);
+          }
+        }
       } else {
         // All steps completed
         workflow.status = 'completed';
@@ -1000,9 +1274,12 @@ class OrderService {
 
       // Add timeline entry
       const staff = await User.findById(staffId);
+      const timingSummary = step.estimatedDurationMinutes > 0
+        ? ` (actual ${step.actualDurationMinutes} min vs estimated ${step.estimatedDurationMinutes} min)`
+        : ` (actual ${step.actualDurationMinutes} min)`;
       order.timeline.push({
         status: 'Workflow Step Completed',
-        description: `Step "${step.stepName}" completed in workflow "${workflow.workflowName}"`,
+        description: `Step "${step.stepName}" completed in workflow "${workflow.workflowName}"${timingSummary}`,
         completedAt: new Date(),
         staffId: staffId || 'system',
         staffName: staff ? staff.name : 'Staff Member',
@@ -1058,8 +1335,42 @@ class OrderService {
       }
 
       // Update step status
+      const skippedAt = new Date();
       step.status = 'skipped';
-      step.completedAt = new Date();
+      step.completedAt = skippedAt;
+
+      if (step.startedAt) {
+        const startedAtTs = new Date(step.startedAt).getTime();
+        const skippedAtTs = skippedAt.getTime();
+        if (Number.isFinite(startedAtTs) && skippedAtTs > startedAtTs) {
+          const rawDurationMinutes = Math.round((skippedAtTs - startedAtTs) / (1000 * 60));
+          const pausedMinutes = Number(step.totalPausedMinutes || 0);
+          step.actualDurationMinutes = Math.max(0, rawDurationMinutes - pausedMinutes);
+        }
+      }
+
+      if (step.currentPauseStartedAt) {
+        const pauseStartTs = new Date(step.currentPauseStartedAt).getTime();
+        const skippedAtTs = skippedAt.getTime();
+        if (Number.isFinite(pauseStartTs) && skippedAtTs > pauseStartTs) {
+          const openPauseDuration = Math.round((skippedAtTs - pauseStartTs) / (1000 * 60));
+          step.totalPausedMinutes = Number(step.totalPausedMinutes || 0) + openPauseDuration;
+
+          if (!Array.isArray(step.pauseHistory)) {
+            step.pauseHistory = [];
+          }
+
+          const openPauseEntry = [...step.pauseHistory].reverse().find((entry) => !entry.resumedAt);
+          if (openPauseEntry) {
+            openPauseEntry.resumedAt = skippedAt;
+            openPauseEntry.durationMinutes = openPauseDuration;
+          }
+        }
+        step.currentPauseStartedAt = undefined;
+      }
+
+      step.estimatedDurationMinutes = Number(step.estimatedTime || 0);
+      step.durationDeltaMinutes = (step.actualDurationMinutes || 0) - (step.estimatedDurationMinutes || 0);
       step.notes = reason || 'Step skipped';
 
       // Move to next step
@@ -1070,7 +1381,12 @@ class OrderService {
         workflow.currentStepIndex = nextIndex;
         workflow.steps[nextIndex].status = 'in-progress';
         workflow.steps[nextIndex].startedAt = new Date();
-        workflow.steps[nextIndex].assignedStaffId = staffId;
+        if (staffId) {
+          const staff = await User.findById(staffId);
+          if (staff) {
+            applyWorkflowStepAssignment(workflow.steps[nextIndex], [staff], staffId);
+          }
+        }
       } else {
         // All steps completed or skipped
         workflow.status = 'completed';
@@ -1142,8 +1458,9 @@ class OrderService {
       console.log('OrderService: Workflow status updating from', oldStatus, 'to', status);
 
       // If pausing workflow (status = 'on-hold'), handle pause reason and update order status
-      if (status === 'on-hold') {
+      if (status === 'on-hold' && oldStatus !== 'on-hold') {
         console.log('OrderService: Pausing workflow with reason:', pauseReason);
+        const pauseStartedAt = new Date();
 
         // Record pause reason and timestamp
         if (pauseReason) {
@@ -1151,8 +1468,41 @@ class OrderService {
           console.log('OrderService: Pause reason recorded:', pauseReason);
         }
 
-        workflow.pausedAt = new Date();
+        workflow.pausedAt = pauseStartedAt;
         console.log('OrderService: Pause timestamp recorded');
+
+        const activeStepIndex = Number(workflow.currentStepIndex || 0);
+        const activeStep = workflow.steps[activeStepIndex] || workflow.steps.find((stepItem) => stepItem.status === 'in-progress');
+
+        if (activeStep && activeStep.status === 'in-progress') {
+          if (!activeStep.currentPauseStartedAt) {
+            activeStep.currentPauseStartedAt = pauseStartedAt;
+          }
+
+          if (!Array.isArray(activeStep.pauseHistory)) {
+            activeStep.pauseHistory = [];
+          }
+
+          activeStep.pauseHistory.push({
+            pausedAt: pauseStartedAt,
+            reason: pauseReason || 'Kein Grund angegeben',
+            stepId: activeStep.stepId,
+            stepName: activeStep.stepName,
+            stepIndex: activeStepIndex,
+          });
+
+          if (!Array.isArray(workflow.pauseHistory)) {
+            workflow.pauseHistory = [];
+          }
+
+          workflow.pauseHistory.push({
+            pausedAt: pauseStartedAt,
+            reason: pauseReason || 'Kein Grund angegeben',
+            stepId: activeStep.stepId,
+            stepName: activeStep.stepName,
+            stepIndex: activeStepIndex,
+          });
+        }
 
         // Update order status to 'pending'
         order.status = 'pending';
@@ -1162,6 +1512,51 @@ class OrderService {
       // If resuming workflow (status = 'in-progress'), clear pause reason
       if (status === 'in-progress' && oldStatus === 'on-hold') {
         console.log('OrderService: Resuming workflow, clearing pause reason');
+        const resumedAt = new Date();
+
+        if (workflow.pausedAt) {
+          const pausedAtTs = new Date(workflow.pausedAt).getTime();
+          const resumedAtTs = resumedAt.getTime();
+          if (Number.isFinite(pausedAtTs) && resumedAtTs > pausedAtTs) {
+            const workflowPauseDuration = Math.round((resumedAtTs - pausedAtTs) / (1000 * 60));
+            workflow.totalPausedMinutes = Number(workflow.totalPausedMinutes || 0) + workflowPauseDuration;
+
+            if (!Array.isArray(workflow.pauseHistory)) {
+              workflow.pauseHistory = [];
+            }
+
+            const openWorkflowPause = [...workflow.pauseHistory].reverse().find((entry) => !entry.resumedAt);
+            if (openWorkflowPause) {
+              openWorkflowPause.resumedAt = resumedAt;
+              openWorkflowPause.durationMinutes = workflowPauseDuration;
+            }
+          }
+        }
+
+        const activeStepIndex = Number(workflow.currentStepIndex || 0);
+        const activeStep = workflow.steps[activeStepIndex] || workflow.steps.find((stepItem) => stepItem.status === 'in-progress');
+
+        if (activeStep && activeStep.currentPauseStartedAt) {
+          const stepPausedAtTs = new Date(activeStep.currentPauseStartedAt).getTime();
+          const resumedAtTs = resumedAt.getTime();
+          if (Number.isFinite(stepPausedAtTs) && resumedAtTs > stepPausedAtTs) {
+            const stepPauseDuration = Math.round((resumedAtTs - stepPausedAtTs) / (1000 * 60));
+            activeStep.totalPausedMinutes = Number(activeStep.totalPausedMinutes || 0) + stepPauseDuration;
+
+            if (!Array.isArray(activeStep.pauseHistory)) {
+              activeStep.pauseHistory = [];
+            }
+
+            const openStepPause = [...activeStep.pauseHistory].reverse().find((entry) => !entry.resumedAt);
+            if (openStepPause) {
+              openStepPause.resumedAt = resumedAt;
+              openStepPause.durationMinutes = stepPauseDuration;
+            }
+          }
+
+          activeStep.currentPauseStartedAt = undefined;
+        }
+
         workflow.pauseReason = '';
         workflow.pausedAt = null;
         console.log('OrderService: Pause reason and timestamp cleared');
@@ -1251,7 +1646,12 @@ class OrderService {
       // Reset the target step to in-progress
       step.status = 'in-progress';
       step.startedAt = new Date();
-      step.assignedStaffId = staffId;
+      if (staffId) {
+        const stepStaff = await User.findById(staffId);
+        if (stepStaff) {
+          applyWorkflowStepAssignment(step, [stepStaff], staffId);
+        }
+      }
       step.completedAt = undefined;
 
       // Reset all steps after the target step to pending
@@ -1260,6 +1660,7 @@ class OrderService {
         workflow.steps[i].startedAt = undefined;
         workflow.steps[i].completedAt = undefined;
         workflow.steps[i].assignedStaffId = undefined;
+        workflow.steps[i].assignedStaff = [];
       }
 
       // Update workflow
@@ -1303,7 +1704,8 @@ class OrderService {
     try {
       const order = await Order.findById(orderId)
         .populate('workflows.workflowTemplateId')
-        .populate('workflows.steps.assignedStaffId', 'name avatar');
+        .populate('workflows.steps.assignedStaffId', 'name avatar')
+        .populate('workflows.steps.assignedStaff.staffId', 'name avatar');
 
       if (!order) {
         throw new Error('Order not found');

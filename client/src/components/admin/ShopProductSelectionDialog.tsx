@@ -5,17 +5,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Search, Package, DollarSign } from 'lucide-react';
+import { Search, Package, DollarSign, SlidersHorizontal, Boxes } from 'lucide-react';
 import { getProducts } from '@/api/shop';
 import { useToast } from '@/hooks/useToast';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface Product {
   _id: string;
   name: string;
+  description?: string;
   price: number;
-  stock: number;
-  category: string;
-  brand: string;
+  stock?: number;
+  stockCount?: number;
+  inStock?: boolean;
+  category?: string;
+  brand?: string;
+  sku?: string;
+  seoName?: string;
+  searchKeywords?: string;
   images: string[];
 }
 
@@ -24,22 +31,46 @@ interface ShopProductSelectionDialogProps {
   onClose: () => void;
   onAddProduct: (productId: string, quantity: number) => Promise<void>;
   orderId: string;
+  currentOrderTotal?: number;
 }
 
 export function ShopProductSelectionDialog({
   open,
   onClose,
   onAddProduct,
-  orderId
+  orderId: _orderId,
+  currentOrderTotal = 0,
 }: ShopProductSelectionDialogProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProductId, setSelectedProductId] = useState<string>('');
+  const [productSelectOpen, setProductSelectOpen] = useState(false);
   const [quantity, setQuantity] = useState<number>(1);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [inStockOnly, setInStockOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<'relevance' | 'name' | 'price-asc' | 'price-desc' | 'stock-desc'>('relevance');
   const { toast } = useToast();
+
+  const quickQuantityOptions = [1, 2, 3, 5];
+
+  const normalizeText = (value: unknown) => String(value ?? '').toLowerCase().trim();
+
+  const getProductStock = (product?: Product | null) => {
+    if (!product) return 0;
+    const raw = product.stockCount ?? product.stock ?? 0;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+  };
+
+  const isProductInStock = (product?: Product | null) => {
+    if (!product) return false;
+    if (typeof product.inStock === 'boolean') {
+      return product.inStock;
+    }
+    return getProductStock(product) > 0;
+  };
 
   useEffect(() => {
     if (open) {
@@ -48,32 +79,62 @@ export function ShopProductSelectionDialog({
   }, [open]);
 
   useEffect(() => {
-    // Filter products based on search term
-    if (searchTerm) {
-      const filtered = products.filter(
-        (product) =>
-          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          product.brand.toLowerCase().includes(searchTerm.toLowerCase())
+    let filtered = [...products];
+
+    const search = normalizeText(searchTerm);
+    if (search) {
+      filtered = filtered.filter(
+        (product) => {
+          const haystack = [
+            product.name,
+            product.category,
+            product.brand,
+            product.description,
+            product.sku,
+            product.seoName,
+            product.searchKeywords,
+          ]
+            .map(normalizeText)
+            .join(' ');
+
+          return haystack.includes(search);
+        }
       );
-      setFilteredProducts(filtered);
-    } else {
-      setFilteredProducts(products);
     }
-  }, [searchTerm, products]);
+
+    if (inStockOnly) {
+      filtered = filtered.filter((product) => isProductInStock(product));
+    }
+
+    if (sortBy === 'name') {
+      filtered.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    if (sortBy === 'price-asc') {
+      filtered.sort((a, b) => a.price - b.price);
+    }
+    if (sortBy === 'price-desc') {
+      filtered.sort((a, b) => b.price - a.price);
+    }
+    if (sortBy === 'stock-desc') {
+      filtered.sort((a, b) => getProductStock(b) - getProductStock(a));
+    }
+
+    setFilteredProducts(filtered);
+  }, [searchTerm, products, inStockOnly, sortBy]);
 
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const response = await getProducts();
+      // Load a larger page so local dialog search works across the catalog.
+      const response = await getProducts({ page: 1, limit: 500, sortBy: 'name', sortOrder: 'asc' });
       console.log('Fetched products:', response);
       setProducts(response.products || []);
       setFilteredProducts(response.products || []);
     } catch (error) {
       console.error('Error fetching products:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to fetch products',
+        title: 'Fehler',
+        description: 'Produkte konnten nicht geladen werden.',
         variant: 'destructive'
       });
     } finally {
@@ -81,11 +142,11 @@ export function ShopProductSelectionDialog({
     }
   };
 
-  const handleAddProduct = async () => {
+  const handleAddProduct = async (closeAfterAdd: boolean = true) => {
     if (!selectedProductId) {
       toast({
-        title: 'Error',
-        description: 'Please select a product',
+        title: 'Fehler',
+        description: 'Bitte waehlen Sie ein Produkt aus.',
         variant: 'destructive'
       });
       return;
@@ -93,18 +154,18 @@ export function ShopProductSelectionDialog({
 
     if (quantity <= 0) {
       toast({
-        title: 'Error',
-        description: 'Quantity must be greater than 0',
+        title: 'Fehler',
+        description: 'Die Menge muss groesser als 0 sein.',
         variant: 'destructive'
       });
       return;
     }
 
     const selectedProduct = products.find((p) => p._id === selectedProductId);
-    if (selectedProduct && selectedProduct.stock < quantity) {
+    if (selectedProduct && getProductStock(selectedProduct) < quantity) {
       toast({
-        title: 'Error',
-        description: `Insufficient stock. Available: ${selectedProduct.stock}`,
+        title: 'Fehler',
+        description: `Nicht genuegend Bestand. Verfuegbar: ${getProductStock(selectedProduct)}`,
         variant: 'destructive'
       });
       return;
@@ -114,15 +175,21 @@ export function ShopProductSelectionDialog({
     try {
       await onAddProduct(selectedProductId, quantity);
       toast({
-        title: 'Success',
-        description: 'Product added to order successfully'
+        title: 'Erfolg',
+        description: 'Produkt wurde erfolgreich zum Auftrag hinzugefuegt.'
       });
-      handleClose();
-    } catch (error) {
+      if (closeAfterAdd) {
+        handleClose();
+      } else {
+        setSelectedProductId('');
+        setQuantity(1);
+      }
+    } catch (error: unknown) {
       console.error('Error adding product to order:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Produkt konnte nicht zum Auftrag hinzugefuegt werden.';
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to add product to order',
+        title: 'Fehler',
+        description: errorMessage,
         variant: 'destructive'
       });
     } finally {
@@ -134,18 +201,32 @@ export function ShopProductSelectionDialog({
     setSelectedProductId('');
     setQuantity(1);
     setSearchTerm('');
+    setProductSelectOpen(false);
+    setInStockOnly(false);
+    setSortBy('relevance');
     onClose();
   };
 
+  const handleSelectProduct = (productId: string) => {
+    setSelectedProductId(productId);
+    setProductSelectOpen(false);
+    setQuantity(1);
+  };
+
   const selectedProduct = products.find((p) => p._id === selectedProductId);
+  const hasSearch = normalizeText(searchTerm).length > 0;
+  const quickSearchResults = hasSearch ? filteredProducts.slice(0, 6) : [];
+
+  const subtotal = selectedProduct ? selectedProduct.price * quantity : 0;
+  const projectedOrderTotal = currentOrderTotal + subtotal;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="order-dialog-content order-shop-product-dialog w-[96vw] max-w-[860px] max-h-[88vh] overflow-y-auto">
+        <DialogHeader className="order-dialog-header">
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
-            Add Shop Product to Order
+            Shop-Produkt zum Auftrag hinzufuegen
           </DialogTitle>
         </DialogHeader>
 
@@ -154,43 +235,132 @@ export function ShopProductSelectionDialog({
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search products by name, category, or brand..."
+              placeholder="Produkte nach Name, Kategorie oder Marke suchen..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                const firstMatch = filteredProducts.find((product) => isProductInStock(product));
+                if (firstMatch) {
+                  handleSelectProduct(firstMatch._id);
+                }
+              }}
               className="pl-10"
             />
           </div>
 
+          {hasSearch && (
+            <div className="rounded-lg border border-slate-200 bg-white">
+              <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
+                <p className="text-xs text-muted-foreground">
+                  {filteredProducts.length} Treffer fuer "{searchTerm.trim()}"
+                </p>
+              </div>
+              {quickSearchResults.length === 0 ? (
+                <div className="px-3 py-4 text-sm text-muted-foreground">Keine passenden Produkte gefunden.</div>
+              ) : (
+                <div className="max-h-56 overflow-auto">
+                  {quickSearchResults.map((product) => {
+                    const productStock = getProductStock(product);
+                    const productIsInStock = isProductInStock(product);
+
+                    return (
+                      <div key={`quick-${product._id}`} className="flex items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 last:border-b-0">
+                        <div className="min-w-0">
+                          <p className={`truncate text-sm font-medium ${!productIsInStock ? 'text-muted-foreground line-through' : ''}`}>
+                            {product.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            ${product.price} • {productIsInStock ? `${productStock} verfuegbar` : 'Nicht verfuegbar'}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={!productIsInStock}
+                          onClick={() => handleSelectProduct(product._id)}
+                        >
+                          Auswaehlen
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3 sm:grid-cols-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="stock-only"
+                checked={inStockOnly}
+                onCheckedChange={(checked) => setInStockOnly(Boolean(checked))}
+              />
+              <Label htmlFor="stock-only" className="text-sm cursor-pointer">Nur verfuegbare Produkte anzeigen</Label>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                Sortierung
+              </Label>
+              <Select value={sortBy} onValueChange={(value: 'relevance' | 'name' | 'price-asc' | 'price-desc' | 'stock-desc') => setSortBy(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sort" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="relevance">Relevanz</SelectItem>
+                  <SelectItem value="name">Name (A-Z)</SelectItem>
+                  <SelectItem value="price-asc">Preis (niedrig nach hoch)</SelectItem>
+                  <SelectItem value="price-desc">Preis (hoch nach niedrig)</SelectItem>
+                  <SelectItem value="stock-desc">Bestand (hoch nach niedrig)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           {/* Product Selection */}
           <div className="space-y-2">
-            <Label htmlFor="product">Select Product</Label>
+            <Label htmlFor="product">Produkt auswaehlen</Label>
             <Select
               value={selectedProductId}
-              onValueChange={setSelectedProductId}
+              onValueChange={handleSelectProduct}
+              open={productSelectOpen}
+              onOpenChange={setProductSelectOpen}
               disabled={loading}
             >
               <SelectTrigger id="product">
-                <SelectValue placeholder={loading ? 'Loading products...' : 'Choose a product...'} />
+                <SelectValue placeholder={loading ? 'Produkte werden geladen...' : 'Produkt auswaehlen...'} />
               </SelectTrigger>
               <SelectContent>
                 {filteredProducts.length === 0 ? (
                   <div className="p-4 text-center text-sm text-muted-foreground">
-                    {loading ? 'Loading...' : 'No products found'}
+                    {loading ? 'Laedt...' : 'Keine Produkte gefunden'}
                   </div>
                 ) : (
-                  filteredProducts.map((product) => (
-                    <SelectItem key={product._id} value={product._id}>
+                  filteredProducts.map((product) => {
+                    const productStock = getProductStock(product);
+                    const productIsInStock = isProductInStock(product);
+
+                    return (
+                    <SelectItem key={product._id} value={product._id} disabled={!productIsInStock}>
                       <div className="flex items-center justify-between w-full gap-4">
-                        <span className="flex-1">{product.name}</span>
+                        <span className={`flex-1 ${!productIsInStock ? 'text-muted-foreground line-through' : ''}`}>
+                          {product.name}
+                        </span>
                         <div className="flex items-center gap-2">
-                          <Badge variant={product.stock > 10 ? 'default' : product.stock > 0 ? 'secondary' : 'destructive'}>
-                            Stock: {product.stock}
+                          <Badge variant={productStock > 10 ? 'default' : productIsInStock ? 'secondary' : 'destructive'}>
+                            {productIsInStock ? `Bestand: ${productStock}` : 'Nicht verfuegbar'}
                           </Badge>
                           <span className="text-sm font-medium">${product.price}</span>
                         </div>
                       </div>
                     </SelectItem>
-                  ))
+                  )})
                 )}
               </SelectContent>
             </Select>
@@ -219,8 +389,8 @@ export function ShopProductSelectionDialog({
                       <DollarSign className="h-4 w-4" />
                       {selectedProduct.price}
                     </div>
-                    <Badge variant={selectedProduct.stock > 10 ? 'default' : selectedProduct.stock > 0 ? 'secondary' : 'destructive'}>
-                      {selectedProduct.stock} in stock
+                    <Badge variant={getProductStock(selectedProduct) > 10 ? 'default' : isProductInStock(selectedProduct) ? 'secondary' : 'destructive'}>
+                      {getProductStock(selectedProduct)} verfuegbar
                     </Badge>
                   </div>
                 </div>
@@ -230,41 +400,78 @@ export function ShopProductSelectionDialog({
 
           {/* Quantity */}
           <div className="space-y-2">
-            <Label htmlFor="quantity">Quantity</Label>
+            <Label htmlFor="quantity">Menge</Label>
             <Input
               id="quantity"
               type="number"
               min="1"
-              max={selectedProduct?.stock || 999}
+              max={getProductStock(selectedProduct) || 999}
               value={quantity}
               onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
               disabled={!selectedProductId}
             />
-            {selectedProduct && quantity > selectedProduct.stock && (
+            <div className="flex flex-wrap gap-2">
+              {quickQuantityOptions.map((value) => (
+                <Button
+                  key={value}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!selectedProductId}
+                  onClick={() => setQuantity(value)}
+                >
+                  {value}
+                </Button>
+              ))}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={!selectedProductId || !selectedProduct}
+                onClick={() => setQuantity(Math.max(1, getProductStock(selectedProduct) || 1))}
+              >
+                <Boxes className="mr-1 h-3.5 w-3.5" />
+                Max. Bestand
+              </Button>
+            </div>
+            {selectedProduct && quantity > getProductStock(selectedProduct) && (
               <p className="text-sm text-destructive">
-                Quantity exceeds available stock ({selectedProduct.stock})
+                Menge uebersteigt verfuegbaren Bestand ({getProductStock(selectedProduct)})
               </p>
             )}
           </div>
 
           {/* Total Price Preview */}
           {selectedProduct && (
-            <div className="flex items-center justify-between p-3 border rounded-lg bg-primary/5">
-              <span className="font-medium">Total Price:</span>
-              <span className="text-lg font-bold">
-                ${(selectedProduct.price * quantity).toFixed(2)}
-              </span>
+            <div className="space-y-2 p-3 border rounded-lg bg-primary/5">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Zwischensumme:</span>
+                <span className="text-lg font-bold">${subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>Auftragsgesamt nach Hinzufuegen:</span>
+                <span className="font-semibold text-foreground">${projectedOrderTotal.toFixed(2)}</span>
+              </div>
             </div>
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
           <Button variant="outline" onClick={handleClose} disabled={adding}>
-            Cancel
+            Abbrechen
           </Button>
-          <Button onClick={handleAddProduct} disabled={!selectedProductId || adding || loading}>
-            {adding ? 'Adding...' : 'Add Product'}
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              variant="secondary"
+              onClick={() => handleAddProduct(false)}
+              disabled={!selectedProductId || adding || loading}
+            >
+              {adding ? 'Fuegt hinzu...' : 'Hinzufuegen & weiter'}
+            </Button>
+            <Button onClick={() => handleAddProduct(true)} disabled={!selectedProductId || adding || loading}>
+              {adding ? 'Fuegt hinzu...' : 'Produkt hinzufuegen'}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -47,6 +47,33 @@ export interface OrderEPart {
   };
 }
 
+export interface OrderEPartNeedListEntry {
+  _id: string;
+  partId: {
+    _id: string;
+    itemName: string;
+    itemDescription: string;
+    category: string;
+    sku: string;
+  };
+  quantity: number;
+  needListId?: {
+    _id: string;
+    name: string;
+    status: 'draft' | 'ready' | 'ordered' | 'archived';
+  } | null;
+  needListName: string;
+  needListStatus: 'draft' | 'ready' | 'ordered' | 'archived';
+  targetType: 'existing' | 'new' | 'today';
+  notes?: string;
+  requestedAt: string;
+  requestedBy?: {
+    _id: string;
+    name: string;
+    email: string;
+  } | null;
+}
+
 export interface UnlockConfirmation {
   confirmedBy?: string;
   confirmedByName?: string;
@@ -94,7 +121,7 @@ export interface AdminOrder {
     status: string;
     estimatedTime: string;
   }[];
-  status: 'pending' | 'in-progress' | 'quality-check' | 'completed' | 'ready-for-pickup' | 'cancelled';
+  status: 'pending' | 'in-progress' | 'paused' | 'quality-check' | 'completed' | 'ready-for-pickup' | 'cancelled';
   priority: 'low' | 'normal' | 'high' | 'urgent';
   assignedStaff: {
     _id: string;
@@ -114,6 +141,7 @@ export interface AdminOrder {
     createdAt: string;
   }[];
   eParts: OrderEPart[];
+  ePartNeedListEntries?: OrderEPartNeedListEntry[];
   progress: number;
   timeline: {
     _id: string;
@@ -421,6 +449,33 @@ export const assignEPartToOrder = async (orderId: string, partId: string, versio
     return response.data;
   } catch (error: any) {
     console.error('assignEPartToOrder API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Record missing EPart that was added to a need list
+// Endpoint: POST /api/admin/orders/:id/eparts/need-list
+// Request: { partId: string, quantity: number, needListId?: string, needListName?: string, needListStatus?: string, targetType?: string, notes?: string }
+// Response: { success: boolean, message: string, order: AdminOrder }
+export const recordEPartNeedListEntry = async (
+  orderId: string,
+  entry: {
+    partId: string;
+    quantity: number;
+    needListId?: string;
+    needListName?: string;
+    needListStatus?: 'draft' | 'ready' | 'ordered' | 'archived';
+    targetType?: 'existing' | 'new' | 'today';
+    notes?: string;
+  }
+) => {
+  console.log('recordEPartNeedListEntry called:', { orderId, entry });
+  try {
+    const response = await api.post(`/api/admin/orders/${orderId}/eparts/need-list`, entry);
+    console.log('recordEPartNeedListEntry API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('recordEPartNeedListEntry API error:', error);
     throw new Error(error?.response?.data?.error || error.message);
   }
 };

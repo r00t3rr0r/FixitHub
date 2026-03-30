@@ -27,10 +27,21 @@ export interface Conversation {
   orderId: string;
   orderNumber: string;
   deviceInfo: string;
+  customer?: {
+    name: string;
+    email: string;
+    phone?: string;
+    isGuest?: boolean;
+  };
   participants: ConversationParticipant[];
   lastMessage: Message;
   unreadCount: number;
   status: 'active' | 'closed';
+  createdBy?: {
+    userId: string;
+    name: string;
+    role: 'customer' | 'staff' | 'admin';
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -125,6 +136,225 @@ export const startConversation = async (orderId: string, initialMessage: string)
     return response.data;
   } catch (error: any) {
     console.error('Error starting conversation:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// ============================================
+// ORDER FEEDBACK & INTERACTION ENDPOINTS
+// ============================================
+
+export interface FeedbackRequest {
+  _id: string;
+  type: string;
+  question: string;
+  options: Array<{ label: string; value: string }>;
+  response?: { label: string; value: string };
+  respondedAt?: string;
+  status: 'pending' | 'responded' | 'expired';
+  expiresAt?: string;
+}
+
+export interface QuickAction {
+  _id: string;
+  actionType: string;
+  actionLabel: string;
+  description?: string;
+  metadata?: any;
+  status: 'pending' | 'completed' | 'cancelled';
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface OrderCommunication {
+  _id: string;
+  communicationType?: 'order' | 'repair_request';
+  sourceId?: string;
+  orderId: string;
+  repairRequestId?: string;
+  orderNumber?: string;
+  requestNumber?: string;
+  deviceInfo?: string;
+  customer?: {
+    name: string;
+    email: string;
+    phone?: string;
+    isGuest?: boolean;
+  };
+  messages: CommunicationMessage[];
+  pendingFeedbackCount: number;
+  pendingActionsCount: number;
+  createdBy?: {
+    userId: string;
+    name: string;
+    role: 'customer' | 'staff' | 'admin';
+  };
+  status: 'active' | 'archived' | 'resolved';
+  lastMessageAt: string;
+}
+
+export interface CommunicationMessage {
+  _id: string;
+  senderType: 'staff' | 'customer' | 'system';
+  senderName: string;
+  senderRole?: string;
+  messageType: 'text' | 'feedback_request' | 'quick_action' | 'system_notification';
+  content: string;
+  feedbackRequest?: FeedbackRequest;
+  quickAction?: QuickAction;
+  attachments: Array<{ fileName: string; fileUrl: string; fileType: string }>;
+  createdAt: string;
+  readBy?: Array<{ userId: string; readAt: string }>;
+}
+
+// Description: Get inspection communication for an order
+// Endpoint: GET /api/inspection-communication/:orderId
+// Response: { communication: OrderCommunication }
+export const getInspectionCommunication = async (orderId: string) => {
+  try {
+    const response = await api.get(`/api/inspection-communication/${orderId}`);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching inspection communication:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Send message to inspection communication thread
+// Endpoint: POST /api/inspection-communication/:orderId/message
+// Request: { content: string }
+// Response: { communication: OrderCommunication }
+export const sendInspectionMessage = async (orderId: string, content: string) => {
+  try {
+    const response = await api.post(`/api/inspection-communication/${orderId}/message`, { content });
+    return response.data;
+  } catch (error: any) {
+    console.error('Error sending inspection communication message:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Get all inspection communications visible to the current user
+// Endpoint: GET /api/inspection-communication
+// Request: { page?: number, limit?: number, search?: string }
+// Response: { communications: OrderCommunication[], totalPages: number, currentPage: number, totalCount: number }
+export const getInspectionCommunications = async (params: any = {}) => {
+  try {
+    const response = await api.get('/api/inspection-communication', { params });
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching inspection communications:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Get all repair-request communications visible to the current user
+// Endpoint: GET /api/repair-request-communication
+// Request: { page?: number, limit?: number, search?: string }
+// Response: { communications: OrderCommunication[], totalPages: number, currentPage: number, totalCount: number }
+export const getRepairRequestCommunications = async (params: any = {}) => {
+  try {
+    const response = await api.get('/api/repair-request-communication', { params });
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching repair request communications:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Get repair request communication
+// Endpoint: GET /api/repair-request-communication/:repairRequestId
+// Response: { communication: OrderCommunication }
+export const getRepairRequestCommunication = async (repairRequestId: string) => {
+  try {
+    const response = await api.get(`/api/repair-request-communication/${repairRequestId}`);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching repair request communication:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Send message to repair-request communication thread
+// Endpoint: POST /api/repair-request-communication/:repairRequestId/message
+// Request: { content: string }
+// Response: { communication: OrderCommunication }
+export const sendRepairRequestMessage = async (repairRequestId: string, content: string) => {
+  try {
+    const response = await api.post(`/api/repair-request-communication/${repairRequestId}/message`, { content });
+    return response.data;
+  } catch (error: any) {
+    console.error('Error sending repair-request communication message:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Respond to a feedback request in a repair request communication
+// Endpoint: POST /api/repair-request-communication/:repairRequestId/feedback-response
+// Request: { messageId: string, response: { label: string, value: string } }
+// Response: { communication: OrderCommunication }
+export const respondToRepairRequestFeedback = async (
+  repairRequestId: string,
+  messageId: string,
+  response: { label: string; value: string }
+) => {
+  try {
+    const endpoint = `/api/repair-request-communication/${repairRequestId}/feedback-response`;
+    const apiResponse = await api.post(endpoint, { messageId, response });
+    return apiResponse.data;
+  } catch (error: any) {
+    console.error('Error responding to repair-request feedback:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Complete a quick action in a repair request communication
+// Endpoint: PUT /api/repair-request-communication/:repairRequestId/quick-action/:messageId/complete
+// Response: { communication: OrderCommunication }
+export const completeRepairRequestQuickAction = async (repairRequestId: string, messageId: string) => {
+  try {
+    const response = await api.put(
+      `/api/repair-request-communication/${repairRequestId}/quick-action/${messageId}/complete`,
+      {}
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error('Error completing repair-request quick action:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Respond to a feedback request
+// Endpoint: POST /api/inspection-communication/:orderId/feedback-response
+// Request: { messageId: string, response: { label: string, value: string } }
+// Response: { communication: OrderCommunication }
+export const respondToFeedback = async (
+  orderId: string,
+  messageId: string,
+  response: { label: string; value: string }
+) => {
+  try {
+    const endpoint = `/api/inspection-communication/${orderId}/feedback-response`;
+    const apiResponse = await api.post(endpoint, { messageId, response });
+    return apiResponse.data;
+  } catch (error: any) {
+    console.error('Error responding to feedback:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Complete a quick action
+// Endpoint: PUT /api/inspection-communication/:orderId/quick-action/:messageId/complete
+// Response: { communication: OrderCommunication }
+export const completeQuickAction = async (orderId: string, messageId: string) => {
+  try {
+    const response = await api.put(
+      `/api/inspection-communication/${orderId}/quick-action/${messageId}/complete`,
+      {}
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error('Error completing quick action:', error);
     throw new Error(error?.response?.data?.error || error.message);
   }
 };

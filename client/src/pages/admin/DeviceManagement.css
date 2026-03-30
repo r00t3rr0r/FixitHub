@@ -1,0 +1,167 @@
+/* Device Management page aligned to homepage McRepair design tokens */
+:root {
+  --primary-blue: #1a2a5e;
+  --primary-blue-dark: #0f1d45;
+  --accent-yellow: #f5b800;
+  --accent-yellow-hover: #e5ab00;
+  --white: #ffffff;
+  --off-white: #f8f9fc;
+  --gray-100: #eceef3;
+  --gray-300: #b0b8c9;
+  --gray-500: #636e85;
+  --gray-700: #2d3748;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --radius-md: 10px;
+  --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.device-mgmt-page {
+  font-family: var(--font-main);
+  color: var(--gray-700);
+  background: linear-gradient(180deg, #f8f9fc 0%, #ffffff 260px);
+  min-height: calc(100vh - 72px);
+}
+
+.device-mgmt-hero {
+  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-md);
+}
+
+.device-mgmt-title {
+  color: var(--white);
+}
+
+.device-mgmt-title svg {
+  color: var(--accent-yellow);
+}
+
+.device-mgmt-subtitle {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.device-mgmt-tabs {
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 0.25rem;
+}
+
+.device-mgmt-page [role='tab'][data-state='active'] {
+  background: var(--primary-blue);
+  color: var(--white);
+}
+
+.device-mgmt-page [role='tab'] {
+  color: var(--gray-500);
+}
+
+.device-mgmt-page [role='tab']:hover {
+  color: var(--primary-blue);
+}
+
+.device-mgmt-page .bg-purple-50,
+.device-mgmt-page .bg-amber-50,
+.device-mgmt-page .bg-cyan-50,
+.device-mgmt-page .bg-indigo-50,
+.device-mgmt-page .bg-rose-50,
+.device-mgmt-page .bg-emerald-50 {
+  background: #ffffff;
+}
+
+.device-mgmt-page .border-purple-200,
+.device-mgmt-page .border-amber-200,
+.device-mgmt-page .border-cyan-200,
+.device-mgmt-page .border-indigo-200,
+.device-mgmt-page .border-rose-200,
+.device-mgmt-page .border-emerald-200 {
+  border-color: var(--gray-100);
+}
+
+.device-mgmt-bulk-card {
+  border: 1px solid var(--gray-100);
+  box-shadow: var(--shadow-sm);
+  background: linear-gradient(180deg, #ffffff 0%, #fcfdff 100%);
+}
+
+.device-mgmt-page button[class*='bg-primary'],
+.device-mgmt-page button:not([class*='variant']) {
+  transition: all 0.2s ease;
+}
+
+.device-mgmt-page button:focus-visible {
+  outline: 2px solid rgba(26, 42, 94, 0.24);
+  outline-offset: 1px;
+}
+
+.device-mgmt-page .line-clamp-1 {
+  color: var(--primary-blue);
+}
+
+@media (max-width: 1024px) {
+  .device-mgmt-hero {
+    padding: 1rem;
+  }
+
+  .device-mgmt-title {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .device-mgmt-page {
+    padding-bottom: 2rem;
+  }
+
+  .device-mgmt-page .grid.md\:grid-cols-2,
+  .device-mgmt-page .grid.lg\:grid-cols-3,
+  .device-mgmt-page .grid.md\:grid-cols-2.lg\:grid-cols-4 {
+    grid-template-columns: 1fr;
+  }
+
+  .device-mgmt-tabs {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem;
+  }
+
+  .device-mgmt-page .w-full.h-40 {
+    height: 9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .device-mgmt-page {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .device-mgmt-hero {
+    border-radius: 12px;
+  }
+
+  .device-mgmt-title {
+    font-size: 1.25rem;
+  }
+
+  .device-mgmt-subtitle {
+    font-size: 0.9rem;
+  }
+
+  .device-mgmt-page .text-3xl {
+    font-size: 1.35rem;
+  }
+
+  .device-mgmt-page .max-w-4xl,
+  .device-mgmt-page .max-w-5xl {
+    width: calc(100vw - 1.5rem);
+    max-width: calc(100vw - 1.5rem);
+  }
+
+  .device-mgmt-page .h-32.w-32 {
+    width: 5.5rem;
+    height: 5.5rem;
+  }
+}

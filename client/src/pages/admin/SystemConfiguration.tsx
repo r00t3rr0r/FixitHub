@@ -23,11 +23,13 @@ import {
   runSecurityScan,
   SystemConfig,
   NotificationTemplate,
+  NotificationTemplateInput,
   Integration
 } from "@/api/systemConfig"
 import { NotificationTemplateDialog } from "@/components/admin/NotificationTemplateDialog"
 import { IntegrationDialog } from "@/components/admin/IntegrationDialog"
 import { LanguageManagementTab } from "@/components/admin/LanguageManagementTab"
+import { ProviderConfigurationTab } from "@/components/admin/ProviderConfigurationTab"
 import {
   Settings,
   Bell,
@@ -94,6 +96,30 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
+
+const containsHtml = (value: string) => /<\/?[a-z][\s\S]*>/i.test(value)
+
+const stripHtml = (value: string) => value
+  .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+  .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+  .replace(/<[^>]+>/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+
+const getTemplatePreviewText = (content: string) => {
+  const preview = stripHtml(content)
+  if (!preview) {
+    return 'HTML-E-Mail-Vorlage mit Layout und dynamischen Inhalten'
+  }
+
+  return preview.length > 220 ? `${preview.slice(0, 220).trim()}...` : preview
+}
+
+const getTemplateTypeLabel = (type: NotificationTemplate['type']) => {
+  if (type === 'email') return 'E-Mail'
+  if (type === 'sms') return 'SMS'
+  return 'Push'
+}
 
 export function SystemConfiguration() {
   const { t } = useTranslation()
@@ -223,7 +249,7 @@ export function SystemConfiguration() {
     setShowTemplateDialog(true)
   }
 
-  const handleSaveTemplate = async (templateData: Omit<NotificationTemplate, '_id'>) => {
+  const handleSaveTemplate = async (templateData: NotificationTemplateInput) => {
     try {
       if (templateDialogMode === 'create') {
         console.log("SystemConfiguration: Creating template...")
@@ -406,6 +432,7 @@ export function SystemConfiguration() {
         <TabsList className="h-auto bg-gradient-to-r from-[#1a2a5e]/10 to-[#2a3f7f]/10 border-b-2 border-[#1a2a5e] gap-1 p-1 w-full rounded-none">
           <TabsTrigger value="general" className="text-xs sm:text-sm py-2 px-2 sm:px-4">{t('admin.systemConfig.general')}</TabsTrigger>
           <TabsTrigger value="notifications" className="text-xs sm:text-sm py-2 px-2 sm:px-4">{t('admin.systemConfig.notifications')}</TabsTrigger>
+          <TabsTrigger value="providers" className="text-xs sm:text-sm py-2 px-2 sm:px-4">SMS/Push Providers</TabsTrigger>
           <TabsTrigger value="integrations" className="text-xs sm:text-sm py-2 px-2 sm:px-4">{t('admin.systemConfig.integrations')}</TabsTrigger>
           <TabsTrigger value="workflow" className="text-xs sm:text-sm py-2 px-2 sm:px-4">{t('admin.systemConfig.workflows')}</TabsTrigger>
           <TabsTrigger value="security" className="text-xs sm:text-sm py-2 px-2 sm:px-4">{t('admin.systemConfig.security')}</TabsTrigger>
@@ -724,35 +751,49 @@ export function SystemConfiguration() {
                 <div className="flex-1">
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <FileText className="h-5 w-5" />
-                    Notification Templates
+                    Kunden-Benachrichtigungsvorlagen
                   </CardTitle>
-                  <CardDescription className="text-blue-100 text-xs mt-1">Create and manage notification templates with dynamic variables</CardDescription>
+                  <CardDescription className="text-blue-100 text-xs mt-1">Deutsche Standardvorlagen fuer Registrierung, Auftragsbestaetigung, Statusupdates, Zahlungen und Passwort-Reset</CardDescription>
                 </div>
                 <Button onClick={handleCreateTemplate} size="sm" className="bg-white text-[#1a2a5e] hover:bg-blue-50">
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Template
+                  Vorlage anlegen
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="p-4">
+              <div className="mb-4 rounded-2xl border border-[#d8dce6] bg-gradient-to-r from-[#f8f9fc] via-white to-[#fff7df] p-4">
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[#1a2a5e]">McRepair Layout fuer transaktionale Kunden-E-Mails</p>
+                    <p className="text-xs text-muted-foreground">Die Vorlagen nutzen die Markenfarben der Homepage, eine klare Hierarchie und dynamische Platzhalter fuer kundenbezogene Inhalte.</p>
+                  </div>
+                  <Badge variant="outline" className="w-fit border-[#f5b800] bg-white text-[#1a2a5e]">
+                    {templates.length} Vorlagen verfuegbar
+                  </Badge>
+                </div>
+              </div>
               {templates.length === 0 ? (
                 <div className="text-center py-8">
                   <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-muted-foreground">No notification templates found</p>
-                  <p className="text-sm text-muted-foreground">Create your first template to get started</p>
+                  <p className="text-muted-foreground">Keine Benachrichtigungsvorlagen gefunden</p>
+                  <p className="text-sm text-muted-foreground">Legen Sie Ihre erste Vorlage fuer die Kundenkommunikation an</p>
                 </div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2">
                   {templates.map((template) => (
-                    <Card key={template._id} className="relative">
+                    <Card key={template._id} className="relative overflow-hidden border-[#d8dce6] shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
                       <CardHeader>
                         <div className="flex items-center justify-between">
                           <div>
                             <CardTitle className="text-lg">{template.name}</CardTitle>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="outline">{template.type}</Badge>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              <Badge variant="outline">{getTemplateTypeLabel(template.type)}</Badge>
+                              {containsHtml(template.content) && (
+                                <Badge variant="outline" className="border-[#f5b800] text-[#1a2a5e]">McRepair HTML</Badge>
+                              )}
                               <Badge variant={template.isActive ? "default" : "secondary"}>
-                                {template.isActive ? "Active" : "Inactive"}
+                                {template.isActive ? "Aktiv" : "Inaktiv"}
                               </Badge>
                             </div>
                           </div>
@@ -772,18 +813,18 @@ export function SystemConfiguration() {
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Template</AlertDialogTitle>
+                                  <AlertDialogTitle>Vorlage loeschen</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Are you sure you want to delete "{template.name}"? This action cannot be undone.
+                                    Moechten Sie "{template.name}" wirklich loeschen? Dieser Schritt kann nicht rueckgaengig gemacht werden.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogCancel>Abbrechen</AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={() => handleDeleteTemplate(template._id)}
                                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                   >
-                                    Delete
+                                    Loeschen
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
@@ -794,19 +835,19 @@ export function SystemConfiguration() {
                       <CardContent>
                         {template.subject && (
                           <div className="mb-2">
-                            <p className="text-sm font-medium">Subject:</p>
+                            <p className="text-sm font-medium">Betreff:</p>
                             <p className="text-sm text-muted-foreground">{template.subject}</p>
                           </div>
                         )}
                         <div className="mb-3">
-                          <p className="text-sm font-medium">Content Preview:</p>
+                          <p className="text-sm font-medium">Inhaltsvorschau:</p>
                           <p className="text-sm text-muted-foreground line-clamp-3">
-                            {template.content}
+                            {getTemplatePreviewText(template.content)}
                           </p>
                         </div>
                         {template.variables && template.variables.length > 0 && (
                           <div>
-                            <p className="text-sm font-medium mb-2">Variables ({template.variables.length}):</p>
+                            <p className="text-sm font-medium mb-2">Variablen ({template.variables.length}):</p>
                             <div className="flex flex-wrap gap-1">
                               {template.variables.slice(0, 3).map((variable) => (
                                 <Badge key={variable.name} variant="outline" className="text-xs">
@@ -815,7 +856,7 @@ export function SystemConfiguration() {
                               ))}
                               {template.variables.length > 3 && (
                                 <Badge variant="outline" className="text-xs">
-                                  +{template.variables.length - 3} more
+                                  +{template.variables.length - 3} mehr
                                 </Badge>
                               )}
                             </div>
@@ -828,6 +869,12 @@ export function SystemConfiguration() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Integrations Tab */}
+        {/* SMS/Push Providers Tab */}
+        <TabsContent value="providers" className="space-y-6">
+          <ProviderConfigurationTab />
         </TabsContent>
 
         {/* Integrations Tab */}

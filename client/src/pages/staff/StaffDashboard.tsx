@@ -199,6 +199,82 @@ const getDeadlineState = (value?: string | Date | null) => {
 
 const listPreview = (items: string[], limit = 2) => items.slice(0, limit).join(", ")
 
+const normalizeWorkflowStatus = (status?: string) => {
+  const value = String(status || "").toLowerCase()
+  if (value === "in_progress") return "in-progress"
+  return value || "not-started"
+}
+
+const getWorkflowMode = (workflow: any): "start" | "resume" | "execute" | "view" => {
+  const status = normalizeWorkflowStatus(workflow?.status)
+  if (status === "not-started") return "start"
+  if (status === "on-hold") return "resume"
+  if (status === "in-progress") return "execute"
+  return "view"
+}
+
+const getWorkflowStatusLabel = (status?: string) => {
+  switch (normalizeWorkflowStatus(status)) {
+    case "in-progress":
+      return "In Arbeit"
+    case "on-hold":
+      return "Pausiert"
+    case "completed":
+      return "Abgeschlossen"
+    default:
+      return "Pending"
+  }
+}
+
+const getWorkflowStatusTone = (status?: string) => {
+  switch (normalizeWorkflowStatus(status)) {
+    case "in-progress":
+      return "staff-dash-badge-new"
+    case "on-hold":
+      return "staff-dash-badge-urgent"
+    case "completed":
+      return "staff-dash-badge-ok"
+    default:
+      return "staff-dash-badge"
+  }
+}
+
+const getWorkflowCurrentStep = (workflow: any) => {
+  const steps = safeArray(workflow?.steps)
+  if (steps.length === 0) return null
+
+  const currentIndex = Number.isInteger(workflow?.currentStepIndex)
+    ? Math.min(Math.max(Number(workflow.currentStepIndex), 0), steps.length - 1)
+    : Math.max(steps.findIndex((step: any) => normalizeWorkflowStatus(step?.status) === "in-progress"), 0)
+
+  return steps[currentIndex] || steps[0] || null
+}
+
+const getWorkflowProgress = (workflow: any) => {
+  const steps = safeArray(workflow?.steps)
+  const totalSteps = steps.length
+  const completedSteps = steps.filter((step: any) => normalizeWorkflowStatus(step?.status) === "completed").length
+
+  return {
+    totalSteps,
+    completedSteps,
+    percentage: totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0,
+  }
+}
+
+const getWorkflowSortWeight = (status?: string) => {
+  switch (normalizeWorkflowStatus(status)) {
+    case "in-progress":
+      return 0
+    case "on-hold":
+      return 1
+    case "not-started":
+      return 2
+    default:
+      return 3
+  }
+}
+
 const statusDot = (status: string) => {
   const s = String(status || "").toLowerCase()
   if (s === "in-progress" || s === "in_progress" || s === "active") return "staff-dash-dot--blue"
@@ -227,6 +303,27 @@ interface DashboardHint {
   path?: string
   isUrgent?: boolean
   isNew?: boolean
+}
+
+interface DashboardWorkflowItem {
+  id: string
+  orderId: string
+  orderNumber: string
+  workflowId: string
+  workflowName: string
+  workflowStatus: string
+  workflowStatusLabel: string
+  workflowMode: "start" | "resume" | "execute" | "view"
+  customerName: string
+  deviceLabel: string
+  activeStepLabel: string
+  createdAt?: string
+  updatedAt?: string
+  orderPriority?: string
+  orderStatus?: string
+  progressPercentage: number
+  completedSteps: number
+  totalSteps: number
 }
 
 const FALLBACK: StaffData = {
@@ -264,7 +361,7 @@ export function StaffDashboard() {
       else setLoading(true)
 
       const [ordersResult, unassignedOrdersResult, repairResult, notifResult, staffResult, chatRoomsResult] = await Promise.allSettled([
-        getAssignedOrders({ limit: 10 }),
+        getAssignedOrders({ limit: 50 }),
         getAdminOrders({ page: 1, limit: 200 }),
         getRepairRequests({
           sortBy: "createdAt",
@@ -398,6 +495,18 @@ export function StaffDashboard() {
     navigate(`/orders/${orderId}`)
   }
 
+  const handleOpenWorkflowDetails = (workflowItem: DashboardWorkflowItem) => {
+    if (!workflowItem.orderId || !workflowItem.workflowId) return
+
+    navigate(`/orders/${workflowItem.orderId}`, {
+      state: {
+        openWorkflowId: workflowItem.workflowId,
+        workflowMode: workflowItem.workflowMode,
+        source: "staff-dashboard",
+      },
+    })
+  }
+
   const handleOpenRepairRequestDetails = (request: any) => {
     const requestId = request?._id
     if (!requestId) return
@@ -455,6 +564,56 @@ export function StaffDashboard() {
     ).length
     const pendingRepairs = unassignedRepairRequests.length
     const myTasksCount = data.orders.length + assignedRepairRequests.length
+    const assignedWorkflowItems: DashboardWorkflowItem[] = data.orders.flatMap((order: any) => {
+      const orderId = toId(order?._id)
+      if (!orderId) return []
+
+      const deviceLabel = order.device
+        ? `${order.device.brand || ""} ${order.device.model || ""}`.trim() || order.device.type || "Gerät"
+        : `${order.deviceBrand || ""} ${order.deviceModel || ""}`.trim() || order.deviceType || "Gerät"
+
+      return safeArray(order?.workflows).map((workflow: any) => {
+        const workflowStatus = normalizeWorkflowStatus(workflow?.status)
+        const currentStep = getWorkflowCurrentStep(workflow)
+        const progress = getWorkflowProgress(workflow)
+
+        return {
+          id: `${orderId}-${toId(workflow?._id || workflow?.workflowTemplateId || workflow?.workflowName)}`,
+          orderId,
+          orderNumber: order.orderNumber || orderId.slice(-6) || "–",
+          workflowId: toId(workflow?._id),
+          workflowName: workflow?.workflowName || workflow?.workflowTemplateId?.name || "Workflow",
+          workflowStatus,
+          workflowStatusLabel: getWorkflowStatusLabel(workflowStatus),
+          workflowMode: getWorkflowMode(workflow),
+          customerName: toName(order.customer || order.customerId),
+          deviceLabel,
+          activeStepLabel: currentStep?.stepName || currentStep?.name || "Kein Schritt definiert",
+          createdAt: workflow?.startedAt || order?.updatedAt || order?.createdAt,
+          updatedAt: workflow?.pausedAt || workflow?.completedAt || order?.updatedAt || order?.createdAt,
+          orderPriority: String(order?.priority || ""),
+          orderStatus: String(order?.status || ""),
+          progressPercentage: progress.percentage,
+          completedSteps: progress.completedSteps,
+          totalSteps: progress.totalSteps,
+        }
+      }).filter((workflow: DashboardWorkflowItem) => Boolean(workflow.workflowId))
+    })
+      .sort((a, b) => {
+        const byStatus = getWorkflowSortWeight(a.workflowStatus) - getWorkflowSortWeight(b.workflowStatus)
+        if (byStatus !== 0) return byStatus
+
+        const priorityA = ["urgent", "high"].includes(String(a.orderPriority || "").toLowerCase()) ? 0 : 1
+        const priorityB = ["urgent", "high"].includes(String(b.orderPriority || "").toLowerCase()) ? 0 : 1
+        if (priorityA !== priorityB) return priorityA - priorityB
+
+        return toTimestamp(b.updatedAt || b.createdAt) - toTimestamp(a.updatedAt || a.createdAt)
+      })
+
+    const pendingWorkflows = assignedWorkflowItems.filter((workflow) => workflow.workflowStatus === "not-started")
+    const actionableWorkflows = assignedWorkflowItems.filter((workflow) =>
+      ["in-progress", "on-hold"].includes(workflow.workflowStatus)
+    )
     const recentAssignedOrders = data.orders
       .filter((order: any) => isRecent(getOrderAssignmentDate(order, myStaffId), 72))
       .map((order: any) => ({
@@ -588,6 +747,8 @@ export function StaffDashboard() {
       assignedRepairRequests,
       unassignedRepairRequests,
       unassignedOrders,
+      pendingWorkflows,
+      actionableWorkflows,
       myTasksCount,
       myTasks,
       dashboardHints,
@@ -729,6 +890,125 @@ export function StaffDashboard() {
         >
           Ungelesene Hinweise: <strong>{data.unreadCount}</strong>
         </button>
+      </div>
+
+      <div className="staff-dash-workflow-grid">
+        <Card className="staff-dash-panel staff-dash-panel--highlight">
+          <CardHeader className="staff-dash-panel-header">
+            <CardTitle>
+              <Clock className="h-4 w-4 staff-dash-messages-icon" />
+              Pending Workflows
+            </CardTitle>
+            <CardDescription>
+              {derived.pendingWorkflows.length > 0 ? (
+                <span className="staff-dash-messages-label">{derived.pendingWorkflows.length} wartend</span>
+              ) : "Keine offenen Workflow-Starts"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="staff-dash-panel-content">
+            <ScrollArea className="staff-dash-scroll-area">
+              <div className="staff-dash-list">
+                {derived.pendingWorkflows.length === 0 && (
+                  <p className="staff-dash-empty">Keine pending Workflows in deinen zugewiesenen Orders</p>
+                )}
+                {derived.pendingWorkflows.slice(0, 8).map((workflow: DashboardWorkflowItem) => {
+                  const isUrgent = ["urgent", "high"].includes(String(workflow.orderPriority || "").toLowerCase())
+
+                  return (
+                    <button
+                      key={workflow.id}
+                      type="button"
+                      className={`staff-dash-list-item ${isUrgent ? "staff-dash-list-item--urgent" : ""}`}
+                      onClick={() => handleOpenWorkflowDetails(workflow)}
+                    >
+                      <div style={{ display: "grid", gap: "0.2rem", minWidth: 0 }}>
+                        <p className="staff-dash-title">{workflow.workflowName}</p>
+                        <p className="staff-dash-sub">Order #{workflow.orderNumber} · {workflow.customerName}</p>
+                        <p className="staff-dash-sub">{workflow.deviceLabel}</p>
+                        <p className="staff-dash-sub">Erster Schritt: {workflow.activeStepLabel}</p>
+                        <div className="staff-dash-progress">
+                          <div className="staff-dash-progress-fill" style={{ width: `${workflow.progressPercentage}%` }} />
+                        </div>
+                      </div>
+                      <div className="staff-dash-list-side">
+                        <Badge variant="outline" className={getWorkflowStatusTone(workflow.workflowStatus)}>
+                          {workflow.workflowStatusLabel}
+                        </Badge>
+                        <small>{workflow.completedSteps}/{workflow.totalSteps || 0} Schritte</small>
+                        <small>{timeAgo(workflow.createdAt)}</small>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </ScrollArea>
+            <Separator className="staff-dash-sep" />
+            <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/staff/orders")}>
+              Zugewiesene Orders öffnen
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="staff-dash-panel staff-dash-panel--accent">
+          <CardHeader className="staff-dash-panel-header">
+            <CardTitle>
+              <Play className="h-4 w-4" />
+              Workflows abzuarbeiten
+            </CardTitle>
+            <CardDescription>
+              {derived.actionableWorkflows.length > 0 ? (
+                <span className="staff-dash-messages-label">{derived.actionableWorkflows.length} aktiv oder pausiert</span>
+              ) : "Keine aktiven Workflows"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="staff-dash-panel-content">
+            <ScrollArea className="staff-dash-scroll-area">
+              <div className="staff-dash-list">
+                {derived.actionableWorkflows.length === 0 && (
+                  <p className="staff-dash-empty">Keine Workflows, die du aktuell weiterbearbeiten musst</p>
+                )}
+                {derived.actionableWorkflows.slice(0, 8).map((workflow: DashboardWorkflowItem) => {
+                  const isUrgent = ["urgent", "high"].includes(String(workflow.orderPriority || "").toLowerCase())
+                  const progressClass = workflow.workflowStatus === "on-hold"
+                    ? "staff-dash-progress-fill staff-dash-progress-fill--yellow"
+                    : "staff-dash-progress-fill"
+
+                  return (
+                    <button
+                      key={workflow.id}
+                      type="button"
+                      className={`staff-dash-list-item ${isUrgent ? "staff-dash-list-item--urgent" : ""}`}
+                      onClick={() => handleOpenWorkflowDetails(workflow)}
+                    >
+                      <div style={{ display: "grid", gap: "0.2rem", minWidth: 0 }}>
+                        <p className="staff-dash-title">{workflow.workflowName}</p>
+                        <p className="staff-dash-sub">Order #{workflow.orderNumber} · {workflow.customerName}</p>
+                        <p className="staff-dash-sub">Aktiver Schritt: {workflow.activeStepLabel}</p>
+                        <p className="staff-dash-sub">Order-Status: {capitalize(workflow.orderStatus)}</p>
+                        <div className="staff-dash-progress">
+                          <div className={progressClass} style={{ width: `${workflow.progressPercentage}%` }} />
+                        </div>
+                      </div>
+                      <div className="staff-dash-list-side">
+                        <Badge variant="outline" className={getWorkflowStatusTone(workflow.workflowStatus)}>
+                          {workflow.workflowStatusLabel}
+                        </Badge>
+                        <small>{workflow.completedSteps}/{workflow.totalSteps || 0} Schritte</small>
+                        <small>{timeAgo(workflow.updatedAt || workflow.createdAt)}</small>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </ScrollArea>
+            <Separator className="staff-dash-sep" />
+            <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/staff/orders")}>
+              Alle Workflow-Aufträge anzeigen
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       {/* ── Main Grid: Aufträge | Repair Requests | Hinweise ─── */}

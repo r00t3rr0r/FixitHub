@@ -1,183 +1,488 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { useAuth } from "@/contexts/AuthContext";
-import { registerDuringCheckout, completeGuestCheckout } from "@/api/checkout";
-import { useToast } from "@/hooks/useToast";
-import { useTranslation } from 'react-i18next';
-import { UserPlus, LogIn, Eye, EyeOff, UserCheck, Package } from "lucide-react";
-import { mergeGuestCartWithUserCart } from "@/utils/guestCart";
-import { addToCart, addRepairOrderToCart } from "@/api/shop";
-import { getGuestCart, clearGuestCart } from "@/utils/guestCart";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/contexts/AuthContext"
+import { registerDuringCheckout, completeGuestCheckout, initializeCheckout, completeCheckout } from "@/api/checkout"
+import { useToast } from "@/hooks/useToast"
+import { useTranslation } from "react-i18next"
+import {
+  UserPlus,
+  LogIn,
+  Eye,
+  EyeOff,
+  UserCheck,
+  Package,
+  CreditCard,
+  Landmark,
+  Wallet,
+  Shield,
+  Loader2,
+  CheckCircle2,
+  Lock,
+  Truck,
+  MapPin,
+  Mail,
+  Phone,
+  User,
+  Check,
+  Wrench,
+  Tag,
+} from "lucide-react"
+import { addToCart, addRepairOrderToCart, Cart } from "@/api/shop"
+import { getGuestCart, clearGuestCart } from "@/utils/guestCart"
 
 interface CheckoutDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSuccess: () => void | Promise<void>
+  cart: Cart | null
 }
 
-export function CheckoutDialog({ open, onOpenChange, onSuccess }: CheckoutDialogProps) {
-  const { t } = useTranslation();
-  const { login } = useAuth();
-  const { toast } = useToast();
+type CheckoutMode = "authenticated" | "guest" | null
 
-  // Login form state
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-  const [showLoginPassword, setShowLoginPassword] = useState(false);
-  const [loginLoading, setLoginLoading] = useState(false);
+type GuestInfoState = {
+  email: string
+  firstName: string
+  lastName: string
+  phone: string
+  billingAddress: {
+    street: string
+    city: string
+    state: string
+    zipCode: string
+    country: string
+  }
+  shippingAddress: {
+    street: string
+    city: string
+    state: string
+    zipCode: string
+    country: string
+  }
+}
 
-  // Registration form state
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [company, setCompany] = useState("");
-  const [country, setCountry] = useState("");
-  const [vatId, setVatId] = useState("");
+export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: CheckoutDialogProps) {
+  const { t } = useTranslation()
+  const { login, isAuthenticated } = useAuth()
+  const { toast } = useToast()
+  const navigate = useNavigate()
 
-  // Billing address
-  const [billingStreet, setBillingStreet] = useState("");
-  const [billingCity, setBillingCity] = useState("");
-  const [billingState, setBillingState] = useState("");
-  const [billingZipCode, setBillingZipCode] = useState("");
-  const [billingCountry, setBillingCountry] = useState("");
+  const [step, setStep] = useState<"auth" | "review">("auth")
+  const [mode, setMode] = useState<CheckoutMode>(null)
+  const [reviewCart, setReviewCart] = useState<Cart | null>(null)
+  const [initializingCheckout, setInitializingCheckout] = useState(false)
 
-  // Shipping address
-  const [shippingStreet, setShippingStreet] = useState("");
-  const [shippingCity, setShippingCity] = useState("");
-  const [shippingState, setShippingState] = useState("");
-  const [shippingZipCode, setShippingZipCode] = useState("");
-  const [shippingCountry, setShippingCountry] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "paypal" | "invoice">("card")
+  const [acceptTerms, setAcceptTerms] = useState(false)
+  const [processingCheckout, setProcessingCheckout] = useState(false)
 
-  // Checkbox to determine if billing address is same as shipping
-  const [billingIsShipping, setBillingIsShipping] = useState(true);
+  const [checkoutSuccessResult, setCheckoutSuccessResult] = useState<any>(null)
+  const [guestCheckoutResult, setGuestCheckoutResult] = useState<any>(null)
+  const [userInfo, setUserInfo] = useState<any>(null)
 
-  const [registerLoading, setRegisterLoading] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("")
+  const [loginPassword, setLoginPassword] = useState("")
+  const [showLoginPassword, setShowLoginPassword] = useState(false)
+  const [loginLoading, setLoginLoading] = useState(false)
 
-  // Guest checkout form state
-  const [guestEmail, setGuestEmail] = useState("");
-  const [guestFirstName, setGuestFirstName] = useState("");
-  const [guestLastName, setGuestLastName] = useState("");
-  const [guestPhone, setGuestPhone] = useState("");
-  
-  // Guest billing address
-  const [guestBillingStreet, setGuestBillingStreet] = useState("");
-  const [guestBillingCity, setGuestBillingCity] = useState("");
-  const [guestBillingState, setGuestBillingState] = useState("");
-  const [guestBillingZipCode, setGuestBillingZipCode] = useState("");
-  const [guestBillingCountry, setGuestBillingCountry] = useState("");
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [phone, setPhone] = useState("")
+  const [company, setCompany] = useState("")
+  const [country, setCountry] = useState("")
+  const [vatId, setVatId] = useState("")
 
-  // Guest shipping address
-  const [guestShippingStreet, setGuestShippingStreet] = useState("");
-  const [guestShippingCity, setGuestShippingCity] = useState("");
-  const [guestShippingState, setGuestShippingState] = useState("");
-  const [guestShippingZipCode, setGuestShippingZipCode] = useState("");
-  const [guestShippingCountry, setGuestShippingCountry] = useState("");
+  const [billingStreet, setBillingStreet] = useState("")
+  const [billingCity, setBillingCity] = useState("")
+  const [billingState, setBillingState] = useState("")
+  const [billingZipCode, setBillingZipCode] = useState("")
+  const [billingCountry, setBillingCountry] = useState("")
 
-  // Guest checkbox to determine if billing address is same as shipping
-  const [guestBillingIsShipping, setGuestBillingIsShipping] = useState(true);
+  const [shippingStreet, setShippingStreet] = useState("")
+  const [shippingCity, setShippingCity] = useState("")
+  const [shippingState, setShippingState] = useState("")
+  const [shippingZipCode, setShippingZipCode] = useState("")
+  const [shippingCountry, setShippingCountry] = useState("")
 
-  const [guestCheckoutLoading, setGuestCheckoutLoading] = useState(false);
-  
-  // Guest checkout result with tracking links
-  const [guestCheckoutResult, setGuestCheckoutResult] = useState<any>(null);
+  const [billingIsShipping, setBillingIsShipping] = useState(true)
+  const [registerLoading, setRegisterLoading] = useState(false)
 
-  const navigate = useNavigate();
+  const [guestEmail, setGuestEmail] = useState("")
+  const [guestFirstName, setGuestFirstName] = useState("")
+  const [guestLastName, setGuestLastName] = useState("")
+  const [guestPhone, setGuestPhone] = useState("")
+
+  const [guestBillingStreet, setGuestBillingStreet] = useState("")
+  const [guestBillingCity, setGuestBillingCity] = useState("")
+  const [guestBillingState, setGuestBillingState] = useState("")
+  const [guestBillingZipCode, setGuestBillingZipCode] = useState("")
+  const [guestBillingCountry, setGuestBillingCountry] = useState("")
+
+  const [guestShippingStreet, setGuestShippingStreet] = useState("")
+  const [guestShippingCity, setGuestShippingCity] = useState("")
+  const [guestShippingState, setGuestShippingState] = useState("")
+  const [guestShippingZipCode, setGuestShippingZipCode] = useState("")
+  const [guestShippingCountry, setGuestShippingCountry] = useState("")
+
+  const [guestBillingIsShipping, setGuestBillingIsShipping] = useState(true)
+
+  const [guestInfo, setGuestInfo] = useState<GuestInfoState | null>(null)
+
+  // Payment-method-specific field states
+  const [cardholderName, setCardholderName] = useState("")
+  const [cardNumber, setCardNumber] = useState("")
+  const [cardExpiry, setCardExpiry] = useState("")
+  const [cardCvc, setCardCvc] = useState("")
+  const [paypalEmail, setPaypalEmail] = useState("")
+
+  const getProductImage = (product: any) => {
+    if (Array.isArray(product?.images) && product.images.length > 0) {
+      return product.images[0]
+    }
+
+    if (typeof product?.image === "string" && product.image.trim()) {
+      return product.image
+    }
+
+    return null
+  }
+
+  const getRepairOrderImage = (order: any) => {
+    if (typeof order?.deviceImage === "string" && order.deviceImage.trim()) {
+      return order.deviceImage
+    }
+
+    if (Array.isArray(order?.photos) && order.photos.length > 0) {
+      return order.photos[0]
+    }
+
+    return null
+  }
+
+  const totals = useMemo(() => {
+    const subtotal = Number(reviewCart?.subtotal || 0)
+    const tax = Number(reviewCart?.tax || 0)
+    const discount = Number(reviewCart?.discount || 0)
+    const total = Number(reviewCart?.total || 0)
+    return { subtotal, tax, discount, total }
+  }, [reviewCart])
+
+  const paymentOptions = [
+    {
+      value: "card" as const,
+      label: t("checkout.paymentCard"),
+      icon: CreditCard,
+      hint: t("checkout.paymentCardHint"),
+    },
+    {
+      value: "paypal" as const,
+      label: t("checkout.paymentPaypal"),
+      icon: Wallet,
+      hint: t("checkout.paymentPaypalHint"),
+    },
+    {
+      value: "invoice" as const,
+      label: t("checkout.paymentInvoice"),
+      icon: Landmark,
+      hint: t("checkout.paymentInvoiceHint"),
+    },
+  ]
+
+  const resetReviewState = () => {
+    setStep("auth")
+    setMode(null)
+    setReviewCart(null)
+    setGuestInfo(null)
+    setUserInfo(null)
+    setInitializingCheckout(false)
+    setProcessingCheckout(false)
+    setPaymentMethod("card")
+    setAcceptTerms(false)
+    setCardholderName("")
+    setCardNumber("")
+    setCardExpiry("")
+    setCardCvc("")
+    setPaypalEmail("")
+  }
+
+  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, "").slice(0, 16)
+    const formatted = raw.match(/.{1,4}/g)?.join(" ") ?? raw
+    setCardNumber(formatted)
+  }
+
+  const handleCardExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, "").slice(0, 4)
+    const formatted = raw.length > 2 ? `${raw.slice(0, 2)}/${raw.slice(2)}` : raw
+    setCardExpiry(formatted)
+  }
+
+  const validatePaymentDetails = (): boolean => {
+    if (paymentMethod === "card") {
+      if (!cardholderName.trim()) {
+        toast({ title: t("common.error"), description: t("checkout.cardholderNameRequired"), variant: "destructive" })
+        return false
+      }
+      const rawCard = cardNumber.replace(/\s/g, "")
+      if (!/^\d{16}$/.test(rawCard)) {
+        toast({ title: t("common.error"), description: t("checkout.invalidCardNumber"), variant: "destructive" })
+        return false
+      }
+      if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(cardExpiry)) {
+        toast({ title: t("common.error"), description: t("checkout.invalidCardExpiry"), variant: "destructive" })
+        return false
+      }
+      if (!/^\d{3,4}$/.test(cardCvc.trim())) {
+        toast({ title: t("common.error"), description: t("checkout.invalidCardCvc"), variant: "destructive" })
+        return false
+      }
+    }
+    return true
+  }
+
+  const renderPaymentDetails = () => {
+    if (paymentMethod === "card") {
+      return (
+        <div className="mt-2 space-y-2 rounded-lg border border-[#c9d9f5] bg-[#f4f8ff] p-3">
+          <p className="text-xs font-bold text-[#1a2a5e]">{t("checkout.cardDetails")}</p>
+          <div className="space-y-1">
+            <Label htmlFor="cardholderName" className="text-xs font-semibold">{t("checkout.cardholderName")}</Label>
+            <Input
+              id="cardholderName"
+              value={cardholderName}
+              onChange={(e) => setCardholderName(e.target.value)}
+              placeholder={t("checkout.cardholderNamePlaceholder")}
+              className="h-8 text-sm"
+              autoComplete="cc-name"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="cardNumber" className="text-xs font-semibold">{t("checkout.cardNumber")}</Label>
+            <Input
+              id="cardNumber"
+              value={cardNumber}
+              onChange={handleCardNumberChange}
+              placeholder="1234 5678 9012 3456"
+              className="h-8 font-mono text-sm tracking-wider"
+              inputMode="numeric"
+              autoComplete="cc-number"
+              maxLength={19}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label htmlFor="cardExpiry" className="text-xs font-semibold">{t("checkout.cardExpiry")}</Label>
+              <Input
+                id="cardExpiry"
+                value={cardExpiry}
+                onChange={handleCardExpiryChange}
+                placeholder="MM/JJ"
+                className="h-8 text-sm"
+                inputMode="numeric"
+                autoComplete="cc-exp"
+                maxLength={5}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="cardCvc" className="text-xs font-semibold">{t("checkout.cardCvc")}</Label>
+              <Input
+                id="cardCvc"
+                value={cardCvc}
+                onChange={(e) => setCardCvc(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                placeholder="CVC"
+                className="h-8 text-sm"
+                inputMode="numeric"
+                autoComplete="cc-csc"
+                maxLength={4}
+              />
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    if (paymentMethod === "paypal") {
+      return (
+        <div className="mt-2 space-y-2 rounded-lg border border-[#c9d9f5] bg-[#f4f8ff] p-3">
+          <p className="text-xs text-[#5f6d86]">{t("checkout.paypalRedirectNotice")}</p>
+          <div className="space-y-1">
+            <Label htmlFor="paypalEmail" className="text-xs font-semibold">{t("checkout.paypalEmail")}</Label>
+            <Input
+              id="paypalEmail"
+              type="email"
+              value={paypalEmail}
+              onChange={(e) => setPaypalEmail(e.target.value)}
+              placeholder="paypal@example.com"
+              className="h-8 text-sm"
+              autoComplete="email"
+            />
+            <p className="text-[10px] text-[#5f6d86]">{t("checkout.paypalEmailDesc")}</p>
+          </div>
+        </div>
+      )
+    }
+
+    if (paymentMethod === "invoice") {
+      return (
+        <div className="mt-2 rounded-lg border border-[#c9d9f5] bg-[#f4f8ff] p-3">
+          <p className="text-xs text-[#5f6d86]">{t("checkout.invoiceDesc")}</p>
+        </div>
+      )
+    }
+
+    return null
+  }
+
+  const prepareAuthenticatedReview = async () => {
+    try {
+      setInitializingCheckout(true)
+      const response = await initializeCheckout()
+      setMode("authenticated")
+      setUserInfo((response as any).userInfo || null)
+      setReviewCart((response as any).cart || cart)
+      setStep("review")
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message || t("checkout.checkoutFailed"),
+        variant: "destructive",
+      })
+      setStep("auth")
+    } finally {
+      setInitializingCheckout(false)
+    }
+  }
+
+  const mergeGuestCartIntoUserCart = async () => {
+    const localGuestCart = getGuestCart()
+    if (localGuestCart.items.length === 0 && localGuestCart.repairOrders.length === 0) {
+      return
+    }
+
+    for (const item of localGuestCart.items) {
+      await addToCart({ productId: item.product._id, quantity: item.quantity, product: item.product as any })
+    }
+
+    for (const repairOrder of localGuestCart.repairOrders) {
+      await addRepairOrderToCart(repairOrder as any)
+    }
+
+    clearGuestCart()
+  }
+
+  useEffect(() => {
+    if (!open) {
+      resetReviewState()
+      return
+    }
+
+    setCheckoutSuccessResult(null)
+    setGuestCheckoutResult(null)
+
+    if (isAuthenticated) {
+      prepareAuthenticatedReview()
+    } else {
+      setStep("auth")
+      setMode(null)
+      setReviewCart(cart)
+    }
+  }, [open, isAuthenticated])
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
 
     if (!loginEmail || !loginPassword) {
       toast({
-        title: t('common.error'),
-        description: t('checkout.pleaseEnterEmailPassword'),
-        variant: "destructive"
-      });
-      return;
+        title: t("common.error"),
+        description: t("checkout.pleaseEnterEmailPassword"),
+        variant: "destructive",
+      })
+      return
     }
 
     try {
-      setLoginLoading(true);
-      await login(loginEmail, loginPassword);
+      setLoginLoading(true)
+      await login(loginEmail, loginPassword)
+
+      await mergeGuestCartIntoUserCart()
 
       toast({
-        title: t('common.success'),
-        description: t('checkout.loginSuccessful')
-      });
+        title: t("common.success"),
+        description: t("checkout.loginSuccessful"),
+      })
 
-      onSuccess();
-      onOpenChange(false);
+      await prepareAuthenticatedReview()
     } catch (error: any) {
-      console.error("Login error:", error);
       toast({
-        title: t('common.error'),
-        description: error.message || t('checkout.loginFailed'),
-        variant: "destructive"
-      });
+        title: t("common.error"),
+        description: error.message || t("checkout.loginFailed"),
+        variant: "destructive",
+      })
     } finally {
-      setLoginLoading(false);
+      setLoginLoading(false)
     }
-  };
+  }
 
   const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
 
-    // Validation
     if (!email || !password || !firstName || !lastName) {
       toast({
-        title: t('common.error'),
-        description: t('checkout.pleaseEnterRequiredFields'),
-        variant: "destructive"
-      });
-      return;
+        title: t("common.error"),
+        description: t("checkout.pleaseEnterRequiredFields"),
+        variant: "destructive",
+      })
+      return
     }
 
     if (password !== confirmPassword) {
       toast({
-        title: t('common.error'),
-        description: t('checkout.passwordsDoNotMatch'),
-        variant: "destructive"
-      });
-      return;
+        title: t("common.error"),
+        description: t("checkout.passwordsDoNotMatch"),
+        variant: "destructive",
+      })
+      return
     }
 
     if (password.length < 6) {
       toast({
-        title: t('common.error'),
-        description: t('checkout.passwordTooShort'),
-        variant: "destructive"
-      });
-      return;
+        title: t("common.error"),
+        description: t("checkout.passwordTooShort"),
+        variant: "destructive",
+      })
+      return
     }
 
     try {
-      setRegisterLoading(true);
+      setRegisterLoading(true)
 
-      // If billing is shipping, use billing address for shipping
-      const finalShippingAddress = billingIsShipping ? {
-        street: billingStreet,
-        city: billingCity,
-        state: billingState,
-        zipCode: billingZipCode,
-        country: billingCountry
-      } : {
-        street: shippingStreet,
-        city: shippingCity,
-        state: shippingState,
-        zipCode: shippingZipCode,
-        country: shippingCountry
-      };
+      const finalShippingAddress = billingIsShipping
+        ? {
+            street: billingStreet,
+            city: billingCity,
+            state: billingState,
+            zipCode: billingZipCode,
+            country: billingCountry,
+          }
+        : {
+            street: shippingStreet,
+            city: shippingCity,
+            state: shippingState,
+            zipCode: shippingZipCode,
+            country: shippingCountry,
+          }
 
       const response = await registerDuringCheckout({
         email,
@@ -193,1050 +498,915 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess }: CheckoutDialog
           city: billingCity,
           state: billingState,
           zipCode: billingZipCode,
-          country: billingCountry
+          country: billingCountry,
         },
-        shippingAddress: finalShippingAddress
-      });
+        shippingAddress: finalShippingAddress,
+      })
 
-      // Store tokens and auto-login
-      localStorage.setItem("accessToken", response.accessToken);
-      localStorage.setItem("refreshToken", response.refreshToken);
+      localStorage.setItem("accessToken", response.accessToken)
+      localStorage.setItem("refreshToken", response.refreshToken)
 
-      console.log('CheckoutDialog: Registration successful, merging guest cart...');
-
-      // Merge guest cart with user cart after successful registration
-      try {
-        await mergeGuestCartWithUserCart({
-          addToCart,
-          addRepairOrderToCart
-        });
-        console.log('CheckoutDialog: Guest cart merged successfully');
-      } catch (mergeError) {
-        console.error('CheckoutDialog: Error merging guest cart:', mergeError);
-        // Continue anyway - cart merge is not critical
-      }
+      await mergeGuestCartIntoUserCart()
 
       toast({
-        title: t('common.success'),
-        description: t('checkout.accountCreatedSuccessfully')
-      });
+        title: t("common.success"),
+        description: t("checkout.accountCreatedSuccessfully"),
+      })
 
-      // Close dialog and trigger success callback instead of reloading
-      onOpenChange(false);
-      onSuccess();
+      await prepareAuthenticatedReview()
     } catch (error: any) {
-      console.error("Registration error:", error);
       toast({
-        title: t('common.error'),
-        description: error.message || t('checkout.registrationFailed'),
-        variant: "destructive"
-      });
+        title: t("common.error"),
+        description: error.message || t("checkout.registrationFailed"),
+        variant: "destructive",
+      })
     } finally {
-      setRegisterLoading(false);
+      setRegisterLoading(false)
     }
-  };
+  }
 
-  const handleGuestCheckout = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handlePrepareGuestReview = async (e: React.FormEvent) => {
+    e.preventDefault()
 
-    // Validation
     if (!guestEmail || !guestFirstName || !guestLastName) {
       toast({
-        title: t('common.error'),
-        description: t('checkout.pleaseEnterGuestRequiredFields'),
-        variant: "destructive"
-      });
-      return;
+        title: t("common.error"),
+        description: t("checkout.pleaseEnterGuestRequiredFields"),
+        variant: "destructive",
+      })
+      return
     }
 
-    // Validate billing address
     if (!guestBillingStreet || !guestBillingCity || !guestBillingZipCode) {
       toast({
-        title: t('common.error'),
-        description: t('checkout.pleaseEnterGuestRequiredFields'),
-        variant: "destructive"
-      });
-      return;
+        title: t("common.error"),
+        description: t("checkout.pleaseEnterGuestRequiredFields"),
+        variant: "destructive",
+      })
+      return
     }
 
-    try {
-      setGuestCheckoutLoading(true);
+    const localGuestCart = getGuestCart()
+    if (localGuestCart.items.length === 0 && localGuestCart.repairOrders.length === 0) {
+      toast({
+        title: t("common.error"),
+        description: t("cart.failedToLoad"),
+        variant: "destructive",
+      })
+      return
+    }
 
-      // Get guest cart data
-      const guestCart = getGuestCart();
-
-      if (guestCart.items.length === 0 && guestCart.repairOrders.length === 0) {
-        toast({
-          title: t('common.error'),
-          description: t('cart.failedToLoad'),
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Prepare shipping address
-      const finalShippingAddress = guestBillingIsShipping ? {
-        street: guestBillingStreet,
-        city: guestBillingCity,
-        state: guestBillingState,
-        zipCode: guestBillingZipCode,
-        country: guestBillingCountry
-      } : {
-        street: guestShippingStreet,
-        city: guestShippingCity,
-        state: guestShippingState,
-        zipCode: guestShippingZipCode,
-        country: guestShippingCountry
-      };
-
-      const guestInfo = {
-        email: guestEmail,
-        firstName: guestFirstName,
-        lastName: guestLastName,
-        phone: guestPhone,
-        billingAddress: {
+    const finalShippingAddress = guestBillingIsShipping
+      ? {
           street: guestBillingStreet,
           city: guestBillingCity,
           state: guestBillingState,
           zipCode: guestBillingZipCode,
-          country: guestBillingCountry
-        },
-        shippingAddress: finalShippingAddress
-      };
+          country: guestBillingCountry,
+        }
+      : {
+          street: guestShippingStreet,
+          city: guestShippingCity,
+          state: guestShippingState,
+          zipCode: guestShippingZipCode,
+          country: guestShippingCountry,
+        }
 
-      const cartData = {
-        items: guestCart.items,
-        repairOrders: guestCart.repairOrders
-      };
+    setGuestInfo({
+      email: guestEmail,
+      firstName: guestFirstName,
+      lastName: guestLastName,
+      phone: guestPhone,
+      billingAddress: {
+        street: guestBillingStreet,
+        city: guestBillingCity,
+        state: guestBillingState,
+        zipCode: guestBillingZipCode,
+        country: guestBillingCountry,
+      },
+      shippingAddress: finalShippingAddress,
+    })
 
-      console.log('CheckoutDialog: Processing guest checkout with data:', { guestInfo, cartData });
+    setReviewCart({
+      _id: "guest-cart",
+      user: "guest",
+      items: localGuestCart.items.map((item) => ({
+        _id: item._id,
+        productId: item.product as any,
+        quantity: item.quantity,
+        price: item.product.price,
+      })),
+      repairOrders: localGuestCart.repairOrders as any,
+      subtotal: localGuestCart.totalCost,
+      tax: 0,
+      total: localGuestCart.totalCost,
+      totalItems: localGuestCart.itemCount,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    })
 
-      const response = await completeGuestCheckout(guestInfo, cartData);
+    setMode("guest")
+    setStep("review")
+  }
 
-      console.log('CheckoutDialog: Guest checkout successful:', response);
-
-      // Clear guest cart after successful checkout
-      clearGuestCart();
-
-      // Store checkout result with tracking links
-      setGuestCheckoutResult({
-        success: true,
-        bookingNumber: response.booking?.bookingNumber,
-        orderNumbers: response.orders?.map((o: any) => o.orderNumber) || [],
-        totalAmount: Number(response.orders?.reduce((sum: number, o: any) => sum + Number(o.totalCost || 0), 0) || 0),
-        guestEmail: response.guestEmail,
-        orderTrackingToken: response.trackingToken,
-        bookingTrackingToken: response.bookingTrackingToken,
-        orderCount: response.orderIds?.length || 0
-      });
-
+  const handlePayNow = async () => {
+    if (!acceptTerms) {
       toast({
-        title: t('common.success'),
-        description: t('checkout.guestCheckoutSuccessful')
-      });
-
-      // Don't close dialog - show tracking links instead
-      // Dialog will be closed when user clicks "Done" on the success screen
-    } catch (error: any) {
-      console.error("Guest checkout error:", error);
-      toast({
-        title: t('common.error'),
-        description: error.message || t('checkout.guestCheckoutFailed'),
-        variant: "destructive"
-      });
-    } finally {
-      setGuestCheckoutLoading(false);
+        title: t("common.error"),
+        description: t("checkout.acceptTermsRequired"),
+        variant: "destructive",
+      })
+      return
     }
-  };
+
+    if (!validatePaymentDetails()) return
+
+    // Build non-sensitive payment metadata to pass to the gateway/backend.
+    // NOTE: In production replace card fields with Stripe Elements tokenization —
+    // the raw card number and CVC must never reach your own server (PCI DSS).
+    const rawCard = cardNumber.replace(/\s/g, "")
+    const expiryParts = cardExpiry.split("/")
+    const paymentData: Record<string, string> =
+      paymentMethod === "card"
+        ? {
+            cardholderName,
+            lastFour: rawCard.slice(-4),
+            expiryMonth: expiryParts[0] ?? "",
+            expiryYear: expiryParts[1] ?? "",
+          }
+        : paymentMethod === "paypal"
+        ? { paypalEmail }
+        : {}
+
+    try {
+      setProcessingCheckout(true)
+
+      if (mode === "guest") {
+        const localGuestCart = getGuestCart()
+        if (!guestInfo) {
+          throw new Error(t("checkout.guestCheckoutFailed"))
+        }
+
+        const response = await completeGuestCheckout(
+          guestInfo as any,
+          { items: localGuestCart.items, repairOrders: localGuestCart.repairOrders },
+          paymentMethod,
+          paymentData
+        )
+
+        clearGuestCart()
+
+        setGuestCheckoutResult({
+          success: true,
+          bookingNumber: response.booking?.bookingNumber,
+          orderNumbers: response.orders?.map((o: any) => o.orderNumber) || [],
+          totalAmount: Number(response.orders?.reduce((sum: number, o: any) => sum + Number(o.totalCost || 0), 0) || 0),
+          guestEmail: response.guestEmail,
+          orderTrackingToken: response.trackingToken,
+          bookingTrackingToken: response.bookingTrackingToken,
+          orderCount: response.orderIds?.length || 0,
+        })
+
+        toast({
+          title: t("common.success"),
+          description: t("checkout.guestCheckoutSuccessful"),
+        })
+
+        await onSuccess()
+        return
+      }
+
+      const checkoutResult = await completeCheckout(paymentMethod, paymentData)
+      setCheckoutSuccessResult(checkoutResult)
+
+      toast({
+        title: t("common.success"),
+        description: checkoutResult.message || t("checkout.checkoutDone"),
+      })
+
+      await onSuccess()
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message || t("checkout.checkoutFailed"),
+        variant: "destructive",
+      })
+    } finally {
+      setProcessingCheckout(false)
+    }
+  }
+
+  const closeAndNavigateBookings = () => {
+    onOpenChange(false)
+    navigate("/bookings")
+  }
+
+  const renderOrderRows = () => {
+    if (!reviewCart) return null
+
+    return (
+      <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+        {reviewCart.items.map((item) => {
+          const product = item.productId as any
+          const lineTotal = (Number(product?.price || item.price || 0) * Number(item.quantity || 1)).toFixed(2)
+          const productImage = getProductImage(product)
+          return (
+            <div key={`product-${item._id}`} className="flex items-start gap-2.5 rounded-lg border border-[#e5eaf4] bg-white p-2.5">
+              <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-[#eef3ff]">
+                {productImage ? (
+                  <img
+                    src={productImage}
+                    alt={product?.name || t("checkout.article")}
+                    className="h-full w-full object-cover"
+                    onError={(event) => {
+                      event.currentTarget.style.display = "none"
+                      const fallback = event.currentTarget.nextElementSibling as HTMLElement | null
+                      fallback?.classList.remove("hidden")
+                    }}
+                  />
+                ) : null}
+                <div className={`${productImage ? "hidden" : "flex"} h-full w-full items-center justify-center`}>
+                  <Package className="h-4 w-4 text-[#1a2a5e]" />
+                </div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="truncate text-[13px] font-semibold leading-tight text-[#1a2a5e]">{product?.name || t("checkout.article")}</p>
+                  <p className="shrink-0 text-[13px] font-bold text-[#1a2a5e]">{lineTotal} €</p>
+                </div>
+                <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                  {product?.category && (
+                    <span className="inline-flex items-center gap-0.5 rounded bg-[#f0f4ff] px-1.5 py-0.5 text-[10px] font-medium text-[#1a2a5e]">
+                      <Tag className="h-2.5 w-2.5" />{product.category}
+                    </span>
+                  )}
+                  <span className="text-xs text-[#5f6d86]">
+                    {item.quantity} × {Number(product?.price || item.price || 0).toFixed(2)} €
+                  </span>
+                </div>
+                {product?.variant && (
+                  <p className="mt-0.5 text-[10px] text-[#8b9dbf]">{product.variant}</p>
+                )}
+              </div>
+            </div>
+          )
+        })}
+
+        {(reviewCart.repairOrders || []).map((order: any) => {
+          const services: string[] = order.serviceNames || []
+          const addOns: Array<{ name: string; price: number }> = order.addOns || []
+          const deviceImage = getRepairOrderImage(order)
+          return (
+            <div key={`repair-${order._id}`} className="flex items-start gap-2.5 rounded-lg border border-[#dbe8ff] bg-[#f5f9ff] p-2.5">
+              <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-[#dbe8ff]">
+                {deviceImage ? (
+                  <img
+                    src={deviceImage}
+                    alt={[order.deviceBrand, order.deviceModel].filter(Boolean).join(" ") || t("checkout.repairOrder")}
+                    className="h-full w-full object-cover"
+                    onError={(event) => {
+                      event.currentTarget.style.display = "none"
+                      const fallback = event.currentTarget.nextElementSibling as HTMLElement | null
+                      fallback?.classList.remove("hidden")
+                    }}
+                  />
+                ) : null}
+                <div className={`${deviceImage ? "hidden" : "flex"} h-full w-full items-center justify-center`}>
+                  <Wrench className="h-4 w-4 text-[#1a2a5e]" />
+                </div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[13px] font-semibold leading-tight text-[#1a2a5e]">
+                    {order.deviceBrand || ""} {order.deviceModel || ""}
+                  </p>
+                  <p className="shrink-0 text-[13px] font-bold text-[#1a2a5e]">{Number(order.totalCost || 0).toFixed(2)} €</p>
+                </div>
+                <div className="mt-0.5 flex items-center gap-1.5">
+                  <span className="rounded bg-[#dbe8ff] px-1.5 py-0.5 text-[10px] font-medium text-[#1a2a5e]">{order.deviceType || t("checkout.repairOrder")}</span>
+                </div>
+                {services.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {services.map((s: string) => (
+                      <span key={s} className="rounded border border-[#c9d9f5] bg-white px-1.5 py-0.5 text-[10px] text-[#3b5298]">{s}</span>
+                    ))}
+                  </div>
+                )}
+                {addOns.length > 0 && (
+                  <div className="mt-1 space-y-0.5">
+                    {addOns.map((a) => (
+                      <p key={a.name} className="text-[10px] text-[#5f6d86]">+ {a.name} ({Number(a.price || 0).toFixed(2)} €)</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  const renderContactSummary = () => {
+    const info = mode === "guest" ? guestInfo : userInfo
+    if (!info) return null
+
+    const addr = info.billingAddress
+    const hasAddress = addr?.street || addr?.city
+
+    return (
+      <Card className="border-[#d8dce6]">
+        <CardHeader className="pb-2 pt-3">
+          <CardTitle className="flex items-center gap-1.5 text-sm font-bold text-[#1a2a5e]">
+            <User className="h-3.5 w-3.5" />
+            {t("checkout.contactDetails")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1.5 pt-1 text-sm">
+          <div className="flex items-center gap-2">
+            <User className="h-3.5 w-3.5 shrink-0 text-[#5f6d86]" />
+            <span className="font-medium text-[#1a2a5e]">{info.firstName} {info.lastName}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Mail className="h-3.5 w-3.5 shrink-0 text-[#5f6d86]" />
+            <span className="text-[#5f6d86]">{info.email}</span>
+          </div>
+          {info.phone && (
+            <div className="flex items-center gap-2">
+              <Phone className="h-3.5 w-3.5 shrink-0 text-[#5f6d86]" />
+              <span className="text-[#5f6d86]">{info.phone}</span>
+            </div>
+          )}
+          {hasAddress && (
+            <div className="flex items-start gap-2 border-t border-[#e7eaf1] pt-1.5">
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#5f6d86]" />
+              <div className="text-[#5f6d86]">
+                <p>{addr.street}</p>
+                <p>{[addr.zipCode, addr.city].filter(Boolean).join(" ")}{addr.state ? `, ${addr.state}` : ""}</p>
+                {addr.country && <p>{addr.country}</p>}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
-    <>
-      <style>{`
-        .checkout-dialog-content {
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[92vh] max-w-[95vw] overflow-y-auto rounded-xl border border-[#d8dce6] p-0 sm:max-w-4xl [&>button]:text-[#f5b800] [&>button]:opacity-100 [&>button:hover]:text-[#f5b800]">
+        {guestCheckoutResult ? (
+          <div className="p-4 sm:p-5">
+            <DialogHeader className="space-y-2 border-b border-[#e7eaf1] pb-3 text-left">
+              <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#166534]">
+                <CheckCircle2 className="h-5 w-5" />
+                {t("checkout.orderPlacedSuccessfully")}
+              </DialogTitle>
+              <DialogDescription className="text-sm text-[#5f6d86]">{t("checkout.trackingLinksDescription")}</DialogDescription>
+            </DialogHeader>
 
-        .checkout-tab-trigger {
-          transition: all 0.2s ease;
-        }
-
-        .checkout-tab-trigger[data-state="active"] {
-          background: linear-gradient(135deg, #1a2a5e 0%, #2a3f7e 100%);
-          color: white;
-          box-shadow: 0 4px 6px rgba(26, 42, 94, 0.2);
-        }
-
-        .checkout-tab-trigger:not([data-state="active"]):hover {
-          background-color: #f5f6f8;
-          color: #1a2a5e;
-        }
-
-        .checkout-button-primary {
-          background: linear-gradient(135deg, #f5b800 0%, #e5ab00 100%);
-          color: #1a2a5e;
-          font-weight: 700;
-          transition: all 0.3s ease;
-          box-shadow: 0 4px 12px rgba(245, 184, 0, 0.3);
-        }
-
-        .checkout-button-primary:hover:not(:disabled) {
-          background: linear-gradient(135deg, #e5ab00 0%, #d59f00 100%);
-          box-shadow: 0 6px 16px rgba(245, 184, 0, 0.4);
-          transform: translateY(-1px);
-        }
-
-        .checkout-button-primary:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .checkout-input {
-          border: 2px solid #d8dce6;
-          transition: all 0.2s ease;
-        }
-
-        .checkout-input:focus {
-          border-color: #1a2a5e;
-          box-shadow: 0 0 0 3px rgba(26, 42, 94, 0.1);
-        }
-
-        .checkout-card {
-          border: 1px solid #d8dce6;
-          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
-          transition: all 0.3s ease;
-        }
-
-        .checkout-card:hover {
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        }
-
-        .checkout-section-title {
-          color: #1a2a5e;
-          font-weight: 700;
-          font-size: 0.8rem;
-          margin-bottom: 0.5rem;
-          padding-bottom: 0.375rem;
-          border-bottom: 2px solid #f5b800;
-          display: inline-block;
-        }
-
-        @media (max-width: 768px) {
-          .checkout-dialog-content {
-            max-width: 95vw;
-          }
-        }
-      `}</style>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto checkout-dialog-content" style={{ borderRadius: '12px', border: '2px solid #d8dce6' }}>
-          {/* Success screen with tracking links */}
-          {guestCheckoutResult ? (
-            <>
-              <DialogHeader className="pb-4 border-b-2" style={{ borderColor: '#eceef3' }}>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <div className="p-2 rounded-full" style={{ backgroundColor: '#d4edda' }}>
-                    <UserCheck className="h-5 w-5" style={{ color: '#155724' }} />
+            <div className="mt-4 space-y-3">
+              <Card className="border-[#d1fae5] bg-[#f0fdf4]">
+                <CardContent className="space-y-2.5 p-3.5 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-[#5f6d86]">{t("checkout.bookingNumber")}</span>
+                    <span className="font-bold text-[#1a2a5e]">{guestCheckoutResult.bookingNumber}</span>
                   </div>
-                  <DialogTitle className="text-xl font-bold" style={{ color: '#155724' }}>
-                    {t('checkout.orderPlacedSuccessfully')}
-                  </DialogTitle>
+                  <div className="flex justify-between">
+                    <span className="text-[#5f6d86]">{t("checkout.totalOrders")}</span>
+                    <span className="font-semibold text-[#1a2a5e]">{guestCheckoutResult.orderCount}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#5f6d86]">{t("checkout.totalAmount")}</span>
+                    <span className="font-bold text-[#1a2a5e]">{Number(guestCheckoutResult.totalAmount || 0).toFixed(2)} €</span>
+                  </div>
+                  {guestCheckoutResult.paymentMethod && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-[#5f6d86]">{t("checkout.paymentMethod")}</span>
+                      <Badge variant="secondary" className="text-xs capitalize">{guestCheckoutResult.paymentMethod}</Badge>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <div className="flex items-start gap-2 rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-3 py-2.5 text-sm text-[#1e40af]">
+                <Mail className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>{t("checkout.confirmationEmailSent")} <span className="font-semibold">{guestCheckoutResult.guestEmail}</span></p>
+              </div>
+
+              <Button className="h-10 w-full bg-[#1a2a5e] text-sm font-semibold text-white" onClick={() => onOpenChange(false)}>
+                {t("common.close")}
+              </Button>
+            </div>
+          </div>
+        ) : checkoutSuccessResult ? (
+          <div className="p-4 sm:p-5">
+            <DialogHeader className="space-y-2 border-b border-[#e7eaf1] pb-3 text-left">
+              <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#166534]">
+                <CheckCircle2 className="h-5 w-5" />
+                {t("checkout.orderPlacedSuccessfully")}
+              </DialogTitle>
+              <DialogDescription className="text-sm text-[#5f6d86]">{checkoutSuccessResult.message || t("checkout.checkoutDone")}</DialogDescription>
+            </DialogHeader>
+
+            <div className="mt-4 space-y-3">
+              <Card className="border-[#d1fae5] bg-[#f0fdf4]">
+                <CardContent className="space-y-2.5 p-3.5 text-sm">
+                  {checkoutSuccessResult.bookingNumber && (
+                    <div className="flex justify-between">
+                      <span className="text-[#5f6d86]">{t("checkout.bookingNumber")}</span>
+                      <span className="font-bold text-[#1a2a5e]">{checkoutSuccessResult.bookingNumber}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-[#5f6d86]">{t("checkout.totalOrders")}</span>
+                    <span className="font-semibold text-[#1a2a5e]">{checkoutSuccessResult.orderIds?.length || 0}</span>
+                  </div>
+                  {checkoutSuccessResult.totalAmount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-[#5f6d86]">{t("checkout.totalAmount")}</span>
+                      <span className="font-bold text-[#1a2a5e]">{Number(checkoutSuccessResult.totalAmount || 0).toFixed(2)} €</span>
+                    </div>
+                  )}
+                  {(checkoutSuccessResult.paymentMethod || paymentMethod) && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-[#5f6d86]">{t("checkout.paymentMethod")}</span>
+                      <Badge variant="secondary" className="text-xs capitalize">{checkoutSuccessResult.paymentMethod || paymentMethod}</Badge>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {userInfo?.email && (
+                <div className="flex items-start gap-2 rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-3 py-2.5 text-sm text-[#1e40af]">
+                  <Mail className="mt-0.5 h-4 w-4 shrink-0" />
+                  <p>{t("checkout.confirmationEmailSent")} <span className="font-semibold">{userInfo.email}</span></p>
                 </div>
-                <DialogDescription className="text-sm" style={{ color: '#636e85' }}>
-                  {t('checkout.trackingLinksDescription')}
+              )}
+
+              <Button className="h-10 w-full bg-[#1a2a5e] text-sm font-semibold text-white" onClick={closeAndNavigateBookings}>
+                {t("checkout.goToBookings")}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="sticky top-0 z-10 bg-[#1a2a5e] px-4 py-3 text-white sm:px-5 sm:py-3.5">
+              <DialogHeader className="space-y-1 text-left">
+                <DialogTitle className="text-base font-bold tracking-tight sm:text-lg">
+                  {step === "review" ? t("checkout.proceedToCheckoutDialogTitle") : t("checkout.authenticationRequired")}
+                </DialogTitle>
+                <DialogDescription className="text-xs text-blue-100 sm:text-sm">
+                  {step === "review" ? t("checkout.reviewAndPayDesc") : t("checkout.authenticationRequiredDesc")}
                 </DialogDescription>
               </DialogHeader>
-
-              <div className="space-y-4 mt-4">
-                {/* Order Summary */}
-                <Card className="checkout-card">
-                  <CardHeader>
-                    <CardTitle className="text-base">{t('checkout.orderSummary')}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">{t('checkout.bookingNumber')}:</span>
-                      <span className="text-sm font-semibold">{guestCheckoutResult.bookingNumber}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">{t('checkout.totalOrders')}:</span>
-                      <span className="text-sm font-semibold">{guestCheckoutResult.orderCount}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">{t('checkout.totalAmount')}:</span>
-                      <span className="text-sm font-semibold">€{Number(guestCheckoutResult.totalAmount || 0).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">{t('checkout.confirmationEmail')}:</span>
-                      <span className="text-sm font-semibold">{guestCheckoutResult.guestEmail}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Tracking Links */}
-                <Card className="checkout-card" style={{ borderColor: '#1a2a5e' }}>
-                  <CardHeader>
-                    <CardTitle className="text-base" style={{ color: '#1a2a5e' }}>
-                      {t('checkout.trackingLinks')}
-                    </CardTitle>
-                    <CardDescription className="text-xs">
-                      {t('checkout.saveTheseLinks')}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {/* Booking Tracking Link */}
-                    {guestCheckoutResult.bookingTrackingToken && (
-                      <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Package className="h-4 w-4 text-blue-600" />
-                          <span className="text-sm font-semibold text-blue-900">
-                            {t('checkout.trackCompleteBooking')}
-                          </span>
-                        </div>
-                        <div className="bg-white p-2 rounded border border-blue-200 break-all text-xs font-mono mb-2">
-                          {`${window.location.origin}/track-order/booking?token=${guestCheckoutResult.bookingTrackingToken}&email=${encodeURIComponent(guestCheckoutResult.guestEmail)}`}
-                        </div>
-                        <Button
-                          size="sm"
-                          className="w-full"
-                          style={{ backgroundColor: '#1a2a5e' }}
-                          onClick={() => {
-                            window.open(`/track-order/booking?token=${guestCheckoutResult.bookingTrackingToken}&email=${encodeURIComponent(guestCheckoutResult.guestEmail)}`, '_blank');
-                          }}
-                        >
-                          {t('checkout.openBookingTracking')}
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* Order Tracking Link */}
-                    {guestCheckoutResult.orderTrackingToken && (
-                      <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Package className="h-4 w-4 text-green-600" />
-                          <span className="text-sm font-semibold text-green-900">
-                            {t('checkout.trackFirstOrder')}
-                          </span>
-                        </div>
-                        <div className="bg-white p-2 rounded border border-green-200 break-all text-xs font-mono mb-2">
-                          {`${window.location.origin}/track-order?token=${guestCheckoutResult.orderTrackingToken}&email=${encodeURIComponent(guestCheckoutResult.guestEmail)}`}
-                        </div>
-                        <Button
-                          size="sm"
-                          className="w-full"
-                          style={{ backgroundColor: '#28a745' }}
-                          onClick={() => {
-                            window.open(`/track-order?token=${guestCheckoutResult.orderTrackingToken}&email=${encodeURIComponent(guestCheckoutResult.guestEmail)}`, '_blank');
-                          }}
-                        >
-                          {t('checkout.openOrderTracking')}
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* Email confirmation note */}
-                    <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                      <p className="text-xs text-yellow-900">
-                        {t('checkout.trackingLinksEmailNote')}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Done Button */}
-                <Button
-                  className="w-full checkout-button-primary"
-                  onClick={() => {
-                    setGuestCheckoutResult(null);
-                    onOpenChange(false);
-                    onSuccess();
-                  }}
-                >
-                  {t('common.close')}
-                </Button>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Regular checkout flow */}
-              <DialogHeader className="pb-4 border-b-2" style={{ borderColor: '#eceef3' }}>
-            <div className="flex items-center gap-2 mb-1.5">
-              <div className="p-2 rounded-full" style={{ backgroundColor: '#f5f6f8' }}>
-                <UserCheck className="h-5 w-5" style={{ color: '#1a2a5e' }} />
-              </div>
-              <DialogTitle className="text-xl font-bold" style={{ color: '#1a2a5e' }}>
-                {t('checkout.authenticationRequired')}
-              </DialogTitle>
             </div>
-            <DialogDescription className="text-sm" style={{ color: '#636e85' }}>
-              {t('checkout.authenticationRequiredDesc')}
-            </DialogDescription>
-          </DialogHeader>
 
-          <Tabs defaultValue="login" className="w-full mt-4">
-            <TabsList className="grid w-full grid-cols-3 gap-0.5 p-0.5 sm:p-1 rounded-lg mb-6 sm:mb-4" style={{ backgroundColor: '#f5f6f8', border: '2px solid #eceef3' }}>
-              <TabsTrigger 
-                value="login" 
-                className="checkout-tab-trigger rounded-md py-1.5 sm:py-2 px-0.5 sm:px-2 text-[9px] sm:text-xs font-semibold flex items-center justify-center"
-                style={{ color: '#2d3748' }}
-              >
-                <LogIn className="h-2.5 w-2.5 sm:h-4 sm:w-4 mr-0.5 sm:mr-2 flex-shrink-0" />
-                <span className="hidden sm:inline">{t('checkout.login')}</span>
-                <span className="sm:hidden truncate">Login</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="register" 
-                className="checkout-tab-trigger rounded-md py-1.5 sm:py-2 px-0.5 sm:px-2 text-[9px] sm:text-xs font-semibold flex items-center justify-center"
-                style={{ color: '#2d3748' }}
-              >
-                <UserPlus className="h-2.5 w-2.5 sm:h-4 sm:w-4 mr-0.5 sm:mr-2 flex-shrink-0" />
-                <span className="hidden sm:inline">{t('checkout.createAccount')}</span>
-                <span className="sm:hidden truncate">Register</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="guest" 
-                className="checkout-tab-trigger rounded-md py-1.5 sm:py-2 px-0.5 sm:px-2 text-[9px] sm:text-xs font-semibold flex items-center justify-center"
-                style={{ color: '#2d3748' }}
-              >
-                <UserCheck className="h-2.5 w-2.5 sm:h-4 sm:w-4 mr-0.5 sm:mr-2 flex-shrink-0" />
-                <span className="hidden sm:inline">{t('checkout.guestCheckout')}</span>
-                <span className="sm:hidden truncate">Gast</span>
-              </TabsTrigger>
-            </TabsList>
-
-          {/* Login Tab */}
-          <TabsContent value="login" className="mt-2">
-            <Card className="checkout-card" style={{ borderRadius: '10px', backgroundColor: 'white' }}>
-              <CardHeader className="pb-3 pt-4 px-4" style={{ borderBottom: '1px solid #eceef3' }}>
-                <div className="flex items-center gap-2 mb-1">
-                  <LogIn className="h-4 w-4" style={{ color: '#1a2a5e' }} />
-                  <CardTitle className="text-base font-bold" style={{ color: '#1a2a5e' }}>
-                    {t('checkout.loginToYourAccount')}
-                  </CardTitle>
-                </div>
-                <CardDescription className="text-xs" style={{ color: '#636e85' }}>
-                  {t('checkout.loginToYourAccountDesc')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-3 px-3 pb-3">
-                <form onSubmit={handleLogin} className="space-y-2.5">
-                  <div className="space-y-1">
-                    <Label htmlFor="login-email" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                      {t('checkout.email')}
-                    </Label>
-                    <Input
-                      id="login-email"
-                      type="email"
-                      placeholder={t('checkout.emailPlaceholder')}
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      required
-                      className="checkout-input h-8 text-sm"
-                    />
+            <div className="p-4 sm:p-5">
+              {initializingCheckout ? (
+                <div className="flex min-h-[220px] items-center justify-center">
+                  <div className="flex items-center gap-2 text-sm font-medium text-[#1a2a5e]">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t("common.loading")}
                   </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="login-password" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                      {t('checkout.password')}
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="login-password"
-                        type={showLoginPassword ? "text" : "password"}
-                        placeholder={t('checkout.passwordPlaceholder')}
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        required
-                        className="checkout-input h-8 pr-9 text-sm"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full hover:bg-transparent"
-                        onClick={() => setShowLoginPassword(!showLoginPassword)}
-                        style={{ color: '#636e85' }}
-                      >
-                        {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <Button 
-                    type="submit" 
-                    className="w-full checkout-button-primary h-9 text-sm font-bold rounded-lg mt-3" 
-                    disabled={loginLoading}
-                  >
-                    {loginLoading ? t('common.loading') : t('checkout.login')}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Register Tab */}
-          <TabsContent value="register" className="mt-2">
-            <Card className="checkout-card" style={{ borderRadius: '10px', backgroundColor: 'white' }}>
-              <CardHeader className="pb-3 pt-4 px-4" style={{ borderBottom: '1px solid #eceef3' }}>
-                <div className="flex items-center gap-2 mb-1">
-                  <UserPlus className="h-4 w-4" style={{ color: '#1a2a5e' }} />
-                  <CardTitle className="text-base font-bold" style={{ color: '#1a2a5e' }}>
-                    {t('checkout.createNewAccount')}
-                  </CardTitle>
                 </div>
-                <CardDescription className="text-xs" style={{ color: '#636e85' }}>
-                  {t('checkout.createNewAccountDesc')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-3 px-3 pb-3">
-                <form onSubmit={handleRegister} className="space-y-3">
-                  {/* Personal Information */}
-                  <div className="space-y-2">
-                    <h3 className="checkout-section-title">{t('checkout.personalInformation')}</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div className="space-y-1">
-                        <Label htmlFor="firstName" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                          {t('checkout.firstName')} <span style={{ color: '#f5b800' }}>*</span>
-                        </Label>
-                        <Input
-                          id="firstName"
-                          value={firstName}
-                          onChange={(e) => setFirstName(e.target.value)}
-                          required
-                          className="checkout-input h-8 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="lastName" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                          {t('checkout.lastName')} <span style={{ color: '#f5b800' }}>*</span>
-                        </Label>
-                        <Input
-                          id="lastName"
-                          value={lastName}
-                          onChange={(e) => setLastName(e.target.value)}
-                          required
-                          className="checkout-input h-8 text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="email" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                        {t('checkout.email')} <span style={{ color: '#f5b800' }}>*</span>
-                      </Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        className="checkout-input h-8 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="phone" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                        {t('checkout.phone')}
-                      </Label>
-                      <Input
-                        id="phone"
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="checkout-input h-8 text-sm"
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div className="space-y-1">
-                        <Label htmlFor="password" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                          {t('checkout.password')} <span style={{ color: '#f5b800' }}>*</span>
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            id="password"
-                            type={showPassword ? "text" : "password"}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            className="checkout-input h-8 pr-9 text-sm"
+              ) : step === "review" ? (
+                <div className="grid gap-3 lg:grid-cols-[1.2fr,1fr]">
+                  {/* ── Left column ── */}
+                  <div className="space-y-3">
+                    <Card className="border-[#d8dce6]">
+                      <CardHeader className="pb-2 pt-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="flex items-center gap-1.5 text-sm font-bold text-[#1a2a5e]">
+                            <Package className="h-3.5 w-3.5" />
+                            {t("checkout.bookingSummary")}
+                          </CardTitle>
+                          <Badge variant="secondary" className="text-[11px]">
+                            {reviewCart?.totalItems || 0} {t("checkout.positions")}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pt-1">
+                        {renderOrderRows()}
+                        {/* Shipping hint */}
+                        <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-[#f0fdf4] px-2.5 py-1.5">
+                          <Truck className="h-3.5 w-3.5 text-[#15803d]" />
+                          <span className="text-xs font-medium text-[#15803d]">{t("checkout.shippingFree")}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {renderContactSummary()}
+                  </div>
+
+                  {/* ── Right column ── */}
+                  <div className="space-y-3">
+                    {/* Payment method selection */}
+                    <Card className="border-[#d8dce6]">
+                      <CardHeader className="pb-2 pt-3">
+                        <CardTitle className="text-sm font-bold text-[#1a2a5e]">{t("checkout.paymentMethod")}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2 pt-1">
+                        {paymentOptions.map((option) => {
+                          const Icon = option.icon
+                          const active = paymentMethod === option.value
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => setPaymentMethod(option.value)}
+                              className={`w-full rounded-lg border px-3 py-2 text-left transition-all ${active ? "border-[#1a2a5e] bg-[#eef3ff] ring-1 ring-[#1a2a5e]" : "border-[#e3e7ef] bg-white hover:border-[#c9d3e7]"}`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${active ? "border-[#1a2a5e] bg-[#1a2a5e]" : "border-[#c9d3e7]"}`}>
+                                  {active && <Check className="h-2.5 w-2.5 text-white" />}
+                                </div>
+                                <Icon className="h-4 w-4 text-[#1a2a5e]" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-semibold text-[#1a2a5e]">{option.label}</p>
+                                  <p className="text-xs text-[#5f6d86]">{option.hint}</p>
+                                </div>
+                              </div>
+                            </button>
+                          )
+                        })}
+
+                        {/* Accepted card/payment logos */}
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                          {(paymentMethod === "card" || paymentMethod !== "invoice") && (
+                            <>
+                              <span className="rounded border border-[#d8dce6] px-1.5 py-0.5 text-[9px] font-bold tracking-widest text-[#1a334f]">VISA</span>
+                              <span className="rounded border border-[#d8dce6] px-1.5 py-0.5 text-[9px] font-bold tracking-widest text-[#eb001b]">MC</span>
+                              <span className="rounded border border-[#003087] px-1.5 py-0.5 text-[9px] font-bold tracking-widest text-[#003087]">PayPal</span>
+                              <span className="rounded border border-[#d8dce6] px-1.5 py-0.5 text-[9px] font-semibold tracking-widest text-[#5f6d86]">SEPA</span>
+                              <span className="rounded border border-[#d8dce6] px-1.5 py-0.5 text-[9px] font-semibold text-[#5f6d86]">Amex</span>
+                            </>
+                          )}
+                        </div>
+
+                        {renderPaymentDetails()}
+                      </CardContent>
+                    </Card>
+
+                    {/* Order totals + CTA */}
+                    <Card className="border-[#d8dce6]">
+                      <CardContent className="space-y-2 p-3.5 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-[#5f6d86]">{t("cart.subtotal")}</span>
+                          <span className="font-semibold text-[#1a2a5e]">{totals.subtotal.toFixed(2)} €</span>
+                        </div>
+
+                        {totals.discount > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-[#5f6d86]">{t("cart.discount")}</span>
+                            <span className="font-semibold text-[#15803d]">- {totals.discount.toFixed(2)} €</span>
+                          </div>
+                        )}
+
+                        <div className="flex justify-between">
+                          <span className="text-[#5f6d86]">{t("checkout.shippingCost")}</span>
+                          <span className="font-semibold text-[#15803d]">{t("checkout.shippingFreeShort")}</span>
+                        </div>
+
+                        <div className="flex justify-between">
+                          <span className="text-[#5f6d86]">{t("cart.tax")}</span>
+                          <span className="font-semibold text-[#1a2a5e]">{totals.tax.toFixed(2)} €</span>
+                        </div>
+
+                        <div className="mt-1 flex items-center justify-between rounded-lg bg-[#f0f4ff] px-2.5 py-2 text-base border-t border-[#d8e3ff]">
+                          <span className="font-bold text-[#1a2a5e]">{t("cart.grandTotal")}</span>
+                          <div className="text-right">
+                            <span className="text-lg font-extrabold text-[#1a2a5e]">{totals.total.toFixed(2)} €</span>
+                            {totals.tax > 0 && (
+                              <p className="text-[10px] font-normal text-[#5f6d86]">{t("checkout.inclTax")}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Accept terms */}
+                        <div className="flex items-start gap-2 rounded-lg bg-[#f7f9fd] px-2.5 py-2">
+                          <Checkbox
+                            id="accept-terms"
+                            checked={acceptTerms}
+                            onCheckedChange={(checked) => setAcceptTerms(checked === true)}
+                            className="mt-0.5"
                           />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-0 top-0 h-full hover:bg-transparent"
-                            onClick={() => setShowPassword(!showPassword)}
-                            style={{ color: '#636e85' }}
-                          >
-                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          <Label htmlFor="accept-terms" className="cursor-pointer text-xs leading-snug text-[#4b5b79]">
+                            {t("checkout.acceptTermsPrefix")}{" "}
+                            <a href="/agb" target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="font-semibold underline decoration-dotted hover:decoration-solid">
+                              {t("checkout.termsLink")}
+                            </a>
+                            {" "}{t("checkout.acceptTermsAnd")}{" "}
+                            <a href="/privacy" target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="font-semibold underline decoration-dotted hover:decoration-solid">
+                              {t("checkout.privacyLink")}
+                            </a>
+                            {" "}{t("checkout.acceptTermsSuffix")}
+                          </Label>
+                        </div>
+
+                        {/* Pay button */}
+                        <Button
+                          type="button"
+                          className="h-11 w-full bg-[#f5b800] text-sm font-bold text-[#1a2a5e] hover:bg-[#e5ab00]"
+                          onClick={handlePayNow}
+                          disabled={processingCheckout}
+                        >
+                          {processingCheckout
+                            ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("common.loading")}</>
+                            : <><CreditCard className="mr-2 h-4 w-4" />{t("checkout.payNow")} — {totals.total.toFixed(2)} €</>
+                          }
+                        </Button>
+
+                        {/* Trust bar */}
+                        <div className="flex items-center justify-center gap-2 rounded-lg border border-[#e7eaf1] bg-[#f9fafb] px-3 py-2">
+                          <Lock className="h-3.5 w-3.5 shrink-0 text-[#15803d]" />
+                          <span className="text-[11px] font-semibold text-[#15803d]">SSL</span>
+                          <span className="text-[#d8dce6]">|</span>
+                          <Shield className="h-3.5 w-3.5 shrink-0 text-[#5f6d86]" />
+                          <span className="text-[11px] text-[#5f6d86]">{t("checkout.securePaymentNotice")}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              ) : (
+                <Tabs defaultValue="login" className="w-full">
+                  <TabsList className="mb-4 grid h-auto w-full grid-cols-3 gap-1 rounded-lg border border-[#d8dce6] bg-[#f6f8fc] p-1">
+                    <TabsTrigger value="login" className="h-8 text-[11px] font-semibold sm:text-xs">
+                      <LogIn className="mr-1 h-3.5 w-3.5" /> {t("checkout.login")}
+                    </TabsTrigger>
+                    <TabsTrigger value="register" className="h-8 text-[11px] font-semibold sm:text-xs">
+                      <UserPlus className="mr-1 h-3.5 w-3.5" /> {t("checkout.createAccount")}
+                    </TabsTrigger>
+                    <TabsTrigger value="guest" className="h-8 text-[11px] font-semibold sm:text-xs">
+                      <UserCheck className="mr-1 h-3.5 w-3.5" /> {t("checkout.guestCheckout")}
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="login" className="mt-0">
+                    <Card className="border-[#d8dce6]">
+                      <CardHeader className="pb-2 pt-3">
+                        <CardTitle className="text-sm font-bold text-[#1a2a5e]">{t("checkout.loginToYourAccount")}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-1">
+                        <form onSubmit={handleLogin} className="space-y-2.5">
+                          <div className="space-y-1">
+                            <Label htmlFor="login-email" className="text-xs font-semibold">{t("checkout.email")}</Label>
+                            <Input id="login-email" type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="h-8 text-sm" required />
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor="login-password" className="text-xs font-semibold">{t("checkout.password")}</Label>
+                            <div className="relative">
+                              <Input id="login-password" type={showLoginPassword ? "text" : "password"} value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="h-8 pr-9 text-sm" required />
+                              <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-8 w-8" onClick={() => setShowLoginPassword(!showLoginPassword)}>
+                                {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </Button>
+                            </div>
+                          </div>
+                          <Button type="submit" className="h-9 w-full bg-[#f5b800] text-sm font-bold text-[#1a2a5e] hover:bg-[#e5ab00]" disabled={loginLoading}>
+                            {loginLoading ? t("common.loading") : t("checkout.login")}
                           </Button>
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="confirmPassword" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                          {t('checkout.confirmPassword')} <span style={{ color: '#f5b800' }}>*</span>
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            id="confirmPassword"
-                            type={showConfirmPassword ? "text" : "password"}
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            required
-                            className="checkout-input h-8 pr-9 text-sm"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-0 top-0 h-full hover:bg-transparent"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            style={{ color: '#636e85' }}
-                          >
-                            {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </form>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="register" className="mt-0">
+                    <Card className="border-[#d8dce6]">
+                      <CardHeader className="pb-2 pt-3">
+                        <CardTitle className="text-sm font-bold text-[#1a2a5e]">{t("checkout.createNewAccount")}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-1">
+                        <form onSubmit={handleRegister} className="space-y-3">
+                          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                            <div className="space-y-1">
+                              <Label htmlFor="firstName" className="text-xs font-semibold">{t("checkout.firstName")} <span className="text-red-500">*</span></Label>
+                              <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="h-8 text-sm" required />
+                            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor="lastName" className="text-xs font-semibold">{t("checkout.lastName")} <span className="text-red-500">*</span></Label>
+                              <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} className="h-8 text-sm" required />
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <Label htmlFor="email" className="text-xs font-semibold">{t("checkout.email")} <span className="text-red-500">*</span></Label>
+                            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-8 text-sm" required />
+                          </div>
+
+                          <div className="space-y-1">
+                            <Label htmlFor="phone" className="text-xs font-semibold">{t("checkout.phone")}</Label>
+                            <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="h-8 text-sm" />
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                            <div className="space-y-1">
+                              <Label htmlFor="password" className="text-xs font-semibold">{t("checkout.password")} <span className="text-red-500">*</span></Label>
+                              <div className="relative">
+                                <Input id="password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="h-8 pr-9 text-sm" required />
+                                <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-8 w-8" onClick={() => setShowPassword(!showPassword)}>
+                                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor="confirmPassword" className="text-xs font-semibold">{t("checkout.confirmPassword")} <span className="text-red-500">*</span></Label>
+                              <div className="relative">
+                                <Input id="confirmPassword" type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="h-8 pr-9 text-sm" required />
+                                <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-8 w-8" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                            <div className="space-y-1">
+                              <Label htmlFor="company" className="text-xs font-semibold">{t("checkout.company")}</Label>
+                              <Input id="company" value={company} onChange={(e) => setCompany(e.target.value)} className="h-8 text-sm" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor="country" className="text-xs font-semibold">{t("checkout.country")}</Label>
+                              <Input id="country" value={country} onChange={(e) => setCountry(e.target.value)} className="h-8 text-sm" />
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <Label htmlFor="vatId" className="text-xs font-semibold">{t("checkout.vatId")}</Label>
+                            <Input id="vatId" value={vatId} onChange={(e) => setVatId(e.target.value)} className="h-8 text-sm" />
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                            <div className="space-y-1">
+                              <Label htmlFor="billingStreet" className="text-xs font-semibold">{t("checkout.street")}</Label>
+                              <Input id="billingStreet" value={billingStreet} onChange={(e) => setBillingStreet(e.target.value)} className="h-8 text-sm" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor="billingCity" className="text-xs font-semibold">{t("checkout.city")}</Label>
+                              <Input id="billingCity" value={billingCity} onChange={(e) => setBillingCity(e.target.value)} className="h-8 text-sm" />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                            <div className="space-y-1">
+                              <Label htmlFor="billingState" className="text-xs font-semibold">{t("checkout.state")}</Label>
+                              <Input id="billingState" value={billingState} onChange={(e) => setBillingState(e.target.value)} className="h-8 text-sm" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor="billingZipCode" className="text-xs font-semibold">{t("checkout.zipCode")}</Label>
+                              <Input id="billingZipCode" value={billingZipCode} onChange={(e) => setBillingZipCode(e.target.value)} className="h-8 text-sm" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor="billingCountry" className="text-xs font-semibold">{t("checkout.country")}</Label>
+                              <Input id="billingCountry" value={billingCountry} onChange={(e) => setBillingCountry(e.target.value)} className="h-8 text-sm" />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 rounded-lg bg-[#f6f8fc] px-2.5 py-2">
+                            <Checkbox id="billingIsShipping" checked={billingIsShipping} onCheckedChange={(checked) => setBillingIsShipping(checked === true)} />
+                            <Label htmlFor="billingIsShipping" className="cursor-pointer text-xs">{t("checkout.billingIsShippingAddress")}</Label>
+                          </div>
+
+                          {!billingIsShipping && (
+                            <div className="space-y-2.5 rounded-lg border border-[#e3e8f2] p-2.5">
+                              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                                <div className="space-y-1">
+                                  <Label htmlFor="shippingStreet" className="text-xs font-semibold">{t("checkout.street")}</Label>
+                                  <Input id="shippingStreet" value={shippingStreet} onChange={(e) => setShippingStreet(e.target.value)} className="h-8 text-sm" />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label htmlFor="shippingCity" className="text-xs font-semibold">{t("checkout.city")}</Label>
+                                  <Input id="shippingCity" value={shippingCity} onChange={(e) => setShippingCity(e.target.value)} className="h-8 text-sm" />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                                <div className="space-y-1">
+                                  <Label htmlFor="shippingState" className="text-xs font-semibold">{t("checkout.state")}</Label>
+                                  <Input id="shippingState" value={shippingState} onChange={(e) => setShippingState(e.target.value)} className="h-8 text-sm" />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label htmlFor="shippingZipCode" className="text-xs font-semibold">{t("checkout.zipCode")}</Label>
+                                  <Input id="shippingZipCode" value={shippingZipCode} onChange={(e) => setShippingZipCode(e.target.value)} className="h-8 text-sm" />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label htmlFor="shippingCountry" className="text-xs font-semibold">{t("checkout.country")}</Label>
+                                  <Input id="shippingCountry" value={shippingCountry} onChange={(e) => setShippingCountry(e.target.value)} className="h-8 text-sm" />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          <Button type="submit" className="h-9 w-full bg-[#f5b800] text-sm font-bold text-[#1a2a5e] hover:bg-[#e5ab00]" disabled={registerLoading}>
+                            {registerLoading ? t("common.loading") : t("checkout.createAccount")}
                           </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                          <p className="text-[10px] text-[#8b9dbf]"><span className="text-red-500">*</span> {t("checkout.requiredFieldsNote")}</p>
+                        </form>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
 
-                  {/* Company Information */}
-                  <div className="space-y-2">
-                    <h3 className="checkout-section-title">{t('checkout.companyInformation')}</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div className="space-y-1">
-                        <Label htmlFor="company" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                          {t('checkout.company')}
-                        </Label>
-                        <Input
-                          id="company"
-                          value={company}
-                          onChange={(e) => setCompany(e.target.value)}
-                          className="checkout-input h-8 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="country" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                          {t('checkout.country')}
-                        </Label>
-                        <Input
-                          id="country"
-                          value={country}
-                          onChange={(e) => setCountry(e.target.value)}
-                          className="checkout-input h-8 text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="vatId" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                        {t('checkout.vatId')}
-                      </Label>
-                      <Input
-                        id="vatId"
-                        value={vatId}
-                        onChange={(e) => setVatId(e.target.value)}
-                        className="checkout-input h-8 text-sm"
-                      />
-                    </div>
-                  </div>
+                  <TabsContent value="guest" className="mt-0">
+                    <Card className="border-[#d8dce6]">
+                      <CardHeader className="pb-2 pt-3">
+                        <CardTitle className="text-sm font-bold text-[#1a2a5e]">{t("checkout.continueAsGuest")}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-1">
+                        <form onSubmit={handlePrepareGuestReview} className="space-y-3">
+                          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                            <div className="space-y-1">
+                              <Label htmlFor="guest-firstName" className="text-xs font-semibold">{t("checkout.firstName")} <span className="text-red-500">*</span></Label>
+                              <Input id="guest-firstName" value={guestFirstName} onChange={(e) => setGuestFirstName(e.target.value)} className="h-8 text-sm" required />
+                            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor="guest-lastName" className="text-xs font-semibold">{t("checkout.lastName")} <span className="text-red-500">*</span></Label>
+                              <Input id="guest-lastName" value={guestLastName} onChange={(e) => setGuestLastName(e.target.value)} className="h-8 text-sm" required />
+                            </div>
+                          </div>
 
-                  {/* Billing Address */}
-                  <div className="space-y-2">
-                    <h3 className="checkout-section-title">{t('checkout.billingAddress')}</h3>
-                    <div className="space-y-1">
-                      <Label htmlFor="billingStreet" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                        {t('checkout.street')}
-                      </Label>
-                      <Input
-                        id="billingStreet"
-                        value={billingStreet}
-                        onChange={(e) => setBillingStreet(e.target.value)}
-                        className="checkout-input h-8 text-sm"
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div className="space-y-1">
-                        <Label htmlFor="billingCity" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                          {t('checkout.city')}
-                        </Label>
-                        <Input
-                          id="billingCity"
-                          value={billingCity}
-                          onChange={(e) => setBillingCity(e.target.value)}
-                          className="checkout-input h-8 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="billingState" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                          {t('checkout.state')}
-                        </Label>
-                        <Input
-                          id="billingState"
-                          value={billingState}
-                          onChange={(e) => setBillingState(e.target.value)}
-                          className="checkout-input h-8 text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div className="space-y-1">
-                        <Label htmlFor="billingZipCode" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                          {t('checkout.zipCode')}
-                        </Label>
-                        <Input
-                          id="billingZipCode"
-                          value={billingZipCode}
-                          onChange={(e) => setBillingZipCode(e.target.value)}
-                          className="checkout-input h-8 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="billingCountry" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                          {t('checkout.country')}
-                        </Label>
-                        <Input
-                          id="billingCountry"
-                          value={billingCountry}
-                          onChange={(e) => setBillingCountry(e.target.value)}
-                          className="checkout-input h-8 text-sm"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                          <div className="space-y-1">
+                            <Label htmlFor="guest-email" className="text-xs font-semibold">{t("checkout.email")} <span className="text-red-500">*</span></Label>
+                            <Input id="guest-email" type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} className="h-8 text-sm" required />
+                          </div>
 
-                  {/* Shipping Address Checkbox */}
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2 p-2.5 rounded-lg" style={{ backgroundColor: '#f5f6f8', border: '2px solid #eceef3' }}>
-                      <Checkbox
-                        id="billingIsShipping"
-                        checked={billingIsShipping}
-                        onCheckedChange={(checked) => setBillingIsShipping(checked === true)}
-                        className="border-2"
-                        style={{ borderColor: '#1a2a5e' }}
-                      />
-                      <Label
-                        htmlFor="billingIsShipping"
-                        className="text-xs font-semibold cursor-pointer"
-                        style={{ color: '#2d3748' }}
-                      >
-                        {t('checkout.billingIsShippingAddress')}
-                      </Label>
-                    </div>
-                  </div>
+                          <div className="space-y-1">
+                            <Label htmlFor="guest-phone" className="text-xs font-semibold">{t("checkout.phone")}</Label>
+                            <Input id="guest-phone" type="tel" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} className="h-8 text-sm" />
+                          </div>
 
-                  {/* Shipping Address - Only show when billing is NOT shipping */}
-                  {!billingIsShipping && (
-                    <div className="space-y-2">
-                      <h3 className="checkout-section-title">{t('checkout.shippingAddress')}</h3>
-                      <div className="space-y-1">
-                        <Label htmlFor="shippingStreet" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                          {t('checkout.street')}
-                        </Label>
-                        <Input
-                          id="shippingStreet"
-                          value={shippingStreet}
-                          onChange={(e) => setShippingStreet(e.target.value)}
-                          className="checkout-input h-8 text-sm"
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <div className="space-y-1">
-                          <Label htmlFor="shippingCity" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                            {t('checkout.city')}
-                          </Label>
-                          <Input
-                            id="shippingCity"
-                            value={shippingCity}
-                            onChange={(e) => setShippingCity(e.target.value)}
-                            className="checkout-input h-8 text-sm"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="shippingState" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                            {t('checkout.state')}
-                          </Label>
-                          <Input
-                            id="shippingState"
-                            value={shippingState}
-                            onChange={(e) => setShippingState(e.target.value)}
-                            className="checkout-input h-8 text-sm"
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <div className="space-y-1">
-                          <Label htmlFor="shippingZipCode" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                            {t('checkout.zipCode')}
-                          </Label>
-                          <Input
-                            id="shippingZipCode"
-                            value={shippingZipCode}
-                            onChange={(e) => setShippingZipCode(e.target.value)}
-                            className="checkout-input h-8 text-sm"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="shippingCountry" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                            {t('checkout.country')}
-                          </Label>
-                          <Input
-                            id="shippingCountry"
-                            value={shippingCountry}
-                            onChange={(e) => setShippingCountry(e.target.value)}
-                            className="checkout-input h-8 text-sm"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                            <div className="space-y-1">
+                              <Label htmlFor="guest-billingStreet" className="text-xs font-semibold">{t("checkout.street")} <span className="text-red-500">*</span></Label>
+                              <Input id="guest-billingStreet" value={guestBillingStreet} onChange={(e) => setGuestBillingStreet(e.target.value)} className="h-8 text-sm" required />
+                            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor="guest-billingCity" className="text-xs font-semibold">{t("checkout.city")} <span className="text-red-500">*</span></Label>
+                              <Input id="guest-billingCity" value={guestBillingCity} onChange={(e) => setGuestBillingCity(e.target.value)} className="h-8 text-sm" required />
+                            </div>
+                          </div>
 
-                  <Button 
-                    type="submit" 
-                    className="w-full checkout-button-primary h-9 text-sm font-bold rounded-lg" 
-                    disabled={registerLoading}
-                  >
-                    {registerLoading ? t('common.loading') : t('checkout.createAccount')}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                            <div className="space-y-1">
+                              <Label htmlFor="guest-billingState" className="text-xs font-semibold">{t("checkout.state")}</Label>
+                              <Input id="guest-billingState" value={guestBillingState} onChange={(e) => setGuestBillingState(e.target.value)} className="h-8 text-sm" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor="guest-billingZipCode" className="text-xs font-semibold">{t("checkout.zipCode")} <span className="text-red-500">*</span></Label>
+                              <Input id="guest-billingZipCode" value={guestBillingZipCode} onChange={(e) => setGuestBillingZipCode(e.target.value)} className="h-8 text-sm" required />
+                            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor="guest-billingCountry" className="text-xs font-semibold">{t("checkout.country")}</Label>
+                              <Input id="guest-billingCountry" value={guestBillingCountry} onChange={(e) => setGuestBillingCountry(e.target.value)} className="h-8 text-sm" />
+                            </div>
+                          </div>
 
-          {/* Guest Checkout Tab */}
-          <TabsContent value="guest" className="mt-2">
-            <Card className="checkout-card" style={{ borderRadius: '10px', backgroundColor: 'white' }}>
-              <CardHeader className="pb-3 pt-3 px-3" style={{ borderBottom: '1px solid #eceef3' }}>
-                <div className="flex items-center gap-2 mb-1">
-                  <UserCheck className="h-4 w-4" style={{ color: '#1a2a5e' }} />
-                  <CardTitle className="text-base font-bold" style={{ color: '#1a2a5e' }}>
-                    {t('checkout.continueAsGuest')}
-                  </CardTitle>
-                </div>
-                <CardDescription className="text-xs" style={{ color: '#636e85' }}>
-                  {t('checkout.continueAsGuestDesc')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-3 px-3 pb-3">
-                <form onSubmit={handleGuestCheckout} className="space-y-2.5">
-                  {/* Personal Information */}
-                  <div className="space-y-2">
-                    <h3 className="checkout-section-title">{t('checkout.personalInformation')}</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div className="space-y-1">
-                        <Label htmlFor="guest-firstName" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                          {t('checkout.firstName')} <span style={{ color: '#f5b800' }}>*</span>
-                        </Label>
-                        <Input
-                          id="guest-firstName"
-                          value={guestFirstName}
-                          onChange={(e) => setGuestFirstName(e.target.value)}
-                          required
-                          className="checkout-input h-8 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="guest-lastName" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                          {t('checkout.lastName')} <span style={{ color: '#f5b800' }}>*</span>
-                        </Label>
-                        <Input
-                          id="guest-lastName"
-                          value={guestLastName}
-                          onChange={(e) => setGuestLastName(e.target.value)}
-                          required
-                          className="checkout-input h-8 text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="guest-email" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                        {t('checkout.email')} <span style={{ color: '#f5b800' }}>*</span>
-                      </Label>
-                      <Input
-                        id="guest-email"
-                        type="email"
-                        value={guestEmail}
-                        onChange={(e) => setGuestEmail(e.target.value)}
-                        required
-                        className="checkout-input h-8 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="guest-phone" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                        {t('checkout.phone')}
-                      </Label>
-                      <Input
-                        id="guest-phone"
-                        type="tel"
-                        value={guestPhone}
-                        onChange={(e) => setGuestPhone(e.target.value)}
-                        className="checkout-input h-8 text-sm"
-                      />
-                    </div>
-                  </div>
+                          <div className="flex items-center gap-2 rounded-lg bg-[#f6f8fc] px-2.5 py-2">
+                            <Checkbox id="guest-billingIsShipping" checked={guestBillingIsShipping} onCheckedChange={(checked) => setGuestBillingIsShipping(checked === true)} />
+                            <Label htmlFor="guest-billingIsShipping" className="cursor-pointer text-xs">{t("checkout.billingIsShippingAddress")}</Label>
+                          </div>
 
-                  {/* Billing Address */}
-                  <div className="space-y-2">
-                    <h3 className="checkout-section-title">{t('checkout.billingAddress')}</h3>
-                    <div className="space-y-1">
-                      <Label htmlFor="guest-billingStreet" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                        {t('checkout.street')} <span style={{ color: '#f5b800' }}>*</span>
-                      </Label>
-                      <Input
-                        id="guest-billingStreet"
-                        value={guestBillingStreet}
-                        onChange={(e) => setGuestBillingStreet(e.target.value)}
-                        required
-                        className="checkout-input h-8 text-sm"
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div className="space-y-1">
-                        <Label htmlFor="guest-billingCity" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                          {t('checkout.city')} <span style={{ color: '#f5b800' }}>*</span>
-                        </Label>
-                        <Input
-                          id="guest-billingCity"
-                          value={guestBillingCity}
-                          onChange={(e) => setGuestBillingCity(e.target.value)}
-                          required
-                          className="checkout-input h-8 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="guest-billingState" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                          {t('checkout.state')}
-                        </Label>
-                        <Input
-                          id="guest-billingState"
-                          value={guestBillingState}
-                          onChange={(e) => setGuestBillingState(e.target.value)}
-                          className="checkout-input h-8 text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div className="space-y-1">
-                        <Label htmlFor="guest-billingZipCode" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                          {t('checkout.zipCode')} <span style={{ color: '#f5b800' }}>*</span>
-                        </Label>
-                        <Input
-                          id="guest-billingZipCode"
-                          value={guestBillingZipCode}
-                          onChange={(e) => setGuestBillingZipCode(e.target.value)}
-                          required
-                          className="checkout-input h-8 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="guest-billingCountry" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                          {t('checkout.country')}
-                        </Label>
-                        <Input
-                          id="guest-billingCountry"
-                          value={guestBillingCountry}
-                          onChange={(e) => setGuestBillingCountry(e.target.value)}
-                          className="checkout-input h-8 text-sm"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                          {!guestBillingIsShipping && (
+                            <div className="space-y-2.5 rounded-lg border border-[#e3e8f2] p-2.5">
+                              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                                <div className="space-y-1">
+                                  <Label htmlFor="guest-shippingStreet" className="text-xs font-semibold">{t("checkout.street")}</Label>
+                                  <Input id="guest-shippingStreet" value={guestShippingStreet} onChange={(e) => setGuestShippingStreet(e.target.value)} className="h-8 text-sm" />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label htmlFor="guest-shippingCity" className="text-xs font-semibold">{t("checkout.city")}</Label>
+                                  <Input id="guest-shippingCity" value={guestShippingCity} onChange={(e) => setGuestShippingCity(e.target.value)} className="h-8 text-sm" />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                                <div className="space-y-1">
+                                  <Label htmlFor="guest-shippingState" className="text-xs font-semibold">{t("checkout.state")}</Label>
+                                  <Input id="guest-shippingState" value={guestShippingState} onChange={(e) => setGuestShippingState(e.target.value)} className="h-8 text-sm" />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label htmlFor="guest-shippingZipCode" className="text-xs font-semibold">{t("checkout.zipCode")}</Label>
+                                  <Input id="guest-shippingZipCode" value={guestShippingZipCode} onChange={(e) => setGuestShippingZipCode(e.target.value)} className="h-8 text-sm" />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label htmlFor="guest-shippingCountry" className="text-xs font-semibold">{t("checkout.country")}</Label>
+                                  <Input id="guest-shippingCountry" value={guestShippingCountry} onChange={(e) => setGuestShippingCountry(e.target.value)} className="h-8 text-sm" />
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
-                  {/* Shipping Address Checkbox */}
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2 p-2.5 rounded-lg" style={{ backgroundColor: '#f5f6f8', border: '2px solid #eceef3' }}>
-                      <Checkbox
-                        id="guest-billingIsShipping"
-                        checked={guestBillingIsShipping}
-                        onCheckedChange={(checked) => setGuestBillingIsShipping(checked === true)}
-                        className="border-2"
-                        style={{ borderColor: '#1a2a5e' }}
-                      />
-                      <Label
-                        htmlFor="guest-billingIsShipping"
-                        className="text-xs font-semibold cursor-pointer"
-                        style={{ color: '#2d3748' }}
-                      >
-                        {t('checkout.billingIsShippingAddress')}
-                      </Label>
-                    </div>
-                  </div>
-
-                  {/* Shipping Address - Only show when billing is NOT shipping */}
-                  {!guestBillingIsShipping && (
-                    <div className="space-y-2">
-                      <h3 className="checkout-section-title">{t('checkout.shippingAddress')}</h3>
-                      <div className="space-y-1">
-                        <Label htmlFor="guest-shippingStreet" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                          {t('checkout.street')}
-                        </Label>
-                        <Input
-                          id="guest-shippingStreet"
-                          value={guestShippingStreet}
-                          onChange={(e) => setGuestShippingStreet(e.target.value)}
-                          className="checkout-input h-8 text-sm"
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <div className="space-y-1">
-                          <Label htmlFor="guest-shippingCity" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                            {t('checkout.city')}
-                          </Label>
-                          <Input
-                            id="guest-shippingCity"
-                            value={guestShippingCity}
-                            onChange={(e) => setGuestShippingCity(e.target.value)}
-                            className="checkout-input h-8 text-sm"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="guest-shippingState" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                            {t('checkout.state')}
-                          </Label>
-                          <Input
-                            id="guest-shippingState"
-                            value={guestShippingState}
-                            onChange={(e) => setGuestShippingState(e.target.value)}
-                            className="checkout-input h-8 text-sm"
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <div className="space-y-1">
-                          <Label htmlFor="guest-shippingZipCode" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                            {t('checkout.zipCode')}
-                          </Label>
-                          <Input
-                            id="guest-shippingZipCode"
-                            value={guestShippingZipCode}
-                            onChange={(e) => setGuestShippingZipCode(e.target.value)}
-                            className="checkout-input h-8 text-sm"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="guest-shippingCountry" className="text-xs font-semibold" style={{ color: '#2d3748' }}>
-                            {t('checkout.country')}
-                          </Label>
-                          <Input
-                            id="guest-shippingCountry"
-                            value={guestShippingCountry}
-                            onChange={(e) => setGuestShippingCountry(e.target.value)}
-                            className="checkout-input h-8 text-sm"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <Button 
-                    type="submit" 
-                    className="w-full checkout-button-primary h-9 text-sm font-bold rounded-lg" 
-                    disabled={guestCheckoutLoading}
-                  >
-                    {guestCheckoutLoading ? t('common.loading') : t('checkout.continueAsGuest')}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-        </>
-          )}
+                          <Button type="submit" className="h-9 w-full bg-[#f5b800] text-sm font-bold text-[#1a2a5e] hover:bg-[#e5ab00]">
+                            {t("checkout.continueAsGuest")}
+                          </Button>
+                          <p className="text-[10px] text-[#8b9dbf]"><span className="text-red-500">*</span> {t("checkout.requiredFieldsNote")}</p>
+                        </form>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+              )}
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
-    </>
-  );
+  )
 }

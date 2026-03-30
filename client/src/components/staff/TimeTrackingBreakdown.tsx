@@ -17,9 +17,22 @@ interface TimeTrackingOrderItem {
   durationHours: number
 }
 
+interface TimeTrackingWorkflowItem {
+  workflowId?: string | null
+  orderId?: string | null
+  orderNumber: string
+  workflowName: string
+  stepName?: string
+  startTime: string | Date
+  endTime?: string | Date | null
+  durationHours: number
+  status: string
+}
+
 interface TimeTrackingBreakdownProps {
   breaks: TimeTrackingBreakItem[]
   orders: TimeTrackingOrderItem[]
+  workflows: TimeTrackingWorkflowItem[]
   breakHours: number
   selectedDate?: string | Date | null
   compact?: boolean
@@ -54,12 +67,14 @@ const formatDateLabel = (value?: string | Date | null) => {
 export function TimeTrackingBreakdown({
   breaks,
   orders,
+  workflows,
   breakHours,
   selectedDate,
   compact = false,
   className,
 }: TimeTrackingBreakdownProps) {
   const longestOrderHours = orders.reduce((max, order) => Math.max(max, order.durationHours || 0), 0)
+  const longestWorkflowHours = workflows.reduce((max, workflow) => Math.max(max, workflow.durationHours || 0), 0)
   const dateLabel = formatDateLabel(selectedDate)
 
   return (
@@ -77,7 +92,7 @@ export function TimeTrackingBreakdown({
         </div>
       </CardHeader>
       <CardContent className={cn("grid gap-3", compact ? "px-3 py-3" : "px-4 py-4")}>
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 xl:grid-cols-3">
           <section className="grid gap-2">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-slate-700">
@@ -151,6 +166,53 @@ export function TimeTrackingBreakdown({
             ) : (
               <p className={cn("rounded-lg border border-dashed border-slate-200 bg-slate-50 text-slate-500", compact ? "px-2.5 py-2 text-[11px]" : "px-3 py-2.5 text-xs")}>
                 Fuer dieses Datum wurden keine Auftragszeiten erfasst.
+              </p>
+            )}
+          </section>
+
+          <section className="grid gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-slate-700">
+                <Timer className={compact ? "h-3.5 w-3.5 text-violet-700" : "h-4 w-4 text-violet-700"} />
+                <span className={compact ? "text-[11px] font-semibold uppercase tracking-[0.12em]" : "text-xs font-semibold uppercase tracking-[0.14em]"}>Workflowzeiten</span>
+              </div>
+              <strong className={cn("text-slate-900", compact ? "text-xs" : "text-sm")}>{workflows.length}</strong>
+            </div>
+
+            {workflows.length > 0 ? (
+              <div className="grid gap-2">
+                {workflows.map((workflow) => {
+                  const width = longestWorkflowHours > 0
+                    ? `${Math.max((workflow.durationHours / longestWorkflowHours) * 100, 10)}%`
+                    : "0%"
+
+                  return (
+                    <div
+                      key={`${workflow.workflowId || workflow.workflowName}-${workflow.orderId || workflow.orderNumber}-${workflow.startTime}`}
+                      className={cn("grid gap-1.5 rounded-lg border border-slate-200 bg-white", compact ? "px-2.5 py-2" : "px-3 py-2.5")}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <span className={cn("block truncate font-medium text-slate-800", compact ? "text-xs" : "text-sm")}>{workflow.workflowName}</span>
+                          <small className={cn("block truncate text-slate-500", compact ? "text-[11px]" : "text-xs")}>
+                            #{workflow.orderNumber}{workflow.stepName ? ` · ${workflow.stepName}` : ""}
+                          </small>
+                        </div>
+                        <strong className={cn("shrink-0 text-slate-900", compact ? "text-xs" : "text-sm")}>{formatHours(workflow.durationHours)}</strong>
+                      </div>
+                      <div className={cn("overflow-hidden rounded-full bg-slate-100", compact ? "h-1.5" : "h-2")}>
+                        <div className="h-full rounded-full bg-gradient-to-r from-violet-700 to-fuchsia-500" style={{ width }} />
+                      </div>
+                      <small className={cn("text-slate-500", compact ? "text-[11px]" : "text-xs")}>
+                        {formatClock(workflow.startTime)} - {formatClock(workflow.endTime)}
+                      </small>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className={cn("rounded-lg border border-dashed border-slate-200 bg-slate-50 text-slate-500", compact ? "px-2.5 py-2 text-[11px]" : "px-3 py-2.5 text-xs")}>
+                Fuer dieses Datum wurden keine Workflowzeiten erfasst.
               </p>
             )}
           </section>

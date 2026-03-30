@@ -179,11 +179,13 @@ router.post('/register', async (req, res) => {
 
 // Description: Complete checkout - creates orders from cart repair orders and shop products, clears cart
 // Endpoint: POST /api/checkout/complete
-// Request: {}
+// Request: { paymentMethod?: string, paymentData?: object }
 // Response: { success: boolean, message: string, orders: Order[], orderIds: string[] }
 router.post('/complete', requireUser, async (req, res) => {
   try {
     console.log('CheckoutRoutes: Completing checkout for user:', req.user._id);
+
+    const { paymentMethod, paymentData } = req.body;
 
     // Get user information to validate invoice address
     const user = await UserService.get(req.user._id);
@@ -408,6 +410,7 @@ router.post('/complete', requireUser, async (req, res) => {
         status: 'pending',
         billingStatus: 'unpaid',
         paymentStatus: 'pending',
+        paymentMethod: paymentMethod || '',
       });
       console.log('CheckoutRoutes: Booking created successfully:', booking._id);
     } catch (bookingError) {
@@ -462,13 +465,13 @@ router.post('/complete', requireUser, async (req, res) => {
 
 // Description: Complete guest checkout - creates orders from guest cart data without authentication
 // Endpoint: POST /api/checkout/guest-complete
-// Request: { guestInfo: { email, firstName, lastName, billingAddress, shippingAddress }, cartData: { items, repairOrders } }
+// Request: { guestInfo: { email, firstName, lastName, billingAddress, shippingAddress }, cartData: { items, repairOrders }, paymentMethod?: string, paymentData?: object }
 // Response: { success: boolean, message: string, orders: Order[], orderIds: string[] }
 router.post('/guest-complete', async (req, res) => {
   try {
     console.log('CheckoutRoutes: Processing guest checkout');
 
-    const { guestInfo, cartData } = req.body;
+    const { guestInfo, cartData, paymentMethod, paymentData } = req.body;
 
     // Validate guest information
     if (!guestInfo || !guestInfo.email || !guestInfo.firstName || !guestInfo.lastName) {
@@ -695,6 +698,7 @@ router.post('/guest-complete', async (req, res) => {
         status: 'pending',
         billingStatus: 'unpaid',
         paymentStatus: 'pending',
+        paymentMethod: paymentMethod || '',
       });
       console.log('CheckoutRoutes: Guest booking created successfully:', booking._id);
     } catch (bookingError) {

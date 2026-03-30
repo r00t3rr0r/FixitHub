@@ -69,6 +69,7 @@ export function WorkflowExecutionModal({
   const [tab, setTab] = useState<'overview' | 'execute'>('overview')
   const [showPauseReasonDialog, setShowPauseReasonDialog] = useState(false)
   const [pauseReason, setPauseReason] = useState('')
+  const [nowTick, setNowTick] = useState(() => Date.now())
 
   // Auto-set tab to execute when mode changes to execute
   useEffect(() => {
@@ -76,6 +77,26 @@ export function WorkflowExecutionModal({
       setTab('execute')
     }
   }, [mode])
+
+  useEffect(() => {
+    if (workflow?.currentStepIndex !== undefined && Number.isInteger(workflow.currentStepIndex)) {
+      setCurrentStepIndex(Math.max(0, workflow.currentStepIndex))
+    }
+  }, [workflow?._id, workflow?.currentStepIndex])
+
+  useEffect(() => {
+    if (!open || workflow?.status !== 'on-hold') {
+      return
+    }
+
+    const interval = window.setInterval(() => {
+      setNowTick(Date.now())
+    }, 1000)
+
+    return () => {
+      window.clearInterval(interval)
+    }
+  }, [open, workflow?.status])
 
   if (!workflow) return null
 
@@ -94,12 +115,71 @@ export function WorkflowExecutionModal({
   const progressPercentage = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0
 
   const currentStep = steps[currentStepIndex] || null
+  const nextStep = steps[currentStepIndex + 1] || null
   const canGoNext = currentStepIndex < steps.length - 1
   const canGoPrev = currentStepIndex > 0
 
   const totalEstimatedTime = steps.reduce((sum: number, step: any) => {
     return sum + (step.estimatedTime || 0)
   }, 0)
+
+  const formatMinutes = (minutes: number) => {
+    if (!Number.isFinite(minutes) || minutes < 0) return '0 Min'
+    const hours = Math.floor(minutes / 60)
+    const remainingMinutes = minutes % 60
+    if (hours <= 0) return `${remainingMinutes} Min`
+    if (remainingMinutes <= 0) return `${hours} Std`
+    return `${hours} Std ${remainingMinutes} Min`
+  }
+
+  const formatDateTime = (value?: string | Date) => {
+    if (!value) return 'Unbekannt'
+    const date = new Date(value)
+    if (!Number.isFinite(date.getTime())) return 'Unbekannt'
+    return date.toLocaleString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  const pauseHistory = Array.isArray(workflow.pauseHistory) ? workflow.pauseHistory : []
+  const openPauseEntry = [...pauseHistory].reverse().find((entry: any) => !entry?.resumedAt) || null
+  const pauseStartedAt = openPauseEntry?.pausedAt || workflow.pausedAt
+  const currentPauseDurationMinutes = (() => {
+    if (workflow.status !== 'on-hold' || !pauseStartedAt) return 0
+    const pauseStartTs = new Date(pauseStartedAt).getTime()
+    const nowTs = nowTick
+    if (!Number.isFinite(pauseStartTs) || nowTs <= pauseStartTs) return 0
+    return Math.round((nowTs - pauseStartTs) / (1000 * 60))
+  })()
+  const totalPausedMinutes = Number(workflow.totalPausedMinutes || 0)
+  const pauseEntries = [...pauseHistory]
+    .map((entry: any, index: number) => {
+      const pausedAt = entry?.pausedAt ? new Date(entry.pausedAt) : null
+      if (!pausedAt || !Number.isFinite(pausedAt.getTime())) {
+        return null
+      }
+
+      const resumedAt = entry?.resumedAt ? new Date(entry.resumedAt) : null
+      const entryIsOpen = !resumedAt || !Number.isFinite(resumedAt.getTime())
+      const endTs = entryIsOpen ? nowTick : resumedAt.getTime()
+      const durationMinutes = Math.max(0, Math.round((endTs - pausedAt.getTime()) / (1000 * 60)))
+
+      return {
+        id: `${index}-${pausedAt.toISOString()}`,
+        pausedAt,
+        resumedAt: entryIsOpen ? null : resumedAt,
+        durationMinutes,
+        reason: entry?.reason || workflow.pauseReason || 'Kein Grund angegeben',
+        stepName: entry?.stepName || 'Unbekannter Schritt',
+        isOpen: entryIsOpen,
+      }
+    })
+    .filter(Boolean)
+    .sort((a: any, b: any) => b.pausedAt.getTime() - a.pausedAt.getTime())
 
   const getStepStatusColor = (status: string) => {
     switch (status) {
@@ -193,16 +273,32 @@ export function WorkflowExecutionModal({
             }}
           >
             <DialogHeader>
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <DialogTitle className="text-2xl">{workflow.workflowName}</DialogTitle>
-                  <DialogDescription className="mt-2">
-                    {totalSteps} steps • {Math.round(totalEstimatedTime)} minutes estimated
-                  </DialogDescription>
+              <div className="rounded-xl bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] p-4 md:p-5 text-white">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <DialogTitle
+                      className="workflow-execution-title text-2xl text-[#f5b800]"
+                      style={{ color: "var(--accent-yellow, #f5b800)" }}
+                    >
+                      {workflow.workflowName}
+                    </DialogTitle>
+                    <DialogDescription className="mt-2 text-blue-100">
+                      {totalSteps} Steps • {Math.round(totalEstimatedTime)} Minuten Richtzeit
+                    </DialogDescription>
+                    <div className="mt-3 h-2 w-full rounded-full bg-white/20">
+                      <div
+                        className="h-2 rounded-full bg-white transition-all"
+                        style={{ width: `${Math.min(100, Math.max(0, progressPercentage))}%` }}
+                      />
+                    </div>
+                    <p className="mt-2 text-xs text-blue-100">
+                      {completedSteps}/{totalSteps} Steps abgeschlossen
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="whitespace-nowrap border-white/30 bg-white text-[#1a2a5e]">
+                    Aktiver Step {currentStepIndex + 1}
+                  </Badge>
                 </div>
-                <Badge variant="outline" className="whitespace-nowrap">
-                  Executing Step {currentStepIndex + 1}
-                </Badge>
               </div>
             </DialogHeader>
 
@@ -210,11 +306,11 @@ export function WorkflowExecutionModal({
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="overview" className="flex items-center gap-2">
                   <AlertCircle className="h-4 w-4" />
-                  Overview
+                  Uebersicht
                 </TabsTrigger>
                 <TabsTrigger value="execute" className="flex items-center gap-2">
                   <Play className="h-4 w-4" />
-                  Execute Step
+                  Schritt ausfuehren
                 </TabsTrigger>
               </TabsList>
 
@@ -223,13 +319,66 @@ export function WorkflowExecutionModal({
                   {/* Overall Progress */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium">Workflow Progress</span>
+                      <span className="font-medium">Workflow-Fortschritt</span>
                       <span className="text-sm text-muted-foreground">
-                        {completedSteps}/{totalSteps} steps completed
+                        {completedSteps}/{totalSteps} Schritte abgeschlossen
                       </span>
                     </div>
                     <Progress value={progressPercentage} className="h-2" />
                   </div>
+
+                  {/* Pause Insights */}
+                  <Card className={workflow.status === 'on-hold' ? 'border-amber-300 bg-amber-50' : 'border-blue-100 bg-blue-50/70'}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm text-slate-800">Pausenstatus</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 text-sm text-slate-700">
+                      <p>
+                        Gesamt pausiert: <span className="font-semibold text-slate-900">{formatMinutes(totalPausedMinutes)}</span>
+                      </p>
+                      {workflow.status === 'on-hold' && (
+                        <p>
+                          Aktuell pausiert seit: <span className="font-semibold text-amber-800">{formatMinutes(currentPauseDurationMinutes)}</span>
+                        </p>
+                      )}
+                      {(workflow.pauseReason || openPauseEntry?.reason) && (
+                        <p>
+                          Grund: <span className="font-medium">{workflow.pauseReason || openPauseEntry?.reason}</span>
+                        </p>
+                      )}
+                      {(openPauseEntry?.stepName || currentStep?.stepName) && (
+                        <p>
+                          Betroffener Schritt: <span className="font-medium">{openPauseEntry?.stepName || currentStep?.stepName}</span>
+                        </p>
+                      )}
+
+                      {pauseEntries.length > 0 && (
+                        <div className="mt-2 rounded-md border border-slate-200 bg-white p-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Pause-Historie</p>
+                          <div className="mt-2 space-y-2 max-h-44 overflow-y-auto pr-1">
+                            {pauseEntries.map((entry: any, index: number) => (
+                              <div key={entry.id} className="rounded-md border border-slate-200 bg-slate-50 p-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-xs font-semibold text-slate-700">Pause #{pauseEntries.length - index}</p>
+                                  <Badge
+                                    variant="outline"
+                                    className={entry.isOpen ? 'border-amber-300 bg-amber-100 text-amber-800' : 'border-slate-300 bg-white text-slate-700'}
+                                  >
+                                    {entry.isOpen ? 'Laufend' : 'Abgeschlossen'}
+                                  </Badge>
+                                </div>
+                                <p className="mt-1 text-xs text-slate-600">Start: {formatDateTime(entry.pausedAt)}</p>
+                                <p className="text-xs text-slate-600">Ende: {entry.resumedAt ? formatDateTime(entry.resumedAt) : 'Noch pausiert'}</p>
+                                <p className="text-xs text-slate-600">Dauer: <span className="font-semibold text-slate-800">{formatMinutes(entry.durationMinutes)}</span></p>
+                                <p className="text-xs text-slate-600">Schritt: {entry.stepName}</p>
+                                <p className="text-xs text-slate-600">Grund: {entry.reason}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
 
                   {/* Current Step Preview */}
                   {currentStep && (
@@ -238,10 +387,10 @@ export function WorkflowExecutionModal({
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1">
                             <CardTitle className="text-lg">
-                              Step {currentStepIndex + 1}: {currentStep.stepName}
+                              Schritt {currentStepIndex + 1}: {currentStep.stepName}
                             </CardTitle>
                             <CardDescription className="mt-2">
-                              {currentStep.description || 'No description provided'}
+                              {currentStep.description || 'Keine Beschreibung vorhanden'}
                             </CardDescription>
                           </div>
                           <Badge
@@ -259,16 +408,47 @@ export function WorkflowExecutionModal({
                         {currentStep.estimatedTime && (
                           <div className="flex items-center gap-2 text-sm">
                             <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span>Estimated time: {currentStep.estimatedTime} minutes</span>
+                            <span>Richtzeit: {currentStep.estimatedTime} Minuten</span>
                           </div>
                         )}
                       </CardContent>
                     </Card>
                   )}
 
+                  {/* Guided Flow */}
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Card className="border-blue-100 bg-blue-50/70">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm text-[#1a2a5e]">Jetzt bearbeiten</CardTitle>
+                      </CardHeader>
+                      <CardContent className="text-sm text-slate-700">
+                        <p className="font-medium text-slate-900">
+                          Schritt {currentStepIndex + 1}: {currentStep?.stepName || 'Kein Schritt gewaehlt'}
+                        </p>
+                        <p className="mt-1">Pruefe die Eingaben und arbeite danach den Step gezielt ab.</p>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-emerald-100 bg-emerald-50/70">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm text-emerald-700">Als Naechstes</CardTitle>
+                      </CardHeader>
+                      <CardContent className="text-sm text-slate-700">
+                        <p className="font-medium text-slate-900">
+                          {nextStep ? `Schritt ${currentStepIndex + 2}: ${nextStep.stepName}` : 'Letzter Schritt im Workflow'}
+                        </p>
+                        <p className="mt-1">
+                          {nextStep
+                            ? 'Nach Abschluss springt der Workflow automatisch zum naechsten Schritt.'
+                            : 'Nach Abschluss dieses Steps wird der Workflow abgeschlossen.'}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
                   {/* All Steps List */}
                   <div className="space-y-3">
-                    <h3 className="font-medium">All Steps</h3>
+                    <h3 className="font-medium">Alle Schritte</h3>
                     <div className="space-y-2 max-h-48 overflow-y-auto">
                       {steps.map((step: any, index: number) => (
                         <button
@@ -320,6 +500,8 @@ export function WorkflowExecutionModal({
                     onStepComplete={handleStepComplete}
                     onStepSkip={handleSkipStep}
                     isLoading={isLoading}
+                    workflowStatus={workflow.status}
+                    workflowPauseReason={workflow.pauseReason}
                   />
                 )}
               </TabsContent>
@@ -337,7 +519,7 @@ export function WorkflowExecutionModal({
                 }}
                 disabled={isLoading}
               >
-                Close
+                Schliessen
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -347,25 +529,25 @@ export function WorkflowExecutionModal({
         <AlertDialog open={showPauseReasonDialog} onOpenChange={setShowPauseReasonDialog}>
           <AlertDialogContent className="max-w-md">
             <AlertDialogHeader>
-              <AlertDialogTitle>Pause Workflow</AlertDialogTitle>
+              <AlertDialogTitle>Workflow pausieren</AlertDialogTitle>
               <AlertDialogDescription>
-                Please provide a reason for pausing the workflow "{workflow.workflowName}". This reason will be recorded in the order details.
+                Bitte gib einen Grund fuer die Pausierung des Workflows "{workflow.workflowName}" an. Der Grund wird in den Auftragsdetails gespeichert.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="pause-reason" className="text-sm font-medium">
-                  Reason for Pausing <span className="text-destructive">*</span>
+                  Grund der Pausierung <span className="text-destructive">*</span>
                 </label>
                 <textarea
                   id="pause-reason"
                   value={pauseReason}
                   onChange={(e) => setPauseReason(e.target.value)}
-                  placeholder="Enter the reason for pausing (e.g., waiting for parts, customer feedback, etc.)"
+                  placeholder="Grund eingeben (z. B. fehlende Teile, Rueckfrage beim Kunden usw.)"
                   className="w-full min-h-24 p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {!pauseReason.trim() && (
-                  <p className="text-sm text-destructive">Please provide a reason</p>
+                  <p className="text-sm text-destructive">Bitte gib einen Grund an</p>
                 )}
               </div>
             </div>
@@ -376,15 +558,15 @@ export function WorkflowExecutionModal({
                 }}
                 disabled={isLoading}
               >
-                Cancel
+                Abbrechen
               </AlertDialogCancel>
               <AlertDialogAction
                 onClick={async () => {
                   if (!pauseReason.trim()) {
                     toast({
                       variant: "destructive",
-                      title: "Error",
-                      description: "Please provide a reason for pausing the workflow"
+                      title: "Fehler",
+                      description: "Bitte gib einen Grund fuer die Pausierung an"
                     })
                     return
                   }
@@ -396,8 +578,8 @@ export function WorkflowExecutionModal({
                     await updateWorkflowStatus(orderId || '', workflowId || '', 'on-hold', pauseReason)
 
                     toast({
-                      title: "Success",
-                      description: `Workflow paused. Order status set to pending. Reason: ${pauseReason}`
+                      title: "Erfolg",
+                      description: `Workflow pausiert. Auftragsstatus auf "pending" gesetzt. Grund: ${pauseReason}`
                     })
 
                     setPauseReason('')
@@ -411,14 +593,14 @@ export function WorkflowExecutionModal({
                     console.error("Error pausing workflow:", error)
                     toast({
                       variant: "destructive",
-                      title: "Error",
-                      description: error.message || "Failed to pause workflow"
+                      title: "Fehler",
+                      description: error.message || "Workflow konnte nicht pausiert werden"
                     })
                   }
                 }}
                 disabled={isLoading || !pauseReason.trim()}
               >
-                {isLoading ? 'Pausing...' : 'Pause Workflow'}
+                {isLoading ? 'Pausiere...' : 'Workflow pausieren'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -439,18 +621,34 @@ export function WorkflowExecutionModal({
           }}
         >
           <DialogHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <DialogTitle className="text-2xl">{workflow.workflowName}</DialogTitle>
-                <DialogDescription className="mt-2">
-                  {totalSteps} steps • {Math.round(totalEstimatedTime)} minutes estimated
-                </DialogDescription>
+            <div className="rounded-xl bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] p-4 md:p-5 text-white">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <DialogTitle
+                    className="workflow-execution-title text-2xl text-[#f5b800]"
+                    style={{ color: "var(--accent-yellow, #f5b800)" }}
+                  >
+                    {workflow.workflowName}
+                  </DialogTitle>
+                  <DialogDescription className="mt-2 text-blue-100">
+                    {totalSteps} Steps • {Math.round(totalEstimatedTime)} Minuten Richtzeit
+                  </DialogDescription>
+                  <div className="mt-3 h-2 w-full rounded-full bg-white/20">
+                    <div
+                      className="h-2 rounded-full bg-white transition-all"
+                      style={{ width: `${Math.min(100, Math.max(0, progressPercentage))}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-blue-100">
+                    {completedSteps}/{totalSteps} Steps abgeschlossen
+                  </p>
+                </div>
+                <Badge variant="outline" className="whitespace-nowrap border-white/30 bg-white text-[#1a2a5e]">
+                  {mode === 'start' && 'Bereit zum Start'}
+                  {mode === 'resume' && 'Bereit zum Fortsetzen'}
+                  {mode === 'view' && 'Workflow Uebersicht'}
+                </Badge>
               </div>
-              <Badge variant="outline" className="whitespace-nowrap">
-                {mode === 'start' && 'Ready to Start'}
-                {mode === 'resume' && 'Ready to Resume'}
-                {mode === 'view' && 'Workflow Details'}
-              </Badge>
             </div>
           </DialogHeader>
 
@@ -458,13 +656,66 @@ export function WorkflowExecutionModal({
             {/* Overall Progress */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="font-medium">Overall Progress</span>
+                <span className="font-medium">Gesamtfortschritt</span>
                 <span className="text-sm text-muted-foreground">
-                  {completedSteps}/{totalSteps} steps completed
+                  {completedSteps}/{totalSteps} Schritte abgeschlossen
                 </span>
               </div>
               <Progress value={progressPercentage} className="h-2" />
             </div>
+
+            {/* Pause Insights */}
+            <Card className={workflow.status === 'on-hold' ? 'border-amber-300 bg-amber-50' : 'border-blue-100 bg-blue-50/70'}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-slate-800">Pausenstatus</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm text-slate-700">
+                <p>
+                  Gesamt pausiert: <span className="font-semibold text-slate-900">{formatMinutes(totalPausedMinutes)}</span>
+                </p>
+                {workflow.status === 'on-hold' && (
+                  <p>
+                    Aktuell pausiert seit: <span className="font-semibold text-amber-800">{formatMinutes(currentPauseDurationMinutes)}</span>
+                  </p>
+                )}
+                {(workflow.pauseReason || openPauseEntry?.reason) && (
+                  <p>
+                    Grund: <span className="font-medium">{workflow.pauseReason || openPauseEntry?.reason}</span>
+                  </p>
+                )}
+                {(openPauseEntry?.stepName || currentStep?.stepName) && (
+                  <p>
+                    Betroffener Schritt: <span className="font-medium">{openPauseEntry?.stepName || currentStep?.stepName}</span>
+                  </p>
+                )}
+
+                {pauseEntries.length > 0 && (
+                  <div className="mt-2 rounded-md border border-slate-200 bg-white p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Pause-Historie</p>
+                    <div className="mt-2 space-y-2 max-h-44 overflow-y-auto pr-1">
+                      {pauseEntries.map((entry: any, index: number) => (
+                        <div key={entry.id} className="rounded-md border border-slate-200 bg-slate-50 p-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-semibold text-slate-700">Pause #{pauseEntries.length - index}</p>
+                            <Badge
+                              variant="outline"
+                              className={entry.isOpen ? 'border-amber-300 bg-amber-100 text-amber-800' : 'border-slate-300 bg-white text-slate-700'}
+                            >
+                              {entry.isOpen ? 'Laufend' : 'Abgeschlossen'}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-600">Start: {formatDateTime(entry.pausedAt)}</p>
+                          <p className="text-xs text-slate-600">Ende: {entry.resumedAt ? formatDateTime(entry.resumedAt) : 'Noch pausiert'}</p>
+                          <p className="text-xs text-slate-600">Dauer: <span className="font-semibold text-slate-800">{formatMinutes(entry.durationMinutes)}</span></p>
+                          <p className="text-xs text-slate-600">Schritt: {entry.stepName}</p>
+                          <p className="text-xs text-slate-600">Grund: {entry.reason}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Current Step Display */}
             {currentStep && (
@@ -473,10 +724,10 @@ export function WorkflowExecutionModal({
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <CardTitle className="text-lg">
-                        Step {currentStepIndex + 1}: {currentStep.stepName}
+                        Schritt {currentStepIndex + 1}: {currentStep.stepName}
                       </CardTitle>
                       <CardDescription className="mt-2">
-                        {currentStep.description || 'No description provided'}
+                        {currentStep.description || 'Keine Beschreibung vorhanden'}
                       </CardDescription>
                     </div>
                     <Badge
@@ -494,11 +745,11 @@ export function WorkflowExecutionModal({
                   {currentStep.estimatedTime && (
                     <div className="flex items-center gap-2 text-sm">
                       <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span>Estimated time: {currentStep.estimatedTime} minutes</span>
+                      <span>Richtzeit: {currentStep.estimatedTime} Minuten</span>
                     </div>
                   )}
                   <p className="text-sm text-muted-foreground">
-                    This step requires careful attention to detail. Follow all instructions and ensure quality checks are completed.
+                    Dieser Schritt erfordert sorgfaeltiges Arbeiten. Folge den Hinweisen und stelle sicher, dass alle Qualitaetspruefungen abgeschlossen sind.
                   </p>
                 </CardContent>
               </Card>
@@ -506,7 +757,7 @@ export function WorkflowExecutionModal({
 
             {/* Steps Overview */}
             <div className="space-y-3">
-              <h3 className="font-medium">All Steps</h3>
+              <h3 className="font-medium">Alle Schritte</h3>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {steps.map((step: any, index: number) => (
                   <button
@@ -551,16 +802,16 @@ export function WorkflowExecutionModal({
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 text-amber-600" />
-                  Important Guidelines
+                  Wichtige Hinweise
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-sm space-y-2 text-amber-900">
                 <ul className="list-disc list-inside space-y-1">
-                  <li>Follow each step in order for best results</li>
-                  <li>Take time to review step details before proceeding</li>
-                  <li>You can pause the workflow at any time if needed</li>
-                  <li>Don't skip steps unless absolutely necessary</li>
-                  <li>Document any issues or notes for quality assurance</li>
+                  <li>Bearbeite die Schritte in der angegebenen Reihenfolge</li>
+                  <li>Pruefe die Schrittdetails, bevor du fortfaehrst</li>
+                  <li>Du kannst den Workflow bei Bedarf jederzeit pausieren</li>
+                  <li>Schritte nur im Ausnahmefall ueberspringen</li>
+                  <li>Dokumentiere Auffaelligkeiten fuer die Qualitaetssicherung</li>
                 </ul>
               </CardContent>
             </Card>
@@ -582,7 +833,7 @@ export function WorkflowExecutionModal({
               }}
               disabled={isLoading}
             >
-              {mode === 'view' ? 'Close' : 'Cancel'}
+              {mode === 'view' ? 'Schliessen' : 'Abbrechen'}
             </Button>
 
             <div className="flex gap-2">
@@ -615,7 +866,7 @@ export function WorkflowExecutionModal({
                 disabled={isLoading}
                 className="flex-1"
               >
-                {isLoading ? 'Loading...' : mode === 'start' ? 'Confirm & Start' : 'Confirm & Resume'}
+                {isLoading ? 'Lade...' : mode === 'start' ? 'Bestaetigen & Starten' : 'Bestaetigen & Fortsetzen'}
               </Button>
             )}
           </DialogFooter>
@@ -627,18 +878,18 @@ export function WorkflowExecutionModal({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {mode === 'start' ? 'Start Workflow?' : 'Resume Workflow?'}
+              {mode === 'start' ? 'Workflow starten?' : 'Workflow fortsetzen?'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {mode === 'start'
-                ? `You are about to start "${workflow.workflowName}". This workflow has ${totalSteps} steps and should take approximately ${Math.round(totalEstimatedTime)} minutes.`
-                : `You are about to resume "${workflow.workflowName}". The workflow will continue from where it was paused.`}
+                ? `Du bist dabei, "${workflow.workflowName}" zu starten. Dieser Workflow hat ${totalSteps} Schritte und dauert voraussichtlich ca. ${Math.round(totalEstimatedTime)} Minuten.`
+                : `Du bist dabei, "${workflow.workflowName}" fortzusetzen. Der Workflow laeuft ab der letzten Pausenstelle weiter.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isLoading}>Abbrechen</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirm} disabled={isLoading}>
-              {isLoading ? 'Processing...' : mode === 'start' ? 'Start Workflow' : 'Resume Workflow'}
+              {isLoading ? 'Verarbeite...' : mode === 'start' ? 'Workflow starten' : 'Workflow fortsetzen'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

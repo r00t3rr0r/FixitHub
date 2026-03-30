@@ -15,6 +15,7 @@ export interface Model {
   brandId: string
   deviceType: string
   image?: string
+  commonProblems?: string[]
   specifications?: Record<string, any>  // Legacy field for backward compatibility
   // Comprehensive specification sections
   images?: Array<{

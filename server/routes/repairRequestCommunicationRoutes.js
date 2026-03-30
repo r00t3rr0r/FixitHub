@@ -3,6 +3,34 @@ const router = express.Router();
 const RepairRequestCommunicationService = require('../services/repairRequestCommunicationService');
 const { requireUser } = require('./middleware/auth');
 
+// Description: Get communication threads visible to current user
+// Endpoint: GET /api/repair-request-communication
+// Request: { page?: number, limit?: number, search?: string }
+// Response: { communications: Array<Object>, totalPages: number, currentPage: number, totalCount: number }
+// NOTE: This route MUST be defined before /:repairRequestId routes to avoid route collision
+router.get('/', requireUser, async (req, res) => {
+  try {
+    const filters = {
+      page: req.query.page,
+      limit: req.query.limit,
+      search: req.query.search,
+    };
+
+    console.log(`RepairRequestCommunicationRoutes: GET / - Listing communications for user ${req.user._id}`);
+
+    const result = await RepairRequestCommunicationService.getCommunicationsForUser(
+      req.user._id,
+      req.user.role,
+      filters
+    );
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error(`RepairRequestCommunicationRoutes: Error listing communication threads: ${error.message}`, error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Description: Get communication thread for a repair request
 // Endpoint: GET /api/repair-request-communication/:repairRequestId
 // Request: {}

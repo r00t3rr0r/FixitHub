@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { useToast } from "@/hooks/useToast"
 import {
@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
@@ -82,6 +82,11 @@ export function DeviceChangeDialog({
   const { t } = useTranslation()
   const { toast } = useToast()
 
+  const tr = (key: string, fallback: string) => {
+    const value = t(key)
+    return !value || value === key ? fallback : value
+  }
+
   const [step, setStep] = useState<'select' | 'review' | 'confirm'>('select')
   const [deviceSearchQuery, setDeviceSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<any[]>([])
@@ -89,8 +94,8 @@ export function DeviceChangeDialog({
   const [loading, setLoading] = useState(false)
   const [pricingChanges, setPricingChanges] = useState<PricingChangesSummary | null>(null)
   const [confirming, setConfirming] = useState(false)
-
-  const deviceTypes = ['Smartphone', 'Tablet', 'Laptop', 'Watch', 'Headphones']
+  const [densityMode, setDensityMode] = useState<'standard' | 'kompakt'>('kompakt')
+  const searchRequestIdRef = useRef(0)
 
   // Reset dialog state when it opens
   useEffect(() => {
@@ -100,32 +105,51 @@ export function DeviceChangeDialog({
       setSearchResults([])
       setSelectedDevice(null)
       setPricingChanges(null)
+      setDensityMode('kompakt')
     }
   }, [open])
 
-  const handleSearchDevice = async (query: string) => {
-    if (!query.trim()) {
+  useEffect(() => {
+    if (!open || step !== 'select') return
+
+    const query = deviceSearchQuery.trim()
+    if (!query) {
       setSearchResults([])
+      setLoading(false)
       return
     }
 
-    try {
-      setLoading(true)
-      console.log("[DeviceChange] Searching for devices:", query)
-      const response = await searchDevices(query)
-      // API returns response.devices, not response.results
-      setSearchResults((response as any).devices || [])
-    } catch (error) {
-      console.error("[DeviceChange] Error searching devices:", error)
-      toast({
-        title: "Error",
-        description: "Failed to search devices",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
+    const activeRequestId = ++searchRequestIdRef.current
+    setLoading(true)
+
+    const timer = setTimeout(async () => {
+      try {
+        console.log("[DeviceChange] Live-Suche nach Geraeten:", query)
+        const response = await searchDevices(query)
+
+        // Nur das aktuellste Suchergebnis uebernehmen.
+        if (activeRequestId !== searchRequestIdRef.current) return
+
+        setSearchResults((response as any).devices || [])
+      } catch (error) {
+        if (activeRequestId !== searchRequestIdRef.current) return
+        console.error("[DeviceChange] Fehler bei der Geraetesuche:", error)
+        toast({
+          title: "Fehler",
+          description: "Die Live-Suche konnte nicht aktualisiert werden.",
+          variant: "destructive",
+        })
+      } finally {
+        if (activeRequestId === searchRequestIdRef.current) {
+          setLoading(false)
+        }
+      }
+    }, 140)
+
+    return () => {
+      clearTimeout(timer)
     }
-  }
+  }, [deviceSearchQuery, open, step, toast])
 
   const handleSelectDevice = (device: any) => {
     setSelectedDevice(device)
@@ -135,8 +159,8 @@ export function DeviceChangeDialog({
   const handleRecalculateServices = async () => {
     if (!selectedDevice) {
       toast({
-        title: "Error",
-        description: "Please select a device first",
+        title: "Fehler",
+        description: "Bitte waehlen Sie zuerst ein Geraet aus.",
         variant: "destructive",
       })
       return
@@ -160,14 +184,14 @@ export function DeviceChangeDialog({
       setStep('review')
 
       toast({
-        title: "Success",
-        description: "Services recalculated based on new device",
+        title: "Erfolg",
+        description: "Die Servicepreise wurden fuer das neue Geraet neu berechnet.",
       })
     } catch (error) {
       console.error("[DeviceChange] Error recalculating services:", error)
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to recalculate services",
+        title: "Fehler",
+        description: error instanceof Error ? error.message : "Die Neuberechnung der Servicepreise ist fehlgeschlagen.",
         variant: "destructive",
       })
     } finally {
@@ -183,8 +207,8 @@ export function DeviceChangeDialog({
       const result = await confirmDeviceChange(orderId, true)
 
       toast({
-        title: "Success",
-        description: "Device change confirmed. Customer has been notified.",
+        title: "Erfolg",
+        description: "Geraeteaenderung bestaetigt. Der Kunde wurde informiert.",
       })
 
       if (onDeviceChanged) {
@@ -195,8 +219,8 @@ export function DeviceChangeDialog({
     } catch (error) {
       console.error("[DeviceChange] Error confirming device change:", error)
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to confirm device change",
+        title: "Fehler",
+        description: error instanceof Error ? error.message : "Die Bestaetigung der Geraeteaenderung ist fehlgeschlagen.",
         variant: "destructive",
       })
     } finally {
@@ -211,287 +235,361 @@ export function DeviceChangeDialog({
     onOpenChange(false)
   }
 
+  const stepNumber = step === 'select' ? 1 : step === 'review' ? 2 : 3
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Smartphone className="w-5 h-5" />
-            Change Device
+      <DialogContent className={`order-device-change-dialog order-device-change-dialog--${densityMode} max-h-[88vh] w-[min(96vw,860px)] overflow-hidden p-0`}>
+        <DialogHeader className="order-device-change-header">
+          <DialogTitle className="order-device-change-title">
+            <span className="order-device-change-title-icon" aria-hidden="true">
+              <Smartphone className="h-5 w-5" />
+            </span>
+            {tr('orderDetails.changeDevice', 'Geraet aendern')}
           </DialogTitle>
-          <DialogDescription>
-            Change the device for this repair order and recalculate services
+          <DialogDescription className="order-device-change-description">
+            {tr('orderDetails.changeDeviceDescription', 'Aendern Sie das Geraet dieses Auftrags und pruefen Sie die Preisaktualisierung vor der Bestaetigung.')}
           </DialogDescription>
+          <div className="order-device-change-density-controls" role="group" aria-label="Darstellungsmodus">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={`order-device-change-density-btn ${densityMode === 'standard' ? 'is-active' : ''}`}
+              onClick={() => setDensityMode('standard')}
+            >
+              Standard
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={`order-device-change-density-btn ${densityMode === 'kompakt' ? 'is-active' : ''}`}
+              onClick={() => setDensityMode('kompakt')}
+            >
+              Kompakt
+            </Button>
+          </div>
         </DialogHeader>
 
-        {/* Current Device Info */}
-        <Card className="bg-muted/50 border-muted">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Current Device</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <span className="font-medium">
-                {currentDevice.brand} {currentDevice.model}
-              </span>
-              <Badge variant="outline">{currentDevice.type}</Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Step 1: Select Device */}
-        {step === 'select' && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="device-search">Search for a new device</Label>
-              <Input
-                id="device-search"
-                placeholder="e.g., iPhone 13 Pro, Samsung Galaxy S23..."
-                value={deviceSearchQuery}
-                onChange={(e) => {
-                  setDeviceSearchQuery(e.target.value)
-                  handleSearchDevice(e.target.value)
-                }}
-                disabled={loading}
-              />
-            </div>
-
-            {loading && (
-              <div className="flex items-center justify-center py-8">
-                <Loader className="w-6 h-6 animate-spin text-primary" />
-              </div>
-            )}
-
-            {searchResults.length > 0 && (
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                <Label className="text-xs text-muted-foreground">
-                  {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} found
-                </Label>
-                {searchResults.map((device) => (
-                  <Card
-                    key={`${device.manufacturer}-${device.name}`}
-                    className={`cursor-pointer transition-colors ${
-                      selectedDevice?.name === device.name
-                        ? 'border-primary bg-primary/5'
-                        : 'hover:border-muted-foreground/50'
-                    }`}
-                    onClick={() => handleSelectDevice(device)}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium">
-                            {device.manufacturer} {device.name}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {device.deviceType}
-                          </div>
-                        </div>
-                        {selectedDevice?.name === device.name && (
-                          <CheckCircle className="w-5 h-5 text-green-600" />
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            {deviceSearchQuery && searchResults.length === 0 && !loading && (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  No devices found. Try a different search query.
-                </AlertDescription>
-              </Alert>
-            )}
+        <div className="order-device-change-stepper" aria-label="Schritte zur Geraeteaenderung">
+          <div className={`order-device-change-step ${stepNumber >= 1 ? 'is-active' : ''}`}>
+            <span>1</span>
+            <p>{tr('orderDetails.searchDevice', 'Geraet waehlen')}</p>
           </div>
-        )}
+          <div className={`order-device-change-step ${stepNumber >= 2 ? 'is-active' : ''}`}>
+            <span>2</span>
+            <p>{tr('orderDetails.services', 'Aenderungen pruefen')}</p>
+          </div>
+          <div className={`order-device-change-step ${stepNumber >= 3 ? 'is-active' : ''}`}>
+            <span>3</span>
+            <p>{tr('orderDetails.confirm', 'Bestaetigen')}</p>
+          </div>
+        </div>
 
-        {/* Step 2: Review Pricing Changes */}
-        {step === 'review' && pricingChanges && (
-          <div className="space-y-4">
-            <Card className="bg-white border-gray-200 shadow-sm">
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 dark:text-blue-400" />
-                  <div className="flex-1">
-                    <p className="font-medium text-blue-900 dark:text-blue-100">
-                      Service prices will be updated
-                    </p>
-                    <p className="text-sm text-blue-800 dark:text-blue-200">
-                      The services compatible with this new device will have their prices recalculated based on device type compatibility.
-                    </p>
+        <div className="order-device-change-body">
+          {/* Current Device Info */}
+          <Card className="order-device-change-current-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="order-device-change-section-title text-sm">
+                {tr('orderDetails.currentDevice', 'Aktuelles Geraet')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="order-device-change-current-row">
+                <span className="order-device-change-current-name">
+                  {currentDevice.brand} {currentDevice.model}
+                </span>
+                <Badge variant="outline" className="order-device-change-type-badge">{currentDevice.type}</Badge>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Step 1: Select Device */}
+          {step === 'select' && (
+            <div className="order-device-change-select-grid">
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="device-search" className="order-device-change-label">
+                    {tr('orderDetails.searchDevice', 'Nach einem neuen Geraet suchen')}
+                  </Label>
+                  <Input
+                    id="device-search"
+                    className="order-device-change-input"
+                    placeholder="z. B. iPhone 13 Pro, Samsung Galaxy S23..."
+                    value={deviceSearchQuery}
+                    onChange={(e) => {
+                      setDeviceSearchQuery(e.target.value)
+                    }}
+                    aria-busy={loading}
+                  />
+                </div>
+
+                {loading && (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader className="h-6 w-6 animate-spin text-[#1a2a5e]" />
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                )}
 
-            {/* New Device Info */}
-            <Card className="border-primary/30 bg-primary/5">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm">New Device</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">
-                    {pricingChanges.newDevice.brand} {pricingChanges.newDevice.model}
-                  </span>
-                  <Badge className="bg-primary">{pricingChanges.newDevice.type}</Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Service Price Changes */}
-            <div className="space-y-2">
-              <Label className="text-base font-semibold">Service Price Changes</Label>
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                {pricingChanges.serviceChanges.map((change, idx) => (
-                  <Card key={idx} className="border-muted">
-                    <CardContent className="p-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="font-medium text-sm">{change.serviceName}</div>
-                          <div className="text-xs text-muted-foreground">
-                            ${change.originalPrice.toFixed(2)} → ${change.newPrice.toFixed(2)}
+                {searchResults.length > 0 && (
+                  <div className="order-device-change-results-wrap">
+                    <Label className="order-device-change-results-label">
+                      {searchResults.length} Treffer fuer "{deviceSearchQuery.trim()}"
+                    </Label>
+                    <div className="order-device-change-results-list">
+                      {searchResults.map((device) => (
+                        <button
+                          type="button"
+                          key={`${device.manufacturer}-${device.name}`}
+                          className={`order-device-change-result-item ${selectedDevice?.name === device.name ? 'is-selected' : ''}`}
+                          onClick={() => handleSelectDevice(device)}
+                        >
+                          <div>
+                            <div className="order-device-change-result-name">
+                              {device.manufacturer} {device.name}
+                            </div>
+                            <div className="order-device-change-result-type">
+                              {device.deviceType}
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {change.status === 'increase' && (
-                            <div className="flex items-center gap-1 text-red-600">
-                              <TrendingUp className="w-4 h-4" />
-                              <span className="text-sm font-medium">
-                                +${Math.abs(change.difference).toFixed(2)}
-                              </span>
-                            </div>
+                          {selectedDevice?.name === device.name && (
+                            <CheckCircle className="h-5 w-5 text-[#38a169]" />
                           )}
-                          {change.status === 'decrease' && (
-                            <div className="flex items-center gap-1 text-green-600">
-                              <TrendingDown className="w-4 h-4" />
-                              <span className="text-sm font-medium">
-                                -${Math.abs(change.difference).toFixed(2)}
-                              </span>
-                            </div>
-                          )}
-                          {change.status === 'no-change' && (
-                            <span className="text-xs text-muted-foreground">No change</span>
-                          )}
-                        </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {deviceSearchQuery && searchResults.length === 0 && !loading && (
+                  <Alert className="order-device-change-empty-alert">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Keine Geraete gefunden. Bitte pruefen Sie einen anderen Suchbegriff.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+
+              <div className="order-device-change-side-panel">
+                <Card className="order-device-change-side-card">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="order-device-change-section-title text-sm">Auswahl</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {selectedDevice ? (
+                      <div className="space-y-2">
+                        <p className="order-device-change-side-title">
+                          {selectedDevice.manufacturer} {selectedDevice.name}
+                        </p>
+                        <p className="order-device-change-side-subtitle">{selectedDevice.deviceType}</p>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                    ) : (
+                      <p className="order-device-change-side-empty">
+                        Waehlen Sie ein Geraet aus der Liste, um fortzufahren.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="order-device-change-side-card is-muted">
+                  <CardContent className="pt-4">
+                    <p className="order-device-change-side-hint">
+                      Tipp: Fuer die besten Treffer Marke und Modell kombinieren.
+                    </p>
+                  </CardContent>
+                </Card>
               </div>
             </div>
+          )}
 
-            {/* Total Cost Summary */}
-            <Card className="border-2">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Total Cost Change</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Previous Total:</span>
-                  <span className="font-medium">${pricingChanges.totalCostBefore.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center pt-2 border-t">
-                  <span className="text-muted-foreground">New Total:</span>
-                  <span className="font-medium text-lg">${pricingChanges.totalCostAfter.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center pt-2 border-t-2 bg-muted/30 -mx-6 px-6 py-2 rounded">
-                  <span className="font-semibold">Difference:</span>
-                  <div className="flex items-center gap-2">
-                    {pricingChanges.totalCostStatus === 'increase' && (
-                      <div className="flex items-center gap-1 text-red-600">
-                        <TrendingUp className="w-4 h-4" />
-                        <span className="font-bold text-lg">
-                          +${pricingChanges.totalCostDifference.toFixed(2)}
-                        </span>
-                      </div>
-                    )}
-                    {pricingChanges.totalCostStatus === 'decrease' && (
-                      <div className="flex items-center gap-1 text-green-600">
-                        <TrendingDown className="w-4 h-4" />
-                        <span className="font-bold text-lg">
-                          -${Math.abs(pricingChanges.totalCostDifference).toFixed(2)}
-                        </span>
-                      </div>
-                    )}
-                    {pricingChanges.totalCostStatus === 'no-change' && (
-                      <span className="text-muted-foreground">No change</span>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {pricingChanges.requiresConfirmation && (
-              <Alert className="border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950">
-                <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                <AlertDescription className="text-orange-800 dark:text-orange-200">
-                  Customer confirmation is required before proceeding with this device change due to pricing changes.
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-        )}
-
-        {/* Step 3: Confirmation */}
-        {step === 'confirm' && (
-          <div className="space-y-4">
-            <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
-              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <AlertDescription className="text-green-800 dark:text-green-200">
-                Device change is ready to be confirmed. The customer will be notified automatically.
-              </AlertDescription>
-            </Alert>
-
-            {pricingChanges && (
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">Summary</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Old Device:</span>
-                    <span className="font-medium">
-                      {pricingChanges.originalDevice.brand} {pricingChanges.originalDevice.model}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">New Device:</span>
-                    <span className="font-medium">
-                      {pricingChanges.newDevice.brand} {pricingChanges.newDevice.model}
-                    </span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t">
-                    <span className="text-muted-foreground">Total Cost Change:</span>
-                    <span className="font-medium">
-                      {pricingChanges.totalCostStatus === 'increase' ? '+' : ''}
-                      ${pricingChanges.totalCostDifference.toFixed(2)}
-                    </span>
+          {/* Step 2: Review Pricing Changes */}
+          {step === 'review' && pricingChanges && (
+            <div className="space-y-4">
+              <Card className="order-device-change-info-card">
+                <CardContent className="pt-5">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="mt-0.5 h-5 w-5 text-[#1a2a5e]" />
+                    <div className="flex-1">
+                      <p className="order-device-change-info-title">
+                        Servicepreise werden aktualisiert
+                      </p>
+                      <p className="order-device-change-info-text">
+                        Vor der finalen Bestaetigung werden kompatible Services fuer dieses Geraet neu berechnet.
+                      </p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
-            )}
-          </div>
-        )}
 
-        <DialogFooter className="gap-2">
+              {/* New Device Info */}
+              <Card className="order-device-change-new-device-card">
+                <CardHeader className="pb-2">
+                  <CardTitle className="order-device-change-section-title text-sm">Neues Geraet</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="order-device-change-current-row">
+                    <span className="order-device-change-current-name">
+                      {pricingChanges.newDevice.brand} {pricingChanges.newDevice.model}
+                    </span>
+                    <Badge className="order-device-change-type-badge is-new">{pricingChanges.newDevice.type}</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Service Price Changes */}
+              <div className="space-y-2">
+                <Label className="order-device-change-section-title text-base font-semibold">Service-Preisveraenderungen</Label>
+                <div className="order-device-change-service-list">
+                  {pricingChanges.serviceChanges.map((change, idx) => (
+                    <Card key={idx} className="order-device-change-service-card">
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-1">
+                            <div className="order-device-change-service-name">{change.serviceName}</div>
+                            <div className="order-device-change-service-prices">
+                              ${change.originalPrice.toFixed(2)} → ${change.newPrice.toFixed(2)}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {change.status === 'increase' && (
+                              <div className="order-device-change-diff increase">
+                                <TrendingUp className="h-4 w-4" />
+                                <span className="text-sm font-semibold">
+                                  +${Math.abs(change.difference).toFixed(2)}
+                                </span>
+                              </div>
+                            )}
+                            {change.status === 'decrease' && (
+                              <div className="order-device-change-diff decrease">
+                                <TrendingDown className="h-4 w-4" />
+                                <span className="text-sm font-semibold">
+                                  -${Math.abs(change.difference).toFixed(2)}
+                                </span>
+                              </div>
+                            )}
+                            {change.status === 'no-change' && (
+                              <span className="order-device-change-diff neutral">Keine Aenderung</span>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+
+              {/* Total Cost Summary */}
+              <Card className="order-device-change-total-card">
+                <CardHeader className="pb-2">
+                  <CardTitle className="order-device-change-section-title text-sm">Aenderung der Gesamtkosten</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[#636e85]">Bisherige Summe:</span>
+                    <span className="font-medium text-[#1a202c]">${pricingChanges.totalCostBefore.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 border-t border-[#eceef3] pt-2">
+                    <span className="text-[#636e85]">Neue Summe:</span>
+                    <span className="text-lg font-bold text-[#1a202c]">${pricingChanges.totalCostAfter.toFixed(2)}</span>
+                  </div>
+                  <div className="order-device-change-total-diff-row">
+                    <span className="font-semibold text-[#1a202c]">Differenz:</span>
+                    <div className="flex items-center gap-2">
+                      {pricingChanges.totalCostStatus === 'increase' && (
+                        <div className="order-device-change-diff increase">
+                          <TrendingUp className="h-4 w-4" />
+                          <span className="text-lg font-bold">
+                            +${pricingChanges.totalCostDifference.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                      {pricingChanges.totalCostStatus === 'decrease' && (
+                        <div className="order-device-change-diff decrease">
+                          <TrendingDown className="h-4 w-4" />
+                          <span className="text-lg font-bold">
+                            -${Math.abs(pricingChanges.totalCostDifference).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                      {pricingChanges.totalCostStatus === 'no-change' && (
+                        <span className="order-device-change-diff neutral">Keine Aenderung</span>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {pricingChanges.requiresConfirmation && (
+                <Alert className="order-device-change-warning-alert">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Aufgrund der Preisveraenderung ist vor dem Fortfahren eine Kundenbestaetigung erforderlich.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
+
+          {/* Step 3: Confirmation */}
+          {step === 'confirm' && (
+            <div className="space-y-4">
+              <Alert className="order-device-change-success-alert">
+                <CheckCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Die Geraeteaenderung ist bereit zur Bestaetigung. Der Kunde wird automatisch informiert.
+                </AlertDescription>
+              </Alert>
+
+              {pricingChanges && (
+                <Card className="order-device-change-summary-card">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="order-device-change-section-title text-sm">Zusammenfassung</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-[#636e85]">Altes Geraet:</span>
+                      <span className="text-right font-semibold text-[#1a202c]">
+                        {pricingChanges.originalDevice.brand} {pricingChanges.originalDevice.model}
+                      </span>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-[#636e85]">Neues Geraet:</span>
+                      <span className="text-right font-semibold text-[#1a202c]">
+                        {pricingChanges.newDevice.brand} {pricingChanges.newDevice.model}
+                      </span>
+                    </div>
+                    <div className="flex items-start justify-between gap-3 border-t border-[#eceef3] pt-2">
+                      <span className="text-[#636e85]">Aenderung Gesamtkosten:</span>
+                      <span className="text-right font-semibold text-[#1a202c]">
+                        {pricingChanges.totalCostStatus === 'increase' ? '+' : ''}
+                        ${pricingChanges.totalCostDifference.toFixed(2)}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="order-device-change-footer">
           <Button
             variant="outline"
+            className="order-device-change-btn order-device-change-btn-secondary"
             onClick={handleCancel}
             disabled={loading || confirming}
           >
-            Cancel
+            {tr('common.cancel', 'Abbrechen')}
           </Button>
 
           {step === 'select' && (
             <Button
+              className="order-device-change-btn order-device-change-btn-primary"
               onClick={handleRecalculateServices}
               disabled={!selectedDevice || loading}
             >
-              {loading ? 'Recalculating...' : 'Recalculate Services'}
+              {loading ? 'Berechne neu...' : 'Servicepreise neu berechnen'}
             </Button>
           )}
 
@@ -499,19 +597,21 @@ export function DeviceChangeDialog({
             <>
               <Button
                 variant="outline"
+                className="order-device-change-btn order-device-change-btn-secondary"
                 onClick={() => {
                   setStep('select')
                   setSelectedDevice(null)
                 }}
                 disabled={loading}
               >
-                Back
+                {tr('common.back', 'Zurueck')}
               </Button>
               <Button
+                className="order-device-change-btn order-device-change-btn-primary"
                 onClick={() => setStep('confirm')}
                 disabled={loading}
               >
-                Continue to Confirmation
+                Weiter zur Bestaetigung
               </Button>
             </>
           )}
@@ -520,16 +620,18 @@ export function DeviceChangeDialog({
             <>
               <Button
                 variant="outline"
+                className="order-device-change-btn order-device-change-btn-secondary"
                 onClick={() => setStep('review')}
                 disabled={confirming}
               >
-                Back
+                {tr('common.back', 'Zurueck')}
               </Button>
               <Button
+                className="order-device-change-btn order-device-change-btn-primary"
                 onClick={handleConfirmDeviceChange}
                 disabled={confirming}
               >
-                {confirming ? 'Confirming...' : 'Confirm Device Change'}
+                {confirming ? 'Bestaetige...' : 'Geraeteaenderung bestaetigen'}
               </Button>
             </>
           )}

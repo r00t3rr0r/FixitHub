@@ -4,8 +4,114 @@ const DeviceInspection = require('../models/DeviceInspection');
 const NotificationService = require('./notificationService');
 
 class InspectionCommunicationService {
+  // Get communication threads visible to the current user
+  static async getCommunicationsForUser(userId, userRole = 'customer', filters = {}) {
+    try {
+      const page = parseInt(filters.page, 10) || 1;
+      const limit = parseInt(filters.limit, 10) || 20;
+      const skip = (page - 1) * limit;
+      const search = (filters.search || '').trim();
+
+      const communicationQuery = {};
+
+      // Customers can only see communications for their own orders.
+      if (userRole !== 'staff' && userRole !== 'admin') {
+        const customerOrders = await Order.find({ customerId: userId }).select('_id').lean();
+        const customerOrderIds = customerOrders.map(order => order._id);
+
+        if (customerOrderIds.length === 0) {
+          return {
+            communications: [],
+            totalPages: 0,
+            currentPage: page,
+            totalCount: 0,
+          };
+        }
+
+        communicationQuery.orderId = { $in: customerOrderIds };
+      }
+
+      if (search) {
+        const searchRegex = new RegExp(search, 'i');
+        const matchingOrdersQuery = {
+          $or: [
+            { orderNumber: { $regex: searchRegex } },
+            { deviceBrand: { $regex: searchRegex } },
+            { deviceModel: { $regex: searchRegex } },
+          ],
+        };
+
+        if (userRole !== 'staff' && userRole !== 'admin') {
+          matchingOrdersQuery.customerId = userId;
+        }
+
+        const matchingOrders = await Order.find(matchingOrdersQuery).select('_id').lean();
+        const matchingOrderIds = matchingOrders.map(order => order._id);
+
+        communicationQuery.orderId = { $in: matchingOrderIds };
+      }
+
+      const totalCount = await InspectionCommunication.countDocuments(communicationQuery);
+
+      const communications = await InspectionCommunication.find(communicationQuery)
+        .sort({ lastMessageAt: -1, updatedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('createdBy.userId', 'name email avatar')
+        .populate('messages.senderId', 'name email role avatar')
+        .populate('messages.feedbackRequest.respondedBy', 'name email');
+
+      const orderIds = communications
+        .map(comm => comm.orderId)
+        .filter(Boolean);
+
+      const orders = await Order.find({ _id: { $in: orderIds } })
+        .select('_id orderNumber deviceBrand deviceModel customerId guestInfo')
+        .populate('customerId', 'name email phone')
+        .lean();
+
+      const orderById = new Map(orders.map(order => [order._id.toString(), order]));
+
+      const normalizedCommunications = communications.map(comm => {
+        const orderId = comm.orderId ? comm.orderId.toString() : null;
+        const order = orderId ? orderById.get(orderId) : null;
+
+        return {
+          _id: comm._id,
+          orderId,
+          orderNumber: order?.orderNumber || '',
+          deviceInfo: order ? `${order.deviceBrand} ${order.deviceModel}` : '',
+          customer: order ? {
+            name: order.customerId?.name || `${order.guestInfo?.firstName || ''} ${order.guestInfo?.lastName || ''}`.trim() || 'Gastkunde',
+            email: order.customerId?.email || order.guestInfo?.email || '',
+            phone: order.customerId?.phone || order.guestInfo?.phone || '',
+            isGuest: Boolean(order.guestInfo?.isGuest),
+          } : null,
+          messages: comm.messages || [],
+          status: comm.status,
+          pendingFeedbackCount: comm.pendingFeedbackCount || 0,
+          pendingActionsCount: comm.pendingActionsCount || 0,
+          createdBy: comm.createdBy,
+          lastMessageAt: comm.lastMessageAt || comm.updatedAt,
+          createdAt: comm.createdAt,
+          updatedAt: comm.updatedAt,
+        };
+      });
+
+      return {
+        communications: normalizedCommunications,
+        totalPages: Math.ceil(totalCount / limit),
+        currentPage: page,
+        totalCount,
+      };
+    } catch (error) {
+      console.error(`InspectionCommunicationService: Error getting communications for user: ${error}`);
+      throw error;
+    }
+  }
+
   // Get or create communication thread for an order
-  static async getOrCreateCommunicationThread(orderId, inspectionId = null) {
+  static async getOrCreateCommunicationThread(orderId, inspectionId = null, initiatingUserId = null, initiatingUserName = null, initiatingUserRole = null) {
     try {
       let communication = await InspectionCommunication.findOne({ orderId });
 
@@ -16,6 +122,11 @@ class InspectionCommunicationService {
           inspectionId,
           messages: [],
           status: 'active',
+          createdBy: initiatingUserId ? {
+            userId: initiatingUserId,
+            name: initiatingUserName,
+            role: initiatingUserRole,
+          } : undefined,
         });
         await communication.save();
       }
@@ -83,7 +194,7 @@ class InspectionCommunicationService {
       let communication = await InspectionCommunication.findOne({ orderId });
 
       if (!communication) {
-        communication = await this.getOrCreateCommunicationThread(orderId, inspectionId);
+        communication = await this.getOrCreateCommunicationThread(orderId, inspectionId, senderId, senderName, senderRole);
       }
 
       const expirationTime = new Date();
@@ -231,7 +342,7 @@ class InspectionCommunicationService {
       let communication = await InspectionCommunication.findOne({ orderId });
 
       if (!communication) {
-        communication = await this.getOrCreateCommunicationThread(orderId, inspectionId);
+        communication = await this.getOrCreateCommunicationThread(orderId, inspectionId, senderId, senderName, senderRole);
       }
 
       // Define action labels

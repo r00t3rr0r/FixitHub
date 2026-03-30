@@ -14,12 +14,17 @@ const deviceModelSchema = new mongoose.Schema({
   deviceType: {
     type: String,
     required: true,
-    enum: ['smartphone', 'tablet', 'laptop', 'smartwatch', 'gaming-console']
+    trim: true,
+    lowercase: true
   },
   image: {
     type: String,
     default: ''
   },
+  commonProblems: [{
+    type: String,
+    trim: true
+  }],
   // Legacy specifications field (kept for backward compatibility)
   specifications: {
     type: Map,
@@ -339,6 +344,32 @@ const deviceBrandSchema = new mongoose.Schema({
   }
 });
 
+const deviceTypeSchema = new mongoose.Schema({
+  _id: {
+    type: String,
+    required: true,
+    trim: true,
+    lowercase: true
+  },
+  name: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
 // Update timestamps before saving
 deviceModelSchema.pre('save', function(next) {
   this.updatedAt = new Date();
@@ -350,6 +381,11 @@ deviceBrandSchema.pre('save', function(next) {
   next();
 });
 
+deviceTypeSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
+});
+
 // Indexes for better performance
 deviceModelSchema.index({ brandId: 1, deviceType: 1 });
 deviceModelSchema.index({ name: 1 });
@@ -357,8 +393,10 @@ deviceModelSchema.index({ name: 1 });
 
 const DeviceModel = mongoose.model('DeviceModel', deviceModelSchema);
 const DeviceBrand = mongoose.model('DeviceBrand', deviceBrandSchema);
+const DeviceType = mongoose.model('DeviceType', deviceTypeSchema);
 
 module.exports = {
   DeviceModel,
-  DeviceBrand
+  DeviceBrand,
+  DeviceType
 };

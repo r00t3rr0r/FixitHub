@@ -1,5 +1,23 @@
 import api from './api';
 
+export interface CreatedBy {
+  userId: string;
+  name: string;
+  role: string;
+}
+
+export interface Communication {
+  _id: string;
+  orderId: string;
+  messages: any[];
+  status: 'active' | 'archived' | 'resolved';
+  pendingFeedbackCount: number;
+  pendingActionsCount: number;
+  createdBy?: CreatedBy;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Description: Get communication thread for an order
 // Endpoint: GET /api/inspection-communication/:orderId
 // Request: {}

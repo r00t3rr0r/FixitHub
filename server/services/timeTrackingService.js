@@ -21,6 +21,45 @@ const getOverlapMinutes = (start, end, rangeStart, rangeEnd) => {
 
 const roundHours = (minutes) => Math.round(((minutes || 0) / 60) * 100) / 100;
 
+const getOverlapWindow = (start, end, rangeStart, rangeEnd) => {
+  const safeStart = new Date(start);
+  const safeEnd = end ? new Date(end) : new Date();
+  const overlapStart = Math.max(safeStart.getTime(), rangeStart.getTime());
+  const overlapEnd = Math.min(safeEnd.getTime(), rangeEnd.getTime());
+
+  if (!Number.isFinite(overlapStart) || !Number.isFinite(overlapEnd) || overlapEnd <= overlapStart) {
+    return null;
+  }
+
+  return {
+    startTime: new Date(overlapStart),
+    endTime: new Date(overlapEnd),
+    durationMinutes: Math.round((overlapEnd - overlapStart) / MS_PER_MINUTE),
+  };
+};
+
+const getPauseOverlapMinutes = (pauseHistory, currentPauseStartedAt, rangeStart, rangeEnd) => {
+  const pauses = Array.isArray(pauseHistory) ? [...pauseHistory] : [];
+  const hasOpenPause = pauses.some((pause) => pause?.pausedAt && !pause?.resumedAt);
+
+  if (!hasOpenPause && currentPauseStartedAt) {
+    pauses.push({ pausedAt: currentPauseStartedAt });
+  }
+
+  return pauses.reduce((sum, pause) => {
+    if (!pause?.pausedAt) {
+      return sum;
+    }
+
+    return sum + getOverlapMinutes(
+      pause.pausedAt,
+      pause.resumedAt || new Date(),
+      rangeStart,
+      rangeEnd
+    );
+  }, 0);
+};
+
 const mapBreakInterval = (breakItem, rangeStart, rangeEnd) => {
   const durationMinutes = getOverlapMinutes(
     breakItem?.startTime,
@@ -750,7 +789,7 @@ class TimeTrackingService {
       const startOfDay = new Date(dayReference);
       startOfDay.setHours(0, 0, 0, 0);
 
-      const [todaySessions, allSessions] = await Promise.all([
+      const [todaySessions, allSessions, workflowOrders] = await Promise.all([
         WorkSession.find({
           staffId,
           $or: [
@@ -759,13 +798,22 @@ class TimeTrackingService {
             { status: { $in: ['active', 'on_break'] }, clockInTime: { $lte: rangeEnd } }
           ]
         }).lean(),
-        WorkSession.find({ staffId }).select('breakDuration status breaks').lean()
+        WorkSession.find({ staffId }).select('breakDuration status breaks').lean(),
+        Order.find({
+          $or: [
+            { 'workflows.steps.assignedStaffId': staffId },
+            { 'workflows.steps.assignedStaff.staffId': staffId },
+          ],
+        })
+          .select('_id orderNumber workflows')
+          .lean()
       ]);
 
       let workMinutesToday = 0;
       let breakMinutesToday = 0;
       const breaksToday = [];
       const ordersTodayMap = new Map();
+      const workflowsTodayMap = new Map();
 
       todaySessions.forEach((session) => {
         const sessionEnd = session.clockOutTime || now;
@@ -837,6 +885,103 @@ class TimeTrackingService {
         return sum + sessionBreakMinutes;
       }, 0);
 
+      workflowOrders.forEach((order) => {
+        (order.workflows || []).forEach((workflow) => {
+          let durationMinutes = 0;
+          let workflowStartTime = null;
+          let workflowEndTime = null;
+          let activeStepName = '';
+
+          (workflow.steps || []).forEach((step, stepIndex) => {
+            const isPrimaryAssigned = step?.assignedStaffId && String(step.assignedStaffId) === String(staffId);
+            const isInAssignedStaffList = Array.isArray(step?.assignedStaff)
+              ? step.assignedStaff.some((assignment) => {
+                const assignmentId = assignment?.staffId?._id || assignment?.staffId;
+                return assignmentId && String(assignmentId) === String(staffId);
+              })
+              : false;
+
+            if ((!isPrimaryAssigned && !isInAssignedStaffList) || !step.startedAt) {
+              return;
+            }
+
+            const overlapWindow = getOverlapWindow(
+              step.startedAt,
+              step.completedAt || now,
+              startOfDay,
+              rangeEnd
+            );
+
+            if (!overlapWindow) {
+              return;
+            }
+
+            const pausedMinutes = getPauseOverlapMinutes(
+              step.pauseHistory,
+              step.currentPauseStartedAt,
+              startOfDay,
+              rangeEnd
+            );
+
+            const effectiveMinutes = Math.max(overlapWindow.durationMinutes - pausedMinutes, 0);
+            if (effectiveMinutes <= 0) {
+              return;
+            }
+
+            durationMinutes += effectiveMinutes;
+
+            if (!workflowStartTime || overlapWindow.startTime < workflowStartTime) {
+              workflowStartTime = overlapWindow.startTime;
+            }
+
+            if (!workflowEndTime || overlapWindow.endTime > workflowEndTime) {
+              workflowEndTime = overlapWindow.endTime;
+            }
+
+            if (!activeStepName || step.status === 'in-progress' || stepIndex === workflow.currentStepIndex) {
+              activeStepName = step.stepName || activeStepName;
+            }
+          });
+
+          if (durationMinutes <= 0 || !workflowStartTime) {
+            return;
+          }
+
+          const workflowKey = `${String(order._id)}:${String(workflow._id || workflow.workflowTemplateId || workflow.workflowName)}`;
+          const existingWorkflow = workflowsTodayMap.get(workflowKey);
+
+          if (existingWorkflow) {
+            existingWorkflow.durationMinutes += durationMinutes;
+            existingWorkflow.startTime = workflowStartTime < existingWorkflow.startTime
+              ? workflowStartTime
+              : existingWorkflow.startTime;
+            existingWorkflow.endTime = workflowEndTime > existingWorkflow.endTime
+              ? workflowEndTime
+              : existingWorkflow.endTime;
+
+            if (!existingWorkflow.stepName && activeStepName) {
+              existingWorkflow.stepName = activeStepName;
+            }
+
+            return;
+          }
+
+          const currentStep = workflow.steps?.[workflow.currentStepIndex] || workflow.steps?.find((step) => step.status === 'in-progress');
+
+          workflowsTodayMap.set(workflowKey, {
+            workflowId: workflow._id || null,
+            orderId: order._id || null,
+            orderNumber: order.orderNumber || 'Ohne Nummer',
+            workflowName: workflow.workflowName || workflow.workflowTemplateId?.name || 'Workflow',
+            stepName: activeStepName || currentStep?.stepName || '',
+            startTime: workflowStartTime,
+            endTime: workflowEndTime,
+            durationMinutes,
+            status: workflow.status || 'not-started'
+          });
+        });
+      });
+
       const ordersToday = Array.from(ordersTodayMap.values())
         .map((orderWork) => ({
           orderId: orderWork.orderId,
@@ -846,6 +991,23 @@ class TimeTrackingService {
           durationHours: roundHours(orderWork.durationMinutes)
         }))
         .sort((a, b) => b.durationHours - a.durationHours);
+
+      const workflowsToday = Array.from(workflowsTodayMap.values())
+        .map((workflowWork) => ({
+          workflowId: workflowWork.workflowId,
+          orderId: workflowWork.orderId,
+          orderNumber: workflowWork.orderNumber,
+          workflowName: workflowWork.workflowName,
+          stepName: workflowWork.stepName,
+          startTime: workflowWork.startTime,
+          endTime: workflowWork.endTime,
+          durationHours: roundHours(workflowWork.durationMinutes),
+          status: workflowWork.status
+        }))
+        .sort((a, b) => b.durationHours - a.durationHours);
+
+      const workflowMinutesToday = Array.from(workflowsTodayMap.values())
+        .reduce((sum, workflowWork) => sum + (workflowWork.durationMinutes || 0), 0);
 
       breaksToday.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
@@ -866,10 +1028,12 @@ class TimeTrackingService {
           totalHoursWorked: staff.totalHoursWorked || 0,
           totalBreakHours: roundHours(totalBreakMinutes),
           breakHoursToday: roundHours(breakMinutesToday),
+          workflowHoursToday: roundHours(workflowMinutesToday),
           averageHoursPerDay: Math.round(averageHoursPerDay * 100) / 100,
           selectedDate: startOfDay,
           breaksToday,
-          ordersToday
+          ordersToday,
+          workflowsToday
         }
       };
     } catch (error) {

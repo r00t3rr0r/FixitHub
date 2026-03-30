@@ -20,6 +20,8 @@ import {
 } from "@/api/brands"
 import {
   getDeviceTypes,
+  createDeviceType,
+  updateDeviceType,
   getManufacturersByDeviceType,
   getModelsByTypeAndManufacturer,
   DeviceType,
@@ -84,6 +86,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Table,
   TableBody,
@@ -92,6 +95,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import "./DeviceManagement.css"
 
 export function DeviceManagement() {
   const { t } = useTranslation()
@@ -119,6 +123,7 @@ export function DeviceManagement() {
   const [showViewBrand, setShowViewBrand] = useState(false)
   const [showViewModel, setShowViewModel] = useState(false)
   const [showViewDeviceType, setShowViewDeviceType] = useState(false)
+  const [showCreateDeviceType, setShowCreateDeviceType] = useState(false)
   const [showDeleteBrand, setShowDeleteBrand] = useState(false)
   const [showDeleteModel, setShowDeleteModel] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
@@ -133,6 +138,7 @@ export function DeviceManagement() {
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null)
   const [selectedModel, setSelectedModel] = useState<DeviceModel | null>(null)
   const [selectedDeviceTypeDetails, setSelectedDeviceTypeDetails] = useState<DeviceType | null>(null)
+  const [editingDeviceTypeId, setEditingDeviceTypeId] = useState<string | null>(null)
 
   // Form states
   const [brandForm, setBrandForm] = useState({
@@ -140,11 +146,17 @@ export function DeviceManagement() {
     logo: ''
   })
 
+  const [deviceTypeForm, setDeviceTypeForm] = useState({
+    name: '',
+    key: ''
+  })
+
   const [modelForm, setModelForm] = useState({
     name: '',
     brandId: '',
     deviceType: '',
     image: '',
+    commonProblems: [] as string[],
     specifications: {} as Record<string, string>,
     // Comprehensive specification categories
     images: [] as Array<{ url: string; base64: string; caption: string }>,
@@ -174,11 +186,34 @@ export function DeviceManagement() {
   })
 
   const [specTab, setSpecTab] = useState("basic")
+  const [commonProblemInput, setCommonProblemInput] = useState("")
+  const [selectedModelIds, setSelectedModelIds] = useState<string[]>([])
+  const [bulkAction, setBulkAction] = useState<"appendProblems" | "replaceProblems" | "setReleaseDate" | "setPrice">("appendProblems")
+  const [bulkValue, setBulkValue] = useState("")
 
   // Scroll position for single-page layout
   const [scrollToSection, setScrollToSection] = useState<string | null>(null)
 
   const { toast } = useToast()
+
+  const toTypeKey = (value: string) =>
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+
+  const refreshDeviceTypes = async () => {
+    const deviceTypesResponse = await getDeviceTypes()
+    const nextTypes = (deviceTypesResponse as any).deviceTypes || []
+    setDeviceTypes(nextTypes)
+    setStats((prev) => ({
+      ...prev,
+      totalDeviceTypes: nextTypes.length
+    }))
+    return nextTypes
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -190,13 +225,14 @@ export function DeviceManagement() {
         ])
 
         setBrands(brandsResponse)
-        setDeviceTypes((deviceTypesResponse as any).deviceTypes || [])
+        const nextTypes = (deviceTypesResponse as any).deviceTypes || []
+        setDeviceTypes(nextTypes)
 
         // Calculate statistics
         setStats({
           totalBrands: brandsResponse.length,
           totalModels: brandsResponse.reduce((sum: number, brand: any) => sum + (brand.modelCount || 0), 0),
-          totalDeviceTypes: ((deviceTypesResponse as any).deviceTypes || []).length,
+          totalDeviceTypes: nextTypes.length,
           recentlyAdded: brandsResponse.filter((b: any) => {
             const createdAt = new Date(b.createdAt)
             const weekAgo = new Date()
@@ -289,6 +325,84 @@ export function DeviceManagement() {
     }
   }
 
+  const handleCreateDeviceType = () => {
+    setIsEditMode(false)
+    setEditingDeviceTypeId(null)
+    setDeviceTypeForm({ name: '', key: '' })
+    setShowCreateDeviceType(true)
+  }
+
+  const handleEditDeviceType = (deviceType: DeviceType) => {
+    setIsEditMode(true)
+    setEditingDeviceTypeId(deviceType._id)
+    setDeviceTypeForm({
+      name: deviceType.name,
+      key: deviceType._id
+    })
+    setShowCreateDeviceType(true)
+  }
+
+  const handleSaveDeviceType = async () => {
+    try {
+      if (!deviceTypeForm.name.trim()) {
+        toast({
+          title: 'Error',
+          description: 'Device category name is required',
+          variant: 'destructive'
+        })
+        return
+      }
+
+      const normalizedKey = toTypeKey(deviceTypeForm.key || deviceTypeForm.name)
+      if (!normalizedKey) {
+        toast({
+          title: 'Error',
+          description: 'Please provide a valid category key',
+          variant: 'destructive'
+        })
+        return
+      }
+
+      setIsSubmitting(true)
+      if (isEditMode && editingDeviceTypeId) {
+        await updateDeviceType(editingDeviceTypeId, {
+          name: deviceTypeForm.name.trim(),
+          key: normalizedKey
+        })
+      } else {
+        await createDeviceType({
+          name: deviceTypeForm.name.trim(),
+          key: normalizedKey
+        })
+      }
+
+      await refreshDeviceTypes()
+
+      // Keep the current filter on renamed categories if possible.
+      if (isEditMode && editingDeviceTypeId && selectedDeviceType === editingDeviceTypeId) {
+        setSelectedDeviceType(normalizedKey)
+      }
+
+      setShowCreateDeviceType(false)
+      setDeviceTypeForm({ name: '', key: '' })
+      setEditingDeviceTypeId(null)
+      setIsEditMode(false)
+
+      toast({
+        title: 'Success',
+        description: isEditMode ? 'Device category updated successfully' : 'Device category created successfully'
+      })
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save device category',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const handleViewModel = async (model: DeviceModel) => {
     try {
       console.log('DeviceManagement: Viewing model:', model._id)
@@ -339,6 +453,7 @@ export function DeviceManagement() {
       brandId: '',
       deviceType: '',
       image: '',
+      commonProblems: [],
       specifications: {},
       images: [],
       network: {
@@ -365,6 +480,7 @@ export function DeviceManagement() {
         colors: []
       }
     })
+    setCommonProblemInput("")
     setSpecTab("basic")
     setShowCreateModel(true)
   }
@@ -383,6 +499,7 @@ export function DeviceManagement() {
         brandId: fullModel.brand?._id || fullModel.brandId || '',
         deviceType: fullModel.deviceType || '',
         image: fullModel.image || '',
+        commonProblems: fullModel.commonProblems || [],
         specifications: fullModel.specifications || {},
         images: fullModel.images || [],
         network: fullModel.network || {
@@ -410,6 +527,7 @@ export function DeviceManagement() {
         }
       })
 
+      setCommonProblemInput("")
       setShowCreateModel(true)
     } catch (error) {
       console.error('DeviceManagement: Error loading model for edit:', error)
@@ -527,6 +645,7 @@ export function DeviceManagement() {
         brandId: '',
         deviceType: '',
         image: '',
+        commonProblems: [],
         specifications: {},
         images: [],
         network: {
@@ -553,6 +672,7 @@ export function DeviceManagement() {
           colors: []
         }
       })
+      setCommonProblemInput("")
       setIsEditMode(false)
       setEditingModelId(null)
 
@@ -583,6 +703,139 @@ export function DeviceManagement() {
     model.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  const allFilteredSelected = filteredModels.length > 0 && filteredModels.every((model) => selectedModelIds.includes(model._id))
+
+  const parseProblems = (value: string) =>
+    value
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+
+  const addCommonProblemToForm = () => {
+    const next = commonProblemInput.trim()
+    if (!next) {
+      return
+    }
+    if (modelForm.commonProblems.includes(next)) {
+      setCommonProblemInput("")
+      return
+    }
+
+    setModelForm((prev) => ({
+      ...prev,
+      commonProblems: [...prev.commonProblems, next]
+    }))
+    setCommonProblemInput("")
+  }
+
+  const removeCommonProblemFromForm = (problem: string) => {
+    setModelForm((prev) => ({
+      ...prev,
+      commonProblems: prev.commonProblems.filter((item) => item !== problem)
+    }))
+  }
+
+  const toggleModelSelection = (id: string, checked: boolean) => {
+    setSelectedModelIds((prev) => {
+      if (checked) {
+        return prev.includes(id) ? prev : [...prev, id]
+      }
+      return prev.filter((item) => item !== id)
+    })
+  }
+
+  const toggleSelectAllFilteredModels = (checked: boolean) => {
+    if (checked) {
+      setSelectedModelIds(filteredModels.map((model) => model._id))
+      return
+    }
+    setSelectedModelIds([])
+  }
+
+  const handleBulkApply = async () => {
+    if (selectedModelIds.length === 0) {
+      toast({
+        title: "Keine Modelle ausgewählt",
+        description: "Bitte wähle mindestens ein Modell aus.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (!bulkValue.trim()) {
+      toast({
+        title: "Wert fehlt",
+        description: "Bitte trage einen Wert für die Bulk-Änderung ein.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (selectedDeviceType === "all" || selectedManufacturer === "all") {
+      toast({
+        title: "Filter erforderlich",
+        description: "Bitte zuerst Gerätetyp und Hersteller auswählen.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const selectedModels = filteredModels.filter((model) => selectedModelIds.includes(model._id))
+
+      await Promise.all(
+        selectedModels.map(async (model) => {
+          if (bulkAction === "appendProblems") {
+            const merged = Array.from(new Set([...(model.commonProblems || []), ...parseProblems(bulkValue)]))
+            await updateModel(model._id, { commonProblems: merged })
+            return
+          }
+
+          if (bulkAction === "replaceProblems") {
+            await updateModel(model._id, { commonProblems: parseProblems(bulkValue) })
+            return
+          }
+
+          if (bulkAction === "setReleaseDate") {
+            await updateModel(model._id, {
+              other: {
+                ...(model.other || {}),
+                releaseDate: bulkValue.trim()
+              }
+            })
+            return
+          }
+
+          await updateModel(model._id, {
+            other: {
+              ...(model.other || {}),
+              price: bulkValue.trim()
+            }
+          })
+        })
+      )
+
+      const response = await getModelsByTypeAndManufacturer(selectedDeviceType, selectedManufacturer)
+      setModels((response as any).models || [])
+      setSelectedModelIds([])
+      setBulkValue("")
+
+      toast({
+        title: "Bulk-Änderung gespeichert",
+        description: `${selectedModels.length} Modelle wurden aktualisiert.`
+      })
+    } catch (error) {
+      toast({
+        title: "Bulk-Änderung fehlgeschlagen",
+        description: error.message || "Die Bulk-Änderung konnte nicht gespeichert werden.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -596,16 +849,16 @@ export function DeviceManagement() {
 
   return (
     <TooltipProvider>
-      <div className="space-y-6 p-6">
+      <div className="device-mgmt-page space-y-6 p-4 md:p-6">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="device-mgmt-hero flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+            <h1 className="device-mgmt-title text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
               <Smartphone className="h-8 w-8" />
               Device Management
             </h1>
-            <p className="text-muted-foreground mt-1">
-              Manage device brands, models, and specifications
+            <p className="device-mgmt-subtitle mt-1">
+              Modelle, Spezifikationen und Haeufige Probleme zentral verwalten
             </p>
           </div>
 
@@ -649,7 +902,7 @@ export function DeviceManagement() {
 
         {/* Dashboard Overview */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+          <TabsList className="device-mgmt-tabs grid w-full grid-cols-2 md:grid-cols-4">
             <TabsTrigger value="dashboard">
               <BarChart3 className="h-4 w-4 mr-2" />
               Dashboard
@@ -911,11 +1164,17 @@ export function DeviceManagement() {
           {/* Device Types Tab */}
           <TabsContent value="types" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Device Categories</CardTitle>
-                <CardDescription>
-                  Browse by device type to find specific models
-                </CardDescription>
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle>Device Categories</CardTitle>
+                  <CardDescription>
+                    Kategorien anlegen, bearbeiten und anschließend bei Modellen verwenden
+                  </CardDescription>
+                </div>
+                <Button onClick={handleCreateDeviceType} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Category
+                </Button>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -926,11 +1185,22 @@ export function DeviceManagement() {
                       onClick={() => handleViewDeviceType(type)}
                     >
                       <CardHeader>
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-2">
                           <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
                             <Smartphone className="h-6 w-6 text-primary" />
                           </div>
-                          <Badge variant="secondary">{type.count || 0}</Badge>
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <Badge variant="secondary">{type.count || 0}</Badge>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 hover:bg-green-100 dark:hover:bg-green-900"
+                              onClick={() => handleEditDeviceType(type)}
+                              title="Edit category"
+                            >
+                              <Edit className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            </Button>
+                          </div>
                         </div>
                         <CardTitle className="mt-4 capitalize">{type.name}</CardTitle>
                         <CardDescription>
@@ -962,6 +1232,65 @@ export function DeviceManagement() {
                   Add Model
                 </Button>
               </div>
+
+              <Card className="device-mgmt-bulk-card">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Bulk Changes</CardTitle>
+                  <CardDescription>
+                    Mehrere Modelle gleichzeitig aktualisieren
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div>
+                      <Label htmlFor="bulkAction" className="mb-2 block">Aktion</Label>
+                      <Select value={bulkAction} onValueChange={(value: any) => setBulkAction(value)}>
+                        <SelectTrigger id="bulkAction">
+                          <SelectValue placeholder="Bulk Aktion waehlen" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="appendProblems">Probleme anhaengen</SelectItem>
+                          <SelectItem value="replaceProblems">Probleme ersetzen</SelectItem>
+                          <SelectItem value="setReleaseDate">Release Date setzen</SelectItem>
+                          <SelectItem value="setPrice">Preis setzen</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="bulkValue" className="mb-2 block">
+                        {bulkAction === "appendProblems" || bulkAction === "replaceProblems"
+                          ? "Wert (eine Zeile = ein Problem)"
+                          : "Wert"}
+                      </Label>
+                      <Textarea
+                        id="bulkValue"
+                        value={bulkValue}
+                        onChange={(e) => setBulkValue(e.target.value)}
+                        placeholder={bulkAction === "appendProblems" || bulkAction === "replaceProblems"
+                          ? "Display bleibt schwarz\nKein Laden moeglich"
+                          : "Neuen Wert eintragen"}
+                        className="min-h-[96px]"
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id="selectAllModels"
+                        checked={allFilteredSelected}
+                        onCheckedChange={(checked) => toggleSelectAllFilteredModels(checked === true)}
+                      />
+                      <Label htmlFor="selectAllModels" className="text-sm cursor-pointer">
+                        Alle gefilterten Modelle waehlen ({selectedModelIds.length} gewaehlt)
+                      </Label>
+                    </div>
+                    <Button onClick={handleBulkApply} disabled={isSubmitting || selectedModelIds.length === 0}>
+                      Bulk anwenden
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
@@ -1038,6 +1367,19 @@ export function DeviceManagement() {
                       onClick={() => handleViewModel(model)}
                     >
                       <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={selectedModelIds.includes(model._id)}
+                              onCheckedChange={(checked) => toggleModelSelection(model._id, checked === true)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <span className="text-xs text-muted-foreground">Auswaehlen</span>
+                          </div>
+                          {(model.commonProblems?.length || 0) > 0 && (
+                            <Badge variant="outline">{model.commonProblems.length} Probleme</Badge>
+                          )}
+                        </div>
                         {model.image ? (
                           <img src={model.image} alt={model.name} className="w-full h-40 object-cover rounded-lg mb-4" />
                         ) : (
@@ -1076,6 +1418,16 @@ export function DeviceManagement() {
                             </Button>
                           </div>
                         </div>
+                        {(model.commonProblems?.length || 0) > 0 && (
+                          <div className="mt-3 space-y-1">
+                            <p className="text-xs font-semibold text-[#1a2a5e]">HAEUFIGE PROBLEME</p>
+                            <ul className="text-xs text-muted-foreground space-y-1">
+                              {model.commonProblems.slice(0, 2).map((problem: string) => (
+                                <li key={problem} className="truncate">• {problem}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))
@@ -1194,6 +1546,46 @@ export function DeviceManagement() {
                     placeholder="https://example.com/device.png"
                     disabled={isSubmitting}
                   />
+                </div>
+                <div>
+                  <Label htmlFor="commonProblemInput">HAEUFIGE PROBLEME</Label>
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      id="commonProblemInput"
+                      value={commonProblemInput}
+                      onChange={(e) => setCommonProblemInput(e.target.value)}
+                      placeholder="z.B. Displaybruch, Akku entlaedt schnell"
+                      disabled={isSubmitting}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault()
+                          addCommonProblemToForm()
+                        }
+                      }}
+                    />
+                    <Button type="button" variant="outline" onClick={addCommonProblemToForm} disabled={isSubmitting}>
+                      Hinzufuegen
+                    </Button>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {modelForm.commonProblems.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Noch keine haeufigen Probleme erfasst.</p>
+                    ) : (
+                      modelForm.commonProblems.map((problem) => (
+                        <Badge key={problem} variant="secondary" className="flex items-center gap-1">
+                          <span>{problem}</span>
+                          <button
+                            type="button"
+                            aria-label={`Problem ${problem} entfernen`}
+                            className="inline-flex"
+                            onClick={() => removeCommonProblemFromForm(problem)}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </Badge>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1747,6 +2139,99 @@ export function DeviceManagement() {
           </DialogContent>
         </Dialog>
 
+        {/* Create/Edit Device Category Dialog */}
+        <Dialog open={showCreateDeviceType} onOpenChange={setShowCreateDeviceType}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{isEditMode ? 'Edit Device Category' : 'Add Device Category'}</DialogTitle>
+              <DialogDescription>
+                {isEditMode
+                  ? 'Update the category name or key. Renaming the key updates linked models as well.'
+                  : 'Create a new category that can be used for new device models.'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="deviceTypeName">Category Name *</Label>
+                <Input
+                  id="deviceTypeName"
+                  value={deviceTypeForm.name}
+                  onChange={(e) =>
+                    setDeviceTypeForm((prev) => ({
+                      ...prev,
+                      name: e.target.value,
+                      key: prev.key ? prev.key : toTypeKey(e.target.value)
+                    }))
+                  }
+                  placeholder="e.g., Foldable Phone"
+                  disabled={isSubmitting}
+                />
+              </div>
+              <div>
+                <Label htmlFor="deviceTypeKey">Category Key *</Label>
+                <Input
+                  id="deviceTypeKey"
+                  value={deviceTypeForm.key}
+                  onChange={(e) => setDeviceTypeForm((prev) => ({ ...prev, key: toTypeKey(e.target.value) }))}
+                  placeholder="e.g., foldable-phone"
+                  disabled={isSubmitting}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Lowercase letters, numbers and dashes only.
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowCreateDeviceType(false)} disabled={isSubmitting}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveDeviceType} disabled={isSubmitting}>
+                {isSubmitting ? 'Saving...' : (isEditMode ? 'Update Category' : 'Save Category')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* View Device Category Dialog */}
+        <Dialog open={showViewDeviceType} onOpenChange={setShowViewDeviceType}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Device Category Details</DialogTitle>
+            </DialogHeader>
+            {selectedDeviceTypeDetails && (
+              <div className="space-y-4">
+                <div className="rounded-lg border p-4">
+                  <Label className="text-muted-foreground">Name</Label>
+                  <p className="mt-1 text-lg font-semibold">{selectedDeviceTypeDetails.name}</p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <Label className="text-muted-foreground">Key</Label>
+                  <p className="mt-1 font-mono text-sm">{selectedDeviceTypeDetails._id}</p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <Label className="text-muted-foreground">Models</Label>
+                  <p className="mt-1 text-sm">{selectedDeviceTypeDetails.count || 0} models assigned</p>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowViewDeviceType(false)}>
+                Close
+              </Button>
+              {selectedDeviceTypeDetails && (
+                <Button
+                  onClick={() => {
+                    handleEditDeviceType(selectedDeviceTypeDetails)
+                    setShowViewDeviceType(false)
+                  }}
+                >
+                  Edit Category
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* View Model Dialog - Enhanced with Color Coding and Card-Based Layout */}
         <Dialog open={showViewModel} onOpenChange={setShowViewModel}>
           <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
@@ -1830,6 +2315,29 @@ export function DeviceManagement() {
                       </Card>
                     )}
                   </div>
+                </div>
+
+                {/* Frequent Problems */}
+                <div>
+                  <h4 className="text-lg font-semibold mb-3 pb-2 border-b-2 border-[#f5b800] flex items-center gap-2">
+                    <div className="w-3 h-3 bg-[#f5b800] rounded-full"></div>
+                    HAEUFIGE PROBLEME
+                  </h4>
+                  {(selectedModel.commonProblems || []).length === 0 ? (
+                    <Card className="bg-white border-gray-200 shadow-sm">
+                      <CardContent className="pt-6">
+                        <p className="text-sm text-muted-foreground">Fuer dieses Modell wurden noch keine haeufigen Probleme hinterlegt.</p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedModel.commonProblems?.map((problem) => (
+                        <Badge key={problem} className="bg-[#fff6da] text-[#1a2a5e] border border-[#f5d677] hover:bg-[#ffefbe]">
+                          {problem}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Network Section */}

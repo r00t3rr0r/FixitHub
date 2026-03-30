@@ -70,6 +70,7 @@ export interface TimeTrackingSummary {
     totalHoursWorked: number;
     totalBreakHours: number;
     breakHoursToday: number;
+    workflowHoursToday: number;
     averageHoursPerDay: number;
     selectedDate?: Date;
     breaksToday: Array<{
@@ -84,6 +85,17 @@ export interface TimeTrackingSummary {
       startTime: Date;
       endTime?: Date | null;
       durationHours: number;
+    }>;
+    workflowsToday: Array<{
+      workflowId?: string | null;
+      orderId?: string | null;
+      orderNumber: string;
+      workflowName: string;
+      stepName?: string;
+      startTime: Date;
+      endTime?: Date | null;
+      durationHours: number;
+      status: string;
     }>;
   };
 }

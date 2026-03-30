@@ -100,6 +100,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import { useAuth } from "@/contexts/AuthContext"
 
 interface Booking {
   _id: string
@@ -209,12 +210,13 @@ const getCustomerDisplayName = (customer: typeof FALLBACK_BOOKING_CUSTOMER) => {
 export function BookingsManagement() {
   console.log('BookingsManagement: Component rendered/mounted')
   const { t } = useTranslation()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [bookings, setBookings] = useState<ExpandedBooking[]>([])
   const [filteredBookings, setFilteredBookings] = useState<ExpandedBooking[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("pending")
+  const [statusFilter, setStatusFilter] = useState("all")
   const [billingStatusFilter, setBillingStatusFilter] = useState("all")
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [showDetailDialog, setShowDetailDialog] = useState(false)
@@ -248,6 +250,13 @@ export function BookingsManagement() {
     console.log('BookingsManagement: useEffect - Fetching bookings (pagination/filter changed)')
     fetchBookings()
   }, [currentPage, itemsPerPage, statusFilter, billingStatusFilter])
+
+  useEffect(() => {
+    // Ensure admins always land on the full booking list by default.
+    if (user?.role === 'admin' && statusFilter === 'pending') {
+      setStatusFilter('all')
+    }
+  }, [user?.role, statusFilter])
 
   // Fetch unread counts when bookings change and set up periodic refresh
   useEffect(() => {

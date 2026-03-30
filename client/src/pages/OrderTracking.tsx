@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/useToast"
 import { getOrders, Order } from "@/api/orders"
+import { searchDevices, SearchResult } from "@/api/devices"
 import { formatPrice } from "@/lib/utils"
 import {
   Package,
@@ -32,6 +33,7 @@ import {
 export function OrderTracking() {
   const [orders, setOrders] = useState<Order[]>([])
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([])
+  const [deviceImageByOrderId, setDeviceImageByOrderId] = useState<Record<string, string | null>>({})
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -82,6 +84,109 @@ export function OrderTracking() {
     setFilteredOrders(filtered)
   }, [orders, searchTerm, statusFilter])
 
+  useEffect(() => {
+    let isCancelled = false
+
+    const normalize = (value: string = "") => value.toLowerCase().replace(/\s+/g, " ").trim()
+    const pickImageUrl = (value: unknown): string | null => {
+      return typeof value === "string" && value.trim() ? value.trim() : null
+    }
+
+    const resolveImages = async () => {
+      if (!orders.length) {
+        setDeviceImageByOrderId({})
+        return
+      }
+
+      const directImages: Record<string, string | null> = {}
+      const unresolvedByKey: Record<string, Order[]> = {}
+
+      orders.forEach((order) => {
+        const orderAny = order as any
+        const directCandidates: unknown[] = [
+          orderAny.deviceImage,
+          orderAny.deviceModelImage,
+          orderAny.device?.image,
+          orderAny.deviceModel?.image,
+          orderAny.deviceModelId?.image,
+          orderAny.deviceModelId?.images?.[0]?.url,
+          orderAny.deviceModelId?.images?.[0]?.base64,
+        ]
+
+        const directImage = directCandidates
+          .map((candidate) => pickImageUrl(candidate))
+          .find((candidate): candidate is string => Boolean(candidate))
+
+        if (directImage) {
+          directImages[order._id] = directImage
+          return
+        }
+
+        const key = `${normalize(order.deviceBrand)}|${normalize(order.deviceModel)}`
+        if (!unresolvedByKey[key]) {
+          unresolvedByKey[key] = []
+        }
+        unresolvedByKey[key].push(order)
+      })
+
+      const resolvedByKey: Record<string, string | null> = {}
+
+      await Promise.all(
+        Object.entries(unresolvedByKey).map(async ([key, keyOrders]) => {
+          const sample = keyOrders[0]
+          const query = `${sample.deviceBrand || ""} ${sample.deviceModel || ""}`.trim() || sample.deviceModel
+
+          try {
+            const response = await searchDevices(query)
+            const devices: SearchResult[] = ((response as any)?.devices || []) as SearchResult[]
+
+            const model = normalize(sample.deviceModel)
+            const brand = normalize(sample.deviceBrand)
+
+            const exactBrandAndModel = devices.find((device) => {
+              const name = normalize(device.name)
+              const manufacturer = normalize(device.manufacturer)
+              return Boolean(device.image) && name === model && (!brand || manufacturer === brand)
+            })
+
+            const sameModel = devices.find((device) => {
+              const name = normalize(device.name)
+              return Boolean(device.image) && name === model
+            })
+
+            const fuzzyMatch = devices.find((device) => {
+              const name = normalize(device.name)
+              const displayName = normalize(device.displayName)
+              return Boolean(device.image) && (displayName.includes(model) || model.includes(name))
+            })
+
+            const bestMatch = exactBrandAndModel || sameModel || fuzzyMatch || devices.find((device) => Boolean(device.image))
+            resolvedByKey[key] = bestMatch?.image || null
+          } catch (error) {
+            console.error("OrderTracking: Failed to resolve catalog image:", error)
+            resolvedByKey[key] = null
+          }
+        })
+      )
+
+      const nextByOrderId: Record<string, string | null> = {}
+      orders.forEach((order) => {
+        const key = `${normalize(order.deviceBrand)}|${normalize(order.deviceModel)}`
+        nextByOrderId[order._id] = directImages[order._id] || resolvedByKey[key] || null
+      })
+
+      if (!isCancelled) {
+        setDeviceImageByOrderId(nextByOrderId)
+      }
+    }
+
+    resolveImages()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [orders])
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
@@ -122,11 +227,16 @@ export function OrderTracking() {
 
   // Helper function to get device image or fallback
   const getDeviceImage = (order: Order) => {
+    const resolvedImage = deviceImageByOrderId[order._id]
+    if (resolvedImage) {
+      return resolvedImage
+    }
+
     if (order.photos && order.photos.length > 0) {
       return order.photos[0]
     }
     // Return a simple colored div instead of broken image
-    return null
+    return undefined
   }
 
   if (loading) {
@@ -281,7 +391,7 @@ export function OrderTracking() {
                     {order.services && order.services.length > 0 ? (
                       order.services.map((service, index) => (
                         <Badge key={index} variant="outline">
-                          Service #{index + 1}
+                          {typeof service === "string" && service.trim() ? service : `Service #${index + 1}`}
                         </Badge>
                       ))
                     ) : (

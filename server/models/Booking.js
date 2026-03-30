@@ -181,6 +181,11 @@ const bookingSchema = new mongoose.Schema({
     enum: ['pending', 'paid', 'refunded', 'partial'],
     default: 'pending',
   },
+  paymentMethod: {
+    type: String,
+    enum: ['card', 'paypal', 'invoice', ''],
+    default: '',
+  },
   subtotal: {
     type: Number,
     default: 0,

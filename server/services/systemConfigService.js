@@ -1,7 +1,35 @@
 const SystemConfiguration = require('../models/SystemConfiguration');
 const nodemailer = require('nodemailer');
+const {
+  DEFAULT_NOTIFICATION_TEMPLATE_VERSION,
+  getDefaultNotificationTemplates
+} = require('./defaultNotificationTemplates');
+
+function normalizeTemplateKey(template) {
+  return `${template.type}:${String(template.name || '').trim().toLowerCase()}`;
+}
 
 class SystemConfigService {
+  static async applyDefaultNotificationTemplatesIfNeeded(config) {
+    if (!config || config.notificationTemplateDefaultsVersion >= DEFAULT_NOTIFICATION_TEMPLATE_VERSION) {
+      return config;
+    }
+
+    const defaultTemplates = getDefaultNotificationTemplates();
+    const existingKeys = new Set((config.notificationTemplates || []).map(normalizeTemplateKey));
+    const missingTemplates = defaultTemplates.filter((template) => !existingKeys.has(normalizeTemplateKey(template)));
+
+    if (missingTemplates.length > 0) {
+      config.notificationTemplates.push(...missingTemplates);
+      config.markModified('notificationTemplates');
+    }
+
+    config.notificationTemplateDefaultsVersion = DEFAULT_NOTIFICATION_TEMPLATE_VERSION;
+    await config.save();
+
+    return config;
+  }
+
   // Get system configuration
   static async getSystemConfiguration() {
     console.log('SystemConfigService: Getting system configuration');
@@ -14,6 +42,8 @@ class SystemConfigService {
         config = new SystemConfiguration();
         await config.save();
       }
+
+      config = await this.applyDefaultNotificationTemplatesIfNeeded(config);
 
       console.log('SystemConfigService: Configuration retrieved successfully');
       return config;
