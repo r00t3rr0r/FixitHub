@@ -12,6 +12,7 @@ import { BlogSection } from '@/components/home/BlogSection';
 import { Footer } from '@/components/Footer';
 import { CookieBanner } from '@/components/CookieBanner';
 import { MobileCTAFab } from '@/components/home/MobileCTAFab';
+import { ScrollToTopButton } from '@/components/home/ScrollToTopButton';
 import { saveDeviceInfo } from '@/utils/deviceDetection';
 
 export function Home() {
@@ -64,6 +65,9 @@ export function Home() {
 
       {/* Mobile Floating CTA Button */}
       <MobileCTAFab />
+
+      {/* Desktop Scroll to Top Button */}
+      <ScrollToTopButton />
     </>
   );
 }
