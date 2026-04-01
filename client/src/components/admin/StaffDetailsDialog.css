@@ -28,7 +28,7 @@
   margin: -0.875rem -0.875rem 0.625rem;
   padding: 0.6rem 0.875rem;
   border-bottom: none;
-  background: #1565c0;
+  background: #1a2a5e;
   border-radius: 10px 10px 0 0;
 }
 
@@ -40,7 +40,7 @@
   align-items: center;
   justify-content: center;
   background: #ffffff;
-  color: #1565c0;
+  color: #1a2a5e;
   font-weight: 600;
   font-size: 0.8125rem;
   overflow: hidden;
@@ -67,7 +67,7 @@
 
 .staff-details-email {
   font-size: 0.6875rem;
-  color: #bbdefb;
+  color: #c8d3ef;
   line-height: 1.2;
 }
 
@@ -95,7 +95,7 @@
 .staff-details-stat-value {
   font-size: 1rem;
   font-weight: 700;
-  color: #1565c0;
+  color: #1a2a5e;
   margin-bottom: 0.1rem;
   line-height: 1.1;
 }
@@ -141,8 +141,8 @@
 
 .staff-details-tabs-trigger[data-state="active"] {
   background: #ffffff;
-  color: #1565c0;
-  border: 1px solid #90caf9;
+  color: #1a2a5e;
+  border: 1px solid #2a3f7e;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
@@ -165,13 +165,13 @@
 }
 
 .staff-info-card-header svg {
-  color: #1565c0;
+  color: #1a2a5e;
 }
 
 .staff-info-card-title {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #1565c0;
+  color: #1a2a5e;
 }
 
 .staff-info-field {
@@ -185,7 +185,7 @@
 .staff-info-label {
   font-size: 0.6875rem;
   font-weight: 600;
-  color: #1565c0;
+  color: #1a2a5e;
   margin-bottom: 0.1rem;
   display: block;
   line-height: 1.2;
@@ -215,12 +215,12 @@
 
 .staff-team-item:hover {
   background: #f8f9fc;
-  border-color: #1565c0;
+  border-color: #1a2a5e;
 }
 
 .staff-team-name {
   font-weight: 600;
-  color: #1565c0;
+  color: #1a2a5e;
   margin-bottom: 0.1rem;
   font-size: 0.75rem;
 }
@@ -246,7 +246,7 @@
 
 .staff-order-card:hover {
   background: #f8f9fc;
-  border-color: #1565c0;
+  border-color: #1a2a5e;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
 }
 
@@ -259,7 +259,7 @@
 
 .staff-order-number {
   font-weight: 600;
-  color: #1565c0;
+  color: #1a2a5e;
   display: flex;
   align-items: center;
   gap: 0.25rem;
@@ -351,7 +351,7 @@
 
 .staff-activity-item:hover {
   background: #f8f9fc;
-  border-left-color: #1565c0;
+  border-left-color: #1a2a5e;
 }
 
 .staff-activity-icon {
@@ -361,8 +361,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #e3f2fd;
-  color: #1565c0;
+  background: #e8ecf7;
+  color: #1a2a5e;
   flex-shrink: 0;
 }
 
@@ -372,7 +372,7 @@
 
 .staff-activity-title {
   font-weight: 600;
-  color: #1565c0;
+  color: #1a2a5e;
   margin-bottom: 0.075rem;
   font-size: 0.75rem;
 }

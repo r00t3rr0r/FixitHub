@@ -88,7 +88,7 @@ const communicationMessageSchema = new mongoose.Schema({
   },
   messageType: {
     type: String,
-    enum: ['text', 'feedback_request', 'quick_action', 'system_notification'],
+    enum: ['text', 'feedback_request', 'quick_action', 'system_notification', 'repair_offer'],
     default: 'text',
   },
   content: {
@@ -97,6 +97,9 @@ const communicationMessageSchema = new mongoose.Schema({
   },
   feedbackRequest: feedbackRequestSchema,
   quickAction: quickActionSchema,
+  metadata: {
+    type: mongoose.Schema.Types.Mixed,
+  },
   readBy: [{
     userId: {
       type: mongoose.Schema.Types.ObjectId,

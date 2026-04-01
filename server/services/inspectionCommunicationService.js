@@ -659,6 +659,90 @@ class InspectionCommunicationService {
       throw error;
     }
   }
+
+  // Send a repair offer message into the order communication thread (called when complaint is denied)
+  static async sendRepairOfferMessage(orderId, senderId, senderName, { complaintId, offerAmount, offerDescription }) {
+    try {
+      console.log(`InspectionCommunicationService: Sending repair offer message to order ${orderId}`);
+
+      let communication = await InspectionCommunication.findOne({ orderId });
+      if (!communication) {
+        communication = await this.getOrCreateCommunicationThread(orderId, null, senderId, senderName, 'system');
+      }
+
+      const message = {
+        senderId,
+        senderType: 'system',
+        senderName,
+        senderRole: 'system',
+        messageType: 'repair_offer',
+        content: `Neues Reparaturangebot: ${offerDescription} – Kosten: ${Number(offerAmount).toFixed(2)} €`,
+        metadata: {
+          complaintId: complaintId.toString(),
+          offerAmount: Number(offerAmount),
+          offerDescription,
+          status: 'pending',
+        },
+        readBy: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      communication.messages.push(message);
+      communication.lastMessageAt = new Date();
+        communication.markModified('messages');
+        await communication.save();
+
+      // Notify customer
+      try {
+        const order = await Order.findById(orderId);
+        if (order && order.customerId) {
+          await NotificationService.createNotification({
+            userId: order.customerId,
+            title: 'Neues Reparaturangebot verfügbar',
+            message: `${offerDescription} – ${Number(offerAmount).toFixed(2)} €. Bitte annehmen oder ablehnen.`,
+            type: 'message',
+            orderId,
+            actionUrl: `/orders/${orderId}`,
+            metadata: { complaintId: complaintId.toString(), messageType: 'repair_offer' },
+          });
+        }
+      } catch (notificationError) {
+        console.error(`InspectionCommunicationService: Error notifying customer about repair offer: ${notificationError.message || notificationError}`);
+      }
+
+      console.log(`InspectionCommunicationService: Repair offer message sent successfully`);
+      return communication;
+    } catch (error) {
+      console.error(`InspectionCommunicationService: Error sending repair offer message: ${error}`);
+      throw error;
+    }
+  }
+
+  // Update the status field inside the repair_offer message metadata (called on accept/reject)
+  static async updateRepairOfferStatus(orderId, complaintId, status) {
+    try {
+      console.log(`InspectionCommunicationService: Updating repair offer status to ${status} for order ${orderId}`);
+
+      const communication = await InspectionCommunication.findOne({ orderId });
+      if (!communication) return;
+
+      const msg = communication.messages.find(
+        m => m.messageType === 'repair_offer' && m.metadata && m.metadata.complaintId === complaintId.toString()
+      );
+
+      if (msg) {
+        msg.metadata = { ...msg.metadata, status };
+        msg.updatedAt = new Date();
+        communication.markModified('messages');
+        await communication.save();
+        console.log(`InspectionCommunicationService: Repair offer status updated to ${status}`);
+      }
+    } catch (error) {
+      console.error(`InspectionCommunicationService: Error updating repair offer status: ${error}`);
+      // Non-fatal
+    }
+  }
 }
 
 module.exports = InspectionCommunicationService;

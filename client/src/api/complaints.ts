@@ -5,6 +5,8 @@ export interface Complaint {
   complaintNumber: string;
   bookingId: string;
   orderId?: string;
+  newOrderId?: string;
+  workflowType?: 'legacy' | 'order-complaint';
   customerId: {
     _id: string;
     firstName?: string;
@@ -17,7 +19,50 @@ export interface Complaint {
   description: string;
   category: 'quality' | 'service' | 'delivery' | 'billing' | 'communication' | 'other';
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'open' | 'in-progress' | 'pending-customer' | 'resolved' | 'closed';
+  status:
+    | 'open'
+    | 'in-progress'
+    | 'pending-customer'
+    | 'resolved'
+    | 'closed'
+    | 'pending_approval'
+    | 'approved'
+    | 'rejected'
+    | 'acknowledged'
+    | 'denied'
+    | 'new_repair';
+  complaintReason?: string;
+  rejectionReason?: string;
+  technicianReason?: string;
+  repairNotes?: string;
+  shippingLabelUrl?: string;
+  extraCosts?: number;
+  serviceFee?: number;
+  partialRefund?: number;
+  additionalParts?: Array<{
+    name: string;
+    quantity: number;
+    cost: number;
+  }>;
+  repairOffer?: {
+    amount: number;
+    description: string;
+    createdAt?: string;
+    acceptedAt?: string;
+    rejectedAt?: string;
+    status: 'pending' | 'accepted' | 'rejected' | 'none';
+  };
+  complaintLogs?: Array<{
+    actorId?: string;
+    actorName: string;
+    actorRole: string;
+    action: string;
+    fromStatus?: string;
+    toStatus?: string;
+    notes?: string;
+    createdAt: string;
+    metadata?: Record<string, any>;
+  }>;
   assignedTo?: {
     _id: string;
     firstName?: string;
@@ -66,6 +111,9 @@ export const getAllComplaints = async (filters?: {
   status?: string;
   category?: string;
   priority?: string;
+  from?: string;
+  to?: string;
+  technicianId?: string;
   limit?: number;
   skip?: number;
 }) => {
@@ -74,6 +122,9 @@ export const getAllComplaints = async (filters?: {
     if (filters?.status) params.append('status', filters.status);
     if (filters?.category) params.append('category', filters.category);
     if (filters?.priority) params.append('priority', filters.priority);
+    if (filters?.from) params.append('from', filters.from);
+    if (filters?.to) params.append('to', filters.to);
+    if (filters?.technicianId) params.append('technicianId', filters.technicianId);
     if (filters?.limit) params.append('limit', filters.limit.toString());
     if (filters?.skip) params.append('skip', filters.skip.toString());
 
@@ -193,6 +244,100 @@ export const resolveComplaint = async (complaintId: string, resolution: string) 
 export const closeComplaint = async (complaintId: string) => {
   try {
     const response = await api.put(`/api/complaints/${complaintId}/close`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Customer accepts new repair offer
+// Endpoint: POST /api/complaints/:id/accept-offer
+export const acceptComplaintOffer = async (complaintId: string) => {
+  try {
+    const response = await api.post(`/api/complaints/${complaintId}/accept-offer`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Customer rejects new repair offer
+// Endpoint: POST /api/complaints/:id/reject-offer
+export const rejectComplaintOffer = async (complaintId: string, serviceFee?: number) => {
+  try {
+    const response = await api.post(`/api/complaints/${complaintId}/reject-offer`, { serviceFee });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Convert an accepted repair offer into a booking with its follow-up order
+// Endpoint: POST /api/complaints/:id/convert-offer-to-booking
+export const convertAcceptedOfferToBooking = async (complaintId: string) => {
+  try {
+    const response = await api.post(`/api/complaints/${complaintId}/convert-offer-to-booking`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Admin approves complaint
+// Endpoint: PATCH /api/complaints/:id/approve
+export const approveComplaint = async (complaintId: string) => {
+  try {
+    const response = await api.patch(`/api/complaints/${complaintId}/approve`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Admin rejects complaint
+// Endpoint: PATCH /api/complaints/:id/reject
+export const rejectComplaint = async (complaintId: string, rejectionReason: string) => {
+  try {
+    const response = await api.patch(`/api/complaints/${complaintId}/reject`, {
+      rejection_reason: rejectionReason,
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Technician acknowledges complaint
+// Endpoint: PATCH /api/complaints/:id/acknowledge
+export const acknowledgeComplaint = async (
+  complaintId: string,
+  payload: {
+    technician_reason: string;
+    additional_parts?: Array<{ name: string; quantity: number; cost: number }>;
+    partial_refund?: number;
+    repair_notes?: string;
+  }
+) => {
+  try {
+    const response = await api.patch(`/api/complaints/${complaintId}/acknowledge`, payload);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Technician denies complaint and creates new offer
+// Endpoint: PATCH /api/complaints/:id/deny
+export const denyComplaint = async (
+  complaintId: string,
+  payload: {
+    technician_reason: string;
+    offer_amount?: number;
+    offer_description?: string;
+  }
+) => {
+  try {
+    const response = await api.patch(`/api/complaints/${complaintId}/deny`, payload);
     return response.data;
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);

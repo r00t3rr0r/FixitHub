@@ -1,8 +1,11 @@
 const express = require('express');
 const OrderService = require('../services/orderService');
+const ComplaintService = require('../services/complaintService');
+const Complaint = require('../models/Complaint');
 const EmailService = require('../services/emailService');
 const DHLService = require('../services/dhlService');
 const NotificationService = require('../services/notificationService');
+const User = require('../models/User');
 const { requireUser, requireRole } = require('./middleware/auth');
 
 const router = express.Router();
@@ -154,6 +157,133 @@ router.get('/:id/progress-timeline', requireUser, async (req, res) => {
     }
     return res.status(500).json({
       error: error.message || 'Failed to get order progress timeline'
+    });
+  }
+});
+
+// Description: Create a complaint for an order (customer)
+// Endpoint: POST /api/orders/:orderId/complaint
+// Request: { reason: string, description: string }
+// Response: { success: boolean, complaint: Complaint }
+router.post('/:orderId/complaint', requireUser, async (req, res) => {
+  try {
+    const { reason, description } = req.body;
+
+    if (!reason || !description) {
+      return res.status(400).json({
+        success: false,
+        error: 'reason and description are required'
+      });
+    }
+
+    const order = await OrderService.getById(req.params.orderId);
+    const orderCustomerId = order.customerId?._id ? order.customerId._id.toString() : order.customerId.toString();
+    if (orderCustomerId !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    if (order.status !== 'completed') {
+      return res.status(400).json({
+        success: false,
+        error: 'Complaint can only be created for completed orders'
+      });
+    }
+
+    const existingOpenComplaint = await Complaint.findOne({
+      orderId: order._id,
+      status: { $in: ['pending_approval', 'approved', 'acknowledged', 'denied', 'new_repair'] }
+    });
+
+    if (existingOpenComplaint) {
+      return res.status(409).json({
+        success: false,
+        error: 'An active complaint already exists for this order',
+        complaintId: existingOpenComplaint._id
+      });
+    }
+
+    const complaintNumber = `R${order._id}`;
+    const complaintData = {
+      bookingId: order.bookingId || null,
+      orderId: order._id,
+      customerId: req.user._id,
+      subject: `Reklamation fuer Auftrag ${order.orderNumber}`,
+      description,
+      category: 'service',
+      priority: 'medium',
+      status: 'pending_approval',
+      workflowType: 'order-complaint',
+      complaintReason: reason,
+      complaintLogs: [{
+        actorId: req.user._id,
+        actorName: req.user.firstName
+          ? `${req.user.firstName} ${req.user.lastName || ''}`.trim()
+          : (req.user.name || req.user.email),
+        actorRole: req.user.role,
+        action: 'complaint_created',
+        fromStatus: '',
+        toStatus: 'pending_approval',
+        notes: reason,
+        metadata: {
+          reason,
+          description
+        }
+      }]
+    };
+
+    const complaint = await ComplaintService.create(complaintData);
+    complaint.complaintNumber = complaintNumber;
+    await complaint.save();
+
+    const admins = await User.find({ role: 'admin', isActive: true }).select('_id email');
+    const customerName = req.user.firstName
+      ? `${req.user.firstName} ${req.user.lastName || ''}`.trim()
+      : (req.user.name || req.user.email);
+
+    await Promise.all(admins.map(async (admin) => {
+      try {
+        await NotificationService.createNotification({
+          userId: admin._id,
+          title: 'Neue Reklamation',
+          message: `${customerName} hat eine Reklamation fuer Auftrag ${order.orderNumber} gemeldet.`,
+          type: 'system',
+          orderId: order._id,
+          actionUrl: `/admin/complaints?complaintId=${complaint._id}`,
+          metadata: {
+            complaintId: complaint._id,
+            orderNumber: order.orderNumber,
+            reason
+          }
+        });
+
+        if (admin.email) {
+          await EmailService.sendTemplateEmail('Statusupdate Auftrag oder Buchung', admin.email, {
+            companyName: 'FixitHub',
+            customerName: 'Admin Team',
+            orderNumber: order.orderNumber,
+            orderStatus: 'Neue Reklamation',
+            statusMessage: `${customerName} hat eine Reklamation gemeldet: ${reason}`,
+            statusUpdatedAt: new Date().toLocaleDateString('de-DE'),
+            trackingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/admin/complaints`,
+            supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+            supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+          });
+        }
+      } catch (notifyError) {
+        console.error('Error notifying admin about complaint:', notifyError.message);
+      }
+    }));
+
+    return res.status(201).json({
+      success: true,
+      complaint,
+      message: 'Complaint submitted successfully'
+    });
+  } catch (error) {
+    console.error('Error creating complaint for order:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to create complaint'
     });
   }
 });

@@ -21,7 +21,8 @@ import {
   sendMessage as sendRepairRequestMessage,
 } from "@/api/repairRequestCommunication"
 import { getUserProfile, UserProfile } from "@/api/user"
-import { CheckCircle2, MessageCircle, AlertCircle, Plus, Send, Clock, User, HelpCircle, X, Trash2 } from "lucide-react"
+import { CheckCircle2, MessageCircle, AlertCircle, Plus, Send, Clock, User, HelpCircle, X, Trash2, FileText } from "lucide-react"
+import { acceptComplaintOffer, rejectComplaintOffer } from "@/api/complaints"
 import {
   Dialog,
   DialogContent,
@@ -202,6 +203,7 @@ export function CommunicationPanel({
   ])
   const [quickActionType, setQuickActionType] = useState<QuickActionType>('part_replacement')
   const [quickActionDescription, setQuickActionDescription] = useState("")
+  const [offerActionLoading, setOfferActionLoading] = useState<"accept" | "reject" | "">("")
   const isUserEditingRef = useRef(false)
   const quickActionOptions = entityType === "repair-request" ? REPAIR_REQUEST_QUICK_ACTION_OPTIONS : ORDER_QUICK_ACTION_OPTIONS
   const defaultQuickActionType = (quickActionOptions[0]?.value || 'part_replacement') as QuickActionType
@@ -489,6 +491,39 @@ export function CommunicationPanel({
     }
   }
 
+  const handleAcceptRepairOffer = async (complaintId: string) => {
+    try {
+      setOfferActionLoading("accept")
+      await acceptComplaintOffer(complaintId)
+      // Refresh thread so the offer card shows accepted state
+      const thread = entityType === "repair-request"
+        ? await getRepairRequestCommunicationThread(orderId)
+        : await getInspectionCommunicationThread(orderId)
+      setCommunication(thread)
+      toast({ title: "Angebot angenommen", description: "Der neue Reparaturauftrag wird erstellt." })
+    } catch (error: any) {
+      toast({ title: "Fehler", description: error.message || "Aktion fehlgeschlagen", variant: "destructive" })
+    } finally {
+      setOfferActionLoading("")
+    }
+  }
+
+  const handleRejectRepairOffer = async (complaintId: string) => {
+    try {
+      setOfferActionLoading("reject")
+      await rejectComplaintOffer(complaintId)
+      const thread = entityType === "repair-request"
+        ? await getRepairRequestCommunicationThread(orderId)
+        : await getInspectionCommunicationThread(orderId)
+      setCommunication(thread)
+      toast({ title: "Angebot abgelehnt", description: "Die Reklamation wird geschlossen." })
+    } catch (error: any) {
+      toast({ title: "Fehler", description: error.message || "Aktion fehlgeschlagen", variant: "destructive" })
+    } finally {
+      setOfferActionLoading("")
+    }
+  }
+
   // Check if user is staff or admin
   const isStaffOrAdmin = user?.role === 'staff' || user?.role === 'admin'
 
@@ -496,9 +531,9 @@ export function CommunicationPanel({
     return null // Don't show while loading
   }
 
-  // Filter to include text messages, feedback_request and quick_action messages
+  // Filter to include text messages, feedback_request, quick_action and repair_offer messages
   const communicationMessages = communication?.messages.filter((msg) =>
-    ["text", "feedback_request", "quick_action"].includes(msg.messageType)
+    ["text", "feedback_request", "quick_action", "repair_offer"].includes(msg.messageType)
   ) || []
 
   // Show panel if there are communication messages OR if user is staff/admin (so they can send)
@@ -741,6 +776,79 @@ export function CommunicationPanel({
                       </div>
                     </div>
                   )}
+
+                  {/* Repair Offer Messages */}
+                  {message.messageType === "repair_offer" && message.metadata && (() => {
+                    const offerMeta = message.metadata as { complaintId: string; offerAmount: number; offerDescription: string; status: string }
+                    const isPending = offerMeta.status === 'pending'
+                    const isAccepted = offerMeta.status === 'accepted'
+                    const isCustomerUser = user?.role === 'customer'
+
+                    return (
+                      <div className={`inspection-comm-feedback-card border-l-4 rounded-r-lg p-4 transition-all ${
+                        isPending ? 'border-rose-400 bg-rose-50' : isAccepted ? 'border-green-400 bg-green-50' : 'border-slate-300 bg-slate-50'
+                      }`}>
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <FileText className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                              <p className="font-semibold text-sm">Neues Reparaturangebot</p>
+                            </div>
+                            <p className="text-sm text-gray-700 mb-2">{offerMeta.offerDescription}</p>
+                            <p className="text-base font-bold text-rose-700">{offerMeta.offerAmount.toFixed(2)} €</p>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                              <Clock className="w-3 h-3" />
+                              <span>{formatMessageTime(message.createdAt)}</span>
+                            </div>
+                          </div>
+                          <Badge
+                            className={`text-xs flex-shrink-0 ${
+                              isAccepted ? 'bg-green-100 text-green-800 border-green-300' :
+                              offerMeta.status === 'rejected' ? 'bg-slate-100 text-slate-700 border-slate-300' :
+                              'bg-rose-100 text-rose-800 border-rose-300'
+                            } border`}
+                          >
+                            {isPending ? '⏳ Ausstehend' : isAccepted ? '✓ Angenommen' : '✗ Abgelehnt'}
+                          </Badge>
+                        </div>
+
+                        {isPending && isCustomerUser && (
+                          <div className="flex gap-2 mt-2">
+                            <Button
+                              size="sm"
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white h-8 text-xs"
+                              disabled={offerActionLoading !== ""}
+                              onClick={() => handleAcceptRepairOffer(offerMeta.complaintId)}
+                            >
+                              {offerActionLoading === "accept" ? "..." : "✓ Angebot annehmen"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 border-rose-400 text-rose-700 hover:bg-rose-50 h-8 text-xs"
+                              disabled={offerActionLoading !== ""}
+                              onClick={() => handleRejectRepairOffer(offerMeta.complaintId)}
+                            >
+                              {offerActionLoading === "reject" ? "..." : "✗ Angebot ablehnen"}
+                            </Button>
+                          </div>
+                        )}
+
+                        {isPending && !isCustomerUser && (
+                          <p className="text-xs text-muted-foreground mt-1">Warte auf Kundenentscheidung.</p>
+                        )}
+
+                        {!isPending && (
+                          <div className={`flex items-center gap-2 px-3 py-2 rounded text-xs mt-1 ${
+                            isAccepted ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-700'
+                          }`}>
+                            <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
+                            <span>{isAccepted ? 'Angebot wurde angenommen' : 'Angebot wurde abgelehnt'}</span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
               ))}
               </div>

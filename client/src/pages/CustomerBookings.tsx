@@ -838,9 +838,15 @@ export function CustomerBookings() {
                                               {item.orderNumber}
                                             </TableCell>
                                             <TableCell className="py-1">
-                                              <Badge variant={item.type === 'repair' ? 'default' : 'secondary'} className="text-xs">
-                                                {item.type === 'repair' ? 'Repair' : 'Prod'}
-                                              </Badge>
+                                              {item.isComplaintFollowup ? (
+                                                <Badge className="text-xs bg-rose-100 text-rose-800 border border-rose-300">
+                                                  Reklamationsauftrag
+                                                </Badge>
+                                              ) : (
+                                                <Badge variant={item.type === 'repair' ? 'default' : 'secondary'} className="text-xs">
+                                                  {item.type === 'repair' ? 'Repair' : 'Prod'}
+                                                </Badge>
+                                              )}
                                             </TableCell>
                                             <TableCell className="py-1">
                                               <div className="text-xs text-foreground/80">

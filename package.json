@@ -5,6 +5,8 @@
   "scripts": {
     "postinstall": "concurrently -n \"client,server\" \"npm run client-install\" \"npm run server-install\"",
     "test": "echo \"Error: no test specified\" && exit 1",
+    "test:admin-bookings-read-flow": "node test-admin-bookings-read-flow.js",
+    "test:admin-bookings-read-flow:multi-order": "node test-admin-bookings-read-flow-multi-order.js",
     "client": "cd client && npm run dev",
     "client-install": "cd client && npm install",
     "server": "cd server && npm run dev",

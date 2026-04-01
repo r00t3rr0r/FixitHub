@@ -30,15 +30,15 @@
 .staff-management-page [role="tab"][data-state="active"],
 .staff-details-dialog [role="tab"][data-state="active"] {
   background: #ffffff !important;
-  color: #1565c0 !important;
-  border: 1px solid #90caf9 !important;
+  color: #1a2a5e !important;
+  border: 1px solid #2a3f7e !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
 }
 
 /* Card headers */
 .staff-management-page [data-slot="card-title"],
 .staff-details-dialog [data-slot="card-title"] {
-  color: #1565c0 !important;
+  color: #1a2a5e !important;
   font-weight: 600 !important;
 }
 
@@ -51,14 +51,14 @@
 /* Progress bars - Blue */
 .staff-management-page [data-slot="progress"] > div,
 .staff-details-dialog [data-slot="progress"] > div {
-  background: #1565c0 !important;
+  background: #1a2a5e !important;
 }
 
 /* Select dropdowns */
 .staff-management-page [data-slot="select-trigger"]:focus,
 .staff-details-dialog [data-slot="select-trigger"]:focus {
-  border-color: #1565c0 !important;
-  box-shadow: 0 0 0 2px rgba(21, 101, 192, 0.12) !important;
+  border-color: #1a2a5e !important;
+  box-shadow: 0 0 0 2px rgba(26, 42, 94, 0.14) !important;
 }
 
 /* Input focus states */
@@ -66,15 +66,15 @@
 .staff-management-page textarea:focus,
 .staff-details-dialog input:focus,
 .staff-details-dialog textarea:focus {
-  border-color: #1565c0 !important;
-  box-shadow: 0 0 0 2px rgba(21, 101, 192, 0.12) !important;
+  border-color: #1a2a5e !important;
+  box-shadow: 0 0 0 2px rgba(26, 42, 94, 0.14) !important;
 }
 
 /* Badge colors */
 .staff-badge-primary {
-  background: #e3f2fd;
-  color: #1565c0;
-  border: 1px solid #90caf9;
+  background: #e8ecf7;
+  color: #1a2a5e;
+  border: 1px solid #b0b8c9;
 }
 
 .staff-badge-success {

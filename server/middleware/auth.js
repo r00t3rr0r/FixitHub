@@ -29,15 +29,17 @@ const auth = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    console.error('Auth middleware: Authentication error:', error);
-    
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ error: 'Invalid token.' });
-    }
-    
     if (error.name === 'TokenExpiredError') {
+      console.warn('Auth middleware: Token expired');
       return res.status(401).json({ error: 'Token expired.' });
     }
+
+    if (error.name === 'JsonWebTokenError') {
+      console.warn('Auth middleware: Invalid token');
+      return res.status(401).json({ error: 'Invalid token.' });
+    }
+
+    console.error('Auth middleware: Authentication error:', error);
     
     res.status(500).json({ error: 'Authentication failed.' });
   }

@@ -253,8 +253,11 @@ class BookingService {
             // Get all orders for this booking
             const allOrders = await Order.find({ bookingId: booking._id });
 
+            // Convert to plain object so we can attach computed fields freely
+            const bookingPlain = booking.toObject({ virtuals: true });
+
             if (allOrders.length === 0) {
-              return booking;
+              return bookingPlain;
             }
 
             // Calculate overall progress from all orders
@@ -262,15 +265,20 @@ class BookingService {
             allOrders.forEach(order => {
               totalProgress += (order.progress || 0);
             });
-            const averageProgress = Math.round(totalProgress / allOrders.length);
+            bookingPlain.overallProgress = Math.round(totalProgress / allOrders.length);
 
-            // Update booking document with calculated progress (in-memory only, not saved)
-            booking.overallProgress = averageProgress;
+            // Check for complaint follow-up orders linked to any direct order of this booking
+            const directOrderIds = allOrders.map(o => o._id);
+            const complaintOrderCount = await Order.countDocuments({
+              isComplaintFollowup: true,
+              parentOrderId: { $in: directOrderIds }
+            });
+            bookingPlain.hasComplaintOrders = complaintOrderCount > 0;
 
-            return booking;
+            return bookingPlain;
           } catch (error) {
             console.error('BookingService: Error calculating progress for booking:', booking._id, error);
-            return booking;
+            return booking.toObject({ virtuals: true });
           }
         })
       );
@@ -488,10 +496,28 @@ class BookingService {
         throw new Error('Booking not found');
       }
 
-      // Fetch all orders with fresh data from database
-      const orders = await Order.find({ bookingId: bookingId })
+      // Fetch all orders directly linked to booking
+      const directOrders = await Order.find({ bookingId: bookingId })
         .populate('services.serviceId', 'name')
         .populate('shopProducts.productId', 'name');
+
+      // Also include complaint follow-up orders that may not have bookingId set yet
+      const directOrderIds = directOrders.map((order) => order._id);
+      const followupOrders = directOrderIds.length
+        ? await Order.find({
+            isComplaintFollowup: true,
+            parentOrderId: { $in: directOrderIds }
+          })
+            .populate('services.serviceId', 'name')
+            .populate('shopProducts.productId', 'name')
+        : [];
+
+      const allOrdersById = new Map();
+      [...directOrders, ...followupOrders].forEach((order) => {
+        allOrdersById.set(order._id.toString(), order);
+      });
+
+      const orders = Array.from(allOrdersById.values());
 
       console.log('BookingService: Found', orders.length, 'orders for booking');
 
@@ -501,6 +527,9 @@ class BookingService {
           orderId: order._id.toString(),
           orderNumber: order.orderNumber || order._id.toString().slice(-8).toUpperCase(),
           type: order.deviceType === 'Shop Products' ? 'product' : 'repair',
+          isComplaintFollowup: Boolean(order.isComplaintFollowup),
+          sourceComplaintId: order.sourceComplaintId ? order.sourceComplaintId.toString() : null,
+          parentOrderId: order.parentOrderId ? order.parentOrderId.toString() : null,
           status: order.status || 'pending',
           progress: order.progress || 0,
           cost: order.totalCost,

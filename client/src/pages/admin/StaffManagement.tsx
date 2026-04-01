@@ -1015,7 +1015,7 @@ export function StaffManagement() {
                       </div>
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-blue-600" />
+                          <Clock className="h-4 w-4 text-[#1a2a5e]" />
                           <span className="text-sm font-medium">Avg Completion Time</span>
                         </div>
                         <div className="text-2xl font-bold">{Number(member.averageCompletionTime).toFixed(1)}h</div>

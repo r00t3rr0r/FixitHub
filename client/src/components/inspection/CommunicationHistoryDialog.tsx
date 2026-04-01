@@ -37,7 +37,7 @@ export interface UnifiedMessage {
   }
   senderName: string
   senderType: "staff" | "customer" | "system"
-  messageType: "text" | "feedback_request" | "quick_action" | "system_notification"
+  messageType: "text" | "feedback_request" | "quick_action" | "system_notification" | "repair_offer"
   content: string
   feedbackRequest?: {
     question: string
@@ -52,6 +52,7 @@ export interface UnifiedMessage {
     description: string
     status: "pending" | "completed" | "cancelled"
   }
+  metadata?: Record<string, any>
   createdAt: string
   readBy: Array<{ userId: string; readAt: string }>
 }

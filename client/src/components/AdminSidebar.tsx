@@ -18,11 +18,10 @@ import {
   Database,
   Shield,
   GitBranch,
-  Stethoscope,
   Package2,
-  Award,
   UserCheck,
   DollarSign,
+  AlertCircle,
   MessageSquare,
   Bell,
   User,
@@ -47,7 +46,6 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
   const [orderManagementOpen, setOrderManagementOpen] = useState(false)
   const [contentManagementOpen, setContentManagementOpen] = useState(false)
   const [systemManagementOpen, setSystemManagementOpen] = useState(false)
-  const [analyticsOpen, setAnalyticsOpen] = useState(false)
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -187,36 +185,20 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
         <NavItem to="/admin/epart-orders" icon={Boxes}>
           {t('admin.menu.epartOrders')}
         </NavItem>
-        <NavItem to="/admin/quality" icon={Award}>
-          {t('admin.menu.qualityControl')}
-        </NavItem>
         <NavItem to="/admin/workflow" icon={GitBranch}>
           {t('admin.menu.workflowManagement')}
         </NavItem>
-        <NavItem to="/admin/diagnostics" icon={Stethoscope}>
-          {t('admin.menu.diagnosticTools')}
+        <NavItem to="/admin/analytics" icon={BarChart3}>
+          {t('admin.menu.analytics')}
         </NavItem>
         <NavItem to="/admin/repair-requests" icon={FileText}>
           Repair Requests
         </NavItem>
-      </CollapsibleSection>
-
-      <NavItem to="/admin/shop" icon={ShoppingBag}>
-        {t('admin.menu.webShopManagement')}
-      </NavItem>
-
-      <NavItem to="/admin/financial" icon={DollarSign}>
-        {t('admin.menu.financialManagement')}
-      </NavItem>
-
-      <CollapsibleSection
-        title={t('admin.menu.analytics')}
-        icon={BarChart3}
-        isOpen={analyticsOpen}
-        onToggle={() => setAnalyticsOpen(!analyticsOpen)}
-      >
-        <NavItem to="/admin/analytics" icon={BarChart3}>
-          {t('admin.menu.analytics')}
+        <NavItem to="/admin/financial" icon={DollarSign}>
+          {t('admin.menu.financialManagement')}
+        </NavItem>
+        <NavItem to="/admin/complaints" icon={AlertCircle}>
+          Reklamationen
         </NavItem>
       </CollapsibleSection>
 
@@ -226,6 +208,9 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
         isOpen={contentManagementOpen}
         onToggle={() => setContentManagementOpen(!contentManagementOpen)}
       >
+        <NavItem to="/admin/shop" icon={ShoppingBag}>
+          {t('admin.menu.webShopManagement')}
+        </NavItem>
         <NavItem to="/admin/blog" icon={FileText}>
           {t('admin.menu.blogManagement')}
         </NavItem>

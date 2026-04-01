@@ -49,12 +49,11 @@ import { SystemConfiguration } from "./pages/admin/SystemConfiguration"
 import { DatabaseManagement } from "./pages/admin/DatabaseManagement"
 import { SecuritySettings } from "./pages/admin/SecuritySettings"
 import { WorkflowManagement } from "./pages/admin/WorkflowManagement"
-import { DiagnosticTools } from "./pages/admin/DiagnosticTools"
 import { PartsManagement } from "./pages/admin/PartsManagement"
-import { QualityControl } from "./pages/admin/QualityControl"
 import { StaffManagement } from "./pages/admin/StaffManagement"
 import { FinancialManagement } from "./pages/admin/FinancialManagement"
 import { DeviceManagement } from "./pages/admin/DeviceManagement"
+import { ComplaintsManagement } from "./pages/admin/ComplaintsManagement"
 import EPartOrderManagement from "./pages/admin/EPartOrderManagement"
 import { InspectionWorkflow } from "./pages/inspection/InspectionWorkflow"
 import { RepairRequestQuestionnaire } from "./pages/RepairRequestQuestionnaire"
@@ -239,20 +238,17 @@ function App() {
             <Route path="/admin/workflow" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<WorkflowManagement />} />
             </Route>
-            <Route path="/admin/diagnostics" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
-              <Route index element={<DiagnosticTools />} />
-            </Route>
             <Route path="/admin/parts" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<PartsManagement />} />
-            </Route>
-            <Route path="/admin/quality" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
-              <Route index element={<QualityControl />} />
             </Route>
             <Route path="/admin/staff" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<StaffManagement />} />
             </Route>
             <Route path="/admin/financial" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<FinancialManagement />} />
+            </Route>
+            <Route path="/admin/complaints" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
+              <Route index element={<ComplaintsManagement />} />
             </Route>
             <Route path="/admin/epart-orders" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<EPartOrderManagement />} />
