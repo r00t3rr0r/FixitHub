@@ -23,6 +23,7 @@ import { BlogPostPage } from "./pages/BlogPost"
 import { CustomerBookings } from "./pages/CustomerBookings"
 import { CustomerInvoices } from "./pages/CustomerInvoices"
 import { CustomerRepairRequests } from "./pages/CustomerRepairRequests"
+import { CustomerComplaints } from "./pages/CustomerComplaints"
 import { StaffDashboard } from "./pages/staff/StaffDashboard"
 import { StaffOrders } from "./pages/staff/StaffOrders"
 import { KnowledgeBase } from "./pages/staff/KnowledgeBase"
@@ -148,6 +149,9 @@ function App() {
             </Route>
             <Route path="/my-repair-requests" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
               <Route index element={<CustomerRepairRequests />} />
+            </Route>
+            <Route path="/my-complaints" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
+              <Route index element={<CustomerComplaints />} />
             </Route>
 
             {/* Staff routes */}

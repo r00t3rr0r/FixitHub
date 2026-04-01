@@ -7,8 +7,24 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/useToast"
 import {
+  AlertTriangle,
+  Ban,
+  CheckCircle2,
+  ClipboardCheck,
+  MessageSquare,
+  Send,
+  ShieldCheck,
+  Wrench,
+  XCircle,
+  type LucideIcon,
+} from "lucide-react"
+import "./ComplaintsManagement.css"
+import {
+  addComplaintComment,
   getAllComplaints,
   getComplaint,
   approveComplaint,
@@ -44,15 +60,47 @@ const STATUS_OPTIONS = [
   "closed"
 ]
 
-const STATUS_BADGE_CLASS: Record<string, string> = {
-  pending_approval: "bg-amber-100 text-amber-800 border-amber-300",
-  approved: "bg-blue-100 text-blue-800 border-blue-300",
-  rejected: "bg-rose-100 text-rose-800 border-rose-300",
-  acknowledged: "bg-emerald-100 text-emerald-800 border-emerald-300",
-  denied: "bg-orange-100 text-orange-800 border-orange-300",
-  new_repair: "bg-violet-100 text-violet-800 border-violet-300",
-  resolved: "bg-green-100 text-green-800 border-green-300",
-  closed: "bg-slate-200 text-slate-800 border-slate-300",
+const STATUS_META: Record<string, { label: string; icon: LucideIcon; className: string }> = {
+  pending_approval: {
+    label: "Wartet auf Freigabe",
+    icon: AlertTriangle,
+    className: "complaints-status-pending",
+  },
+  approved: {
+    label: "Genehmigt",
+    icon: ShieldCheck,
+    className: "complaints-status-approved",
+  },
+  rejected: {
+    label: "Abgelehnt",
+    icon: XCircle,
+    className: "complaints-status-rejected",
+  },
+  acknowledged: {
+    label: "Anerkannt",
+    icon: CheckCircle2,
+    className: "complaints-status-acknowledged",
+  },
+  denied: {
+    label: "Technisch abgelehnt",
+    icon: Ban,
+    className: "complaints-status-denied",
+  },
+  new_repair: {
+    label: "Neuer Reparaturauftrag",
+    icon: Wrench,
+    className: "complaints-status-new-repair",
+  },
+  resolved: {
+    label: "Geloest",
+    icon: ClipboardCheck,
+    className: "complaints-status-resolved",
+  },
+  closed: {
+    label: "Geschlossen",
+    icon: Ban,
+    className: "complaints-status-closed",
+  },
 }
 
 type ActionDialogType = "reject" | "ack" | "deny" | null
@@ -80,6 +128,9 @@ export function ComplaintsManagement() {
   const [additionalPartCost, setAdditionalPartCost] = useState("0")
   const [offerAmount, setOfferAmount] = useState("0")
   const [offerDescription, setOfferDescription] = useState("")
+  const [complaintMessage, setComplaintMessage] = useState("")
+  const [sendingComplaintMessage, setSendingComplaintMessage] = useState(false)
+  const [postAsInternalNote, setPostAsInternalNote] = useState(false)
   const { toast } = useToast()
 
   const resetActionForms = () => {
@@ -247,19 +298,58 @@ export function ComplaintsManagement() {
     setActionDialog(null)
   }
 
+  const handleSendComplaintMessage = async () => {
+    if (!selectedComplaint || !complaintMessage.trim()) {
+      return
+    }
+
+    try {
+      setSendingComplaintMessage(true)
+      await addComplaintComment(selectedComplaint._id, complaintMessage.trim(), postAsInternalNote)
+      await loadComplaintDetails(selectedComplaint._id)
+      setComplaintMessage("")
+      setPostAsInternalNote(false)
+      toast({
+        title: "Nachricht gesendet",
+        description: "Die Reklamationskommunikation wurde aktualisiert."
+      })
+    } catch (error: any) {
+      toast({
+        title: "Senden fehlgeschlagen",
+        description: error?.message || "Die Nachricht konnte nicht gespeichert werden.",
+        variant: "destructive"
+      })
+    } finally {
+      setSendingComplaintMessage(false)
+    }
+  }
+
+  const getStatusMeta = (status: string) => {
+    return STATUS_META[status] || {
+      label: status,
+      icon: AlertTriangle,
+      className: "complaints-status-closed",
+    }
+  }
+
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
+    <div className="complaints-management space-y-6">
+      <div className="complaints-page-header">
+        <h1>Reklamationsmanagement</h1>
+        <p>Intuitive Uebersicht fuer Reklamationen, Bearbeitungsstatus und direkte Kundenkommunikation.</p>
+      </div>
+
+      <Card className="complaints-shell-card">
+        <CardHeader className="complaints-shell-header">
           <CardTitle>Reklamationen</CardTitle>
           <CardDescription>
             Alle Reklamationen mit Status, Bearbeiter und Zusatzkosten.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+        <CardContent className="complaints-shell-content space-y-4">
+          <div className="complaints-filter-grid grid grid-cols-1 md:grid-cols-5 gap-3">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
+              <SelectTrigger className="complaints-filter-trigger">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -271,7 +361,7 @@ export function ComplaintsManagement() {
             </Select>
 
             <Select value={technicianFilter || "all"} onValueChange={(value) => setTechnicianFilter(value === "all" ? "" : value)}>
-              <SelectTrigger>
+              <SelectTrigger className="complaints-filter-trigger">
                 <SelectValue placeholder="Techniker" />
               </SelectTrigger>
               <SelectContent>
@@ -282,17 +372,17 @@ export function ComplaintsManagement() {
               </SelectContent>
             </Select>
 
-            <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-            <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            <Input className="complaints-filter-input" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            <Input className="complaints-filter-input" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
 
-            <div className="flex gap-2">
-              <Button onClick={() => fetchComplaints()} disabled={loading}>Filtern</Button>
-              <Button variant="outline" onClick={exportCsv}>CSV Export</Button>
+            <div className="complaints-filter-actions flex gap-2">
+              <Button className="complaints-primary-button" onClick={() => fetchComplaints()} disabled={loading}>Filtern</Button>
+              <Button className="complaints-secondary-button" variant="outline" onClick={exportCsv}>CSV Export</Button>
             </div>
           </div>
 
-          <div className="overflow-x-auto border rounded-md">
-            <table className="w-full text-sm">
+          <div className="complaints-table-wrap overflow-x-auto border rounded-md">
+            <table className="complaints-table w-full text-sm">
               <thead>
                 <tr className="bg-muted/40 text-left">
                   <th className="p-3">Rekla-Nr.</th>
@@ -307,9 +397,13 @@ export function ComplaintsManagement() {
               </thead>
               <tbody>
                 {visibleRows.map((row) => (
+                  (() => {
+                    const statusMeta = getStatusMeta(row.status)
+                    const StatusIcon = statusMeta.icon
+                    return (
                   <tr
                     key={row._id}
-                    className={`border-t cursor-pointer hover:bg-muted/30 ${selectedComplaintId === row._id ? "bg-muted/40" : ""}`}
+                    className={`complaints-table-row border-t cursor-pointer hover:bg-muted/30 ${selectedComplaintId === row._id ? "bg-muted/40 is-selected" : ""}`}
                     onClick={() => loadComplaintDetails(row._id)}
                   >
                     <td className="p-3 font-medium">{row.complaintNumber}</td>
@@ -321,6 +415,7 @@ export function ComplaintsManagement() {
                           <Button
                             size="sm"
                             variant="outline"
+                            className="complaints-secondary-button"
                             onClick={(e) => {
                               e.stopPropagation()
                               navigate(`/orders/${row.complaintOrderId}`)
@@ -336,13 +431,16 @@ export function ComplaintsManagement() {
                     <td className="p-3">{row.customer}</td>
                     <td className="p-3">{row.processor || '-'}</td>
                     <td className="p-3">
-                      <Badge className={STATUS_BADGE_CLASS[row.status] || ""} variant="outline">
-                        {row.status}
+                      <Badge className={`complaints-status-badge ${statusMeta.className}`} variant="outline">
+                        <StatusIcon className="h-3.5 w-3.5" />
+                        <span>{statusMeta.label}</span>
                       </Badge>
                     </td>
                     <td className="p-3">{new Date(row.createdAt).toLocaleDateString("de-DE")}</td>
                     <td className="p-3">{(row.extraCosts || 0).toFixed(2)} EUR</td>
                   </tr>
+                    )
+                  })()
                 ))}
                 {!loading && !visibleRows.length && (
                   <tr>
@@ -356,9 +454,13 @@ export function ComplaintsManagement() {
           </div>
 
           {selectedComplaint && (
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-              <Card className="xl:col-span-2">
-                <CardHeader>
+            (() => {
+              const selectedStatusMeta = getStatusMeta(selectedComplaint.status)
+              const SelectedStatusIcon = selectedStatusMeta.icon
+              return (
+            <div className="complaints-detail-grid grid grid-cols-1 xl:grid-cols-3 gap-4">
+              <Card className="xl:col-span-2 complaints-detail-card">
+                <CardHeader className="complaints-section-header">
                   <CardTitle className="flex items-center gap-2">
                     Reklamationsdetails
                     <Badge variant="outline">{selectedComplaint.complaintNumber}</Badge>
@@ -367,12 +469,13 @@ export function ComplaintsManagement() {
                     Auftrag {selectedOrderNumber} • Kunde {selectedCustomerName}
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 complaints-detail-content">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
                       <p className="text-xs text-muted-foreground">Status</p>
-                      <Badge className={STATUS_BADGE_CLASS[selectedComplaint.status] || ""} variant="outline">
-                        {selectedComplaint.status}
+                      <Badge className={`complaints-status-badge ${selectedStatusMeta.className}`} variant="outline">
+                        <SelectedStatusIcon className="h-3.5 w-3.5" />
+                        <span>{selectedStatusMeta.label}</span>
                       </Badge>
                     </div>
                     <div>
@@ -416,7 +519,7 @@ export function ComplaintsManagement() {
                         href={selectedComplaint.shippingLabelUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-sm text-blue-600 underline"
+                        className="text-sm complaints-link"
                       >
                         {selectedComplaint.shippingLabelUrl}
                       </a>
@@ -424,13 +527,14 @@ export function ComplaintsManagement() {
                   )}
 
                   {selectedComplaintOrderId && (
-                    <div className="space-y-2 border rounded-md p-3 bg-muted/20">
+                    <div className="space-y-2 border rounded-md p-3 bg-muted/20 complaints-sub-panel">
                       <p className="text-xs text-muted-foreground">Reklamationsauftrag</p>
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline">{selectedComplaintOrderNumber || selectedComplaintOrderId}</Badge>
                         <Button
                           variant="outline"
                           size="sm"
+                          className="complaints-secondary-button"
                           onClick={() => navigate(`/orders/${selectedComplaintOrderId}`)}
                         >
                           Reklamationsauftrag bearbeiten
@@ -441,7 +545,7 @@ export function ComplaintsManagement() {
 
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Audit Trail</p>
-                    <div className="max-h-60 overflow-y-auto border rounded-md divide-y">
+                    <div className="max-h-60 overflow-y-auto border rounded-md divide-y complaints-audit-trail">
                       {(selectedComplaint.complaintLogs || []).length > 0 ? (
                         (selectedComplaint.complaintLogs || []).map((log, index) => (
                           <div key={`${log.createdAt}-${index}`} className="p-3 text-xs">
@@ -464,15 +568,15 @@ export function ComplaintsManagement() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
+              <Card className="complaints-actions-card">
+                <CardHeader className="complaints-section-header">
                   <CardTitle>Aktionen</CardTitle>
                   <CardDescription>Statusabhaengige Reklamationssteuerung</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 complaints-actions-content">
                   {canApprove && (
                     <Button
-                      className="w-full"
+                      className="w-full complaints-primary-button"
                       disabled={actionLoading === "approve"}
                       onClick={() => runAction("approve", () => approveComplaint(selectedComplaint._id), "Reklamation wurde genehmigt.")}
                     >
@@ -491,13 +595,13 @@ export function ComplaintsManagement() {
                   )}
 
                   {canAcknowledge && (
-                    <Button className="w-full" onClick={() => openActionDialog("ack")}>
+                    <Button className="w-full complaints-primary-button" onClick={() => openActionDialog("ack")}>
                       Techniker: Anerkennen
                     </Button>
                   )}
 
                   {canDeny && (
-                    <Button variant="outline" className="w-full" onClick={() => openActionDialog("deny")}>
+                    <Button variant="outline" className="w-full complaints-secondary-button" onClick={() => openActionDialog("deny")}>
                       Techniker: Ablehnen
                     </Button>
                   )}
@@ -507,15 +611,90 @@ export function ComplaintsManagement() {
                       Fuer den aktuellen Status sind keine manuellen Aktionen verfuegbar.
                     </p>
                   )}
+
+                  <div className="complaints-communication-panel border rounded-xl p-3 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4 complaints-communication-icon" />
+                      <h4 className="font-medium text-sm">Customer Communication</h4>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Eigenstaendiger Kommunikationskanal dieser Reklamation. Nachrichten werden direkt auf der Reklamationsanfrage gespeichert.
+                    </p>
+
+                    <div className="complaints-communication-surface rounded-lg border bg-background">
+                      <div className="complaints-thread-list max-h-72 overflow-y-auto divide-y">
+                        {(selectedComplaint.comments || []).length > 0 ? (
+                          (selectedComplaint.comments || []).map((comment) => (
+                            <div key={comment._id} className="complaints-thread-item p-3 space-y-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 text-xs">
+                                  <span className="font-semibold text-foreground">{comment.userName}</span>
+                                  <Badge variant="outline" className="text-[10px] px-2 py-0 h-5">
+                                    {comment.userRole}
+                                  </Badge>
+                                  {comment.isInternal && (
+                                    <Badge variant="outline" className="text-[10px] px-2 py-0 h-5 complaints-internal-badge">
+                                      intern
+                                    </Badge>
+                                  )}
+                                </div>
+                                <span className="text-[11px] text-muted-foreground">
+                                  {new Date(comment.createdAt).toLocaleString("de-DE")}
+                                </span>
+                              </div>
+                              <p className="text-xs leading-relaxed whitespace-pre-wrap">{comment.comment}</p>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-4 text-xs text-muted-foreground">
+                            Noch keine Nachrichten zur Reklamation vorhanden.
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="complaints-thread-composer p-3 border-t space-y-3">
+                        <Textarea
+                          value={complaintMessage}
+                          onChange={(e) => setComplaintMessage(e.target.value)}
+                          rows={3}
+                          placeholder="Nachricht zur Reklamation schreiben..."
+                          className="text-sm"
+                        />
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="complaint-internal-note"
+                              checked={postAsInternalNote}
+                              onCheckedChange={(checked) => setPostAsInternalNote(Boolean(checked))}
+                            />
+                            <Label htmlFor="complaint-internal-note" className="text-xs text-muted-foreground">
+                              Als interne Notiz markieren
+                            </Label>
+                          </div>
+                          <Button
+                            className="complaints-primary-button"
+                            size="sm"
+                            onClick={handleSendComplaintMessage}
+                            disabled={!complaintMessage.trim() || sendingComplaintMessage}
+                          >
+                            <Send className="h-3.5 w-3.5 mr-1" />
+                            {sendingComplaintMessage ? "Wird gesendet..." : "Nachricht senden"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </div>
+              )
+            })()
           )}
         </CardContent>
       </Card>
 
       <Dialog open={actionDialog === "reject"} onOpenChange={(open) => !open && closeActionDialog()}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg complaints-dialog-surface">
           <DialogHeader>
             <DialogTitle>Reklamation ablehnen</DialogTitle>
             <DialogDescription>Bitte den verpflichtenden Ablehnungsgrund hinterlegen.</DialogDescription>
@@ -527,7 +706,7 @@ export function ComplaintsManagement() {
             rows={4}
           />
           <DialogFooter>
-            <Button variant="outline" onClick={closeActionDialog}>Abbrechen</Button>
+            <Button className="complaints-secondary-button" variant="outline" onClick={closeActionDialog}>Abbrechen</Button>
             <Button
               variant="destructive"
               disabled={!selectedComplaint || !rejectionReason.trim() || actionLoading === "reject"}
@@ -544,7 +723,7 @@ export function ComplaintsManagement() {
       </Dialog>
 
       <Dialog open={actionDialog === "ack"} onOpenChange={(open) => !open && closeActionDialog()}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl complaints-dialog-surface">
           <DialogHeader>
             <DialogTitle>Reklamation anerkennen</DialogTitle>
             <DialogDescription>Techniker-Begruendung und optionale Zusatzdaten erfassen.</DialogDescription>
@@ -595,8 +774,9 @@ export function ComplaintsManagement() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closeActionDialog}>Abbrechen</Button>
+            <Button className="complaints-secondary-button" variant="outline" onClick={closeActionDialog}>Abbrechen</Button>
             <Button
+              className="complaints-primary-button"
               disabled={!selectedComplaint || !ackTechnicianReason.trim() || actionLoading === "ack"}
               onClick={async () => {
                 if (!selectedComplaint) return
@@ -626,7 +806,7 @@ export function ComplaintsManagement() {
       </Dialog>
 
       <Dialog open={actionDialog === "deny"} onOpenChange={(open) => !open && closeActionDialog()}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg complaints-dialog-surface">
           <DialogHeader>
             <DialogTitle>Reklamation ablehnen (Techniker)</DialogTitle>
             <DialogDescription>Begruendung und neues Reparaturangebot erfassen.</DialogDescription>
@@ -654,9 +834,10 @@ export function ComplaintsManagement() {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closeActionDialog}>Abbrechen</Button>
+            <Button className="complaints-secondary-button" variant="outline" onClick={closeActionDialog}>Abbrechen</Button>
             <Button
               variant="outline"
+              className="complaints-secondary-button"
               disabled={!selectedComplaint || !denyTechnicianReason.trim() || actionLoading === "deny"}
               onClick={async () => {
                 if (!selectedComplaint) return

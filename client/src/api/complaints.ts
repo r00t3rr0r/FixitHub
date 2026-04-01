@@ -103,6 +103,19 @@ export const getComplaintsByBooking = async (bookingId: string) => {
   }
 };
 
+// Description: Get all complaints for the authenticated customer
+// Endpoint: GET /api/complaints/my
+// Request: {}
+// Response: { success: boolean, complaints: Complaint[] }
+export const getMyComplaints = async () => {
+  try {
+    const response = await api.get('/api/complaints/my');
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
 // Description: Get all complaints (admin only)
 // Endpoint: GET /api/complaints
 // Request: { status?: string, category?: string, priority?: string, limit?: number, skip?: number }
@@ -156,7 +169,7 @@ export const getComplaint = async (complaintId: string) => {
 // Request: { bookingId: string, orderId?: string, customerId: string, subject: string, description: string, category: string, priority?: string }
 // Response: { success: boolean, complaint: Complaint }
 export const createComplaint = async (complaintData: {
-  bookingId: string;
+  bookingId?: string;
   orderId?: string;
   subject: string;
   description: string;

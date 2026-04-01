@@ -775,6 +775,20 @@ router.patch('/:id/deny', requireUser, requireRole(['staff', 'admin']), async (r
   }
 });
 
+// Description: Get all complaints for the authenticated customer
+// Endpoint: GET /api/complaints/my
+router.get('/my', requireUser, async (req, res) => {
+  try {
+    const complaints = await Complaint.find({ customerId: req.user._id })
+      .populate('orderId', 'orderNumber')
+      .sort({ createdAt: -1 });
+    return res.json({ success: true, complaints });
+  } catch (error) {
+    console.error('ComplaintRoutes: Error getting customer complaints:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Description: Get a specific complaint by ID
 // Endpoint: GET /api/complaints/:id
 router.get('/:id', requireUser, async (req, res) => {
@@ -803,10 +817,10 @@ router.post('/', requireUser, async (req, res) => {
   try {
     const { bookingId, orderId, subject, description, category, priority } = req.body;
 
-    if (!bookingId || !subject || !description || !category) {
+    if (!subject || !description || !category) {
       return res.status(400).json({
         success: false,
-        error: 'bookingId, subject, description, and category are required'
+        error: 'subject, description, and category are required'
       });
     }
 
