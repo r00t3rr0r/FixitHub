@@ -432,6 +432,78 @@ router.get('/:id/invoices', requireUser, async (req, res) => {
 // DHL RETURNS & SHIPPING ROUTES
 // ============================================
 
+// Description: Get outbound shipping tracking information for booking
+// Endpoint: GET /api/bookings/:id/shipping-tracking
+// Request: {}
+// Response: { success: boolean, trackingNumber: string, status: string, description: string, estimatedDelivery?: string, events: Array, booking: object }
+router.get('/:id/shipping-tracking', requireUser, async (req, res) => {
+  try {
+    console.log('BookingRoutes: Getting shipping tracking for booking:', req.params.id)
+
+    const booking = await BookingService.getById(req.params.id)
+
+    if (!booking) {
+      return res.status(404).json({ success: false, error: 'Booking not found' })
+    }
+
+    const isPrivilegedUser = req.user.role === 'admin' || req.user.role === 'staff'
+    const bookingCustomerId = booking.customerId?._id?.toString?.() || booking.customerId?.toString?.()
+
+    if (!isPrivilegedUser && bookingCustomerId !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, error: 'You do not have permission to view this booking' })
+    }
+
+    if (!booking.trackingNumber) {
+      return res.status(404).json({ success: false, error: 'No tracking number found for this booking' })
+    }
+
+    const trackingInfo = await require('../services/dhlService').getTrackingInfo(booking.trackingNumber)
+
+    res.json({
+      ...trackingInfo,
+      booking: {
+        bookingNumber: booking.bookingNumber,
+        shippingStatus: booking.shippingStatus,
+        shippingStatusDescription: booking.shippingStatusDescription,
+        shippingCreatedAt: booking.shippingCreatedAt,
+        actualDelivery: booking.actualDelivery,
+      },
+    })
+  } catch (error) {
+    console.error('BookingRoutes: Error getting booking shipping tracking:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Description: Update outbound shipment status from DHL API for booking
+// Endpoint: PUT /api/bookings/:id/shipping-status/update
+// Request: {}
+// Response: { success: boolean, booking: Booking, trackingInfo: Object }
+router.put('/:id/shipping-status/update', requireUser, async (req, res) => {
+  try {
+    console.log('BookingRoutes: Updating shipping status for booking:', req.params.id)
+
+    const booking = await BookingService.getById(req.params.id)
+
+    if (!booking) {
+      return res.status(404).json({ success: false, error: 'Booking not found' })
+    }
+
+    const isPrivilegedUser = req.user.role === 'admin' || req.user.role === 'staff'
+    const bookingCustomerId = booking.customerId?._id?.toString?.() || booking.customerId?.toString?.()
+
+    if (!isPrivilegedUser && bookingCustomerId !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, error: 'You do not have permission to update this booking' })
+    }
+
+    const result = await BookingService.updateShippingStatus(req.params.id)
+    res.json(result)
+  } catch (error) {
+    console.error('BookingRoutes: Error updating booking shipping status:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 // Description: Create return label for booking (admin/staff only)
 // Endpoint: POST /api/bookings/:id/return-label
 // Request: { labelType?: 'PDF' | 'QR' | 'BOTH' }
@@ -520,13 +592,32 @@ router.get('/:id/return-tracking', requireUser, async (req, res) => {
   }
 });
 
-// Description: Update return shipment status from DHL API (admin/staff only)
+// Description: Update return shipment status from DHL API for booking
 // Endpoint: PUT /api/bookings/:id/return-status/update
 // Request: {}
 // Response: { success: boolean, booking: Booking, trackingInfo: Object }
-router.put('/:id/return-status/update', requireStaff, async (req, res) => {
+router.put('/:id/return-status/update', requireUser, async (req, res) => {
   try {
     console.log('BookingRoutes: Updating return status for booking:', req.params.id);
+
+    const booking = await BookingService.getById(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        error: 'Booking not found',
+      });
+    }
+
+    const isPrivilegedUser = req.user.role === 'admin' || req.user.role === 'staff';
+    const bookingCustomerId = booking.customerId?._id?.toString?.() || booking.customerId?.toString?.();
+
+    if (!isPrivilegedUser && bookingCustomerId !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        error: 'You do not have permission to update this booking',
+      });
+    }
 
     const result = await DHLReturnsService.updateReturnStatus(req.params.id);
 

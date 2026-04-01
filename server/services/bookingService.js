@@ -4,6 +4,7 @@ const Product = require('../models/Product');
 const Service = require('../models/Service');
 const Invoice = require('../models/Invoice');
 const User = require('../models/User');
+const DHLService = require('./dhlService');
 const DHLReturnsService = require('./dhlReturnsService');
 const SystemConfiguration = require('../models/SystemConfiguration');
 
@@ -118,6 +119,19 @@ class BookingService {
 
       console.log('BookingService: Booking creation completed. Total orders:', savedBooking.orderIds.length);
 
+      // Automatically generate DHL outbound shipping label for the booking if DHL shipping is active
+      try {
+        const updatedBookingWithShipping = await this.createShippingLabelForBooking(savedBooking, {
+          preferredOrderId: repairOrderIds[0] || bookingData.orderIds[0] || null,
+        });
+
+        if (updatedBookingWithShipping) {
+          savedBooking.set(updatedBookingWithShipping.toObject ? updatedBookingWithShipping.toObject() : updatedBookingWithShipping);
+        }
+      } catch (shippingLabelError) {
+        console.error('BookingService: Error creating outbound shipping label for booking (non-fatal):', shippingLabelError.message);
+      }
+
       // Automatically generate DHL return label if enabled in configuration
       try {
         console.log('BookingService: Checking if automatic return label generation is enabled');
@@ -162,6 +176,129 @@ class BookingService {
     } catch (error) {
       console.error('BookingService: Error creating booking:', error);
       throw error;
+    }
+  }
+
+  static async createShippingLabelForBooking(booking, options = {}) {
+    if (!booking?._id) {
+      return null;
+    }
+
+    if (booking.shippingLabelUrl && booking.trackingNumber) {
+      return booking;
+    }
+
+    const dhlConfig = await DHLService.getDHLConfig();
+    if (!dhlConfig?.isActive) {
+      return booking;
+    }
+
+    const preferredOrderId = options.preferredOrderId ? String(options.preferredOrderId) : '';
+    const candidateOrderIds = [
+      preferredOrderId,
+      ...(Array.isArray(booking.repairOrderIds) ? booking.repairOrderIds.map((id) => String(id)) : []),
+      ...(Array.isArray(booking.orderIds) ? booking.orderIds.map((id) => String(id)) : []),
+    ].filter(Boolean).filter((value, index, array) => array.indexOf(value) === index);
+
+    if (candidateOrderIds.length === 0) {
+      return booking;
+    }
+
+    let lastError = null;
+
+    for (const orderId of candidateOrderIds) {
+      try {
+        const shipmentResult = await DHLService.createShipment(orderId, {});
+        const refreshedBooking = await Booking.findById(booking._id);
+
+        if (!refreshedBooking) {
+          throw new Error('Booking not found after shipment creation');
+        }
+
+        refreshedBooking.trackingNumber = shipmentResult?.trackingNumber || refreshedBooking.trackingNumber;
+        refreshedBooking.carrier = 'DHL';
+        refreshedBooking.shippingStatus = 'label-created';
+        refreshedBooking.shippingStatusDescription = 'DHL-Buchungsversandlabel wurde erstellt';
+        refreshedBooking.shippingLabelUrl = shipmentResult?.labelUrl || refreshedBooking.shippingLabelUrl;
+        refreshedBooking.shippingCost = shipmentResult?.shippingCost || refreshedBooking.shippingCost || 0;
+        refreshedBooking.estimatedDelivery = shipmentResult?.estimatedDelivery || refreshedBooking.estimatedDelivery;
+        refreshedBooking.shippingCreatedAt = new Date();
+        refreshedBooking.timeline.push({
+          status: 'Shipping Label Created',
+          description: `Booking DHL shipping label created. Tracking number: ${refreshedBooking.trackingNumber || 'pending'}`,
+          completedAt: new Date(),
+          staffId: 'system',
+          staffName: 'DHL Parcel Integration',
+        });
+
+        await refreshedBooking.save();
+        return refreshedBooking;
+      } catch (error) {
+        lastError = error;
+        console.error(`BookingService: Failed to create shipping label for order ${orderId}:`, error.message);
+      }
+    }
+
+    if (lastError) {
+      throw lastError;
+    }
+
+    return booking;
+  }
+
+  static async updateShippingStatus(bookingId) {
+    console.log('BookingService: Updating shipping status for booking:', bookingId)
+
+    const booking = await Booking.findById(bookingId)
+
+    if (!booking) {
+      throw new Error('Booking not found')
+    }
+
+    if (!booking.trackingNumber) {
+      throw new Error('No tracking number found for this booking')
+    }
+
+    const trackingInfo = await DHLService.getTrackingInfo(booking.trackingNumber)
+
+    const statusMapping = {
+      'pre-transit': 'label-created',
+      'transit': 'in-transit',
+      'delivered': 'delivered',
+      'failure': 'failed',
+      'out-for-delivery': 'out-for-delivery',
+    }
+
+    const newStatus = statusMapping[trackingInfo.status] || booking.shippingStatus
+    const statusChanged = newStatus !== booking.shippingStatus
+
+    booking.shippingStatus = newStatus
+    booking.shippingStatusDescription = trackingInfo.description || trackingInfo.status || booking.shippingStatusDescription
+
+    if (trackingInfo.estimatedDelivery) {
+      booking.estimatedDelivery = trackingInfo.estimatedDelivery
+    }
+
+    if (newStatus === 'delivered' && !booking.actualDelivery) {
+      booking.actualDelivery = new Date()
+    }
+
+    if (statusChanged) {
+      booking.timeline.push({
+        status: 'Shipping Status Updated',
+        description: `Booking shipment status: ${trackingInfo.description || newStatus}`,
+        completedAt: new Date(),
+        staffId: 'system',
+        staffName: 'DHL Integration',
+      })
+    }
+
+    await booking.save()
+
+    return {
+      success: true,
+      booking,
+      trackingInfo,
     }
   }
 

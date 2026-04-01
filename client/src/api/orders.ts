@@ -28,6 +28,7 @@ export interface CustomerInfo {
 export interface Order {
   _id: string;
   orderNumber: string;
+  bookingId?: string;
   customerId: CustomerInfo;
   deviceBrand: string;
   deviceModel: string;
@@ -106,6 +107,7 @@ export interface Order {
   trackingNumber?: string;
   carrier?: string;
   shippingStatus?: 'pending' | 'label-created' | 'shipped' | 'in-transit' | 'out-for-delivery' | 'delivered' | 'failed';
+  shippingStatusDescription?: string;
   estimatedDelivery?: string;
   actualDelivery?: string;
   shippingLabelUrl?: string;

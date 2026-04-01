@@ -24,11 +24,17 @@ class DHLService {
         throw new Error('System configuration not found');
       }
 
-      // Find active DHL integration
+      // Prefer the outbound shipping integration over DHL Returns.
       const dhlIntegration = config.integrations.find(
         integration => integration.provider === 'DHL' &&
                       integration.type === 'shipping' &&
-                      integration.isActive
+                      integration.isActive &&
+                      integration.name === 'DHL Shipping'
+      ) || config.integrations.find(
+        integration => integration.provider === 'DHL' &&
+                      integration.type === 'shipping' &&
+                      integration.isActive &&
+                      integration.settings?.accountNumber
       );
 
       if (!dhlIntegration) {
@@ -230,6 +236,7 @@ class DHLService {
       order.trackingNumber = trackingNumber || pieceTrackerCode || returnedShipmentId;
       order.carrier = 'DHL';
       order.shippingStatus = 'label-created';
+      order.shippingStatusDescription = 'DHL-Versandlabel wurde erstellt';
       order.shippingLabelUrl = labelUrl;
       order.shippingCost = shipmentData.shippingCost || 0;
       order.estimatedDelivery = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days from now
@@ -370,6 +377,7 @@ class DHLService {
       const statusChanged = newStatus !== order.shippingStatus;
 
       order.shippingStatus = newStatus;
+      order.shippingStatusDescription = trackingInfo.description || trackingInfo.status || order.shippingStatusDescription;
 
       // Add new tracking events
       if (trackingInfo.events && trackingInfo.events.length > 0) {

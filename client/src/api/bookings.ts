@@ -274,6 +274,32 @@ export const getReturnTracking = async (bookingId: string) => {
   }
 };
 
+// Description: Get outbound shipping tracking information for booking
+// Endpoint: GET /api/bookings/:id/shipping-tracking
+// Request: {}
+// Response: { success: boolean, trackingNumber: string, status: string, description: string, estimatedDelivery?: string, events: Array, booking: object }
+export const getBookingShippingTracking = async (bookingId: string) => {
+  try {
+    const response = await api.get(`/api/bookings/${bookingId}/shipping-tracking`)
+    return response.data
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message)
+  }
+}
+
+// Description: Update outbound shipment status from DHL API for booking
+// Endpoint: PUT /api/bookings/:id/shipping-status/update
+// Request: {}
+// Response: { success: boolean, booking: Booking, trackingInfo: Object }
+export const updateBookingShippingStatus = async (bookingId: string) => {
+  try {
+    const response = await api.put(`/api/bookings/${bookingId}/shipping-status/update`)
+    return response.data
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message)
+  }
+}
+
 // Description: Update return shipment status from DHL API (admin/staff only)
 // Endpoint: PUT /api/bookings/:id/return-status/update
 // Request: {}
