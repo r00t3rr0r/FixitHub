@@ -141,6 +141,100 @@ router.delete('/notification-templates/:id', requireUser, requireRole(['admin'])
   }
 });
 
+// Send a notification template as a real test email
+router.post('/notification-templates/:id/send-test', requireUser, requireRole(['admin']), async (req, res) => {
+  console.log('Send template test email request received:', req.params.id);
+
+  try {
+    const { to } = req.body;
+    if (!to) return res.status(400).json({ success: false, message: 'Recipient address (to) is required' });
+
+    const config = await SystemConfigService.getSystemConfiguration();
+    const template = config.notificationTemplates.id(req.params.id);
+    if (!template) return res.status(404).json({ success: false, message: 'Template not found' });
+
+    if (template.type !== 'email') {
+      return res.status(400).json({ success: false, message: 'Only email templates can be sent as test email' });
+    }
+
+    // Replace all {{variable}} placeholders with sample values
+    const fillPlaceholders = (text) => {
+      const sampleValues = {
+        customerName: 'Max Mustermann',
+        firstName: 'Max',
+        lastName: 'Mustermann',
+        email: to,
+        orderNumber: 'ORD-2026-0001',
+        repairNumber: 'REP-2026-0001',
+        deviceName: 'iPhone 15 Pro',
+        deviceModel: 'iPhone 15 Pro',
+        status: 'In Bearbeitung',
+        estimatedCost: '89,00 €',
+        totalAmount: '89,00 €',
+        amountPaid: '89,00 €',
+        technician: 'FixitHub Service',
+        notes: 'Ihr Gerät wird gerade geprüft.',
+        completionDate: new Date().toLocaleDateString('de-DE'),
+        shopName: 'FixitHub',
+        shopAddress: 'Musterstraße 1, 12345 Musterstadt',
+        supportEmail: 'support@fixithub.de',
+        supportPhone: '+49 123 456789',
+        trackingUrl: 'https://fixithub.de/tracking/REP-2026-0001',
+        verificationUrl: 'https://fixithub.de/verify/example-token',
+        passwordResetUrl: 'https://fixithub.de/reset/example-token',
+        invoiceUrl: 'https://fixithub.de/invoice/INV-2026-0001',
+      };
+      return text.replace(/{{(\w+)}}/g, (match, key) => sampleValues[key] || `[${key}]`);
+    };
+
+    const subject = fillPlaceholders(template.subject || `[Test] ${template.name}`);
+    const htmlContent = fillPlaceholders(template.content);
+
+    // Build SMTP transporter from saved config
+    const nodemailer = require('nodemailer');
+    const emailSettings = config.emailSettings;
+
+    if (!emailSettings || !emailSettings.smtpHost) {
+      return res.status(400).json({ success: false, message: 'Keine SMTP-Konfiguration gefunden. Bitte zuerst E-Mail-Einstellungen speichern.' });
+    }
+
+    const transporterConfig = {
+      host: emailSettings.smtpHost,
+      port: emailSettings.smtpPort || 587,
+      secure: emailSettings.requiresTLS && (emailSettings.smtpPort === 465),
+    };
+
+    if (emailSettings.requiresAuthentication && emailSettings.smtpUsername && emailSettings.smtpPassword) {
+      transporterConfig.auth = { user: emailSettings.smtpUsername, pass: emailSettings.smtpPassword };
+    }
+
+    const transporter = nodemailer.createTransport(transporterConfig);
+    const from = emailSettings.smtpUsername || `noreply@${emailSettings.smtpHost}`;
+
+    const mailOptions = {
+      from,
+      to,
+      subject,
+      html: htmlContent,
+      text: htmlContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8'
+      }
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+
+    console.log('Template test email sent:', info.messageId);
+    return res.status(200).json({
+      success: true,
+      message: `Test-E-Mail der Vorlage "${template.name}" erfolgreich an ${to} gesendet (ID: ${info.messageId})`
+    });
+  } catch (error) {
+    console.error('Error sending template test email:', error);
+    return res.status(500).json({ success: false, message: `Senden fehlgeschlagen: ${error.message}` });
+  }
+});
+
 // Get integrations (admin only)
 router.get('/integrations', requireUser, requireRole(['admin']), async (req, res) => {
   console.log('Get integrations request received');

@@ -133,6 +133,11 @@ export function SystemConfiguration() {
   const [testingIntegration, setTestingIntegration] = useState<string | null>(null)
   const [testingEmailSettings, setTestingEmailSettings] = useState(false)
 
+  // Template test dialog
+  const [testingTemplate, setTestingTemplate] = useState<NotificationTemplate | null>(null)
+  const [templateTestEmail, setTemplateTestEmail] = useState("")
+  const [sendingTemplateTest, setSendingTemplateTest] = useState(false)
+
   // Dialog states
   const [showTemplateDialog, setShowTemplateDialog] = useState(false)
   const [showIntegrationDialog, setShowIntegrationDialog] = useState(false)
@@ -277,6 +282,38 @@ export function SystemConfiguration() {
     } catch (error: any) {
       console.error("SystemConfiguration: Error saving template:", error)
       throw error
+    }
+  }
+
+  const handleTestTemplate = (template: NotificationTemplate) => {
+    setTestingTemplate(template)
+    setTemplateTestEmail("")
+  }
+
+  const handleSendTemplateTest = async () => {
+    if (!testingTemplate || !templateTestEmail.trim()) return
+    setSendingTemplateTest(true)
+    try {
+      const token = localStorage.getItem("accessToken")
+      const response = await fetch(`/api/system-config/notification-templates/${testingTemplate._id}/send-test`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ to: templateTestEmail.trim() }),
+      })
+      const data = await response.json()
+      if (response.ok && data.success) {
+        toast({ title: "Test-E-Mail gesendet", description: data.message || `Vorlage an ${templateTestEmail} gesendet` })
+        setTestingTemplate(null)
+      } else {
+        toast({ title: "Fehler", description: data.message || data.error || "Senden fehlgeschlagen", variant: "destructive" })
+      }
+    } catch (error: any) {
+      toast({ title: "Verbindungsfehler", description: error.message || "Unbekannter Fehler", variant: "destructive" })
+    } finally {
+      setSendingTemplateTest(false)
     }
   }
 
@@ -973,6 +1010,15 @@ export function SystemConfiguration() {
                             <Button
                               variant="ghost"
                               size="sm"
+                              title="Vorlage als Test-E-Mail senden"
+                              onClick={() => handleTestTemplate(template)}
+                              disabled={template.type !== 'email'}
+                            >
+                              <TestTube className="h-4 w-4 text-blue-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleEditTemplate(template)}
                             >
                               <Edit className="h-4 w-4" />
@@ -1043,7 +1089,99 @@ export function SystemConfiguration() {
           </Card>
         </TabsContent>
 
-        {/* Integrations Tab */}
+        {/* Template Test Dialog */}
+        {testingTemplate && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 overflow-y-auto py-8">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6">
+              <div className="flex items-center gap-2 mb-1">
+                <TestTube className="h-5 w-5 text-blue-600" />
+                <h2 className="text-lg font-semibold">Vorlage als Test-E-Mail senden</h2>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">Sendet die Vorlage mit Beispiel-Platzhalterwerten an die angegebene Adresse</p>
+
+              <div className="bg-gray-50 border rounded-lg p-3 mb-4 text-sm space-y-1">
+                <p><span className="font-medium">Vorlage:</span> {testingTemplate.name}</p>
+                {testingTemplate.subject && <p><span className="font-medium">Betreff:</span> {testingTemplate.subject}</p>}
+                {testingTemplate.variables && testingTemplate.variables.length > 0 && (
+                  <p><span className="font-medium">Variablen:</span> {testingTemplate.variables.map(v => `{{${v.name}}}`).join(', ')}</p>
+                )}
+              </div>
+
+              <div className="space-y-2 mb-4">
+                <label htmlFor="template-test-email" className="text-sm font-medium">Empfänger-E-Mail-Adresse *</label>
+                <input
+                  id="template-test-email"
+                  type="email"
+                  className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="test@example.com"
+                  value={templateTestEmail}
+                  onChange={(e) => setTemplateTestEmail(e.target.value)}
+                  disabled={sendingTemplateTest}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendTemplateTest()}
+                />
+              </div>
+
+              {/* HTML Preview */}
+              <div className="mb-4">
+                <p className="text-sm font-medium mb-2">Vorschau (HTML-formatiert):</p>
+                <div className="bg-white border rounded-lg overflow-hidden overflow-y-auto max-h-64 border-gray-300 shadow-sm">
+                  <div 
+                    className="p-4 text-sm"
+                    dangerouslySetInnerHTML={{ 
+                      __html: (() => {
+                        let content = testingTemplate.content;
+                        // Sample values for replacing placeholders
+                        const sampleValues: Record<string, string> = {
+                          customerName: 'Max Mustermann',
+                          firstName: 'Max',
+                          lastName: 'Mustermann',
+                          email: templateTestEmail || 'test@example.com',
+                          orderNumber: 'ORD-2026-0001',
+                          repairNumber: 'REP-2026-0001',
+                          deviceName: 'iPhone 15 Pro',
+                          deviceModel: 'iPhone 15 Pro',
+                          status: 'In Bearbeitung',
+                          estimatedCost: '89,00 €',
+                          totalAmount: '89,00 €',
+                          amountPaid: '89,00 €',
+                          technician: 'FixitHub Service',
+                          notes: 'Ihr Gerät wird gerade geprüft.',
+                          completionDate: new Date().toLocaleDateString('de-DE'),
+                          shopName: 'FixitHub',
+                          shopAddress: 'Musterstraße 1, 12345 Musterstadt',
+                          supportEmail: 'support@fixithub.de',
+                          supportPhone: '+49 123 456789',
+                          trackingUrl: 'https://fixithub.de/tracking/REP-2026-0001',
+                          verificationUrl: 'https://fixithub.de/verify/example-token',
+                          passwordResetUrl: 'https://fixithub.de/reset/example-token',
+                          invoiceUrl: 'https://fixithub.de/invoice/INV-2026-0001',
+                        };
+                        // Replace all {{variable}} placeholders
+                        return content.replace(/{{(\w+)}}/g, (match, key) => sampleValues[key] || `[${key}]`);
+                      })()
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setTestingTemplate(null)} disabled={sendingTemplateTest}>Abbrechen</Button>
+                <Button
+                  onClick={handleSendTemplateTest}
+                  disabled={sendingTemplateTest || !templateTestEmail.trim()}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {sendingTemplateTest ? (
+                    <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Wird gesendet...</>
+                  ) : (
+                    <><TestTube className="h-4 w-4 mr-2" />Test senden</>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* SMS/Push Providers Tab */}
         <TabsContent value="providers" className="space-y-6">
           <ProviderConfigurationTab />
