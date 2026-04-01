@@ -546,7 +546,7 @@ export function CustomerBookings() {
             <CardHeader className="pb-4 border-b border-slate-100">
               <CardTitle className="text-xl font-bold text-[#1a2a5e]">{t('bookings.bookingsList')}</CardTitle>
               <CardDescription className="text-base text-slate-500">
-                {filteredBookings.length} bookings found
+                {filteredBookings.length} {t('bookings.bookingsFound')}
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-0 px-0">
@@ -554,34 +554,30 @@ export function CustomerBookings() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-slate-50 hover:bg-slate-50 border-b-2 border-slate-200">
-                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4"></TableHead>
-                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">Booking ID</TableHead>
-                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">{t('common.status')}</TableHead>
-                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">Billing</TableHead>
-                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">Progress</TableHead>
-                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">Total Cost</TableHead>
-                      <TableHead className="text-center text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">Items</TableHead>
-                      <TableHead className="text-center text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">Msgs</TableHead>
-                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">Created</TableHead>
-                      <TableHead className="text-right text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">{t('common.actions')}</TableHead>
+                      <TableHead className="text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3"></TableHead>
+                      <TableHead className="text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3">{t('bookings.bookingID')}</TableHead>
+                      <TableHead className="text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3">{t('common.status')}</TableHead>
+                      <TableHead className="text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3">{t('bookings.billing')}</TableHead>
+                      <TableHead className="text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3">{t('bookings.progress')}</TableHead>
+                      <TableHead className="text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3">{t('bookings.totalCost')}</TableHead>
+                      <TableHead className="text-center text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3">{t('bookings.items')}</TableHead>
+                      <TableHead className="text-center text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3">{t('bookings.messages')}</TableHead>
+                      <TableHead className="text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3">{t('bookings.created')}</TableHead>
+                      <TableHead className="text-right text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3">{t('common.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                   {filteredBookings.map((booking) => (
                     <React.Fragment key={booking._id}>
                       <TableRow
-                        className="hover:bg-slate-50 transition-colors"
+                        className="hover:bg-slate-50 transition-colors cursor-pointer"
                         onClick={(e) => {
-                          // Only trigger on mobile (when screen width is <= 640px)
-                          if (window.innerWidth <= 640) {
-                            // Don't trigger if clicking on buttons or interactive elements
-                            const target = e.target as HTMLElement;
-                            if (!target.closest('button') && !target.closest('a') && !target.closest('[role="menu"]')) {
-                              toggleExpandBooking(booking._id);
-                            }
+                          // Don't trigger if clicking on buttons or interactive elements
+                          const target = e.target as HTMLElement;
+                          if (!target.closest('button') && !target.closest('a') && !target.closest('[role="menu"]') && !target.closest('[role="dialog"]')) {
+                            handleViewDetails(booking);
                           }
                         }}
-                        style={{ cursor: window.innerWidth <= 640 ? 'pointer' : 'default' }}
                       >
                         <TableCell className="text-center py-5">
                           <Button
@@ -705,33 +701,33 @@ export function CustomerBookings() {
                               {/* Booking Status Summary */}
                               <div className="expanded-section">
                                 <div className="flex items-center justify-between mb-2">
-                                  <span className="expanded-section-title">Booking Status</span>
+                                  <span className="expanded-section-title">{t('bookings.bookingStatus')}</span>
                                   <Badge className={getStatusColor(booking.status)}>
                                     {t(`status.${booking.status}`)}
                                   </Badge>
                                 </div>
                                 <div className="info-grid">
                                   <div className="info-item">
-                                    <div className="info-label">Billing</div>
+                                    <div className="info-label">{t('bookings.billing')}</div>
                                     <Badge className={getBillingStatusColor(booking.billingStatus)}>
                                       {t(`billingStatus.${booking.billingStatus}`)}
                                     </Badge>
                                   </div>
                                   {booking.returnShipmentStatus && (
                                     <div className="info-item">
-                                      <div className="info-label">Return Status</div>
+                                      <div className="info-label">{t('bookings.returnStatus')}</div>
                                       <Badge className={getReturnShipmentStatusColor(booking.returnShipmentStatus)}>
                                         {booking.returnShipmentStatus}
                                       </Badge>
                                     </div>
                                   )}
                                   <div className="info-item">
-                                    <div className="info-label">Total Cost</div>
+                                    <div className="info-label">{t('bookings.totalCost')}</div>
                                     <div className="info-value">{formatCurrency(booking.totalCost)}</div>
                                   </div>
                                 </div>
                                 <div className="mt-2">
-                                  <div className="info-label mb-1.5">Progress</div>
+                                  <div className="info-label mb-1.5">{t('bookings.progress')}</div>
                                   <div className="progress-container">
                                     <div className="progress-bar">
                                       <div
@@ -752,7 +748,7 @@ export function CustomerBookings() {
                                   <div className="flex items-center justify-between mb-1.5">
                                     <span className="text-xs font-semibold text-blue-900 dark:text-blue-200 uppercase flex items-center gap-1">
                                       <Truck className="h-3 w-3" />
-                                      Return Shipping
+                                      {t('bookings.returnShipping')}
                                     </span>
                                     {booking.returnShipmentStatus && (
                                       <Badge className={getReturnShipmentStatusColor(booking.returnShipmentStatus)}>
@@ -765,7 +761,7 @@ export function CustomerBookings() {
                                       <div className="flex items-start gap-2">
                                         <Package className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                                         <div>
-                                          <span className="text-foreground/60 block text-xs">Tracking:</span>
+                                          <span className="text-foreground/60 block text-xs">{t('bookings.tracking')}:</span>
                                           <span className="font-mono font-semibold text-blue-900 dark:text-blue-200 text-xs">{booking.returnTrackingNumber}</span>
                                         </div>
                                       </div>
@@ -774,14 +770,14 @@ export function CustomerBookings() {
                                       <div className="flex items-start gap-2">
                                         <FileText className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                                         <div>
-                                          <span className="text-foreground/60 block text-xs">Label:</span>
+                                          <span className="text-foreground/60 block text-xs">{t('bookings.label')}:</span>
                                           <a
                                             href={booking.returnLabelUrl}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 text-xs"
                                           >
-                                            Download <ExternalLink className="h-2.5 w-2.5" />
+                                            {t('common.download')} <ExternalLink className="h-2.5 w-2.5" />
                                           </a>
                                         </div>
                                       </div>
@@ -790,14 +786,14 @@ export function CustomerBookings() {
                                       <div className="flex items-start gap-2">
                                         <QrCode className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                                         <div>
-                                          <span className="text-foreground/60 block text-xs">QR Code:</span>
+                                          <span className="text-foreground/60 block text-xs">{t('bookings.qrCode')}:</span>
                                           <a
                                             href={booking.returnQRCodeUrl}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 text-xs"
                                           >
-                                            View <ExternalLink className="h-2.5 w-2.5" />
+                                            {t('common.view')} <ExternalLink className="h-2.5 w-2.5" />
                                           </a>
                                         </div>
                                       </div>
@@ -806,7 +802,7 @@ export function CustomerBookings() {
                                       <div className="flex items-start gap-2">
                                         <Clock className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                                         <div>
-                                          <span className="text-foreground/60 block text-xs">Created:</span>
+                                          <span className="text-foreground/60 block text-xs">{t('bookings.created')}:</span>
                                           <span className="font-semibold text-xs">{formatDateTime(booking.returnCreatedAt)}</span>
                                         </div>
                                       </div>
@@ -817,23 +813,23 @@ export function CustomerBookings() {
 
                               {loadingOrders.has(booking._id) ? (
                                 <div className="text-center py-2">
-                                  <p className="text-xs text-foreground/60">Loading orders...</p>
+                                  <p className="text-xs text-foreground/60">{t('bookings.loadingOrders')}</p>
                                 </div>
                               ) : expandedOrdersData[booking._id] && expandedOrdersData[booking._id].length > 0 ? (
                                 <div className="space-y-1.5">
-                                  <h4 className="font-semibold text-xs mb-1.5 text-foreground/70">ORDERS & REPAIRS</h4>
+                                  <h4 className="font-semibold text-xs mb-1.5 text-foreground/70">{t('bookings.ordersAndRepairs')}</h4>
                                   <div className="border rounded-md overflow-hidden">
                                     <Table className="text-xs">
                                       <TableHeader>
                                         <TableRow className="bg-muted/40">
-                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">Order #</TableHead>
-                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">Type</TableHead>
-                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">Device</TableHead>
-                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">Services</TableHead>
-                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-center">Prog</TableHead>
+                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">{t('bookings.orderNumber')}</TableHead>
+                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">{t('bookings.type')}</TableHead>
+                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">{t('bookings.device')}</TableHead>
+                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">{t('bookings.services')}</TableHead>
+                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-center">{t('bookings.progressShort')}</TableHead>
                                           <TableHead className="h-7 text-xs font-semibold text-foreground/70">Status</TableHead>
-                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-center">Msgs</TableHead>
-                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-right">Cost</TableHead>
+                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-center">{t('bookings.messages')}</TableHead>
+                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-right">{t('bookings.costShort')}</TableHead>
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
@@ -849,20 +845,20 @@ export function CustomerBookings() {
                                             <TableCell className="py-1">
                                               {item.isComplaintFollowup ? (
                                                 <Badge className="text-xs bg-rose-100 text-rose-800 border border-rose-300">
-                                                  Reklamationsauftrag
+                                                  {t('bookings.complaintFollowup')}
                                                 </Badge>
                                               ) : (
                                                 <Badge variant={item.type === 'repair' ? 'default' : 'secondary'} className="text-xs">
-                                                  {item.type === 'repair' ? 'Repair' : 'Prod'}
+                                                  {item.type === 'repair' ? t('bookings.repair') : 'Prod.'}
                                                 </Badge>
                                               )}
                                             </TableCell>
                                             <TableCell className="py-1">
                                               <div className="text-xs text-foreground/80">
                                                 {item.type === 'repair' ? (
-                                                  <span>{item.device || 'Device'}</span>
+                                                  <span>{item.device || t('bookings.device')}</span>
                                                 ) : (
-                                                  <span className="truncate">{item.products?.map((p: any) => p.name).join(', ') || 'Product'}</span>
+                                                  <span className="truncate">{item.products?.map((p: any) => p.name).join(', ') || t('bookings.product')}</span>
                                                 )}
                                               </div>
                                             </TableCell>
@@ -881,7 +877,7 @@ export function CustomerBookings() {
                                                   </div>
                                                 ) : item.type === 'product' && item.products && item.products.length > 0 ? (
                                                   <div className="text-xs text-foreground/70">
-                                                    {item.products.length} item(s)
+                                                    {item.products.length} {t('bookings.items')}
                                                   </div>
                                                 ) : (
                                                   <span className="text-xs text-foreground/50">—</span>
