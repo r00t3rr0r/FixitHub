@@ -4,13 +4,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
-import { RepairRequestMessagesPanel } from "@/components/repair-request/RepairRequestMessagesPanel"
 import {
   getMyRepairRequests,
   getRepairRequestById,
   RepairRequest
 } from "@/api/repairRequests"
-import { getUnreadMessageCount } from "@/api/repairRequestCommunication"
+import {
+  getUnreadMessageCount,
+  getCommunicationThread,
+  sendMessage,
+  markMessagesAsRead,
+} from "@/api/repairRequestCommunication"
 import {
   Search,
   Filter,
@@ -24,8 +28,8 @@ import {
   Calendar,
   MessageSquare,
   Smartphone,
-  Wrench,
-  ImageIcon
+  ImageIcon,
+  Send,
 } from "lucide-react"
 import {
   Select,
@@ -38,13 +42,10 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface ExtendedRepairRequest extends RepairRequest {
   unreadMessages?: number
@@ -66,6 +67,12 @@ export function CustomerRepairRequests() {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<ExtendedRepairRequest | null>(null)
   const [detailsLoading, setDetailsLoading] = useState(false)
+
+  // Inline communication thread state
+  const [commThread, setCommThread] = useState<any | null>(null)
+  const [commLoading, setCommLoading] = useState(false)
+  const [commMessage, setCommMessage] = useState("")
+  const [commSending, setCommSending] = useState(false)
 
   // Fetch customer's repair requests
   useEffect(() => {
@@ -152,6 +159,44 @@ export function CustomerRepairRequests() {
       })
     } finally {
       setDetailsLoading(false)
+    }
+  }
+
+  // Load communication thread when dialog opens for a request
+  useEffect(() => {
+    if (!selectedRequest?._id || !showDetailsDialog) return
+    let cancelled = false
+    const loadThread = async () => {
+      try {
+        setCommLoading(true)
+        const thread = await getCommunicationThread(selectedRequest._id)
+        if (!cancelled) {
+          setCommThread(thread)
+          await markMessagesAsRead(selectedRequest._id).catch(() => {})
+        }
+      } catch {
+        // silently ignore – thread may not exist yet
+      } finally {
+        if (!cancelled) setCommLoading(false)
+      }
+    }
+    loadThread()
+    const interval = setInterval(loadThread, 5000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [selectedRequest?._id, showDetailsDialog])
+
+  // Send message in details dialog
+  const handleCommSend = async () => {
+    if (!commMessage.trim() || !selectedRequest?._id) return
+    try {
+      setCommSending(true)
+      const updated = await sendMessage(selectedRequest._id, commMessage)
+      setCommThread(updated)
+      setCommMessage("")
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Fehler", description: error?.message || "Nachricht konnte nicht gesendet werden" })
+    } finally {
+      setCommSending(false)
     }
   }
 
@@ -393,46 +438,44 @@ export function CustomerRepairRequests() {
       </Card>
 
       {/* Details Dialog */}
-      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-        <DialogContent className="max-w-[95vw] xl:max-w-6xl my-4 max-h-[88vh] p-0 gap-0 overflow-hidden border-none shadow-[0_20px_60px_rgba(26,42,94,0.3)] flex flex-col">
-          <DialogHeader className="px-5 sm:px-8 py-6 bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] relative overflow-hidden border-b-0">
-            <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-[0.08] blur-3xl pointer-events-none bg-[radial-gradient(circle,rgba(245,184,0,1)_0%,transparent_70%)]" />
-            <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full opacity-[0.06] blur-3xl pointer-events-none bg-[radial-gradient(circle,rgba(245,184,0,1)_0%,transparent_70%)]" />
+      <Dialog open={showDetailsDialog} onOpenChange={(open) => { setShowDetailsDialog(open); if (!open) { setCommThread(null); setCommMessage("") } }}>
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl my-3 max-h-[92vh] p-0 gap-0 overflow-hidden border-none rounded-[16px] sm:rounded-[24px] shadow-[0_20px_60px_rgba(26,42,94,0.3)] flex flex-col">
 
-            <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:pr-8">
-              <div className="space-y-2">
-                <DialogTitle className="text-2xl sm:text-[1.75rem] font-extrabold tracking-tight" style={{ color: '#f5b800' }}>
-                  Anfrage #{selectedRequest?.requestNumber}
-                </DialogTitle>
-                <DialogDescription className="text-base sm:text-lg text-white/90">
-                  {selectedRequest?.deviceBrand} {selectedRequest?.deviceModel}
-                </DialogDescription>
-                {selectedRequest && (
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <Badge className={`inline-flex items-center gap-1.5 px-3 py-1.5 font-semibold ${getStatusBadgeClasses(selectedRequest.status)}`}>
-                      {getStatusIcon(selectedRequest.status)}
-                      {formatStatusLabel(selectedRequest.status)}
-                    </Badge>
-                    <Badge variant="secondary" className="bg-white/15 text-white hover:bg-white/15 capitalize">
-                      Prioritaet: {formatPriorityLabel(selectedRequest.priority)}
-                    </Badge>
-                  </div>
-                )}
-              </div>
-
+          {/* Header */}
+          <DialogHeader className="relative overflow-hidden flex-shrink-0" style={{ padding: '1.25rem 1.5rem', paddingRight: '3rem', background: 'linear-gradient(to right, #1a2a5e, #2a3f7e)', borderBottom: 'none' }}>
+            <div className="absolute top-0 right-0 w-48 h-48 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(245,184,0,0.08) 0%, transparent 70%)' }} />
+            <div className="absolute bottom-0 left-0 w-36 h-36 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(245,184,0,0.06) 0%, transparent 70%)' }} />
+            <div className="relative z-10">
+              <DialogTitle className="font-extrabold tracking-tight leading-tight" style={{ color: '#f5b800', fontSize: 'clamp(1.1rem, 3vw, 1.5rem)', marginBottom: '0.25rem' }}>
+                Anfrage #{selectedRequest?.requestNumber}
+              </DialogTitle>
+              <DialogDescription className="font-medium" style={{ color: 'rgba(255,255,255,0.85)', fontSize: 'clamp(0.85rem, 2vw, 1rem)', marginBottom: '0.75rem' }}>
+                {selectedRequest?.deviceBrand} {selectedRequest?.deviceModel}
+              </DialogDescription>
               {selectedRequest && (
-                <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full sm:w-auto">
-                  <div className="rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-center min-w-[92px]">
-                    <p className="text-[11px] sm:text-xs uppercase tracking-wide text-blue-100">Eingereicht</p>
-                    <p className="text-xs sm:text-sm font-semibold text-white">{formatDate(selectedRequest.createdAt)}</p>
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <span className={`status-badge status-${selectedRequest.status}`} style={{ fontSize: '0.8rem', padding: '0.4rem 0.875rem' }}>
+                    {getStatusIcon(selectedRequest.status)}
+                    {formatStatusLabel(selectedRequest.status)}
+                  </span>
+                  <span className="inline-flex items-center rounded-full font-semibold" style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem', background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)' }}>
+                    {formatPriorityLabel(selectedRequest.priority)}
+                  </span>
+                </div>
+              )}
+              {selectedRequest && (
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-xl text-center" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', padding: '0.5rem 0.25rem' }}>
+                    <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#bfdbfe', fontWeight: 600, marginBottom: '0.2rem' }}>Eingereicht</p>
+                    <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#fff' }}>{formatDate(selectedRequest.createdAt)}</p>
                   </div>
-                  <div className="rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-center min-w-[92px]">
-                    <p className="text-[11px] sm:text-xs uppercase tracking-wide text-blue-100">Aktualisiert</p>
-                    <p className="text-xs sm:text-sm font-semibold text-white">{formatDate(selectedRequest.updatedAt)}</p>
+                  <div className="rounded-xl text-center" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', padding: '0.5rem 0.25rem' }}>
+                    <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#bfdbfe', fontWeight: 600, marginBottom: '0.2rem' }}>Aktualisiert</p>
+                    <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#fff' }}>{formatDate(selectedRequest.updatedAt)}</p>
                   </div>
-                  <div className="rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-center min-w-[92px]">
-                    <p className="text-[11px] sm:text-xs uppercase tracking-wide text-blue-100">Schaetzung</p>
-                    <p className="text-xs sm:text-sm font-extrabold text-[#f5b800]">${selectedRequest.estimatedCost.toFixed(2)}</p>
+                  <div className="rounded-xl text-center" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', padding: '0.5rem 0.25rem' }}>
+                    <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#bfdbfe', fontWeight: 600, marginBottom: '0.2rem' }}>Schätzung</p>
+                    <p style={{ fontSize: '0.8rem', fontWeight: 800, color: '#f5b800' }}>{selectedRequest.estimatedCost.toFixed(2)} €</p>
                   </div>
                 </div>
               )}
@@ -440,271 +483,195 @@ export function CustomerRepairRequests() {
           </DialogHeader>
 
           {detailsLoading ? (
-            <div className="h-[60vh] flex items-center justify-center bg-gradient-to-b from-white to-slate-50">
-              <Loader2 className="h-7 w-7 animate-spin text-[#1a2a5e]" />
+            <div className="flex-1 flex items-center justify-center" style={{ background: '#f8f9fc' }}>
+              <Loader2 className="h-7 w-7 animate-spin" style={{ color: '#1a2a5e' }} />
             </div>
           ) : selectedRequest ? (
-            <Tabs defaultValue="overview" className="flex flex-col lg:flex-row flex-1 min-h-0 bg-gradient-to-b from-white to-slate-50">
-              <div className="lg:w-72 lg:border-r lg:border-slate-200/80 bg-white/80 backdrop-blur-sm">
-                <div className="px-4 pt-4 pb-2 lg:pb-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500 mb-3">Bereiche</p>
-                  <TabsList className="w-full h-auto p-0 bg-transparent rounded-none flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible">
-                    <TabsTrigger value="overview" className="min-w-max lg:w-full justify-start rounded-xl px-3 py-2.5 data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white data-[state=active]:shadow">
-                      <FileText className="h-4 w-4 mr-2" />
-                      Uebersicht
-                    </TabsTrigger>
-                    <TabsTrigger value="device" className="min-w-max lg:w-full justify-start rounded-xl px-3 py-2.5 data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white data-[state=active]:shadow">
-                      <Smartphone className="h-4 w-4 mr-2" />
-                      Geraet & Problem
-                    </TabsTrigger>
-                    <TabsTrigger value="communication" className="min-w-max lg:w-full justify-start rounded-xl px-3 py-2.5 data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white data-[state=active]:shadow">
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Kommunikation
-                    </TabsTrigger>
-                    <TabsTrigger value="media" className="min-w-max lg:w-full justify-start rounded-xl px-3 py-2.5 data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white data-[state=active]:shadow">
-                      <ImageIcon className="h-4 w-4 mr-2" />
-                      Bilder
-                    </TabsTrigger>
-                    <TabsTrigger value="timeline" className="min-w-max lg:w-full justify-start rounded-xl px-3 py-2.5 data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white data-[state=active]:shadow">
-                      <Calendar className="h-4 w-4 mr-2" />
-                      Zeitverlauf
-                    </TabsTrigger>
-                  </TabsList>
-                </div>
-              </div>
+            <ScrollArea className="flex-1 min-h-0">
+              {/* customer-repair-requests wrapper gives CSS scope for all dialog classes */}
+              <div className="customer-repair-requests" style={{ padding: 0, maxWidth: 'none', background: 'transparent', minHeight: 'auto', margin: 0 }}>
+                <div className="dialog-body">
 
-              <div className="flex-1 min-w-0">
-                <ScrollArea className="h-full">
-                  <div className="p-4 sm:p-6 lg:p-7 space-y-5">
-                    <TabsContent value="overview" className="mt-0 space-y-5">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Anfrage</p>
-                          <p className="text-base font-semibold text-[#1a2a5e] mt-1">{selectedRequest.requestNumber}</p>
+                  {/* In Auftrag umgewandelt */}
+                  {selectedRequest.status === 'converted' && selectedRequest.convertedToOrderId && (
+                    <div className="converted-alert">
+                      <p className="converted-alert-title">
+                        <CheckCircle />
+                        In Auftrag umgewandelt
+                      </p>
+                      <div className="dialog-info-grid">
+                        <div className="dialog-info-item">
+                          <span className="dialog-info-label">Auftragsnummer</span>
+                          <span className="dialog-info-value">{selectedRequest.convertedToOrderId.orderNumber}</span>
                         </div>
-                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Status</p>
-                          <p className="text-base font-semibold text-[#1a2a5e] mt-1">{formatStatusLabel(selectedRequest.status)}</p>
+                        <div className="dialog-info-item">
+                          <span className="dialog-info-label">Umgewandelt von</span>
+                          <span className="dialog-info-value">{selectedRequest.convertedByStaffName || 'k. A.'}</span>
                         </div>
-                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Prioritaet</p>
-                          <p className="text-base font-semibold text-[#1a2a5e] mt-1 capitalize">{formatPriorityLabel(selectedRequest.priority)}</p>
-                        </div>
-                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Schaetzung</p>
-                          <p className="text-base font-extrabold text-[#1a2a5e] mt-1">${selectedRequest.estimatedCost.toFixed(2)}</p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                          <h3 className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] mb-3">Geraet & Problem</h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                            <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Marke</p>
-                              <p className="text-sm font-semibold text-[#1a2a5e] mt-0.5">{selectedRequest.deviceBrand}</p>
-                            </div>
-                            <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Modell</p>
-                              <p className="text-sm font-semibold text-[#1a2a5e] mt-0.5">{selectedRequest.deviceModel}</p>
-                            </div>
-                            <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 sm:col-span-2">
-                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Problem</p>
-                              <p className="text-sm text-[#1a2a5e] mt-0.5 line-clamp-2">{selectedRequest.issueDescription}</p>
-                            </div>
-                            <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 sm:col-span-2">
-                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Aufgetreten am</p>
-                              <p className="text-sm font-semibold text-[#1a2a5e] mt-0.5">{formatDate(selectedRequest.issueOccurredDate)}</p>
-                            </div>
+                        {selectedRequest.convertedAt && (
+                          <div className="dialog-info-item">
+                            <span className="dialog-info-label">Umgewandelt am</span>
+                            <span className="dialog-info-value">{formatDate(selectedRequest.convertedAt)}</span>
                           </div>
-                        </div>
-
-                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                          <h3 className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] mb-3">Kommunikation</h3>
-                          <div className="grid grid-cols-2 gap-2.5 mb-2.5">
-                            <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Nachrichten</p>
-                              <p className="text-sm font-semibold text-[#1a2a5e] mt-0.5">{selectedRequest.messages?.length || 0}</p>
-                            </div>
-                            <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Ungelesen</p>
-                              <p className="text-sm font-semibold text-[#1a2a5e] mt-0.5">{unreadCounts[selectedRequest._id] || 0}</p>
-                            </div>
-                          </div>
-                          <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Letzte Nachricht</p>
-                            <p className="text-sm text-[#1a2a5e] mt-0.5 line-clamp-2">
-                              {selectedRequest.messages && selectedRequest.messages.length > 0
-                                ? selectedRequest.messages[selectedRequest.messages.length - 1].message
-                                : "Noch keine Nachrichten vorhanden."}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {selectedRequest.status === 'converted' && selectedRequest.convertedToOrderId && (
-                        <div className="rounded-2xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 to-white p-5">
-                          <h3 className="text-lg font-bold text-emerald-800 flex items-center gap-2 mb-3">
-                            <CheckCircle className="h-5 w-5" />
-                            In Auftrag umgewandelt
-                          </h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            <div className="rounded-xl border border-emerald-200 bg-white p-3">
-                              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Auftragsnummer</p>
-                              <p className="mt-1 font-semibold text-[#1a2a5e]">{selectedRequest.convertedToOrderId.orderNumber}</p>
-                            </div>
-                            <div className="rounded-xl border border-emerald-200 bg-white p-3">
-                              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Umgewandelt von</p>
-                              <p className="mt-1 font-semibold text-[#1a2a5e]">{selectedRequest.convertedByStaffName || 'k. A.'}</p>
-                            </div>
-                            {selectedRequest.convertedAt && (
-                              <div className="rounded-xl border border-emerald-200 bg-white p-3">
-                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Umgewandelt am</p>
-                                <p className="mt-1 font-semibold text-[#1a2a5e]">{formatDate(selectedRequest.convertedAt)}</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {selectedRequest.assignedStaffName && (
-                        <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                          <h3 className="text-lg font-bold text-[#1a2a5e] flex items-center gap-2 mb-2">
-                            <Wrench className="h-5 w-5 text-[#f5b800]" />
-                            Zugewiesenes Teammitglied
-                          </h3>
-                          <p className="text-slate-700">{selectedRequest.assignedStaffName}</p>
-                        </div>
-                      )}
-                    </TabsContent>
-
-                    <TabsContent value="device" className="mt-0 space-y-5">
-                      <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                        <h3 className="text-lg font-bold text-[#1a2a5e] mb-4">Geraeteinformationen</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Marke</p>
-                            <p className="mt-1 font-semibold text-[#1a2a5e]">{selectedRequest.deviceBrand}</p>
-                          </div>
-                          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Modell</p>
-                            <p className="mt-1 font-semibold text-[#1a2a5e]">{selectedRequest.deviceModel}</p>
-                          </div>
-                          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 sm:col-span-2">
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Problembeschreibung</p>
-                            <p className="mt-1 font-semibold text-[#1a2a5e] leading-relaxed">{selectedRequest.issueDescription}</p>
-                          </div>
-                          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Problem aufgetreten am</p>
-                            <p className="mt-1 font-semibold text-[#1a2a5e]">{formatDate(selectedRequest.issueOccurredDate)}</p>
-                          </div>
-                          {selectedRequest.modelNumber && (
-                            <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Modellnummer</p>
-                              <p className="mt-1 font-semibold text-[#1a2a5e]">{selectedRequest.modelNumber}</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {(selectedRequest.waterDamage || selectedRequest.itemCondition || selectedRequest.previousRepairDetails) && (
-                        <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                          <h3 className="text-lg font-bold text-[#1a2a5e] mb-4">Zusaetzliche Details</h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {selectedRequest.waterDamage && (
-                              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Wasserschaden</p>
-                                <Badge variant={selectedRequest.waterDamage === 'yes' ? 'destructive' : 'secondary'} className="mt-2">
-                                  {selectedRequest.waterDamage === 'yes' ? 'Ja' : selectedRequest.waterDamage === 'no' ? 'Nein' : 'Unsicher'}
-                                </Badge>
-                              </div>
-                            )}
-                            {selectedRequest.itemCondition && (
-                              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Geraetezustand</p>
-                                <Badge variant="outline" className="mt-2">
-                                  {selectedRequest.itemCondition === 'original' ? 'Original' : selectedRequest.itemCondition === 'refurbished' ? 'Generalueberholt' : 'Unsicher'}
-                                </Badge>
-                              </div>
-                            )}
-                            {selectedRequest.previousRepairDetails && (
-                              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 sm:col-span-2">
-                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Bisherige Reparaturversuche</p>
-                                <p className="mt-2 text-sm sm:text-base text-[#1a2a5e] leading-relaxed">{selectedRequest.previousRepairDetails}</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </TabsContent>
-
-                    <TabsContent value="communication" className="mt-0 space-y-5">
-                      <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-                        <h3 className="text-lg font-bold text-[#1a2a5e] mb-1">Kommunikation</h3>
-                        <p className="text-sm text-slate-600 mb-4">Hier kannst du den Verlauf verfolgen und Rueckfragen direkt mit dem Team klaeren.</p>
-                        <RepairRequestMessagesPanel
-                          requestId={selectedRequest._id}
-                          userRole={user?.role}
-                          isReadOnly={false}
-                        />
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="media" className="mt-0 space-y-5">
-                      <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                        <h3 className="text-lg font-bold text-[#1a2a5e] mb-4">Hochgeladene Bilder</h3>
-                        {selectedRequest.images && selectedRequest.images.length > 0 ? (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {selectedRequest.images.map((image, index) => (
-                              <img
-                                key={index}
-                                src={image}
-                                alt={`Geraetebild ${index + 1}`}
-                                className="w-full h-52 object-cover rounded-xl border border-slate-200 transition-all duration-200 hover:border-[#f5b800] hover:shadow-md"
-                              />
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-slate-500 text-sm">Fuer diese Anfrage wurden keine Bilder hochgeladen.</p>
                         )}
                       </div>
-                    </TabsContent>
+                    </div>
+                  )}
 
-                    <TabsContent value="timeline" className="mt-0 space-y-5">
-                      <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                        <h3 className="text-lg font-bold text-[#1a2a5e] mb-4">Zeitverlauf</h3>
-                        <div className="space-y-3">
-                          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 flex items-center justify-between gap-3">
-                            <span className="font-semibold text-[#1a2a5e]">Erstellt</span>
-                            <span className="text-sm text-slate-600">{formatDate(selectedRequest.createdAt)}</span>
-                          </div>
-                          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 flex items-center justify-between gap-3">
-                            <span className="font-semibold text-[#1a2a5e]">Zuletzt aktualisiert</span>
-                            <span className="text-sm text-slate-600">{formatDate(selectedRequest.updatedAt)}</span>
-                          </div>
-                          {selectedRequest.reviewDeadline && (
-                            <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 flex items-center justify-between gap-3">
-                              <span className="font-semibold text-[#1a2a5e]">Prueffrist</span>
-                              <span className="text-sm text-slate-600">{formatDate(selectedRequest.reviewDeadline)}</span>
-                            </div>
-                          )}
-                        </div>
+                  {/* Gerät & Problem */}
+                  <div className="dialog-section">
+                    <h3 className="dialog-section-title">
+                      <Smartphone />
+                      Gerät & Problem
+                    </h3>
+                    <div className="dialog-info-grid">
+                      <div className="dialog-info-item">
+                        <span className="dialog-info-label">Marke</span>
+                        <span className="dialog-info-value">{selectedRequest.deviceBrand}</span>
                       </div>
-                    </TabsContent>
+                      <div className="dialog-info-item">
+                        <span className="dialog-info-label">Modell</span>
+                        <span className="dialog-info-value">{selectedRequest.deviceModel}</span>
+                      </div>
+                      {selectedRequest.modelNumber && (
+                        <div className="dialog-info-item">
+                          <span className="dialog-info-label">Modellnummer</span>
+                          <span className="dialog-info-value">{selectedRequest.modelNumber}</span>
+                        </div>
+                      )}
+                      <div className="dialog-info-item" style={{ gridColumn: '1 / -1' }}>
+                        <span className="dialog-info-label">Problembeschreibung</span>
+                        <span className="dialog-info-value" style={{ lineHeight: 1.6 }}>{selectedRequest.issueDescription}</span>
+                      </div>
+                    </div>
                   </div>
-                </ScrollArea>
+
+                  {/* Zusätzliche Details */}
+                  {(selectedRequest.waterDamage || selectedRequest.itemCondition || selectedRequest.previousRepairDetails) && (
+                    <div className="dialog-section">
+                      <h3 className="dialog-section-title">
+                        Zusätzliche Details
+                      </h3>
+                      <div className="dialog-info-grid">
+                        {selectedRequest.waterDamage && (
+                          <div className="dialog-info-item">
+                            <span className="dialog-info-label">Wasserschaden</span>
+                            <span className="dialog-info-value">
+                              {selectedRequest.waterDamage === 'yes' ? 'Ja' : selectedRequest.waterDamage === 'no' ? 'Nein' : 'Unsicher'}
+                            </span>
+                          </div>
+                        )}
+                        {selectedRequest.itemCondition && (
+                          <div className="dialog-info-item">
+                            <span className="dialog-info-label">Gerätezustand</span>
+                            <span className="dialog-info-value">
+                              {selectedRequest.itemCondition === 'original' ? 'Original' : selectedRequest.itemCondition === 'refurbished' ? 'Generalüberholt' : 'Unsicher'}
+                            </span>
+                          </div>
+                        )}
+                        {selectedRequest.previousRepairDetails && (
+                          <div className="dialog-info-item" style={{ gridColumn: '1 / -1' }}>
+                            <span className="dialog-info-label">Bisherige Reparaturversuche</span>
+                            <span className="dialog-info-value" style={{ lineHeight: 1.6 }}>{selectedRequest.previousRepairDetails}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bilder */}
+                  {selectedRequest.images && selectedRequest.images.length > 0 && (
+                    <div className="dialog-section">
+                      <h3 className="dialog-section-title">
+                        <ImageIcon />
+                        Bilder
+                      </h3>
+                      <div className="images-grid">
+                        {selectedRequest.images.map((image, index) => (
+                          <img
+                            key={index}
+                            src={image}
+                            alt={`Gerätebild ${index + 1}`}
+                            className="request-image"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Kommunikation */}
+                  <div className="dialog-section">
+                    <h3 className="dialog-section-title">
+                      <MessageSquare />
+                      Kommunikation ({commThread?.messages?.length ?? 0})
+                    </h3>
+
+                    {commLoading && !commThread ? (
+                      <div className="crr-comm-empty">
+                        <Loader2 className="h-4 w-4 animate-spin" style={{ margin: '0 auto 0.5rem' }} />
+                        Wird geladen…
+                      </div>
+                    ) : !commThread?.messages?.length ? (
+                      <div className="crr-comm-empty">
+                        Noch keine Nachrichten. Schreib uns deine Fragen oder Anmerkungen.
+                      </div>
+                    ) : (
+                      <div className="crr-comm-thread">
+                        {commThread.messages.map((msg: any) => (
+                          <div
+                            key={msg._id}
+                            className={`crr-comm-item${msg.senderType !== 'customer' ? ' is-staff' : ''}`}
+                          >
+                            <div className="crr-comm-meta">
+                              <span className="crr-comm-author">{msg.senderName}</span>
+                              <span className={`crr-comm-role ${msg.senderType === 'customer' ? 'customer' : 'staff'}`}>
+                                {msg.senderType === 'customer' ? 'Sie' : 'Support'}
+                              </span>
+                              <span className="crr-comm-time">{formatDate(msg.createdAt)}</span>
+                            </div>
+                            <p className="crr-comm-text">{msg.content}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="crr-comm-composer">
+                      <textarea
+                        rows={3}
+                        placeholder="Nachricht schreiben…"
+                        value={commMessage}
+                        onChange={(e) => setCommMessage(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleCommSend()
+                        }}
+                      />
+                      <div className="crr-comm-composer-footer">
+                        <button
+                          className="crr-comm-send-btn"
+                          onClick={handleCommSend}
+                          disabled={commSending || !commMessage.trim()}
+                        >
+                          {commSending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                          Senden
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
               </div>
-            </Tabs>
+            </ScrollArea>
           ) : null}
 
-          <DialogFooter className="px-5 sm:px-8 py-5 border-t border-slate-200 bg-gradient-to-b from-slate-50 to-slate-100">
-            <button
-              className="px-6 sm:px-8 py-2.5 rounded-xl font-bold text-sm sm:text-base transition-all duration-200 bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] text-white shadow hover:brightness-110"
-              onClick={() => setShowDetailsDialog(false)}
-            >
-              Schliessen
-            </button>
-          </DialogFooter>
+          {/* Footer */}
+          <div className="customer-repair-requests" style={{ padding: 0, maxWidth: 'none', background: 'transparent', minHeight: 'auto', margin: 0, flexShrink: 0 }}>
+            <div className="dialog-footer">
+              <button className="dialog-close-button" onClick={() => setShowDetailsDialog(false)}>
+                Schließen
+              </button>
+            </div>
+          </div>
+
         </DialogContent>
       </Dialog>
       </div>
