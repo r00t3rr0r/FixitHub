@@ -1,0 +1,393 @@
+.email-administration {
+  width: 100%;
+  max-width: 100%;
+  padding: 2rem;
+  background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
+  min-height: 100vh;
+}
+
+.email-admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+}
+
+.email-admin-header h1 {
+  margin-bottom: 0.5rem;
+}
+
+.email-admin-tabs {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.email-admin-tabs [role="tablist"] {
+  margin-bottom: 2rem;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 0;
+}
+
+.email-admin-tabs [role="tablist"] [role="tab"] {
+  padding: 12px 16px;
+  font-weight: 500;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.3s ease;
+}
+
+.email-admin-tabs [role="tablist"] [role="tab"][data-state="active"] {
+  color: #1a2a5e;
+  border-bottom-color: #1a2a5e;
+}
+
+.email-admin-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  gap: 1rem;
+  color: #6b7280;
+  background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
+}
+
+/* Statistics Cards Styles */
+.email-admin-tabs [role="tabpanel"] > div > div:first-child {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+[class*="border-green"] {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+}
+
+[class*="border-red"] {
+  background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%);
+}
+
+[class*="border-blue"] {
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+}
+
+/* Card Hover Effects */
+.email-admin-tabs [class*="Card"] {
+  transition: all 0.3s ease;
+}
+
+.email-admin-tabs [class*="Card"]:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+/* Delivery Record Styles */
+.email-admin-tabs .border.rounded-lg {
+  transition: all 0.2s ease;
+  border-left: 4px solid transparent;
+}
+
+.email-admin-tabs .border.rounded-lg:hover {
+  border-left-color: #1a2a5e;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Status Badge Animations */
+[class*="bg-green"] {
+  animation: fadeIn 0.3s ease;
+}
+
+[class*="bg-red"] {
+  animation: fadeIn 0.3s ease;
+}
+
+[class*="bg-blue"] {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Input Focus States */
+.email-administration input:focus,
+.email-administration textarea:focus {
+  border-color: #1a2a5e;
+  box-shadow: 0 0 0 3px rgba(26, 42, 94, 0.1);
+}
+
+/* Select Dropdown Styles */
+[role="combobox"] {
+  border-color: #e5e7eb;
+  transition: all 0.2s ease;
+}
+
+[role="combobox"]:hover {
+  border-color: #d1d5db;
+}
+
+/* Table/Log Styles */
+.email-admin-tabs .space-y-3 > div {
+  border-left: 3px solid #e5e7eb;
+  transition: border-color 0.2s ease;
+}
+
+.email-admin-tabs .space-y-3 > div:hover {
+  border-left-color: #1a2a5e;
+}
+
+/* Button Hover Effects */
+.email-administration button {
+  transition: all 0.2s ease;
+}
+
+.email-administration button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.email-administration button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Error/Alert Box Styles */
+.bg-red-50,
+.bg-yellow-50,
+.bg-blue-50,
+.bg-green-50 {
+  border-radius: 8px;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Separator Styles */
+.email-administration [role="separator"] {
+  background: linear-gradient(90deg, #e5e7eb 0%, transparent 100%);
+  height: 1px;
+  margin: 1.5rem 0;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .email-administration {
+    padding: 1rem;
+  }
+
+  .email-admin-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .email-admin-tabs {
+    padding: 1rem;
+  }
+
+  .email-admin-tabs [role="tablist"] {
+    grid-template-columns: 1fr;
+  }
+
+  .email-admin-tabs .grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .email-admin-tabs .space-y-3 > div {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .email-admin-header button,
+  .email-administration button:not(.print-only),
+  .email-admin-tabs [role="tablist"] {
+    display: none;
+  }
+
+  .email-administration {
+    background: white;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .email-administration {
+    background: #1a1a2e;
+    color: #f0f0f0;
+  }
+
+  .email-admin-tabs {
+    background: #252545;
+    color: #f0f0f0;
+  }
+
+  .email-admin-tabs [role="tablist"] {
+    border-bottom-color: #404060;
+  }
+
+  .email-admin-tabs [role="tab"] {
+    color: #a0a0b0;
+  }
+
+  .email-admin-tabs [role="tab"][data-state="active"] {
+    color: #60a5fa;
+    border-bottom-color: #60a5fa;
+  }
+
+  .email-admin-tabs .border {
+    border-color: #404060;
+  }
+
+  .email-admin-tabs input,
+  .email-admin-tabs textarea,
+  .email-admin-tabs [role="combobox"] {
+    background: #161626;
+    border-color: #404060;
+    color: #f0f0f0;
+  }
+
+  .email-admin-tabs input::placeholder,
+  .email-admin-tabs textarea::placeholder {
+    color: #707080;
+  }
+
+  .bg-gray-50 {
+    background: #202040 !important;
+    color: #f0f0f0;
+  }
+}
+
+/* Loading Animation */
+.email-admin-loading p {
+  font-size: 0.9rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Input Group Styles */
+.email-administration .flex.gap-2 {
+  margin-bottom: 1rem;
+}
+
+.email-administration .flex.gap-2 > * {
+  flex: 1;
+}
+
+.email-administration .flex.gap-2 > button {
+  flex: 0 0 auto;
+}
+
+/* Dialog Overlay Smoothing */
+[role="dialog"] {
+  animation: fadeInDialog 0.2s ease;
+}
+
+@keyframes fadeInDialog {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Page Transition Effects */
+.email-administration > * {
+  animation: slideInUp 0.4s ease;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Success/Error Toast Animations */
+.toast-enter {
+  animation: toastEnter 0.3s ease forwards;
+}
+
+.toast-exit {
+  animation: toastExit 0.3s ease forwards;
+}
+
+@keyframes toastEnter {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toastExit {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* Accessibility Improvements */
+.email-administration button:focus-visible,
+.email-administration input:focus-visible,
+.email-administration [role="combobox"]:focus-visible {
+  outline: 2px solid #1a2a5e;
+  outline-offset: 2px;
+}
+
+/* Badge Styling Enhancements */
+[role="status"] {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Performance Optimization: GPU Acceleration */
+.email-admin-tabs [class*="Card"],
+.email-admin-tabs .border.rounded-lg,
+.email-administration button {
+  transform: translateZ(0);
+  -webkit-font-smoothing: antialiased;
+}

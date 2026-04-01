@@ -56,6 +56,7 @@ import { FinancialManagement } from "./pages/admin/FinancialManagement"
 import { CustomerGroupsManagement } from "./pages/admin/CustomerGroupsManagement"
 import { DeviceManagement } from "./pages/admin/DeviceManagement"
 import { ComplaintsManagement } from "./pages/admin/ComplaintsManagement"
+import { EmailAdministration } from "./pages/admin/EmailAdministration"
 import EPartOrderManagement from "./pages/admin/EPartOrderManagement"
 import { InspectionWorkflow } from "./pages/inspection/InspectionWorkflow"
 import { RepairRequestQuestionnaire } from "./pages/RepairRequestQuestionnaire"
@@ -236,6 +237,9 @@ function App() {
             </Route>
             <Route path="/admin/system" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<SystemConfiguration />} />
+            </Route>
+            <Route path="/admin/email" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
+              <Route index element={<EmailAdministration />} />
             </Route>
             <Route path="/admin/database" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<DatabaseManagement />} />

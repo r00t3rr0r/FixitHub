@@ -20,6 +20,9 @@ import {
   getDatabaseHealth,
   cleanupOldData,
   deleteAllBookingsAndOrders,
+  deleteAllInvoices,
+  deleteAllComplaints,
+  deleteAllRepairRequests,
   type DatabaseStats,
   type DatabaseOperation,
   type DatabaseBackup,
@@ -36,6 +39,9 @@ export function DatabaseManagement() {
   const [optimizeLoading, setOptimizeLoading] = useState(false);
   const [cleanupLoading, setCleanupLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteInvoicesLoading, setDeleteInvoicesLoading] = useState(false);
+  const [deleteComplaintsLoading, setDeleteComplaintsLoading] = useState(false);
+  const [deleteRepairRequestsLoading, setDeleteRepairRequestsLoading] = useState(false);
   const [cleanupDays, setCleanupDays] = useState(90);
   const [cleanupCollections, setCleanupCollections] = useState(['logs', 'sessions', 'notifications']);
   const { toast } = useToast();
@@ -162,6 +168,75 @@ export function DatabaseManagement() {
       });
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  const handleDeleteInvoices = async () => {
+    try {
+      setDeleteInvoicesLoading(true);
+      const response = await deleteAllInvoices();
+
+      toast({
+        title: "Success",
+        description: `Deleted ${response.data.results.deleted} invoices`,
+      });
+
+      fetchDatabaseData();
+    } catch (error) {
+      console.error('Error deleting invoices:', error);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteInvoicesLoading(false);
+    }
+  };
+
+  const handleDeleteComplaints = async () => {
+    try {
+      setDeleteComplaintsLoading(true);
+      const response = await deleteAllComplaints();
+
+      toast({
+        title: "Success",
+        description: `Deleted ${response.data.results.deleted} complaints`,
+      });
+
+      fetchDatabaseData();
+    } catch (error) {
+      console.error('Error deleting complaints:', error);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteComplaintsLoading(false);
+    }
+  };
+
+  const handleDeleteRepairRequests = async () => {
+    try {
+      setDeleteRepairRequestsLoading(true);
+      const response = await deleteAllRepairRequests();
+
+      toast({
+        title: "Success",
+        description: `Deleted ${response.data.results.deleted} repair requests`,
+      });
+
+      fetchDatabaseData();
+    } catch (error) {
+      console.error('Error deleting repair requests:', error);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteRepairRequestsLoading(false);
     }
   };
 
@@ -557,6 +632,129 @@ export function DatabaseManagement() {
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction onClick={handleDeleteBookingsAndOrders} className="bg-red-600 hover:bg-red-700">
+                        Delete All
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trash2 className="h-5 w-5" />
+                  Delete All Invoices
+                </CardTitle>
+                <CardDescription>
+                  Permanently delete all invoices from the database
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" disabled={deleteInvoicesLoading}>
+                      {deleteInvoicesLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                      Delete All Invoices
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete All Invoices?</AlertDialogTitle>
+                      <AlertDialogDescription className="space-y-3 mt-4">
+                        <p>
+                          This will permanently delete ALL invoices from the database. This action cannot be undone.
+                        </p>
+                        <p className="font-semibold text-red-600">
+                          ⚠️ Warning: This is a destructive operation. Make sure you have a backup before proceeding.
+                        </p>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteInvoices} className="bg-red-600 hover:bg-red-700">
+                        Delete All
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trash2 className="h-5 w-5" />
+                  Delete All Complaints
+                </CardTitle>
+                <CardDescription>
+                  Permanently delete all complaints from the database
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" disabled={deleteComplaintsLoading}>
+                      {deleteComplaintsLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                      Delete All Complaints
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete All Complaints?</AlertDialogTitle>
+                      <AlertDialogDescription className="space-y-3 mt-4">
+                        <p>
+                          This will permanently delete ALL complaints from the database. This action cannot be undone.
+                        </p>
+                        <p className="font-semibold text-red-600">
+                          ⚠️ Warning: This is a destructive operation. Make sure you have a backup before proceeding.
+                        </p>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteComplaints} className="bg-red-600 hover:bg-red-700">
+                        Delete All
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trash2 className="h-5 w-5" />
+                  Delete All Repair Requests
+                </CardTitle>
+                <CardDescription>
+                  Permanently delete all repair requests from the database
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" disabled={deleteRepairRequestsLoading}>
+                      {deleteRepairRequestsLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                      Delete All Repair Requests
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete All Repair Requests?</AlertDialogTitle>
+                      <AlertDialogDescription className="space-y-3 mt-4">
+                        <p>
+                          This will permanently delete ALL repair requests from the database. This action cannot be undone.
+                        </p>
+                        <p className="font-semibold text-red-600">
+                          ⚠️ Warning: This is a destructive operation. Make sure you have a backup before proceeding.
+                        </p>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteRepairRequests} className="bg-red-600 hover:bg-red-700">
                         Delete All
                       </AlertDialogAction>
                     </AlertDialogFooter>

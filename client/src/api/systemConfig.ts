@@ -85,6 +85,8 @@ export interface SystemConfig {
     smtpPort: number;
     smtpUsername: string;
     smtpPassword: string;
+    requiresAuthentication: boolean;
+    requiresTLS: boolean;
     enableNotifications: boolean;
   };
   notificationSettings: {

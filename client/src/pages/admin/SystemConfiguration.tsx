@@ -131,6 +131,7 @@ export function SystemConfiguration() {
   const [clearingCache, setClearingCache] = useState(false)
   const [runningSecurityScan, setRunningSecurityScan] = useState(false)
   const [testingIntegration, setTestingIntegration] = useState<string | null>(null)
+  const [testingEmailSettings, setTestingEmailSettings] = useState(false)
 
   // Dialog states
   const [showTemplateDialog, setShowTemplateDialog] = useState(false)
@@ -408,6 +409,60 @@ export function SystemConfiguration() {
         description: error.message || 'Failed to update booking label mode',
         variant: 'destructive'
       })
+    }
+  }
+
+  const handleTestEmailSettings = async () => {
+    if (!config?.emailSettings?.smtpHost) {
+      toast({
+        title: "Error",
+        description: "SMTP Host is required",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setTestingEmailSettings(true)
+    try {
+      console.log("SystemConfiguration: Testing email settings...")
+      const response = await fetch('/api/system-config/email/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          smtpHost: config.emailSettings.smtpHost,
+          smtpPort: config.emailSettings.smtpPort,
+          smtpUsername: config.emailSettings.smtpUsername,
+          smtpPassword: config.emailSettings.smtpPassword,
+          requiresAuthentication: config.emailSettings.requiresAuthentication,
+          requiresTLS: config.emailSettings.requiresTLS
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: result.message || "Email configuration is valid"
+        })
+      } else {
+        toast({
+          title: "Test Failed",
+          description: result.message || "Email configuration test failed",
+          variant: "destructive"
+        })
+      }
+    } catch (error: any) {
+      console.error("SystemConfiguration: Error testing email settings:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to test email settings",
+        variant: "destructive"
+      })
+    } finally {
+      setTestingEmailSettings(false)
     }
   }
 
@@ -700,18 +755,41 @@ export function SystemConfiguration() {
           {/* Email Configuration */}
           <Card>
             <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Mail className="h-5 w-5" />
-                Email Configuration
-              </CardTitle>
-              <CardDescription className="text-blue-100 text-xs mt-1">Configure SMTP settings for email notifications</CardDescription>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex-1">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Mail className="h-5 w-5" />
+                    Email Configuration
+                  </CardTitle>
+                  <CardDescription className="text-blue-100 text-xs mt-1">Configure SMTP settings for email notifications</CardDescription>
+                </div>
+                <Button
+                  onClick={handleTestEmailSettings}
+                  disabled={testingEmailSettings}
+                  size="sm"
+                  className="bg-white text-[#1a2a5e] hover:bg-blue-50"
+                >
+                  {testingEmailSettings ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                      Testing...
+                    </>
+                  ) : (
+                    <>
+                      <TestTube className="h-4 w-4 mr-2" />
+                      Test Settings
+                    </>
+                  )}
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent className="p-4 space-y-3">
+            <CardContent className="p-4 space-y-4">
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="smtpHost">SMTP Host</Label>
                   <Input
                     id="smtpHost"
+                    placeholder="e.g. smtp.gmail.com"
                     value={config.emailSettings?.smtpHost || ''}
                     onChange={(e) => setConfig(prev => prev ? {
                       ...prev,
@@ -724,25 +802,35 @@ export function SystemConfiguration() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="smtpPort">SMTP Port</Label>
-                  <Input
-                    id="smtpPort"
-                    type="number"
-                    value={config.emailSettings?.smtpPort || 587}
-                    onChange={(e) => setConfig(prev => prev ? {
+                  <Select
+                    value={(config.emailSettings?.smtpPort || 587).toString()}
+                    onValueChange={(value) => setConfig(prev => prev ? {
                       ...prev,
                       emailSettings: {
                         ...prev.emailSettings,
-                        smtpPort: parseInt(e.target.value)
+                        smtpPort: parseInt(value)
                       }
                     } : null)}
-                  />
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="587">587 (TLS - Recommended)</SelectItem>
+                      <SelectItem value="465">465 (SSL)</SelectItem>
+                      <SelectItem value="25">25 (Unencrypted)</SelectItem>
+                      <SelectItem value="2525">2525 (Alternative)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="smtpUsername">SMTP Username</Label>
                   <Input
                     id="smtpUsername"
+                    placeholder="e.g. your-email@gmail.com"
                     value={config.emailSettings?.smtpUsername || ''}
                     onChange={(e) => setConfig(prev => prev ? {
                       ...prev,
@@ -758,6 +846,7 @@ export function SystemConfiguration() {
                   <Input
                     id="smtpPassword"
                     type="password"
+                    placeholder="••••••••"
                     value={config.emailSettings?.smtpPassword || ''}
                     onChange={(e) => setConfig(prev => prev ? {
                       ...prev,
@@ -769,18 +858,60 @@ export function SystemConfiguration() {
                   />
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={config.emailSettings?.enableNotifications}
-                  onCheckedChange={(checked) => setConfig(prev => prev ? {
-                    ...prev,
-                    emailSettings: {
-                      ...prev.emailSettings,
-                      enableNotifications: checked
-                    }
-                  } : null)}
-                />
-                <Label>Enable Email Notifications</Label>
+
+              <Separator />
+
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-2">
+                  <div>
+                    <Label className="text-sm font-medium">Requires Authentication</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Enable SMTP username and password authentication</p>
+                  </div>
+                  <Switch
+                    checked={config.emailSettings?.requiresAuthentication ?? true}
+                    onCheckedChange={(checked) => setConfig(prev => prev ? {
+                      ...prev,
+                      emailSettings: {
+                        ...prev.emailSettings,
+                        requiresAuthentication: checked
+                      }
+                    } : null)}
+                  />
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-2">
+                  <div>
+                    <Label className="text-sm font-medium">Requires TLS/SSL</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Enable TLS or SSL encryption for secure connection</p>
+                  </div>
+                  <Switch
+                    checked={config.emailSettings?.requiresTLS ?? true}
+                    onCheckedChange={(checked) => setConfig(prev => prev ? {
+                      ...prev,
+                      emailSettings: {
+                        ...prev.emailSettings,
+                        requiresTLS: checked
+                      }
+                    } : null)}
+                  />
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-2">
+                  <div>
+                    <Label className="text-sm font-medium">Enable Email Notifications</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Activate email notification sending</p>
+                  </div>
+                  <Switch
+                    checked={config.emailSettings?.enableNotifications ?? true}
+                    onCheckedChange={(checked) => setConfig(prev => prev ? {
+                      ...prev,
+                      emailSettings: {
+                        ...prev.emailSettings,
+                        enableNotifications: checked
+                      }
+                    } : null)}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>

@@ -29,7 +29,8 @@ import {
   ChevronRight,
   FolderTree,
   Boxes,
-  BookMarked
+  BookMarked,
+  Mail
 } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { getNotifications } from "@/api/notifications"
@@ -240,6 +241,9 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
       >
         <NavItem to="/admin/system" icon={Settings}>
           {t('admin.menu.systemConfiguration')}
+        </NavItem>
+        <NavItem to="/admin/email" icon={Mail}>
+          Email-Verwaltung
         </NavItem>
         <NavItem to="/admin/database" icon={Database}>
           {t('admin.menu.databaseManagement')}

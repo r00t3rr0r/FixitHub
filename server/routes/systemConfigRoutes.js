@@ -241,6 +241,111 @@ router.post('/integrations/:id/test', requireUser, requireRole(['admin']), async
   }
 });
 
+// Test email settings (admin only)
+router.post('/email/test', requireUser, requireRole(['admin']), async (req, res) => {
+  console.log('Test email settings request received');
+
+  try {
+    const { smtpHost, smtpPort, smtpUsername, smtpPassword, requiresAuthentication, requiresTLS } = req.body;
+
+    if (!smtpHost) {
+      return res.status(400).json({
+        success: false,
+        message: 'SMTP Host is required'
+      });
+    }
+
+    const result = await SystemConfigService.testEmailSettings({
+      smtpHost,
+      smtpPort: smtpPort || 587,
+      smtpUsername,
+      smtpPassword,
+      requiresAuthentication: requiresAuthentication !== false,
+      requiresTLS: requiresTLS !== false
+    });
+
+    return res.status(200).json({
+      success: result.success,
+      message: result.message
+    });
+  } catch (error) {
+    console.error('Error testing email settings:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to test email settings'
+    });
+  }
+});
+
+// Send a real test email to verify SMTP delivery end-to-end
+router.post('/email/send-test', requireUser, requireRole(['admin']), async (req, res) => {
+  console.log('Send test email request received');
+
+  try {
+    const { to, subject, body, from, smtpHost, smtpPort, smtpUsername, smtpPassword, requiresAuthentication, requiresTLS } = req.body;
+
+    if (!to) return res.status(400).json({ success: false, message: 'Recipient address (to) is required' });
+    if (!subject) return res.status(400).json({ success: false, message: 'Subject is required' });
+    if (!smtpHost) return res.status(400).json({ success: false, message: 'SMTP Host is required' });
+
+    const nodemailer = require('nodemailer');
+
+    const transporterConfig = {
+      host: smtpHost,
+      port: smtpPort || 587,
+      secure: requiresTLS && (smtpPort === 465)
+    };
+
+    if (requiresAuthentication !== false) {
+      let username = smtpUsername;
+      let password = smtpPassword;
+
+      // If password not sent from frontend, load from saved config
+      if (!password) {
+        const SystemConfigService = require('../services/systemConfigService');
+        const savedConfig = await SystemConfigService.getSystemConfiguration();
+        if (savedConfig && savedConfig.emailSettings) {
+          if (!username) username = savedConfig.emailSettings.smtpUsername;
+          password = savedConfig.emailSettings.smtpPassword;
+        }
+      }
+
+      if (username || password) {
+        transporterConfig.auth = { user: username, pass: password };
+      }
+    }
+
+    const transporter = nodemailer.createTransport(transporterConfig);
+
+    const senderAddress = from || smtpUsername || `noreply@${smtpHost}`;
+
+    const info = await transporter.sendMail({
+      from: senderAddress,
+      to,
+      subject,
+      text: body || 'FixitHub SMTP Test',
+      html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+        <h2 style="color:#2563eb">FixitHub SMTP Test</h2>
+        <p>${(body || '').replace(/\n/g, '<br>')}</p>
+        <hr style="margin:24px 0;border-color:#e5e7eb">
+        <p style="color:#6b7280;font-size:12px">Gesendet über ${smtpHost}:${smtpPort} · ${new Date().toLocaleString('de-DE')}</p>
+      </div>`
+    });
+
+    console.log('Test email sent:', info.messageId);
+    return res.status(200).json({
+      success: true,
+      message: `Test-E-Mail erfolgreich gesendet (Message-ID: ${info.messageId})`
+    });
+  } catch (error) {
+    console.error('Error sending test email:', error);
+    return res.status(500).json({
+      success: false,
+      message: `Test-E-Mail konnte nicht gesendet werden: ${error.message}`
+    });
+  }
+});
+
 // ===== SMS/PUSH PROVIDER CONFIGURATION ROUTES =====
 
 // Get all SMS/Push provider configurations
@@ -472,6 +577,164 @@ router.post('/security/scan', requireUser, requireRole(['admin']), async (req, r
     console.error('Error running security scan:', error);
     return res.status(500).json({
       error: error.message || 'Failed to run security scan'
+    });
+  }
+});
+
+// ===== EMAIL DELIVERY MONITORING ROUTES =====
+
+/**
+ * Get email delivery statistics and health
+ * Provides insights into email delivery success rates and performance
+ */
+router.get('/email/delivery-stats', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const EmailService = require('../services/emailService');
+    const stats = EmailService.deliveryTracker.getStatistics();
+
+    return res.status(200).json({
+      success: true,
+      stats,
+      message: 'Email delivery statistics retrieved'
+    });
+  } catch (error) {
+    console.error('Error getting email delivery stats:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get email delivery statistics'
+    });
+  }
+});
+
+/**
+ * Get email delivery history for a specific recipient
+ * Shows recent delivery attempts and their status
+ */
+router.get('/email/delivery-history/:email', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const { email } = req.params;
+    const limit = parseInt(req.query.limit) || 20;
+
+    // Decode email if URL encoded
+    const decodedEmail = decodeURIComponent(email);
+
+    const EmailService = require('../services/emailService');
+    const history = EmailService.deliveryTracker.getDeliveryHistory(decodedEmail, limit);
+
+    return res.status(200).json({
+      success: true,
+      email: decodedEmail,
+      history,
+      count: history.length,
+      message: `Retrieved ${history.length} delivery records`
+    });
+  } catch (error) {
+    console.error('Error getting email delivery history:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get email delivery history'
+    });
+  }
+});
+
+/**
+ * Get complete delivery log (all records in memory)
+ * Useful for debugging and monitoring overall email health
+ */
+router.get('/email/delivery-log', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const EmailService = require('../services/emailService');
+    const filter = req.query.filter || 'all'; // 'all', 'sent', 'failed', 'queued'
+
+    const allLogs = EmailService.deliveryTracker.deliveryLog;
+    
+    let filteredLogs = allLogs;
+    if (filter !== 'all') {
+      filteredLogs = allLogs.filter(log => log.status === filter);
+    }
+
+    // Sort by timestamp descending
+    const sortedLogs = filteredLogs.sort((a, b) => 
+      new Date(b.timestamp) - new Date(a.timestamp)
+    );
+
+    // Paginate results
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+
+    const paginatedLogs = sortedLogs.slice(startIndex, endIndex);
+
+    return res.status(200).json({
+      success: true,
+      logs: paginatedLogs,
+      pagination: {
+        page,
+        limit,
+        total: sortedLogs.length,
+        pages: Math.ceil(sortedLogs.length / limit)
+      },
+      filter,
+      message: `Retrieved ${paginatedLogs.length} email delivery logs`
+    });
+  } catch (error) {
+    console.error('Error getting email delivery log:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get email delivery log'
+    });
+  }
+});
+
+/**
+ * Get advanced email logging protocol including SMTP connection log
+ */
+router.get('/email/advanced-log', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const EmailService = require('../services/emailService');
+    const filter = req.query.filter || 'all';
+    const smtpStatus = req.query.smtpStatus || 'all';
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const smtpLimit = parseInt(req.query.smtpLimit) || 50;
+
+    const allLogs = EmailService.deliveryTracker.deliveryLog;
+    const filteredDeliveryLogs = filter === 'all'
+      ? allLogs
+      : allLogs.filter((log) => log.status === filter);
+
+    const sortedDeliveryLogs = [...filteredDeliveryLogs].sort((a, b) =>
+      new Date(b.timestamp) - new Date(a.timestamp)
+    );
+
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedDeliveryLogs = sortedDeliveryLogs.slice(startIndex, endIndex);
+
+    const smtpConnectionLog = EmailService.deliveryTracker.getSMTPConnectionLog(smtpStatus, smtpLimit);
+
+    return res.status(200).json({
+      success: true,
+      deliveryLogs: paginatedDeliveryLogs,
+      smtpConnectionLog,
+      pagination: {
+        page,
+        limit,
+        total: sortedDeliveryLogs.length,
+        pages: Math.ceil(sortedDeliveryLogs.length / limit)
+      },
+      filters: {
+        delivery: filter,
+        smtp: smtpStatus
+      },
+      message: 'Advanced email logging protocol retrieved'
+    });
+  } catch (error) {
+    console.error('Error getting advanced email log:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get advanced email log'
     });
   }
 });

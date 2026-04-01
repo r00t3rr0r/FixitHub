@@ -1700,10 +1700,13 @@ class SeedService {
         notificationTemplates: getDefaultNotificationTemplates(),
         notificationTemplateDefaultsVersion: DEFAULT_NOTIFICATION_TEMPLATE_VERSION,
         emailSettings: {
-          provider: 'SendGrid',
-          apiKey: process.env.SENDGRID_API_KEY || '',
-          fromEmail: 'noreply@fixithub.com',
-          fromName: 'FixitHub'
+          smtpHost: process.env.SMTP_HOST || 'smtp.gmail.com',
+          smtpPort: parseInt(process.env.SMTP_PORT || '587'),
+          smtpUsername: process.env.SMTP_USER || '',
+          smtpPassword: process.env.SMTP_PASS || '',
+          requiresAuthentication: true,
+          requiresTLS: true,
+          enableNotifications: true
         },
         securitySettings: {
           passwordMinLength: 8,
