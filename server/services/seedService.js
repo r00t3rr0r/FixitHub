@@ -1550,7 +1550,8 @@ class SeedService {
               accountNumber: process.env.DHL_ACCOUNT_NUMBER || '2222222222',
               billingNumber: process.env.DHL_BILLING_NUMBER || '22222222220101',
               defaultServiceType: 'P',
-              sandbox: false
+              sandbox: false,
+              bookingLabelMode: process.env.BOOKING_DHL_LABEL_MODE || 'dummy'
             },
             isActive: true,
             testStatus: 'pending'
@@ -1570,6 +1571,7 @@ class SeedService {
           existingConfig.integrations[dhlIntegrationIndex].settings.billingNumber = process.env.DHL_BILLING_NUMBER || '22222222220101';
           existingConfig.integrations[dhlIntegrationIndex].settings.defaultServiceType = 'P';
           existingConfig.integrations[dhlIntegrationIndex].settings.sandbox = false;
+          existingConfig.integrations[dhlIntegrationIndex].settings.bookingLabelMode = process.env.BOOKING_DHL_LABEL_MODE || 'dummy';
           existingConfig.integrations[dhlIntegrationIndex].isActive = true;
 
           existingConfig.markModified('integrations');
@@ -1662,7 +1664,8 @@ class SeedService {
               accountNumber: process.env.DHL_ACCOUNT_NUMBER || '2222222222',
               billingNumber: process.env.DHL_BILLING_NUMBER || '22222222220101',
               defaultServiceType: 'P',
-              sandbox: false
+              sandbox: false,
+              bookingLabelMode: process.env.BOOKING_DHL_LABEL_MODE || 'dummy'
             },
             isActive: true,
             testStatus: 'pending'

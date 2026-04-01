@@ -9,6 +9,138 @@ const DHLReturnsService = require('./dhlReturnsService');
 const SystemConfiguration = require('../models/SystemConfiguration');
 
 class BookingService {
+  static async getBookingShippingLabelMode() {
+    const envMode = String(process.env.BOOKING_DHL_LABEL_MODE || '').trim().toLowerCase();
+
+    if (envMode === 'dummy' || envMode === 'live') {
+      return envMode;
+    }
+
+    try {
+      const systemConfig = await SystemConfiguration.findOne({});
+      const dhlIntegration = systemConfig?.integrations?.find(
+        (integration) => integration.provider === 'DHL' &&
+          integration.type === 'shipping' &&
+          integration.name === 'DHL Shipping'
+      );
+
+      const configuredMode = String(dhlIntegration?.settings?.bookingLabelMode || '').trim().toLowerCase();
+
+      if (configuredMode === 'dummy' || configuredMode === 'live') {
+        return configuredMode;
+      }
+    } catch (error) {
+      console.error('BookingService: Failed to resolve booking label mode from configuration:', error.message);
+    }
+
+    return 'dummy';
+  }
+
+  static isDummyBookingTrackingNumber(trackingNumber) {
+    return String(trackingNumber || '').startsWith('DHL-DUMMY-');
+  }
+
+  static buildDummyBookingTrackingNumber(booking) {
+    const bookingReference = String(booking.bookingNumber || booking._id || 'BOOKING')
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .toUpperCase()
+      .slice(-10);
+
+    return `DHL-DUMMY-${bookingReference}-${Date.now().toString().slice(-6)}`;
+  }
+
+  static buildDummyBookingLabelUrl(booking, trackingNumber) {
+    const customerName = booking.guestInfo?.isGuest
+      ? `${booking.guestInfo.firstName || ''} ${booking.guestInfo.lastName || ''}`.trim()
+      : 'Registered customer';
+
+    const createdAt = new Date().toISOString();
+    const pdfLines = [
+      'BT',
+      '/F1 18 Tf',
+      '50 770 Td',
+      '(FixitHub DHL Dummy Shipping Label) Tj',
+      '0 -28 Td',
+      '/F1 12 Tf',
+      `(Booking: ${this.escapePdfText(booking.bookingNumber || String(booking._id))}) Tj`,
+      '0 -18 Td',
+      `(Tracking: ${this.escapePdfText(trackingNumber)}) Tj`,
+      '0 -18 Td',
+      `(Customer: ${this.escapePdfText(customerName || 'N/A')}) Tj`,
+      '0 -18 Td',
+      `(Created: ${this.escapePdfText(createdAt)}) Tj`,
+      '0 -30 Td',
+      '(Placeholder label until live DHL integration is enabled.) Tj',
+      'ET',
+    ];
+
+    const stream = pdfLines.join('\n');
+    const pdfContent = this.buildMinimalPdfDocument(stream);
+
+    return `data:application/pdf;base64,${Buffer.from(pdfContent, 'utf8').toString('base64')}`;
+  }
+
+  static buildMinimalPdfDocument(stream) {
+    const objects = [
+      '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj',
+      '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj',
+      '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj',
+      '4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj',
+      `5 0 obj\n<< /Length ${Buffer.byteLength(stream, 'utf8')} >>\nstream\n${stream}\nendstream\nendobj`,
+    ];
+
+    let pdf = '%PDF-1.4\n';
+    const offsets = [0];
+
+    objects.forEach((object) => {
+      offsets.push(Buffer.byteLength(pdf, 'utf8'));
+      pdf += `${object}\n`;
+    });
+
+    const xrefOffset = Buffer.byteLength(pdf, 'utf8');
+    const xrefRows = offsets
+      .map((offset, index) => (index === 0
+        ? '0000000000 65535 f '
+        : `${String(offset).padStart(10, '0')} 00000 n `))
+      .join('\n');
+
+    pdf += `xref\n0 ${offsets.length}\n${xrefRows}\n`;
+    pdf += `trailer\n<< /Size ${offsets.length} /Root 1 0 R >>\n`;
+    pdf += `startxref\n${xrefOffset}\n%%EOF`;
+
+    return pdf;
+  }
+
+  static escapePdfText(value) {
+    return String(value || '')
+      .replace(/\\/g, '\\\\')
+      .replace(/\(/g, '\\(')
+      .replace(/\)/g, '\\)');
+  }
+
+  static buildDummyBookingTrackingInfo(booking) {
+    const createdAt = booking.shippingCreatedAt || booking.createdAt || new Date();
+    const estimatedDelivery = booking.estimatedDelivery || new Date(new Date(createdAt).getTime() + (3 * 24 * 60 * 60 * 1000));
+
+    return {
+      success: true,
+      trackingNumber: booking.trackingNumber,
+      status: 'pre-transit',
+      description: booking.shippingStatusDescription || 'DHL-Dummy-Versandlabel wurde vorbereitet',
+      estimatedDelivery,
+      events: [
+        {
+          timestamp: createdAt,
+          location: 'FixitHub',
+          status: 'label-created',
+          description: 'Dummy DHL shipping label prepared for booking creation',
+        },
+      ],
+      origin: null,
+      destination: null,
+    };
+  }
+
   // Create a new booking from orders (consolidated from cart checkout)
   static async create(bookingData) {
     console.log('BookingService: Creating new booking with data:', bookingData);
@@ -188,9 +320,53 @@ class BookingService {
       return booking;
     }
 
+    const labelMode = await this.getBookingShippingLabelMode();
+
+    if (labelMode === 'live') {
+      try {
+        return await this.createLiveShippingLabelForBooking(booking, options);
+      } catch (error) {
+        console.error('BookingService: Live DHL booking label creation failed, falling back to dummy label:', error.message);
+      }
+    }
+
+    return this.createDummyShippingLabelForBooking(booking);
+  }
+
+  static async createDummyShippingLabelForBooking(booking) {
+    const refreshedBooking = await Booking.findById(booking._id);
+
+    if (!refreshedBooking) {
+      throw new Error('Booking not found after creation');
+    }
+
+    const trackingNumber = this.buildDummyBookingTrackingNumber(refreshedBooking);
+    const shippingCreatedAt = new Date();
+
+    refreshedBooking.trackingNumber = trackingNumber;
+    refreshedBooking.carrier = 'DHL';
+    refreshedBooking.shippingStatus = 'label-created';
+    refreshedBooking.shippingStatusDescription = 'DHL-Dummy-Versandlabel wurde vorbereitet';
+    refreshedBooking.shippingLabelUrl = this.buildDummyBookingLabelUrl(refreshedBooking, trackingNumber);
+    refreshedBooking.shippingCost = refreshedBooking.shippingCost || 0;
+    refreshedBooking.estimatedDelivery = refreshedBooking.estimatedDelivery || new Date(shippingCreatedAt.getTime() + (3 * 24 * 60 * 60 * 1000));
+    refreshedBooking.shippingCreatedAt = shippingCreatedAt;
+    refreshedBooking.timeline.push({
+      status: 'Shipping Label Prepared',
+      description: `Dummy DHL shipping label prepared for booking. Tracking number: ${trackingNumber}`,
+      completedAt: shippingCreatedAt,
+      staffId: 'system',
+      staffName: 'DHL Dummy Integration',
+    });
+
+    await refreshedBooking.save();
+    return refreshedBooking;
+  }
+
+  static async createLiveShippingLabelForBooking(booking, options = {}) {
     const dhlConfig = await DHLService.getDHLConfig();
     if (!dhlConfig?.isActive) {
-      return booking;
+      throw new Error('DHL shipping integration is inactive');
     }
 
     const preferredOrderId = options.preferredOrderId ? String(options.preferredOrderId) : '';
@@ -201,7 +377,7 @@ class BookingService {
     ].filter(Boolean).filter((value, index, array) => array.indexOf(value) === index);
 
     if (candidateOrderIds.length === 0) {
-      return booking;
+      throw new Error('No candidate orders found for live DHL shipping label generation');
     }
 
     let lastError = null;
@@ -235,15 +411,11 @@ class BookingService {
         return refreshedBooking;
       } catch (error) {
         lastError = error;
-        console.error(`BookingService: Failed to create shipping label for order ${orderId}:`, error.message);
+        console.error(`BookingService: Failed to create live shipping label for order ${orderId}:`, error.message);
       }
     }
 
-    if (lastError) {
-      throw lastError;
-    }
-
-    return booking;
+    throw lastError || new Error('Failed to create live booking shipping label');
   }
 
   static async updateShippingStatus(bookingId) {
@@ -257,6 +429,25 @@ class BookingService {
 
     if (!booking.trackingNumber) {
       throw new Error('No tracking number found for this booking')
+    }
+
+    if (this.isDummyBookingTrackingNumber(booking.trackingNumber)) {
+      const trackingInfo = this.buildDummyBookingTrackingInfo(booking)
+
+      booking.shippingStatus = 'label-created'
+      booking.shippingStatusDescription = trackingInfo.description
+
+      if (trackingInfo.estimatedDelivery) {
+        booking.estimatedDelivery = trackingInfo.estimatedDelivery
+      }
+
+      await booking.save()
+
+      return {
+        success: true,
+        booking,
+        trackingInfo,
+      }
     }
 
     const trackingInfo = await DHLService.getTrackingInfo(booking.trackingNumber)

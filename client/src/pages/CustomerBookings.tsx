@@ -105,8 +105,17 @@ interface Booking {
   returnQRCodeUrl?: string;
   returnTrackingNumber?: string;
   returnShipmentStatus?: string;
+  returnShipmentStatusDescription?: string;
   returnCreatedAt?: string;
   returnReceivedAt?: string;
+  trackingNumber?: string;
+  carrier?: string;
+  shippingStatus?: string;
+  shippingStatusDescription?: string;
+  shippingLabelUrl?: string;
+  shippingCreatedAt?: string;
+  estimatedDelivery?: string;
+  actualDelivery?: string;
   timeline?: Array<{
     _id?: string;
     status: string;
@@ -1117,6 +1126,22 @@ function BookingDetailDialog({
   getReturnShipmentStatusColor
 }: BookingDetailDialogProps) {
   const [activeTab, setActiveTab] = useState("overview");
+  const hasOutboundShipping = Boolean(
+    booking.trackingNumber ||
+    booking.shippingLabelUrl ||
+    booking.shippingStatus ||
+    booking.shippingCreatedAt ||
+    booking.estimatedDelivery ||
+    booking.actualDelivery
+  );
+  const hasReturnShipping = Boolean(
+    booking.returnTrackingNumber ||
+    booking.returnLabelUrl ||
+    booking.returnQRCodeUrl ||
+    booking.returnShipmentStatus ||
+    booking.returnCreatedAt ||
+    booking.returnReceivedAt
+  );
 
   const handleViewOrder = (orderId: string) => {
     if (!orderId) {
@@ -1129,44 +1154,47 @@ function BookingDetailDialog({
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-[var(--off-white,#f8f9fc)]">
-        <DialogHeader className="pb-4 border-b-2 border-[var(--accent-yellow,#f5b800)]">
-          <DialogTitle className="text-2xl font-extrabold text-[var(--primary-blue,#1a2a5e)]">
+        <DialogHeader className="-mx-6 -mt-6 px-6 pt-6 pb-5 border-b-2 border-[var(--accent-yellow,#f5b800)] bg-gradient-to-r from-[var(--primary-blue,#1a2a5e)] to-[var(--primary-blue-light,#2a3f7e)]">
+          <DialogTitle
+            className="text-2xl font-extrabold"
+            style={{ color: "#f5b800" }}
+          >
             Buchungsdetails
           </DialogTitle>
-          <DialogDescription className="text-sm font-semibold text-[var(--gray-600,#4a5568)] mt-1">
+          <DialogDescription className="text-sm font-semibold text-white/85 mt-1">
             {booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`}
           </DialogDescription>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-4">
-          <TabsList className="grid w-full grid-cols-5 h-10 bg-[var(--primary-blue,#1a2a5e)] rounded-lg p-1">
+          <TabsList className="flex w-full md:grid md:grid-cols-5 h-auto md:h-10 bg-[var(--primary-blue,#1a2a5e)] rounded-lg p-1 gap-1 overflow-x-auto">
             <TabsTrigger 
               value="overview" 
-              className="text-sm font-semibold data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+              className="text-sm font-semibold flex-shrink-0 min-w-[120px] md:min-w-0 data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
             >
               Übersicht
             </TabsTrigger>
             <TabsTrigger 
               value="repairs" 
-              className="text-sm font-semibold data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+              className="text-sm font-semibold flex-shrink-0 min-w-[120px] md:min-w-0 data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
             >
               Reparaturen
             </TabsTrigger>
             <TabsTrigger 
               value="items" 
-              className="text-sm font-semibold data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+              className="text-sm font-semibold flex-shrink-0 min-w-[120px] md:min-w-0 data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
             >
               Artikel
             </TabsTrigger>
             <TabsTrigger 
               value="shipping" 
-              className="text-sm font-semibold data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+              className="text-sm font-semibold flex-shrink-0 min-w-[120px] md:min-w-0 data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
             >
               Versand
             </TabsTrigger>
             <TabsTrigger 
               value="timeline" 
-              className="text-sm font-semibold data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+              className="text-sm font-semibold flex-shrink-0 min-w-[120px] md:min-w-0 data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
             >
               Verlauf
             </TabsTrigger>
@@ -1346,9 +1374,83 @@ function BookingDetailDialog({
           </TabsContent>
 
           <TabsContent value="shipping" className="space-y-4 mt-5">
-            {(booking.returnTrackingNumber || booking.returnLabelUrl || booking.returnQRCodeUrl || booking.returnShipmentStatus) ? (
+            {(hasOutboundShipping || hasReturnShipping) ? (
               <div className="space-y-4">
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20 p-5 rounded-lg border-2 border-[var(--primary-blue,#1a2a5e)] shadow-md">
+                {hasOutboundShipping && (
+                <div className="bg-white p-5 rounded-lg border-2 border-[var(--primary-blue,#1a2a5e)] shadow-md">
+                  <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-[var(--accent-yellow,#f5b800)]">
+                    <h3 className="font-bold text-base flex items-center gap-2 text-[var(--primary-blue,#1a2a5e)]">
+                      <Package className="h-5 w-5 text-[var(--accent-yellow,#f5b800)]" />
+                      Versand an McRepair
+                    </h3>
+                    {booking.shippingStatus && (
+                      <Badge className="bg-blue-100 text-[var(--primary-blue,#1a2a5e)] border border-blue-300 text-sm font-bold px-3 py-1">
+                        {booking.shippingStatus}
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {booking.trackingNumber && (
+                      <div className="bg-[var(--gray-50,#f5f6f8)] rounded-lg p-4 border border-[var(--gray-200,#d8dce6)]">
+                        <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-2 uppercase">Trackingnummer</p>
+                        <p className="font-mono font-bold text-base text-[var(--primary-blue,#1a2a5e)] break-all">{booking.trackingNumber}</p>
+                        {booking.carrier && (
+                          <p className="text-sm font-medium text-[var(--gray-600,#4a5568)] mt-2">Versanddienst: {booking.carrier}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {booking.shippingLabelUrl && (
+                      <div className="bg-[var(--gray-50,#f5f6f8)] rounded-lg p-4 border border-[var(--gray-200,#d8dce6)]">
+                        <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-2 uppercase">Generiertes Versandlabel an McRepair</p>
+                        <a
+                          href={booking.shippingLabelUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary-blue,#1a2a5e)] text-white rounded-lg text-sm font-bold hover:bg-[var(--primary-blue-dark,#0f1d45)] transition-all hover:shadow-lg"
+                        >
+                          <FileText className="h-4 w-4" />
+                          Versandlabel zu McRepair öffnen
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  {(booking.shippingCreatedAt || booking.estimatedDelivery || booking.actualDelivery || booking.shippingStatusDescription) && (
+                    <div className="mt-4 pt-4 border-t border-[var(--gray-200,#d8dce6)] space-y-2 text-sm">
+                      {booking.shippingStatusDescription && (
+                        <p className="text-[var(--gray-700,#2d3748)]">
+                          <span className="font-semibold text-[var(--gray-600,#4a5568)]">Statusinfo: </span>
+                          {booking.shippingStatusDescription}
+                        </p>
+                      )}
+                      {booking.shippingCreatedAt && (
+                        <p className="text-[var(--gray-700,#2d3748)]">
+                          <span className="font-semibold text-[var(--gray-600,#4a5568)]">Label erstellt: </span>
+                          {formatDateTime(booking.shippingCreatedAt)}
+                        </p>
+                      )}
+                      {booking.estimatedDelivery && (
+                        <p className="text-[var(--gray-700,#2d3748)]">
+                          <span className="font-semibold text-[var(--gray-600,#4a5568)]">Voraussichtliche Ankunft bei McRepair: </span>
+                          {formatDateTime(booking.estimatedDelivery)}
+                        </p>
+                      )}
+                      {booking.actualDelivery && (
+                        <p className="text-[var(--gray-700,#2d3748)]">
+                          <span className="font-semibold text-[var(--gray-600,#4a5568)]">Bei McRepair eingetroffen am: </span>
+                          {formatDateTime(booking.actualDelivery)}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                )}
+
+                {hasReturnShipping && (
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-lg border-2 border-[var(--primary-blue,#1a2a5e)] shadow-md">
                   <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-[var(--accent-yellow,#f5b800)]">
                     <h3 className="font-bold text-base flex items-center gap-2 text-[var(--primary-blue,#1a2a5e)]">
                       <Truck className="h-5 w-5 text-[var(--accent-yellow,#f5b800)]" />
@@ -1371,6 +1473,11 @@ function BookingDetailDialog({
                             <p className="font-mono font-bold text-base text-[var(--primary-blue,#1a2a5e)]">
                               {booking.returnTrackingNumber}
                             </p>
+                            {booking.returnShipmentStatusDescription && (
+                              <p className="text-sm text-[var(--gray-600,#4a5568)] mt-2">
+                                {booking.returnShipmentStatusDescription}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1446,6 +1553,7 @@ function BookingDetailDialog({
                     )}
                   </div>
                 </div>
+                )}
 
                 <div className="bg-[var(--accent-yellow-light,#ffd54f)]/20 p-5 rounded-lg border-2 border-[var(--accent-yellow,#f5b800)]">
                   <h4 className="font-bold mb-3 text-[var(--primary-blue,#1a2a5e)] uppercase tracking-wide text-sm flex items-center gap-2">

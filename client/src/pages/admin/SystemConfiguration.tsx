@@ -146,6 +146,19 @@ export function SystemConfiguration() {
     loadData()
   }, [])
 
+  const toIntegrationPayload = (integration: Integration): Omit<Integration, '_id'> => ({
+    name: integration.name,
+    type: integration.type,
+    provider: integration.provider,
+    apiKey: integration.apiKey,
+    apiSecret: integration.apiSecret || '',
+    endpoint: integration.endpoint || '',
+    settings: integration.settings || {},
+    isActive: integration.isActive,
+    lastTested: integration.lastTested,
+    testStatus: integration.testStatus,
+  })
+
   const loadData = async () => {
     try {
       console.log("SystemConfiguration: Loading system configuration data...")
@@ -367,6 +380,34 @@ export function SystemConfiguration() {
       })
     } finally {
       setTestingIntegration(null)
+    }
+  }
+
+  const handleBookingLabelModeChange = async (integration: Integration, bookingLabelMode: 'dummy' | 'live') => {
+    const updatedIntegration: Integration = {
+      ...integration,
+      settings: {
+        ...(integration.settings || {}),
+        bookingLabelMode,
+      },
+    }
+
+    setIntegrations((prev) => prev.map((item) => item._id === integration._id ? updatedIntegration : item))
+
+    try {
+      const response = await updateIntegration(integration._id, toIntegrationPayload(updatedIntegration))
+      setIntegrations((prev) => prev.map((item) => item._id === integration._id ? response.integration : item))
+      toast({
+        title: 'Success',
+        description: `Booking label mode set to ${bookingLabelMode}`,
+      })
+    } catch (error: any) {
+      setIntegrations((prev) => prev.map((item) => item._id === integration._id ? integration : item))
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update booking label mode',
+        variant: 'destructive'
+      })
     }
   }
 
@@ -993,6 +1034,28 @@ export function SystemConfiguration() {
                               {integration.endpoint || 'Default endpoint'}
                             </p>
                           </div>
+                          {integration.type === 'shipping' && integration.provider === 'DHL' && integration.name === 'DHL Shipping' && (
+                            <div className="space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+                              <div>
+                                <p className="text-sm font-medium">Booking Label Mode</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Choose whether booking creation prepares a dummy PDF label or calls the live DHL API.
+                                </p>
+                              </div>
+                              <Select
+                                value={integration.settings?.bookingLabelMode || 'dummy'}
+                                onValueChange={(value: 'dummy' | 'live') => handleBookingLabelModeChange(integration, value)}
+                              >
+                                <SelectTrigger className="h-9 text-sm bg-white">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="dummy">Dummy PDF Label</SelectItem>
+                                  <SelectItem value="live">Live DHL Label</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>

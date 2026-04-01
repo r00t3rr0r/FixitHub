@@ -457,7 +457,9 @@ router.get('/:id/shipping-tracking', requireUser, async (req, res) => {
       return res.status(404).json({ success: false, error: 'No tracking number found for this booking' })
     }
 
-    const trackingInfo = await require('../services/dhlService').getTrackingInfo(booking.trackingNumber)
+    const trackingInfo = BookingService.isDummyBookingTrackingNumber(booking.trackingNumber)
+      ? BookingService.buildDummyBookingTrackingInfo(booking)
+      : await require('../services/dhlService').getTrackingInfo(booking.trackingNumber)
 
     res.json({
       ...trackingInfo,
