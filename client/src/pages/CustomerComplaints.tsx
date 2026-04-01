@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   Ban,
   Wrench,
-  ClipboardCheck,
   MessageSquare,
   Send,
   Eye,
@@ -339,15 +338,16 @@ export function CustomerComplaints() {
   return (
     <div className="customer-complaints">
       {/* ── Page Header ── */}
-      <div className="cc-page-header">
-        <div className="cc-page-header-left">
-          <h1>Meine Reklamationen</h1>
-          <p>Verwalten und verfolgen Sie Ihre Reklamationsanfragen</p>
+      <div className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] rounded-2xl shadow-xl p-8 text-white relative overflow-hidden mb-8">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-[#f5b800] rounded-full opacity-5 blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#f5b800] rounded-full opacity-5 blur-3xl"></div>
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-3">
+            <FileText className="h-8 w-8 text-[#f5b800]" />
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Meine Reklamationen</h1>
+          </div>
+          <p className="text-blue-100 text-base md:text-lg">Verfolge und verwalte deine Reklamationen</p>
         </div>
-        <button className="cc-new-btn" onClick={() => setShowCreate(true)}>
-          <Plus size={16} />
-          Neue Reklamation
-        </button>
       </div>
 
       {/* ── Filter Bar ── */}
