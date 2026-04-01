@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react"
-import { useTranslation } from "react-i18next"
 import "./CustomerRepairRequests.css"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -23,7 +22,6 @@ import {
   AlertCircle,
   FileText,
   Calendar,
-  DollarSign,
   MessageSquare,
   Smartphone,
   Wrench,
@@ -36,14 +34,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import {
   Dialog,
   DialogContent,
@@ -61,7 +51,6 @@ interface ExtendedRepairRequest extends RepairRequest {
 }
 
 export function CustomerRepairRequests() {
-  const { t } = useTranslation()
   const { toast } = useToast()
   const { user } = useAuth()
 
@@ -106,8 +95,8 @@ export function CustomerRepairRequests() {
         console.error("CustomerRepairRequests: Error fetching repair requests:", error)
         toast({
           variant: "destructive",
-          title: "Error",
-          description: error instanceof Error ? error.message : "Failed to load repair requests"
+          title: "Fehler",
+          description: error instanceof Error ? error.message : "Reparaturanfragen konnten nicht geladen werden"
         })
       } finally {
         setLoading(false)
@@ -158,8 +147,8 @@ export function CustomerRepairRequests() {
       console.error("CustomerRepairRequests: Error fetching request details:", error)
       toast({
         variant: "destructive",
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load request details"
+        title: "Fehler",
+        description: error instanceof Error ? error.message : "Anfragedetails konnten nicht geladen werden"
       })
     } finally {
       setDetailsLoading(false)
@@ -186,7 +175,7 @@ export function CustomerRepairRequests() {
 
   // Format date
   const formatDate = (date: string | Date) => {
-    return new Date(date).toLocaleDateString('en-US', {
+    return new Date(date).toLocaleDateString('de-DE', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
@@ -194,7 +183,26 @@ export function CustomerRepairRequests() {
   }
 
   const formatStatusLabel = (status: string) => {
-    return status.charAt(0).toUpperCase() + status.slice(1)
+    const labels: Record<string, string> = {
+      pending: 'Ausstehend',
+      reviewing: 'In Pruefung',
+      approved: 'Genehmigt',
+      rejected: 'Abgelehnt',
+      converted: 'In Auftrag umgewandelt'
+    }
+
+    return labels[status] || status
+  }
+
+  const formatPriorityLabel = (priority: string) => {
+    const labels: Record<string, string> = {
+      low: 'Niedrig',
+      medium: 'Mittel',
+      high: 'Hoch',
+      urgent: 'Dringend'
+    }
+
+    return labels[priority] || priority
   }
 
   const getStatusBadgeClasses = (status: string) => {
@@ -212,12 +220,27 @@ export function CustomerRepairRequests() {
     }
   }
 
+  const getStatusAccentColor = (status: string) => {
+    switch (status) {
+      case 'converted':
+        return '#10b981'
+      case 'approved':
+        return '#3b82f6'
+      case 'reviewing':
+        return '#f5b800'
+      case 'rejected':
+        return '#ef4444'
+      default:
+        return '#94a3b8'
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading repair requests...</p>
+          <p className="mt-4 text-muted-foreground">Reparaturanfragen werden geladen...</p>
         </div>
       </div>
     )
@@ -233,9 +256,9 @@ export function CustomerRepairRequests() {
           <div className="relative z-10">
             <div className="flex items-center gap-3 mb-3">
               <FileText className="h-8 w-8 text-[#f5b800]" />
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">My Repair Requests</h1>
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Meine Reparaturanfragen</h1>
             </div>
-            <p className="text-blue-100 text-base md:text-lg">Track and manage your device repair requests</p>
+            <p className="text-blue-100 text-base md:text-lg">Verfolge und verwalte deine Geraete-Reparaturanfragen</p>
           </div>
         </div>
 
@@ -253,7 +276,7 @@ export function CustomerRepairRequests() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
-                    placeholder="Search by device, request number..."
+                    placeholder="Nach Geraet oder Anfragenummer suchen..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10 h-9 text-sm border-slate-200 focus:border-[#f5b800] focus:ring-[#f5b800]"
@@ -263,15 +286,15 @@ export function CustomerRepairRequests() {
               <div className="min-w-[180px]">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="h-9 text-sm border-slate-200 focus:border-[#f5b800] focus:ring-[#f5b800]">
-                    <SelectValue placeholder="Select Status" />
+                    <SelectValue placeholder="Status waehlen" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="reviewing">Reviewing</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                    <SelectItem value="converted">Converted to Order</SelectItem>
+                    <SelectItem value="all">Alle Status</SelectItem>
+                    <SelectItem value="pending">Ausstehend</SelectItem>
+                    <SelectItem value="reviewing">In Pruefung</SelectItem>
+                    <SelectItem value="approved">Genehmigt</SelectItem>
+                    <SelectItem value="rejected">Abgelehnt</SelectItem>
+                    <SelectItem value="converted">In Auftrag umgewandelt</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -282,9 +305,9 @@ export function CustomerRepairRequests() {
         {/* Requests Table */}
         <Card className="border-none shadow-lg bg-white">
           <CardHeader className="border-b border-slate-100 bg-white">
-            <CardTitle className="text-xl font-bold text-[#1a2a5e]">Repair Requests ({filteredRequests.length})</CardTitle>
+            <CardTitle className="text-xl font-bold text-[#1a2a5e]">Reparaturanfragen ({filteredRequests.length})</CardTitle>
             <CardDescription className="text-slate-600">
-              Click on any request to view details and communicate with staff
+              Klicke auf eine Anfrage, um Details zu sehen und mit dem Team zu kommunizieren
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
@@ -295,85 +318,76 @@ export function CustomerRepairRequests() {
                 </div>
                 <h3 className="text-lg font-semibold text-slate-700 mb-2">
                   {searchTerm || statusFilter !== 'all'
-                    ? "No repair requests found"
-                    : "No repair requests yet"}
+                    ? "Keine Reparaturanfragen gefunden"
+                    : "Noch keine Reparaturanfragen"}
                 </h3>
                 <p className="text-slate-500">
                   {searchTerm || statusFilter !== 'all'
-                    ? "Try adjusting your filters to find what you're looking for."
-                    : "You haven't submitted any repair requests yet."}
+                    ? "Passe deine Filter an, um passende Ergebnisse zu finden."
+                    : "Du hast noch keine Reparaturanfrage eingereicht."}
                 </p>
               </div>
             ) : (
-              <div className="w-full">
-                <Table className="requests-table table-fixed w-full">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[12%] px-2 py-2 text-xs">Request #</TableHead>
-                    <TableHead className="w-[16%] px-2 py-2 text-xs">Device</TableHead>
-                    <TableHead className="w-[34%] px-2 py-2 text-xs">Issue</TableHead>
-                    <TableHead className="w-[14%] px-2 py-2 text-xs">Status</TableHead>
-                    <TableHead className="w-[10%] px-2 py-2 text-xs">Priority</TableHead>
-                    <TableHead className="w-[9%] px-2 py-2 text-xs">Submitted</TableHead>
-                    <TableHead className="w-[5%] px-2 py-2 text-xs text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredRequests.map((request) => (
-                    <TableRow
-                      key={request._id}
-                      onClick={() => openDetailsDialog(request)}
-                    >
-                      <TableCell className="align-top p-2 text-sm">
-                        <div className="request-number">
-                          <span>{request.requestNumber}</span>
-                          {unreadCounts[request._id] > 0 && (
-                            <span className="unread-badge">
-                              {unreadCounts[request._id]}
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="align-top p-2 text-sm">
-                        <div className="device-info">
-                          <span className="device-brand">{request.deviceBrand}</span>
-                          <span className="device-model">{request.deviceModel}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="align-top p-2 text-sm">
-                        <div className="issue-description whitespace-normal break-words leading-snug text-slate-700 line-clamp-2">{request.issueDescription}</div>
-                      </TableCell>
-                      <TableCell className="align-top p-2 text-sm">
+              <div className="space-y-3 p-4 sm:p-5">
+                {filteredRequests.map((request) => (
+                  <div
+                    key={request._id}
+                    onClick={() => openDetailsDialog(request)}
+                    className="group bg-white border border-slate-200 rounded-xl p-4 sm:p-5 flex items-center gap-4 cursor-pointer transition-all hover:border-[#f5b800] hover:shadow-md"
+                  >
+                    <div
+                      className="w-1 self-stretch rounded-full"
+                      style={{ background: getStatusAccentColor(request.status) }}
+                    />
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                        <span className="text-xs font-bold tracking-wide text-slate-500 uppercase">{request.requestNumber}</span>
                         <span className={`status-badge status-${request.status}`}>
                           {getStatusIcon(request.status)}
                           <span>{formatStatusLabel(request.status)}</span>
                         </span>
-                      </TableCell>
-                      <TableCell className="align-top p-2 text-sm">
-                        <span className={`priority-badge priority-${request.priority}`}>
-                          {request.priority}
+                        {unreadCounts[request._id] > 0 && (
+                          <span className="inline-flex items-center rounded-full bg-red-500 text-white text-[11px] font-bold px-2 py-0.5">
+                            {unreadCounts[request._id]} neu
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-base font-semibold text-slate-900 truncate mb-1.5">
+                        {request.issueDescription}
+                      </p>
+
+                      <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-600 flex-wrap">
+                        <span className="inline-flex items-center gap-1">
+                          <Smartphone className="h-3.5 w-3.5" />
+                          {request.deviceBrand} {request.deviceModel}
                         </span>
-                      </TableCell>
-                      <TableCell className="align-top p-2 text-xs">
-                        {formatDate(request.createdAt)}
-                      </TableCell>
-                      <TableCell className="align-top p-2 text-right">
-                        <button
-                          className="action-button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            openDetailsDialog(request)
-                          }}
-                        >
-                          <Eye className="h-5 w-5" />
-                          <span className="sr-only">View Details</span>
-                        </button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                        <span className="inline-flex items-center gap-1">
+                          <Calendar className="h-3.5 w-3.5" />
+                          {formatDate(request.createdAt)}
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <span className={`priority-badge priority-${request.priority}`}>
+                            {formatPriorityLabel(request.priority)}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      className="h-9 w-9 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 group-hover:text-[#1a2a5e] group-hover:border-[#f5b800]"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        openDetailsDialog(request)
+                      }}
+                    >
+                      <Eye className="h-4 w-4" />
+                      <span className="sr-only">Details anzeigen</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
           )}
         </CardContent>
       </Card>
@@ -388,7 +402,7 @@ export function CustomerRepairRequests() {
             <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:pr-8">
               <div className="space-y-2">
                 <DialogTitle className="text-2xl sm:text-[1.75rem] font-extrabold tracking-tight" style={{ color: '#f5b800' }}>
-                  Request #{selectedRequest?.requestNumber}
+                  Anfrage #{selectedRequest?.requestNumber}
                 </DialogTitle>
                 <DialogDescription className="text-base sm:text-lg text-white/90">
                   {selectedRequest?.deviceBrand} {selectedRequest?.deviceModel}
@@ -400,7 +414,7 @@ export function CustomerRepairRequests() {
                       {formatStatusLabel(selectedRequest.status)}
                     </Badge>
                     <Badge variant="secondary" className="bg-white/15 text-white hover:bg-white/15 capitalize">
-                      Priority: {selectedRequest.priority}
+                      Prioritaet: {formatPriorityLabel(selectedRequest.priority)}
                     </Badge>
                   </div>
                 )}
@@ -409,15 +423,15 @@ export function CustomerRepairRequests() {
               {selectedRequest && (
                 <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full sm:w-auto">
                   <div className="rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-center min-w-[92px]">
-                    <p className="text-[11px] sm:text-xs uppercase tracking-wide text-blue-100">Submitted</p>
+                    <p className="text-[11px] sm:text-xs uppercase tracking-wide text-blue-100">Eingereicht</p>
                     <p className="text-xs sm:text-sm font-semibold text-white">{formatDate(selectedRequest.createdAt)}</p>
                   </div>
                   <div className="rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-center min-w-[92px]">
-                    <p className="text-[11px] sm:text-xs uppercase tracking-wide text-blue-100">Updated</p>
+                    <p className="text-[11px] sm:text-xs uppercase tracking-wide text-blue-100">Aktualisiert</p>
                     <p className="text-xs sm:text-sm font-semibold text-white">{formatDate(selectedRequest.updatedAt)}</p>
                   </div>
                   <div className="rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-center min-w-[92px]">
-                    <p className="text-[11px] sm:text-xs uppercase tracking-wide text-blue-100">Estimate</p>
+                    <p className="text-[11px] sm:text-xs uppercase tracking-wide text-blue-100">Schaetzung</p>
                     <p className="text-xs sm:text-sm font-extrabold text-[#f5b800]">${selectedRequest.estimatedCost.toFixed(2)}</p>
                   </div>
                 </div>
@@ -433,15 +447,15 @@ export function CustomerRepairRequests() {
             <Tabs defaultValue="overview" className="flex flex-col lg:flex-row flex-1 min-h-0 bg-gradient-to-b from-white to-slate-50">
               <div className="lg:w-72 lg:border-r lg:border-slate-200/80 bg-white/80 backdrop-blur-sm">
                 <div className="px-4 pt-4 pb-2 lg:pb-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500 mb-3">Sections</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500 mb-3">Bereiche</p>
                   <TabsList className="w-full h-auto p-0 bg-transparent rounded-none flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible">
                     <TabsTrigger value="overview" className="min-w-max lg:w-full justify-start rounded-xl px-3 py-2.5 data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white data-[state=active]:shadow">
                       <FileText className="h-4 w-4 mr-2" />
-                      Overview
+                      Uebersicht
                     </TabsTrigger>
                     <TabsTrigger value="device" className="min-w-max lg:w-full justify-start rounded-xl px-3 py-2.5 data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white data-[state=active]:shadow">
                       <Smartphone className="h-4 w-4 mr-2" />
-                      Device & Issue
+                      Geraet & Problem
                     </TabsTrigger>
                     <TabsTrigger value="communication" className="min-w-max lg:w-full justify-start rounded-xl px-3 py-2.5 data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white data-[state=active]:shadow">
                       <MessageSquare className="h-4 w-4 mr-2" />
@@ -453,7 +467,7 @@ export function CustomerRepairRequests() {
                     </TabsTrigger>
                     <TabsTrigger value="timeline" className="min-w-max lg:w-full justify-start rounded-xl px-3 py-2.5 data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white data-[state=active]:shadow">
                       <Calendar className="h-4 w-4 mr-2" />
-                      Timeline
+                      Zeitverlauf
                     </TabsTrigger>
                   </TabsList>
                 </div>
@@ -465,7 +479,7 @@ export function CustomerRepairRequests() {
                     <TabsContent value="overview" className="mt-0 space-y-5">
                       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                         <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Request</p>
+                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Anfrage</p>
                           <p className="text-base font-semibold text-[#1a2a5e] mt-1">{selectedRequest.requestNumber}</p>
                         </div>
                         <div className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -473,33 +487,33 @@ export function CustomerRepairRequests() {
                           <p className="text-base font-semibold text-[#1a2a5e] mt-1">{formatStatusLabel(selectedRequest.status)}</p>
                         </div>
                         <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Priority</p>
-                          <p className="text-base font-semibold text-[#1a2a5e] mt-1 capitalize">{selectedRequest.priority}</p>
+                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Prioritaet</p>
+                          <p className="text-base font-semibold text-[#1a2a5e] mt-1 capitalize">{formatPriorityLabel(selectedRequest.priority)}</p>
                         </div>
                         <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Estimate</p>
+                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Schaetzung</p>
                           <p className="text-base font-extrabold text-[#1a2a5e] mt-1">${selectedRequest.estimatedCost.toFixed(2)}</p>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                         <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                          <h3 className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] mb-3">Device & Issue</h3>
+                          <h3 className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] mb-3">Geraet & Problem</h3>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                             <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Brand</p>
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Marke</p>
                               <p className="text-sm font-semibold text-[#1a2a5e] mt-0.5">{selectedRequest.deviceBrand}</p>
                             </div>
                             <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Model</p>
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Modell</p>
                               <p className="text-sm font-semibold text-[#1a2a5e] mt-0.5">{selectedRequest.deviceModel}</p>
                             </div>
                             <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 sm:col-span-2">
-                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Issue</p>
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Problem</p>
                               <p className="text-sm text-[#1a2a5e] mt-0.5 line-clamp-2">{selectedRequest.issueDescription}</p>
                             </div>
                             <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 sm:col-span-2">
-                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Occurred</p>
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Aufgetreten am</p>
                               <p className="text-sm font-semibold text-[#1a2a5e] mt-0.5">{formatDate(selectedRequest.issueOccurredDate)}</p>
                             </div>
                           </div>
@@ -509,11 +523,11 @@ export function CustomerRepairRequests() {
                           <h3 className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] mb-3">Kommunikation</h3>
                           <div className="grid grid-cols-2 gap-2.5 mb-2.5">
                             <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Messages</p>
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Nachrichten</p>
                               <p className="text-sm font-semibold text-[#1a2a5e] mt-0.5">{selectedRequest.messages?.length || 0}</p>
                             </div>
                             <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Unread</p>
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Ungelesen</p>
                               <p className="text-sm font-semibold text-[#1a2a5e] mt-0.5">{unreadCounts[selectedRequest._id] || 0}</p>
                             </div>
                           </div>
@@ -532,20 +546,20 @@ export function CustomerRepairRequests() {
                         <div className="rounded-2xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 to-white p-5">
                           <h3 className="text-lg font-bold text-emerald-800 flex items-center gap-2 mb-3">
                             <CheckCircle className="h-5 w-5" />
-                            Converted to Order
+                            In Auftrag umgewandelt
                           </h3>
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                             <div className="rounded-xl border border-emerald-200 bg-white p-3">
-                              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Order Number</p>
+                              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Auftragsnummer</p>
                               <p className="mt-1 font-semibold text-[#1a2a5e]">{selectedRequest.convertedToOrderId.orderNumber}</p>
                             </div>
                             <div className="rounded-xl border border-emerald-200 bg-white p-3">
-                              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Converted By</p>
-                              <p className="mt-1 font-semibold text-[#1a2a5e]">{selectedRequest.convertedByStaffName || 'N/A'}</p>
+                              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Umgewandelt von</p>
+                              <p className="mt-1 font-semibold text-[#1a2a5e]">{selectedRequest.convertedByStaffName || 'k. A.'}</p>
                             </div>
                             {selectedRequest.convertedAt && (
                               <div className="rounded-xl border border-emerald-200 bg-white p-3">
-                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Converted Date</p>
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Umgewandelt am</p>
                                 <p className="mt-1 font-semibold text-[#1a2a5e]">{formatDate(selectedRequest.convertedAt)}</p>
                               </div>
                             )}
@@ -557,7 +571,7 @@ export function CustomerRepairRequests() {
                         <div className="rounded-2xl border border-slate-200 bg-white p-5">
                           <h3 className="text-lg font-bold text-[#1a2a5e] flex items-center gap-2 mb-2">
                             <Wrench className="h-5 w-5 text-[#f5b800]" />
-                            Assigned Staff
+                            Zugewiesenes Teammitglied
                           </h3>
                           <p className="text-slate-700">{selectedRequest.assignedStaffName}</p>
                         </div>
@@ -566,27 +580,27 @@ export function CustomerRepairRequests() {
 
                     <TabsContent value="device" className="mt-0 space-y-5">
                       <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                        <h3 className="text-lg font-bold text-[#1a2a5e] mb-4">Device Information</h3>
+                        <h3 className="text-lg font-bold text-[#1a2a5e] mb-4">Geraeteinformationen</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Brand</p>
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Marke</p>
                             <p className="mt-1 font-semibold text-[#1a2a5e]">{selectedRequest.deviceBrand}</p>
                           </div>
                           <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Model</p>
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Modell</p>
                             <p className="mt-1 font-semibold text-[#1a2a5e]">{selectedRequest.deviceModel}</p>
                           </div>
                           <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 sm:col-span-2">
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Issue Description</p>
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Problembeschreibung</p>
                             <p className="mt-1 font-semibold text-[#1a2a5e] leading-relaxed">{selectedRequest.issueDescription}</p>
                           </div>
                           <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Issue Occurred</p>
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Problem aufgetreten am</p>
                             <p className="mt-1 font-semibold text-[#1a2a5e]">{formatDate(selectedRequest.issueOccurredDate)}</p>
                           </div>
                           {selectedRequest.modelNumber && (
                             <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Model Number</p>
+                              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Modellnummer</p>
                               <p className="mt-1 font-semibold text-[#1a2a5e]">{selectedRequest.modelNumber}</p>
                             </div>
                           )}
@@ -595,27 +609,27 @@ export function CustomerRepairRequests() {
 
                       {(selectedRequest.waterDamage || selectedRequest.itemCondition || selectedRequest.previousRepairDetails) && (
                         <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                          <h3 className="text-lg font-bold text-[#1a2a5e] mb-4">Additional Details</h3>
+                          <h3 className="text-lg font-bold text-[#1a2a5e] mb-4">Zusaetzliche Details</h3>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {selectedRequest.waterDamage && (
                               <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Water Damage</p>
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Wasserschaden</p>
                                 <Badge variant={selectedRequest.waterDamage === 'yes' ? 'destructive' : 'secondary'} className="mt-2">
-                                  {selectedRequest.waterDamage === 'yes' ? 'Yes' : selectedRequest.waterDamage === 'no' ? 'No' : 'Unsure'}
+                                  {selectedRequest.waterDamage === 'yes' ? 'Ja' : selectedRequest.waterDamage === 'no' ? 'Nein' : 'Unsicher'}
                                 </Badge>
                               </div>
                             )}
                             {selectedRequest.itemCondition && (
                               <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Item Condition</p>
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Geraetezustand</p>
                                 <Badge variant="outline" className="mt-2">
-                                  {selectedRequest.itemCondition === 'original' ? 'Original' : selectedRequest.itemCondition === 'refurbished' ? 'Refurbished' : 'Unsure'}
+                                  {selectedRequest.itemCondition === 'original' ? 'Original' : selectedRequest.itemCondition === 'refurbished' ? 'Generalueberholt' : 'Unsicher'}
                                 </Badge>
                               </div>
                             )}
                             {selectedRequest.previousRepairDetails && (
                               <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 sm:col-span-2">
-                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Previous Repair Attempts</p>
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Bisherige Reparaturversuche</p>
                                 <p className="mt-2 text-sm sm:text-base text-[#1a2a5e] leading-relaxed">{selectedRequest.previousRepairDetails}</p>
                               </div>
                             )}
@@ -638,39 +652,39 @@ export function CustomerRepairRequests() {
 
                     <TabsContent value="media" className="mt-0 space-y-5">
                       <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                        <h3 className="text-lg font-bold text-[#1a2a5e] mb-4">Uploaded Images</h3>
+                        <h3 className="text-lg font-bold text-[#1a2a5e] mb-4">Hochgeladene Bilder</h3>
                         {selectedRequest.images && selectedRequest.images.length > 0 ? (
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {selectedRequest.images.map((image, index) => (
                               <img
                                 key={index}
                                 src={image}
-                                alt={`Device image ${index + 1}`}
+                                alt={`Geraetebild ${index + 1}`}
                                 className="w-full h-52 object-cover rounded-xl border border-slate-200 transition-all duration-200 hover:border-[#f5b800] hover:shadow-md"
                               />
                             ))}
                           </div>
                         ) : (
-                          <p className="text-slate-500 text-sm">No images uploaded for this request.</p>
+                          <p className="text-slate-500 text-sm">Fuer diese Anfrage wurden keine Bilder hochgeladen.</p>
                         )}
                       </div>
                     </TabsContent>
 
                     <TabsContent value="timeline" className="mt-0 space-y-5">
                       <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                        <h3 className="text-lg font-bold text-[#1a2a5e] mb-4">Timeline</h3>
+                        <h3 className="text-lg font-bold text-[#1a2a5e] mb-4">Zeitverlauf</h3>
                         <div className="space-y-3">
                           <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 flex items-center justify-between gap-3">
-                            <span className="font-semibold text-[#1a2a5e]">Created</span>
+                            <span className="font-semibold text-[#1a2a5e]">Erstellt</span>
                             <span className="text-sm text-slate-600">{formatDate(selectedRequest.createdAt)}</span>
                           </div>
                           <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 flex items-center justify-between gap-3">
-                            <span className="font-semibold text-[#1a2a5e]">Last Updated</span>
+                            <span className="font-semibold text-[#1a2a5e]">Zuletzt aktualisiert</span>
                             <span className="text-sm text-slate-600">{formatDate(selectedRequest.updatedAt)}</span>
                           </div>
                           {selectedRequest.reviewDeadline && (
                             <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 flex items-center justify-between gap-3">
-                              <span className="font-semibold text-[#1a2a5e]">Review Deadline</span>
+                              <span className="font-semibold text-[#1a2a5e]">Prueffrist</span>
                               <span className="text-sm text-slate-600">{formatDate(selectedRequest.reviewDeadline)}</span>
                             </div>
                           )}
@@ -688,7 +702,7 @@ export function CustomerRepairRequests() {
               className="px-6 sm:px-8 py-2.5 rounded-xl font-bold text-sm sm:text-base transition-all duration-200 bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] text-white shadow hover:brightness-110"
               onClick={() => setShowDetailsDialog(false)}
             >
-              Close
+              Schliessen
             </button>
           </DialogFooter>
         </DialogContent>
