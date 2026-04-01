@@ -5,6 +5,26 @@ const Order = require('../models/Order');
 const User = require('../models/User');
 const SystemConfiguration = require('../models/SystemConfiguration');
 
+function parseDueDaysFromTerms(paymentTerms) {
+  if (!paymentTerms) return null;
+
+  const match = String(paymentTerms).match(/(\d+)/);
+  if (!match) return null;
+
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function calculateDiscountAmount(subtotal, discountPercent) {
+  const numericSubtotal = Number(subtotal);
+  const numericDiscountPercent = Number(discountPercent);
+
+  if (!Number.isFinite(numericSubtotal) || numericSubtotal <= 0) return 0;
+  if (!Number.isFinite(numericDiscountPercent) || numericDiscountPercent <= 0) return 0;
+
+  return Number(((numericSubtotal * numericDiscountPercent) / 100).toFixed(2));
+}
+
 // Valid invoice status transitions
 const INVOICE_STATUS_TRANSITIONS = {
   draft:            ['pending_approval', 'sent', 'cancelled'],
@@ -74,6 +94,53 @@ class FinancialService {
       console.error('FinancialService: Error loading financial settings, using defaults:', error.message);
       return DEFAULT_FINANCIAL_SETTINGS;
     }
+  }
+
+  static async resolveFinancialProfile({ customerId = null, customer = null } = {}) {
+    const settings = await FinancialService.getFinancialSettings();
+
+    const targetCustomerId = customerId
+      || customer?._id
+      || customer?.id
+      || customer?.customerId
+      || null;
+
+    let resolvedCustomer = null;
+
+    if (targetCustomerId) {
+      resolvedCustomer = await User.findById(targetCustomerId)
+        .populate('primaryCustomerGroupId', 'name key financeProfile')
+        .lean();
+    }
+
+    const groupFinanceProfile = resolvedCustomer?.primaryCustomerGroupId?.financeProfile || {};
+    const customerPaymentTerms = resolvedCustomer?.paymentTerms || '';
+    const customerDueDays = parseDueDaysFromTerms(customerPaymentTerms);
+    const taxMode = groupFinanceProfile.taxMode || 'default';
+    const resolvedTaxRate = taxMode === 'tax_free' || taxMode === 'reverse_charge'
+      ? 0
+      : settings.defaults.taxRate;
+
+    return {
+      currency: groupFinanceProfile.currency || settings.defaults.currency,
+      locale: settings.defaults.locale,
+      taxRate: resolvedTaxRate,
+      taxMode,
+      paymentDueDays: customerDueDays ?? groupFinanceProfile.paymentDueDays ?? settings.defaults.paymentDueDays,
+      paymentTerms: customerPaymentTerms || groupFinanceProfile.paymentTermsLabel || settings.defaults.paymentTerms,
+      invoicePrefix: groupFinanceProfile.invoicePrefix || settings.defaults.invoicePrefix,
+      defaultDiscountPercent: typeof resolvedCustomer?.discount === 'number' && resolvedCustomer.discount > 0
+        ? resolvedCustomer.discount
+        : groupFinanceProfile.discountPercent ?? settings.defaults.defaultDiscount,
+      defaultPaymentMethod: resolvedCustomer?.paymentMethod
+        || (Array.isArray(groupFinanceProfile.allowedPaymentMethods) && groupFinanceProfile.allowedPaymentMethods[0])
+        || settings.defaults.defaultPaymentMethod,
+      creditLimit: groupFinanceProfile.creditLimit ?? 0,
+      cashDiscountPercent: groupFinanceProfile.cashDiscountPercent ?? settings.discountPolicy.earlyPaymentDiscountPercent,
+      cashDiscountDays: groupFinanceProfile.cashDiscountDays ?? 0,
+      customer: resolvedCustomer,
+      group: resolvedCustomer?.primaryCustomerGroupId || null,
+    };
   }
   static mapPaymentMethodToGateway(paymentMethod) {
     if (paymentMethod === 'paypal') return 'paypal';
@@ -302,9 +369,6 @@ class FinancialService {
     console.log('FinancialService: Creating invoice');
 
     try {
-      // Load financial settings
-      const settings = await FinancialService.getFinancialSettings();
-      
       // Clean the invoice data - remove empty strings for ObjectId fields
       const cleanedInvoiceData = { ...invoiceData };
       
@@ -328,9 +392,13 @@ class FinancialService {
         }
       }
 
+      const financialProfile = await FinancialService.resolveFinancialProfile({
+        customerId: cleanedInvoiceData.customerId || null,
+      });
+
       // Get customer info if customerId is provided
       if (cleanedInvoiceData.customerId) {
-        const customer = await User.findById(cleanedInvoiceData.customerId);
+        const customer = financialProfile.customer || await User.findById(cleanedInvoiceData.customerId);
         if (!customer) {
           throw new Error('Customer not found');
         }
@@ -346,16 +414,28 @@ class FinancialService {
 
       // Apply financial defaults if not explicitly provided
       if (!cleanedInvoiceData.numberPrefix && !cleanedInvoiceData.invoiceNumber) {
-        cleanedInvoiceData.numberPrefix = settings.defaults.invoicePrefix;
+        cleanedInvoiceData.numberPrefix = financialProfile.invoicePrefix;
       }
       
       if (!cleanedInvoiceData.dueDate && cleanedInvoiceData.dueDate !== false) {
-        const dueDays = settings.defaults.paymentDueDays || 14;
+        const dueDays = financialProfile.paymentDueDays || 14;
         cleanedInvoiceData.dueDate = new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000);
       }
       
       if (!cleanedInvoiceData.paymentTerms) {
-        cleanedInvoiceData.paymentTerms = settings.defaults.paymentTerms;
+        cleanedInvoiceData.paymentTerms = financialProfile.paymentTerms;
+      }
+
+      if ((cleanedInvoiceData.discount === undefined || cleanedInvoiceData.discount === null) && Number.isFinite(Number(cleanedInvoiceData.subtotal))) {
+        cleanedInvoiceData.discount = calculateDiscountAmount(cleanedInvoiceData.subtotal, financialProfile.defaultDiscountPercent);
+      }
+
+      if ((cleanedInvoiceData.tax === undefined || cleanedInvoiceData.tax === null) && Number.isFinite(Number(cleanedInvoiceData.subtotal))) {
+        cleanedInvoiceData.tax = Number(cleanedInvoiceData.subtotal) * (financialProfile.taxRate / 100);
+      }
+
+      if ((cleanedInvoiceData.total === undefined || cleanedInvoiceData.total === null) && Number.isFinite(Number(cleanedInvoiceData.subtotal))) {
+        cleanedInvoiceData.total = Number(cleanedInvoiceData.subtotal) + Number(cleanedInvoiceData.tax || 0) - Number(cleanedInvoiceData.discount || 0);
       }
 
       // Create invoice
@@ -865,11 +945,10 @@ class FinancialService {
         throw new Error('Order not found');
       }
 
-      // Load financial settings
-      const settings = await FinancialService.getFinancialSettings();
+      const financialProfile = await FinancialService.resolveFinancialProfile({ customer: order.customerId });
 
       const amount = typeof order.totalCost === 'object' ? Number(order.totalCost) : order.totalCost;
-      const paymentMethod = settings.defaults.defaultPaymentMethod || 'credit_card';
+      const paymentMethod = financialProfile.defaultPaymentMethod || 'credit_card';
 
       const payment = new Payment({
         orderId: order._id,
@@ -883,7 +962,7 @@ class FinancialService {
 
       await payment.save();
 
-      console.log('FinancialService: Payment created from order successfully with configured method:', paymentMethod);
+      console.log('FinancialService: Payment created from order successfully with resolved method:', paymentMethod);
       return payment;
     } catch (error) {
       console.error('FinancialService: Error creating payment from order:', error);
@@ -902,8 +981,7 @@ class FinancialService {
         throw new Error('Order not found');
       }
 
-      // Load financial settings
-      const settings = await FinancialService.getFinancialSettings();
+      const financialProfile = await FinancialService.resolveFinancialProfile({ customer: order.customerId });
 
       // Convert totalCost to number if it's a Decimal128
       const totalCost = typeof order.totalCost === 'object' ? Number(order.totalCost) : order.totalCost;
@@ -933,10 +1011,11 @@ class FinancialService {
         });
       });
 
-      // Use configured tax rate instead of hard-coded 8%
-      const taxRate = settings.defaults.taxRate / 100;
-      const dueDays = settings.defaults.paymentDueDays || 30;
-      const invoicePrefix = settings.defaults.invoicePrefix;
+      const subtotal = items.reduce((sum, item) => sum + item.total, 0);
+      const discount = calculateDiscountAmount(subtotal, financialProfile.defaultDiscountPercent);
+      const taxRate = financialProfile.taxRate / 100;
+      const dueDays = financialProfile.paymentDueDays || 30;
+      const invoicePrefix = financialProfile.invoicePrefix;
 
       const invoice = new Invoice({
         orderId: order._id,
@@ -944,16 +1023,18 @@ class FinancialService {
         customerName: order.customerId.name,
         customerEmail: order.customerId.email,
         items,
-        subtotal: totalCost,
-        tax: totalCost * taxRate,
-        total: totalCost * (1 + taxRate),
+        subtotal,
+        tax: subtotal * taxRate,
+        discount,
+        total: subtotal + (subtotal * taxRate) - discount,
         dueDate: new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000),
-        numberPrefix: invoicePrefix
+        numberPrefix: invoicePrefix,
+        paymentTerms: financialProfile.paymentTerms,
       });
 
       await invoice.save();
 
-      console.log('FinancialService: Invoice created from order successfully with configured tax rate:', settings.defaults.taxRate + '%');
+      console.log('FinancialService: Invoice created from order successfully with resolved tax rate:', financialProfile.taxRate + '%');
       return invoice;
     } catch (error) {
       console.error('FinancialService: Error creating invoice from order:', error);
@@ -981,6 +1062,7 @@ class FinancialService {
     }
 
     const customer = orders[0].customerId;
+    const financialProfile = await FinancialService.resolveFinancialProfile({ customer });
     const items = [];
 
     orders.forEach(order => {
@@ -1020,9 +1102,11 @@ class FinancialService {
     });
 
     const subtotal = items.reduce((s, i) => s + i.total, 0);
-    const taxRate  = options.taxRate != null ? options.taxRate : 0.19;
+    const taxRate  = options.taxRate != null ? options.taxRate : financialProfile.taxRate / 100;
     const tax      = subtotal * taxRate;
-    const discount = options.discount || 0;
+    const discount = options.discount != null
+      ? options.discount
+      : calculateDiscountAmount(subtotal, financialProfile.defaultDiscountPercent);
     const total    = subtotal + tax - discount;
 
     const invoiceData = {
@@ -1036,9 +1120,9 @@ class FinancialService {
       tax,
       discount,
       total,
-      numberPrefix:  options.numberPrefix || 'INV',
-      dueDate:       options.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      paymentTerms:  options.paymentTerms || 'Net 30',
+      numberPrefix:  options.numberPrefix || financialProfile.invoicePrefix || 'INV',
+      dueDate:       options.dueDate || new Date(Date.now() + (financialProfile.paymentDueDays || 30) * 24 * 60 * 60 * 1000),
+      paymentTerms:  options.paymentTerms || financialProfile.paymentTerms || 'Net 30',
       notes:         options.notes || '',
       status:        'draft'
     };

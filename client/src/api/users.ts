@@ -16,6 +16,8 @@ export interface User {
   // Customer-specific fields
   customerNumber?: string;
   customerGroup?: string;
+  primaryCustomerGroupId?: string | null;
+  customerGroupIds?: string[];
   salutation?: string;
   title?: string;
   company?: string;
@@ -44,6 +46,7 @@ export interface GetUsersParams {
   search?: string;
   role?: string;
   status?: string;
+  customerGroupId?: string;
   page?: number;
   limit?: number;
 }
@@ -248,6 +251,14 @@ export interface DetailedUser extends User {
     transactionId: string;
   }>;
   customerGroup: string;
+  primaryCustomerGroupId?: string | null;
+  customerGroupIds?: string[];
+  customerGroups?: Array<{
+    _id: string;
+    name: string;
+    key: string;
+    isPrimary: boolean;
+  }>;
   activityLog: Array<{
     _id: string;
     action: string;

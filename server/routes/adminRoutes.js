@@ -1,5 +1,6 @@
 const express = require('express');
 const UserService = require('../services/userService.js');
+const CustomerGroupService = require('../services/customerGroupService');
 const { requireUser } = require('./middleware/auth.js');
 
 const router = express.Router();
@@ -27,6 +28,7 @@ router.get('/users', requireUser, requireAdmin, async (req, res) => {
       search = '',
       role = 'all',
       status = 'all',
+      customerGroupId = 'all',
       page = 1,
       limit = 50
     } = req.query;
@@ -38,7 +40,8 @@ router.get('/users', requireUser, requireAdmin, async (req, res) => {
       filters.$or = [
         { name: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } },
-        { phone: { $regex: search, $options: 'i' } }
+        { phone: { $regex: search, $options: 'i' } },
+        { customerGroup: { $regex: search, $options: 'i' } }
       ];
     }
 
@@ -53,6 +56,14 @@ router.get('/users', requireUser, requireAdmin, async (req, res) => {
         filters.isActive = true;
       } else if (status === 'inactive') {
         filters.isActive = false;
+      }
+    }
+
+    if (customerGroupId !== 'all') {
+      if (customerGroupId === 'none') {
+        filters.primaryCustomerGroupId = null;
+      } else {
+        filters.primaryCustomerGroupId = customerGroupId;
       }
     }
 
@@ -138,6 +149,83 @@ router.post('/users', requireUser, requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Admin: Error creating user:', error);
     return res.status(400).json({ message: error.message || 'Failed to create user' });
+  }
+});
+
+// Update user details
+router.put('/users/:id', requireUser, requireAdmin, async (req, res) => {
+  console.log('Admin: Update user request from:', req.user.email, 'for user:', req.params.id);
+
+  try {
+    const { id } = req.params;
+    const {
+      password,
+      refreshToken,
+      _id,
+      createdAt,
+      primaryCustomerGroupId,
+      customerGroupIds,
+      ...updateData
+    } = req.body;
+
+    if (updateData.role && !['customer', 'staff', 'admin'].includes(updateData.role)) {
+      return res.status(400).json({ message: 'Valid role is required (customer, staff, admin)' });
+    }
+
+    if (id === req.user._id.toString() && updateData.role && updateData.role !== 'admin') {
+      return res.status(400).json({ message: 'Cannot change your own role from admin' });
+    }
+
+    if (updateData.email) {
+      updateData.email = String(updateData.email).toLowerCase();
+    }
+
+    const hasGroupPayload = Object.prototype.hasOwnProperty.call(req.body, 'primaryCustomerGroupId')
+      || Object.prototype.hasOwnProperty.call(req.body, 'customerGroupIds');
+
+    let resolvedGroupSelection = null;
+
+    if (hasGroupPayload) {
+      const normalizedGroupIds = Array.isArray(customerGroupIds)
+        ? customerGroupIds
+        : customerGroupIds
+          ? [customerGroupIds]
+          : [];
+
+      resolvedGroupSelection = await CustomerGroupService.resolveGroupSelection({
+        groupIds: normalizedGroupIds,
+        primaryGroupId: primaryCustomerGroupId || null,
+      });
+
+      updateData.primaryCustomerGroupId = resolvedGroupSelection.primaryGroupId;
+      updateData.customerGroupIds = resolvedGroupSelection.groupIds;
+      updateData.customerGroup = resolvedGroupSelection.primaryGroupName;
+    }
+
+    const updatedUser = await UserService.update(id, updateData);
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (resolvedGroupSelection) {
+      await CustomerGroupService.syncCustomerAssignments(id, resolvedGroupSelection, req.user._id);
+    }
+
+    const refreshedUser = await UserService.get(id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'User updated successfully',
+      user: {
+        ...refreshedUser.toJSON(),
+        status: refreshedUser.isActive ? 'active' : 'inactive',
+        lastActivity: refreshedUser.lastLoginAt || refreshedUser.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error('Admin: Error updating user:', error);
+    return res.status(400).json({ message: error.message || 'Failed to update user' });
   }
 });
 

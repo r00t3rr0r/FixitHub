@@ -225,7 +225,7 @@ export function CustomerRepairRequests() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-amber-50/20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      <div className="max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Header Section */}
         <div className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] rounded-2xl shadow-xl p-8 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-[#f5b800] rounded-full opacity-5 blur-3xl"></div>
@@ -305,17 +305,17 @@ export function CustomerRepairRequests() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table className="requests-table">
+              <div className="w-full">
+                <Table className="requests-table table-fixed w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Request #</TableHead>
-                    <TableHead>Device</TableHead>
-                    <TableHead>Issue</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Submitted</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="w-[12%] px-2 py-2 text-xs">Request #</TableHead>
+                    <TableHead className="w-[16%] px-2 py-2 text-xs">Device</TableHead>
+                    <TableHead className="w-[34%] px-2 py-2 text-xs">Issue</TableHead>
+                    <TableHead className="w-[14%] px-2 py-2 text-xs">Status</TableHead>
+                    <TableHead className="w-[10%] px-2 py-2 text-xs">Priority</TableHead>
+                    <TableHead className="w-[9%] px-2 py-2 text-xs">Submitted</TableHead>
+                    <TableHead className="w-[5%] px-2 py-2 text-xs text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -324,7 +324,7 @@ export function CustomerRepairRequests() {
                       key={request._id}
                       onClick={() => openDetailsDialog(request)}
                     >
-                      <TableCell>
+                      <TableCell className="align-top p-2 text-sm">
                         <div className="request-number">
                           <span>{request.requestNumber}</span>
                           {unreadCounts[request._id] > 0 && (
@@ -334,30 +334,30 @@ export function CustomerRepairRequests() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="align-top p-2 text-sm">
                         <div className="device-info">
                           <span className="device-brand">{request.deviceBrand}</span>
                           <span className="device-model">{request.deviceModel}</span>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="issue-description">{request.issueDescription}</div>
+                      <TableCell className="align-top p-2 text-sm">
+                        <div className="issue-description whitespace-normal break-words leading-snug text-slate-700 line-clamp-2">{request.issueDescription}</div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="align-top p-2 text-sm">
                         <span className={`status-badge status-${request.status}`}>
                           {getStatusIcon(request.status)}
-                          <span>{request.status}</span>
+                          <span>{formatStatusLabel(request.status)}</span>
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="align-top p-2 text-sm">
                         <span className={`priority-badge priority-${request.priority}`}>
                           {request.priority}
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="align-top p-2 text-xs">
                         {formatDate(request.createdAt)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="align-top p-2 text-right">
                         <button
                           className="action-button"
                           onClick={(e) => {

@@ -25,6 +25,7 @@ import {
   MessageSquare,
   Bell,
   User,
+  Layers,
   ChevronRight,
   FolderTree,
   Boxes,
@@ -152,6 +153,9 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
       >
         <NavItem to="/admin/users" icon={Users}>
           {t('admin.menu.userManagement')}
+        </NavItem>
+        <NavItem to="/admin/customer-groups" icon={Layers}>
+          {t('admin.menu.customerGroups')}
         </NavItem>
         <NavItem to="/admin/staff" icon={UserCheck}>
           {t('admin.menu.staffManagement')}

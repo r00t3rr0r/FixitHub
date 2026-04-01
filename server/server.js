@@ -129,6 +129,8 @@ console.log('Loading admin dashboard routes...');
 const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
 console.log('Loading admin analytics routes...');
 const adminAnalyticsRoutes = require("./routes/adminAnalyticsRoutes");
+console.log('Loading customer group routes...');
+const customerGroupRoutes = require("./routes/customerGroupRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -388,6 +390,8 @@ app.use('/api/admin/staff-management', staffManagementRoutes);
 app.use('/api/system-config', systemConfigRoutes);
 // Financial Management Routes
 app.use('/api/admin/financial', financialRoutes);
+// Customer Group Management Routes
+app.use('/api/admin/customer-groups', customerGroupRoutes);
 // Database Management Routes
 app.use('/api/database', databaseRoutes);
 // Security Routes

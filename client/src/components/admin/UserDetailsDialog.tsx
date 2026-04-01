@@ -201,6 +201,10 @@ export function UserDetailsDialog({ userId, open, onOpenChange }: UserDetailsDia
 
   if (!user) return null
 
+  const primaryCustomerGroup = user.customerGroups?.find((group) => group.isPrimary)
+  const additionalCustomerGroups = (user.customerGroups || []).filter((group) => !group.isPrimary)
+  const customerGroupLabel = primaryCustomerGroup?.name || user.customerGroup || 'No customer group assigned'
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="user-details-dialog user-details-dialog--compact max-w-6xl max-h-[90vh] bg-white overflow-hidden p-0">
@@ -280,7 +284,12 @@ export function UserDetailsDialog({ userId, open, onOpenChange }: UserDetailsDia
                     <Shield className="h-5 w-5 text-[#f5b800]" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-lg font-bold text-[#f5b800]">{user.customerGroup}</div>
+                    <div className="text-lg font-bold text-[#f5b800]">{customerGroupLabel}</div>
+                    {additionalCustomerGroups.length > 0 && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        Additional groups: {additionalCustomerGroups.map((group) => group.name).join(', ')}
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -339,6 +348,13 @@ export function UserDetailsDialog({ userId, open, onOpenChange }: UserDetailsDia
                       <div className="flex-1 min-w-0">
                         <span className="text-xs font-bold uppercase tracking-wide text-gray-500 block">Status</span>
                         <Badge className={getStatusColor(user.status)}>{user.status}</Badge>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-2 rounded hover:bg-gray-50 transition-colors">
+                      <Shield className="h-5 w-5 text-[#f5b800] flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-bold uppercase tracking-wide text-gray-500 block">Primary Group</span>
+                        <span className="text-sm font-medium text-[#1a2a5e]">{customerGroupLabel}</span>
                       </div>
                     </div>
                   </div>

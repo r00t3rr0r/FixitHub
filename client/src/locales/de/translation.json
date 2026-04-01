@@ -29,6 +29,8 @@
     "export": "Exportieren",
     "import": "Importieren",
     "refresh": "Aktualisieren",
+    "activate": "Aktivieren",
+    "deactivate": "Deaktivieren",
     "actions": "Aktionen",
     "status": "Status",
     "select": "Auswählen",
@@ -85,7 +87,8 @@
       "databaseManagement": "Datenbankverwaltung",
       "securitySettings": "Sicherheitseinstellungen",
       "seoManagement": "SEO-Verwaltung",
-      "financialManagement": "Finanzverwaltung"
+      "financialManagement": "Finanzverwaltung",
+      "customerGroups": "Customer Groups"
     },
     "systemConfig": {
       "title": "Systemkonfiguration",
@@ -120,6 +123,59 @@
       "totalKeys": "Gesamte Schlüssel",
       "translatedKeys": "Übersetzte Schlüssel",
       "missingKeys": "Fehlende Schlüssel"
+    }
+  },
+  "customerGroupsManagement": {
+    "title": "Customer Groups",
+    "description": "Verwalten Sie Kundengruppen, Finanzprofile und Affiliate-Grundregeln zentral im Adminbereich.",
+    "loadError": "Customer Groups konnten nicht geladen werden.",
+    "saveError": "Customer Group konnte nicht gespeichert werden.",
+    "statusError": "Status der Customer Group konnte nicht geändert werden.",
+    "deleteError": "Customer Group konnte nicht gelöscht werden.",
+    "createdSuccess": "Customer Group wurde erstellt.",
+    "updatedSuccess": "Customer Group wurde aktualisiert.",
+    "deletedSuccess": "Customer Group wurde gelöscht.",
+    "nameRequired": "Ein Gruppenname ist erforderlich.",
+    "deleteConfirm": "Soll diese Customer Group wirklich gelöscht werden?",
+    "createGroup": "Customer Group erstellen",
+    "editGroup": "Customer Group bearbeiten",
+    "formDescription": "Definieren Sie Stammdaten sowie erste Finanz- und Affiliate-Vorgaben für die Gruppe.",
+    "cards": {
+      "totalGroups": "Gruppen gesamt",
+      "customersAssigned": "Aktive Zuordnungen",
+      "activeRules": "Regeln gesamt",
+      "financialProfiles": "Finanzprofile"
+    },
+    "listTitle": "Gruppenübersicht",
+    "listDescription": "Dieses Grundgerüst bildet die Basis für spätere Regel- und Zuordnungsautomatisierung.",
+    "searchPlaceholder": "Nach Name, Key oder Beschreibung suchen",
+    "allStatuses": "Alle Status",
+    "noGroups": "Noch keine Customer Groups vorhanden.",
+    "fields": {
+      "name": "Name",
+      "key": "Key",
+      "description": "Beschreibung",
+      "status": "Status",
+      "mode": "Modus",
+      "priority": "Priorität",
+      "paymentDueDays": "Zahlungsziel in Tagen",
+      "discountPercent": "Rabatt in %",
+      "creditLimit": "Kreditlimit",
+      "attributionModel": "Attribution",
+      "commissionValue": "Standard-Provision",
+      "isExclusive": "Exklusive Gruppe",
+      "isExclusiveHelp": "Exklusive Gruppen sollen Konflikte mit anderen Gruppen vermeiden.",
+      "isDefault": "Fallback-Gruppe",
+      "isDefaultHelp": "Diese Gruppe wird genutzt, wenn keine andere Regel greift."
+    },
+    "table": {
+      "group": "Gruppe",
+      "status": "Status",
+      "priority": "Priorität",
+      "customers": "Kunden",
+      "financials": "Finanzen",
+      "affiliate": "Affiliate",
+      "actions": "Aktionen"
     }
   },
   "staff": {
@@ -312,6 +368,9 @@
     "noUsersFound": "Keine Benutzer gefunden",
     "filterByRole": "Nach Rolle filtern",
     "filterByStatus": "Nach Status filtern",
+    "customerGroup": "Customer Group",
+    "allCustomerGroups": "Alle Customer Groups",
+    "noCustomerGroup": "Keine Customer Group",
     "allRoles": "Alle Rollen",
     "allStatuses": "Alle Status",
     "customer": "Kunde",

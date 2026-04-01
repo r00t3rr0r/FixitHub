@@ -57,6 +57,15 @@ const schema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  primaryCustomerGroupId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'CustomerGroup',
+    default: null,
+  },
+  customerGroupIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'CustomerGroup',
+  }],
   salutation: {
     type: String,
     default: '',

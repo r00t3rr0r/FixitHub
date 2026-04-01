@@ -29,6 +29,8 @@
     "export": "Export",
     "import": "Import",
     "refresh": "Refresh",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
     "actions": "Actions",
     "status": "Status",
     "select": "Select",
@@ -85,7 +87,8 @@
       "databaseManagement": "Database Management",
       "securitySettings": "Security Settings",
       "seoManagement": "SEO Management",
-      "financialManagement": "Financial Management"
+      "financialManagement": "Financial Management",
+      "customerGroups": "Customer Groups"
     },
     "systemConfig": {
       "title": "System Configuration",
@@ -120,6 +123,59 @@
       "totalKeys": "Total Keys",
       "translatedKeys": "Translated Keys",
       "missingKeys": "Missing Keys"
+    }
+  },
+  "customerGroupsManagement": {
+    "title": "Customer Groups",
+    "description": "Manage customer groups, financial profiles and affiliate defaults from one admin area.",
+    "loadError": "Failed to load customer groups.",
+    "saveError": "Failed to save customer group.",
+    "statusError": "Failed to change customer group status.",
+    "deleteError": "Failed to delete customer group.",
+    "createdSuccess": "Customer group created successfully.",
+    "updatedSuccess": "Customer group updated successfully.",
+    "deletedSuccess": "Customer group deleted successfully.",
+    "nameRequired": "A group name is required.",
+    "deleteConfirm": "Delete this customer group?",
+    "createGroup": "Create customer group",
+    "editGroup": "Edit customer group",
+    "formDescription": "Define master data plus initial financial and affiliate defaults for the group.",
+    "cards": {
+      "totalGroups": "Total groups",
+      "customersAssigned": "Active assignments",
+      "activeRules": "Total rules",
+      "financialProfiles": "Financial profiles"
+    },
+    "listTitle": "Group overview",
+    "listDescription": "This scaffold provides the base for the later rule and assignment automation work.",
+    "searchPlaceholder": "Search by name, key or description",
+    "allStatuses": "All statuses",
+    "noGroups": "No customer groups available yet.",
+    "fields": {
+      "name": "Name",
+      "key": "Key",
+      "description": "Description",
+      "status": "Status",
+      "mode": "Mode",
+      "priority": "Priority",
+      "paymentDueDays": "Payment due days",
+      "discountPercent": "Discount %",
+      "creditLimit": "Credit limit",
+      "attributionModel": "Attribution",
+      "commissionValue": "Default commission",
+      "isExclusive": "Exclusive group",
+      "isExclusiveHelp": "Exclusive groups should avoid conflicts with other groups.",
+      "isDefault": "Fallback group",
+      "isDefaultHelp": "This group is used when no other rule applies."
+    },
+    "table": {
+      "group": "Group",
+      "status": "Status",
+      "priority": "Priority",
+      "customers": "Customers",
+      "financials": "Financials",
+      "affiliate": "Affiliate",
+      "actions": "Actions"
     }
   },
   "staff": {
@@ -312,6 +368,9 @@
     "noUsersFound": "No users found",
     "filterByRole": "Filter by Role",
     "filterByStatus": "Filter by Status",
+    "customerGroup": "Customer Group",
+    "allCustomerGroups": "All Customer Groups",
+    "noCustomerGroup": "No Customer Group",
     "allRoles": "All Roles",
     "allStatuses": "All Statuses",
     "customer": "Customer",

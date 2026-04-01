@@ -235,7 +235,10 @@ class UserService {
       console.log('UserService.getDetailedUserInfo: Getting detailed info for user:', userId);
 
       // Get user basic information
-      const user = await User.findById(userId).exec();
+      const user = await User.findById(userId)
+        .populate('primaryCustomerGroupId', '_id name key')
+        .populate('customerGroupIds', '_id name key')
+        .exec();
       if (!user) {
         throw new Error('User not found');
       }
@@ -332,6 +335,21 @@ class UserService {
         }
       }
 
+      const populatedPrimaryGroup = user.primaryCustomerGroupId;
+      const populatedGroups = Array.isArray(user.customerGroupIds) ? user.customerGroupIds : [];
+      const primaryCustomerGroupId = populatedPrimaryGroup?._id
+        ? String(populatedPrimaryGroup._id)
+        : user.primaryCustomerGroupId
+          ? String(user.primaryCustomerGroupId)
+          : null;
+      const customerGroupIds = populatedGroups.map((group) => String(group._id || group));
+      const customerGroups = populatedGroups.map((group) => ({
+        _id: String(group._id || group),
+        name: group.name || user.customerGroup || 'Customer Group',
+        key: group.key || '',
+        isPrimary: String(group._id || group) === primaryCustomerGroupId,
+      }));
+
       const detailedInfo = {
         // Basic user info
         _id: user._id,
@@ -376,7 +394,10 @@ class UserService {
         paymentHistory: paymentHistory,
 
         // Customer classification
-        customerGroup: customerGroup,
+        customerGroup: populatedPrimaryGroup?.name || user.customerGroup || customerGroup,
+        primaryCustomerGroupId,
+        customerGroupIds,
+        customerGroups,
 
         // Activity log
         activityLog: activityLog,
