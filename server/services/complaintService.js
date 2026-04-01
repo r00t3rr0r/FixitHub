@@ -1,17 +1,62 @@
 const Complaint = require('../models/Complaint');
 const Booking = require('../models/Booking');
+const Order = require('../models/Order');
 const User = require('../models/User');
 
 class ComplaintService {
+  static buildActor(user) {
+    if (!user) {
+      return {
+        actorId: null,
+        actorName: 'System',
+        actorRole: 'system'
+      };
+    }
+
+    const actorName = user.firstName
+      ? `${user.firstName} ${user.lastName || ''}`.trim()
+      : (user.name || user.email || 'Unknown');
+
+    return {
+      actorId: user._id,
+      actorName,
+      actorRole: user.role || 'unknown'
+    };
+  }
+
+  static appendLog(complaint, user, action, fromStatus, toStatus, notes = '', metadata = {}) {
+    const actor = this.buildActor(user);
+    complaint.complaintLogs.push({
+      actorId: actor.actorId,
+      actorName: actor.actorName,
+      actorRole: actor.actorRole,
+      action,
+      fromStatus: fromStatus || '',
+      toStatus: toStatus || '',
+      notes,
+      metadata
+    });
+  }
+
   // Create a new complaint
   static async create(complaintData) {
     console.log('ComplaintService: Creating new complaint with data:', complaintData);
 
     try {
-      // Validate booking exists
-      const booking = await Booking.findById(complaintData.bookingId);
-      if (!booking) {
-        throw new Error('Booking not found');
+      // Validate booking exists only when provided
+      if (complaintData.bookingId) {
+        const booking = await Booking.findById(complaintData.bookingId);
+        if (!booking) {
+          throw new Error('Booking not found');
+        }
+      }
+
+      // Validate order exists only when provided
+      if (complaintData.orderId) {
+        const order = await Order.findById(complaintData.orderId);
+        if (!order) {
+          throw new Error('Order not found');
+        }
       }
 
       // Validate customer exists
@@ -24,18 +69,26 @@ class ComplaintService {
         bookingId: complaintData.bookingId,
         orderId: complaintData.orderId,
         customerId: complaintData.customerId,
-        subject: complaintData.subject,
+        subject: complaintData.subject || 'Order Complaint',
         description: complaintData.description,
-        category: complaintData.category,
+        category: complaintData.category || 'other',
         priority: complaintData.priority || 'medium',
-        status: 'open',
+        status: complaintData.status || 'open',
+        workflowType: complaintData.workflowType || 'legacy',
+        complaintReason: complaintData.complaintReason || '',
+        shippingLabelUrl: complaintData.shippingLabelUrl || '',
+        extraCosts: complaintData.extraCosts || 0,
+        serviceFee: complaintData.serviceFee || 0,
+        partialRefund: complaintData.partialRefund || 0,
+        repairOffer: complaintData.repairOffer || undefined,
         comments: [{
           userId: complaintData.customerId,
           userName: `${customer.firstName || customer.name || ''} ${customer.lastName || ''}`.trim(),
           userRole: customer.role || 'customer',
           comment: complaintData.description,
           isInternal: false
-        }]
+        }],
+        complaintLogs: complaintData.complaintLogs || []
       });
 
       const savedComplaint = await complaint.save();
@@ -129,6 +182,7 @@ class ComplaintService {
         throw new Error('Complaint not found');
       }
 
+      const previousStatus = complaint.status;
       complaint.status = status;
 
       // Add comment about status change
@@ -138,6 +192,16 @@ class ComplaintService {
         userRole: userRole,
         comment: `Status changed to ${status}`,
         isInternal: false
+      });
+
+      complaint.complaintLogs.push({
+        actorId: userId,
+        actorName: userName,
+        actorRole: userRole,
+        action: 'status_changed',
+        fromStatus: previousStatus,
+        toStatus: status,
+        notes: `Status changed to ${status}`
       });
 
       const savedComplaint = await complaint.save();

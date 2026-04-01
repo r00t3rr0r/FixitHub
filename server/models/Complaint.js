@@ -38,7 +38,8 @@ const complaintSchema = new mongoose.Schema({
   bookingId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Booking',
-    required: true
+    required: false,
+    default: null
   },
   orderId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -69,9 +70,159 @@ const complaintSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['open', 'in-progress', 'pending-customer', 'resolved', 'closed'],
+    enum: [
+      'open',
+      'in-progress',
+      'pending-customer',
+      'resolved',
+      'closed',
+      'pending_approval',
+      'approved',
+      'rejected',
+      'acknowledged',
+      'denied',
+      'new_repair'
+    ],
     default: 'open'
   },
+  workflowType: {
+    type: String,
+    enum: ['legacy', 'order-complaint'],
+    default: 'legacy'
+  },
+  complaintReason: {
+    type: String,
+    default: ''
+  },
+  rejectionReason: {
+    type: String,
+    default: ''
+  },
+  technicianReason: {
+    type: String,
+    default: ''
+  },
+  repairNotes: {
+    type: String,
+    default: ''
+  },
+  shippingLabelUrl: {
+    type: String,
+    default: ''
+  },
+  adminApprovedAt: {
+    type: Date
+  },
+  adminApprovedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  technicianId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  technicianName: {
+    type: String,
+    default: ''
+  },
+  newOrderId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Order'
+  },
+  extraCosts: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  serviceFee: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  partialRefund: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  additionalParts: [{
+    name: {
+      type: String,
+      default: ''
+    },
+    quantity: {
+      type: Number,
+      default: 1,
+      min: 1
+    },
+    cost: {
+      type: Number,
+      default: 0,
+      min: 0
+    }
+  }],
+  repairOffer: {
+    amount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    description: {
+      type: String,
+      default: ''
+    },
+    createdAt: {
+      type: Date
+    },
+    acceptedAt: {
+      type: Date
+    },
+    rejectedAt: {
+      type: Date
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'accepted', 'rejected', 'none'],
+      default: 'none'
+    }
+  },
+  complaintLogs: [{
+    actorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    actorName: {
+      type: String,
+      default: ''
+    },
+    actorRole: {
+      type: String,
+      default: ''
+    },
+    action: {
+      type: String,
+      required: true
+    },
+    fromStatus: {
+      type: String,
+      default: ''
+    },
+    toStatus: {
+      type: String,
+      default: ''
+    },
+    notes: {
+      type: String,
+      default: ''
+    },
+    metadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   assignedTo: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
@@ -138,7 +289,10 @@ complaintSchema.pre(/^find/, function(next) {
   this.populate('customerId', 'firstName lastName email phone avatar')
       .populate('bookingId', 'bookingNumber status totalCost')
       .populate('orderId', 'orderNumber deviceBrand deviceModel')
+      .populate('newOrderId', 'orderNumber status totalCost')
       .populate('assignedTo', 'firstName lastName email role')
+      .populate('technicianId', 'firstName lastName email role')
+      .populate('adminApprovedBy', 'firstName lastName email role')
       .populate('resolvedBy', 'firstName lastName email');
   next();
 });

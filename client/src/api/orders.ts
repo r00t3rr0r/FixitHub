@@ -116,6 +116,8 @@ export interface Order {
     status: string;
     description: string;
   }>;
+  hasComplaint?: boolean;
+  complaintReason?: string;
 }
 
 export interface AddOnService {
@@ -268,6 +270,19 @@ export const removeShopProductFromOrder = async (orderId: string, productItemId:
     return response.data;
   } catch (error) {
     console.error('removeShopProductFromOrder API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Create complaint for a completed order
+// Endpoint: POST /api/orders/:orderId/complaint
+// Request: { reason: string, description: string }
+// Response: { success: boolean, complaint: Complaint }
+export const createOrderComplaint = async (orderId: string, payload: { reason: string; description: string }) => {
+  try {
+    const response = await api.post(`/api/orders/${orderId}/complaint`, payload);
+    return response.data;
+  } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };

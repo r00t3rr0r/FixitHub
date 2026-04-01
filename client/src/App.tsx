@@ -53,6 +53,7 @@ import { PartsManagement } from "./pages/admin/PartsManagement"
 import { StaffManagement } from "./pages/admin/StaffManagement"
 import { FinancialManagement } from "./pages/admin/FinancialManagement"
 import { DeviceManagement } from "./pages/admin/DeviceManagement"
+import { ComplaintsManagement } from "./pages/admin/ComplaintsManagement"
 import EPartOrderManagement from "./pages/admin/EPartOrderManagement"
 import { InspectionWorkflow } from "./pages/inspection/InspectionWorkflow"
 import { RepairRequestQuestionnaire } from "./pages/RepairRequestQuestionnaire"
@@ -245,6 +246,9 @@ function App() {
             </Route>
             <Route path="/admin/financial" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<FinancialManagement />} />
+            </Route>
+            <Route path="/admin/complaints" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
+              <Route index element={<ComplaintsManagement />} />
             </Route>
             <Route path="/admin/epart-orders" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<EPartOrderManagement />} />

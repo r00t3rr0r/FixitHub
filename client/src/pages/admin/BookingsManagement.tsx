@@ -124,6 +124,7 @@ interface Booking {
   }
   orderIds?: Array<any>
   repairOrderIds?: Array<any>
+  hasComplaintOrders?: boolean
   items: Array<{
     _id?: string
     type: string
@@ -650,6 +651,18 @@ export function BookingsManagement() {
     }
   }
 
+  const getOrderTypeBadgeClass = (item: any) => {
+    if (item?.type === 'repair' && item?.isComplaintFollowup) {
+      return 'bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-900 dark:text-rose-200 dark:border-rose-700'
+    }
+
+    if (item?.type === 'repair') {
+      return 'bg-blue-100 text-blue-800 border border-blue-300 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700'
+    }
+
+    return 'bg-slate-100 text-slate-800 border border-slate-300 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700'
+  }
+
   const getBillingStatusColor = (status: string) => {
     switch (status) {
       case 'unpaid':
@@ -918,8 +931,13 @@ export function BookingsManagement() {
                         </Button>
                       </TableCell>
                       <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col gap-1">
                           <span>#{booking._id.slice(-8).toUpperCase()}</span>
+                          {(booking as any).hasComplaintOrders && (
+                            <Badge className="bg-rose-100 text-rose-800 border border-rose-300 text-[10px] px-1.5 py-0 h-4 w-fit font-medium">
+                              Reklamation
+                            </Badge>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -1173,8 +1191,10 @@ export function BookingsManagement() {
                                             </div>
                                           </TableCell>
                                           <TableCell>
-                                            <Badge variant={item.type === 'repair' ? 'default' : 'secondary'}>
-                                              {item.type === 'repair' ? 'Repair' : 'Product'}
+                                            <Badge className={getOrderTypeBadgeClass(item)}>
+                                              {item.type === 'repair'
+                                                ? (item.isComplaintFollowup ? 'Complaint Repair' : 'Repair')
+                                                : 'Product'}
                                             </Badge>
                                           </TableCell>
                                           <TableCell>

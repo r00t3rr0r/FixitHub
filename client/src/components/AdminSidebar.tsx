@@ -21,6 +21,7 @@ import {
   Package2,
   UserCheck,
   DollarSign,
+  AlertCircle,
   MessageSquare,
   Bell,
   User,
@@ -195,6 +196,9 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
         </NavItem>
         <NavItem to="/admin/financial" icon={DollarSign}>
           {t('admin.menu.financialManagement')}
+        </NavItem>
+        <NavItem to="/admin/complaints" icon={AlertCircle}>
+          Reklamationen
         </NavItem>
       </CollapsibleSection>
 

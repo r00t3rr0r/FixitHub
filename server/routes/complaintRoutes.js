@@ -1,112 +1,809 @@
 const express = require('express');
 const router = express.Router();
-const { requireUser, requireAdmin } = require('./middleware/auth');
+const { requireUser, requireAdmin, requireRole } = require('./middleware/auth');
 const ComplaintService = require('../services/complaintService');
+const BookingService = require('../services/bookingService');
+const Complaint = require('../models/Complaint');
+const Order = require('../models/Order');
+const User = require('../models/User');
+const NotificationService = require('../services/notificationService');
+const EmailService = require('../services/emailService');
+const InspectionCommunicationService = require('../services/inspectionCommunicationService');
+
+const ADMIN_NOTIFICATION_TYPE = 'system';
+
+function actorName(user) {
+  return user?.firstName
+    ? `${user.firstName} ${user.lastName || ''}`.trim()
+    : (user?.name || user?.email || 'System');
+}
+
+function ensureTransition(currentStatus, allowedStatuses, actionLabel) {
+  if (!allowedStatuses.includes(currentStatus)) {
+    throw new Error(`${actionLabel} not allowed while complaint status is ${currentStatus}`);
+  }
+}
+
+function getComplaintCustomerId(complaint) {
+  if (!complaint?.customerId) return '';
+  return complaint.customerId?._id
+    ? complaint.customerId._id.toString()
+    : complaint.customerId.toString();
+}
+
+async function notifyAdminsAboutComplaint(complaint, customer, order) {
+  const admins = await User.find({ role: 'admin', isActive: true }).select('_id email');
+  if (!admins.length) {
+    return;
+  }
+
+  const notificationText = `Neue Reklamation ${complaint.complaintNumber} zu Auftrag ${order.orderNumber} von ${customer.email}`;
+
+  await Promise.all(admins.map(async (admin) => {
+    try {
+      await NotificationService.createNotification({
+        userId: admin._id,
+        title: 'Neue Reklamation eingegangen',
+        message: notificationText,
+        type: ADMIN_NOTIFICATION_TYPE,
+        orderId: order._id,
+        actionUrl: `/admin/complaints?complaintId=${complaint._id}`,
+        metadata: {
+          complaintId: complaint._id,
+          orderId: order._id,
+          event: 'complaint_created'
+        }
+      });
+
+      if (admin.email) {
+        await EmailService.sendTemplateEmail('Statusupdate Auftrag oder Buchung', admin.email, {
+          companyName: 'FixitHub',
+          customerName: 'Admin Team',
+          orderNumber: order.orderNumber,
+          orderStatus: 'Reklamation eingegangen',
+          statusMessage: notificationText,
+          statusUpdatedAt: new Date().toLocaleDateString('de-DE'),
+          trackingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/admin/complaints`,
+          supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+          supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+        });
+      }
+    } catch (notificationError) {
+      console.error('ComplaintRoutes: Failed to notify admin:', notificationError.message);
+    }
+  }));
+}
+
+async function notifyCustomer(complaint, customerId, title, message, metadata = {}) {
+  try {
+    await NotificationService.createNotification({
+      userId: customerId,
+      title,
+      message,
+      type: 'order_update',
+      orderId: complaint.orderId,
+      actionUrl: `/orders/${complaint.orderId}`,
+      metadata: {
+        complaintId: complaint._id,
+        ...metadata
+      }
+    });
+
+    const customer = await User.findById(customerId).select('email firstName lastName');
+    if (customer?.email) {
+      await EmailService.sendTemplateEmail('Statusupdate Auftrag oder Buchung', customer.email, {
+        companyName: 'FixitHub',
+        customerName: `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email,
+        orderNumber: complaint.orderId?.orderNumber || 'Reklamation',
+        orderStatus: title,
+        statusMessage: message,
+        statusUpdatedAt: new Date().toLocaleDateString('de-DE'),
+        trackingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders/${complaint.orderId}`,
+        supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+        supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+      });
+    }
+  } catch (error) {
+    console.error('ComplaintRoutes: Error notifying customer:', error.message);
+  }
+}
+
+function complaintToAdminRow(complaint) {
+  const partsCosts = (complaint.additionalParts || []).reduce((sum, part) => sum + (part.cost || 0), 0);
+  const sourceOrderId = complaint.orderId?._id || complaint.orderId;
+  const complaintOrderId = complaint.newOrderId?._id || complaint.newOrderId;
+  return {
+    _id: complaint._id,
+    complaintNumber: complaint.complaintNumber,
+    orderId: sourceOrderId,
+    orderNumber: complaint.orderId?.orderNumber || 'N/A',
+    complaintOrderId,
+    complaintOrderNumber: complaint.newOrderId?.orderNumber || '',
+    customer: complaint.customerId
+      ? `${complaint.customerId.firstName || ''} ${complaint.customerId.lastName || ''}`.trim() || complaint.customerId.email
+      : 'N/A',
+    processor: complaint.technicianName || complaint.assignedToName || '',
+    status: complaint.status,
+    createdAt: complaint.createdAt,
+    extraCosts: Number((complaint.extraCosts || 0) + partsCosts + (complaint.serviceFee || 0)),
+    partialRefund: complaint.partialRefund || 0
+  };
+}
+
+function buildComplaintOrderPayload(sourceOrder, complaint) {
+  const source = sourceOrder.toObject();
+  delete source._id;
+  delete source.orderNumber;
+  delete source.createdAt;
+  delete source.updatedAt;
+
+  source.status = 'pending';
+  source.progress = 0;
+  source.actualCompletion = undefined;
+  source.estimatedCompletion = undefined;
+  source.assignedStaff = [];
+  source.staffNotes = [];
+  source.timeline = [];
+  source.workflows = [];
+  source.hasComplaint = true;
+  source.parentOrderId = sourceOrder._id;
+  source.sourceComplaintId = complaint._id;
+  source.isComplaintFollowup = true;
+  source.customerNotes = `${source.customerNotes || ''}\nReklamationsauftrag aus ${complaint.complaintNumber}`.trim();
+
+  return source;
+}
 
 // Description: Get all complaints for a booking
 // Endpoint: GET /api/complaints/booking/:bookingId
-// Request: {}
-// Response: { success: boolean, complaints: Complaint[] }
 router.get('/booking/:bookingId', requireUser, async (req, res) => {
   try {
-    console.log('ComplaintRoutes: Getting complaints for booking:', req.params.bookingId);
-
     const complaints = await ComplaintService.getByBooking(req.params.bookingId);
-
-    console.log('ComplaintRoutes: Retrieved', complaints.length, 'complaints');
-
-    res.json({
-      success: true,
-      complaints: complaints
-    });
+    return res.json({ success: true, complaints });
   } catch (error) {
-    console.error('ComplaintRoutes: Error getting complaints:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    console.error('ComplaintRoutes: Error getting complaints by booking:', error);
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // Description: Get all complaints (admin only)
 // Endpoint: GET /api/complaints
-// Request: { status?: string, category?: string, priority?: string, limit?: number, skip?: number }
-// Response: { success: boolean, complaints: Complaint[] }
 router.get('/', requireAdmin, async (req, res) => {
   try {
-    console.log('ComplaintRoutes: Getting all complaints');
+    const { status, category, priority, limit = 50, skip = 0, from, to, technicianId } = req.query;
 
-    const { status, category, priority, limit = 50, skip = 0 } = req.query;
+    const query = {};
+    if (status) query.status = status;
+    if (category) query.category = category;
+    if (priority) query.priority = priority;
+    if (technicianId) query.technicianId = technicianId;
 
-    const filters = {};
-    if (status) filters.status = status;
-    if (category) filters.category = category;
-    if (priority) filters.priority = priority;
-    filters.limit = parseInt(limit);
-    filters.skip = parseInt(skip);
+    if (from || to) {
+      query.createdAt = {};
+      if (from) query.createdAt.$gte = new Date(from);
+      if (to) query.createdAt.$lte = new Date(to);
+    }
 
-    const complaints = await ComplaintService.getAll(filters);
+    const complaints = await Complaint.find(query)
+      .populate('orderId', 'orderNumber')
+      .populate('newOrderId', 'orderNumber status')
+      .populate('customerId', 'firstName lastName email')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit, 10))
+      .skip(parseInt(skip, 10));
 
-    console.log('ComplaintRoutes: Retrieved', complaints.length, 'complaints');
-
-    res.json({
+    return res.json({
       success: true,
-      complaints: complaints
+      complaints,
+      rows: complaints.map(complaintToAdminRow)
     });
   } catch (error) {
-    console.error('ComplaintRoutes: Error getting complaints:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
+    console.error('ComplaintRoutes: Error getting all complaints:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Description: Accept new repair offer (customer)
+// Endpoint: POST /api/complaints/:id/accept-offer
+router.post('/:id/accept-offer', requireUser, async (req, res) => {
+  try {
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) {
+      return res.status(404).json({ success: false, error: 'Complaint not found' });
+    }
+
+    const complaintCustomerId = getComplaintCustomerId(complaint);
+    if (req.user.role === 'customer' && complaintCustomerId !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    ensureTransition(complaint.status, ['denied'], 'Accept offer');
+
+    let duplicatedOrder = null;
+    if (complaint.newOrderId) {
+      duplicatedOrder = await Order.findById(complaint.newOrderId).setOptions({ skipAutoPopulate: true });
+    }
+
+    if (!duplicatedOrder) {
+      const sourceOrder = await Order.findById(complaint.orderId).setOptions({ skipAutoPopulate: true });
+      if (!sourceOrder) {
+        return res.status(404).json({ success: false, error: 'Source order not found for complaint' });
+      }
+
+      const source = buildComplaintOrderPayload(sourceOrder, complaint);
+      duplicatedOrder = await Order.create(source);
+    }
+
+    const previousStatus = complaint.status;
+    complaint.status = 'new_repair';
+    complaint.newOrderId = duplicatedOrder._id;
+    complaint.repairOffer.status = 'accepted';
+    complaint.repairOffer.acceptedAt = new Date();
+    complaint.complaintLogs.push({
+      actorId: req.user._id,
+      actorName: actorName(req.user),
+      actorRole: req.user.role,
+      action: 'offer_accepted',
+      fromStatus: previousStatus,
+      toStatus: 'new_repair',
+      notes: 'Customer accepted technician repair offer',
+      metadata: {
+        newOrderId: duplicatedOrder._id
+      }
     });
+
+    await complaint.save();
+
+    // Update repair offer message status in the communication thread
+    try {
+      const targetOrderId = (complaint.newOrderId || complaint.orderId).toString();
+      await InspectionCommunicationService.updateRepairOfferStatus(
+        targetOrderId, complaint._id, 'accepted'
+      );
+    } catch (commError) {
+      console.error('ComplaintRoutes: Error updating repair offer message status (accept):', commError);
+    }
+
+    await notifyCustomer(
+      complaint,
+      complaint.customerId,
+      'Neues Reparaturangebot angenommen',
+      `Ein neuer Reparaturauftrag wurde erstellt: ${duplicatedOrder.orderNumber}`,
+      { event: 'offer_accepted', newOrderId: duplicatedOrder._id }
+    );
+
+    return res.json({
+      success: true,
+      complaint,
+      newOrder: {
+        _id: duplicatedOrder._id,
+        orderNumber: duplicatedOrder.orderNumber,
+        status: duplicatedOrder.status
+      }
+    });
+  } catch (error) {
+    console.error('ComplaintRoutes: Error accepting offer:', error);
+    return res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// Description: Reject new repair offer (customer)
+// Endpoint: POST /api/complaints/:id/reject-offer
+router.post('/:id/reject-offer', requireUser, async (req, res) => {
+  try {
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) {
+      return res.status(404).json({ success: false, error: 'Complaint not found' });
+    }
+
+    const complaintCustomerId = getComplaintCustomerId(complaint);
+    if (req.user.role === 'customer' && complaintCustomerId !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    ensureTransition(complaint.status, ['denied'], 'Reject offer');
+
+    const serviceFee = Number(req.body?.serviceFee || 39);
+    const previousStatus = complaint.status;
+
+    complaint.status = 'closed';
+    complaint.serviceFee = serviceFee;
+    complaint.extraCosts = Number(complaint.extraCosts || 0) + serviceFee;
+    complaint.repairOffer.status = 'rejected';
+    complaint.repairOffer.rejectedAt = new Date();
+    complaint.complaintLogs.push({
+      actorId: req.user._id,
+      actorName: actorName(req.user),
+      actorRole: req.user.role,
+      action: 'offer_rejected',
+      fromStatus: previousStatus,
+      toStatus: 'closed',
+      notes: `Customer rejected offer. Service fee applied: ${serviceFee}`,
+      metadata: {
+        serviceFee
+      }
+    });
+
+    await complaint.save();
+
+    // Update repair offer message status in the communication thread
+    try {
+      const targetOrderId = (complaint.newOrderId || complaint.orderId).toString();
+      await InspectionCommunicationService.updateRepairOfferStatus(
+        targetOrderId, complaint._id, 'rejected'
+      );
+    } catch (commError) {
+      console.error('ComplaintRoutes: Error updating repair offer message status (reject):', commError);
+    }
+
+    await notifyCustomer(
+      complaint,
+      complaint.customerId,
+      'Reparaturangebot abgelehnt',
+      `Die Reklamation wurde geschlossen. Servicepauschale: ${serviceFee.toFixed(2)} EUR`,
+      { event: 'offer_rejected', serviceFee }
+    );
+
+    return res.json({ success: true, complaint });
+  } catch (error) {
+    console.error('ComplaintRoutes: Error rejecting offer:', error);
+    return res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// Description: Convert accepted repair offer into a new booking with a newly generated order
+// Endpoint: POST /api/complaints/:id/convert-offer-to-booking
+router.post('/:id/convert-offer-to-booking', requireUser, async (req, res) => {
+  try {
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) {
+      return res.status(404).json({ success: false, error: 'Complaint not found' });
+    }
+
+    const complaintCustomerId = getComplaintCustomerId(complaint);
+    if (req.user.role === 'customer' && complaintCustomerId !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    if (!complaint.repairOffer || complaint.repairOffer.status !== 'accepted') {
+      return res.status(400).json({ success: false, error: 'Repair offer must be accepted before conversion' });
+    }
+
+    if (!complaint.newOrderId) {
+      return res.status(400).json({ success: false, error: 'No follow-up order available for conversion' });
+    }
+
+    const complaintOrder = await Order.findById(complaint.newOrderId).setOptions({ skipAutoPopulate: true });
+    if (!complaintOrder) {
+      return res.status(404).json({ success: false, error: 'Follow-up order not found' });
+    }
+
+    // Always generate a brand-new order for the new booking, independent from existing booking links.
+    const newOrderPayload = complaintOrder.toObject();
+    delete newOrderPayload._id;
+    delete newOrderPayload.orderNumber;
+    delete newOrderPayload.createdAt;
+    delete newOrderPayload.updatedAt;
+    delete newOrderPayload.bookingId;
+
+    newOrderPayload.status = 'pending';
+    newOrderPayload.progress = 0;
+    newOrderPayload.completedAt = undefined;
+    newOrderPayload.assignedStaff = [];
+    newOrderPayload.staffNotes = [];
+    newOrderPayload.timeline = [];
+    newOrderPayload.workflows = [];
+    newOrderPayload.hasComplaint = false;
+    newOrderPayload.complaintReason = undefined;
+    newOrderPayload.parentOrderId = complaintOrder._id;
+    newOrderPayload.sourceComplaintId = complaint._id;
+    newOrderPayload.isComplaintFollowup = false;
+    newOrderPayload.customerNotes = `${newOrderPayload.customerNotes || ''}\nNeuer Auftrag aus angenommenem Reparaturangebot (${complaint.complaintNumber})`.trim();
+
+    const newOrder = await Order.create(newOrderPayload);
+    const booking = await BookingService.groupOrders([newOrder._id], complaintCustomerId);
+
+    complaintOrder.status = 'completed';
+    complaintOrder.progress = 100;
+    complaintOrder.completedAt = new Date();
+    complaintOrder.timeline = complaintOrder.timeline || [];
+    complaintOrder.timeline.push({
+      status: 'completed',
+      description: 'Reklamationsauftrag wurde nach Angebotsumwandlung abgeschlossen',
+      completedAt: new Date(),
+      staffId: req.user._id.toString(),
+      staffName: actorName(req.user),
+    });
+    await complaintOrder.save();
+
+    complaint.complaintLogs.push({
+      actorId: req.user._id,
+      actorName: actorName(req.user),
+      actorRole: req.user.role,
+      action: 'offer_converted_to_booking',
+      fromStatus: complaint.status,
+      toStatus: complaint.status,
+      notes: `Accepted repair offer converted to booking ${booking.bookingNumber}`,
+      metadata: {
+        bookingId: booking._id,
+        bookingNumber: booking.bookingNumber,
+        orderId: newOrder._id,
+        orderNumber: newOrder.orderNumber,
+        closedComplaintOrderId: complaintOrder._id,
+      },
+    });
+
+    await complaint.save();
+
+    return res.json({
+      success: true,
+      converted: true,
+      bookingId: booking._id,
+      bookingNumber: booking.bookingNumber,
+      orderId: newOrder._id,
+      orderNumber: newOrder.orderNumber,
+    });
+  } catch (error) {
+    console.error('ComplaintRoutes: Error converting accepted offer to booking:', error);
+    return res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// Description: Admin approves complaint
+// Endpoint: PATCH /api/complaints/:id/approve
+router.patch('/:id/approve', requireAdmin, async (req, res) => {
+  try {
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) {
+      return res.status(404).json({ success: false, error: 'Complaint not found' });
+    }
+
+    ensureTransition(complaint.status, ['pending_approval'], 'Approve complaint');
+
+    const order = await Order.findById(complaint.orderId).setOptions({ skipAutoPopulate: true });
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Source order not found for complaint' });
+    }
+
+    order.hasComplaint = true;
+    order.complaintReason = complaint.complaintReason || complaint.description || complaint.subject;
+    await order.save();
+
+    let complaintOrder = null;
+    if (complaint.newOrderId) {
+      complaintOrder = await Order.findById(complaint.newOrderId).setOptions({ skipAutoPopulate: true });
+    }
+
+    if (!complaintOrder) {
+      const complaintOrderPayload = buildComplaintOrderPayload(order, complaint);
+      complaintOrder = await Order.create(complaintOrderPayload);
+      complaint.newOrderId = complaintOrder._id;
+    }
+
+    const previousStatus = complaint.status;
+    complaint.status = 'approved';
+    complaint.adminApprovedAt = new Date();
+    complaint.adminApprovedBy = req.user._id;
+    complaint.shippingLabelUrl = complaint.shippingLabelUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/labels/${complaint.complaintNumber || `R${complaint.orderId}`}.pdf`;
+    complaint.complaintLogs.push({
+      actorId: req.user._id,
+      actorName: actorName(req.user),
+      actorRole: req.user.role,
+      action: 'admin_approved',
+      fromStatus: previousStatus,
+      toStatus: 'approved',
+      notes: 'Complaint approved and shipping label generated',
+      metadata: {
+        shippingLabelUrl: complaint.shippingLabelUrl,
+        complaintOrderId: complaintOrder?._id,
+        complaintOrderNumber: complaintOrder?.orderNumber
+      }
+    });
+
+    await complaint.save();
+
+    await notifyCustomer(
+      complaint,
+      complaint.customerId,
+      'Reklamation genehmigt',
+      `Deine Reklamation wurde genehmigt. Versandlabel: ${complaint.shippingLabelUrl}${complaintOrder ? `. Reklamationsauftrag: ${complaintOrder.orderNumber}` : ''}`,
+      {
+        event: 'admin_approved',
+        shippingLabelUrl: complaint.shippingLabelUrl,
+        complaintOrderId: complaintOrder?._id,
+        complaintOrderNumber: complaintOrder?.orderNumber
+      }
+    );
+
+    return res.json({
+      success: true,
+      complaint,
+      complaintOrder: complaintOrder
+        ? {
+            _id: complaintOrder._id,
+            orderNumber: complaintOrder.orderNumber,
+            status: complaintOrder.status
+          }
+        : null
+    });
+  } catch (error) {
+    console.error('ComplaintRoutes: Error approving complaint:', error);
+    return res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// Description: Admin rejects complaint
+// Endpoint: PATCH /api/complaints/:id/reject
+router.patch('/:id/reject', requireAdmin, async (req, res) => {
+  try {
+    const complaint = await Complaint.findById(req.params.id)
+      .populate('orderId', 'orderNumber')
+      .populate('newOrderId', 'orderNumber status')
+      .populate('customerId', 'firstName lastName email');
+    if (!complaint) {
+      return res.status(404).json({ success: false, error: 'Complaint not found' });
+    }
+
+    const rejectionReason = req.body?.rejection_reason;
+    if (!rejectionReason) {
+      return res.status(400).json({ success: false, error: 'rejection_reason is required' });
+    }
+
+    ensureTransition(complaint.status, ['pending_approval'], 'Reject complaint');
+
+    const previousStatus = complaint.status;
+    complaint.status = 'rejected';
+    complaint.rejectionReason = rejectionReason;
+    complaint.complaintLogs.push({
+      actorId: req.user._id,
+      actorName: actorName(req.user),
+      actorRole: req.user.role,
+      action: 'admin_rejected',
+      fromStatus: previousStatus,
+      toStatus: 'rejected',
+      notes: rejectionReason,
+      metadata: {
+        rejectionReason
+      }
+    });
+
+    await complaint.save();
+
+    await notifyCustomer(
+      complaint,
+      complaint.customerId,
+      'Reklamation abgelehnt',
+      `Deine Reklamation wurde abgelehnt. Grund: ${rejectionReason}`,
+      { event: 'admin_rejected', rejectionReason }
+    );
+
+    return res.json({ success: true, complaint });
+  } catch (error) {
+    console.error('ComplaintRoutes: Error rejecting complaint:', error);
+    return res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// Description: Technician acknowledges complaint
+// Endpoint: PATCH /api/complaints/:id/acknowledge
+router.patch('/:id/acknowledge', requireUser, requireRole(['staff', 'admin']), async (req, res) => {
+  try {
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) {
+      return res.status(404).json({ success: false, error: 'Complaint not found' });
+    }
+
+    const technicianReason = req.body?.technician_reason;
+    if (!technicianReason) {
+      return res.status(400).json({ success: false, error: 'technician_reason is required' });
+    }
+
+    ensureTransition(complaint.status, ['approved'], 'Acknowledge complaint');
+
+    const additionalParts = Array.isArray(req.body?.additional_parts) ? req.body.additional_parts : [];
+    const partsCost = additionalParts.reduce((sum, item) => sum + Number(item.cost || 0), 0);
+    const partialRefund = Number(req.body?.partial_refund || 0);
+    const repairNotes = req.body?.repair_notes || '';
+    const previousStatus = complaint.status;
+
+    complaint.status = 'acknowledged';
+    complaint.technicianId = req.user._id;
+    complaint.technicianName = actorName(req.user);
+    complaint.technicianReason = technicianReason;
+    complaint.additionalParts = additionalParts;
+    complaint.partialRefund = partialRefund;
+    complaint.repairNotes = repairNotes;
+    complaint.extraCosts = Number(complaint.extraCosts || 0) + partsCost;
+    complaint.complaintLogs.push({
+      actorId: req.user._id,
+      actorName: actorName(req.user),
+      actorRole: req.user.role,
+      action: 'technician_acknowledged',
+      fromStatus: previousStatus,
+      toStatus: 'acknowledged',
+      notes: technicianReason,
+      metadata: {
+        additionalParts,
+        partsCost,
+        partialRefund,
+        repairNotes
+      }
+    });
+
+    await complaint.save();
+
+    await notifyCustomer(
+      complaint,
+      complaint.customerId,
+      'Reklamation anerkannt',
+      'Der Techniker hat die Reklamation anerkannt. Wir starten die Ausbesserung.',
+      { event: 'technician_acknowledged' }
+    );
+
+    return res.json({ success: true, complaint });
+  } catch (error) {
+    console.error('ComplaintRoutes: Error acknowledging complaint:', error);
+    return res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// Description: Technician denies complaint and creates repair offer
+// Endpoint: PATCH /api/complaints/:id/deny
+router.patch('/:id/deny', requireUser, requireRole(['staff', 'admin']), async (req, res) => {
+  try {
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) {
+      return res.status(404).json({ success: false, error: 'Complaint not found' });
+    }
+
+    const technicianReason = req.body?.technician_reason;
+    if (!technicianReason) {
+      return res.status(400).json({ success: false, error: 'technician_reason is required' });
+    }
+
+    if (req.user.role === 'staff') {
+      ensureTransition(complaint.status, ['approved'], 'Escalate denied complaint');
+    } else {
+      // Admin confirmation is only allowed after technician escalation.
+      ensureTransition(complaint.status, ['pending_approval'], 'Confirm denied complaint');
+    }
+
+    const hasOfferAmountField = req.body?.offer_amount !== undefined && req.body?.offer_amount !== null;
+    const offerAmount = Number(req.body?.offer_amount || 0);
+    const offerDescription = (req.body?.offer_description || '').trim();
+    const existingOfferAmount = Number(complaint.repairOffer?.amount || 0);
+    const existingOfferDescription = (complaint.repairOffer?.description || '').trim();
+    const resolvedOfferAmount = hasOfferAmountField ? offerAmount : existingOfferAmount;
+    const resolvedOfferDescription = offerDescription || existingOfferDescription;
+
+    if (req.user.role === 'staff' && (!hasOfferAmountField || !resolvedOfferDescription)) {
+      return res.status(400).json({
+        success: false,
+        error: 'offer_amount and offer_description are required to escalate denied complaint',
+      });
+    }
+
+    if (req.user.role === 'admin' && !resolvedOfferDescription) {
+      return res.status(400).json({
+        success: false,
+        error: 'Repair offer configuration is required before admin confirmation',
+      });
+    }
+    const previousStatus = complaint.status;
+
+    complaint.status = req.user.role === 'staff' ? 'pending_approval' : 'denied';
+    complaint.technicianId = req.user._id;
+    complaint.technicianName = actorName(req.user);
+    complaint.technicianReason = technicianReason;
+    complaint.repairOffer = {
+      amount: resolvedOfferAmount,
+      description: resolvedOfferDescription || 'Neues Reparaturangebot nach Reklamationspruefung',
+      createdAt: new Date(),
+      acceptedAt: null,
+      rejectedAt: null,
+      status: 'pending'
+    };
+    complaint.complaintLogs.push({
+      actorId: req.user._id,
+      actorName: actorName(req.user),
+      actorRole: req.user.role,
+      action: req.user.role === 'staff' ? 'technician_denied_escalated' : 'admin_denied_confirmed',
+      fromStatus: previousStatus,
+      toStatus: complaint.status,
+      notes: technicianReason,
+      metadata: {
+        offerAmount: resolvedOfferAmount,
+        offerDescription: resolvedOfferDescription
+      }
+    });
+
+    await complaint.save();
+
+    if (req.user.role === 'staff') {
+      try {
+        const admins = await User.find({ role: 'admin', isActive: true }).select('_id');
+        await Promise.all(admins.map((admin) => NotificationService.createNotification({
+          userId: admin._id,
+          title: 'Reklamation zur Ablehnungspruefung eskaliert',
+          message: `Reklamation ${complaint.complaintNumber} wurde mit Reparaturangebot zur Admin-Freigabe eingereicht.`,
+          type: ADMIN_NOTIFICATION_TYPE,
+          orderId: complaint.newOrderId || complaint.orderId,
+          actionUrl: `/orders/${complaint.newOrderId || complaint.orderId}`,
+          metadata: {
+            complaintId: complaint._id,
+            event: 'technician_denied_escalated',
+            offerAmount: resolvedOfferAmount,
+            offerDescription: resolvedOfferDescription,
+          },
+        })));
+      } catch (adminNotifyError) {
+        console.error('ComplaintRoutes: Error notifying admins about escalation:', adminNotifyError);
+      }
+
+      return res.json({
+        success: true,
+        escalated: true,
+        complaint,
+      });
+    }
+
+    // Send repair offer as a message into the follow-up order's communication thread (the Reklamationsauftrag the customer views)
+    try {
+      const targetOrderId = (complaint.newOrderId || complaint.orderId).toString();
+      await InspectionCommunicationService.sendRepairOfferMessage(
+        targetOrderId,
+        req.user._id,
+        actorName(req.user),
+        { complaintId: complaint._id, offerAmount: resolvedOfferAmount, offerDescription: resolvedOfferDescription }
+      );
+    } catch (commError) {
+      console.error('ComplaintRoutes: Error sending repair offer message:', commError);
+    }
+
+    await notifyCustomer(
+      complaint,
+      complaint.customerId,
+      'Neues Reparaturangebot verfügbar',
+      `Die Reklamation wurde abgelehnt. Neues Angebot: ${resolvedOfferAmount.toFixed(2)} EUR. Bitte annehmen oder ablehnen.`,
+      { event: 'technician_denied', offerAmount: resolvedOfferAmount, offerDescription: resolvedOfferDescription }
+    );
+
+    return res.json({ success: true, complaint });
+  } catch (error) {
+    console.error('ComplaintRoutes: Error denying complaint:', error);
+    return res.status(400).json({ success: false, error: error.message });
   }
 });
 
 // Description: Get a specific complaint by ID
 // Endpoint: GET /api/complaints/:id
-// Request: {}
-// Response: { success: boolean, complaint: Complaint }
 router.get('/:id', requireUser, async (req, res) => {
   try {
-    console.log('ComplaintRoutes: Getting complaint:', req.params.id);
-
-    const complaint = await ComplaintService.getById(req.params.id);
+    const complaint = await Complaint.findById(req.params.id);
 
     if (!complaint) {
-      console.log('ComplaintRoutes: Complaint not found');
-      return res.status(404).json({
-        success: false,
-        error: 'Complaint not found'
-      });
+      return res.status(404).json({ success: false, error: 'Complaint not found' });
     }
 
-    console.log('ComplaintRoutes: Complaint retrieved successfully');
+    const complaintCustomerId = getComplaintCustomerId(complaint);
+    if (req.user.role === 'customer' && complaintCustomerId !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
 
-    res.json({
-      success: true,
-      complaint: complaint
-    });
+    return res.json({ success: true, complaint });
   } catch (error) {
     console.error('ComplaintRoutes: Error getting complaint:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Description: Create a new complaint
+// Description: Create a new legacy complaint
 // Endpoint: POST /api/complaints
-// Request: { bookingId: string, orderId?: string, customerId: string, subject: string, description: string, category: string, priority?: string }
-// Response: { success: boolean, complaint: Complaint }
 router.post('/', requireUser, async (req, res) => {
   try {
-    console.log('ComplaintRoutes: Creating new complaint');
-
     const { bookingId, orderId, subject, description, category, priority } = req.body;
 
     if (!bookingId || !subject || !description || !category) {
-      console.log('ComplaintRoutes: Missing required fields');
       return res.status(400).json({
         success: false,
         error: 'bookingId, subject, description, and category are required'
@@ -120,219 +817,123 @@ router.post('/', requireUser, async (req, res) => {
       subject,
       description,
       category,
-      priority: priority || 'medium'
+      priority: priority || 'medium',
+      workflowType: 'legacy'
     };
 
     const complaint = await ComplaintService.create(complaintData);
 
-    console.log('ComplaintRoutes: Complaint created successfully:', complaint._id);
-
-    res.status(201).json({
-      success: true,
-      complaint: complaint
-    });
+    return res.status(201).json({ success: true, complaint });
   } catch (error) {
     console.error('ComplaintRoutes: Error creating complaint:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Description: Update complaint status
+// Description: Update complaint status (legacy)
 // Endpoint: PUT /api/complaints/:id/status
-// Request: { status: string }
-// Response: { success: boolean, complaint: Complaint }
 router.put('/:id/status', requireAdmin, async (req, res) => {
   try {
-    console.log('ComplaintRoutes: Updating complaint status:', req.params.id);
-
     const { status } = req.body;
 
     if (!status) {
-      console.log('ComplaintRoutes: Missing status');
-      return res.status(400).json({
-        success: false,
-        error: 'status is required'
-      });
+      return res.status(400).json({ success: false, error: 'status is required' });
     }
 
     const validStatuses = ['open', 'in-progress', 'pending-customer', 'resolved', 'closed'];
     if (!validStatuses.includes(status)) {
-      console.log('ComplaintRoutes: Invalid status:', status);
       return res.status(400).json({
         success: false,
         error: `status must be one of: ${validStatuses.join(', ')}`
       });
     }
 
-    const userName = req.user.firstName
-      ? `${req.user.firstName} ${req.user.lastName || ''}`
-      : (req.user.name || req.user.email);
-
     const complaint = await ComplaintService.updateStatus(
       req.params.id,
       status,
       req.user._id,
-      userName,
+      actorName(req.user),
       req.user.role
     );
 
-    console.log('ComplaintRoutes: Complaint status updated successfully');
-
-    res.json({
-      success: true,
-      complaint: complaint
-    });
+    return res.json({ success: true, complaint });
   } catch (error) {
     console.error('ComplaintRoutes: Error updating complaint status:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // Description: Add comment to complaint
 // Endpoint: POST /api/complaints/:id/comments
-// Request: { comment: string, isInternal?: boolean }
-// Response: { success: boolean, complaint: Complaint }
 router.post('/:id/comments', requireUser, async (req, res) => {
   try {
-    console.log('ComplaintRoutes: Adding comment to complaint:', req.params.id);
-
     const { comment, isInternal } = req.body;
 
     if (!comment) {
-      console.log('ComplaintRoutes: Missing comment');
-      return res.status(400).json({
-        success: false,
-        error: 'comment is required'
-      });
+      return res.status(400).json({ success: false, error: 'comment is required' });
     }
-
-    const userName = req.user.firstName
-      ? `${req.user.firstName} ${req.user.lastName || ''}`
-      : (req.user.name || req.user.email);
 
     const commentData = {
       userId: req.user._id,
-      userName: userName,
+      userName: actorName(req.user),
       userRole: req.user.role,
-      comment: comment,
+      comment,
       isInternal: isInternal && (req.user.role === 'admin' || req.user.role === 'staff')
     };
 
     const updatedComplaint = await ComplaintService.addComment(req.params.id, commentData);
-
-    console.log('ComplaintRoutes: Comment added successfully');
-
-    res.json({
-      success: true,
-      complaint: updatedComplaint
-    });
+    return res.json({ success: true, complaint: updatedComplaint });
   } catch (error) {
     console.error('ComplaintRoutes: Error adding comment:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // Description: Assign complaint to staff
 // Endpoint: PUT /api/complaints/:id/assign
-// Request: { staffId: string, staffName: string }
-// Response: { success: boolean, complaint: Complaint }
 router.put('/:id/assign', requireAdmin, async (req, res) => {
   try {
-    console.log('ComplaintRoutes: Assigning complaint:', req.params.id);
-
     const { staffId, staffName } = req.body;
 
     if (!staffId || !staffName) {
-      console.log('ComplaintRoutes: Missing staffId or staffName');
-      return res.status(400).json({
-        success: false,
-        error: 'staffId and staffName are required'
-      });
+      return res.status(400).json({ success: false, error: 'staffId and staffName are required' });
     }
 
     const complaint = await ComplaintService.assign(req.params.id, staffId, staffName);
-
-    console.log('ComplaintRoutes: Complaint assigned successfully');
-
-    res.json({
-      success: true,
-      complaint: complaint
-    });
+    return res.json({ success: true, complaint });
   } catch (error) {
     console.error('ComplaintRoutes: Error assigning complaint:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // Description: Resolve complaint
 // Endpoint: PUT /api/complaints/:id/resolve
-// Request: { resolution: string }
-// Response: { success: boolean, complaint: Complaint }
 router.put('/:id/resolve', requireAdmin, async (req, res) => {
   try {
-    console.log('ComplaintRoutes: Resolving complaint:', req.params.id);
-
     const { resolution } = req.body;
 
     if (!resolution) {
-      console.log('ComplaintRoutes: Missing resolution');
-      return res.status(400).json({
-        success: false,
-        error: 'resolution is required'
-      });
+      return res.status(400).json({ success: false, error: 'resolution is required' });
     }
 
     const complaint = await ComplaintService.resolve(req.params.id, resolution, req.user._id);
-
-    console.log('ComplaintRoutes: Complaint resolved successfully');
-
-    res.json({
-      success: true,
-      complaint: complaint
-    });
+    return res.json({ success: true, complaint });
   } catch (error) {
     console.error('ComplaintRoutes: Error resolving complaint:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // Description: Close complaint
 // Endpoint: PUT /api/complaints/:id/close
-// Request: {}
-// Response: { success: boolean, complaint: Complaint }
 router.put('/:id/close', requireAdmin, async (req, res) => {
   try {
-    console.log('ComplaintRoutes: Closing complaint:', req.params.id);
-
     const complaint = await ComplaintService.close(req.params.id);
-
-    console.log('ComplaintRoutes: Complaint closed successfully');
-
-    res.json({
-      success: true,
-      complaint: complaint
-    });
+    return res.json({ success: true, complaint });
   } catch (error) {
     console.error('ComplaintRoutes: Error closing complaint:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 

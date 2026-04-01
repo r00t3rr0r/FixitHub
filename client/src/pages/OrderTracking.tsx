@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/useToast"
-import { getOrders, Order } from "@/api/orders"
+import { createOrderComplaint, getOrders, Order } from "@/api/orders"
 import { searchDevices, SearchResult } from "@/api/devices"
 import { formatPrice } from "@/lib/utils"
 import {
@@ -29,6 +30,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 export function OrderTracking() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -37,7 +46,62 @@ export function OrderTracking() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [complaintDialogOpen, setComplaintDialogOpen] = useState(false)
+  const [selectedOrderForComplaint, setSelectedOrderForComplaint] = useState<Order | null>(null)
+  const [complaintReason, setComplaintReason] = useState("")
+  const [complaintDescription, setComplaintDescription] = useState("")
+  const [submittingComplaint, setSubmittingComplaint] = useState(false)
   const { toast } = useToast()
+
+  const openComplaintDialog = (order: Order) => {
+    setSelectedOrderForComplaint(order)
+    setComplaintReason("")
+    setComplaintDescription("")
+    setComplaintDialogOpen(true)
+  }
+
+  const handleSubmitComplaint = async () => {
+    if (!selectedOrderForComplaint) {
+      return
+    }
+
+    if (!complaintReason.trim() || !complaintDescription.trim()) {
+      toast({
+        title: "Fehlende Angaben",
+        description: "Bitte Reklamationsgrund und Beschreibung ausfuellen.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      setSubmittingComplaint(true)
+      await createOrderComplaint(selectedOrderForComplaint._id, {
+        reason: complaintReason.trim(),
+        description: complaintDescription.trim()
+      })
+
+      toast({
+        title: "Reklamation eingereicht",
+        description: "Deine Reklamation wurde erfolgreich an das Admin-Team gesendet."
+      })
+
+      setComplaintDialogOpen(false)
+
+      const refreshed = await getOrders()
+      const refreshedOrders = (refreshed as any).orders || []
+      setOrders(refreshedOrders)
+      setFilteredOrders(refreshedOrders)
+    } catch (error: any) {
+      toast({
+        title: "Reklamation fehlgeschlagen",
+        description: error?.message || "Reklamation konnte nicht angelegt werden.",
+        variant: "destructive"
+      })
+    } finally {
+      setSubmittingComplaint(false)
+    }
+  }
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -439,7 +503,17 @@ export function OrderTracking() {
                 )}
 
                 {/* Actions */}
-                <div className="flex justify-end pt-2">
+                <div className="flex justify-end gap-2 pt-2">
+                  {order.status === 'completed' && !order.hasComplaint && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => openComplaintDialog(order)}
+                    >
+                      <AlertCircle className="h-4 w-4 mr-2" />
+                      Reklamation anmelden
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" asChild>
                     <Link to={`/orders/${order._id}`}>
                       <Eye className="h-4 w-4 mr-2" />
@@ -452,6 +526,40 @@ export function OrderTracking() {
           ))
         )}
       </div>
+
+      <Dialog open={complaintDialogOpen} onOpenChange={setComplaintDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reklamation anmelden</DialogTitle>
+            <DialogDescription>
+              Diese Option ist nur fuer abgeschlossene Auftraege verfuegbar.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <Input
+              placeholder="Reklamationsgrund (z.B. Fehler wieder aufgetreten)"
+              value={complaintReason}
+              onChange={(e) => setComplaintReason(e.target.value)}
+            />
+            <Textarea
+              placeholder="Bitte beschreibe den Sachverhalt moeglichst konkret"
+              value={complaintDescription}
+              onChange={(e) => setComplaintDescription(e.target.value)}
+              rows={5}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setComplaintDialogOpen(false)}>
+              Abbrechen
+            </Button>
+            <Button onClick={handleSubmitComplaint} disabled={submittingComplaint}>
+              {submittingComplaint ? 'Wird gesendet...' : 'Reklamation senden'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -597,6 +597,28 @@ const orderSchema = new mongoose.Schema({
     ref: 'Booking',
     default: null,
   },
+  hasComplaint: {
+    type: Boolean,
+    default: false,
+  },
+  complaintReason: {
+    type: String,
+    default: '',
+  },
+  parentOrderId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Order',
+    default: null,
+  },
+  sourceComplaintId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Complaint',
+    default: null,
+  },
+  isComplaintFollowup: {
+    type: Boolean,
+    default: false,
+  },
   // Shipping and tracking information
   shippingAddress: {
     street: {

@@ -10,9 +10,9 @@ import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
 import { safeToNumber, formatPrice } from "@/lib/utils"
 import "./OrderDetails.css"
-import { getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct } from "@/api/orders"
+import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct } from "@/api/orders"
+import { getComplaint, acknowledgeComplaint, denyComplaint, acceptComplaintOffer, rejectComplaintOffer, convertAcceptedOfferToBooking, Complaint as ComplaintRecord } from "@/api/complaints"
 import { startOrderTracking, endOrderTracking } from "@/api/timeTracking"
-import { getConversations, getConversationMessages, sendMessage, startConversation } from "@/api/messages"
 import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, updateOrderDevice, updateOrderStatus } from "@/api/adminOrders"
 import { getUserProfile, UserProfile } from "@/api/user"
 import { getAddOnServices, AddOnService as AddOnServiceType, getServices } from "@/api/services"
@@ -109,11 +109,7 @@ export function OrderDetails() {
   const { t } = useTranslation()
   const [user, setUser] = useState<UserProfile | null>(null)
   const [order, setOrder] = useState<Order | null>(null)
-  const [messages, setMessages] = useState<any[]>([])
-  const [conversationId, setConversationId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [newMessage, setNewMessage] = useState("")
-  const [sending, setSending] = useState(false)
   const [availableStaff, setAvailableStaff] = useState<StaffMember[]>([])
   const [selectedStaff, setSelectedStaff] = useState<string[]>([])
   const [assigningStaff, setAssigningStaff] = useState(false)
@@ -176,7 +172,34 @@ export function OrderDetails() {
   const [diagnosisPopupOpen, setDiagnosisPopupOpen] = useState(false)
   const [repairDetailsPopupOpen, setRepairDetailsPopupOpen] = useState(false)
   const [repairServicesPopupOpen, setRepairServicesPopupOpen] = useState(false)
+  const [complaintDialogOpen, setComplaintDialogOpen] = useState(false)
+  const [complaintReason, setComplaintReason] = useState("")
+  const [complaintDescription, setComplaintDescription] = useState("")
+  const [submittingComplaint, setSubmittingComplaint] = useState(false)
+  const [complaintWorkflow, setComplaintWorkflow] = useState<ComplaintRecord | null>(null)
+  const [complaintActionDialog, setComplaintActionDialog] = useState<"ack" | "deny" | null>(null)
+  const [ackReasonPreset, setAckReasonPreset] = useState("")
+  const [denyReasonPreset, setDenyReasonPreset] = useState("")
+  const [technicianAckReason, setTechnicianAckReason] = useState("")
+  const [technicianDenyReason, setTechnicianDenyReason] = useState("")
+  const [denyOfferAmount, setDenyOfferAmount] = useState("")
+  const [denyOfferDescription, setDenyOfferDescription] = useState("")
+  const [complaintActionLoading, setComplaintActionLoading] = useState<"ack" | "deny" | "">("")
+  const [offerActionLoading, setOfferActionLoading] = useState<"accept" | "reject" | "">("")
+  const [convertOfferBookingLoading, setConvertOfferBookingLoading] = useState(false)
   const { toast } = useToast()
+
+  const ACK_REASON_OPTIONS = [
+    "fehlerhaftes Ersatzteil",
+    "Techniker hat Fehler gemacht und Teil zerstört",
+    "Techniker hat Fehler gemacht und falsche Diagnose/Reparatur gemacht",
+    "Techniker/Qualitätsmanagement hat nicht richtig getestet",
+  ]
+
+  const DENY_REASON_OPTIONS = [
+    "kein Defekt feststellbar",
+    "Defekt hat nichts mit unserer Reparatur zu tun / eigenständiger Defekt",
+  ]
 
   const requestedWorkflowId = (() => {
     const state = location.state as {
@@ -258,33 +281,6 @@ export function OrderDetails() {
         console.log("Device Brand:", fetchedOrder?.deviceBrand)
         console.log("Device Model:", fetchedOrder?.deviceModel)
 
-        // Try to find existing conversation for this order
-        try {
-          const conversationsResponse = await getConversations()
-          const conversations = (conversationsResponse as any).conversations || []
-
-          // Find conversation for this order
-          const orderConversation = conversations.find((conv: any) =>
-            conv.orderId === id || conv.orderId._id === id
-          )
-
-          if (orderConversation) {
-            console.log("Found existing conversation:", orderConversation._id)
-            setConversationId(orderConversation._id)
-
-            // Fetch messages for this conversation
-            const messagesResponse = await getConversationMessages(orderConversation._id)
-            setMessages((messagesResponse as any).messages || [])
-          } else {
-            console.log("No conversation found for order:", id)
-            setMessages([])
-            setConversationId(null)
-          }
-        } catch (error) {
-          console.log("No conversations found or error fetching conversations:", error)
-          setMessages([])
-          setConversationId(null)
-        }
       } catch (error) {
         console.error("Error fetching order details:", error)
         toast({
@@ -299,6 +295,34 @@ export function OrderDetails() {
 
     fetchOrderDetails()
   }, [id, user, toast])
+
+  useEffect(() => {
+    const loadComplaintWorkflow = async () => {
+      if (!order) {
+        setComplaintWorkflow(null)
+        return
+      }
+
+      const sourceComplaint = (order as any)?.sourceComplaintId
+      const sourceComplaintId = typeof sourceComplaint === 'string' ? sourceComplaint : sourceComplaint?._id
+      const isComplaintFollowupOrder = Boolean((order as any)?.isComplaintFollowup)
+
+      if (!isComplaintFollowupOrder || !sourceComplaintId) {
+        setComplaintWorkflow(null)
+        return
+      }
+
+      try {
+        const response = await getComplaint(String(sourceComplaintId))
+        setComplaintWorkflow((response as any)?.complaint || null)
+      } catch (error) {
+        console.error('OrderDetails: Failed to load complaint workflow for follow-up order:', error)
+        setComplaintWorkflow(null)
+      }
+    }
+
+    loadComplaintWorkflow()
+  }, [order])
 
   useEffect(() => {
     const fetchAvailableStaff = async () => {
@@ -478,50 +502,133 @@ export function OrderDetails() {
     fetchProgressTimeline()
   }, [id])
 
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !id) return
+  const handleSubmitComplaint = async () => {
+    if (!order) return
+
+    if (!complaintReason.trim() || !complaintDescription.trim()) {
+      toast({
+        title: "Fehlende Angaben",
+        description: "Bitte Reklamationsgrund und Beschreibung ausfuellen.",
+        variant: "destructive"
+      })
+      return
+    }
 
     try {
-      setSending(true)
+      setSubmittingComplaint(true)
+      await createOrderComplaint(order._id, {
+        reason: complaintReason.trim(),
+        description: complaintDescription.trim()
+      })
 
-      let currentConversationId = conversationId
-
-      // If no conversation exists, create one first
-      if (!currentConversationId) {
-        console.log("Creating new conversation for order:", id)
-        const conversationResponse = await startConversation(id, newMessage)
-        currentConversationId = (conversationResponse as any).conversation._id
-        setConversationId(currentConversationId)
-
-        // Fetch the message that was created with the conversation
-        const messagesResponse = await getConversationMessages(currentConversationId)
-        setMessages((messagesResponse as any).messages || [])
-        setNewMessage("")
-
-        toast({
-          title: "Message sent",
-          description: "Your message has been sent to the repair team"
-        })
-      } else {
-        // Send message to existing conversation
-        const response = await sendMessage(currentConversationId, newMessage)
-        setMessages([...messages, (response as any).message])
-        setNewMessage("")
-
-        toast({
-          title: "Message sent",
-          description: "Your message has been sent to the repair team"
-        })
-      }
-    } catch (error: any) {
-      console.error("Error sending message:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to send message",
+        title: "Reklamation eingereicht",
+        description: "Deine Reklamation wurde erfolgreich eingereicht."
+      })
+
+      setComplaintDialogOpen(false)
+      setComplaintReason("")
+      setComplaintDescription("")
+
+      const refreshed = await getOrderById(order._id)
+      setOrder((refreshed as any).order)
+    } catch (error: any) {
+      toast({
+        title: "Reklamation fehlgeschlagen",
+        description: error?.message || "Die Reklamation konnte nicht eingereicht werden.",
         variant: "destructive"
       })
     } finally {
-      setSending(false)
+      setSubmittingComplaint(false)
+    }
+  }
+
+  const handleAcknowledgeComplaintFromOrder = async () => {
+    if (!complaintWorkflow) return
+
+    if (!technicianAckReason.trim()) {
+      toast({
+        title: "Fehlende Angaben",
+        description: "Bitte einen Grund fuer die anerkannte Reklamation angeben.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      setComplaintActionLoading("ack")
+      await acknowledgeComplaint(complaintWorkflow._id, {
+        technician_reason: technicianAckReason.trim(),
+      })
+
+      toast({
+        title: "Reklamation anerkannt",
+        description: "Die Reklamation wurde durch den Techniker anerkannt."
+      })
+
+      const refreshedComplaint = await getComplaint(complaintWorkflow._id)
+      setComplaintWorkflow((refreshedComplaint as any)?.complaint || null)
+      setComplaintActionDialog(null)
+      setAckReasonPreset("")
+      setTechnicianAckReason("")
+    } catch (error: any) {
+      toast({
+        title: "Aktion fehlgeschlagen",
+        description: error?.message || "Die Reklamation konnte nicht anerkannt werden.",
+        variant: "destructive"
+      })
+    } finally {
+      setComplaintActionLoading("")
+    }
+  }
+
+  const handleDenyComplaintFromOrder = async () => {
+    if (!complaintWorkflow) return
+
+    if (!technicianDenyReason.trim()) {
+      toast({
+        title: "Fehlende Angaben",
+        description: "Bitte einen Grund fuer die abgelehnte Reklamation angeben.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      setComplaintActionLoading("deny")
+      const response = await denyComplaint(complaintWorkflow._id, {
+        technician_reason: technicianDenyReason.trim(),
+        offer_amount: denyOfferAmount ? parseFloat(denyOfferAmount) : 0,
+        offer_description: denyOfferDescription.trim() || 'Neues Reparaturangebot nach Reklamationspruefung',
+      })
+
+      if ((response as any)?.escalated) {
+        toast({
+          title: "Reklamation eskaliert",
+          description: "Die Reklamation wurde an den Admin zur Pruefung weitergeleitet."
+        })
+      } else {
+        toast({
+          title: "Reklamation abgelehnt",
+          description: "Die Reklamation wurde bestaetigt und das Reparaturangebot wurde dem Kunden uebermittelt."
+        })
+      }
+
+      const refreshedComplaint = await getComplaint(complaintWorkflow._id)
+      setComplaintWorkflow((refreshedComplaint as any)?.complaint || null)
+      setComplaintActionDialog(null)
+      setDenyReasonPreset("")
+      setTechnicianDenyReason("")
+      setDenyOfferAmount("")
+      setDenyOfferDescription("")
+    } catch (error: any) {
+      toast({
+        title: "Aktion fehlgeschlagen",
+        description: error?.message || "Die Reklamation konnte nicht abgelehnt werden.",
+        variant: "destructive"
+      })
+    } finally {
+      setComplaintActionLoading("")
     }
   }
 
@@ -1648,6 +1755,113 @@ export function OrderDetails() {
     ? new Date(customer.createdAt).toLocaleDateString()
     : '-'
   const isStaffOrAdmin = user?.role === 'admin' || user?.role === 'staff'
+  const isCustomer = user?.role === 'customer'
+  const isComplaintFollowupOrder = Boolean((order as any)?.isComplaintFollowup)
+  const complaintWorkflowStatus = complaintWorkflow?.status || ''
+  const canRunComplaintTechnicianActions = isComplaintFollowupOrder && user?.role === 'staff' && complaintWorkflowStatus === 'approved'
+  const canRunComplaintAdminDenyReview = isComplaintFollowupOrder && user?.role === 'admin' && complaintWorkflowStatus === 'pending_approval'
+
+  const handleAcceptRepairOffer = async () => {
+    if (!complaintWorkflow?._id) return
+    try {
+      setOfferActionLoading('accept')
+      await acceptComplaintOffer(complaintWorkflow._id)
+      toast({ title: 'Angebot angenommen', description: 'Das Reparaturangebot wurde angenommen. Der Auftrag wird fortgesetzt.' })
+      const refreshed = await getComplaint(complaintWorkflow._id)
+      setComplaintWorkflow((refreshed as any)?.complaint || null)
+    } catch (err: any) {
+      toast({ title: 'Fehler', description: err?.message || 'Das Angebot konnte nicht angenommen werden.', variant: 'destructive' })
+    } finally {
+      setOfferActionLoading('')
+    }
+  }
+
+  const handleRejectRepairOffer = async () => {
+    if (!complaintWorkflow?._id) return
+    try {
+      setOfferActionLoading('reject')
+      await rejectComplaintOffer(complaintWorkflow._id)
+      toast({ title: 'Angebot abgelehnt', description: 'Das Reparaturangebot wurde abgelehnt.' })
+      const refreshed = await getComplaint(complaintWorkflow._id)
+      setComplaintWorkflow((refreshed as any)?.complaint || null)
+    } catch (err: any) {
+      toast({ title: 'Fehler', description: err?.message || 'Das Angebot konnte nicht abgelehnt werden.', variant: 'destructive' })
+    } finally {
+      setOfferActionLoading('')
+    }
+  }
+
+  const handleConvertAcceptedOfferToBooking = async () => {
+    if (!complaintWorkflow?._id) return
+
+    try {
+      setConvertOfferBookingLoading(true)
+      const response = await convertAcceptedOfferToBooking(complaintWorkflow._id)
+
+      const refreshed = await getComplaint(complaintWorkflow._id)
+      setComplaintWorkflow((refreshed as any)?.complaint || null)
+
+      if (response?.converted) {
+        toast({
+          title: 'Buchung erstellt',
+          description: response?.bookingNumber
+            ? `Neue Buchung ${response.bookingNumber} wurde erstellt.`
+            : 'Neue Buchung mit Auftrag wurde erstellt.',
+        })
+      } else {
+        toast({
+          title: 'Bereits umgewandelt',
+          description: 'Der Auftrag ist bereits einer Buchung zugeordnet.',
+        })
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Fehler',
+        description: err?.message || 'Die Umwandlung in eine Buchung ist fehlgeschlagen.',
+        variant: 'destructive',
+      })
+    } finally {
+      setConvertOfferBookingLoading(false)
+    }
+  }
+  const originalComplaintOrderId = (() => {
+    const workflowOrder = (complaintWorkflow as any)?.orderId
+    if (!workflowOrder) return (order as any)?.parentOrderId || ''
+    return typeof workflowOrder === 'string' ? workflowOrder : (workflowOrder?._id || '')
+  })()
+  const originalComplaintOrderNumber = (() => {
+    const workflowOrder = (complaintWorkflow as any)?.orderId
+    if (!workflowOrder) return ''
+    return typeof workflowOrder === 'string' ? '' : (workflowOrder?.orderNumber || '')
+  })()
+  const latestDenyEscalationLog = (() => {
+    const logs = complaintWorkflow?.complaintLogs || []
+    for (let i = logs.length - 1; i >= 0; i -= 1) {
+      if (logs[i]?.action === 'technician_denied_escalated') {
+        return logs[i]
+      }
+    }
+    return null
+  })()
+  const escalationActorName = (latestDenyEscalationLog as any)?.actorName || ''
+  const escalationCreatedAt = (latestDenyEscalationLog as any)?.createdAt
+  const escalationOfferAmount = (latestDenyEscalationLog as any)?.metadata?.offerAmount
+  const escalationOfferDescription = (latestDenyEscalationLog as any)?.metadata?.offerDescription || ''
+  const latestOfferConversionLog = (() => {
+    const logs = complaintWorkflow?.complaintLogs || []
+    for (let i = logs.length - 1; i >= 0; i -= 1) {
+      if (logs[i]?.action === 'offer_converted_to_booking') {
+        return logs[i]
+      }
+    }
+    return null
+  })()
+  const convertedBookingId = (latestOfferConversionLog as any)?.metadata?.bookingId
+  const convertedBookingNumber = (latestOfferConversionLog as any)?.metadata?.bookingNumber
+  const convertedOrderId = (latestOfferConversionLog as any)?.metadata?.orderId
+  const convertedOrderNumber = (latestOfferConversionLog as any)?.metadata?.orderNumber
+  const hasConvertedAcceptedOffer = Boolean(convertedBookingId && convertedOrderId)
+  const bookingOverviewPath = user?.role === 'admin' ? '/admin/bookings' : user?.role === 'staff' ? '/staff/bookings' : '/bookings'
   const backLinkPath = user?.role === 'admin' ? '/admin/orders' : user?.role === 'staff' ? '/staff/bookings' : '/bookings'
   const backLinkLabel = isStaffOrAdmin ? 'Back to Order Queue' : t('orderDetails.backToBookings')
   const staffCount = order.assignedStaff?.length || 0
@@ -1735,13 +1949,6 @@ export function OrderDetails() {
   const estimatedCompletionText = order.estimatedCompletion
     ? new Date(order.estimatedCompletion).toLocaleDateString('de-DE')
     : 'Wird aktualisiert'
-  const latestMessagePreview = [...messages]
-    .sort((left: any, right: any) => {
-      const leftTime = new Date(left?.timestamp || left?.createdAt || 0).getTime()
-      const rightTime = new Date(right?.timestamp || right?.createdAt || 0).getTime()
-      return leftTime - rightTime
-    })
-    .slice(-6)
   const activeTimelineStage = Array.isArray(progressTimeline?.stages)
     ? progressTimeline.stages.find((stage: any, index: number) => {
         const stageId = stage?.id
@@ -3293,61 +3500,123 @@ export function OrderDetails() {
           Schreiben Sie direkt an das Reparaturteam. Antworten bleiben dem Auftrag zugeordnet und sind jederzeit nachvollziehbar.
         </p>
       </CardHeader>
-      <CardContent className="pt-3 space-y-4">
-        <div className="customer-message-thread">
-          {latestMessagePreview.length > 0 ? (
-            latestMessagePreview.map((message: any) => {
-              const isCustomerMessage = message?.senderRole === 'customer'
-              const timestamp = message?.timestamp || message?.createdAt
-              const senderLabel = isCustomerMessage ? 'Sie' : message?.senderName || 'Service-Team'
-
-              return (
-                <div
-                  key={message?._id || `${senderLabel}-${timestamp}`}
-                  className={`customer-message-bubble ${isCustomerMessage ? 'is-customer' : 'is-team'}`}
-                >
-                  <div className="customer-message-bubble-head">
-                    <span>{senderLabel}</span>
-                    <time>{timestamp ? new Date(timestamp).toLocaleString('de-DE') : 'Gerade eben'}</time>
+      <CardContent className="pt-2 space-y-3">
+        {/* Repair offer card – shown directly from complaint data so the customer always sees it */}
+        {isComplaintFollowupOrder && complaintWorkflow?.repairOffer && complaintWorkflow.repairOffer.status !== 'none' && (
+          <>
+            {complaintWorkflow.repairOffer.status === 'pending' ? (
+              <div className="rounded-lg border-2 border-rose-200 bg-rose-50 dark:bg-rose-950/20 dark:border-rose-800 p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex-shrink-0 h-8 w-8 rounded-full bg-rose-100 dark:bg-rose-900 flex items-center justify-center">
+                    <FileText className="h-4 w-4 text-rose-600 dark:text-rose-400" />
                   </div>
-                  <p>{message?.content || ''}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <p className="text-sm font-semibold text-rose-900 dark:text-rose-100">Neues Reparaturangebot</p>
+                      <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-xs">Ihre Entscheidung erforderlich</Badge>
+                    </div>
+                    <p className="text-xs text-rose-700 dark:text-rose-300 leading-relaxed whitespace-pre-wrap">
+                      {complaintWorkflow.repairOffer.description}
+                    </p>
+                    {complaintWorkflow.repairOffer.createdAt && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Erstellt am {new Date(complaintWorkflow.repairOffer.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex-shrink-0 text-right">
+                    <p className="text-lg font-bold text-rose-900 dark:text-rose-100">
+                      {complaintWorkflow.repairOffer.amount.toFixed(2)} €
+                    </p>
+                    <p className="text-xs text-muted-foreground">Angebotspreis</p>
+                  </div>
                 </div>
-              )
-            })
-          ) : (
-            <div className="customer-message-empty-state">
-              <MessageSquare className="h-8 w-8" />
-              <div>
-                <strong>Noch keine Nachrichten</strong>
-                <p>Nutzen Sie das Formular unten, um direkt eine Frage oder Rückmeldung zum Auftrag zu senden.</p>
+                {isCustomer && (
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs"
+                      onClick={handleAcceptRepairOffer}
+                      disabled={offerActionLoading !== ''}
+                    >
+                      {offerActionLoading === 'accept' ? 'Wird bearbeitet...' : '✓ Angebot annehmen'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 border-rose-300 text-rose-700 hover:bg-rose-100 dark:hover:bg-rose-900 text-xs"
+                      onClick={handleRejectRepairOffer}
+                      disabled={offerActionLoading !== ''}
+                    >
+                      {offerActionLoading === 'reject' ? 'Wird bearbeitet...' : '✕ Angebot ablehnen'}
+                    </Button>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
-        </div>
-
-        <div className="customer-message-composer">
-          <Label htmlFor="order-customer-message-input">Neue Nachricht</Label>
-          <Textarea
-            id="order-customer-message-input"
-            value={newMessage}
-            onChange={(event) => setNewMessage(event.target.value)}
-            placeholder="Beschreiben Sie Ihre Rückfrage oder ergänzen Sie wichtige Informationen zu Ihrem Auftrag."
-            rows={4}
-            onKeyDown={(event) => {
-              if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-                event.preventDefault()
-                handleSendMessage()
-              }
-            }}
+            ) : (
+              <div className={`rounded-lg border p-3 flex items-center gap-3 ${
+                complaintWorkflow.repairOffer.status === 'accepted'
+                  ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800'
+                  : 'bg-slate-50 border-slate-200 dark:bg-slate-900/30 dark:border-slate-700'
+              }`}>
+                <div className={`h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  complaintWorkflow.repairOffer.status === 'accepted' ? 'bg-green-100' : 'bg-slate-200'
+                }`}>
+                  <FileText className={`h-3.5 w-3.5 ${
+                    complaintWorkflow.repairOffer.status === 'accepted' ? 'text-green-700' : 'text-slate-500'
+                  }`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs font-semibold ${
+                    complaintWorkflow.repairOffer.status === 'accepted' ? 'text-green-800 dark:text-green-300' : 'text-slate-700 dark:text-slate-300'
+                  }`}>
+                    {complaintWorkflow.repairOffer.status === 'accepted'
+                      ? 'Reparaturangebot angenommen'
+                      : 'Reparaturangebot abgelehnt'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {complaintWorkflow.repairOffer.amount.toFixed(2)} € &bull;{' '}
+                    {complaintWorkflow.repairOffer.status === 'accepted' && complaintWorkflow.repairOffer.acceptedAt
+                      ? new Date(complaintWorkflow.repairOffer.acceptedAt).toLocaleDateString('de-DE')
+                      : complaintWorkflow.repairOffer.rejectedAt
+                      ? new Date(complaintWorkflow.repairOffer.rejectedAt).toLocaleDateString('de-DE')
+                      : ''}
+                  </p>
+                  {complaintWorkflow.repairOffer.status === 'accepted' && !hasConvertedAcceptedOffer && (
+                    <Button
+                      size="sm"
+                      className="mt-2 h-8 text-xs"
+                      onClick={handleConvertAcceptedOfferToBooking}
+                      disabled={convertOfferBookingLoading}
+                    >
+                      {convertOfferBookingLoading ? 'Wird umgewandelt...' : 'In neue Buchung mit Auftrag umwandeln'}
+                    </Button>
+                  )}
+                  {complaintWorkflow.repairOffer.status === 'accepted' && hasConvertedAcceptedOffer && (
+                    <div className="mt-2 rounded-md border border-green-300 bg-green-100/60 px-3 py-2 text-xs text-green-900 dark:text-green-200 dark:bg-green-900/30 dark:border-green-800 space-y-1">
+                      <p className="font-medium">In neue Buchung mit Auftrag umgewandelt.</p>
+                      <div className="flex flex-wrap gap-3">
+                        <Link to={bookingOverviewPath} className="underline underline-offset-2 hover:no-underline">
+                          Buchung {convertedBookingNumber || convertedBookingId}
+                        </Link>
+                        <Link to={`/orders/${convertedOrderId}`} className="underline underline-offset-2 hover:no-underline">
+                          Auftrag {convertedOrderNumber || convertedOrderId}
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+        {id && (
+          <CommunicationPanel
+            orderId={id}
+            inspectionId={order?._id}
+            entityType="order"
           />
-          <div className="customer-message-composer-footer">
-            <span>Mit Cmd/Ctrl + Enter senden</span>
-            <Button onClick={handleSendMessage} disabled={sending || !newMessage.trim()}>
-              <Send className="h-4 w-4 mr-1.5" />
-              {sending ? 'Wird gesendet...' : 'Nachricht senden'}
-            </Button>
-          </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   )
@@ -3541,6 +3810,24 @@ export function OrderDetails() {
             <p>
               {order.deviceBrand} {order.deviceModel} • {new Date(order.createdAt).toLocaleDateString()}
             </p>
+            {isComplaintFollowupOrder && (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <Badge className="bg-rose-100 text-rose-800 border border-rose-300" variant="outline">
+                  Reklamationsauftrag
+                </Badge>
+                <span className="text-muted-foreground">Basiert auf Auftrag:</span>
+                {originalComplaintOrderId ? (
+                  <Link
+                    to={`/orders/${originalComplaintOrderId}`}
+                    className="font-medium text-blue-600 underline"
+                  >
+                    {originalComplaintOrderNumber || originalComplaintOrderId}
+                  </Link>
+                ) : (
+                  <span className="font-medium">Nicht verknuepft</span>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-3 flex-wrap order-header-meta-block">
             {isStaffOrAdmin ? (
@@ -3605,6 +3892,16 @@ export function OrderDetails() {
               <div className="amount">${safeToNumber(order.totalCost).toFixed(2)}</div>
               <div className="label">Gesamt</div>
             </div>
+            {!isStaffOrAdmin && order.status === 'completed' && !order.hasComplaint && (
+              <Button
+                size="sm"
+                onClick={() => setComplaintDialogOpen(true)}
+                className="text-xs"
+              >
+                <AlertCircle className="h-3.5 w-3.5 mr-1" />
+                Reklamation anmelden
+              </Button>
+            )}
           </div>
         </div>
 
@@ -3887,6 +4184,99 @@ export function OrderDetails() {
                         <MessageSquare className="h-3 w-3 mr-1" />
                         Nachrichten öffnen
                       </Button>
+
+                      {isComplaintFollowupOrder && (
+                        <div className="border-t pt-3 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-semibold text-muted-foreground">Statusabhaengige Reklamationssteuerung</p>
+                            <Badge variant="outline" className="text-[10px]">
+                              {complaintWorkflowStatus || 'unbekannt'}
+                            </Badge>
+                          </div>
+
+                          {canRunComplaintTechnicianActions ? (
+                            <>
+                              <Button
+                                className="w-full text-xs h-8"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setAckReasonPreset("")
+                                  setTechnicianAckReason("")
+                                  setComplaintActionDialog('ack')
+                                }}
+                              >
+                                Techniker: Anerkennen
+                              </Button>
+                              <Button
+                                className="w-full text-xs h-8"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setDenyReasonPreset("")
+                                  setTechnicianDenyReason("")
+                                  // Pre-fill offer from current order
+                                  const totalCost = order ? safeToNumber((order as any).totalCost) : 0
+                                  setDenyOfferAmount(totalCost > 0 ? totalCost.toFixed(2) : "")
+                                  const serviceLines = ((order as any)?.services || [])
+                                    .filter((s: any) => s && s._id)
+                                    .map((s: any) => {
+                                      const name = typeof s.serviceId === 'object'
+                                        ? (s.serviceId?.name || '')
+                                        : (s.serviceName || '')
+                                      const price = typeof s.serviceId === 'object'
+                                        ? (s.serviceId?.price ?? s.price)
+                                        : s.price
+                                      return name ? `${name}${price != null ? ` (${Number(price).toFixed(2)} EUR)` : ''}` : null
+                                    })
+                                    .filter(Boolean)
+                                  const parts: string[] = [
+                                    `Reparaturangebot nach Reklamationspruefung`,
+                                    `Gerät: ${(order as any)?.deviceBrand || ''} ${(order as any)?.deviceModel || ''}`.trim(),
+                                    serviceLines.length > 0 ? `Leistungen: ${serviceLines.join(', ')}` : '',
+                                    (order as any)?.errorDescription?.trim()
+                                      ? `Fehlerbeschreibung: ${(order as any).errorDescription}`
+                                      : '',
+                                  ].filter(Boolean)
+                                  setDenyOfferDescription(parts.join('\n'))
+                                  setComplaintActionDialog('deny')
+                                }}
+                              >
+                                Techniker: Ablehnen
+                              </Button>
+                            </>
+                          ) : canRunComplaintAdminDenyReview ? (
+                            <>
+                              <Button
+                                className="w-full text-xs h-8"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const existingOfferAmount = (complaintWorkflow as any)?.repairOffer?.amount
+                                  const existingOfferDescription = (complaintWorkflow as any)?.repairOffer?.description
+                                  setDenyReasonPreset(complaintWorkflow?.technicianReason || "")
+                                  setTechnicianDenyReason(complaintWorkflow?.technicianReason || "")
+                                  setDenyOfferAmount(
+                                    existingOfferAmount != null
+                                      ? Number(existingOfferAmount).toFixed(2)
+                                      : escalationOfferAmount != null
+                                      ? Number(escalationOfferAmount).toFixed(2)
+                                      : (order ? safeToNumber((order as any).totalCost).toFixed(2) : "")
+                                  )
+                                  setDenyOfferDescription(existingOfferDescription || escalationOfferDescription || "")
+                                  setComplaintActionDialog('deny')
+                                }}
+                              >
+                                Admin: Ablehnung bestaetigen & Angebot senden
+                              </Button>
+                            </>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              Aktionen sind aktuell nicht verfuegbar. Techniker kann bei approved eskalieren, Admin bestaetigt bei pending_approval.
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </>
                   ) : null}
 
@@ -3965,6 +4355,121 @@ export function OrderDetails() {
                     <p className="text-xs text-muted-foreground">
                       Manage customer feedback, requests, and quick follow-ups in one place.
                     </p>
+
+                    {/* Repair Offer Card — shown when complaint is denied and offer is pending */}
+                    {isComplaintFollowupOrder && complaintWorkflow?.repairOffer && complaintWorkflow.repairOffer.status === 'pending' && (
+                      <div className="rounded-lg border-2 border-rose-200 bg-rose-50 dark:bg-rose-950/20 dark:border-rose-800 p-4 space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 flex-shrink-0 h-8 w-8 rounded-full bg-rose-100 dark:bg-rose-900 flex items-center justify-center">
+                            <FileText className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <p className="text-sm font-semibold text-rose-900 dark:text-rose-100">Neues Reparaturangebot</p>
+                              <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-xs">Ihre Entscheidung erforderlich</Badge>
+                            </div>
+                            <p className="text-xs text-rose-700 dark:text-rose-300 leading-relaxed whitespace-pre-wrap">
+                              {complaintWorkflow.repairOffer.description}
+                            </p>
+                            {complaintWorkflow.repairOffer.createdAt && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Erstellt am {new Date(complaintWorkflow.repairOffer.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex-shrink-0 text-right">
+                            <p className="text-lg font-bold text-rose-900 dark:text-rose-100">
+                              {complaintWorkflow.repairOffer.amount.toFixed(2)} €
+                            </p>
+                            <p className="text-xs text-muted-foreground">Angebotspreis</p>
+                          </div>
+                        </div>
+
+                        {isCustomer && (
+                          <div className="flex gap-2 pt-1">
+                            <Button
+                              size="sm"
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs"
+                              onClick={handleAcceptRepairOffer}
+                              disabled={offerActionLoading !== ''}
+                            >
+                              {offerActionLoading === 'accept' ? 'Wird bearbeitet...' : '✓ Angebot annehmen'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 border-rose-300 text-rose-700 hover:bg-rose-100 dark:hover:bg-rose-900 text-xs"
+                              onClick={handleRejectRepairOffer}
+                              disabled={offerActionLoading !== ''}
+                            >
+                              {offerActionLoading === 'reject' ? 'Wird bearbeitet...' : '✕ Angebot ablehnen'}
+                            </Button>
+                          </div>
+                        )}
+
+                        {!isCustomer && (
+                          <p className="text-xs text-muted-foreground italic">Warte auf Kundenentscheidung.</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Offer decided — show result */}
+                    {isComplaintFollowupOrder && complaintWorkflow?.repairOffer && complaintWorkflow.repairOffer.status !== 'pending' && complaintWorkflow.repairOffer.status !== 'none' && (
+                      <div className={`rounded-lg border p-3 flex items-center gap-3 ${
+                        complaintWorkflow.repairOffer.status === 'accepted'
+                          ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800'
+                          : 'bg-slate-50 border-slate-200 dark:bg-slate-900/30 dark:border-slate-700'
+                      }`}>
+                        <div className={`h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          complaintWorkflow.repairOffer.status === 'accepted' ? 'bg-green-100' : 'bg-slate-200'
+                        }`}>
+                          <FileText className={`h-3.5 w-3.5 ${
+                            complaintWorkflow.repairOffer.status === 'accepted' ? 'text-green-700' : 'text-slate-500'
+                          }`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-semibold ${
+                            complaintWorkflow.repairOffer.status === 'accepted' ? 'text-green-800 dark:text-green-300' : 'text-slate-700 dark:text-slate-300'
+                          }`}>
+                            {complaintWorkflow.repairOffer.status === 'accepted'
+                              ? 'Reparaturangebot angenommen'
+                              : 'Reparaturangebot abgelehnt'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {complaintWorkflow.repairOffer.amount.toFixed(2)} € &bull;{' '}
+                            {complaintWorkflow.repairOffer.status === 'accepted' && complaintWorkflow.repairOffer.acceptedAt
+                              ? new Date(complaintWorkflow.repairOffer.acceptedAt).toLocaleDateString('de-DE')
+                              : complaintWorkflow.repairOffer.rejectedAt
+                              ? new Date(complaintWorkflow.repairOffer.rejectedAt).toLocaleDateString('de-DE')
+                              : ''}
+                          </p>
+                          {complaintWorkflow.repairOffer.status === 'accepted' && !hasConvertedAcceptedOffer && (
+                            <Button
+                              size="sm"
+                              className="mt-2 h-8 text-xs"
+                              onClick={handleConvertAcceptedOfferToBooking}
+                              disabled={convertOfferBookingLoading}
+                            >
+                              {convertOfferBookingLoading ? 'Wird umgewandelt...' : 'In neue Buchung mit Auftrag umwandeln'}
+                            </Button>
+                          )}
+                          {complaintWorkflow.repairOffer.status === 'accepted' && hasConvertedAcceptedOffer && (
+                            <div className="mt-2 rounded-md border border-green-300 bg-green-100/60 px-3 py-2 text-xs text-green-900 dark:text-green-200 dark:bg-green-900/30 dark:border-green-800 space-y-1">
+                              <p className="font-medium">In neue Buchung mit Auftrag umgewandelt.</p>
+                              <div className="flex flex-wrap gap-3">
+                                <Link to={bookingOverviewPath} className="underline underline-offset-2 hover:no-underline">
+                                  Buchung {convertedBookingNumber || convertedBookingId}
+                                </Link>
+                                <Link to={`/orders/${convertedOrderId}`} className="underline underline-offset-2 hover:no-underline">
+                                  Auftrag {convertedOrderNumber || convertedOrderId}
+                                </Link>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {id && (
                       <div className="rounded-lg border p-2 bg-background">
                         <CommunicationPanel
@@ -4113,6 +4618,219 @@ export function OrderDetails() {
           </div>
         </>
       )}
+
+      <Dialog open={complaintDialogOpen} onOpenChange={setComplaintDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Reklamation anmelden</DialogTitle>
+            <DialogDescription>
+              Bitte gib den Grund und eine kurze Beschreibung an. Diese Reklamation wird an das Admin-Team weitergeleitet.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <Input
+              value={complaintReason}
+              onChange={(e) => setComplaintReason(e.target.value)}
+              placeholder="Reklamationsgrund"
+            />
+            <Textarea
+              value={complaintDescription}
+              onChange={(e) => setComplaintDescription(e.target.value)}
+              placeholder="Beschreibung des Problems"
+              rows={5}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setComplaintDialogOpen(false)}>
+              Abbrechen
+            </Button>
+            <Button onClick={handleSubmitComplaint} disabled={submittingComplaint}>
+              {submittingComplaint ? 'Wird gesendet...' : 'Reklamation senden'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={complaintActionDialog === 'ack'} onOpenChange={(open) => !open && setComplaintActionDialog(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Techniker: Anerkennen</DialogTitle>
+            <DialogDescription>Bitte Grund auswaehlen oder individuell angeben.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Select
+              value={ackReasonPreset || 'none'}
+              onValueChange={(value) => {
+                const selected = value === 'none' ? '' : value
+                setAckReasonPreset(selected)
+                if (selected) setTechnicianAckReason(selected)
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Schnellauswahl Grund" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Bitte auswaehlen</SelectItem>
+                {ACK_REASON_OPTIONS.map((reason) => (
+                  <SelectItem key={reason} value={reason}>{reason}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Textarea
+              value={technicianAckReason}
+              onChange={(e) => setTechnicianAckReason(e.target.value)}
+              rows={4}
+              placeholder="technician_reason"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setComplaintActionDialog(null)}>Abbrechen</Button>
+            <Button onClick={handleAcknowledgeComplaintFromOrder} disabled={!technicianAckReason.trim() || complaintActionLoading === 'ack'}>
+              {complaintActionLoading === 'ack' ? 'Bitte warten...' : 'Anerkennen'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={complaintActionDialog === 'deny'} onOpenChange={(open) => !open && setComplaintActionDialog(null)}>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span>{user?.role === 'admin' ? 'Reklamation ablehnen bestaetigen' : 'Reklamation ablehnen'}</span>
+              <Badge className="bg-rose-100 text-rose-800 border border-rose-300 text-xs font-normal" variant="outline">Reparaturangebot erforderlich</Badge>
+            </DialogTitle>
+            <DialogDescription>
+              {user?.role === 'admin'
+                ? 'Bitte Ablehnungsgrund und Reparaturangebot pruefen. Nach Bestaetigung wird das Angebot an den Kunden gesendet.'
+                : 'Bitte den Ablehnungsgrund angeben und ein Reparaturangebot konfigurieren. Danach wird die Reklamation zur Admin-Pruefung eskaliert.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {user?.role === 'admin' && complaintWorkflowStatus === 'pending_approval' && latestDenyEscalationLog && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 space-y-1">
+              <p className="font-medium">
+                Vom Techniker eskaliert
+                {escalationActorName ? ` von ${escalationActorName}` : ''}
+                {escalationCreatedAt ? ` am ${new Date(escalationCreatedAt).toLocaleString('de-DE')}` : ''}
+              </p>
+              {!!escalationOfferDescription && (
+                <p className="text-amber-800 line-clamp-2">Angebot: {escalationOfferDescription}</p>
+              )}
+              {escalationOfferAmount != null && !Number.isNaN(Number(escalationOfferAmount)) && (
+                <p className="text-amber-800">Betrag: {Number(escalationOfferAmount).toFixed(2)} EUR</p>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-5 py-1">
+            {/* Section 1: Ablehnungsgrund */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="h-5 w-1 rounded bg-rose-400" />
+                <p className="text-sm font-semibold">1. Ablehnungsgrund</p>
+              </div>
+              <Select
+                value={denyReasonPreset || 'none'}
+                onValueChange={(value) => {
+                  const selected = value === 'none' ? '' : value
+                  setDenyReasonPreset(selected)
+                  if (selected) setTechnicianDenyReason(selected)
+                }}
+              >
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="Schnellauswahl Ablehnungsgrund" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Bitte auswaehlen...</SelectItem>
+                  {DENY_REASON_OPTIONS.map((reason) => (
+                    <SelectItem key={reason} value={reason}>{reason}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Textarea
+                value={technicianDenyReason}
+                onChange={(e) => setTechnicianDenyReason(e.target.value)}
+                rows={3}
+                placeholder="Ablehnungsgrund (Freitext)..."
+                className="text-sm resize-none"
+              />
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-dashed border-muted-foreground/30" />
+
+            {/* Section 2: Reparaturangebot */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="h-5 w-1 rounded bg-blue-400" />
+                <p className="text-sm font-semibold">2. Reparaturangebot konfigurieren</p>
+              </div>
+
+              {/* Device info summary (read-only context) */}
+              {((order as any)?.deviceBrand || (order as any)?.deviceModel) && (
+                <div className="rounded-md bg-muted/50 border px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
+                  <span className="font-medium text-foreground">{(order as any)?.deviceBrand} {(order as any)?.deviceModel}</span>
+                  {((order as any)?.services || []).filter((s: any) => s?._id).length > 0 && (
+                    <span className="text-muted-foreground">&bull; {((order as any)?.services || []).filter((s: any) => s?._id).length} Leistung(en)</span>
+                  )}
+                </div>
+              )}
+
+              {/* Offer amount */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Angebotspreis (EUR)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">€</span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={denyOfferAmount}
+                    onChange={(e) => setDenyOfferAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="pl-7 text-sm"
+                  />
+                </div>
+                {denyOfferAmount && !isNaN(parseFloat(denyOfferAmount)) && (
+                  <p className="text-xs text-muted-foreground">Urspruenglicher Auftragswert: {safeToNumber((order as any)?.totalCost).toFixed(2)} EUR</p>
+                )}
+              </div>
+
+              {/* Offer description */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Angebotsbeschreibung</label>
+                <Textarea
+                  value={denyOfferDescription}
+                  onChange={(e) => setDenyOfferDescription(e.target.value)}
+                  rows={5}
+                  placeholder="Beschreibung des Reparaturangebots..."
+                  className="text-sm resize-none"
+                />
+                <p className="text-xs text-muted-foreground">Vorausgefuellt anhand der Auftragsdaten. Bitte bei Bedarf anpassen.</p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setComplaintActionDialog(null)} disabled={complaintActionLoading === 'deny'}>
+              Abbrechen
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDenyComplaintFromOrder}
+              disabled={!technicianDenyReason.trim() || complaintActionLoading === 'deny'}
+            >
+              {complaintActionLoading === 'deny'
+                ? 'Wird verarbeitet...'
+                : user?.role === 'admin'
+                ? 'Ablehnung bestaetigen & Angebot senden'
+                : 'Ablehnen'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Device Inspection Dialog */}
       {id && order && isStaffOrAdmin && (
