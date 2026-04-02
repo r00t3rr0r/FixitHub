@@ -10,6 +10,36 @@ const { EmailRetryHandler, EmailDeliveryTracker } = require('../utils/emailLogge
  * Includes advanced logging, retry logic, and delivery tracking
  */
 class EmailService {
+  static TRIGGER_TEMPLATE_MAP = {
+    user_registered: 'Registrierung und Kontoaktivierung',
+    password_reset_requested: 'Passwort zuruecksetzen',
+    order_created: 'Auftragsbestaetigung Reparatur',
+    order_status_updated: 'Statusupdate Auftrag oder Buchung',
+    device_received: 'Geraet eingegangen',
+    quote_approval_requested: 'Kostenvoranschlag zur Freigabe',
+    order_completed: 'Reparatur abgeschlossen und Rueckversand',
+    payment_confirmed: 'Zahlung bestaetigt',
+    booking_created: 'Buchung angelegt',
+    booking_status_updated: 'Buchung Statusupdate',
+    booking_ready_for_pickup: 'Buchung bereit zur Abholung',
+    booking_cancelled: 'Buchung storniert',
+    repair_request_created: 'Repair Request eingegangen',
+    repair_request_processing: 'Repair Request in Bearbeitung',
+    repair_request_diagnosed: 'Repair Request Diagnose abgeschlossen',
+    repair_request_message: 'Repair Request neue Nachricht',
+    repair_request_completed: 'Repair Request abgeschlossen',
+    complaint_created: 'Reklamation eingegangen',
+    complaint_processing: 'Reklamation in Bearbeitung',
+    complaint_message: 'Reklamation neue Nachricht',
+    complaint_resolved: 'Reklamation geloest',
+    complaint_rejected: 'Reklamation abgelehnt',
+    appointment_reminder: 'Terminerinnerung',
+    warranty_reminder: 'Garantieerinnerung',
+    invoice_created: 'Neue Rechnung verfuegbar',
+    pickup_reminder: 'Abholung bereit Erinnerung',
+    system_notification: 'Allgemeine Systemnachricht'
+  };
+
   static logger = new Logger('EmailService', { 
     context: { 
       service: 'email',
@@ -534,11 +564,25 @@ This is an automated email. Please do not reply to this message.
     }
   }
 
+  static async sendTriggerEmail(trigger, toEmail, variables = {}) {
+    const templateName = this.TRIGGER_TEMPLATE_MAP[trigger];
+
+    if (!templateName) {
+      this.logger.warn('Unknown email trigger mapping', { trigger, to: toEmail });
+      return {
+        success: false,
+        error: `No template mapping configured for trigger "${trigger}"`
+      };
+    }
+
+    return this.sendTemplateEmail(templateName, toEmail, variables);
+  }
+
   /**
    * Send registration/account activation email
    */
   static async sendRegistrationEmail(toEmail, customerName, verificationUrl, companyName = 'FixitHub') {
-    return this.sendTemplateEmail('Registrierung und Kontoaktivierung', toEmail, {
+    return this.sendTriggerEmail('user_registered', toEmail, {
       companyName,
       customerName,
       customerEmail: toEmail,
@@ -552,7 +596,7 @@ This is an automated email. Please do not reply to this message.
    * Send password reset email
    */
   static async sendPasswordResetEmail(toEmail, customerName, passwordResetUrl, resetExpiresAt, companyName = 'FixitHub') {
-    return this.sendTemplateEmail('Passwort zuruecksetzen', toEmail, {
+    return this.sendTriggerEmail('password_reset_requested', toEmail, {
       companyName,
       customerName,
       customerEmail: toEmail,
@@ -567,7 +611,7 @@ This is an automated email. Please do not reply to this message.
    * Send order confirmation email
    */
   static async sendOrderConfirmationEmail(toEmail, orderData, companyName = 'FixitHub') {
-    return this.sendTemplateEmail('Auftragsbestätigung Reparatur', toEmail, {
+    return this.sendTriggerEmail('order_created', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
       customerEmail: toEmail,
@@ -586,7 +630,7 @@ This is an automated email. Please do not reply to this message.
    * Send order status update email
    */
   static async sendOrderStatusUpdateEmail(toEmail, orderData, companyName = 'FixitHub') {
-    return this.sendTemplateEmail('Statusupdate Auftrag oder Buchung', toEmail, {
+    return this.sendTriggerEmail('order_status_updated', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
       orderNumber: orderData.orderNumber,
@@ -603,7 +647,7 @@ This is an automated email. Please do not reply to this message.
    * Send device received email
    */
   static async sendDeviceReceivedEmail(toEmail, orderData, companyName = 'FixitHub') {
-    return this.sendTemplateEmail('Gerät eingegangen', toEmail, {
+    return this.sendTriggerEmail('device_received', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
       orderNumber: orderData.orderNumber,
@@ -620,7 +664,7 @@ This is an automated email. Please do not reply to this message.
    * Send quote approval request email
    */
   static async sendQuoteApprovalEmail(toEmail, orderData, companyName = 'FixitHub') {
-    return this.sendTemplateEmail('Kostenvoranschlag zur Freigabe', toEmail, {
+    return this.sendTriggerEmail('quote_approval_requested', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
       orderNumber: orderData.orderNumber,
@@ -639,7 +683,7 @@ This is an automated email. Please do not reply to this message.
    * Send repair completion and return shipping email
    */
   static async sendCompletionEmail(toEmail, orderData, companyName = 'FixitHub') {
-    return this.sendTemplateEmail('Reparatur abgeschlossen und Rückversand', toEmail, {
+    return this.sendTriggerEmail('order_completed', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
       orderNumber: orderData.orderNumber,
@@ -657,7 +701,7 @@ This is an automated email. Please do not reply to this message.
    * Send payment confirmation email
    */
   static async sendPaymentConfirmationEmail(toEmail, paymentData, companyName = 'FixitHub') {
-    return this.sendTemplateEmail('Zahlung bestätigt', toEmail, {
+    return this.sendTriggerEmail('payment_confirmed', toEmail, {
       companyName,
       customerName: paymentData.customerName || 'Valued Customer',
       orderNumber: paymentData.orderNumber,

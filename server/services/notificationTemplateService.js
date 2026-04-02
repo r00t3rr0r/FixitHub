@@ -28,10 +28,19 @@ class NotificationTemplateService {
       const config = await SystemConfigService.getSystemConfiguration();
       const templates = config.notificationTemplates || [];
 
-      // Find exact template match by name and type
-      const template = templates.find(
-        t => t.name === templateName && t.type === channelType && t.isActive !== false
-      );
+      // Find template by exact or normalized name and active flag
+      const normalizedSearchName = this.normalizeTemplateName(templateName);
+      const template = templates.find((t) => {
+        if (t.type !== channelType || t.isActive === false) {
+          return false;
+        }
+
+        if (t.name === templateName) {
+          return true;
+        }
+
+        return this.normalizeTemplateName(t.name) === normalizedSearchName;
+      });
 
       if (!template) {
         console.warn(`NotificationTemplateService: Template "${templateName}" (${channelType}) not found or inactive`);

@@ -4,8 +4,23 @@ const User = require('../models/User');
 const Service = require('../models/Service');
 const BookingService = require('./bookingService');
 const mongoose = require('mongoose');
+const EmailService = require('./emailService');
 
 class RepairRequestService {
+  static getRepairRequestStatusTrigger(status) {
+    const normalized = String(status || '').toLowerCase();
+    if (['in_progress', 'in-progress', 'processing', 'assigned', 'under_review'].includes(normalized)) {
+      return 'repair_request_processing';
+    }
+    if (['diagnosed', 'quote_ready', 'awaiting_approval'].includes(normalized)) {
+      return 'repair_request_diagnosed';
+    }
+    if (['completed', 'resolved', 'closed'].includes(normalized)) {
+      return 'repair_request_completed';
+    }
+    return 'repair_request_processing';
+  }
+
   /**
    * Helper function to parse estimatedTime string to numeric minutes
    * Examples: "2-3 hours" -> 150, "1-2 hours" -> 90, "30-60 minutes" -> 45
@@ -92,6 +107,25 @@ class RepairRequestService {
 
       await repairRequest.save();
       console.log(`RepairRequestService: Created repair request: ${repairRequest.requestNumber}`);
+
+      setImmediate(async () => {
+        try {
+          await EmailService.sendTriggerEmail('repair_request_created', repairRequest.customerEmail, {
+            companyName: process.env.COMPANY_NAME || 'FixitHub',
+            customerName: repairRequest.customerName,
+            requestNumber: repairRequest.requestNumber,
+            deviceBrand: repairRequest.deviceBrand,
+            deviceModel: repairRequest.deviceModel,
+            issueDescription: repairRequest.issueDescription,
+            submittedAt: new Date(repairRequest.createdAt || Date.now()).toLocaleDateString('de-DE'),
+            requestUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/repair-requests/${repairRequest._id}`,
+            supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+            supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+          });
+        } catch (notificationError) {
+          console.error('RepairRequestService: Error sending repair request created email:', notificationError.message);
+        }
+      });
 
       return repairRequest;
     } catch (error) {
@@ -211,6 +245,34 @@ class RepairRequestService {
       await request.save();
       console.log(`RepairRequestService: Status updated successfully`);
 
+      setImmediate(async () => {
+        try {
+          const trigger = this.getRepairRequestStatusTrigger(status);
+          await EmailService.sendTriggerEmail(trigger, request.customerEmail, {
+            companyName: process.env.COMPANY_NAME || 'FixitHub',
+            customerName: request.customerName,
+            requestNumber: request.requestNumber,
+            deviceBrand: request.deviceBrand,
+            deviceModel: request.deviceModel,
+            technicianName: request.assignedStaffName || staffName || 'Service Team',
+            processingStartedAt: new Date(request.updatedAt || Date.now()).toLocaleDateString('de-DE'),
+            estimatedResponseDate: new Date(Date.now() + (2 * 24 * 60 * 60 * 1000)).toLocaleDateString('de-DE'),
+            diagnosisResult: request.issueDescription,
+            recommendedAction: 'Bitte Details im Kundenkonto pruefen',
+            offerAmount: request.estimatedCost ? `EUR ${Number(request.estimatedCost).toFixed(2)}` : 'Wird mitgeteilt',
+            diagnosisDate: new Date(request.updatedAt || Date.now()).toLocaleDateString('de-DE'),
+            resolutionSummary: `Status auf ${status} gesetzt`,
+            completedAt: new Date(request.updatedAt || Date.now()).toLocaleDateString('de-DE'),
+            approvalUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/repair-requests/${request._id}`,
+            requestUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/repair-requests/${request._id}`,
+            supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+            supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+          });
+        } catch (notificationError) {
+          console.error('RepairRequestService: Error sending repair request status email:', notificationError.message);
+        }
+      });
+
       return request;
     } catch (error) {
       console.error('RepairRequestService: Error updating status:', error);
@@ -282,6 +344,27 @@ class RepairRequestService {
       await request.save();
 
       console.log(`RepairRequestService: Message added successfully`);
+
+      if (String(senderRole || '').toLowerCase() !== 'customer') {
+        setImmediate(async () => {
+          try {
+            await EmailService.sendTriggerEmail('repair_request_message', request.customerEmail, {
+              companyName: process.env.COMPANY_NAME || 'FixitHub',
+              customerName: request.customerName,
+              requestNumber: request.requestNumber,
+              deviceBrand: request.deviceBrand,
+              deviceModel: request.deviceModel,
+              senderName: senderName || 'Service Team',
+              messageSentAt: new Date().toLocaleString('de-DE'),
+              requestUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/repair-requests/${request._id}`,
+              supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+              supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+            });
+          } catch (notificationError) {
+            console.error('RepairRequestService: Error sending repair request message email:', notificationError.message);
+          }
+        });
+      }
 
       return request;
     } catch (error) {

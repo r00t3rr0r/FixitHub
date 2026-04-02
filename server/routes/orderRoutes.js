@@ -274,6 +274,27 @@ router.post('/:orderId/complaint', requireUser, async (req, res) => {
       }
     }));
 
+    // Notify customer with complaint-created template
+    try {
+      if (req.user?.email) {
+        await EmailService.sendTriggerEmail('complaint_created', req.user.email, {
+          companyName: process.env.COMPANY_NAME || 'FixitHub',
+          customerName,
+          complaintNumber: complaint.complaintNumber || complaintNumber,
+          complaintCategory: complaint.category || 'service',
+          complaintSubject: complaint.subject || `Reklamation fuer Auftrag ${order.orderNumber}`,
+          orderNumber: order.orderNumber,
+          priority: complaint.priority || 'medium',
+          submittedAt: new Date().toLocaleDateString('de-DE'),
+          complaintUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/complaints/${complaint._id}`,
+          supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+          supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+        });
+      }
+    } catch (customerNotifyError) {
+      console.error('Error notifying customer about complaint creation:', customerNotifyError.message);
+    }
+
     return res.status(201).json({
       success: true,
       complaint,

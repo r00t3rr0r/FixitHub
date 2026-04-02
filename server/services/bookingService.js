@@ -7,6 +7,7 @@ const User = require('../models/User');
 const DHLService = require('./dhlService');
 const DHLReturnsService = require('./dhlReturnsService');
 const SystemConfiguration = require('../models/SystemConfiguration');
+const EmailService = require('./emailService');
 
 class BookingService {
   static async getBookingShippingLabelMode() {
@@ -303,6 +304,41 @@ class BookingService {
       } catch (configError) {
         console.error('BookingService: Error checking DHL Returns configuration (non-fatal):', configError.message);
       }
+
+      // Send booking created notification email asynchronously
+      setImmediate(async () => {
+        try {
+          let customerEmail = bookingData?.guestInfo?.email || '';
+          let customerName = `${bookingData?.guestInfo?.firstName || ''} ${bookingData?.guestInfo?.lastName || ''}`.trim();
+
+          if (!customerEmail && bookingData.customerId) {
+            const customer = await User.findById(bookingData.customerId).select('firstName lastName email');
+            if (customer?.email) {
+              customerEmail = customer.email;
+              customerName = `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email;
+            }
+          }
+
+          if (!customerEmail) {
+            return;
+          }
+
+          await EmailService.sendTriggerEmail('booking_created', customerEmail, {
+            companyName: process.env.COMPANY_NAME || 'FixitHub',
+            customerName: customerName || customerEmail,
+            bookingNumber: savedBooking.bookingNumber,
+            bookingDate: new Date(savedBooking.createdAt || Date.now()).toLocaleDateString('de-DE'),
+            itemSummary: `${savedBooking.items?.length || 0} Position(en)`,
+            totalAmount: `EUR ${(savedBooking.totalCost || 0).toFixed(2)}`,
+            bookingStatus: savedBooking.status,
+            bookingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/bookings/${savedBooking._id}`,
+            supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+            supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+          });
+        } catch (notificationError) {
+          console.error('BookingService: Error sending booking created email:', notificationError.message);
+        }
+      });
 
       return savedBooking;
     } catch (error) {
@@ -692,6 +728,7 @@ class BookingService {
         throw new Error('Booking not found');
       }
 
+      const previousStatus = booking.status;
       booking.status = newStatus;
 
       // Add timeline entry
@@ -705,6 +742,43 @@ class BookingService {
 
       const savedBooking = await booking.save();
       console.log('BookingService: Booking status updated successfully');
+
+      // Send status email asynchronously
+      setImmediate(async () => {
+        try {
+          const populatedBooking = await Booking.findById(savedBooking._id).populate('customerId', 'firstName lastName email');
+          const customerEmail = populatedBooking?.customerId?.email || populatedBooking?.guestInfo?.email;
+          if (!customerEmail) {
+            return;
+          }
+
+          const customerName = populatedBooking?.customerId
+            ? `${populatedBooking.customerId.firstName || ''} ${populatedBooking.customerId.lastName || ''}`.trim() || customerEmail
+            : `${populatedBooking?.guestInfo?.firstName || ''} ${populatedBooking?.guestInfo?.lastName || ''}`.trim() || customerEmail;
+
+          const trigger = newStatus === 'completed' ? 'booking_ready_for_pickup' : 'booking_status_updated';
+
+          await EmailService.sendTriggerEmail(trigger, customerEmail, {
+            companyName: process.env.COMPANY_NAME || 'FixitHub',
+            customerName,
+            bookingNumber: populatedBooking.bookingNumber,
+            bookingStatus: newStatus,
+            statusNote: description || `Statuswechsel von ${previousStatus} auf ${newStatus}`,
+            itemSummary: `${populatedBooking.items?.length || 0} Position(en)`,
+            progressPercent: populatedBooking.overallProgress || 0,
+            updatedAt: new Date().toLocaleDateString('de-DE'),
+            bookingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/bookings/${populatedBooking._id}`,
+            pickupHours: process.env.PICKUP_HOURS || 'Mo-Fr 09:00-18:00',
+            workshopAddress: process.env.WORKSHOP_ADDRESS || 'Service Center',
+            readySince: new Date().toLocaleDateString('de-DE'),
+            holdUntil: new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)).toLocaleDateString('de-DE'),
+            supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+            supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+          });
+        } catch (notificationError) {
+          console.error('BookingService: Error sending booking status email:', notificationError.message);
+        }
+      });
 
       return savedBooking;
     } catch (error) {
@@ -806,6 +880,36 @@ class BookingService {
 
       const savedBooking = await booking.save();
       console.log('BookingService: Booking cancelled successfully');
+
+      setImmediate(async () => {
+        try {
+          const populatedBooking = await Booking.findById(savedBooking._id).populate('customerId', 'firstName lastName email');
+          const customerEmail = populatedBooking?.customerId?.email || populatedBooking?.guestInfo?.email;
+          if (!customerEmail) {
+            return;
+          }
+
+          const customerName = populatedBooking?.customerId
+            ? `${populatedBooking.customerId.firstName || ''} ${populatedBooking.customerId.lastName || ''}`.trim() || customerEmail
+            : `${populatedBooking?.guestInfo?.firstName || ''} ${populatedBooking?.guestInfo?.lastName || ''}`.trim() || customerEmail;
+
+          await EmailService.sendTriggerEmail('booking_cancelled', customerEmail, {
+            companyName: process.env.COMPANY_NAME || 'FixitHub',
+            customerName,
+            bookingNumber: populatedBooking.bookingNumber,
+            cancellationReason: 'Durch Service-Team storniert',
+            refundInfo: 'Falls zutreffend wird die Erstattung automatisch veranlasst',
+            refundAmount: `EUR ${(populatedBooking.totalCost || 0).toFixed(2)}`,
+            cancelledAt: new Date().toLocaleDateString('de-DE'),
+            cancelledBy: 'System',
+            newBookingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/bookings/new`,
+            supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+            supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+          });
+        } catch (notificationError) {
+          console.error('BookingService: Error sending booking cancellation email:', notificationError.message);
+        }
+      });
 
       return savedBooking;
     } catch (error) {
@@ -991,10 +1095,26 @@ class BookingService {
       const savedInvoice = await invoice.save();
       console.log('BookingService: Invoice created successfully:', savedInvoice._id, 'Number:', savedInvoice.invoiceNumber);
 
-      // If sendImmediately is true, trigger notification (future implementation)
-      if (invoiceData.sendImmediately) {
-        console.log('BookingService: Sending invoice immediately to customer');
-        // TODO: Implement email notification
+      // Dispatch invoice notification template after invoice creation
+      if (customerEmail && customerEmail !== 'N/A') {
+        setImmediate(async () => {
+          try {
+            await EmailService.sendTriggerEmail('invoice_created', customerEmail, {
+              companyName: process.env.COMPANY_NAME || 'FixitHub',
+              customerName,
+              invoiceNumber: savedInvoice.invoiceNumber,
+              orderNumber: booking.orderIds && booking.orderIds.length > 0 ? String(booking.orderIds[0]) : booking.bookingNumber,
+              invoiceAmount: `EUR ${(savedInvoice.total || 0).toFixed(2)}`,
+              dueDate: new Date(savedInvoice.dueDate).toLocaleDateString('de-DE'),
+              paymentMethod: savedInvoice.paymentMethod || 'Ueberweisung',
+              invoiceUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/invoices/${savedInvoice._id}`,
+              supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+              supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+            });
+          } catch (notificationError) {
+            console.error('BookingService: Error sending invoice email:', notificationError.message);
+          }
+        });
       }
 
       return savedInvoice;

@@ -51,22 +51,59 @@ export function NotificationTemplateDialog({
   const commonVariables = [
     { name: 'customerName', description: 'Vor- und Nachname des Kunden', required: false },
     { name: 'customerEmail', description: 'E-Mail-Adresse des Kunden', required: false },
-    { name: 'orderNumber', description: 'Auftragsnummer', required: false },
-    { name: 'deviceBrand', description: 'Geraetemarke', required: false },
-    { name: 'deviceModel', description: 'Geraetemodell', required: false },
-    { name: 'serviceName', description: 'Name der Reparaturleistung', required: false },
-    { name: 'orderStatus', description: 'Aktueller Auftragsstatus', required: false },
-    { name: 'bookingStatus', description: 'Aktueller Buchungsstatus', required: false },
-    { name: 'statusMessage', description: 'Zusatzhinweis zum Status', required: false },
-    { name: 'estimatedCompletion', description: 'Voraussichtliche Fertigstellung', required: false },
     { name: 'companyName', description: 'Unternehmensname', required: false },
     { name: 'supportEmail', description: 'Support-E-Mail', required: false },
     { name: 'supportPhone', description: 'Support-Telefonnummer', required: false },
+    // Auftrag / Order
+    { name: 'orderNumber', description: 'Auftragsnummer', required: false },
+    { name: 'orderStatus', description: 'Aktueller Auftragsstatus', required: false },
+    { name: 'deviceBrand', description: 'Geraetemarke', required: false },
+    { name: 'deviceModel', description: 'Geraetemodell', required: false },
+    { name: 'serviceName', description: 'Name der Reparaturleistung', required: false },
+    { name: 'estimatedCompletion', description: 'Voraussichtliche Fertigstellung', required: false },
+    { name: 'statusMessage', description: 'Zusatzhinweis zum Status', required: false },
     { name: 'trackingUrl', description: 'Link zur Sendungs- oder Auftragsverfolgung', required: false },
+    // Buchung / Booking
+    { name: 'bookingNumber', description: 'Buchungsnummer', required: false },
+    { name: 'bookingStatus', description: 'Aktueller Buchungsstatus', required: false },
+    { name: 'bookingUrl', description: 'Link zur Buchungsdetailseite', required: false },
+    { name: 'itemSummary', description: 'Kurzuebersicht der enthaltenen Auftraege', required: false },
+    { name: 'totalAmount', description: 'Gesamtbetrag der Buchung', required: false },
+    { name: 'progressPercent', description: 'Gesamtfortschritt in Prozent', required: false },
+    { name: 'pickupHours', description: 'Abholzeiten / Oeffnungszeiten', required: false },
+    { name: 'workshopAddress', description: 'Adresse der Filiale / Werkstatt', required: false },
+    { name: 'holdUntil', description: 'Aufbewahrungsfrist', required: false },
+    { name: 'cancellationReason', description: 'Stornogrund', required: false },
+    { name: 'refundAmount', description: 'Erstattungsbetrag', required: false },
+    // Repair Request
+    { name: 'requestNumber', description: 'Reparaturanfragenummer', required: false },
+    { name: 'requestUrl', description: 'Link zur Anfrage', required: false },
+    { name: 'issueDescription', description: 'Fehlerbeschreibung', required: false },
+    { name: 'diagnosisResult', description: 'Diagnoseergebnis', required: false },
+    { name: 'offerAmount', description: 'Angebotsbetrag', required: false },
+    { name: 'approvalUrl', description: 'Link zur Freigabe', required: false },
+    { name: 'senderName', description: 'Name des Absenders', required: false },
+    { name: 'technicianName', description: 'Zustaendiger Techniker', required: false },
+    // Reklamation / Complaint
+    { name: 'complaintNumber', description: 'Reklamationsnummer', required: false },
+    { name: 'complaintStatus', description: 'Status der Reklamation', required: false },
+    { name: 'complaintUrl', description: 'Link zur Reklamation', required: false },
+    { name: 'resolutionSummary', description: 'Zusammenfassung der Loesung', required: false },
+    { name: 'compensationInfo', description: 'Kompensations- / Erstattungsinfo', required: false },
+    // Zahlung / Invoice
+    { name: 'invoiceNumber', description: 'Rechnungsnummer', required: false },
+    { name: 'invoiceAmount', description: 'Rechnungsbetrag', required: false },
+    { name: 'invoiceUrl', description: 'Link zur Rechnung', required: false },
+    { name: 'amountPaid', description: 'Gebuchter Zahlbetrag', required: false },
+    { name: 'dueDate', description: 'Zahlungsziel', required: false },
+    // Konto / Auth
     { name: 'verificationUrl', description: 'Link zur Kontoaktivierung', required: false },
     { name: 'passwordResetUrl', description: 'Link zum Zuruecksetzen des Passworts', required: false },
-    { name: 'invoiceUrl', description: 'Link zur Rechnung', required: false },
-    { name: 'amountPaid', description: 'Gebuchter Zahlbetrag', required: false }
+    // Termin / Garantie
+    { name: 'appointmentDate', description: 'Termin-Datum', required: false },
+    { name: 'appointmentTime', description: 'Termin-Uhrzeit', required: false },
+    { name: 'warrantyExpiryDate', description: 'Garantieablaufdatum', required: false },
+    { name: 'remainingWarrantyDays', description: 'Restgarantie in Tagen', required: false }
   ]
 
   useEffect(() => {

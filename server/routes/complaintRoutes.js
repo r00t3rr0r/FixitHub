@@ -31,6 +31,22 @@ function getComplaintCustomerId(complaint) {
     : complaint.customerId.toString();
 }
 
+function getComplaintEmailTrigger(complaint, metadata = {}) {
+  const event = String(metadata.event || '').toLowerCase();
+  const status = String(complaint?.status || '').toLowerCase();
+
+  if (event === 'complaint_created') return 'complaint_created';
+  if (event === 'comment_added' || event === 'message_added') return 'complaint_message';
+  if (event === 'offer_rejected' || event === 'complaint_rejected') return 'complaint_rejected';
+  if (event === 'complaint_resolved') return 'complaint_resolved';
+
+  if (['resolved', 'closed', 'new_repair'].includes(status)) return 'complaint_resolved';
+  if (['rejected', 'denied'].includes(status)) return 'complaint_rejected';
+  if (['in-progress', 'pending_approval', 'approved', 'acknowledged'].includes(status)) return 'complaint_processing';
+
+  return 'complaint_processing';
+}
+
 async function notifyAdminsAboutComplaint(complaint, customer, order) {
   const admins = await User.find({ role: 'admin', isActive: true }).select('_id email');
   if (!admins.length) {
@@ -91,14 +107,33 @@ async function notifyCustomer(complaint, customerId, title, message, metadata = 
 
     const customer = await User.findById(customerId).select('email firstName lastName');
     if (customer?.email) {
-      await EmailService.sendTemplateEmail('Statusupdate Auftrag oder Buchung', customer.email, {
-        companyName: 'FixitHub',
-        customerName: `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email,
-        orderNumber: complaint.orderId?.orderNumber || 'Reklamation',
-        orderStatus: title,
-        statusMessage: message,
-        statusUpdatedAt: new Date().toLocaleDateString('de-DE'),
-        trackingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders/${complaint.orderId}`,
+      const customerName = `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email;
+      const trigger = getComplaintEmailTrigger(complaint, metadata);
+
+      await EmailService.sendTriggerEmail(trigger, customer.email, {
+        companyName: process.env.COMPANY_NAME || 'FixitHub',
+        customerName,
+        complaintNumber: complaint.complaintNumber || String(complaint._id),
+        complaintStatus: complaint.status,
+        complaintCategory: complaint.category || 'other',
+        complaintSubject: complaint.subject || 'Reklamation',
+        orderNumber: complaint.orderId?.orderNumber || 'N/A',
+        priority: complaint.priority || 'medium',
+        submittedAt: new Date(complaint.createdAt || Date.now()).toLocaleDateString('de-DE'),
+        handlerName: complaint.assignedToName || complaint.technicianName || 'Service Team',
+        processingStartedAt: new Date().toLocaleDateString('de-DE'),
+        estimatedResolutionDate: new Date(Date.now() + (3 * 24 * 60 * 60 * 1000)).toLocaleDateString('de-DE'),
+        senderName: metadata.senderName || complaint.assignedToName || 'Service Team',
+        messageSentAt: new Date().toLocaleString('de-DE'),
+        resolutionSummary: message,
+        compensationInfo: complaint.partialRefund ? `Teil-Erstattung: EUR ${Number(complaint.partialRefund).toFixed(2)}` : 'Keine zusaetzliche Kompensation',
+        resolvedAt: ['resolved', 'closed', 'new_repair'].includes(String(complaint.status || '').toLowerCase())
+          ? new Date().toLocaleDateString('de-DE')
+          : '',
+        decision: title,
+        decisionReason: message,
+        decidedAt: new Date().toLocaleDateString('de-DE'),
+        complaintUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/complaints/${complaint._id}`,
         supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
         supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
       });
@@ -836,6 +871,27 @@ router.post('/', requireUser, async (req, res) => {
     };
 
     const complaint = await ComplaintService.create(complaintData);
+
+    try {
+      const customer = await User.findById(req.user._id).select('email firstName lastName');
+      if (customer?.email) {
+        await EmailService.sendTriggerEmail('complaint_created', customer.email, {
+          companyName: process.env.COMPANY_NAME || 'FixitHub',
+          customerName: `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email,
+          complaintNumber: complaint.complaintNumber || String(complaint._id),
+          complaintCategory: complaint.category,
+          complaintSubject: complaint.subject,
+          orderNumber: complaint.orderId?.orderNumber || 'N/A',
+          priority: complaint.priority || 'medium',
+          submittedAt: new Date(complaint.createdAt || Date.now()).toLocaleDateString('de-DE'),
+          complaintUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/complaints/${complaint._id}`,
+          supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+          supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+        });
+      }
+    } catch (notificationError) {
+      console.error('ComplaintRoutes: Error sending complaint-created email:', notificationError.message);
+    }
 
     return res.status(201).json({ success: true, complaint });
   } catch (error) {

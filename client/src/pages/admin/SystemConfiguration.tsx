@@ -138,6 +138,10 @@ export function SystemConfiguration() {
   const [templateTestEmail, setTemplateTestEmail] = useState("")
   const [sendingTemplateTest, setSendingTemplateTest] = useState(false)
 
+  // Template filter
+  const [templateSearch, setTemplateSearch] = useState('')
+  const [templateTypeFilter, setTemplateTypeFilter] = useState<'all' | 'email' | 'sms' | 'push'>('all')
+
   // Dialog states
   const [showTemplateDialog, setShowTemplateDialog] = useState(false)
   const [showIntegrationDialog, setShowIntegrationDialog] = useState(false)
@@ -798,7 +802,7 @@ export function SystemConfiguration() {
                     <FileText className="h-5 w-5" />
                     Kunden-Benachrichtigungsvorlagen
                   </CardTitle>
-                  <CardDescription className="text-blue-100 text-xs mt-1">Deutsche Standardvorlagen fuer Registrierung, Auftragsbestaetigung, Statusupdates, Zahlungen und Passwort-Reset</CardDescription>
+                  <CardDescription className="text-blue-100 text-xs mt-1">Buchungen, Reparaturanfragen, Reklamationen, Statusupdates, Zahlungen, Termine und Standardbenachrichtigungen</CardDescription>
                 </div>
                 <Button onClick={handleCreateTemplate} size="sm" className="bg-white text-[#1a2a5e] hover:bg-blue-50">
                   <Plus className="h-4 w-4 mr-2" />
@@ -808,25 +812,72 @@ export function SystemConfiguration() {
             </CardHeader>
             <CardContent className="p-4">
               <div className="mb-4 rounded-2xl border border-[#d8dce6] bg-gradient-to-r from-[#f8f9fc] via-white to-[#fff7df] p-4">
-                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-[#1a2a5e]">McRepair Layout fuer transaktionale Kunden-E-Mails</p>
-                    <p className="text-xs text-muted-foreground">Die Vorlagen nutzen die Markenfarben der Homepage, eine klare Hierarchie und dynamische Platzhalter fuer kundenbezogene Inhalte.</p>
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-[#1a2a5e]">McRepair Layout fuer transaktionale Kunden-Benachrichtigungen</p>
+                      <p className="text-xs text-muted-foreground">Einheitliches Design fuer E-Mail, SMS und Push-Vorlagen mit dynamischen Platzhaltern.</p>
+                    </div>
+                    <Badge variant="outline" className="w-fit border-[#f5b800] bg-white text-[#1a2a5e]">
+                      {templates.length} Vorlagen gesamt
+                    </Badge>
                   </div>
-                  <Badge variant="outline" className="w-fit border-[#f5b800] bg-white text-[#1a2a5e]">
-                    {templates.length} Vorlagen verfuegbar
-                  </Badge>
+                  {/* Search & Filter */}
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      <input
+                        type="text"
+                        placeholder="Vorlagen durchsuchen …"
+                        value={templateSearch}
+                        onChange={(e) => setTemplateSearch(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 text-sm border border-[#d8dce6] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a5e]/30"
+                      />
+                    </div>
+                    <div className="flex gap-1">
+                      {(['all', 'email', 'sms', 'push'] as const).map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setTemplateTypeFilter(t)}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+                            templateTypeFilter === t
+                              ? 'bg-[#1a2a5e] text-white border-[#1a2a5e]'
+                              : 'bg-white text-[#1a2a5e] border-[#d8dce6] hover:bg-[#eef3ff]'
+                          }`}
+                        >
+                          {t === 'all' ? `Alle (${templates.length})` :
+                           t === 'email' ? `E-Mail (${templates.filter(x => x.type === 'email').length})` :
+                           t === 'sms' ? `SMS (${templates.filter(x => x.type === 'sms').length})` :
+                           `Push (${templates.filter(x => x.type === 'push').length})`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
-              {templates.length === 0 ? (
-                <div className="text-center py-8">
-                  <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-muted-foreground">Keine Benachrichtigungsvorlagen gefunden</p>
-                  <p className="text-sm text-muted-foreground">Legen Sie Ihre erste Vorlage fuer die Kundenkommunikation an</p>
-                </div>
-              ) : (
+              {(() => {
+                const filtered = templates.filter((t) => {
+                  const matchesType = templateTypeFilter === 'all' || t.type === templateTypeFilter
+                  const q = templateSearch.toLowerCase()
+                  const matchesSearch = !q || t.name.toLowerCase().includes(q) || (t.subject || '').toLowerCase().includes(q)
+                  return matchesType && matchesSearch
+                })
+                if (templates.length === 0) return (
+                  <div className="text-center py-8">
+                    <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <p className="text-muted-foreground">Keine Benachrichtigungsvorlagen gefunden</p>
+                    <p className="text-sm text-muted-foreground">Legen Sie Ihre erste Vorlage fuer die Kundenkommunikation an</p>
+                  </div>
+                )
+                if (filtered.length === 0) return (
+                  <div className="text-center py-8">
+                    <Search className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-40" />
+                    <p className="text-muted-foreground text-sm">Keine Vorlagen fuer diesen Filter gefunden</p>
+                  </div>
+                )
+                return (
                 <div className="grid gap-4 md:grid-cols-2">
-                  {templates.map((template) => (
+                  {filtered.map((template) => (
                     <Card key={template._id} className="relative overflow-hidden border-[#d8dce6] shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
                       <CardHeader>
                         <div className="flex items-center justify-between">
@@ -920,7 +971,8 @@ export function SystemConfiguration() {
                     </Card>
                   ))}
                 </div>
-              )}
+                )
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
