@@ -1,6 +1,14 @@
 const User = require('../models/User');
 const SystemConfiguration = require('../models/SystemConfiguration');
 
+const DEFAULT_PASSWORD_POLICY = {
+  minLength: 8,
+  requireUppercase: true,
+  requireLowercase: true,
+  requireNumbers: true,
+  requireSpecialChars: false
+};
+
 class SecurityService {
   // Get security settings
   async getSecuritySettings() {
@@ -13,13 +21,7 @@ class SecurityService {
 
     return {
       settings: {
-        passwordPolicy: config.securitySettings?.passwordPolicy || {
-          minLength: 8,
-          requireUppercase: true,
-          requireLowercase: true,
-          requireNumbers: true,
-          requireSpecialChars: false
-        },
+        passwordPolicy: config.securitySettings?.passwordPolicy || DEFAULT_PASSWORD_POLICY,
         sessionTimeout: config.securitySettings?.sessionTimeout || 3600,
         maxLoginAttempts: config.securitySettings?.maxLoginAttempts || 5,
         lockoutDuration: config.securitySettings?.lockoutDuration || 900,
@@ -28,6 +30,50 @@ class SecurityService {
       loginAttempts,
       activeSessions,
       securityEvents
+    };
+  }
+
+  async getPasswordPolicy() {
+    const config = await SystemConfiguration.findOne().select('securitySettings.passwordPolicy');
+    const policy = config?.securitySettings?.passwordPolicy || {};
+
+    return {
+      minLength: Number.isInteger(policy.minLength) ? policy.minLength : DEFAULT_PASSWORD_POLICY.minLength,
+      requireUppercase: typeof policy.requireUppercase === 'boolean' ? policy.requireUppercase : DEFAULT_PASSWORD_POLICY.requireUppercase,
+      requireLowercase: typeof policy.requireLowercase === 'boolean' ? policy.requireLowercase : DEFAULT_PASSWORD_POLICY.requireLowercase,
+      requireNumbers: typeof policy.requireNumbers === 'boolean' ? policy.requireNumbers : DEFAULT_PASSWORD_POLICY.requireNumbers,
+      requireSpecialChars: typeof policy.requireSpecialChars === 'boolean' ? policy.requireSpecialChars : DEFAULT_PASSWORD_POLICY.requireSpecialChars
+    };
+  }
+
+  async validatePasswordAgainstPolicy(password) {
+    const policy = await this.getPasswordPolicy();
+    const failedRules = [];
+
+    if (password.length < policy.minLength) {
+      failedRules.push(`must be at least ${policy.minLength} characters long`);
+    }
+
+    if (policy.requireUppercase && !/[A-Z]/.test(password)) {
+      failedRules.push('must include at least one uppercase letter');
+    }
+
+    if (policy.requireLowercase && !/[a-z]/.test(password)) {
+      failedRules.push('must include at least one lowercase letter');
+    }
+
+    if (policy.requireNumbers && !/[0-9]/.test(password)) {
+      failedRules.push('must include at least one number');
+    }
+
+    if (policy.requireSpecialChars && !/[^A-Za-z0-9]/.test(password)) {
+      failedRules.push('must include at least one special character');
+    }
+
+    return {
+      policy,
+      isValid: failedRules.length === 0,
+      failedRules
     };
   }
 

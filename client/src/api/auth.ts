@@ -1,5 +1,29 @@
 import api from './api';
 
+interface ApiErrorLike {
+  message?: string;
+  response?: {
+    data?: {
+      message?: string;
+    };
+    status?: number;
+    headers?: unknown;
+  };
+}
+
+interface PasswordPolicy {
+  minLength: number;
+  requireUppercase: boolean;
+  requireLowercase: boolean;
+  requireNumbers: boolean;
+  requireSpecialChars: boolean;
+}
+
+const toErrorMessage = (error: unknown): string => {
+  const typedError = error as ApiErrorLike;
+  return typedError?.response?.data?.message || typedError?.message || 'Unknown error';
+};
+
 // Description: Login user functionality
 // Endpoint: POST /api/auth/login
 // Request: { email: string, password: string }
@@ -12,13 +36,14 @@ export const login = async (email: string, password: string) => {
     console.log('Login response received:', response.data);
     return response.data;
   } catch (error) {
+    const typedError = error as ApiErrorLike;
     console.error('Login error details:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-      headers: error.response?.headers
+      message: typedError.message,
+      response: typedError.response?.data,
+      status: typedError.response?.status,
+      headers: typedError.response?.headers
     });
-    throw new Error(error?.response?.data?.message || error.message);
+    throw new Error(toErrorMessage(error));
   }
 };
 
@@ -40,12 +65,13 @@ export const register = async (email: string, password: string, firstName?: stri
     console.log('Register response received:', response.data);
     return response.data;
   } catch (error) {
+    const typedError = error as ApiErrorLike;
     console.error('Register error details:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status
+      message: typedError.message,
+      response: typedError.response?.data,
+      status: typedError.response?.status
     });
-    throw new Error(error?.response?.data?.message || error.message);
+    throw new Error(toErrorMessage(error));
   }
 };
 
@@ -62,6 +88,37 @@ export const logout = async () => {
     return response.data;
   } catch (error) {
     console.error('Logout error:', error);
-    throw new Error(error?.response?.data?.message || error.message);
+    throw new Error(toErrorMessage(error));
+  }
+};
+
+export const forgotPassword = async (email: string) => {
+  try {
+    const response = await api.post('/api/auth/forgot-password', { email });
+    return response.data;
+  } catch (error) {
+    throw new Error(toErrorMessage(error));
+  }
+};
+
+export const resetPassword = async (token: string, newPassword: string, confirmPassword: string) => {
+  try {
+    const response = await api.post('/api/auth/reset-password', {
+      token,
+      newPassword,
+      confirmPassword
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(toErrorMessage(error));
+  }
+};
+
+export const getPasswordPolicy = async (): Promise<PasswordPolicy> => {
+  try {
+    const response = await api.get('/api/auth/password-policy');
+    return response.data.passwordPolicy;
+  } catch (error) {
+    throw new Error(toErrorMessage(error));
   }
 };

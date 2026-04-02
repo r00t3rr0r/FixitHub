@@ -5,6 +5,8 @@ import { TopBar } from '@/components/home/TopBar'
 import { McRepairNav } from '@/components/home/McRepairNav'
 import { Footer } from '@/components/Footer'
 import { CheckCircle, AlertCircle, Loader } from 'lucide-react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
 export function VerifyEmail() {
   const [searchParams] = useSearchParams()
@@ -59,14 +61,23 @@ export function VerifyEmail() {
       <TopBar />
       <McRepairNav />
 
-      <section style={{ flex: 1, padding: '80px 24px', maxWidth: '600px', margin: '0 auto' }}>
-        <div style={{
-          background: 'white',
-          padding: '48px',
-          borderRadius: 'var(--radius-lg)',
-          boxShadow: 'var(--shadow-lg)',
-          textAlign: 'center'
-        }}>
+      <section style={{ flex: 1, padding: '80px 24px', maxWidth: '680px', width: '100%', margin: '0 auto' }}>
+        <Card className="w-full shadow-xl border-0" style={{ borderRadius: 'var(--radius-lg)' }}>
+          <CardHeader
+            className="text-center space-y-2"
+            style={{
+              background: 'linear-gradient(135deg, var(--primary-blue), var(--primary-blue-light))',
+              borderTopLeftRadius: 'var(--radius-lg)',
+              borderTopRightRadius: 'var(--radius-lg)'
+            }}
+          >
+            <CardTitle className="text-white">E-Mail Verifizierung</CardTitle>
+            <CardDescription className="text-blue-100">
+              Wir pruefen den Sicherheitslink fuer Ihr Kundenkonto.
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="pt-8 text-center">
           {verifying ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
               <div style={{
@@ -134,28 +145,22 @@ export function VerifyEmail() {
                 <p style={{ color: 'var(--gray-600)', fontSize: '1rem', marginBottom: '24px' }}>
                   {error}
                 </p>
-                <button
+                <Button
                   onClick={() => navigate('/register')}
                   style={{
                     background: 'var(--primary-blue)',
                     color: 'white',
                     padding: '12px 32px',
-                    borderRadius: 'var(--radius-md)',
                     fontSize: '1rem',
-                    fontWeight: '600',
-                    border: 'none',
-                    cursor: 'pointer',
-                    transition: 'var(--transition)'
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                 >
                   Zurück zur Registrierung
-                </button>
+                </Button>
               </div>
             </div>
           )}
-        </div>
+          </CardContent>
+        </Card>
       </section>
 
       <Footer />

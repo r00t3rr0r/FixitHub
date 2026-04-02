@@ -1,8 +1,11 @@
 const express = require('express');
+const crypto = require('crypto');
 const UserService = require('../services/userService.js');
 const EmailService = require('../services/emailService.js');
+const SecurityService = require('../services/securityService.js');
 const { requireUser } = require('./middleware/auth.js');
 const User = require('../models/User.js');
+const { generatePasswordHash } = require('../utils/password.js');
 const { generateAccessToken, generateRefreshToken } = require('../utils/auth.js');
 const jwt = require('jsonwebtoken');
 
@@ -340,13 +343,34 @@ router.get('/me', requireUser, async (req, res) => {
 });
 
 /**
+ * GET /api/auth/password-policy
+ * Return effective password policy configured in admin security settings.
+ */
+router.get('/password-policy', async (req, res) => {
+  try {
+    const passwordPolicy = await SecurityService.getPasswordPolicy();
+
+    return res.status(200).json({
+      success: true,
+      passwordPolicy
+    });
+  } catch (error) {
+    console.error('Error getting password policy:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch password policy'
+    });
+  }
+});
+
+/**
  * POST /api/auth/forgot-password
  * Send password reset email to user
  */
 router.post('/forgot-password', async (req, res) => {
   console.log('Forgot password request received');
 
-  const { email } = req.body;
+  const email = (req.body?.email || '').trim().toLowerCase();
 
   if (!email) {
     return res.status(400).json({ success: false, message: 'Email is required' });
@@ -364,21 +388,21 @@ router.post('/forgot-password', async (req, res) => {
       });
     }
 
-    // Generate password reset token valid for 1 hour
-    const resetToken = jwt.sign(
-      { userId: user._id, email: user.email, type: 'password-reset' },
-      process.env.JWT_SECRET || 'default_secret',
-      { expiresIn: '1h' }
-    );
+    // Store only a hash of the reset token so leaked DB data cannot be used to reset passwords.
+    const rawResetToken = crypto.randomBytes(48).toString('hex');
+    const hashedResetToken = crypto
+      .createHash('sha256')
+      .update(rawResetToken)
+      .digest('hex');
+    const expiresAtDate = new Date(Date.now() + 3600000); // 1 hour
 
-    // Store reset token hash in database (optional but recommended)
-    user.passwordResetToken = resetToken;
-    user.passwordResetExpires = new Date(Date.now() + 3600000); // 1 hour
+    user.passwordResetToken = hashedResetToken;
+    user.passwordResetExpires = expiresAtDate;
     await user.save();
 
     // Build reset URL with token
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
-    const expiresAt = new Date(Date.now() + 3600000).toLocaleString('de-DE');
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${encodeURIComponent(rawResetToken)}`;
+    const expiresAt = expiresAtDate.toLocaleString('de-DE');
 
     // Send password reset email
     const emailResult = await EmailService.sendPasswordResetEmail(
@@ -430,46 +454,37 @@ router.post('/reset-password', async (req, res) => {
     });
   }
 
-  if (newPassword.length < 8) {
-    return res.status(400).json({
-      success: false,
-      message: 'Password must be at least 8 characters long'
-    });
-  }
-
   try {
-    // Verify reset token
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || 'default_secret'
-    );
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
 
-    if (decoded.type !== 'password-reset') {
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: new Date() }
+    });
+
+    if (!user) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid reset token'
+        message: 'Invalid or expired password reset token'
       });
     }
 
-    // Find user and verify token
-    const user = await User.findById(decoded.userId);
-
-    if (!user || user.email !== decoded.email) {
+    const passwordValidation = await SecurityService.validatePasswordAgainstPolicy(newPassword);
+    if (!passwordValidation.isValid) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid reset token or user not found'
-      });
-    }
-
-    if (user.passwordResetExpires && user.passwordResetExpires < new Date()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Password reset token has expired'
+        message: `Password policy violation: ${passwordValidation.failedRules.join(', ')}`,
+        passwordPolicy: passwordValidation.policy,
+        failedRules: passwordValidation.failedRules
       });
     }
 
     // Update password
-    user.password = newPassword;
+    user.password = await generatePasswordHash(newPassword);
+    user.refreshToken = null;
     user.passwordResetToken = null;
     user.passwordResetExpires = null;
     await user.save();
@@ -481,20 +496,6 @@ router.post('/reset-password', async (req, res) => {
       message: 'Password has been reset successfully. Please log in with your new password.'
     });
   } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(400).json({
-        success: false,
-        message: 'Password reset token has expired'
-      });
-    }
-
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid reset token'
-      });
-    }
-
     console.error('Error in reset-password:', error.message);
     return res.status(500).json({
       success: false,

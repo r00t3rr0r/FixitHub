@@ -6,6 +6,8 @@ import { Home } from "./pages/Home"
 import { Login } from "./pages/Login"
 import { Register } from "./pages/Register"
 import { VerifyEmail } from "./pages/VerifyEmail"
+import { ForgotPassword } from "./pages/ForgotPassword"
+import { ResetPassword } from "./pages/ResetPassword"
 import { DebugLogin } from "./pages/DebugLogin"
 import { ProtectedRoute } from "./components/ProtectedRoute"
 import { Layout } from "./components/Layout"
@@ -86,6 +88,8 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/debug" element={<DebugLogin />} />
 
             {/* Guest tracking routes - public access with CustomerLayout */}

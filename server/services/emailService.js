@@ -411,9 +411,12 @@ This is an automated email. Please do not reply to this message.
       );
 
       if (!validation.isValid) {
+        const validationError = validation.error || `Missing required variables: ${validation.missingVariables.join(', ')}`;
+
         this.logger.warn('Template validation failed - missing variables', {
           templateName,
           missingVariables: validation.missingVariables,
+          validationError,
           to: toEmail
         });
 
@@ -422,12 +425,12 @@ This is an automated email. Please do not reply to this message.
           templateName: emailInfo.templateName,
           status: 'failed',
           attempts: 0,
-          error: `Missing required variables: ${validation.missingVariables.join(', ')}`
+          error: validationError
         });
 
         return {
           success: false,
-          error: `Missing required variables: ${validation.missingVariables.join(', ')}`
+          error: validationError
         };
       }
 
@@ -549,7 +552,7 @@ This is an automated email. Please do not reply to this message.
    * Send password reset email
    */
   static async sendPasswordResetEmail(toEmail, customerName, passwordResetUrl, resetExpiresAt, companyName = 'FixitHub') {
-    return this.sendTemplateEmail('Passwort zurücksetzen', toEmail, {
+    return this.sendTemplateEmail('Passwort zuruecksetzen', toEmail, {
       companyName,
       customerName,
       customerEmail: toEmail,

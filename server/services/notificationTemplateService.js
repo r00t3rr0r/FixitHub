@@ -5,6 +5,15 @@ const SystemConfigService = require('./systemConfigService');
  * Supports email, SMS, and push notification channels
  */
 class NotificationTemplateService {
+  static normalizeTemplateName(name = '') {
+    return String(name)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/ß/g, 'ss')
+      .replace(/[^a-zA-Z0-9]+/g, '')
+      .toLowerCase();
+  }
+
   /**
    * Render a template by name with provided variables
    * @param {string} templateName - Name of the template (e.g., 'Registrierung und Kontoaktivierung')
@@ -85,9 +94,21 @@ class NotificationTemplateService {
   static async getTemplateByName(templateName, channelType) {
     try {
       const config = await SystemConfigService.getSystemConfiguration();
-      const template = (config.notificationTemplates || []).find(
-        t => t.name === templateName && t.type === channelType
-      );
+      const templates = config.notificationTemplates || [];
+      const normalizedSearchName = this.normalizeTemplateName(templateName);
+
+      const template = templates.find((t) => {
+        if (t.type !== channelType) {
+          return false;
+        }
+
+        if (t.name === templateName) {
+          return true;
+        }
+
+        return this.normalizeTemplateName(t.name) === normalizedSearchName;
+      });
+
       return template || null;
     } catch (error) {
       console.error(`NotificationTemplateService: Error getting template: ${error.message}`);
