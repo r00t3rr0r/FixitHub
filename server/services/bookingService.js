@@ -10,6 +10,74 @@ const SystemConfiguration = require('../models/SystemConfiguration');
 const EmailService = require('./emailService');
 
 class BookingService {
+  static escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  static formatCurrencyEUR(amount) {
+    const numericValue = Number.isFinite(Number(amount)) ? Number(amount) : 0;
+    return `EUR ${numericValue.toFixed(2)}`;
+  }
+
+  static buildBookingOrdersSummary(items = []) {
+    if (!Array.isArray(items) || items.length === 0) {
+      return 'Keine Auftraege enthalten';
+    }
+
+    const orderLabel = items.length === 1 ? 'Auftrag' : 'Auftraege';
+    const lines = items.map((item, index) => {
+      const amount = this.formatCurrencyEUR(item?.cost);
+
+      if (item?.type === 'product') {
+        const products = Array.isArray(item?.products)
+          ? item.products
+              .map((product) => {
+                const name = this.escapeHtml(product?.name || 'Produkt');
+                const quantity = Number.isFinite(Number(product?.quantity)) ? Number(product.quantity) : 1;
+                return `${name} (${quantity}x)`;
+              })
+              .filter(Boolean)
+          : [];
+
+        const productsDisplay = products.length > 0
+          ? products.join(', ')
+          : 'Produkte werden fuer Sie vorbereitet';
+
+        return [
+          `<strong>Position ${index + 1}: Produktbestellung</strong>`,
+          `Produkte: ${productsDisplay}`,
+          `Betrag: ${amount}`,
+        ].join('<br />');
+      }
+
+      const deviceName = this.escapeHtml(item?.device || 'Geraet wird noch zugeordnet');
+      const serviceNames = Array.isArray(item?.services)
+        ? item.services
+            .map((service) => service?.name)
+            .filter(Boolean)
+            .map((name) => this.escapeHtml(name))
+        : [];
+
+      const servicesDisplay = serviceNames.length > 0
+        ? serviceNames.join(', ')
+        : 'Leistungen werden fuer Sie vorbereitet';
+
+      return [
+        `<strong>Position ${index + 1}: Reparatur</strong>`,
+        `Geraet: ${deviceName}`,
+        `Gebuchte Leistungen: ${servicesDisplay}`,
+        `Betrag: ${amount}`,
+      ].join('<br />');
+    });
+
+    return `${items.length} ${orderLabel}<br /><br />${lines.join('<br /><br />')}`;
+  }
+
   static clampProgress(value) {
     const numericValue = Number.isFinite(Number(value)) ? Number(value) : 0;
     return Math.max(0, Math.min(100, Math.round(numericValue)));
@@ -296,6 +364,8 @@ class BookingService {
         console.error('BookingService: Error creating outbound shipping label for booking (non-fatal):', shippingLabelError.message);
       }
 
+      let bookingToReturn = savedBooking;
+
       // Automatically generate DHL return label if enabled in configuration
       try {
         console.log('BookingService: Checking if automatic return label generation is enabled');
@@ -321,12 +391,12 @@ class BookingService {
 
               // Reload booking to get updated return information
               const updatedBooking = await Booking.findById(savedBooking._id);
-              return updatedBooking;
+              if (updatedBooking) {
+                bookingToReturn = updatedBooking;
+              }
             } catch (labelError) {
               console.error('BookingService: Error creating return label (non-fatal):', labelError.message);
               console.error('BookingService: Booking created successfully but return label generation failed');
-              // Return original booking even if label generation fails
-              return savedBooking;
             }
           } else {
             console.log('BookingService: Automatic return label generation is disabled or integration not found');
@@ -354,15 +424,19 @@ class BookingService {
             return;
           }
 
+          const itemSummary = this.buildBookingOrdersSummary(savedBooking.items);
+          const shippingLabelUrl = savedBooking.shippingLabelUrl || bookingToReturn?.shippingLabelUrl || '';
+
           await EmailService.sendTriggerEmail('booking_created', customerEmail, {
             companyName: process.env.COMPANY_NAME || 'FixitHub',
             customerName: customerName || customerEmail,
             bookingNumber: savedBooking.bookingNumber,
             bookingDate: new Date(savedBooking.createdAt || Date.now()).toLocaleDateString('de-DE'),
-            itemSummary: `${savedBooking.items?.length || 0} Position(en)`,
-            totalAmount: `EUR ${(savedBooking.totalCost || 0).toFixed(2)}`,
+            itemSummary,
+            totalAmount: this.formatCurrencyEUR(savedBooking.totalCost || 0),
             bookingStatus: savedBooking.status,
-            bookingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/bookings/${savedBooking._id}`,
+            bookingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/bookings`,
+            shippingLabelUrl,
             supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
             supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
           });
@@ -371,7 +445,7 @@ class BookingService {
         }
       });
 
-      return savedBooking;
+      return bookingToReturn;
     } catch (error) {
       console.error('BookingService: Error creating booking:', error);
       throw error;

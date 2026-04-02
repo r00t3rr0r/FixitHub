@@ -24,6 +24,43 @@ class SystemConfigService {
       config.markModified('notificationTemplates');
     }
 
+    // Migrate selected managed templates when defaults evolve.
+    // This ensures layout/functionality updates (e.g. dual CTA buttons) are applied on existing installations.
+    const previousVersion = config.notificationTemplateDefaultsVersion || 0;
+    if (previousVersion < 6) {
+      const bookingTemplateKey = normalizeTemplateKey({ type: 'email', name: 'Buchung angelegt' });
+      const defaultBookingTemplate = defaultTemplates.find(
+        (template) => normalizeTemplateKey(template) === bookingTemplateKey
+      );
+      const existingBookingTemplate = (config.notificationTemplates || []).find(
+        (template) => normalizeTemplateKey(template) === bookingTemplateKey
+      );
+
+      if (defaultBookingTemplate && existingBookingTemplate) {
+        existingBookingTemplate.subject = defaultBookingTemplate.subject;
+        existingBookingTemplate.content = defaultBookingTemplate.content;
+        existingBookingTemplate.variables = defaultBookingTemplate.variables;
+        config.markModified('notificationTemplates');
+      }
+    }
+
+    if (previousVersion < 7) {
+      const notifTemplateKey = normalizeTemplateKey({ type: 'email', name: 'Benachrichtigungs-Updates fuer Kunden' });
+      const defaultNotifTemplate = defaultTemplates.find(
+        (template) => normalizeTemplateKey(template) === notifTemplateKey
+      );
+      const existingNotifTemplate = (config.notificationTemplates || []).find(
+        (template) => normalizeTemplateKey(template) === notifTemplateKey
+      );
+
+      if (defaultNotifTemplate && existingNotifTemplate) {
+        existingNotifTemplate.subject = defaultNotifTemplate.subject;
+        existingNotifTemplate.content = defaultNotifTemplate.content;
+        existingNotifTemplate.variables = defaultNotifTemplate.variables;
+        config.markModified('notificationTemplates');
+      }
+    }
+
     config.notificationTemplateDefaultsVersion = DEFAULT_NOTIFICATION_TEMPLATE_VERSION;
     await config.save();
 

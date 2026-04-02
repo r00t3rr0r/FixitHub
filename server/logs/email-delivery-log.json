@@ -125,5 +125,205 @@
         "systemInfo"
       ]
     }
+  },
+  {
+    "id": "1775110863999-04iwu2tea",
+    "timestamp": "2026-04-02T06:21:03.999Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Update fuer Kunden",
+    "subject": "Neue Benachrichtigung bei FixitHub: Nachrichten",
+    "messageId": "<0f2b55ce-cc2e-8d78-0ced-9b0c2f8cc568@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1608,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "supportEmail",
+        "supportPhone",
+        "ordersInfo",
+        "paymentsInfo",
+        "messagesInfo",
+        "assignmentsInfo",
+        "remindersInfo",
+        "systemInfo"
+      ]
+    }
+  },
+  {
+    "id": "1775112627951-2fy2syuej",
+    "timestamp": "2026-04-02T06:50:27.951Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0004 wurde erfolgreich angelegt – FixitHub",
+    "messageId": "<677128fc-2d96-36a7-22f6-bb5faaf1ff3f@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 907,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "bookingUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775113850108-ar1qmicjt",
+    "timestamp": "2026-04-02T07:10:50.108Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0005 wurde erfolgreich angelegt – FixitHub",
+    "messageId": "<b6282a5a-df3e-ad14-188f-763eccefbb6a@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1060,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "bookingUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775114353118-6motbs0nn",
+    "timestamp": "2026-04-02T07:19:13.118Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0006 wurde erfolgreich angelegt – FixitHub",
+    "messageId": "<0f41e9a5-bd11-84a3-267e-136aef70a77e@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 996,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775114583132-8szqfnspp",
+    "timestamp": "2026-04-02T07:23:03.132Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0007 wurde erfolgreich angelegt – FixitHub",
+    "messageId": "<956bef10-2748-0b33-bd2a-277c7d35b30c@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 972,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775115012428-arohjjo0k",
+    "timestamp": "2026-04-02T07:30:12.428Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei FixitHub: Auftraege",
+    "messageId": "<9066000c-663a-61b2-360f-0a98451fe204@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 971,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "supportEmail",
+        "supportPhone",
+        "ordersInfo",
+        "paymentsInfo",
+        "messagesInfo",
+        "assignmentsInfo",
+        "remindersInfo",
+        "systemInfo"
+      ]
+    }
+  },
+  {
+    "id": "1775115013040-36jy9d7zw",
+    "timestamp": "2026-04-02T07:30:13.040Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei FixitHub: Auftraege",
+    "messageId": "<4d9953fb-0441-e5c6-e8fd-2aa6db78c5ea@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1580,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "supportEmail",
+        "supportPhone",
+        "ordersInfo",
+        "paymentsInfo",
+        "messagesInfo",
+        "assignmentsInfo",
+        "remindersInfo",
+        "systemInfo"
+      ]
+    }
   }
 ]

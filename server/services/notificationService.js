@@ -44,26 +44,25 @@ class NotificationService {
     }
   }
 
-  static buildNotificationTypeSummary(notificationType) {
-    const labels = {
-      order_update: 'Neues Update verfuegbar',
-      payment: 'Neues Update verfuegbar',
-      message: 'Neue Nachricht verfuegbar',
-      assignment: 'Neue Zuweisung verfuegbar',
-      reminder: 'Neue Erinnerung verfuegbar',
-      system: 'Neuer Systemhinweis verfuegbar'
+  static buildNotificationTypeSummaryHtml(notificationType) {
+    const tdLabelStyle = 'padding:10px 0;border-bottom:1px solid #d8dce6;font-size:13px;font-weight:700;color:#1a2a5e;width:170px;vertical-align:top;';
+    const tdValueStyle = 'padding:10px 0;border-bottom:1px solid #d8dce6;font-size:14px;color:#2d3748;vertical-align:top;';
+
+    const categories = {
+      order_update: { label: 'Auftraege', value: 'Neues Update verfuegbar' },
+      payment: { label: 'Zahlungen', value: 'Neues Update verfuegbar' },
+      message: { label: 'Nachrichten', value: 'Neue Nachricht verfuegbar' },
+      assignment: { label: 'Zuweisungen', value: 'Neue Zuweisung verfuegbar' },
+      reminder: { label: 'Erinnerungen', value: 'Neue Erinnerung verfuegbar' },
+      system: { label: 'System', value: 'Neuer Systemhinweis verfuegbar' },
     };
 
-    const inactiveLabel = 'Aktuell kein neues Update';
+    const category = categories[String(notificationType || 'system').toLowerCase()] || categories.system;
 
-    return {
-      ordersInfo: notificationType === 'order_update' ? labels.order_update : inactiveLabel,
-      paymentsInfo: notificationType === 'payment' ? labels.payment : inactiveLabel,
-      messagesInfo: notificationType === 'message' ? labels.message : inactiveLabel,
-      assignmentsInfo: notificationType === 'assignment' ? labels.assignment : inactiveLabel,
-      remindersInfo: notificationType === 'reminder' ? labels.reminder : inactiveLabel,
-      systemInfo: notificationType === 'system' ? labels.system : inactiveLabel,
-    };
+    return `<tr>
+      <td style="${tdLabelStyle}">${category.label}</td>
+      <td style="${tdValueStyle}">${category.value}</td>
+    </tr>`;
   }
 
   static async sendCustomerNotificationEmail(savedNotification) {
@@ -104,7 +103,7 @@ class NotificationService {
 
       const notificationType = String(savedNotification.type || 'system').toLowerCase();
       const notificationCategoryLabel = this.getNotificationCategoryLabel(notificationType);
-      const typeSummary = this.buildNotificationTypeSummary(notificationType);
+      const notificationTypeSummary = this.buildNotificationTypeSummaryHtml(notificationType);
       const notificationCreatedAt = new Date(savedNotification.createdAt || Date.now()).toLocaleString('de-DE');
       const notificationReference = savedNotification.orderId
         ? `Auftrag ${String(savedNotification.orderId)}`
@@ -112,6 +111,11 @@ class NotificationService {
       const notificationActionLabel = savedNotification.actionUrl
         ? 'Bitte oeffnen Sie den verlinkten Bereich im Kundenkonto.'
         : 'Bitte pruefen Sie Ihre Benachrichtigungen im Kundenkonto.';
+
+      const notificationsUrl = toAbsoluteUrl('/notifications');
+      const notificationActionUrl = savedNotification.actionUrl
+        ? toAbsoluteUrl(savedNotification.actionUrl)
+        : notificationsUrl;
 
       const templateName = await this.resolveCustomerNotificationTemplateName();
 
@@ -124,10 +128,11 @@ class NotificationService {
         notificationMessage: savedNotification.message || 'Es liegt ein neues Update vor.',
         notificationReference,
         notificationActionLabel,
-        notificationsUrl: toAbsoluteUrl(savedNotification.actionUrl || '/notifications'),
+        notificationsUrl,
+        notificationActionUrl,
+        notificationTypeSummary,
         supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
         supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789',
-        ...typeSummary,
       });
 
       if (!emailResult?.success) {
