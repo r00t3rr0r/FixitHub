@@ -685,10 +685,12 @@ router.get('/email/delivery-stats', requireUser, requireRole(['admin']), async (
   try {
     const EmailService = require('../services/emailService');
     const stats = EmailService.deliveryTracker.getStatistics();
+    const smtpStats = EmailService.deliveryTracker.getSMTPStatistics();
 
     return res.status(200).json({
       success: true,
       stats,
+      smtpStats,
       message: 'Email delivery statistics retrieved'
     });
   } catch (error) {
@@ -807,11 +809,13 @@ router.get('/email/advanced-log', requireUser, requireRole(['admin']), async (re
     const paginatedDeliveryLogs = sortedDeliveryLogs.slice(startIndex, endIndex);
 
     const smtpConnectionLog = EmailService.deliveryTracker.getSMTPConnectionLog(smtpStatus, smtpLimit);
+    const smtpStats = EmailService.deliveryTracker.getSMTPStatistics();
 
     return res.status(200).json({
       success: true,
       deliveryLogs: paginatedDeliveryLogs,
       smtpConnectionLog,
+      smtpStats,
       pagination: {
         page,
         limit,
@@ -829,6 +833,54 @@ router.get('/email/advanced-log', requireUser, requireRole(['admin']), async (re
     return res.status(500).json({
       success: false,
       error: error.message || 'Failed to get advanced email log'
+    });
+  }
+});
+
+/**
+ * Clear delivery log entries (all or by status)
+ */
+router.delete('/email/delivery-log', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const status = req.query.status || 'all';
+    const EmailService = require('../services/emailService');
+    const clearedCount = EmailService.deliveryTracker.clearDeliveryLog(status);
+
+    return res.status(200).json({
+      success: true,
+      clearedCount,
+      status,
+      message: `${clearedCount} delivery log entries cleared`
+    });
+  } catch (error) {
+    console.error('Error clearing email delivery log:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to clear email delivery log'
+    });
+  }
+});
+
+/**
+ * Clear SMTP connection log entries (all or by status)
+ */
+router.delete('/email/smtp-log', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const status = req.query.status || 'all';
+    const EmailService = require('../services/emailService');
+    const clearedCount = EmailService.deliveryTracker.clearSMTPConnectionLog(status);
+
+    return res.status(200).json({
+      success: true,
+      clearedCount,
+      status,
+      message: `${clearedCount} SMTP log entries cleared`
+    });
+  } catch (error) {
+    console.error('Error clearing SMTP connection log:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to clear SMTP log'
     });
   }
 });

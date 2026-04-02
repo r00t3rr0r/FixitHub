@@ -51,6 +51,13 @@ interface EmailStats {
   failureRate: number
 }
 
+interface SmtpStats {
+  totalRecords: number
+  attempted: number
+  verified: number
+  failed: number
+}
+
 interface DeliveryRecord {
   id: string
   timestamp: string
@@ -61,6 +68,8 @@ interface DeliveryRecord {
   attempts: number
   duration: number
   error?: string
+  messageId?: string
+  metadata?: Record<string, unknown>
 }
 
 interface SmtpConnectionRecord {
@@ -102,6 +111,7 @@ export function EmailAdministration() {
   const { toast } = useToast()
 
   const [stats, setStats] = useState<EmailStats | null>(null)
+  const [smtpStats, setSmtpStats] = useState<SmtpStats | null>(null)
   const [deliveryHistory, setDeliveryHistory] = useState<DeliveryRecord[]>([])
   const [deliveryLog, setDeliveryLog] = useState<DeliveryRecord[]>([])
   const [smtpConnectionLog, setSmtpConnectionLog] = useState<SmtpConnectionRecord[]>([])
@@ -131,6 +141,8 @@ export function EmailAdministration() {
   const [composeEmailBody, setComposeEmailBody] = useState("Dies ist eine Test-E-Mail aus dem FixitHub SMTP-Konfigurationspanel.\n\nWenn Sie diese Nachricht erhalten, ist Ihre SMTP-Konfiguration korrekt eingerichtet.")
   const [composeEmailFrom, setComposeEmailFrom] = useState("")
   const [sendingComposedEmail, setSendingComposedEmail] = useState(false)
+  const [selectedDeliveryRecord, setSelectedDeliveryRecord] = useState<DeliveryRecord | null>(null)
+  const [selectedSmtpRecord, setSelectedSmtpRecord] = useState<SmtpConnectionRecord | null>(null)
 
   const hasUnsavedChanges =
     originalEmailSettings === null ||
@@ -216,6 +228,7 @@ export function EmailAdministration() {
       if (response.ok) {
         const data = await response.json()
         setStats(data.stats)
+        setSmtpStats(data.smtpStats || null)
       }
     } catch (error) {
       console.error("Error loading stats:", error)
@@ -275,6 +288,7 @@ export function EmailAdministration() {
         const data = await response.json()
         setDeliveryLog(data.deliveryLogs || [])
         setSmtpConnectionLog(data.smtpConnectionLog || [])
+        setSmtpStats(data.smtpStats || smtpStats)
         setTotalPages(data.pagination?.pages || 1)
       } else {
         const data = await response.json().catch(() => ({}))
@@ -289,6 +303,54 @@ export function EmailAdministration() {
       })
     } finally {
       setLoadingLog(false)
+    }
+  }
+
+  const handleClearDeliveryLog = async () => {
+    const confirmed = window.confirm('Moechten Sie das Versandprotokoll wirklich loeschen?')
+    if (!confirmed) return
+
+    try {
+      const response = await fetch(`${API_BASE}/system-config/email/delivery-log?status=all`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+        },
+      })
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || data.message || 'Versandprotokoll konnte nicht geloescht werden')
+      }
+
+      await Promise.all([loadStats(), loadDeliveryLog()])
+      toast({ title: 'Erfolgreich', description: `${data.clearedCount || 0} Versandprotokolleintraege geloescht` })
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Fehler', description: error.message || 'Versandprotokoll konnte nicht geloescht werden' })
+    }
+  }
+
+  const handleClearSmtpLog = async () => {
+    const confirmed = window.confirm('Moechten Sie das SMTP-Verbindungsprotokoll wirklich loeschen?')
+    if (!confirmed) return
+
+    try {
+      const response = await fetch(`${API_BASE}/system-config/email/smtp-log?status=all`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+        },
+      })
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || data.message || 'SMTP-Protokoll konnte nicht geloescht werden')
+      }
+
+      await Promise.all([loadStats(), loadDeliveryLog()])
+      toast({ title: 'Erfolgreich', description: `${data.clearedCount || 0} SMTP-Eintraege geloescht` })
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Fehler', description: error.message || 'SMTP-Protokoll konnte nicht geloescht werden' })
     }
   }
 
@@ -603,6 +665,25 @@ export function EmailAdministration() {
           <Card>
             <CardHeader><CardTitle>Email-Versandprotokoll</CardTitle></CardHeader>
             <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">SMTP gesamt</p>
+                  <p className="text-xl font-semibold">{smtpStats?.totalRecords || 0}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">SMTP verified</p>
+                  <p className="text-xl font-semibold text-green-700">{smtpStats?.verified || 0}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">SMTP attempted</p>
+                  <p className="text-xl font-semibold text-blue-700">{smtpStats?.attempted || 0}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">SMTP failed</p>
+                  <p className="text-xl font-semibold text-red-700">{smtpStats?.failed || 0}</p>
+                </div>
+              </div>
+
               <div className="flex gap-2">
                 <Select value={logFilter} onValueChange={(value) => { setLogFilter(value as typeof logFilter); setLogPage(1) }}>
                   <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
@@ -623,6 +704,8 @@ export function EmailAdministration() {
                   </SelectContent>
                 </Select>
                 <Button onClick={handleDownloadLog} variant="outline"><Download className="h-4 w-4 mr-2" />CSV Exportieren</Button>
+                <Button onClick={handleClearDeliveryLog} variant="outline">Versandprotokoll leeren</Button>
+                <Button onClick={handleClearSmtpLog} variant="outline">SMTP-Protokoll leeren</Button>
               </div>
 
               {loadingLog ? (
@@ -638,7 +721,18 @@ export function EmailAdministration() {
                         <div><p className="text-xs text-muted-foreground">Vorlage</p><p className="text-sm truncate">{record.templateName}</p></div>
                         <div><p className="text-xs text-muted-foreground">Status</p>{getStatusBadge(record.status)}</div>
                         <div><p className="text-xs text-muted-foreground">Dauer</p><p className="text-sm">{formatDuration(record.duration)}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Zeit</p><p className="text-sm whitespace-nowrap">{new Date(record.timestamp).toLocaleTimeString()}</p></div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Zeit</p>
+                          <p className="text-sm whitespace-nowrap">{new Date(record.timestamp).toLocaleTimeString()}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="mt-1 h-7 px-2"
+                            onClick={() => setSelectedDeliveryRecord(record)}
+                          >
+                            Details
+                          </Button>
+                        </div>
                       </div>
                       {record.error && <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">Fehler: {record.error}</div>}
                     </div>
@@ -674,7 +768,17 @@ export function EmailAdministration() {
                           <div className="text-sm font-medium">
                             {entry.host || "unknown"}{entry.port ? `:${entry.port}` : ""} ({entry.source})
                           </div>
-                          {getStatusBadge(entry.status === "verified" ? "sent" : entry.status === "failed" ? "failed" : "queued")}
+                          <div className="flex items-center gap-2">
+                            {getStatusBadge(entry.status === "verified" ? "sent" : entry.status === "failed" ? "failed" : "queued")}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2"
+                              onClick={() => setSelectedSmtpRecord(entry)}
+                            >
+                              Details
+                            </Button>
+                          </div>
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">
                           {formatDate(entry.timestamp)} | TLS: {entry.requiresTLS ? "Ja" : "Nein"} | Secure: {entry.secure ? "Ja" : "Nein"} | Auth: {entry.hasAuth ? "Ja" : "Nein"}
@@ -893,6 +997,89 @@ export function EmailAdministration() {
                 <><TestTube className="h-4 w-4 mr-2" />Verbindung testen</>
               )}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(selectedDeliveryRecord)} onOpenChange={(open) => !open && setSelectedDeliveryRecord(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Versandprotokoll-Details</DialogTitle>
+            <DialogDescription>Detaillierte Informationen zum ausgewaehlten Versandereignis</DialogDescription>
+          </DialogHeader>
+
+          {selectedDeliveryRecord && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Empfaenger</p><p className="font-medium break-all">{selectedDeliveryRecord.to}</p></div>
+                <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Status</p><div className="mt-1">{getStatusBadge(selectedDeliveryRecord.status)}</div></div>
+                <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Vorlage</p><p className="font-medium">{selectedDeliveryRecord.templateName || 'N/A'}</p></div>
+                <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Zeitstempel</p><p className="font-medium">{formatDate(selectedDeliveryRecord.timestamp)}</p></div>
+                <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Versuche</p><p className="font-medium">{selectedDeliveryRecord.attempts}</p></div>
+                <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Dauer</p><p className="font-medium">{formatDuration(selectedDeliveryRecord.duration || 0)}</p></div>
+              </div>
+
+              <div className="rounded border p-3 text-sm">
+                <p className="text-xs text-muted-foreground mb-1">Betreff</p>
+                <p className="font-medium break-words">{selectedDeliveryRecord.subject || 'N/A'}</p>
+              </div>
+
+              <div className="rounded border p-3 text-sm">
+                <p className="text-xs text-muted-foreground mb-1">Message ID</p>
+                <p className="font-medium break-all">{selectedDeliveryRecord.messageId || 'N/A'}</p>
+              </div>
+
+              {selectedDeliveryRecord.error && (
+                <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  <p className="text-xs mb-1">Fehler</p>
+                  <p className="break-words">{selectedDeliveryRecord.error}</p>
+                </div>
+              )}
+
+              <div className="rounded border p-3 text-sm">
+                <p className="text-xs text-muted-foreground mb-1">Metadaten</p>
+                <pre className="whitespace-pre-wrap break-words text-xs bg-slate-50 p-2 rounded max-h-52 overflow-auto">
+                  {JSON.stringify(selectedDeliveryRecord.metadata || {}, null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedDeliveryRecord(null)}>Schliessen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(selectedSmtpRecord)} onOpenChange={(open) => !open && setSelectedSmtpRecord(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>SMTP-Verbindungsdetails</DialogTitle>
+            <DialogDescription>Detaillierte Informationen zum ausgewaehlten SMTP-Ereignis</DialogDescription>
+          </DialogHeader>
+
+          {selectedSmtpRecord && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Zeitstempel</p><p className="font-medium">{formatDate(selectedSmtpRecord.timestamp)}</p></div>
+              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Status</p><div className="mt-1">{getStatusBadge(selectedSmtpRecord.status === 'verified' ? 'sent' : selectedSmtpRecord.status === 'failed' ? 'failed' : 'queued')}</div></div>
+              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Quelle</p><p className="font-medium">{selectedSmtpRecord.source}</p></div>
+              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Host/Port</p><p className="font-medium">{selectedSmtpRecord.host || 'unknown'}{selectedSmtpRecord.port ? `:${selectedSmtpRecord.port}` : ''}</p></div>
+              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">TLS erforderlich</p><p className="font-medium">{selectedSmtpRecord.requiresTLS ? 'Ja' : 'Nein'}</p></div>
+              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Secure / SSL</p><p className="font-medium">{selectedSmtpRecord.secure ? 'Ja' : 'Nein'}</p></div>
+              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Authentifizierung</p><p className="font-medium">{selectedSmtpRecord.hasAuth ? 'Ja' : 'Nein'}</p></div>
+              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Meldung</p><p className="font-medium break-words">{selectedSmtpRecord.message || 'N/A'}</p></div>
+
+              {selectedSmtpRecord.error && (
+                <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700 md:col-span-2">
+                  <p className="text-xs mb-1">Fehler</p>
+                  <p className="break-words">{selectedSmtpRecord.error}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedSmtpRecord(null)}>Schliessen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -3,6 +3,8 @@
  * Provides retry logic, delivery tracking, and detailed error logging
  */
 
+const fs = require('fs');
+const path = require('path');
 const Logger = require('./logger');
 
 class EmailRetryHandler {
@@ -121,8 +123,46 @@ class EmailRetryHandler {
 class EmailDeliveryTracker {
   constructor(options = {}) {
     this.logger = new Logger('EmailDelivery', { context: { deliveryTracker: true } });
-    this.deliveryLog = [];
-    this.smtpConnectionLog = [];
+    this.logsDir = options.logsDir || path.join(__dirname, '..', 'logs');
+    this.deliveryLogFilePath = options.deliveryLogFilePath || path.join(this.logsDir, 'email-delivery-log.json');
+    this.smtpLogFilePath = options.smtpLogFilePath || path.join(this.logsDir, 'smtp-connection-log.json');
+    this.deliveryLog = this.loadLogFile(this.deliveryLogFilePath);
+    this.smtpConnectionLog = this.loadLogFile(this.smtpLogFilePath);
+  }
+
+  loadLogFile(filePath) {
+    try {
+      if (!fs.existsSync(this.logsDir)) {
+        fs.mkdirSync(this.logsDir, { recursive: true });
+      }
+
+      if (!fs.existsSync(filePath)) {
+        return [];
+      }
+
+      const raw = fs.readFileSync(filePath, 'utf8');
+      if (!raw) {
+        return [];
+      }
+
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      this.logger.error('Failed to load email log file', error, { filePath });
+      return [];
+    }
+  }
+
+  saveLogFile(filePath, data) {
+    try {
+      if (!fs.existsSync(this.logsDir)) {
+        fs.mkdirSync(this.logsDir, { recursive: true });
+      }
+
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+    } catch (error) {
+      this.logger.error('Failed to persist email log file', error, { filePath });
+    }
   }
 
   /**
@@ -149,6 +189,8 @@ class EmailDeliveryTracker {
     if (this.deliveryLog.length > 1000) {
       this.deliveryLog = this.deliveryLog.slice(-1000);
     }
+
+    this.saveLogFile(this.deliveryLogFilePath, this.deliveryLog);
 
     // Log the delivery
     if (record.status === 'sent') {
@@ -197,6 +239,8 @@ class EmailDeliveryTracker {
       this.smtpConnectionLog = this.smtpConnectionLog.slice(-500);
     }
 
+    this.saveLogFile(this.smtpLogFilePath, this.smtpConnectionLog);
+
     if (record.status === 'failed') {
       this.logger.error('SMTP connection failed', new Error(record.error || record.message || 'Unknown SMTP error'), {
         source: record.source,
@@ -232,6 +276,53 @@ class EmailDeliveryTracker {
     return [...filtered]
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
       .slice(0, limit);
+  }
+
+  clearDeliveryLog(status = 'all') {
+    if (status === 'all') {
+      const clearedCount = this.deliveryLog.length;
+      this.deliveryLog = [];
+      this.saveLogFile(this.deliveryLogFilePath, this.deliveryLog);
+      return clearedCount;
+    }
+
+    const beforeCount = this.deliveryLog.length;
+    this.deliveryLog = this.deliveryLog.filter((entry) => entry.status !== status);
+    const clearedCount = beforeCount - this.deliveryLog.length;
+    this.saveLogFile(this.deliveryLogFilePath, this.deliveryLog);
+    return clearedCount;
+  }
+
+  clearSMTPConnectionLog(status = 'all') {
+    if (status === 'all') {
+      const clearedCount = this.smtpConnectionLog.length;
+      this.smtpConnectionLog = [];
+      this.saveLogFile(this.smtpLogFilePath, this.smtpConnectionLog);
+      return clearedCount;
+    }
+
+    const beforeCount = this.smtpConnectionLog.length;
+    this.smtpConnectionLog = this.smtpConnectionLog.filter((entry) => entry.status !== status);
+    const clearedCount = beforeCount - this.smtpConnectionLog.length;
+    this.saveLogFile(this.smtpLogFilePath, this.smtpConnectionLog);
+    return clearedCount;
+  }
+
+  getSMTPStatistics() {
+    const stats = {
+      totalRecords: this.smtpConnectionLog.length,
+      attempted: 0,
+      verified: 0,
+      failed: 0
+    };
+
+    this.smtpConnectionLog.forEach((record) => {
+      if (record.status === 'attempted') stats.attempted += 1;
+      if (record.status === 'verified') stats.verified += 1;
+      if (record.status === 'failed') stats.failed += 1;
+    });
+
+    return stats;
   }
 
   /**
