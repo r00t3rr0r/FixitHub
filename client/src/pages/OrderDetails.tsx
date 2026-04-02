@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useParams, Link, useLocation, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -32,6 +32,7 @@ import { ConfirmUnlockDialog } from "@/components/inspection/ConfirmUnlockDialog
 import { DeviceChangeDialog } from "@/components/admin/DeviceChangeDialog"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import { generateInspectionReport, getInspection } from "@/api/deviceInspection"
+import { getBooking, updateBookingShippingStatus, updateReturnStatus } from "@/api/bookings"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -187,6 +188,8 @@ export function OrderDetails() {
   const [complaintActionLoading, setComplaintActionLoading] = useState<"ack" | "deny" | "">("")
   const [offerActionLoading, setOfferActionLoading] = useState<"accept" | "reject" | "">("")
   const [convertOfferBookingLoading, setConvertOfferBookingLoading] = useState(false)
+  const [linkedBooking, setLinkedBooking] = useState<any | null>(null)
+  const bookingTrackingRefreshRef = useRef<Record<string, number>>({})
   const { toast } = useToast()
 
   const ACK_REASON_OPTIONS = [
@@ -323,6 +326,54 @@ export function OrderDetails() {
 
     loadComplaintWorkflow()
   }, [order])
+
+  useEffect(() => {
+    const loadLinkedBooking = async () => {
+      const bookingId = typeof order?.bookingId === 'string' ? order.bookingId : (order as any)?.bookingId?._id
+
+      if (!bookingId) {
+        setLinkedBooking(null)
+        return
+      }
+
+      try {
+        const response = await getBooking(String(bookingId))
+        let bookingData = (response as any)?.booking || null
+        const now = Date.now()
+        const lastRefreshAt = bookingTrackingRefreshRef.current[String(bookingId)] || 0
+        const shouldRefreshTracking = now - lastRefreshAt > 60_000
+
+        if (shouldRefreshTracking && bookingData?.trackingNumber) {
+          try {
+            const trackingRefresh = await updateBookingShippingStatus(String(bookingId))
+            bookingData = (trackingRefresh as any)?.booking || bookingData
+          } catch (trackingError) {
+            console.error('OrderDetails: Failed to refresh linked booking shipping status:', trackingError)
+          }
+        }
+
+        if (shouldRefreshTracking && bookingData?.returnTrackingNumber) {
+          try {
+            const returnRefresh = await updateReturnStatus(String(bookingId))
+            bookingData = (returnRefresh as any)?.booking || bookingData
+          } catch (returnTrackingError) {
+            console.error('OrderDetails: Failed to refresh linked booking return status:', returnTrackingError)
+          }
+        }
+
+        if (shouldRefreshTracking && (bookingData?.trackingNumber || bookingData?.returnTrackingNumber)) {
+          bookingTrackingRefreshRef.current[String(bookingId)] = now
+        }
+
+        setLinkedBooking(bookingData)
+      } catch (error) {
+        console.error('OrderDetails: Failed to load linked booking:', error)
+        setLinkedBooking(null)
+      }
+    }
+
+    loadLinkedBooking()
+  }, [order?.bookingId])
 
   useEffect(() => {
     const fetchAvailableStaff = async () => {
@@ -713,8 +764,16 @@ export function OrderDetails() {
         description: `Order status updated to ${newStatus.replace('-', ' ')}`
       })
 
-      // Refresh order data
-      await refreshOrder()
+      // Refresh order data without turning a successful status update into a hard error.
+      try {
+        await refreshOrder()
+      } catch (refreshError) {
+        console.warn('OrderDetails: Status updated but refresh failed:', refreshError)
+        toast({
+          title: "Hinweis",
+          description: "Status wurde gespeichert. Die Ansicht wird jetzt neu geladen.",
+        })
+      }
     } catch (error: any) {
       console.error("OrderDetails: Error updating order status:", error)
       toast({
@@ -1949,30 +2008,199 @@ export function OrderDetails() {
   const estimatedCompletionText = order.estimatedCompletion
     ? new Date(order.estimatedCompletion).toLocaleDateString('de-DE')
     : 'Wird aktualisiert'
-  const activeTimelineStage = Array.isArray(progressTimeline?.stages)
-    ? progressTimeline.stages.find((stage: any, index: number) => {
-        const stageId = stage?.id
-        const currentStage = progressTimeline?.currentStage
-        return stageId === currentStage || index === currentStage || stage?.status === 'in-progress'
+  const orderShippingStatus = String(order.shippingStatus || '').toLowerCase()
+  const bookingShippingStatus = String(linkedBooking?.shippingStatus || '').toLowerCase()
+  const bookingReturnStatus = String(linkedBooking?.returnShipmentStatus || '').toLowerCase()
+  const orderShippingStatusDescription = String(order.shippingStatusDescription || '').trim()
+  const bookingShippingStatusDescription = String(linkedBooking?.shippingStatusDescription || '').trim()
+  const bookingReturnStatusDescription = String(linkedBooking?.returnShipmentStatusDescription || '').trim()
+  const buildDhlTrackingUrl = (trackingNumber: string) => `https://www.dhl.com/de-de/home/tracking/tracking-parcel.html?submit=1&tracking-id=${encodeURIComponent(trackingNumber)}`
+  const getShipmentStatusMeta = (status: string) => {
+    switch (String(status || '').toLowerCase()) {
+      case 'label-created':
+        return { label: 'Label erstellt', className: 'is-created' }
+      case 'shipped':
+        return { label: 'Versendet', className: 'is-shipped' }
+      case 'in-transit':
+        return { label: 'In Zustellung', className: 'is-transit' }
+      case 'out-for-delivery':
+        return { label: 'Heute in Zustellung', className: 'is-transit' }
+      case 'delivered':
+        return { label: 'Zugestellt', className: 'is-delivered' }
+      case 'failed':
+        return { label: 'Fehlgeschlagen', className: 'is-failed' }
+      case 'pending':
+        return { label: 'In Vorbereitung', className: 'is-pending' }
+      default:
+        return { label: translateOrderStatus(status || 'pending'), className: 'is-pending' }
+    }
+  }
+  const timelineStages = Array.isArray(progressTimeline?.stages) ? progressTimeline.stages : []
+  const timelineCurrentStageIndex = (() => {
+    if (!timelineStages.length) return -1
+
+    const currentStage = progressTimeline?.currentStage
+
+    if (typeof currentStage === 'number' && Number.isFinite(currentStage)) {
+      return Math.max(0, Math.min(timelineStages.length - 1, currentStage))
+    }
+
+    if (typeof currentStage === 'string' && currentStage.trim()) {
+      const directIdMatch = timelineStages.findIndex((stage: any) => String(stage?.id || '') === currentStage)
+      if (directIdMatch >= 0) return directIdMatch
+
+      const normalizedCurrentStage = currentStage.trim().toLowerCase()
+      const semanticMatch = timelineStages.findIndex((stage: any) => {
+        const candidateValues = [stage?.id, stage?.name, stage?.label]
+        return candidateValues.some((candidate) => String(candidate || '').trim().toLowerCase() === normalizedCurrentStage)
       })
+      if (semanticMatch >= 0) return semanticMatch
+    }
+
+    const inProgressIndex = timelineStages.findIndex((stage: any) => stage?.status === 'in-progress')
+    if (inProgressIndex >= 0) return inProgressIndex
+
+    const statusBasedStageId = (() => {
+      const normalizedOrderStatus = String(order.status || '').toLowerCase()
+      if (normalizedOrderStatus === 'in-progress') return 'repair'
+      if (normalizedOrderStatus === 'quality-check') return 'quality-check'
+      if (normalizedOrderStatus === 'completed' || normalizedOrderStatus === 'ready-for-pickup') return 'pickup'
+      if (normalizedOrderStatus !== 'pending') return 'diagnostic'
+      return 'order-received'
+    })()
+
+    const statusBasedIndex = timelineStages.findIndex((stage: any) => String(stage?.id || '') === statusBasedStageId)
+    if (statusBasedIndex >= 0) return statusBasedIndex
+
+    const firstPendingIndex = timelineStages.findIndex((stage: any) => stage?.status !== 'completed')
+    return firstPendingIndex >= 0 ? firstPendingIndex : timelineStages.length - 1
+  })()
+  const timelineCurrentStageId = timelineCurrentStageIndex >= 0
+    ? String(timelineStages[timelineCurrentStageIndex]?.id || '')
+    : String(progressTimeline?.currentStage || '')
+  const activeTimelineStage = timelineCurrentStageIndex >= 0
+    ? timelineStages[timelineCurrentStageIndex]
     : null
   const currentStageLabel = activeTimelineStage
     ? translateOrderStatus(activeTimelineStage.label || activeTimelineStage.name || 'Aktiver Schritt')
     : translateOrderStatus(order.status)
-  const customerNextStepText = (() => {
-    switch (order.status) {
-      case 'completed':
-        return 'Der Auftrag ist abgeschlossen. Prüfen Sie die Abschlussinfos und melden Sie sich bei Rückfragen direkt über den Nachrichtenbereich.'
-      case 'ready-for-pickup':
-        return 'Ihr Gerät ist bereit. Nutzen Sie den Nachrichtenbereich, falls Sie Rückgabe, Versand oder Abholung abstimmen möchten.'
-      case 'quality-check':
-        return 'Ihr Gerät befindet sich in der finalen Qualitätskontrolle. Danach erhalten Sie das Ergebnis oder die Freigabe zur Rückgabe.'
+  const rawOrderProgress = Math.max(0, Math.min(100, safeToNumber(order.progress)))
+  const timelineProgressValue = timelineStages.length > 1 && timelineCurrentStageIndex >= 0
+    ? Math.round((timelineCurrentStageIndex / (timelineStages.length - 1)) * 100)
+    : timelineStages.length === 1
+      ? 100
+      : null
+  const statusBasedProgressValue = (() => {
+    const normalizedStatus = String(order.status || '').toLowerCase()
+    switch (normalizedStatus) {
+      case 'pending':
+        return 0
+      case 'diagnosed':
+        return 25
       case 'in-progress':
-        return 'Die Reparatur läuft aktuell. Wenn zusätzliche Informationen benötigt werden, meldet sich das Team direkt in diesem Auftrag.'
-      case 'paused':
-        return 'Der Auftrag ist vorübergehend pausiert. Prüfen Sie die Nachrichten auf eventuelle Rückfragen oder Freigaben.'
+        return 50
+      case 'quality-check':
+        return 75
+      case 'ready-for-pickup':
+      case 'completed':
+        return 100
       default:
-        return 'Der Auftrag wurde aufgenommen und vorbereitet. Der Reparaturfortschritt wird fortlaufend auf dieser Seite aktualisiert.'
+        return null
+    }
+  })()
+  const calculatedProgressValue = timelineProgressValue ?? statusBasedProgressValue ?? rawOrderProgress
+  const customerNextStepInfo = (() => {
+    const normalizedStatus = String(order.status || '').toLowerCase()
+    const normalizedStage = String(
+      activeTimelineStage?.id || activeTimelineStage?.name || activeTimelineStage?.label || ''
+    ).toLowerCase()
+
+    if (normalizedStatus === 'completed') {
+      return {
+        eyebrow: 'Auftrag abgeschlossen',
+        steps: [
+          'Ihr Auftrag ist vollständig abgeschlossen und dokumentiert.',
+          'Im Nachrichtenbereich erhalten Sie bei Bedarf Unterstützung zu Rückfragen oder Nacharbeiten.',
+        ],
+      }
+    }
+
+    if (normalizedStatus === 'ready-for-pickup') {
+      return {
+        eyebrow: 'Rückgabe organisiert',
+        steps: [
+          'Ihr Gerät ist bereit zur Abholung oder zum Versand.',
+          'Das Team stimmt bei Bedarf Uhrzeit, Übergabe oder Versanddetails mit Ihnen ab.',
+        ],
+      }
+    }
+
+    if (normalizedStatus === 'awaiting-parts') {
+      return {
+        eyebrow: 'Wartet auf Teile',
+        steps: [
+          'Es werden aktuell benötigte Ersatzteile organisiert oder geprüft.',
+          'Sobald alle Teile verfügbar sind, startet automatisch der nächste Reparaturschritt.',
+        ],
+      }
+    }
+
+    if (normalizedStatus === 'paused' || normalizedStatus === 'on-hold') {
+      return {
+        eyebrow: 'Auftrag pausiert',
+        steps: [
+          'Der Auftrag ist vorübergehend angehalten.',
+          'Im nächsten Schritt erhalten Sie eine Rückfrage oder Freigabeanforderung, damit die Reparatur fortgesetzt werden kann.',
+        ],
+      }
+    }
+
+    if (normalizedStatus === 'cancelled') {
+      return {
+        eyebrow: 'Auftrag storniert',
+        steps: [
+          'Dieser Auftrag wurde storniert und wird nicht weiter bearbeitet.',
+          'Bei Unklarheiten können Sie direkt über den Nachrichtenbereich Kontakt aufnehmen.',
+        ],
+      }
+    }
+
+    if (normalizedStatus === 'quality-check' || normalizedStage.includes('quality')) {
+      return {
+        eyebrow: 'Qualitätskontrolle läuft',
+        steps: [
+          'Ihr Gerät wird final geprüft und getestet.',
+          'Danach wird der Auftrag abgeschlossen oder zur Rückgabe freigegeben.',
+        ],
+      }
+    }
+
+    if (normalizedStatus === 'diagnosed' || normalizedStage.includes('diagnos')) {
+      return {
+        eyebrow: 'Diagnose abgeschlossen',
+        steps: [
+          'Die Fehleranalyse ist erfolgt und die nächsten Reparaturmaßnahmen stehen fest.',
+          'Als Nächstes startet die eigentliche Reparatur oder die Teilebeschaffung.',
+        ],
+      }
+    }
+
+    if (normalizedStatus === 'in-progress' || normalizedStage.includes('repair')) {
+      return {
+        eyebrow: 'Reparatur in Bearbeitung',
+        steps: [
+          'Ihr Gerät wird derzeit aktiv repariert.',
+          'Im nächsten Schritt folgt die Qualitätskontrolle, sobald alle Arbeiten abgeschlossen sind.',
+        ],
+      }
+    }
+
+    return {
+      eyebrow: 'Auftrag vorbereitet',
+      steps: [
+        'Ihr Auftrag wurde aufgenommen und für die Bearbeitung vorbereitet.',
+        'Als Nächstes beginnt die technische Diagnose und danach die Reparaturplanung.',
+      ],
     }
   })()
 
@@ -2231,7 +2459,7 @@ export function OrderDetails() {
 
   const progressHistoryEntries = Array.isArray(progressTimeline?.stages)
     ? progressTimeline.stages.map((stage: any, index: number) => {
-        const isActiveStage = stage.id === progressTimeline?.currentStage || stage.status === 'in-progress'
+        const isActiveStage = index === timelineCurrentStageIndex || stage.status === 'in-progress'
 
         return {
           id: `progress-${stage.id || index}`,
@@ -3056,20 +3284,21 @@ export function OrderDetails() {
   }
 
   const renderRepairProgressCard = () => {
-    const progressValue = Math.max(0, Math.min(100, safeToNumber(order.progress)))
-    const progressLabel =
+    const progressValue = calculatedProgressValue
+    const progressLabel = currentStageLabel || (
       progressValue >= 100 ? 'Abgeschlossen' :
       progressValue >= 75 ? 'Qualitätskontrolle' :
       progressValue >= 50 ? 'Reparatur in Bearbeitung' :
       progressValue >= 25 ? 'Diagnosebewertung' :
       'Auftrag erhalten'
+    )
 
     const progressSteps = progressTimeline?.stages?.length
       ? progressTimeline.stages.map((stage: any, index: number) => ({
-          key: stage.name || `stage-${index}`,
+          key: stage.id || stage.name || `stage-${index}`,
           label: translateOrderStatus(stage.label || stage.name || `Schritt ${index + 1}`),
-          completed: Boolean(stage.completed) || index < (progressTimeline.currentStage ?? 0),
-          active: index === (progressTimeline.currentStage ?? 0),
+          completed: Boolean(stage.completed) || stage.status === 'completed' || (timelineCurrentStageIndex >= 0 && index < timelineCurrentStageIndex),
+          active: (timelineCurrentStageIndex >= 0 && index === timelineCurrentStageIndex) || stage.status === 'in-progress',
         }))
       : [
           { key: 'received', label: 'Auftrag erhalten', completed: true, active: progressValue < 25 },
@@ -3138,14 +3367,16 @@ export function OrderDetails() {
                 || normalizedStepLabel.includes('repair in progress')
                 || step.key === 'repair'
               const isOrderReceivedStep = normalizedStepLabel.includes('auftrag erhalten') || step.key === 'received'
+              const isFirstStep = index === 0
+              const hasReachedStep = isFirstStep || Boolean(step.active || step.completed)
               const isInspectionJumpEnabled = !isStaffOrAdmin && isDiagnosticStep
               const isRepairPopupEnabled = !isStaffOrAdmin && isRepairInProgressStep
               const isRepairDetailsJumpEnabled = !isStaffOrAdmin && isOrderReceivedStep
-              const progressStepAction = isInspectionJumpEnabled
+              const progressStepAction = hasReachedStep && isInspectionJumpEnabled
                 ? openDiagnosisPopup
-                : isRepairPopupEnabled
+                : hasReachedStep && isRepairPopupEnabled
                   ? openRepairServicesPopup
-                : isRepairDetailsJumpEnabled
+                : hasReachedStep && isRepairDetailsJumpEnabled
                   ? openRepairDetailsPopup
                   : null
               const progressiveTone = step.active
@@ -3162,10 +3393,8 @@ export function OrderDetails() {
               <div
                 key={step.key}
                 className={`rounded-lg border px-3 py-2 text-xs ${
-                  step.completed
-                    ? 'border-green-200 bg-green-50 text-green-900'
-                    : step.active
-                    ? 'border-blue-200 bg-blue-50 text-blue-900'
+                  step.completed || step.active
+                    ? 'border-[#e5ab00] bg-[#f5b800] text-slate-900'
                     : 'border-slate-200 bg-slate-50 text-slate-500'
                 } ${!isStaffOrAdmin ? `customer-progress-step-card customer-progress-step--${progressiveTone}` : ''} ${progressStepAction ? 'customer-progress-step--interactive' : ''}`}
                 onClick={progressStepAction || undefined}
@@ -3180,10 +3409,8 @@ export function OrderDetails() {
               >
                 <div className="flex items-center gap-2">
                   <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold ${
-                    step.completed
-                      ? 'bg-green-500 text-white'
-                      : step.active
-                      ? 'bg-blue-500 text-white'
+                    step.completed || step.active
+                      ? 'bg-[#1a2a5e] text-white'
                       : 'bg-slate-200 text-slate-600'
                   }`}>
                     {step.completed ? '✓' : step.active ? '•' : '○'}
@@ -3404,7 +3631,7 @@ export function OrderDetails() {
           </div>
         </div>
 
-        {(order.shippingAddress || order.trackingNumber) && (
+        {(order.shippingAddress || order.trackingNumber || order.shippingLabelUrl || order.shippingStatus || linkedBooking?.trackingNumber || linkedBooking?.shippingLabelUrl || linkedBooking?.returnLabelUrl || linkedBooking?.shippingStatus || linkedBooking?.returnShipmentStatus) && (
           <div className="customer-summary-subcard">
             <div className="customer-summary-subcard-title">
               <MapPin className="h-4 w-4" />
@@ -3417,11 +3644,138 @@ export function OrderDetails() {
                 <p>{order.shippingAddress.country}</p>
               </div>
             )}
-            {order.trackingNumber && (
-              <div className="customer-summary-tracking">
-                <span>Tracking</span>
-                <strong>{order.trackingNumber}</strong>
-                {order.carrier && <p>{order.carrier}</p>}
+            {(order.trackingNumber || order.shippingLabelUrl || order.shippingStatus) && (
+              <div className="customer-summary-logistics-block">
+                <div className="customer-summary-logistics-title">Auftragsversand</div>
+                {order.shippingStatus && (
+                  <Badge className={`customer-shipping-status-badge ${getShipmentStatusMeta(orderShippingStatus).className}`}>
+                    {getShipmentStatusMeta(orderShippingStatus).label}
+                  </Badge>
+                )}
+                {orderShippingStatusDescription && (
+                  <p className="customer-shipping-status-description">{orderShippingStatusDescription}</p>
+                )}
+                {order.trackingNumber && (
+                  <div className="customer-summary-tracking">
+                    <span>Tracking</span>
+                    <strong>{order.trackingNumber}</strong>
+                    {order.carrier && <p>{order.carrier}</p>}
+                    <a
+                      href={buildDhlTrackingUrl(order.trackingNumber)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="customer-summary-tracking-link"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      DHL-Sendung verfolgen
+                    </a>
+                  </div>
+                )}
+                {order.shippingLabelUrl && (
+                  <div className="customer-summary-shipping-label">
+                    <span>Versandlabel</span>
+                    <a
+                      href={order.shippingLabelUrl}
+                      download={`versandlabel-${order.orderNumber || order._id}.pdf`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="customer-summary-label-download"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Versandlabel herunterladen
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+            {(linkedBooking?.trackingNumber || linkedBooking?.shippingLabelUrl || linkedBooking?.shippingStatus) && (
+              <div className="customer-summary-logistics-block">
+                <div className="customer-summary-logistics-title">Hinsendung zur Buchung</div>
+                {linkedBooking?.shippingStatus && (
+                  <Badge className={`customer-shipping-status-badge ${getShipmentStatusMeta(bookingShippingStatus).className}`}>
+                    {getShipmentStatusMeta(bookingShippingStatus).label}
+                  </Badge>
+                )}
+                {bookingShippingStatusDescription && (
+                  <p className="customer-shipping-status-description">{bookingShippingStatusDescription}</p>
+                )}
+                {linkedBooking?.trackingNumber && (
+                  <div className="customer-summary-tracking">
+                    <span>Buchungstracking</span>
+                    <strong>{linkedBooking.trackingNumber}</strong>
+                    {linkedBooking.carrier && <p>{linkedBooking.carrier}</p>}
+                    <a
+                      href={buildDhlTrackingUrl(linkedBooking.trackingNumber)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="customer-summary-tracking-link"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      DHL-Sendung verfolgen
+                    </a>
+                  </div>
+                )}
+                {linkedBooking?.shippingLabelUrl && (
+                  <div className="customer-summary-shipping-label">
+                    <span>Buchungs-Versandlabel</span>
+                    <a
+                      href={linkedBooking.shippingLabelUrl}
+                      download={`booking-versandlabel-${linkedBooking.bookingNumber || linkedBooking._id}.pdf`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="customer-summary-label-download"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Buchungs-Versandlabel herunterladen
+                    </a>
+                  </div>
+                )}
+                {!linkedBooking?.shippingLabelUrl && linkedBooking?.shippingStatus && (
+                  <div className={`customer-summary-shipping-note ${bookingShippingStatus === 'failed' ? 'is-error' : 'is-pending'}`}>
+                    {bookingShippingStatus === 'failed'
+                      ? 'Das DHL-Versandlabel für die Buchung konnte noch nicht erstellt werden. Das Team prüft die Versanddaten.'
+                      : bookingShippingStatus === 'label-created'
+                        ? 'Das DHL-Versandlabel für die Buchung wurde erstellt und wird in Kürze hier zum Download bereitgestellt.'
+                        : 'Für die Buchung wird ein DHL-Versandlabel vorbereitet. Sobald es vorliegt, erscheint es hier zum Download.'}
+                  </div>
+                )}
+              </div>
+            )}
+            {(linkedBooking?.returnLabelUrl || linkedBooking?.returnShipmentStatus) && (
+              <div className="customer-summary-logistics-block">
+                <div className="customer-summary-logistics-title">Rücksendung</div>
+                {linkedBooking?.returnShipmentStatus && (
+                  <Badge className={`customer-shipping-status-badge ${getShipmentStatusMeta(bookingReturnStatus).className}`}>
+                    {getShipmentStatusMeta(bookingReturnStatus).label}
+                  </Badge>
+                )}
+                {bookingReturnStatusDescription && (
+                  <p className="customer-shipping-status-description">{bookingReturnStatusDescription}</p>
+                )}
+                {linkedBooking?.returnLabelUrl && (
+                  <div className="customer-summary-shipping-label">
+                    <span>Rücksendeetikett</span>
+                    <a
+                      href={linkedBooking.returnLabelUrl}
+                      download={`ruecksendeetikett-${linkedBooking.bookingNumber || linkedBooking._id}.pdf`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="customer-summary-label-download"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Rücksendelabel herunterladen
+                    </a>
+                  </div>
+                )}
+                {!linkedBooking?.returnLabelUrl && linkedBooking?.returnShipmentStatus && (
+                  <div className={`customer-summary-shipping-note ${bookingReturnStatus === 'failed' ? 'is-error' : 'is-pending'}`}>
+                    {bookingReturnStatus === 'failed'
+                      ? 'Das Rücksendelabel konnte noch nicht bereitgestellt werden. Bitte nutzen Sie vorerst den Nachrichtenbereich.'
+                      : bookingReturnStatus === 'label-created'
+                        ? 'Das Rücksendelabel wurde erzeugt und wird in Kürze hier zum Download angezeigt.'
+                        : 'Wenn eine Rücksendung erforderlich ist, wird das passende DHL-Rücksendeetikett hier eingeblendet.'}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -3460,8 +3814,12 @@ export function OrderDetails() {
       </CardHeader>
       <CardContent className="pt-3 space-y-4">
         <div className="customer-next-step-panel">
-          <span className="customer-next-step-eyebrow">Was passiert als Nächstes?</span>
-          <p>{customerNextStepText}</p>
+          <span className="customer-next-step-eyebrow">{customerNextStepInfo.eyebrow}</span>
+          <ul className="customer-next-step-list">
+            {customerNextStepInfo.steps.map((stepText, index) => (
+              <li key={`next-step-${index}`}>{stepText}</li>
+            ))}
+          </ul>
         </div>
 
         <div className="customer-support-actions">
@@ -3909,7 +4267,7 @@ export function OrderDetails() {
           <div className="order-admin-kpi-grid">
             <div className="order-admin-kpi-card">
               <span>Fortschritt</span>
-              <strong>{order.progress}%</strong>
+              <strong>{calculatedProgressValue}%</strong>
             </div>
             <div className="order-admin-kpi-card">
               <span>Status</span>
@@ -3944,7 +4302,7 @@ export function OrderDetails() {
                   id: stage.id || `stage-${index}`,
                   label: translateOrderStatus(stage.label || stage.name || `Schritt ${index + 1}`),
                 }))}
-                currentStage={progressTimeline.currentStage}
+                currentStage={timelineCurrentStageId}
               />
             </div>
           )}
@@ -4168,115 +4526,6 @@ export function OrderDetails() {
                         <Users className="h-3 w-3 mr-1" />
                         Personal verwalten
                       </Button>
-                      <Button
-                        className="w-full text-xs h-8"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setEditingService(null)
-                          setServiceDialogOpen(true)
-                        }}
-                      >
-                        <PlusCircle className="h-3 w-3 mr-1" />
-                        Reparaturservice hinzufügen
-                      </Button>
-                      <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => scrollToSection('order-quick-actions-communication')}>
-                        <MessageSquare className="h-3 w-3 mr-1" />
-                        Nachrichten öffnen
-                      </Button>
-
-                      {isComplaintFollowupOrder && (
-                        <div className="border-t pt-3 space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-xs font-semibold text-muted-foreground">Statusabhaengige Reklamationssteuerung</p>
-                            <Badge variant="outline" className="text-[10px]">
-                              {complaintWorkflowStatus || 'unbekannt'}
-                            </Badge>
-                          </div>
-
-                          {canRunComplaintTechnicianActions ? (
-                            <>
-                              <Button
-                                className="w-full text-xs h-8"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setAckReasonPreset("")
-                                  setTechnicianAckReason("")
-                                  setComplaintActionDialog('ack')
-                                }}
-                              >
-                                Techniker: Anerkennen
-                              </Button>
-                              <Button
-                                className="w-full text-xs h-8"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setDenyReasonPreset("")
-                                  setTechnicianDenyReason("")
-                                  // Pre-fill offer from current order
-                                  const totalCost = order ? safeToNumber((order as any).totalCost) : 0
-                                  setDenyOfferAmount(totalCost > 0 ? totalCost.toFixed(2) : "")
-                                  const serviceLines = ((order as any)?.services || [])
-                                    .filter((s: any) => s && s._id)
-                                    .map((s: any) => {
-                                      const name = typeof s.serviceId === 'object'
-                                        ? (s.serviceId?.name || '')
-                                        : (s.serviceName || '')
-                                      const price = typeof s.serviceId === 'object'
-                                        ? (s.serviceId?.price ?? s.price)
-                                        : s.price
-                                      return name ? `${name}${price != null ? ` (${Number(price).toFixed(2)} EUR)` : ''}` : null
-                                    })
-                                    .filter(Boolean)
-                                  const parts: string[] = [
-                                    `Reparaturangebot nach Reklamationspruefung`,
-                                    `Gerät: ${(order as any)?.deviceBrand || ''} ${(order as any)?.deviceModel || ''}`.trim(),
-                                    serviceLines.length > 0 ? `Leistungen: ${serviceLines.join(', ')}` : '',
-                                    (order as any)?.errorDescription?.trim()
-                                      ? `Fehlerbeschreibung: ${(order as any).errorDescription}`
-                                      : '',
-                                  ].filter(Boolean)
-                                  setDenyOfferDescription(parts.join('\n'))
-                                  setComplaintActionDialog('deny')
-                                }}
-                              >
-                                Techniker: Ablehnen
-                              </Button>
-                            </>
-                          ) : canRunComplaintAdminDenyReview ? (
-                            <>
-                              <Button
-                                className="w-full text-xs h-8"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  const existingOfferAmount = (complaintWorkflow as any)?.repairOffer?.amount
-                                  const existingOfferDescription = (complaintWorkflow as any)?.repairOffer?.description
-                                  setDenyReasonPreset(complaintWorkflow?.technicianReason || "")
-                                  setTechnicianDenyReason(complaintWorkflow?.technicianReason || "")
-                                  setDenyOfferAmount(
-                                    existingOfferAmount != null
-                                      ? Number(existingOfferAmount).toFixed(2)
-                                      : escalationOfferAmount != null
-                                      ? Number(escalationOfferAmount).toFixed(2)
-                                      : (order ? safeToNumber((order as any).totalCost).toFixed(2) : "")
-                                  )
-                                  setDenyOfferDescription(existingOfferDescription || escalationOfferDescription || "")
-                                  setComplaintActionDialog('deny')
-                                }}
-                              >
-                                Admin: Ablehnung bestaetigen & Angebot senden
-                              </Button>
-                            </>
-                          ) : (
-                            <p className="text-xs text-muted-foreground">
-                              Aktionen sind aktuell nicht verfuegbar. Techniker kann bei approved eskalieren, Admin bestaetigt bei pending_approval.
-                            </p>
-                          )}
-                        </div>
-                      )}
                     </>
                   ) : null}
 

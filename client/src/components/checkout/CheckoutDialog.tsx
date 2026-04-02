@@ -9,7 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/contexts/AuthContext"
-import { registerDuringCheckout, completeGuestCheckout, initializeCheckout, completeCheckout } from "@/api/checkout"
+import { registerDuringCheckout, completeGuestCheckout, initializeCheckout, completeCheckout, type CheckoutApiError } from "@/api/checkout"
+import { updateUserProfile } from "@/api/user"
 import { useToast } from "@/hooks/useToast"
 import { useTranslation } from "react-i18next"
 import {
@@ -140,6 +141,14 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
 
   const [guestInfo, setGuestInfo] = useState<GuestInfoState | null>(null)
 
+  const [billingAddressEditorOpen, setBillingAddressEditorOpen] = useState(false)
+  const [billingAddressNeedsAttention, setBillingAddressNeedsAttention] = useState(false)
+  const [savingBillingAddress, setSavingBillingAddress] = useState(false)
+  const [billingAddressStreetDraft, setBillingAddressStreetDraft] = useState("")
+  const [billingAddressCityDraft, setBillingAddressCityDraft] = useState("")
+  const [billingAddressZipDraft, setBillingAddressZipDraft] = useState("")
+  const [billingAddressCountryDraft, setBillingAddressCountryDraft] = useState("")
+
   // Payment-method-specific field states
   const [cardholderName, setCardholderName] = useState("")
   const [cardNumber, setCardNumber] = useState("")
@@ -215,6 +224,77 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
     setCardExpiry("")
     setCardCvc("")
     setPaypalEmail("")
+    setBillingAddressEditorOpen(false)
+    setBillingAddressNeedsAttention(false)
+    setSavingBillingAddress(false)
+    setBillingAddressStreetDraft("")
+    setBillingAddressCityDraft("")
+    setBillingAddressZipDraft("")
+    setBillingAddressCountryDraft("")
+  }
+
+  const hasMissingBillingAddress = (address: any) => {
+    return !address?.street || !address?.city || !address?.zipCode
+  }
+
+  const handleSaveBillingAddress = async () => {
+    if (!billingAddressStreetDraft.trim() || !billingAddressCityDraft.trim() || !billingAddressZipDraft.trim()) {
+      toast({
+        title: t("common.error"),
+        description: "Bitte Straße, Stadt und PLZ ausfüllen.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setSavingBillingAddress(true)
+
+      const invoiceAddress = {
+        street: billingAddressStreetDraft.trim(),
+        city: billingAddressCityDraft.trim(),
+        state: userInfo?.billingAddress?.state || "",
+        zipCode: billingAddressZipDraft.trim(),
+        country: (billingAddressCountryDraft || "DE").trim(),
+      }
+
+      const existingPaymentAddress = userInfo?.shippingAddress || {}
+      const sameAsInvoice = !existingPaymentAddress?.street
+
+      await updateUserProfile({
+        invoiceAddress,
+        paymentAddress: sameAsInvoice
+          ? { ...invoiceAddress, sameAsInvoice: true }
+          : {
+              street: existingPaymentAddress.street || "",
+              city: existingPaymentAddress.city || "",
+              state: existingPaymentAddress.state || "",
+              zipCode: existingPaymentAddress.zipCode || "",
+              country: existingPaymentAddress.country || invoiceAddress.country,
+              sameAsInvoice: false,
+            },
+      })
+
+      setUserInfo((prev: any) => ({
+        ...(prev || {}),
+        billingAddress: invoiceAddress,
+      }))
+
+      setBillingAddressNeedsAttention(false)
+      setBillingAddressEditorOpen(false)
+      toast({
+        title: t("common.success"),
+        description: "Ihre Angaben wurden gespeichert. Sie können jetzt bezahlen.",
+      })
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error?.message || "Speichern der Angaben fehlgeschlagen.",
+        variant: "destructive",
+      })
+    } finally {
+      setSavingBillingAddress(false)
+    }
   }
 
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -349,8 +429,18 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
     try {
       setInitializingCheckout(true)
       const response = await initializeCheckout()
+      const checkoutUserInfo = (response as any).userInfo || null
+      const billingAddress = checkoutUserInfo?.billingAddress || {}
+      const missingBillingAddress = hasMissingBillingAddress(billingAddress)
+
       setMode("authenticated")
-      setUserInfo((response as any).userInfo || null)
+      setUserInfo(checkoutUserInfo)
+      setBillingAddressStreetDraft(billingAddress?.street || "")
+      setBillingAddressCityDraft(billingAddress?.city || "")
+      setBillingAddressZipDraft(billingAddress?.zipCode || "")
+      setBillingAddressCountryDraft(billingAddress?.country || checkoutUserInfo?.country || "DE")
+      setBillingAddressNeedsAttention(missingBillingAddress)
+      setBillingAddressEditorOpen(missingBillingAddress)
       setReviewCart((response as any).cart || cart)
       setStep("review")
     } catch (error: any) {
@@ -686,6 +776,23 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
 
       await onSuccess()
     } catch (error: any) {
+      const checkoutError = error as CheckoutApiError
+      if (
+        mode === "authenticated" &&
+        checkoutError?.status === 400 &&
+        checkoutError?.missingFields &&
+        (checkoutError.missingFields.street || checkoutError.missingFields.city || checkoutError.missingFields.zipCode)
+      ) {
+        setBillingAddressNeedsAttention(true)
+        setBillingAddressEditorOpen(true)
+        toast({
+          title: "Fehlende Rechnungsadresse",
+          description: "Bitte ergänzen Sie Ihre Rechnungsadresse im Bereich Kontakt & Rechnungsadresse.",
+          variant: "destructive",
+        })
+        return
+      }
+
       toast({
         title: t("common.error"),
         description: error.message || t("checkout.checkoutFailed"),
@@ -812,6 +919,8 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
     if (!info) return null
 
     const addr = info.billingAddress
+    const authenticatedCheckout = mode === "authenticated"
+    const missingBillingAddress = authenticatedCheckout && hasMissingBillingAddress(addr)
     const hasAddress = addr?.street || addr?.city
 
     return (
@@ -837,7 +946,70 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
               <span className="text-[#5f6d86]">{info.phone}</span>
             </div>
           )}
-          {hasAddress && (
+          {authenticatedCheckout && (missingBillingAddress || billingAddressNeedsAttention) && (
+            <div className="rounded-lg border border-[#f5b800] bg-[#fff8db] p-2 text-xs text-[#7a5a00]">
+              <p className="font-semibold">Rechnungsadresse unvollständig</p>
+              <p className="mt-0.5">Bitte füllen Sie die markierten Felder aus und speichern Sie, bevor Sie bezahlen.</p>
+            </div>
+          )}
+
+          {authenticatedCheckout && (billingAddressEditorOpen || missingBillingAddress || billingAddressNeedsAttention) && (
+            <div className="space-y-2 rounded-lg border-2 border-[#f5b800] bg-[#fffdf3] p-2.5">
+              <p className="text-xs font-semibold text-[#1a2a5e]">Rechnungsadresse nachtragen</p>
+              <div className="space-y-1">
+                <Label htmlFor="checkout-billing-street" className="text-xs font-semibold">Straße und Hausnummer *</Label>
+                <Input
+                  id="checkout-billing-street"
+                  value={billingAddressStreetDraft}
+                  onChange={(e) => setBillingAddressStreetDraft(e.target.value)}
+                  className={`h-8 text-sm ${billingAddressNeedsAttention && !billingAddressStreetDraft.trim() ? "border-red-400 ring-1 ring-red-200" : ""}`}
+                  placeholder="Musterstraße 12"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="checkout-billing-zip" className="text-xs font-semibold">PLZ *</Label>
+                  <Input
+                    id="checkout-billing-zip"
+                    value={billingAddressZipDraft}
+                    onChange={(e) => setBillingAddressZipDraft(e.target.value)}
+                    className={`h-8 text-sm ${billingAddressNeedsAttention && !billingAddressZipDraft.trim() ? "border-red-400 ring-1 ring-red-200" : ""}`}
+                    placeholder="12345"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="checkout-billing-city" className="text-xs font-semibold">Stadt *</Label>
+                  <Input
+                    id="checkout-billing-city"
+                    value={billingAddressCityDraft}
+                    onChange={(e) => setBillingAddressCityDraft(e.target.value)}
+                    className={`h-8 text-sm ${billingAddressNeedsAttention && !billingAddressCityDraft.trim() ? "border-red-400 ring-1 ring-red-200" : ""}`}
+                    placeholder="Berlin"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="checkout-billing-country" className="text-xs font-semibold">Land</Label>
+                <Input
+                  id="checkout-billing-country"
+                  value={billingAddressCountryDraft}
+                  onChange={(e) => setBillingAddressCountryDraft(e.target.value)}
+                  className="h-8 text-sm"
+                  placeholder="Deutschland"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <Button type="button" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => setBillingAddressEditorOpen(false)} disabled={savingBillingAddress || missingBillingAddress}>
+                  Schließen
+                </Button>
+                <Button type="button" className="h-8 bg-[#f5b800] px-2.5 text-xs font-bold text-[#1a2a5e] hover:bg-[#e5ab00]" onClick={handleSaveBillingAddress} disabled={savingBillingAddress}>
+                  {savingBillingAddress ? <><Loader2 className="mr-1 h-3 w-3 animate-spin" />Speichert...</> : "Adresse speichern"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {hasAddress && !billingAddressEditorOpen && (
             <div className="flex items-start gap-2 border-t border-[#e7eaf1] pt-1.5">
               <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#5f6d86]" />
               <div className="text-[#5f6d86]">
@@ -847,14 +1019,23 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
               </div>
             </div>
           )}
+
+          {authenticatedCheckout && !billingAddressEditorOpen && (
+            <div className="pt-1.5">
+              <Button type="button" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => setBillingAddressEditorOpen(true)}>
+                Rechnungsadresse bearbeiten
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     )
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] max-w-[95vw] overflow-y-auto rounded-xl border border-[#d8dce6] p-0 sm:max-w-4xl [&>button]:text-[#f5b800] [&>button]:opacity-100 [&>button:hover]:text-[#f5b800]">
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-h-[92vh] max-w-[95vw] overflow-y-auto rounded-xl border border-[#d8dce6] p-0 sm:max-w-4xl [&>button]:text-[#f5b800] [&>button]:opacity-100 [&>button:hover]:text-[#f5b800]">
         {guestCheckoutResult ? (
           <div className="p-4 sm:p-5">
             <DialogHeader className="space-y-2 border-b border-[#e7eaf1] pb-3 text-left">
@@ -1406,7 +1587,9 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
             </div>
           </>
         )}
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+    </>
   )
 }

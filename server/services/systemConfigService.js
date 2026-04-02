@@ -296,6 +296,57 @@ class SystemConfigService {
     }
   }
 
+  // Test email settings (direct settings test)
+  static async testEmailSettings(settings) {
+    try {
+      const nodemailer = require('nodemailer');
+      
+      const transporterConfig = {
+        host: settings.smtpHost,
+        port: settings.smtpPort || 587,
+        secure: settings.requiresTLS && (settings.smtpPort === 465)
+      };
+
+      // Add authentication if required
+      if (settings.requiresAuthentication) {
+        let username = settings.smtpUsername;
+        let password = settings.smtpPassword;
+
+        // If password is not provided (frontend never sends it back), load from saved config
+        if (!password) {
+          const savedConfig = await this.getSystemConfiguration();
+          if (savedConfig && savedConfig.emailSettings) {
+            if (!username) username = savedConfig.emailSettings.smtpUsername;
+            password = savedConfig.emailSettings.smtpPassword;
+          }
+        }
+
+        if (username || password) {
+          transporterConfig.auth = {
+            user: username,
+            pass: password
+          };
+        }
+      }
+
+      const transporter = nodemailer.createTransport(transporterConfig);
+      
+      // Verify the connection
+      await transporter.verify();
+      
+      return { 
+        success: true, 
+        message: 'Email configuration is valid and SMTP settings are working correctly' 
+      };
+    } catch (error) {
+      console.error('SystemConfigService: Email settings test failed:', error);
+      return { 
+        success: false, 
+        message: `Email settings test failed: ${error.message}` 
+      };
+    }
+  }
+
   // Test payment integration (mock)
   static async testPaymentIntegration(integration) {
     try {

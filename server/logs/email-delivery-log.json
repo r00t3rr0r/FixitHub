@@ -1,0 +1,129 @@
+[
+  {
+    "id": "1775091808133-yclc1twnu",
+    "timestamp": "2026-04-02T01:03:28.133Z",
+    "to": "diag.1775091788@example.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei FixitHub - bitte Konto aktivieren",
+    "messageId": "<66144a12-71d4-93b4-140d-9bc840f96fce@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 19883,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775091871949-dzhfpzz11",
+    "timestamp": "2026-04-02T01:04:31.949Z",
+    "to": "proxycheck.1775091867@example.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei FixitHub - bitte Konto aktivieren",
+    "messageId": "<d70ece27-9ae7-2db0-83be-cd0c55b9bc2c@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 4419,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775092009121-809312wnk",
+    "timestamp": "2026-04-02T01:06:49.121Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei FixitHub - bitte Konto aktivieren",
+    "messageId": "<6a59e7f4-daec-0b30-b695-08a3e52fafb3@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1371,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775099626052-nwwk74f6t",
+    "timestamp": "2026-04-02T03:13:46.052Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Update fuer Kunden",
+    "subject": "Neue Benachrichtigung bei FixitHub: Auftraege",
+    "messageId": "<54a8f138-543f-6ed2-83c9-e3f74eee0e4c@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3912,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "supportEmail",
+        "supportPhone",
+        "ordersInfo",
+        "paymentsInfo",
+        "messagesInfo",
+        "assignmentsInfo",
+        "remindersInfo",
+        "systemInfo"
+      ]
+    }
+  },
+  {
+    "id": "1775099775457-5yrcdeki1",
+    "timestamp": "2026-04-02T03:16:15.457Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Update fuer Kunden",
+    "subject": "Neue Benachrichtigung bei FixitHub: Auftraege",
+    "messageId": "<dff52d3b-7e11-9740-7859-76fff36ca975@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1694,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "supportEmail",
+        "supportPhone",
+        "ordersInfo",
+        "paymentsInfo",
+        "messagesInfo",
+        "assignmentsInfo",
+        "remindersInfo",
+        "systemInfo"
+      ]
+    }
+  }
+]

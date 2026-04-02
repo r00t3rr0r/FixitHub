@@ -19,7 +19,8 @@ import {
   MessageSquare,
   Bell,
   LogOut,
-  Wrench
+  Wrench,
+  AlertTriangle
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -181,6 +182,13 @@ export function ProfileDropdown() {
             <Link to="/my-repair-requests" className="flex items-center gap-2">
               <Wrench className="h-4 w-4" />
               <span>Repair Requests</span>
+            </Link>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem asChild className="cursor-pointer transition-colors hover:bg-yellow-50">
+            <Link to="/my-complaints" className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              <span>Reklamationen</span>
             </Link>
           </DropdownMenuItem>
 

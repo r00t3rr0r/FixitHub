@@ -141,6 +141,100 @@ router.delete('/notification-templates/:id', requireUser, requireRole(['admin'])
   }
 });
 
+// Send a notification template as a real test email
+router.post('/notification-templates/:id/send-test', requireUser, requireRole(['admin']), async (req, res) => {
+  console.log('Send template test email request received:', req.params.id);
+
+  try {
+    const { to } = req.body;
+    if (!to) return res.status(400).json({ success: false, message: 'Recipient address (to) is required' });
+
+    const config = await SystemConfigService.getSystemConfiguration();
+    const template = config.notificationTemplates.id(req.params.id);
+    if (!template) return res.status(404).json({ success: false, message: 'Template not found' });
+
+    if (template.type !== 'email') {
+      return res.status(400).json({ success: false, message: 'Only email templates can be sent as test email' });
+    }
+
+    // Replace all {{variable}} placeholders with sample values
+    const fillPlaceholders = (text) => {
+      const sampleValues = {
+        customerName: 'Max Mustermann',
+        firstName: 'Max',
+        lastName: 'Mustermann',
+        email: to,
+        orderNumber: 'ORD-2026-0001',
+        repairNumber: 'REP-2026-0001',
+        deviceName: 'iPhone 15 Pro',
+        deviceModel: 'iPhone 15 Pro',
+        status: 'In Bearbeitung',
+        estimatedCost: '89,00 €',
+        totalAmount: '89,00 €',
+        amountPaid: '89,00 €',
+        technician: 'FixitHub Service',
+        notes: 'Ihr Gerät wird gerade geprüft.',
+        completionDate: new Date().toLocaleDateString('de-DE'),
+        shopName: 'FixitHub',
+        shopAddress: 'Musterstraße 1, 12345 Musterstadt',
+        supportEmail: 'support@fixithub.de',
+        supportPhone: '+49 123 456789',
+        trackingUrl: 'https://fixithub.de/tracking/REP-2026-0001',
+        verificationUrl: 'https://fixithub.de/verify/example-token',
+        passwordResetUrl: 'https://fixithub.de/reset/example-token',
+        invoiceUrl: 'https://fixithub.de/invoice/INV-2026-0001',
+      };
+      return text.replace(/{{(\w+)}}/g, (match, key) => sampleValues[key] || `[${key}]`);
+    };
+
+    const subject = fillPlaceholders(template.subject || `[Test] ${template.name}`);
+    const htmlContent = fillPlaceholders(template.content);
+
+    // Build SMTP transporter from saved config
+    const nodemailer = require('nodemailer');
+    const emailSettings = config.emailSettings;
+
+    if (!emailSettings || !emailSettings.smtpHost) {
+      return res.status(400).json({ success: false, message: 'Keine SMTP-Konfiguration gefunden. Bitte zuerst E-Mail-Einstellungen speichern.' });
+    }
+
+    const transporterConfig = {
+      host: emailSettings.smtpHost,
+      port: emailSettings.smtpPort || 587,
+      secure: emailSettings.requiresTLS && (emailSettings.smtpPort === 465),
+    };
+
+    if (emailSettings.requiresAuthentication && emailSettings.smtpUsername && emailSettings.smtpPassword) {
+      transporterConfig.auth = { user: emailSettings.smtpUsername, pass: emailSettings.smtpPassword };
+    }
+
+    const transporter = nodemailer.createTransport(transporterConfig);
+    const from = emailSettings.smtpUsername || `noreply@${emailSettings.smtpHost}`;
+
+    const mailOptions = {
+      from,
+      to,
+      subject,
+      html: htmlContent,
+      text: htmlContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8'
+      }
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+
+    console.log('Template test email sent:', info.messageId);
+    return res.status(200).json({
+      success: true,
+      message: `Test-E-Mail der Vorlage "${template.name}" erfolgreich an ${to} gesendet (ID: ${info.messageId})`
+    });
+  } catch (error) {
+    console.error('Error sending template test email:', error);
+    return res.status(500).json({ success: false, message: `Senden fehlgeschlagen: ${error.message}` });
+  }
+});
+
 // Get integrations (admin only)
 router.get('/integrations', requireUser, requireRole(['admin']), async (req, res) => {
   console.log('Get integrations request received');
@@ -237,6 +331,111 @@ router.post('/integrations/:id/test', requireUser, requireRole(['admin']), async
     }
     return res.status(500).json({
       error: error.message || 'Failed to test integration'
+    });
+  }
+});
+
+// Test email settings (admin only)
+router.post('/email/test', requireUser, requireRole(['admin']), async (req, res) => {
+  console.log('Test email settings request received');
+
+  try {
+    const { smtpHost, smtpPort, smtpUsername, smtpPassword, requiresAuthentication, requiresTLS } = req.body;
+
+    if (!smtpHost) {
+      return res.status(400).json({
+        success: false,
+        message: 'SMTP Host is required'
+      });
+    }
+
+    const result = await SystemConfigService.testEmailSettings({
+      smtpHost,
+      smtpPort: smtpPort || 587,
+      smtpUsername,
+      smtpPassword,
+      requiresAuthentication: requiresAuthentication !== false,
+      requiresTLS: requiresTLS !== false
+    });
+
+    return res.status(200).json({
+      success: result.success,
+      message: result.message
+    });
+  } catch (error) {
+    console.error('Error testing email settings:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to test email settings'
+    });
+  }
+});
+
+// Send a real test email to verify SMTP delivery end-to-end
+router.post('/email/send-test', requireUser, requireRole(['admin']), async (req, res) => {
+  console.log('Send test email request received');
+
+  try {
+    const { to, subject, body, from, smtpHost, smtpPort, smtpUsername, smtpPassword, requiresAuthentication, requiresTLS } = req.body;
+
+    if (!to) return res.status(400).json({ success: false, message: 'Recipient address (to) is required' });
+    if (!subject) return res.status(400).json({ success: false, message: 'Subject is required' });
+    if (!smtpHost) return res.status(400).json({ success: false, message: 'SMTP Host is required' });
+
+    const nodemailer = require('nodemailer');
+
+    const transporterConfig = {
+      host: smtpHost,
+      port: smtpPort || 587,
+      secure: requiresTLS && (smtpPort === 465)
+    };
+
+    if (requiresAuthentication !== false) {
+      let username = smtpUsername;
+      let password = smtpPassword;
+
+      // If password not sent from frontend, load from saved config
+      if (!password) {
+        const SystemConfigService = require('../services/systemConfigService');
+        const savedConfig = await SystemConfigService.getSystemConfiguration();
+        if (savedConfig && savedConfig.emailSettings) {
+          if (!username) username = savedConfig.emailSettings.smtpUsername;
+          password = savedConfig.emailSettings.smtpPassword;
+        }
+      }
+
+      if (username || password) {
+        transporterConfig.auth = { user: username, pass: password };
+      }
+    }
+
+    const transporter = nodemailer.createTransport(transporterConfig);
+
+    const senderAddress = from || smtpUsername || `noreply@${smtpHost}`;
+
+    const info = await transporter.sendMail({
+      from: senderAddress,
+      to,
+      subject,
+      text: body || 'FixitHub SMTP Test',
+      html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+        <h2 style="color:#2563eb">FixitHub SMTP Test</h2>
+        <p>${(body || '').replace(/\n/g, '<br>')}</p>
+        <hr style="margin:24px 0;border-color:#e5e7eb">
+        <p style="color:#6b7280;font-size:12px">Gesendet über ${smtpHost}:${smtpPort} · ${new Date().toLocaleString('de-DE')}</p>
+      </div>`
+    });
+
+    console.log('Test email sent:', info.messageId);
+    return res.status(200).json({
+      success: true,
+      message: `Test-E-Mail erfolgreich gesendet (Message-ID: ${info.messageId})`
+    });
+  } catch (error) {
+    console.error('Error sending test email:', error);
+    return res.status(500).json({
+      success: false,
+      message: `Test-E-Mail konnte nicht gesendet werden: ${error.message}`
     });
   }
 });
@@ -472,6 +671,216 @@ router.post('/security/scan', requireUser, requireRole(['admin']), async (req, r
     console.error('Error running security scan:', error);
     return res.status(500).json({
       error: error.message || 'Failed to run security scan'
+    });
+  }
+});
+
+// ===== EMAIL DELIVERY MONITORING ROUTES =====
+
+/**
+ * Get email delivery statistics and health
+ * Provides insights into email delivery success rates and performance
+ */
+router.get('/email/delivery-stats', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const EmailService = require('../services/emailService');
+    const stats = EmailService.deliveryTracker.getStatistics();
+    const smtpStats = EmailService.deliveryTracker.getSMTPStatistics();
+
+    return res.status(200).json({
+      success: true,
+      stats,
+      smtpStats,
+      message: 'Email delivery statistics retrieved'
+    });
+  } catch (error) {
+    console.error('Error getting email delivery stats:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get email delivery statistics'
+    });
+  }
+});
+
+/**
+ * Get email delivery history for a specific recipient
+ * Shows recent delivery attempts and their status
+ */
+router.get('/email/delivery-history/:email', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const { email } = req.params;
+    const limit = parseInt(req.query.limit) || 20;
+
+    // Decode email if URL encoded
+    const decodedEmail = decodeURIComponent(email);
+
+    const EmailService = require('../services/emailService');
+    const history = EmailService.deliveryTracker.getDeliveryHistory(decodedEmail, limit);
+
+    return res.status(200).json({
+      success: true,
+      email: decodedEmail,
+      history,
+      count: history.length,
+      message: `Retrieved ${history.length} delivery records`
+    });
+  } catch (error) {
+    console.error('Error getting email delivery history:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get email delivery history'
+    });
+  }
+});
+
+/**
+ * Get complete delivery log (all records in memory)
+ * Useful for debugging and monitoring overall email health
+ */
+router.get('/email/delivery-log', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const EmailService = require('../services/emailService');
+    const filter = req.query.filter || 'all'; // 'all', 'sent', 'failed', 'queued'
+
+    const allLogs = EmailService.deliveryTracker.deliveryLog;
+    
+    let filteredLogs = allLogs;
+    if (filter !== 'all') {
+      filteredLogs = allLogs.filter(log => log.status === filter);
+    }
+
+    // Sort by timestamp descending
+    const sortedLogs = filteredLogs.sort((a, b) => 
+      new Date(b.timestamp) - new Date(a.timestamp)
+    );
+
+    // Paginate results
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+
+    const paginatedLogs = sortedLogs.slice(startIndex, endIndex);
+
+    return res.status(200).json({
+      success: true,
+      logs: paginatedLogs,
+      pagination: {
+        page,
+        limit,
+        total: sortedLogs.length,
+        pages: Math.ceil(sortedLogs.length / limit)
+      },
+      filter,
+      message: `Retrieved ${paginatedLogs.length} email delivery logs`
+    });
+  } catch (error) {
+    console.error('Error getting email delivery log:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get email delivery log'
+    });
+  }
+});
+
+/**
+ * Get advanced email logging protocol including SMTP connection log
+ */
+router.get('/email/advanced-log', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const EmailService = require('../services/emailService');
+    const filter = req.query.filter || 'all';
+    const smtpStatus = req.query.smtpStatus || 'all';
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const smtpLimit = parseInt(req.query.smtpLimit) || 50;
+
+    const allLogs = EmailService.deliveryTracker.deliveryLog;
+    const filteredDeliveryLogs = filter === 'all'
+      ? allLogs
+      : allLogs.filter((log) => log.status === filter);
+
+    const sortedDeliveryLogs = [...filteredDeliveryLogs].sort((a, b) =>
+      new Date(b.timestamp) - new Date(a.timestamp)
+    );
+
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedDeliveryLogs = sortedDeliveryLogs.slice(startIndex, endIndex);
+
+    const smtpConnectionLog = EmailService.deliveryTracker.getSMTPConnectionLog(smtpStatus, smtpLimit);
+    const smtpStats = EmailService.deliveryTracker.getSMTPStatistics();
+
+    return res.status(200).json({
+      success: true,
+      deliveryLogs: paginatedDeliveryLogs,
+      smtpConnectionLog,
+      smtpStats,
+      pagination: {
+        page,
+        limit,
+        total: sortedDeliveryLogs.length,
+        pages: Math.ceil(sortedDeliveryLogs.length / limit)
+      },
+      filters: {
+        delivery: filter,
+        smtp: smtpStatus
+      },
+      message: 'Advanced email logging protocol retrieved'
+    });
+  } catch (error) {
+    console.error('Error getting advanced email log:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get advanced email log'
+    });
+  }
+});
+
+/**
+ * Clear delivery log entries (all or by status)
+ */
+router.delete('/email/delivery-log', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const status = req.query.status || 'all';
+    const EmailService = require('../services/emailService');
+    const clearedCount = EmailService.deliveryTracker.clearDeliveryLog(status);
+
+    return res.status(200).json({
+      success: true,
+      clearedCount,
+      status,
+      message: `${clearedCount} delivery log entries cleared`
+    });
+  } catch (error) {
+    console.error('Error clearing email delivery log:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to clear email delivery log'
+    });
+  }
+});
+
+/**
+ * Clear SMTP connection log entries (all or by status)
+ */
+router.delete('/email/smtp-log', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const status = req.query.status || 'all';
+    const EmailService = require('../services/emailService');
+    const clearedCount = EmailService.deliveryTracker.clearSMTPConnectionLog(status);
+
+    return res.status(200).json({
+      success: true,
+      clearedCount,
+      status,
+      message: `${clearedCount} SMTP log entries cleared`
+    });
+  } catch (error) {
+    console.error('Error clearing SMTP connection log:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to clear SMTP log'
     });
   }
 });

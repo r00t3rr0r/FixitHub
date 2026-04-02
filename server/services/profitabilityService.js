@@ -4,6 +4,7 @@ const Order = require('../models/Order');
 const Invoice = require('../models/Invoice');
 const Payment = require('../models/Payment');
 const { WorkSession } = require('../models/TimeEntry');
+const CustomerGroup = require('../models/CustomerGroup');
 const SystemConfigService = require('./systemConfigService');
 const FinancialService = require('./financialService');
 
@@ -179,6 +180,14 @@ function paymentLabelFromBooking(booking) {
   const billingStatus = String(booking?.billingStatus || 'offen');
   const paymentStatus = String(booking?.paymentStatus || 'pending');
   return `${billingStatus} / ${paymentStatus}`;
+}
+
+function parseDueDaysFromTerms(paymentTerms = '') {
+  if (!paymentTerms) return null;
+  const match = String(paymentTerms).match(/(\d{1,3})/);
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : null;
 }
 
 function parseEstimatedMinutes(value) {
@@ -479,6 +488,7 @@ class ProfitabilityService {
 
   static async getProfitabilityReport({ limit = 200 } = {}) {
     const settings = await this.getSettings();
+    const financialSettings = await FinancialService.getFinancialSettings();
     const settingsMeta = buildSettingsMeta(settings);
     const subcontractRegexes = buildKeywordMatcher(settings.subcontracting.keywords);
     const warrantyRegexes = buildKeywordMatcher(settings.warranty.keywords);
@@ -493,8 +503,24 @@ class ProfitabilityService {
     const bookings = await Booking.find({})
       .sort({ createdAt: -1 })
       .limit(Math.max(1, Math.min(500, toNumber(limit) || 200)))
-      .populate('customerId', 'firstName lastName name email')
+      .populate('customerId', 'firstName lastName name email paymentTerms discount paymentMethod primaryCustomerGroupId customerGroup')
       .lean();
+
+    const groupIds = Array.from(
+      new Set(
+        bookings
+          .map((booking) => toObjectIdString(booking?.customerId?.primaryCustomerGroupId))
+          .filter(Boolean)
+      )
+    );
+
+    const customerGroups = groupIds.length > 0
+      ? await CustomerGroup.find({ _id: { $in: groupIds } })
+          .select('_id name key financeProfile')
+          .lean()
+      : [];
+
+    const customerGroupById = new Map(customerGroups.map((group) => [String(group._id), group]));
 
     const allOrderIds = [];
     for (const booking of bookings) {
@@ -590,8 +616,9 @@ class ProfitabilityService {
         trackedMinutesByOrderId.set(orderId, toNumber(trackedMinutesByOrderId.get(orderId)) + toNumber(workedOrder?.duration));
       }
     }
+  const resolvedFinancialProfileByCustomerId = new Map();
 
-    const rows = bookings.map((booking) => {
+  const rows = await Promise.all(bookings.map(async (booking) => {
       const bookingNumber = String(booking.bookingNumber || booking._id || '-');
       const bookingOrderIds = Array.from(
         new Set(
@@ -614,6 +641,28 @@ class ProfitabilityService {
       const bookingNetRevenue = getBookingNetRevenue(booking);
       const paymentLabel = paymentLabelFromBooking(booking);
       const bookingOrderIdSet = new Set(bookingOrderIds);
+      const customer = booking?.customerId || null;
+      const primaryGroupId = toObjectIdString(customer?.primaryCustomerGroupId);
+      const cacheKey = customer?._id ? String(customer._id) : null;
+
+      let resolvedFinancialProfile = null;
+      if (cacheKey && resolvedFinancialProfileByCustomerId.has(cacheKey)) {
+        resolvedFinancialProfile = resolvedFinancialProfileByCustomerId.get(cacheKey);
+      } else {
+        resolvedFinancialProfile = await FinancialService.resolveFinancialProfile({ customer });
+        if (cacheKey) {
+          resolvedFinancialProfileByCustomerId.set(cacheKey, resolvedFinancialProfile);
+        }
+      }
+
+      const resolvedGroup = resolvedFinancialProfile?.group || (primaryGroupId ? customerGroupById.get(primaryGroupId) : null);
+      const bookingFinancialTaxMode = resolvedFinancialProfile?.taxMode || 'default';
+      const bookingFinancialCurrency = resolvedFinancialProfile?.currency || financialSettings.defaults.currency;
+      const bookingFinancialInvoicePrefix = resolvedFinancialProfile?.invoicePrefix || financialSettings.defaults.invoicePrefix;
+      const bookingFinancialPaymentDueDays = resolvedFinancialProfile?.paymentDueDays ?? financialSettings.defaults.paymentDueDays;
+      const bookingFinancialPaymentTerms = resolvedFinancialProfile?.paymentTerms || financialSettings.defaults.paymentTerms;
+      const bookingFinancialDiscountPercent = resolvedFinancialProfile?.defaultDiscountPercent ?? financialSettings.defaults.defaultDiscount;
+      const bookingFinancialCreditLimit = resolvedFinancialProfile?.creditLimit ?? 0;
 
       const bookingPayments = [];
       const seenTransactions = new Set();
@@ -783,7 +832,16 @@ class ProfitabilityService {
         bookingNumber,
         bookingDate: booking.createdAt || booking.updatedAt,
         customerName: customerNameFromBooking(booking),
-        customerGroup: customerGroupFromBooking(booking),
+        customerGroup: resolvedGroup?.name || customer?.customerGroup || customerGroupFromBooking(booking),
+        customerGroupName: resolvedGroup?.name || customer?.customerGroup || '-',
+        customerGroupKey: resolvedGroup?.key || '-',
+        customerGroupFinancialCurrency: bookingFinancialCurrency,
+        customerGroupFinancialTaxMode: bookingFinancialTaxMode,
+        customerGroupFinancialInvoicePrefix: bookingFinancialInvoicePrefix || '-',
+        customerGroupFinancialPaymentTerms: bookingFinancialPaymentTerms,
+        customerGroupFinancialPaymentDueDays: toNumber(bookingFinancialPaymentDueDays),
+        customerGroupFinancialDiscountPercent: toNumber(bookingFinancialDiscountPercent),
+        customerGroupFinancialCreditLimit: toNumber(bookingFinancialCreditLimit),
         serviceType,
         paymentLabel,
         warrantyLabel: bookingWarranty ? settings.warranty.flaggedLabel : settings.warranty.defaultLabel,
@@ -808,7 +866,7 @@ class ProfitabilityService {
         itemSummary,
         orders: orderRows,
       };
-    });
+    }));
 
     return {
       rows,

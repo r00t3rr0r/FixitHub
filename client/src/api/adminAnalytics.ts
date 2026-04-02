@@ -36,6 +36,15 @@ export type ProfitabilityBookingRow = {
   bookingDate: string
   customerName: string
   customerGroup: string
+  customerGroupName: string
+  customerGroupKey: string
+  customerGroupFinancialCurrency: string
+  customerGroupFinancialTaxMode: string
+  customerGroupFinancialInvoicePrefix: string
+  customerGroupFinancialPaymentTerms: string
+  customerGroupFinancialPaymentDueDays: number
+  customerGroupFinancialDiscountPercent: number
+  customerGroupFinancialCreditLimit: number
   serviceType: string
   paymentLabel: string
   warrantyLabel: string

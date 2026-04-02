@@ -9,10 +9,10 @@
     "test:admin-bookings-read-flow:multi-order": "node test-admin-bookings-read-flow-multi-order.js",
     "client": "cd client && npm run dev",
     "client-install": "cd client && npm install",
-    "server": "cd server && npm run dev",
+    "server": "npm --prefix server run dev:clean",
     "server-install": "cd server && npm install",
     "start": "concurrently -n \"client,server\" \"npm run client\" \"npm run server\"",
-    "debug": "concurrently -n \"client,server\" \"npm run client\" \"cross-env NODE_OPTIONS=--inspect-brk=9229 npm run server\""
+    "debug": "concurrently -n \"client,server\" \"npm run client\" \"cross-env NODE_OPTIONS=--inspect-brk=9229 npm --prefix server run dev:clean\""
   },
   "author": "",
   "license": "ISC",

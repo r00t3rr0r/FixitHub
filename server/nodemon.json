@@ -1,0 +1,14 @@
+{
+  "watch": [
+    "."
+  ],
+  "ext": "js,json",
+  "ignore": [
+    "node_modules/**",
+    "logs/**",
+    "uploads/**",
+    "tmp/**",
+    "*.log",
+    "config/payment-gateways.json"
+  ]
+}

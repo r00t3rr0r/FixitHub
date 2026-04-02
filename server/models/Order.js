@@ -655,6 +655,10 @@ const orderSchema = new mongoose.Schema({
     enum: ['pending', 'label-created', 'shipped', 'in-transit', 'out-for-delivery', 'delivered', 'failed'],
     default: 'pending',
   },
+  shippingStatusDescription: {
+    type: String,
+    default: '',
+  },
   estimatedDelivery: {
     type: Date,
   },

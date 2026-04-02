@@ -6,6 +6,9 @@ const Service = require('../models/Service');
 const AddOnService = require('../models/AddOnService');
 const Product = require('../models/Product');
 const { BlogPost } = require('../models/BlogPost');
+const Invoice = require('../models/Invoice');
+const Complaint = require('../models/Complaint');
+const RepairRequest = require('../models/RepairRequest');
 
 class DatabaseService {
   // Get database statistics
@@ -309,6 +312,99 @@ class DatabaseService {
     } catch (error) {
       console.error('DatabaseService: Error deleting bookings and orders:', error);
       throw new Error(`Failed to delete bookings and orders: ${error.message}`);
+    }
+  }
+
+  // Delete all invoices
+  async deleteAllInvoices() {
+    console.log('DatabaseService: Deleting all invoices');
+
+    try {
+      // Get count before deletion
+      const countBefore = await Invoice.countDocuments();
+
+      // Delete all invoices
+      const deleteResult = await Invoice.deleteMany({});
+      console.log(`DatabaseService: Deleted ${deleteResult.deletedCount} invoices`);
+
+      // Verify deletion
+      const countAfter = await Invoice.countDocuments();
+
+      return {
+        success: true,
+        message: 'All invoices deleted successfully',
+        results: {
+          before: countBefore,
+          deleted: deleteResult.deletedCount,
+          after: countAfter
+        },
+        timestamp: new Date()
+      };
+    } catch (error) {
+      console.error('DatabaseService: Error deleting invoices:', error);
+      throw new Error(`Failed to delete invoices: ${error.message}`);
+    }
+  }
+
+  // Delete all complaints
+  async deleteAllComplaints() {
+    console.log('DatabaseService: Deleting all complaints');
+
+    try {
+      // Get count before deletion
+      const countBefore = await Complaint.countDocuments();
+
+      // Delete all complaints
+      const deleteResult = await Complaint.deleteMany({});
+      console.log(`DatabaseService: Deleted ${deleteResult.deletedCount} complaints`);
+
+      // Verify deletion
+      const countAfter = await Complaint.countDocuments();
+
+      return {
+        success: true,
+        message: 'All complaints deleted successfully',
+        results: {
+          before: countBefore,
+          deleted: deleteResult.deletedCount,
+          after: countAfter
+        },
+        timestamp: new Date()
+      };
+    } catch (error) {
+      console.error('DatabaseService: Error deleting complaints:', error);
+      throw new Error(`Failed to delete complaints: ${error.message}`);
+    }
+  }
+
+  // Delete all repair requests
+  async deleteAllRepairRequests() {
+    console.log('DatabaseService: Deleting all repair requests');
+
+    try {
+      // Get count before deletion
+      const countBefore = await RepairRequest.countDocuments();
+
+      // Delete all repair requests
+      const deleteResult = await RepairRequest.deleteMany({});
+      console.log(`DatabaseService: Deleted ${deleteResult.deletedCount} repair requests`);
+
+      // Verify deletion
+      const countAfter = await RepairRequest.countDocuments();
+
+      return {
+        success: true,
+        message: 'All repair requests deleted successfully',
+        results: {
+          before: countBefore,
+          deleted: deleteResult.deletedCount,
+          after: countAfter
+        },
+        timestamp: new Date()
+      };
+    } catch (error) {
+      console.error('DatabaseService: Error deleting repair requests:', error);
+      throw new Error(`Failed to delete repair requests: ${error.message}`);
     }
   }
 }

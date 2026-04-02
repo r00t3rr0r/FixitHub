@@ -136,6 +136,14 @@ const systemConfigurationSchema = new mongoose.Schema({
       type: String,
       default: ''
     },
+    requiresAuthentication: {
+      type: Boolean,
+      default: true
+    },
+    requiresTLS: {
+      type: Boolean,
+      default: true
+    },
     enableNotifications: {
       type: Boolean,
       default: true

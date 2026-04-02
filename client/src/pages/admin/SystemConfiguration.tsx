@@ -131,6 +131,16 @@ export function SystemConfiguration() {
   const [clearingCache, setClearingCache] = useState(false)
   const [runningSecurityScan, setRunningSecurityScan] = useState(false)
   const [testingIntegration, setTestingIntegration] = useState<string | null>(null)
+  const [testingEmailSettings, setTestingEmailSettings] = useState(false)
+
+  // Template test dialog
+  const [testingTemplate, setTestingTemplate] = useState<NotificationTemplate | null>(null)
+  const [templateTestEmail, setTemplateTestEmail] = useState("")
+  const [sendingTemplateTest, setSendingTemplateTest] = useState(false)
+
+  // Template filter
+  const [templateSearch, setTemplateSearch] = useState('')
+  const [templateTypeFilter, setTemplateTypeFilter] = useState<'all' | 'email' | 'sms' | 'push'>('all')
 
   // Dialog states
   const [showTemplateDialog, setShowTemplateDialog] = useState(false)
@@ -145,6 +155,19 @@ export function SystemConfiguration() {
   useEffect(() => {
     loadData()
   }, [])
+
+  const toIntegrationPayload = (integration: Integration): Omit<Integration, '_id'> => ({
+    name: integration.name,
+    type: integration.type,
+    provider: integration.provider,
+    apiKey: integration.apiKey,
+    apiSecret: integration.apiSecret || '',
+    endpoint: integration.endpoint || '',
+    settings: integration.settings || {},
+    isActive: integration.isActive,
+    lastTested: integration.lastTested,
+    testStatus: integration.testStatus,
+  })
 
   const loadData = async () => {
     try {
@@ -266,6 +289,38 @@ export function SystemConfiguration() {
     }
   }
 
+  const handleTestTemplate = (template: NotificationTemplate) => {
+    setTestingTemplate(template)
+    setTemplateTestEmail("")
+  }
+
+  const handleSendTemplateTest = async () => {
+    if (!testingTemplate || !templateTestEmail.trim()) return
+    setSendingTemplateTest(true)
+    try {
+      const token = localStorage.getItem("accessToken")
+      const response = await fetch(`/api/system-config/notification-templates/${testingTemplate._id}/send-test`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ to: templateTestEmail.trim() }),
+      })
+      const data = await response.json()
+      if (response.ok && data.success) {
+        toast({ title: "Test-E-Mail gesendet", description: data.message || `Vorlage an ${templateTestEmail} gesendet` })
+        setTestingTemplate(null)
+      } else {
+        toast({ title: "Fehler", description: data.message || data.error || "Senden fehlgeschlagen", variant: "destructive" })
+      }
+    } catch (error: any) {
+      toast({ title: "Verbindungsfehler", description: error.message || "Unbekannter Fehler", variant: "destructive" })
+    } finally {
+      setSendingTemplateTest(false)
+    }
+  }
+
   const handleDeleteTemplate = async (templateId: string) => {
     try {
       console.log("SystemConfiguration: Deleting template:", templateId)
@@ -367,6 +422,88 @@ export function SystemConfiguration() {
       })
     } finally {
       setTestingIntegration(null)
+    }
+  }
+
+  const handleBookingLabelModeChange = async (integration: Integration, bookingLabelMode: 'dummy' | 'live') => {
+    const updatedIntegration: Integration = {
+      ...integration,
+      settings: {
+        ...(integration.settings || {}),
+        bookingLabelMode,
+      },
+    }
+
+    setIntegrations((prev) => prev.map((item) => item._id === integration._id ? updatedIntegration : item))
+
+    try {
+      const response = await updateIntegration(integration._id, toIntegrationPayload(updatedIntegration))
+      setIntegrations((prev) => prev.map((item) => item._id === integration._id ? response.integration : item))
+      toast({
+        title: 'Success',
+        description: `Booking label mode set to ${bookingLabelMode}`,
+      })
+    } catch (error: any) {
+      setIntegrations((prev) => prev.map((item) => item._id === integration._id ? integration : item))
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update booking label mode',
+        variant: 'destructive'
+      })
+    }
+  }
+
+  const handleTestEmailSettings = async () => {
+    if (!config?.emailSettings?.smtpHost) {
+      toast({
+        title: "Error",
+        description: "SMTP Host is required",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setTestingEmailSettings(true)
+    try {
+      console.log("SystemConfiguration: Testing email settings...")
+      const response = await fetch('/api/system-config/email/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          smtpHost: config.emailSettings.smtpHost,
+          smtpPort: config.emailSettings.smtpPort,
+          smtpUsername: config.emailSettings.smtpUsername,
+          smtpPassword: config.emailSettings.smtpPassword,
+          requiresAuthentication: config.emailSettings.requiresAuthentication,
+          requiresTLS: config.emailSettings.requiresTLS
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: result.message || "Email configuration is valid"
+        })
+      } else {
+        toast({
+          title: "Test Failed",
+          description: result.message || "Email configuration test failed",
+          variant: "destructive"
+        })
+      }
+    } catch (error: any) {
+      console.error("SystemConfiguration: Error testing email settings:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to test email settings",
+        variant: "destructive"
+      })
+    } finally {
+      setTestingEmailSettings(false)
     }
   }
 
@@ -656,94 +793,6 @@ export function SystemConfiguration() {
             </CardContent>
           </Card>
 
-          {/* Email Configuration */}
-          <Card>
-            <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Mail className="h-5 w-5" />
-                Email Configuration
-              </CardTitle>
-              <CardDescription className="text-blue-100 text-xs mt-1">Configure SMTP settings for email notifications</CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 space-y-3">
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="smtpHost">SMTP Host</Label>
-                  <Input
-                    id="smtpHost"
-                    value={config.emailSettings?.smtpHost || ''}
-                    onChange={(e) => setConfig(prev => prev ? {
-                      ...prev,
-                      emailSettings: {
-                        ...prev.emailSettings,
-                        smtpHost: e.target.value
-                      }
-                    } : null)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="smtpPort">SMTP Port</Label>
-                  <Input
-                    id="smtpPort"
-                    type="number"
-                    value={config.emailSettings?.smtpPort || 587}
-                    onChange={(e) => setConfig(prev => prev ? {
-                      ...prev,
-                      emailSettings: {
-                        ...prev.emailSettings,
-                        smtpPort: parseInt(e.target.value)
-                      }
-                    } : null)}
-                  />
-                </div>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="smtpUsername">SMTP Username</Label>
-                  <Input
-                    id="smtpUsername"
-                    value={config.emailSettings?.smtpUsername || ''}
-                    onChange={(e) => setConfig(prev => prev ? {
-                      ...prev,
-                      emailSettings: {
-                        ...prev.emailSettings,
-                        smtpUsername: e.target.value
-                      }
-                    } : null)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="smtpPassword">SMTP Password</Label>
-                  <Input
-                    id="smtpPassword"
-                    type="password"
-                    value={config.emailSettings?.smtpPassword || ''}
-                    onChange={(e) => setConfig(prev => prev ? {
-                      ...prev,
-                      emailSettings: {
-                        ...prev.emailSettings,
-                        smtpPassword: e.target.value
-                      }
-                    } : null)}
-                  />
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={config.emailSettings?.enableNotifications}
-                  onCheckedChange={(checked) => setConfig(prev => prev ? {
-                    ...prev,
-                    emailSettings: {
-                      ...prev.emailSettings,
-                      enableNotifications: checked
-                    }
-                  } : null)}
-                />
-                <Label>Enable Email Notifications</Label>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Notification Templates */}
           <Card>
             <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
@@ -753,7 +802,7 @@ export function SystemConfiguration() {
                     <FileText className="h-5 w-5" />
                     Kunden-Benachrichtigungsvorlagen
                   </CardTitle>
-                  <CardDescription className="text-blue-100 text-xs mt-1">Deutsche Standardvorlagen fuer Registrierung, Auftragsbestaetigung, Statusupdates, Zahlungen und Passwort-Reset</CardDescription>
+                  <CardDescription className="text-blue-100 text-xs mt-1">Buchungen, Reparaturanfragen, Reklamationen, Statusupdates, Zahlungen, Termine und Standardbenachrichtigungen</CardDescription>
                 </div>
                 <Button onClick={handleCreateTemplate} size="sm" className="bg-white text-[#1a2a5e] hover:bg-blue-50">
                   <Plus className="h-4 w-4 mr-2" />
@@ -763,25 +812,72 @@ export function SystemConfiguration() {
             </CardHeader>
             <CardContent className="p-4">
               <div className="mb-4 rounded-2xl border border-[#d8dce6] bg-gradient-to-r from-[#f8f9fc] via-white to-[#fff7df] p-4">
-                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-[#1a2a5e]">McRepair Layout fuer transaktionale Kunden-E-Mails</p>
-                    <p className="text-xs text-muted-foreground">Die Vorlagen nutzen die Markenfarben der Homepage, eine klare Hierarchie und dynamische Platzhalter fuer kundenbezogene Inhalte.</p>
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-[#1a2a5e]">McRepair Layout fuer transaktionale Kunden-Benachrichtigungen</p>
+                      <p className="text-xs text-muted-foreground">Einheitliches Design fuer E-Mail, SMS und Push-Vorlagen mit dynamischen Platzhaltern.</p>
+                    </div>
+                    <Badge variant="outline" className="w-fit border-[#f5b800] bg-white text-[#1a2a5e]">
+                      {templates.length} Vorlagen gesamt
+                    </Badge>
                   </div>
-                  <Badge variant="outline" className="w-fit border-[#f5b800] bg-white text-[#1a2a5e]">
-                    {templates.length} Vorlagen verfuegbar
-                  </Badge>
+                  {/* Search & Filter */}
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      <input
+                        type="text"
+                        placeholder="Vorlagen durchsuchen …"
+                        value={templateSearch}
+                        onChange={(e) => setTemplateSearch(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 text-sm border border-[#d8dce6] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a5e]/30"
+                      />
+                    </div>
+                    <div className="flex gap-1">
+                      {(['all', 'email', 'sms', 'push'] as const).map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setTemplateTypeFilter(t)}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+                            templateTypeFilter === t
+                              ? 'bg-[#1a2a5e] text-white border-[#1a2a5e]'
+                              : 'bg-white text-[#1a2a5e] border-[#d8dce6] hover:bg-[#eef3ff]'
+                          }`}
+                        >
+                          {t === 'all' ? `Alle (${templates.length})` :
+                           t === 'email' ? `E-Mail (${templates.filter(x => x.type === 'email').length})` :
+                           t === 'sms' ? `SMS (${templates.filter(x => x.type === 'sms').length})` :
+                           `Push (${templates.filter(x => x.type === 'push').length})`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
-              {templates.length === 0 ? (
-                <div className="text-center py-8">
-                  <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-muted-foreground">Keine Benachrichtigungsvorlagen gefunden</p>
-                  <p className="text-sm text-muted-foreground">Legen Sie Ihre erste Vorlage fuer die Kundenkommunikation an</p>
-                </div>
-              ) : (
+              {(() => {
+                const filtered = templates.filter((t) => {
+                  const matchesType = templateTypeFilter === 'all' || t.type === templateTypeFilter
+                  const q = templateSearch.toLowerCase()
+                  const matchesSearch = !q || t.name.toLowerCase().includes(q) || (t.subject || '').toLowerCase().includes(q)
+                  return matchesType && matchesSearch
+                })
+                if (templates.length === 0) return (
+                  <div className="text-center py-8">
+                    <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <p className="text-muted-foreground">Keine Benachrichtigungsvorlagen gefunden</p>
+                    <p className="text-sm text-muted-foreground">Legen Sie Ihre erste Vorlage fuer die Kundenkommunikation an</p>
+                  </div>
+                )
+                if (filtered.length === 0) return (
+                  <div className="text-center py-8">
+                    <Search className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-40" />
+                    <p className="text-muted-foreground text-sm">Keine Vorlagen fuer diesen Filter gefunden</p>
+                  </div>
+                )
+                return (
                 <div className="grid gap-4 md:grid-cols-2">
-                  {templates.map((template) => (
+                  {filtered.map((template) => (
                     <Card key={template._id} className="relative overflow-hidden border-[#d8dce6] shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
                       <CardHeader>
                         <div className="flex items-center justify-between">
@@ -798,6 +894,15 @@ export function SystemConfiguration() {
                             </div>
                           </div>
                           <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Vorlage als Test-E-Mail senden"
+                              onClick={() => handleTestTemplate(template)}
+                              disabled={template.type !== 'email'}
+                            >
+                              <TestTube className="h-4 w-4 text-blue-600" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -866,12 +971,105 @@ export function SystemConfiguration() {
                     </Card>
                   ))}
                 </div>
-              )}
+                )
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Integrations Tab */}
+        {/* Template Test Dialog */}
+        {testingTemplate && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 overflow-y-auto py-8">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6">
+              <div className="flex items-center gap-2 mb-1">
+                <TestTube className="h-5 w-5 text-blue-600" />
+                <h2 className="text-lg font-semibold">Vorlage als Test-E-Mail senden</h2>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">Sendet die Vorlage mit Beispiel-Platzhalterwerten an die angegebene Adresse</p>
+
+              <div className="bg-gray-50 border rounded-lg p-3 mb-4 text-sm space-y-1">
+                <p><span className="font-medium">Vorlage:</span> {testingTemplate.name}</p>
+                {testingTemplate.subject && <p><span className="font-medium">Betreff:</span> {testingTemplate.subject}</p>}
+                {testingTemplate.variables && testingTemplate.variables.length > 0 && (
+                  <p><span className="font-medium">Variablen:</span> {testingTemplate.variables.map(v => `{{${v.name}}}`).join(', ')}</p>
+                )}
+              </div>
+
+              <div className="space-y-2 mb-4">
+                <label htmlFor="template-test-email" className="text-sm font-medium">Empfänger-E-Mail-Adresse *</label>
+                <input
+                  id="template-test-email"
+                  type="email"
+                  className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="test@example.com"
+                  value={templateTestEmail}
+                  onChange={(e) => setTemplateTestEmail(e.target.value)}
+                  disabled={sendingTemplateTest}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendTemplateTest()}
+                />
+              </div>
+
+              {/* HTML Preview */}
+              <div className="mb-4">
+                <p className="text-sm font-medium mb-2">Vorschau (HTML-formatiert):</p>
+                <div className="bg-white border rounded-lg overflow-hidden overflow-y-auto max-h-64 border-gray-300 shadow-sm">
+                  <div 
+                    className="p-4 text-sm"
+                    dangerouslySetInnerHTML={{ 
+                      __html: (() => {
+                        let content = testingTemplate.content;
+                        // Sample values for replacing placeholders
+                        const sampleValues: Record<string, string> = {
+                          customerName: 'Max Mustermann',
+                          firstName: 'Max',
+                          lastName: 'Mustermann',
+                          email: templateTestEmail || 'test@example.com',
+                          orderNumber: 'ORD-2026-0001',
+                          repairNumber: 'REP-2026-0001',
+                          deviceName: 'iPhone 15 Pro',
+                          deviceModel: 'iPhone 15 Pro',
+                          status: 'In Bearbeitung',
+                          estimatedCost: '89,00 €',
+                          totalAmount: '89,00 €',
+                          amountPaid: '89,00 €',
+                          technician: 'FixitHub Service',
+                          notes: 'Ihr Gerät wird gerade geprüft.',
+                          completionDate: new Date().toLocaleDateString('de-DE'),
+                          shopName: 'FixitHub',
+                          shopAddress: 'Musterstraße 1, 12345 Musterstadt',
+                          supportEmail: 'support@fixithub.de',
+                          supportPhone: '+49 123 456789',
+                          trackingUrl: 'https://fixithub.de/tracking/REP-2026-0001',
+                          verificationUrl: 'https://fixithub.de/verify/example-token',
+                          passwordResetUrl: 'https://fixithub.de/reset/example-token',
+                          invoiceUrl: 'https://fixithub.de/invoice/INV-2026-0001',
+                        };
+                        // Replace all {{variable}} placeholders
+                        return content.replace(/{{(\w+)}}/g, (match, key) => sampleValues[key] || `[${key}]`);
+                      })()
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setTestingTemplate(null)} disabled={sendingTemplateTest}>Abbrechen</Button>
+                <Button
+                  onClick={handleSendTemplateTest}
+                  disabled={sendingTemplateTest || !templateTestEmail.trim()}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {sendingTemplateTest ? (
+                    <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Wird gesendet...</>
+                  ) : (
+                    <><TestTube className="h-4 w-4 mr-2" />Test senden</>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* SMS/Push Providers Tab */}
         <TabsContent value="providers" className="space-y-6">
           <ProviderConfigurationTab />
@@ -993,6 +1191,28 @@ export function SystemConfiguration() {
                               {integration.endpoint || 'Default endpoint'}
                             </p>
                           </div>
+                          {integration.type === 'shipping' && integration.provider === 'DHL' && integration.name === 'DHL Shipping' && (
+                            <div className="space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+                              <div>
+                                <p className="text-sm font-medium">Booking Label Mode</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Choose whether booking creation prepares a dummy PDF label or calls the live DHL API.
+                                </p>
+                              </div>
+                              <Select
+                                value={integration.settings?.bookingLabelMode || 'dummy'}
+                                onValueChange={(value: 'dummy' | 'live') => handleBookingLabelModeChange(integration, value)}
+                              >
+                                <SelectTrigger className="h-9 text-sm bg-white">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="dummy">Dummy PDF Label</SelectItem>
+                                  <SelectItem value="live">Live DHL Label</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>

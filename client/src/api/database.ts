@@ -152,3 +152,39 @@ export const deleteAllBookingsAndOrders = async () => {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// Description: Delete all invoices from the database
+// Endpoint: POST /api/database/delete-invoices
+// Request: {}
+// Response: { success: boolean, message: string, results: { before: number, deleted: number, after: number }, timestamp: string }
+export const deleteAllInvoices = async () => {
+  try {
+    return await api.post('/api/database/delete-invoices');
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Delete all complaints from the database
+// Endpoint: POST /api/database/delete-complaints
+// Request: {}
+// Response: { success: boolean, message: string, results: { before: number, deleted: number, after: number }, timestamp: string }
+export const deleteAllComplaints = async () => {
+  try {
+    return await api.post('/api/database/delete-complaints');
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Delete all repair requests from the database
+// Endpoint: POST /api/database/delete-repair-requests
+// Request: {}
+// Response: { success: boolean, message: string, results: { before: number, deleted: number, after: number }, timestamp: string }
+export const deleteAllRepairRequests = async () => {
+  try {
+    return await api.post('/api/database/delete-repair-requests');
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};

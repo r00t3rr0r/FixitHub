@@ -23,6 +23,8 @@ type RegisterForm = {
 export function Register() {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
+  const [registrationSuccess, setRegistrationSuccess] = useState(false)
+  const [registeredEmail, setRegisteredEmail] = useState('')
   const { toast } = useToast()
   const { register: registerUser } = useAuth()
   const navigate = useNavigate()
@@ -33,11 +35,12 @@ export function Register() {
       setLoading(true)
       console.log('Registering user with data:', data);
       await registerUser(data.email, data.password, data.firstName, data.lastName, data.phone);
+      setRegisteredEmail(data.email)
+      setRegistrationSuccess(true)
       toast({
         title: t('register.success', 'Erfolgreich registriert'),
-        description: t('register.successMessage', 'Ihr Konto wurde erfolgreich erstellt'),
+        description: t('register.successMessage', 'Eine Bestätigungsmail wurde an Ihre E-Mail-Adresse gesendet'),
       })
-      navigate("/login")
     } catch (error) {
       console.log("Register error:", error)
       toast({
@@ -48,6 +51,126 @@ export function Register() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Show success screen after registration
+  if (registrationSuccess) {
+    return (
+      <div style={{ backgroundColor: 'var(--off-white)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <TopBar />
+        <McRepairNav />
+
+        <section style={{ flex: 1, padding: '80px 24px', maxWidth: '600px', margin: '0 auto' }}>
+          <div style={{
+            background: 'white',
+            padding: '48px',
+            borderRadius: 'var(--radius-lg)',
+            boxShadow: 'var(--shadow-lg)',
+            textAlign: 'center'
+          }}>
+            <div style={{ marginBottom: '32px' }}>
+              <div style={{
+                width: '80px',
+                height: '80px',
+                background: 'linear-gradient(135deg, var(--primary-blue), var(--primary-blue-light))',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 24px'
+              }}>
+                <Mail style={{ width: '40px', height: '40px', color: 'white' }} />
+              </div>
+
+              <h1 style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--primary-blue)', marginBottom: '16px' }}>
+                {t('register.checkEmail', 'Überprüfen Sie Ihre E-Mail')}
+              </h1>
+
+              <p style={{
+                color: 'var(--gray-600)',
+                fontSize: '1.05rem',
+                lineHeight: '1.6',
+                marginBottom: '24px'
+              }}>
+                {t('register.checkEmailMessage', `Wir haben eine Bestätigungsmail an <strong>${registeredEmail}</strong> gesendet. Bitte klicken Sie auf den Link in der E-Mail, um Ihr Konto zu aktivieren.`)}
+              </p>
+
+              <div style={{
+                background: 'var(--off-white)',
+                padding: '24px',
+                borderRadius: 'var(--radius-md)',
+                marginBottom: '32px',
+                textAlign: 'left'
+              }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '16px', color: 'var(--primary-blue)' }}>
+                  {t('register.nextSteps', 'Nächste Schritte:')}
+                </h3>
+                <ol style={{ paddingLeft: '24px', color: 'var(--gray-600)', lineHeight: '2' }}>
+                  <li>{t('register.step1', 'Öffnen Sie Ihr E-Mail-Postfach')}</li>
+                  <li>{t('register.step2', 'Suchen Sie nach einer E-Mail von uns (prüfen Sie auch Ihren Spam-Ordner)')}</li>
+                  <li>{t('register.step3', 'Klicken Sie auf den Verifizierungslink in der E-Mail')}</li>
+                  <li>{t('register.step4', 'Ihr Konto ist jetzt aktiviert und Sie können sich anmelden')}</li>
+                </ol>
+              </div>
+
+              <p style={{ fontSize: '0.9rem', color: 'var(--gray-500)', marginBottom: '32px' }}>
+                {t('register.didNotReceive', 'E-Mail nicht erhalten?')}{' '}
+                <span style={{ color: 'var(--primary-blue)', fontWeight: '600' }}>
+                  {t('register.checkSpam', 'Überprüfen Sie Ihren Spam-Ordner oder probieren Sie es später erneut.')}
+                </span>
+              </p>
+
+              <button
+                onClick={() => navigate('/login')}
+                style={{
+                  background: 'var(--primary-blue)',
+                  color: 'white',
+                  padding: '14px 48px',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'var(--transition)',
+                  marginRight: '16px'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+              >
+                {t('register.backToLogin', 'Zur Anmeldung')}
+              </button>
+
+              <button
+                onClick={() => setRegistrationSuccess(false)}
+                style={{
+                  background: 'transparent',
+                  color: 'var(--primary-blue)',
+                  padding: '14px 48px',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  border: '2px solid var(--primary-blue)',
+                  cursor: 'pointer',
+                  transition: 'var(--transition)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--primary-blue)'
+                  e.currentTarget.style.color = 'white'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent'
+                  e.currentTarget.style.color = 'var(--primary-blue)'
+                }}
+              >
+                {t('register.registerAnother', 'Ein weiteres Konto erstellen')}
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <Footer />
+      </div>
+    )
   }
 
   const benefits = [

@@ -5,6 +5,9 @@ import { AuthProvider } from "./contexts/AuthContext"
 import { Home } from "./pages/Home"
 import { Login } from "./pages/Login"
 import { Register } from "./pages/Register"
+import { VerifyEmail } from "./pages/VerifyEmail"
+import { ForgotPassword } from "./pages/ForgotPassword"
+import { ResetPassword } from "./pages/ResetPassword"
 import { DebugLogin } from "./pages/DebugLogin"
 import { ProtectedRoute } from "./components/ProtectedRoute"
 import { Layout } from "./components/Layout"
@@ -23,6 +26,7 @@ import { BlogPostPage } from "./pages/BlogPost"
 import { CustomerBookings } from "./pages/CustomerBookings"
 import { CustomerInvoices } from "./pages/CustomerInvoices"
 import { CustomerRepairRequests } from "./pages/CustomerRepairRequests"
+import { CustomerComplaints } from "./pages/CustomerComplaints"
 import { StaffDashboard } from "./pages/staff/StaffDashboard"
 import { StaffOrders } from "./pages/staff/StaffOrders"
 import { KnowledgeBase } from "./pages/staff/KnowledgeBase"
@@ -52,8 +56,10 @@ import { WorkflowManagement } from "./pages/admin/WorkflowManagement"
 import { PartsManagement } from "./pages/admin/PartsManagement"
 import { StaffManagement } from "./pages/admin/StaffManagement"
 import { FinancialManagement } from "./pages/admin/FinancialManagement"
+import { CustomerGroupsManagement } from "./pages/admin/CustomerGroupsManagement"
 import { DeviceManagement } from "./pages/admin/DeviceManagement"
 import { ComplaintsManagement } from "./pages/admin/ComplaintsManagement"
+import { EmailAdministration } from "./pages/admin/EmailAdministration"
 import EPartOrderManagement from "./pages/admin/EPartOrderManagement"
 import { InspectionWorkflow } from "./pages/inspection/InspectionWorkflow"
 import { RepairRequestQuestionnaire } from "./pages/RepairRequestQuestionnaire"
@@ -81,6 +87,9 @@ function App() {
             <Route path="/home" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/debug" element={<DebugLogin />} />
 
             {/* Guest tracking routes - public access with CustomerLayout */}
@@ -149,6 +158,9 @@ function App() {
             <Route path="/my-repair-requests" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
               <Route index element={<CustomerRepairRequests />} />
             </Route>
+            <Route path="/my-complaints" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
+              <Route index element={<CustomerComplaints />} />
+            </Route>
 
             {/* Staff routes */}
             <Route path="/staff" element={<ProtectedRoute requiredRole={["staff", "admin"]}><Layout /></ProtectedRoute>}>
@@ -179,6 +191,9 @@ function App() {
             </Route>
             <Route path="/admin/users" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<UserManagement />} />
+            </Route>
+            <Route path="/admin/customer-groups" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
+              <Route index element={<CustomerGroupsManagement />} />
             </Route>
             <Route path="/admin/orders" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<OrderManagement />} />
@@ -228,6 +243,9 @@ function App() {
             </Route>
             <Route path="/admin/system" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<SystemConfiguration />} />
+            </Route>
+            <Route path="/admin/email" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
+              <Route index element={<EmailAdministration />} />
             </Route>
             <Route path="/admin/database" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<DatabaseManagement />} />

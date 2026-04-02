@@ -229,6 +229,14 @@ export function Login() {
                   {errors.password && (
                     <p className="text-sm text-red-500">{errors.password.message}</p>
                   )}
+                  <div className="text-right">
+                    <Link
+                      to="/forgot-password"
+                      className="text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors"
+                    >
+                      Passwort vergessen?
+                    </Link>
+                  </div>
                 </div>
 
                 <Button

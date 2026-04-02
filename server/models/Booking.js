@@ -220,6 +220,41 @@ const bookingSchema = new mongoose.Schema({
     min: 0,
     max: 100,
   },
+  // Outbound shipping information for the booking package
+  trackingNumber: {
+    type: String,
+    default: '',
+  },
+  carrier: {
+    type: String,
+    default: 'DHL',
+  },
+  shippingStatus: {
+    type: String,
+    enum: ['pending', 'label-created', 'shipped', 'in-transit', 'out-for-delivery', 'delivered', 'failed', ''],
+    default: 'pending',
+  },
+  shippingStatusDescription: {
+    type: String,
+    default: '',
+  },
+  estimatedDelivery: {
+    type: Date,
+  },
+  actualDelivery: {
+    type: Date,
+  },
+  shippingLabelUrl: {
+    type: String,
+    default: '',
+  },
+  shippingCost: {
+    type: Number,
+    default: 0,
+  },
+  shippingCreatedAt: {
+    type: Date,
+  },
   // Return shipping information for DHL Parcel DE Returns
   returnLabelUrl: {
     type: String,
@@ -241,6 +276,10 @@ const bookingSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'label-created', 'in-transit', 'delivered', 'failed', ''],
     default: 'pending',
+  },
+  returnShipmentStatusDescription: {
+    type: String,
+    default: '',
   },
   returnCreatedAt: {
     type: Date,

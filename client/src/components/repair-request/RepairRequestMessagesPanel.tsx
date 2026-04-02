@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from "react"
-import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -82,7 +81,6 @@ export function RepairRequestMessagesPanel({
   isReadOnly,
   userRole,
 }: RepairRequestMessagesPanelProps) {
-  const { t } = useTranslation()
   const { toast } = useToast()
   const { user } = useAuth()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -150,8 +148,8 @@ export function RepairRequestMessagesPanel({
     console.log("RepairRequestMessagesPanel: Handling send message")
     if (!newMessage.trim()) {
       toast({
-        title: t("common.error"),
-        description: "Please enter a message",
+        title: "Fehler",
+        description: "Bitte gib eine Nachricht ein",
         variant: "destructive",
       })
       return
@@ -164,14 +162,14 @@ export function RepairRequestMessagesPanel({
       setNewMessage("")
       console.log("RepairRequestMessagesPanel: Message sent successfully")
       toast({
-        title: t("common.success"),
-        description: "Message sent successfully",
+        title: "Erfolg",
+        description: "Nachricht wurde erfolgreich gesendet",
       })
     } catch (error: any) {
       console.error("RepairRequestMessagesPanel: Error sending message:", error)
       toast({
-        title: t("common.error"),
-        description: error.message || "Failed to send message",
+        title: "Fehler",
+        description: error.message || "Nachricht konnte nicht gesendet werden",
         variant: "destructive",
       })
     } finally {
@@ -191,13 +189,13 @@ export function RepairRequestMessagesPanel({
       setCommunication(updated)
       console.log("RepairRequestMessagesPanel: Feedback response recorded")
       toast({
-        title: t("common.success"),
-        description: "Your response has been recorded",
+        title: "Erfolg",
+        description: "Deine Antwort wurde gespeichert",
       })
     } catch (error: any) {
       console.error("RepairRequestMessagesPanel: Error responding to feedback:", error)
       toast({
-        title: t("common.error"),
+        title: "Fehler",
         description: error.message,
         variant: "destructive",
       })
@@ -220,14 +218,14 @@ export function RepairRequestMessagesPanel({
       setSelectedActionId(null)
       setActionResponse("")
       toast({
-        title: t("common.success"),
-        description: "Action marked as completed",
+        title: "Erfolg",
+        description: "Aktion wurde als erledigt markiert",
       })
     } catch (error: any) {
       console.error("RepairRequestMessagesPanel: Error completing action:", error)
       toast({
-        title: t("common.error"),
-        description: error.message || "Failed to complete action",
+        title: "Fehler",
+        description: error.message || "Aktion konnte nicht abgeschlossen werden",
         variant: "destructive",
       })
     } finally {
@@ -239,8 +237,8 @@ export function RepairRequestMessagesPanel({
   const handleSendFeedback = async () => {
     if (!feedbackQuestion.trim()) {
       toast({
-        title: t("common.error"),
-        description: "Please enter a question",
+        title: "Fehler",
+        description: "Bitte gib eine Frage ein",
         variant: "destructive",
       })
       return
@@ -249,8 +247,8 @@ export function RepairRequestMessagesPanel({
     const validOptions = feedbackOptions.filter((opt) => opt.label.trim())
     if (validOptions.length < 2) {
       toast({
-        title: t("common.error"),
-        description: "Please provide at least 2 options",
+        title: "Fehler",
+        description: "Bitte gib mindestens 2 Optionen an",
         variant: "destructive",
       })
       return
@@ -273,13 +271,13 @@ export function RepairRequestMessagesPanel({
       setShowFeedbackDialog(false)
       console.log("RepairRequestMessagesPanel: Feedback request sent")
       toast({
-        title: t("common.success"),
-        description: "Feedback request sent to customer",
+        title: "Erfolg",
+        description: "Rueckfrage wurde an den Kunden gesendet",
       })
     } catch (error: any) {
       console.error("RepairRequestMessagesPanel: Error sending feedback:", error)
       toast({
-        title: t("common.error"),
+        title: "Fehler",
         description: error.message,
         variant: "destructive",
       })
@@ -292,8 +290,8 @@ export function RepairRequestMessagesPanel({
   const handleSendQuickAction = async () => {
     if (!quickActionDescription.trim()) {
       toast({
-        title: t("common.error"),
-        description: "Please enter a description",
+        title: "Fehler",
+        description: "Bitte gib eine Beschreibung ein",
         variant: "destructive",
       })
       return
@@ -312,13 +310,13 @@ export function RepairRequestMessagesPanel({
       setShowQuickActionDialog(false)
       console.log("RepairRequestMessagesPanel: Quick action sent")
       toast({
-        title: t("common.success"),
-        description: "Action notification sent to customer",
+        title: "Erfolg",
+        description: "Aktionshinweis wurde an den Kunden gesendet",
       })
     } catch (error: any) {
       console.error("RepairRequestMessagesPanel: Error sending quick action:", error)
       toast({
-        title: t("common.error"),
+        title: "Fehler",
         description: error.message,
         variant: "destructive",
       })
@@ -330,18 +328,28 @@ export function RepairRequestMessagesPanel({
   const isStaffOrAdmin = userRole === "staff" || userRole === "admin"
   const isCustomer = userRole === "customer"
 
+  const formatQuickActionStatus = (status: string) => {
+    const labels: Record<string, string> = {
+      pending: "Ausstehend",
+      completed: "Erledigt",
+      cancelled: "Abgebrochen",
+    }
+
+    return labels[status] || status
+  }
+
   if (loading) {
     return (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MessageCircle className="w-5 h-5" />
-            Messages
+            Nachrichten
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center text-muted-foreground py-4">
-            {t("common.loading")}...
+            Wird geladen...
           </div>
         </CardContent>
       </Card>
@@ -363,17 +371,17 @@ export function RepairRequestMessagesPanel({
             <div className="flex-1">
               <CardTitle className="flex items-center gap-2">
                 <MessageCircle className="w-5 h-5" />
-                Communication
+                Kommunikation
               </CardTitle>
               <CardDescription>
                 {communication?.pendingFeedbackCount! > 0 || communication?.pendingActionsCount! > 0
-                  ? `${(communication?.pendingFeedbackCount || 0) + (communication?.pendingActionsCount || 0)} pending interactions`
-                  : "All caught up"}
+                  ? `${(communication?.pendingFeedbackCount || 0) + (communication?.pendingActionsCount || 0)} offene Interaktionen`
+                  : "Keine offenen Interaktionen"}
               </CardDescription>
               {/* Created By Information - Staff/Admin Only */}
               {isStaffOrAdmin && communication?.createdBy && (
                 <div className="text-xs text-gray-600 mt-2">
-                  Created by {communication.createdBy.name} ({communication.createdBy.role})
+                  Erstellt von {communication.createdBy.name} ({communication.createdBy.role})
                 </div>
               )}
             </div>
@@ -385,19 +393,19 @@ export function RepairRequestMessagesPanel({
                   size="sm"
                   variant="outline"
                   onClick={() => setShowFeedbackDialog(true)}
-                  title="Send feedback request"
+                  title="Rueckfrage senden"
                 >
                   <AlertCircle className="w-4 h-4" />
-                  <span className="hidden sm:inline ml-1">Feedback</span>
+                  <span className="hidden sm:inline ml-1">Rueckfrage</span>
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => setShowQuickActionDialog(true)}
-                  title="Send action notification"
+                  title="Aktionshinweis senden"
                 >
                   <Plus className="w-4 h-4" />
-                  <span className="hidden sm:inline ml-1">Action</span>
+                  <span className="hidden sm:inline ml-1">Aktion</span>
                 </Button>
               </div>
             )}
@@ -440,9 +448,9 @@ export function RepairRequestMessagesPanel({
                             </span>
                             <Badge variant="outline" className="text-xs">
                               {message.senderType === "customer"
-                                ? "Customer"
+                                ? "Kunde"
                                 : message.senderType === "staff"
-                                ? "Staff"
+                                ? "Mitarbeiter"
                                 : "System"}
                             </Badge>
                           </div>
@@ -456,7 +464,7 @@ export function RepairRequestMessagesPanel({
                             <p className="text-sm">{message.content}</p>
                           </div>
                           <span className="text-xs text-muted-foreground mt-1">
-                            {new Date(message.createdAt).toLocaleString("en-US", {
+                            {new Date(message.createdAt).toLocaleString("de-DE", {
                               month: "short",
                               day: "numeric",
                               hour: "2-digit",
@@ -473,7 +481,7 @@ export function RepairRequestMessagesPanel({
                         <div className="flex items-start justify-between gap-3 mb-3">
                           <div>
                             <p className="font-semibold text-sm text-amber-900 dark:text-amber-100">
-                              Feedback Request
+                              Rueckfrage
                             </p>
                             <p className="text-sm mt-1 text-amber-900 dark:text-amber-100">
                               {message.feedbackRequest.question}
@@ -510,7 +518,7 @@ export function RepairRequestMessagesPanel({
                           <div className="flex items-center gap-2 text-green-700 dark:text-green-400 mt-3">
                             <CheckCircle2 className="w-4 h-4" />
                             <span className="text-sm">
-                              {isCustomer ? "You responded" : "Customer responded"}:
+                              {isCustomer ? "Du hast geantwortet" : "Kunde hat geantwortet"}:
                               <span className="font-semibold ml-1">
                                 {message.feedbackRequest.response?.label}
                               </span>
@@ -537,7 +545,7 @@ export function RepairRequestMessagesPanel({
                               </p>
                             )}
                             <p className="text-xs text-muted-foreground mt-2 ml-6">
-                              from {message.senderName}
+                              von {message.senderName}
                             </p>
                           </div>
                           <Badge
@@ -552,7 +560,7 @@ export function RepairRequestMessagesPanel({
                             {message.quickAction.status === "pending" && (
                               <Clock className="w-3 h-3" />
                             )}
-                            {message.quickAction.status}
+                            {formatQuickActionStatus(message.quickAction.status)}
                           </Badge>
                         </div>
 
@@ -570,7 +578,7 @@ export function RepairRequestMessagesPanel({
                               className="gap-1"
                             >
                               <CheckCircle2 className="w-4 h-4" />
-                              {completingAction === message._id ? "Completing..." : "Mark Complete"}
+                              {completingAction === message._id ? "Wird abgeschlossen..." : "Als erledigt markieren"}
                             </Button>
                           </div>
                         )}
@@ -590,8 +598,8 @@ export function RepairRequestMessagesPanel({
           ) : (
             <div className="p-8 text-center text-muted-foreground">
               {isStaffOrAdmin
-                ? "No messages yet. Start communicating with the customer."
-                : "Waiting for staff response..."}
+                ? "Noch keine Nachrichten. Starte die Kommunikation mit dem Kunden."
+                : "Warte auf eine Rueckmeldung vom Team..."}
             </div>
           )}
 
@@ -602,7 +610,7 @@ export function RepairRequestMessagesPanel({
             <div className="p-4 space-y-3">
               <div className="flex gap-2">
                 <Textarea
-                  placeholder="Type your message here..."
+                  placeholder="Nachricht hier eingeben..."
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyDown={(e) => {
@@ -621,7 +629,7 @@ export function RepairRequestMessagesPanel({
                   disabled={!newMessage.trim() || sending}
                   onClick={() => setNewMessage("")}
                 >
-                  Clear
+                  Leeren
                 </Button>
                 <Button
                   size="sm"
@@ -629,7 +637,7 @@ export function RepairRequestMessagesPanel({
                   onClick={handleSendMessage}
                 >
                   <Send className="w-4 h-4 mr-1" />
-                  {sending ? "Sending..." : "Send"}
+                  {sending ? "Wird gesendet..." : "Senden"}
                 </Button>
               </div>
             </div>
@@ -641,17 +649,17 @@ export function RepairRequestMessagesPanel({
       <Dialog open={showFeedbackDialog} onOpenChange={setShowFeedbackDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Send Feedback Request</DialogTitle>
+            <DialogTitle>Rueckfrage senden</DialogTitle>
             <DialogDescription>
-              Ask the customer for their feedback on the repair request status
+              Frage den Kunden nach einer Rueckmeldung zum Status der Reparaturanfrage
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Question</label>
+              <label className="text-sm font-medium">Frage</label>
               <Textarea
-                placeholder="What would you like to ask the customer?"
+                placeholder="Was moechtest du den Kunden fragen?"
                 value={feedbackQuestion}
                 onChange={(e) => setFeedbackQuestion(e.target.value)}
                 className="min-h-[80px]"
@@ -659,7 +667,7 @@ export function RepairRequestMessagesPanel({
             </div>
 
             <div className="space-y-3">
-              <label className="text-sm font-medium">Options</label>
+              <label className="text-sm font-medium">Optionen</label>
               {feedbackOptions.map((option, index) => (
                 <Input
                   key={index}
@@ -678,10 +686,10 @@ export function RepairRequestMessagesPanel({
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowFeedbackDialog(false)}>
-              Cancel
+              Abbrechen
             </Button>
             <Button onClick={handleSendFeedback} disabled={sending}>
-              {sending ? "Sending..." : "Send"}
+              {sending ? "Wird gesendet..." : "Senden"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -691,15 +699,15 @@ export function RepairRequestMessagesPanel({
       <Dialog open={showQuickActionDialog} onOpenChange={setShowQuickActionDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Send Action Notification</DialogTitle>
+            <DialogTitle>Aktionshinweis senden</DialogTitle>
             <DialogDescription>
-              Notify the customer about important actions needed for their repair request
+              Informiere den Kunden ueber wichtige noetige Aktionen zu seiner Reparaturanfrage
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Action Type</label>
+              <label className="text-sm font-medium">Aktionstyp</label>
               <select
                 value={quickActionType}
                 onChange={(e) =>
@@ -714,18 +722,18 @@ export function RepairRequestMessagesPanel({
                 }
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-sm"
               >
-                <option value="parts_needed">Parts Needed</option>
-                <option value="approval_required">Customer Approval Required</option>
-                <option value="additional_cost">Additional Cost Estimate</option>
-                <option value="status_update">Repair Status Update</option>
-                <option value="schedule_appointment">Schedule Appointment</option>
+                <option value="parts_needed">Ersatzteile benoetigt</option>
+                <option value="approval_required">Kundenfreigabe erforderlich</option>
+                <option value="additional_cost">Zusaetzliche Kostenschaetzung</option>
+                <option value="status_update">Status-Update zur Reparatur</option>
+                <option value="schedule_appointment">Termin planen</option>
               </select>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Description</label>
+              <label className="text-sm font-medium">Beschreibung</label>
               <Textarea
-                placeholder="Describe the action in detail..."
+                placeholder="Beschreibe die Aktion im Detail..."
                 value={quickActionDescription}
                 onChange={(e) => setQuickActionDescription(e.target.value)}
                 className="min-h-[100px]"
@@ -735,10 +743,10 @@ export function RepairRequestMessagesPanel({
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowQuickActionDialog(false)}>
-              Cancel
+              Abbrechen
             </Button>
             <Button onClick={handleSendQuickAction} disabled={sending}>
-              {sending ? "Sending..." : "Send"}
+              {sending ? "Wird gesendet..." : "Senden"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -750,18 +758,18 @@ export function RepairRequestMessagesPanel({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-green-600" />
-              Mark Action Complete
+              Aktion als erledigt markieren
             </DialogTitle>
             <DialogDescription>
-              Provide any additional information about completing this action
+              Gib optional weitere Informationen zum Abschluss dieser Aktion an
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Completion Notes (Optional)</label>
+              <label className="text-sm font-medium">Abschlussnotiz (optional)</label>
               <Textarea
-                placeholder="Add any notes about completing this action..."
+                placeholder="Fuege optional eine Notiz zum Abschluss hinzu..."
                 value={actionResponse}
                 onChange={(e) => setActionResponse(e.target.value)}
                 className="min-h-[80px] resize-none"
@@ -769,7 +777,7 @@ export function RepairRequestMessagesPanel({
             </div>
 
             <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded text-xs text-blue-900 dark:text-blue-100">
-              <p>By marking this action complete, you're confirming that you have completed the required task. Our repair team will be notified.</p>
+              <p>Mit dem Markieren als erledigt bestaetigst du, dass du die erforderliche Aufgabe abgeschlossen hast. Unser Reparaturteam wird benachrichtigt.</p>
             </div>
           </div>
 
@@ -782,10 +790,10 @@ export function RepairRequestMessagesPanel({
                 setActionResponse("")
               }}
             >
-              Cancel
+              Abbrechen
             </Button>
             <Button onClick={handleCompleteQuickAction} disabled={completingAction !== null}>
-              {completingAction ? "Completing..." : "Mark Complete"}
+              {completingAction ? "Wird abgeschlossen..." : "Als erledigt markieren"}
             </Button>
           </DialogFooter>
         </DialogContent>

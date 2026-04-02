@@ -5,6 +5,7 @@ const NeedList = require('../models/NeedList');
 const Product = require('../models/Product');
 const Service = require('../models/Service');
 const { WorkflowTemplate, AddOnWorkflow } = require('../models/Workflow');
+const NotificationService = require('./notificationService');
 
 const toIdString = (value) => {
   if (!value) return '';
@@ -76,6 +77,41 @@ const ensureOrderStaffAssignments = (order, staffMembers = []) => {
 };
 
 class OrderService {
+  static getStatusLabel(status) {
+    const normalized = String(status || '').toLowerCase();
+    const labels = {
+      pending: 'Ausstehend',
+      'diagnostic-assessment': 'Diagnosebewertung',
+      diagnosed: 'Diagnose abgeschlossen',
+      'awaiting-parts': 'Wartet auf Teile',
+      'in-progress': 'Reparatur in Bearbeitung',
+      paused: 'Pausiert',
+      'on-hold': 'Angehalten',
+      'quality-check': 'Qualitaetskontrolle',
+      'ready-for-pickup': 'Abholbereit',
+      completed: 'Abgeschlossen',
+      cancelled: 'Storniert'
+    };
+
+    return labels[normalized] || status;
+  }
+
+  static async notifyCustomerOrderUpdate(order, message, statusOverride = null) {
+    try {
+      const customerId = toIdString(order?.customerId);
+      if (!customerId) return;
+
+      await NotificationService.createOrderUpdateNotification(
+        order._id,
+        customerId,
+        statusOverride || order.status,
+        message
+      );
+    } catch (notificationError) {
+      console.error('OrderService: Failed to notify customer about order update:', notificationError.message || notificationError);
+    }
+  }
+
   // Create a new order
   static async create(orderData) {
     console.log('OrderService: Creating new order with data:', orderData);
@@ -337,6 +373,7 @@ class OrderService {
       }
 
       const oldStatus = order.status;
+      const previousProgress = Number(order.progress || 0);
       order.status = status;
       
       // Update progress based on status
@@ -362,6 +399,10 @@ class OrderService {
         staffName = staff ? staff.name : 'Staff Member';
       }
 
+      if (!Array.isArray(order.timeline)) {
+        order.timeline = [];
+      }
+
       order.timeline.push({
         status: status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' '),
         description: note || `Status changed from ${oldStatus} to ${status}`,
@@ -371,6 +412,15 @@ class OrderService {
       });
 
       const updatedOrder = await order.save();
+
+      if (oldStatus !== status || previousProgress !== Number(updatedOrder.progress || 0)) {
+        const statusLabel = this.getStatusLabel(status);
+        const updateMessage = note
+          ? `Ihr Auftrag ${updatedOrder.orderNumber} wurde aktualisiert: ${statusLabel}. Hinweis: ${note}`
+          : `Ihr Auftrag ${updatedOrder.orderNumber} wurde aktualisiert: ${statusLabel}. Aktueller Fortschritt: ${updatedOrder.progress || 0}%.`;
+
+        await this.notifyCustomerOrderUpdate(updatedOrder, updateMessage, status);
+      }
       
       console.log('OrderService: Order status updated successfully');
       return updatedOrder;
@@ -1084,6 +1134,14 @@ class OrderService {
 
       const updatedOrder = await order.save();
 
+      if (previousStatus !== 'in-progress') {
+        await this.notifyCustomerOrderUpdate(
+          updatedOrder,
+          `Ihr Auftrag ${updatedOrder.orderNumber} ist jetzt in Bearbeitung. Wir haben mit der Reparatur begonnen. Aktueller Fortschritt: ${updatedOrder.progress || 0}%.`,
+          'in-progress'
+        );
+      }
+
       console.log('OrderService: Workflow started successfully with order status updated and staff assigned');
       return updatedOrder;
     } catch (error) {
@@ -1189,6 +1247,8 @@ class OrderService {
       if (step.status === 'completed') {
         throw new Error('Step has already been completed');
       }
+
+      const previousProgress = Number(order.progress || 0);
 
       // Update step data
       const completedAt = new Date();
@@ -1302,6 +1362,14 @@ class OrderService {
 
       const updatedOrder = await order.save();
 
+      if (Number(updatedOrder.progress || 0) !== previousProgress) {
+        const progressDelta = Number(updatedOrder.progress || 0) - previousProgress;
+        await this.notifyCustomerOrderUpdate(
+          updatedOrder,
+          `Ihr Auftrag ${updatedOrder.orderNumber} hat einen neuen Reparaturfortschritt erreicht: ${updatedOrder.progress || 0}% (${progressDelta >= 0 ? '+' : ''}${progressDelta}%). Letzter Schritt: ${step.stepName}.`
+        );
+      }
+
       console.log('OrderService: Workflow step completed successfully');
       return updatedOrder;
     } catch (error) {
@@ -1333,6 +1401,8 @@ class OrderService {
       if (step.status === 'completed' || step.status === 'skipped') {
         throw new Error('Step has already been completed or skipped');
       }
+
+      const previousProgress = Number(order.progress || 0);
 
       // Update step status
       const skippedAt = new Date();
@@ -1416,6 +1486,14 @@ class OrderService {
       }
 
       const updatedOrder = await order.save();
+
+      if (Number(updatedOrder.progress || 0) !== previousProgress) {
+        const progressDelta = Number(updatedOrder.progress || 0) - previousProgress;
+        await this.notifyCustomerOrderUpdate(
+          updatedOrder,
+          `Ihr Auftrag ${updatedOrder.orderNumber} wurde im Reparaturprozess aktualisiert: ${updatedOrder.progress || 0}% (${progressDelta >= 0 ? '+' : ''}${progressDelta}%). Ein Schritt wurde uebersprungen.`
+        );
+      }
 
       console.log('OrderService: Workflow step skipped successfully');
       return updatedOrder;
@@ -1595,6 +1673,18 @@ class OrderService {
 
       const updatedOrder = await order.save();
 
+      if (oldOrderStatus !== updatedOrder.status) {
+        const oldStatusLabel = this.getStatusLabel(oldOrderStatus);
+        const newStatusLabel = this.getStatusLabel(updatedOrder.status);
+        const pauseHint = status === 'on-hold' && pauseReason ? ` Grund: ${pauseReason}` : '';
+
+        await this.notifyCustomerOrderUpdate(
+          updatedOrder,
+          `Ihr Auftrag ${updatedOrder.orderNumber} hat den Status gewechselt: ${oldStatusLabel} -> ${newStatusLabel}.${pauseHint} Aktueller Fortschritt: ${updatedOrder.progress || 0}%.`,
+          updatedOrder.status
+        );
+      }
+
       console.log('OrderService: Workflow status updated successfully:', {
         workflowStatus: status,
         orderStatus: updatedOrder.status,
@@ -1643,6 +1733,8 @@ class OrderService {
         throw new Error('Can only navigate back to completed or skipped steps');
       }
 
+      const previousProgress = Number(order.progress || 0);
+
       // Reset the target step to in-progress
       step.status = 'in-progress';
       step.startedAt = new Date();
@@ -1688,6 +1780,14 @@ class OrderService {
       }
 
       const updatedOrder = await order.save();
+
+      if (Number(updatedOrder.progress || 0) !== previousProgress) {
+        const progressDelta = Number(updatedOrder.progress || 0) - previousProgress;
+        await this.notifyCustomerOrderUpdate(
+          updatedOrder,
+          `Ihr Auftrag ${updatedOrder.orderNumber} wurde im Reparaturprozess zurueckgesetzt. Neuer Fortschritt: ${updatedOrder.progress || 0}% (${progressDelta >= 0 ? '+' : ''}${progressDelta}%).`
+        );
+      }
 
       console.log('OrderService: Successfully navigated back to step');
       return updatedOrder;

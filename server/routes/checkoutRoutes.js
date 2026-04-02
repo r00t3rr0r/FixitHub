@@ -7,6 +7,7 @@ const OrderService = require('../services/orderService');
 const BookingService = require('../services/bookingService');
 const EmailService = require('../services/emailService');
 const Service = require('../models/Service');
+const normalizeEmailAddress = (email) => String(email || '').trim().toLowerCase();
 
 // Description: Initialize checkout - validates user authentication and returns cart with user info
 // Endpoint: POST /api/checkout/initialize
@@ -100,8 +101,10 @@ router.post('/register', async (req, res) => {
       shippingAddress
     } = req.body;
 
+    const normalizedEmail = normalizeEmailAddress(email);
+
     // Validate required fields
-    if (!email || !password || !firstName || !lastName) {
+    if (!normalizedEmail || !password || !firstName || !lastName) {
       console.log('CheckoutRoutes: Missing required fields');
       return res.status(400).json({
         success: false,
@@ -110,9 +113,9 @@ router.post('/register', async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await UserService.findByEmail(email);
+    const existingUser = await UserService.getByEmail(normalizedEmail);
     if (existingUser) {
-      console.log('CheckoutRoutes: User already exists:', email);
+      console.log('CheckoutRoutes: User already exists:', normalizedEmail);
       return res.status(400).json({
         success: false,
         error: 'User with this email already exists. Please login instead.'
@@ -121,7 +124,7 @@ router.post('/register', async (req, res) => {
 
     // Create user with extended profile
     const userData = {
-      email,
+      email: normalizedEmail,
       password,
       firstName,
       lastName,
@@ -147,7 +150,7 @@ router.post('/register', async (req, res) => {
       }
     };
 
-    console.log('CheckoutRoutes: Creating new user:', email);
+    console.log('CheckoutRoutes: Creating new user:', normalizedEmail);
     const user = await UserService.create(userData);
 
     // Generate tokens for auto-login

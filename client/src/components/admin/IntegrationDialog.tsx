@@ -58,6 +58,8 @@ export function IntegrationDialog({
     shipping: ['DHL', 'FedEx', 'UPS', 'USPS']
   }
 
+  const showsBookingLabelMode = formData.type === 'shipping' && formData.provider === 'DHL'
+
   useEffect(() => {
     if (integration && mode === 'edit') {
       setFormData({
@@ -67,7 +69,10 @@ export function IntegrationDialog({
         apiKey: integration.apiKey,
         apiSecret: integration.apiSecret || '',
         endpoint: integration.endpoint || '',
-        settings: integration.settings || {},
+        settings: {
+          ...(integration.settings || {}),
+          bookingLabelMode: integration.settings?.bookingLabelMode || 'dummy'
+        },
         isActive: integration.isActive,
         testStatus: integration.testStatus
       })
@@ -79,7 +84,7 @@ export function IntegrationDialog({
         apiKey: '',
         apiSecret: '',
         endpoint: '',
-        settings: {},
+        settings: { bookingLabelMode: 'dummy' },
         isActive: true,
         testStatus: 'pending'
       })
@@ -164,7 +169,13 @@ export function IntegrationDialog({
               <Label htmlFor="provider" className="text-sm">Provider *</Label>
               <Select
                 value={formData.provider}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, provider: value }))}
+                onValueChange={(value) => setFormData(prev => ({
+                  ...prev,
+                  provider: value,
+                  settings: value === 'DHL' && prev.type === 'shipping'
+                    ? { ...prev.settings, bookingLabelMode: prev.settings?.bookingLabelMode || 'dummy' }
+                    : prev.settings
+                }))}
               >
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="Select provider" />
@@ -213,6 +224,33 @@ export function IntegrationDialog({
               className="h-9 text-sm"
             />
           </div>
+
+          {showsBookingLabelMode && (
+            <div className="space-y-1">
+              <Label htmlFor="bookingLabelMode" className="text-sm">Booking Label Mode</Label>
+              <Select
+                value={formData.settings?.bookingLabelMode || 'dummy'}
+                onValueChange={(value: 'dummy' | 'live') => setFormData(prev => ({
+                  ...prev,
+                  settings: {
+                    ...prev.settings,
+                    bookingLabelMode: value,
+                  }
+                }))}
+              >
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dummy">Dummy PDF Label</SelectItem>
+                  <SelectItem value="live">Live DHL Label</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Dummy creates a placeholder PDF for bookings. Live uses the DHL API and falls back to dummy on failure.
+              </p>
+            </div>
+          )}
 
           <div className="flex items-center space-x-2">
             <Switch

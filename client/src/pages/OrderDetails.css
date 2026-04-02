@@ -1826,31 +1826,31 @@
 }
 
 .customer-progress-step--completed {
-  border-color: #a7e0c0;
-  background: linear-gradient(135deg, #f0fff6 0%, #e7fbf0 100%);
+  border-color: #e5ab00;
+  background: linear-gradient(135deg, #f7c437 0%, #f5b800 100%);
 }
 
 .customer-progress-step--completed::before {
   opacity: 1;
-  background: linear-gradient(90deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0));
+  background: linear-gradient(90deg, rgba(245, 184, 0, 0.16), rgba(245, 184, 0, 0));
 }
 
 .customer-progress-step--active {
-  border-color: #6ea0ff;
-  background: linear-gradient(135deg, #eff5ff 0%, #e8f0ff 100%);
+  border-color: #e5ab00;
+  background: linear-gradient(135deg, #f7c437 0%, #f5b800 100%);
   transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  box-shadow: 0 10px 20px rgba(245, 184, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .customer-progress-step--active::before {
   opacity: 1;
-  background: linear-gradient(90deg, rgba(59, 130, 246, 0.16), rgba(59, 130, 246, 0.04));
+  background: linear-gradient(90deg, rgba(245, 184, 0, 0.2), rgba(245, 184, 0, 0.06));
 }
 
 .customer-progress-step--active .inline-flex {
-  background: linear-gradient(135deg, #2f6df4 0%, #1f4ed8 100%) !important;
+  background: #1a2a5e !important;
   color: #ffffff !important;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18);
+  box-shadow: 0 0 0 4px rgba(26, 42, 94, 0.2);
   animation: customer-progress-pulse 1.8s ease-in-out infinite;
 }
 
@@ -1880,7 +1880,8 @@
 }
 
 .customer-progress-step--interactive:hover {
-  border-color: #8db1f5;
+  border-color: #e5ab00;
+  background: linear-gradient(135deg, #f8ca4a 0%, #f6bc10 100%);
   transform: translateY(-1px);
 }
 
@@ -2181,6 +2182,7 @@
 
 .customer-summary-address,
 .customer-summary-tracking,
+.customer-summary-shipping-label,
 .customer-summary-contact-list {
   display: grid;
   gap: 6px;
@@ -2203,6 +2205,130 @@
 .customer-summary-tracking strong {
   font-size: 1rem;
   color: #13213f;
+}
+
+.customer-summary-tracking-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #1a2a5e;
+  text-decoration: none;
+}
+
+.customer-summary-tracking-link:hover {
+  text-decoration: underline;
+}
+
+.customer-summary-shipping-label span {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+
+.customer-summary-label-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--accent-yellow, #f5b800);
+  background: #fff9e8;
+  color: #1a2a5e;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.customer-summary-label-download:hover {
+  background: #fff2c4;
+  border-color: var(--accent-yellow-hover, #e5ab00);
+  transform: translateY(-1px);
+}
+
+.customer-summary-logistics-block {
+  display: grid;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #edf1f7;
+}
+
+.customer-summary-logistics-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #1a2a5e;
+}
+
+.customer-shipping-status-badge {
+  width: fit-content;
+  border: 1px solid transparent;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.35rem 0.55rem;
+}
+
+.customer-shipping-status-badge.is-pending {
+  background: #eef4ff;
+  color: #30538f;
+  border-color: #cfe0ff;
+}
+
+.customer-shipping-status-badge.is-created {
+  background: #fff4d6;
+  color: #8a5b00;
+  border-color: #f1d28a;
+}
+
+.customer-shipping-status-badge.is-shipped,
+.customer-shipping-status-badge.is-transit {
+  background: #e9f3ff;
+  color: #1f5da8;
+  border-color: #bcd8fb;
+}
+
+.customer-shipping-status-badge.is-delivered {
+  background: #e8f8ee;
+  color: #1f7a45;
+  border-color: #bfe8cf;
+}
+
+.customer-shipping-status-badge.is-failed {
+  background: #fff1f1;
+  color: #a33b3b;
+  border-color: #f2c1c1;
+}
+
+.customer-shipping-status-description {
+  margin: -2px 0 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: #58677d;
+}
+
+.customer-summary-shipping-note {
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.customer-summary-shipping-note.is-pending {
+  background: #f8fbff;
+  border: 1px solid #d7e6fb;
+  color: #35507d;
+}
+
+.customer-summary-shipping-note.is-error {
+  background: #fff4f4;
+  border: 1px solid #f6caca;
+  color: #9a2f2f;
 }
 
 .customer-summary-contact-list div {
@@ -2230,6 +2356,19 @@
 
 .customer-next-step-panel p {
   color: #ffffff;
+}
+
+.customer-next-step-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  color: #ffffff;
+}
+
+.customer-next-step-list li {
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
 .customer-support-actions {

@@ -129,6 +129,8 @@ console.log('Loading admin dashboard routes...');
 const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
 console.log('Loading admin analytics routes...');
 const adminAnalyticsRoutes = require("./routes/adminAnalyticsRoutes");
+console.log('Loading customer group routes...');
+const customerGroupRoutes = require("./routes/customerGroupRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -388,6 +390,8 @@ app.use('/api/admin/staff-management', staffManagementRoutes);
 app.use('/api/system-config', systemConfigRoutes);
 // Financial Management Routes
 app.use('/api/admin/financial', financialRoutes);
+// Customer Group Management Routes
+app.use('/api/admin/customer-groups', customerGroupRoutes);
 // Database Management Routes
 app.use('/api/database', databaseRoutes);
 // Security Routes
@@ -481,12 +485,13 @@ app.use((err, req, res, next) => {
 });
 
 console.log(`Attempting to start server on port ${port}...`);
-app.listen(port, (error) => {
-  if (error) {
-    console.error('Failed to start server:', error);
-    console.error('Stack trace:', error.stack);
-    process.exit(1);
-  }
+const server = app.listen(port, () => {
   console.log(`✅ Server running successfully at http://localhost:${port}`);
   console.log('=== FixitHub Server Ready ===');
+});
+
+server.on('error', (error) => {
+  console.error('Failed to start server:', error);
+  console.error('Stack trace:', error.stack);
+  process.exit(1);
 });

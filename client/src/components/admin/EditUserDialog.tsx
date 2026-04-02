@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/useToast"
 import { updateUser, User } from "@/api/users"
+import { getCustomerGroups, type CustomerGroup as CustomerGroupOption } from "@/api/customerGroups"
 import {
   Dialog,
   DialogContent,
@@ -36,6 +37,8 @@ interface EditUserDialogProps {
 
 export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: EditUserDialogProps) {
   const [loading, setLoading] = useState(false)
+  const [groupsLoading, setGroupsLoading] = useState(false)
+  const [availableGroups, setAvailableGroups] = useState<CustomerGroupOption[]>([])
   const { toast } = useToast()
 
   const [formData, setFormData] = useState({
@@ -53,6 +56,8 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
     // Customer-specific fields
     customerNumber: "",
     customerGroup: "",
+    primaryCustomerGroupId: "",
+    customerGroupIds: [] as string[],
     salutation: "__none__",
     title: "",
     company: "",
@@ -101,6 +106,24 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
   const [newSkill, setNewSkill] = useState({ name: "", level: "intermediate" })
 
   useEffect(() => {
+    const loadAvailableGroups = async () => {
+      if (!open) return
+
+      try {
+        setGroupsLoading(true)
+        const response = await getCustomerGroups({ status: 'all', limit: 100 })
+        setAvailableGroups(response.groups || [])
+      } catch (error) {
+        console.error("EditUserDialog: Failed to load customer groups", error)
+      } finally {
+        setGroupsLoading(false)
+      }
+    }
+
+    loadAvailableGroups()
+  }, [open])
+
+  useEffect(() => {
     if (user && open) {
       console.log("EditUserDialog: Loading user data:", user)
       setFormData({
@@ -118,6 +141,8 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
         // Customer-specific fields
         customerNumber: (user as any).customerNumber || "",
         customerGroup: (user as any).customerGroup || "",
+        primaryCustomerGroupId: (user as any).primaryCustomerGroupId || "",
+        customerGroupIds: (user as any).customerGroupIds || [],
         salutation: (user as any).salutation || "__none__",
         title: (user as any).title || "",
         company: (user as any).company || "",
@@ -187,7 +212,8 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
         skills: formData.skills,
         // Customer-specific fields
         customerNumber: formData.customerNumber,
-        customerGroup: formData.customerGroup,
+        primaryCustomerGroupId: formData.primaryCustomerGroupId || null,
+        customerGroupIds: formData.customerGroupIds,
         salutation: formData.salutation === "__none__" ? "" : formData.salutation,
         title: formData.title,
         company: formData.company,
@@ -227,6 +253,41 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleCustomerGroupToggle = (groupId: string, checked: boolean) => {
+    setFormData((current) => {
+      const currentIds = new Set(current.customerGroupIds)
+
+      if (checked) {
+        currentIds.add(groupId)
+      } else {
+        currentIds.delete(groupId)
+      }
+
+      const nextGroupIds = Array.from(currentIds)
+      const nextPrimaryGroupId = checked
+        ? current.primaryCustomerGroupId || groupId
+        : current.primaryCustomerGroupId === groupId
+          ? ""
+          : current.primaryCustomerGroupId
+
+      return {
+        ...current,
+        customerGroupIds: nextGroupIds,
+        primaryCustomerGroupId: nextPrimaryGroupId,
+      }
+    })
+  }
+
+  const handlePrimaryGroupChange = (groupId: string) => {
+    setFormData((current) => ({
+      ...current,
+      primaryCustomerGroupId: groupId,
+      customerGroupIds: current.customerGroupIds.includes(groupId)
+        ? current.customerGroupIds
+        : [...current.customerGroupIds, groupId],
+    }))
   }
 
   const addSpecialization = () => {
@@ -383,13 +444,53 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="customerGroup">Customer Group</Label>
-                    <Input
-                      id="customerGroup"
-                      value={formData.customerGroup}
-                      onChange={(e) => setFormData({ ...formData, customerGroup: e.target.value })}
-                      placeholder="Customer group"
-                    />
+                    <Label htmlFor="primaryCustomerGroupId">Primary Customer Group</Label>
+                    <Select
+                      value={formData.primaryCustomerGroupId || "__none__"}
+                      onValueChange={(value) => handlePrimaryGroupChange(value === "__none__" ? "" : value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select primary group" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">No primary group</SelectItem>
+                        {availableGroups.map((group) => (
+                          <SelectItem key={group._id} value={group._id}>
+                            {group.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Assigned Customer Groups</Label>
+                    <div className="rounded-md border p-3 space-y-3 max-h-48 overflow-y-auto">
+                      {groupsLoading ? (
+                        <p className="text-sm text-muted-foreground">Loading customer groups...</p>
+                      ) : availableGroups.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No customer groups available yet.</p>
+                      ) : (
+                        availableGroups.map((group) => {
+                          const checked = formData.customerGroupIds.includes(group._id)
+
+                          return (
+                            <label key={group._id} className="flex items-start gap-3 rounded-md border px-3 py-2 cursor-pointer hover:bg-muted/40">
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(value) => handleCustomerGroupToggle(group._id, Boolean(value))}
+                              />
+                              <div className="space-y-1">
+                                <div className="text-sm font-medium">{group.name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {group.key}
+                                  {group._id === formData.primaryCustomerGroupId ? " • primary" : ""}
+                                </div>
+                              </div>
+                            </label>
+                          )
+                        })
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="salutation">Salutation</Label>

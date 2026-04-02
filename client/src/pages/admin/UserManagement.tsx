@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/useToast"
 import { getUsers, createUser, updateUserRole, updateUserStatus, bulkUpdateUserStatus, deleteUser, User, CreateUserData, GetUsersParams } from "@/api/users"
+import { getCustomerGroups, type CustomerGroup as CustomerGroupOption } from "@/api/customerGroups"
 import {
   Users,
   Search,
@@ -114,6 +115,8 @@ export function UserManagement() {
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [customerGroupFilter, setCustomerGroupFilter] = useState("all")
+  const [availableGroups, setAvailableGroups] = useState<CustomerGroupOption[]>([])
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -147,7 +150,8 @@ export function UserManagement() {
         limit: pageSize,
         search: searchTerm,
         role: roleFilter,
-        status: statusFilter
+        status: statusFilter,
+        customerGroupId: customerGroupFilter
       })
 
       const params: GetUsersParams = {
@@ -165,6 +169,10 @@ export function UserManagement() {
 
       if (statusFilter !== "all") {
         params.status = statusFilter
+      }
+
+      if (customerGroupFilter !== "all") {
+        params.customerGroupId = customerGroupFilter
       }
 
       const response = await getUsers(params)
@@ -194,14 +202,27 @@ export function UserManagement() {
 
   useEffect(() => {
     fetchUsers()
-  }, [currentPage, pageSize, searchTerm, roleFilter, statusFilter])
+  }, [currentPage, pageSize, searchTerm, roleFilter, statusFilter, customerGroupFilter])
 
   // Reset to page 1 when filters change
   useEffect(() => {
     if (currentPage !== 1) {
       setCurrentPage(1)
     }
-  }, [searchTerm, roleFilter, statusFilter])
+  }, [searchTerm, roleFilter, statusFilter, customerGroupFilter])
+
+  useEffect(() => {
+    const loadCustomerGroups = async () => {
+      try {
+        const response = await getCustomerGroups({ status: 'all', limit: 100 })
+        setAvailableGroups(response.groups || [])
+      } catch (error) {
+        console.error("Error loading customer groups for filter:", error)
+      }
+    }
+
+    loadCustomerGroups()
+  }, [])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -801,6 +822,21 @@ export function UserManagement() {
                   </SelectContent>
                 </Select>
 
+                <Select value={customerGroupFilter} onValueChange={setCustomerGroupFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder={t('userManagement.allCustomerGroups')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('userManagement.allCustomerGroups')}</SelectItem>
+                    <SelectItem value="none">{t('userManagement.noCustomerGroup')}</SelectItem>
+                    {availableGroups.map((group) => (
+                      <SelectItem key={group._id} value={group._id}>
+                        {group.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
                 <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
                   <SelectTrigger className="w-32">
                     <SelectValue />
@@ -883,6 +919,7 @@ export function UserManagement() {
                         {getSortIcon('role')}
                       </div>
                     </TableHead>
+                    <TableHead>{t('userManagement.customerGroup')}</TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('createdAt')}>
                       <div className="flex items-center gap-2">
                         {t('userManagement.createdAt')}
@@ -907,7 +944,7 @@ export function UserManagement() {
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="empty-state text-center py-8">
+                      <TableCell colSpan={8} className="empty-state text-center py-8">
                         <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                         <h3 className="text-muted-foreground">{t('userManagement.noUsersFound')}</h3>
                         {searchTerm && (
@@ -985,6 +1022,13 @@ export function UserManagement() {
                               />
                             </div>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {user.customerGroup ? (
+                            <Badge variant="outline">{user.customerGroup}</Badge>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">{t('userManagement.noCustomerGroup')}</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1 text-sm">

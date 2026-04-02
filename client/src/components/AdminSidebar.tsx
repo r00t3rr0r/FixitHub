@@ -25,10 +25,12 @@ import {
   MessageSquare,
   Bell,
   User,
+  Layers,
   ChevronRight,
   FolderTree,
   Boxes,
-  BookMarked
+  BookMarked,
+  Mail
 } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { getNotifications } from "@/api/notifications"
@@ -51,14 +53,24 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
     const fetchNotifications = async () => {
       try {
         const response = await getNotifications()
-        const notifications = (response as any).notifications || []
-        setUnreadNotifications(notifications.filter((n: any) => !n.read).length)
+        const data = response as any
+        const notifications = data.notifications || []
+        const unreadFromApi = typeof data.unreadCount === 'number'
+          ? data.unreadCount
+          : notifications.filter((n: any) => !(n?.isRead ?? n?.read ?? false)).length
+        setUnreadNotifications(unreadFromApi)
       } catch (error) {
         console.error("Error fetching notifications:", error)
       }
     }
 
     fetchNotifications()
+
+    const pollInterval = setInterval(() => {
+      fetchNotifications()
+    }, 15000)
+
+    return () => clearInterval(pollInterval)
   }, [])
 
   const isActive = (path: string) => location.pathname === path
@@ -153,6 +165,9 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
         <NavItem to="/admin/users" icon={Users}>
           {t('admin.menu.userManagement')}
         </NavItem>
+        <NavItem to="/admin/customer-groups" icon={Layers}>
+          {t('admin.menu.customerGroups')}
+        </NavItem>
         <NavItem to="/admin/staff" icon={UserCheck}>
           {t('admin.menu.staffManagement')}
         </NavItem>
@@ -236,6 +251,9 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
       >
         <NavItem to="/admin/system" icon={Settings}>
           {t('admin.menu.systemConfiguration')}
+        </NavItem>
+        <NavItem to="/admin/email" icon={Mail}>
+          Email-Verwaltung
         </NavItem>
         <NavItem to="/admin/database" icon={Database}>
           {t('admin.menu.databaseManagement')}

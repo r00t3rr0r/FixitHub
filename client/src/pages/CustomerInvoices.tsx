@@ -24,14 +24,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -427,6 +419,23 @@ export function CustomerInvoices() {
     return translation === `invoiceStatus.${status}` ? status.replace('_', ' ') : translation;
   };
 
+  const getStatusAccentColor = (status: string) => {
+    switch (status) {
+      case "paid":
+        return "#10b981";
+      case "overdue":
+        return "#ef4444";
+      case "sent":
+        return "#3b82f6";
+      case "viewed":
+        return "#f5b800";
+      case "cancelled":
+        return "#64748b";
+      default:
+        return "#94a3b8";
+    }
+  };
+
   const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch =
       invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -502,7 +511,7 @@ export function CustomerInvoices() {
           </CardContent>
         </Card>
 
-        {/* Invoices Table */}
+        {/* Invoices List */}
         {filteredInvoices.length === 0 ? (
           <Card className="border-none shadow-lg bg-white">
             <CardContent className="py-16">
@@ -523,67 +532,70 @@ export function CustomerInvoices() {
                 {t('invoices.viewAndManageInvoices')}
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-0 px-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-slate-50 hover:bg-slate-50 border-b-2 border-slate-200">
-                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">{t('invoices.invoiceNumber')}</TableHead>
-                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">{t('invoices.date')}</TableHead>
-                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">{t('invoices.dueDate')}</TableHead>
-                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">{t('invoices.amount')}</TableHead>
-                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">{t('common.status')}</TableHead>
-                      <TableHead className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e] py-4">{t('common.actions')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredInvoices.map((invoice) => (
-                      <TableRow key={invoice._id} className="hover:bg-slate-50 transition-colors">
-                        <TableCell className="font-bold text-base text-[#1a2a5e] py-5">{invoice.invoiceNumber}</TableCell>
-                        <TableCell className="text-base text-slate-600 py-5">
-                          {new Date(invoice.createdAt).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell className="py-5">
-                          <span className={new Date(invoice.dueDate) < new Date() && invoice.status !== 'paid' ? 'text-red-600 font-bold text-base' : 'text-base text-slate-600'}>
-                            {new Date(invoice.dueDate).toLocaleDateString()}
-                          </span>
-                        </TableCell>
-                        <TableCell className="font-bold text-base text-[#1a2a5e] py-5">
-                          ${invoice.total.toFixed(2)}
-                        </TableCell>
-                        <TableCell className="py-5">
-                          <Badge variant={getStatusBadgeVariant(invoice.status)} className="flex items-center gap-1.5 w-fit text-sm px-3 py-1.5 font-semibold">
-                            {getStatusIcon(invoice.status)}
-                            {getStatusLabel(invoice.status)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="py-5">
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleViewInvoice(invoice)}
-                              className="h-10 text-sm px-4 border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white transition-colors font-semibold"
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              {t('common.view')}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDownloadInvoice(invoice)}
-                              className="h-10 text-sm px-4 border-[#f5b800] text-[#f5b800] hover:bg-[#f5b800] hover:text-white transition-colors font-semibold"
-                            >
-                              <Download className="h-4 w-4 mr-2" />
-                              {t('common.download')}
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+            <CardContent className="p-4 sm:p-5 space-y-3">
+              {filteredInvoices.map((invoice) => {
+                const isOverdue = new Date(invoice.dueDate) < new Date() && invoice.status !== "paid";
+
+                return (
+                  <div
+                    key={invoice._id}
+                    onClick={() => handleViewInvoice(invoice)}
+                    className="group bg-white border border-slate-200 rounded-xl p-4 sm:p-5 flex items-center gap-4 cursor-pointer transition-all hover:border-[#f5b800] hover:shadow-md"
+                  >
+                    <div
+                      className="w-1 self-stretch rounded-full"
+                      style={{ background: getStatusAccentColor(invoice.status) }}
+                    />
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                        <span className="text-xs font-bold tracking-wide text-slate-500 uppercase">{invoice.invoiceNumber}</span>
+                        <Badge variant={getStatusBadgeVariant(invoice.status)} className="flex items-center gap-1.5 w-fit text-xs px-2.5 py-1 font-semibold">
+                          {getStatusIcon(invoice.status)}
+                          {getStatusLabel(invoice.status)}
+                        </Badge>
+                      </div>
+
+                      <p className="text-base font-semibold text-slate-900 truncate mb-1.5">
+                        {invoice.customerName}
+                      </p>
+
+                      <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-600 flex-wrap">
+                        <span className="inline-flex items-center gap-1">
+                          <Calendar className="h-3.5 w-3.5" />
+                          {new Date(invoice.createdAt).toLocaleDateString("de-DE")}
+                        </span>
+                        <span className={`inline-flex items-center gap-1 ${isOverdue ? "text-red-600 font-semibold" : ""}`}>
+                          <AlertCircle className="h-3.5 w-3.5" />
+                          {t('invoices.dueDate')}: {new Date(invoice.dueDate).toLocaleDateString("de-DE")}
+                        </span>
+                        <span className="inline-flex items-center gap-1 font-bold text-[#1a2a5e]">
+                          <DollarSign className="h-3.5 w-3.5" />
+                          {invoice.total.toFixed(2)} €
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadInvoice(invoice);
+                        }}
+                        className="h-9 w-9 p-0 border-[#f5b800] text-[#f5b800] hover:bg-[#f5b800] hover:text-white"
+                        title={t('common.download')}
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <div className="h-9 w-9 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 group-hover:text-[#1a2a5e] group-hover:border-[#f5b800]">
+                        <Eye className="h-4 w-4" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
         )}

@@ -258,6 +258,7 @@ class DHLReturnsService {
       booking.returnTrackingNumber = returnId;
       booking.returnShipmentId = returnId;
       booking.returnShipmentStatus = 'label-created';
+      booking.returnShipmentStatusDescription = 'DHL-Rücksendeetikett wurde erstellt';
       booking.returnCreatedAt = new Date();
       booking.status = 'in-transit'; // Update booking status
 
@@ -421,6 +422,7 @@ class DHLReturnsService {
         console.log('DHLReturnsService: Status changed from', booking.returnShipmentStatus, 'to', newStatus);
 
         booking.returnShipmentStatus = newStatus;
+        booking.returnShipmentStatusDescription = trackingInfo.statusDescription || newStatus;
 
         // Add timeline entry
         booking.timeline.push({

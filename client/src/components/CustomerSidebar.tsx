@@ -35,8 +35,12 @@ export function CustomerSidebar({ isCollapsed }: CustomerSidebarProps) {
     const fetchNotifications = async () => {
       try {
         const response = await getNotifications()
-        const notifications = (response as any).notifications || []
-        setUnreadNotifications(notifications.filter((n: any) => !n.read).length)
+        const data = response as any
+        const notifications = data.notifications || []
+        const unreadFromApi = typeof data.unreadCount === 'number'
+          ? data.unreadCount
+          : notifications.filter((n: any) => !(n?.isRead ?? n?.read ?? false)).length
+        setUnreadNotifications(unreadFromApi)
       } catch (error) {
         console.error("Error fetching notifications:", error)
       }
@@ -56,6 +60,13 @@ export function CustomerSidebar({ isCollapsed }: CustomerSidebarProps) {
 
     fetchNotifications()
     fetchCart()
+
+    const pollInterval = setInterval(() => {
+      fetchNotifications()
+      fetchCart()
+    }, 15000)
+
+    return () => clearInterval(pollInterval)
   }, [])
 
   const isActive = (path: string) => location.pathname === path

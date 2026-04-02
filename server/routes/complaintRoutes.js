@@ -3,6 +3,7 @@ const router = express.Router();
 const { requireUser, requireAdmin, requireRole } = require('./middleware/auth');
 const ComplaintService = require('../services/complaintService');
 const BookingService = require('../services/bookingService');
+const OrderService = require('../services/orderService');
 const Complaint = require('../models/Complaint');
 const Order = require('../models/Order');
 const User = require('../models/User');
@@ -29,6 +30,22 @@ function getComplaintCustomerId(complaint) {
   return complaint.customerId?._id
     ? complaint.customerId._id.toString()
     : complaint.customerId.toString();
+}
+
+function getComplaintEmailTrigger(complaint, metadata = {}) {
+  const event = String(metadata.event || '').toLowerCase();
+  const status = String(complaint?.status || '').toLowerCase();
+
+  if (event === 'complaint_created') return 'complaint_created';
+  if (event === 'comment_added' || event === 'message_added') return 'complaint_message';
+  if (event === 'offer_rejected' || event === 'complaint_rejected') return 'complaint_rejected';
+  if (event === 'complaint_resolved') return 'complaint_resolved';
+
+  if (['resolved', 'closed', 'new_repair'].includes(status)) return 'complaint_resolved';
+  if (['rejected', 'denied'].includes(status)) return 'complaint_rejected';
+  if (['in-progress', 'pending_approval', 'approved', 'acknowledged'].includes(status)) return 'complaint_processing';
+
+  return 'complaint_processing';
 }
 
 async function notifyAdminsAboutComplaint(complaint, customer, order) {
@@ -91,14 +108,33 @@ async function notifyCustomer(complaint, customerId, title, message, metadata = 
 
     const customer = await User.findById(customerId).select('email firstName lastName');
     if (customer?.email) {
-      await EmailService.sendTemplateEmail('Statusupdate Auftrag oder Buchung', customer.email, {
-        companyName: 'FixitHub',
-        customerName: `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email,
-        orderNumber: complaint.orderId?.orderNumber || 'Reklamation',
-        orderStatus: title,
-        statusMessage: message,
-        statusUpdatedAt: new Date().toLocaleDateString('de-DE'),
-        trackingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders/${complaint.orderId}`,
+      const customerName = `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email;
+      const trigger = getComplaintEmailTrigger(complaint, metadata);
+
+      await EmailService.sendTriggerEmail(trigger, customer.email, {
+        companyName: process.env.COMPANY_NAME || 'FixitHub',
+        customerName,
+        complaintNumber: complaint.complaintNumber || String(complaint._id),
+        complaintStatus: complaint.status,
+        complaintCategory: complaint.category || 'other',
+        complaintSubject: complaint.subject || 'Reklamation',
+        orderNumber: complaint.orderId?.orderNumber || 'N/A',
+        priority: complaint.priority || 'medium',
+        submittedAt: new Date(complaint.createdAt || Date.now()).toLocaleDateString('de-DE'),
+        handlerName: complaint.assignedToName || complaint.technicianName || 'Service Team',
+        processingStartedAt: new Date().toLocaleDateString('de-DE'),
+        estimatedResolutionDate: new Date(Date.now() + (3 * 24 * 60 * 60 * 1000)).toLocaleDateString('de-DE'),
+        senderName: metadata.senderName || complaint.assignedToName || 'Service Team',
+        messageSentAt: new Date().toLocaleString('de-DE'),
+        resolutionSummary: message,
+        compensationInfo: complaint.partialRefund ? `Teil-Erstattung: EUR ${Number(complaint.partialRefund).toFixed(2)}` : 'Keine zusaetzliche Kompensation',
+        resolvedAt: ['resolved', 'closed', 'new_repair'].includes(String(complaint.status || '').toLowerCase())
+          ? new Date().toLocaleDateString('de-DE')
+          : '',
+        decision: title,
+        decisionReason: message,
+        decidedAt: new Date().toLocaleDateString('de-DE'),
+        complaintUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/complaints/${complaint._id}`,
         supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
         supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
       });
@@ -403,18 +439,12 @@ router.post('/:id/convert-offer-to-booking', requireUser, async (req, res) => {
     const newOrder = await Order.create(newOrderPayload);
     const booking = await BookingService.groupOrders([newOrder._id], complaintCustomerId);
 
-    complaintOrder.status = 'completed';
-    complaintOrder.progress = 100;
-    complaintOrder.completedAt = new Date();
-    complaintOrder.timeline = complaintOrder.timeline || [];
-    complaintOrder.timeline.push({
-      status: 'completed',
-      description: 'Reklamationsauftrag wurde nach Angebotsumwandlung abgeschlossen',
-      completedAt: new Date(),
-      staffId: req.user._id.toString(),
-      staffName: actorName(req.user),
-    });
-    await complaintOrder.save();
+    await OrderService.updateStatus(
+      complaintOrder._id,
+      'completed',
+      'Reklamationsauftrag wurde nach Angebotsumwandlung abgeschlossen',
+      req.user._id
+    );
 
     complaint.complaintLogs.push({
       actorId: req.user._id,
@@ -775,6 +805,20 @@ router.patch('/:id/deny', requireUser, requireRole(['staff', 'admin']), async (r
   }
 });
 
+// Description: Get all complaints for the authenticated customer
+// Endpoint: GET /api/complaints/my
+router.get('/my', requireUser, async (req, res) => {
+  try {
+    const complaints = await Complaint.find({ customerId: req.user._id })
+      .populate('orderId', 'orderNumber')
+      .sort({ createdAt: -1 });
+    return res.json({ success: true, complaints });
+  } catch (error) {
+    console.error('ComplaintRoutes: Error getting customer complaints:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Description: Get a specific complaint by ID
 // Endpoint: GET /api/complaints/:id
 router.get('/:id', requireUser, async (req, res) => {
@@ -803,10 +847,10 @@ router.post('/', requireUser, async (req, res) => {
   try {
     const { bookingId, orderId, subject, description, category, priority } = req.body;
 
-    if (!bookingId || !subject || !description || !category) {
+    if (!subject || !description || !category) {
       return res.status(400).json({
         success: false,
-        error: 'bookingId, subject, description, and category are required'
+        error: 'subject, description, and category are required'
       });
     }
 
@@ -822,6 +866,27 @@ router.post('/', requireUser, async (req, res) => {
     };
 
     const complaint = await ComplaintService.create(complaintData);
+
+    try {
+      const customer = await User.findById(req.user._id).select('email firstName lastName');
+      if (customer?.email) {
+        await EmailService.sendTriggerEmail('complaint_created', customer.email, {
+          companyName: process.env.COMPANY_NAME || 'FixitHub',
+          customerName: `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email,
+          complaintNumber: complaint.complaintNumber || String(complaint._id),
+          complaintCategory: complaint.category,
+          complaintSubject: complaint.subject,
+          orderNumber: complaint.orderId?.orderNumber || 'N/A',
+          priority: complaint.priority || 'medium',
+          submittedAt: new Date(complaint.createdAt || Date.now()).toLocaleDateString('de-DE'),
+          complaintUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/complaints/${complaint._id}`,
+          supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+          supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+        });
+      }
+    } catch (notificationError) {
+      console.error('ComplaintRoutes: Error sending complaint-created email:', notificationError.message);
+    }
 
     return res.status(201).json({ success: true, complaint });
   } catch (error) {

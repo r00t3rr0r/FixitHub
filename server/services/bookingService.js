@@ -4,10 +4,175 @@ const Product = require('../models/Product');
 const Service = require('../models/Service');
 const Invoice = require('../models/Invoice');
 const User = require('../models/User');
+const DHLService = require('./dhlService');
 const DHLReturnsService = require('./dhlReturnsService');
 const SystemConfiguration = require('../models/SystemConfiguration');
+const EmailService = require('./emailService');
 
 class BookingService {
+  static clampProgress(value) {
+    const numericValue = Number.isFinite(Number(value)) ? Number(value) : 0;
+    return Math.max(0, Math.min(100, Math.round(numericValue)));
+  }
+
+  static resolveOrderProgress(order) {
+    const rawProgress = this.clampProgress(order?.progress || 0);
+    const normalizedStatus = String(order?.status || '').toLowerCase();
+
+    switch (normalizedStatus) {
+      case 'pending':
+        return Math.min(rawProgress, 24);
+      case 'diagnosed':
+      case 'awaiting-parts':
+        return Math.max(25, Math.min(rawProgress || 25, 49));
+      case 'in-progress':
+      case 'paused':
+      case 'on-hold':
+        return Math.max(50, Math.min(rawProgress || 50, 74));
+      case 'quality-check':
+        return Math.max(75, Math.min(rawProgress || 75, 99));
+      case 'ready-for-pickup':
+      case 'completed':
+        return 100;
+      case 'cancelled':
+        return 0;
+      default:
+        return rawProgress;
+    }
+  }
+
+  static async getBookingShippingLabelMode() {
+    const envMode = String(process.env.BOOKING_DHL_LABEL_MODE || '').trim().toLowerCase();
+
+    if (envMode === 'dummy' || envMode === 'live') {
+      return envMode;
+    }
+
+    try {
+      const systemConfig = await SystemConfiguration.findOne({});
+      const dhlIntegration = systemConfig?.integrations?.find(
+        (integration) => integration.provider === 'DHL' &&
+          integration.type === 'shipping' &&
+          integration.name === 'DHL Shipping'
+      );
+
+      const configuredMode = String(dhlIntegration?.settings?.bookingLabelMode || '').trim().toLowerCase();
+
+      if (configuredMode === 'dummy' || configuredMode === 'live') {
+        return configuredMode;
+      }
+    } catch (error) {
+      console.error('BookingService: Failed to resolve booking label mode from configuration:', error.message);
+    }
+
+    return 'dummy';
+  }
+
+  static isDummyBookingTrackingNumber(trackingNumber) {
+    return String(trackingNumber || '').startsWith('DHL-DUMMY-');
+  }
+
+  static buildDummyBookingTrackingNumber(booking) {
+    const bookingReference = String(booking.bookingNumber || booking._id || 'BOOKING')
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .toUpperCase()
+      .slice(-10);
+
+    return `DHL-DUMMY-${bookingReference}-${Date.now().toString().slice(-6)}`;
+  }
+
+  static buildDummyBookingLabelUrl(booking, trackingNumber) {
+    const customerName = booking.guestInfo?.isGuest
+      ? `${booking.guestInfo.firstName || ''} ${booking.guestInfo.lastName || ''}`.trim()
+      : 'Registered customer';
+
+    const createdAt = new Date().toISOString();
+    const pdfLines = [
+      'BT',
+      '/F1 18 Tf',
+      '50 770 Td',
+      '(FixitHub DHL Dummy Shipping Label) Tj',
+      '0 -28 Td',
+      '/F1 12 Tf',
+      `(Booking: ${this.escapePdfText(booking.bookingNumber || String(booking._id))}) Tj`,
+      '0 -18 Td',
+      `(Tracking: ${this.escapePdfText(trackingNumber)}) Tj`,
+      '0 -18 Td',
+      `(Customer: ${this.escapePdfText(customerName || 'N/A')}) Tj`,
+      '0 -18 Td',
+      `(Created: ${this.escapePdfText(createdAt)}) Tj`,
+      '0 -30 Td',
+      '(Placeholder label until live DHL integration is enabled.) Tj',
+      'ET',
+    ];
+
+    const stream = pdfLines.join('\n');
+    const pdfContent = this.buildMinimalPdfDocument(stream);
+
+    return `data:application/pdf;base64,${Buffer.from(pdfContent, 'utf8').toString('base64')}`;
+  }
+
+  static buildMinimalPdfDocument(stream) {
+    const objects = [
+      '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj',
+      '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj',
+      '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj',
+      '4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj',
+      `5 0 obj\n<< /Length ${Buffer.byteLength(stream, 'utf8')} >>\nstream\n${stream}\nendstream\nendobj`,
+    ];
+
+    let pdf = '%PDF-1.4\n';
+    const offsets = [0];
+
+    objects.forEach((object) => {
+      offsets.push(Buffer.byteLength(pdf, 'utf8'));
+      pdf += `${object}\n`;
+    });
+
+    const xrefOffset = Buffer.byteLength(pdf, 'utf8');
+    const xrefRows = offsets
+      .map((offset, index) => (index === 0
+        ? '0000000000 65535 f '
+        : `${String(offset).padStart(10, '0')} 00000 n `))
+      .join('\n');
+
+    pdf += `xref\n0 ${offsets.length}\n${xrefRows}\n`;
+    pdf += `trailer\n<< /Size ${offsets.length} /Root 1 0 R >>\n`;
+    pdf += `startxref\n${xrefOffset}\n%%EOF`;
+
+    return pdf;
+  }
+
+  static escapePdfText(value) {
+    return String(value || '')
+      .replace(/\\/g, '\\\\')
+      .replace(/\(/g, '\\(')
+      .replace(/\)/g, '\\)');
+  }
+
+  static buildDummyBookingTrackingInfo(booking) {
+    const createdAt = booking.shippingCreatedAt || booking.createdAt || new Date();
+    const estimatedDelivery = booking.estimatedDelivery || new Date(new Date(createdAt).getTime() + (3 * 24 * 60 * 60 * 1000));
+
+    return {
+      success: true,
+      trackingNumber: booking.trackingNumber,
+      status: 'pre-transit',
+      description: booking.shippingStatusDescription || 'DHL-Dummy-Versandlabel wurde vorbereitet',
+      estimatedDelivery,
+      events: [
+        {
+          timestamp: createdAt,
+          location: 'FixitHub',
+          status: 'label-created',
+          description: 'Dummy DHL shipping label prepared for booking creation',
+        },
+      ],
+      origin: null,
+      destination: null,
+    };
+  }
+
   // Create a new booking from orders (consolidated from cart checkout)
   static async create(bookingData) {
     console.log('BookingService: Creating new booking with data:', bookingData);
@@ -118,6 +283,19 @@ class BookingService {
 
       console.log('BookingService: Booking creation completed. Total orders:', savedBooking.orderIds.length);
 
+      // Automatically generate DHL outbound shipping label for the booking if DHL shipping is active
+      try {
+        const updatedBookingWithShipping = await this.createShippingLabelForBooking(savedBooking, {
+          preferredOrderId: repairOrderIds[0] || bookingData.orderIds[0] || null,
+        });
+
+        if (updatedBookingWithShipping) {
+          savedBooking.set(updatedBookingWithShipping.toObject ? updatedBookingWithShipping.toObject() : updatedBookingWithShipping);
+        }
+      } catch (shippingLabelError) {
+        console.error('BookingService: Error creating outbound shipping label for booking (non-fatal):', shippingLabelError.message);
+      }
+
       // Automatically generate DHL return label if enabled in configuration
       try {
         console.log('BookingService: Checking if automatic return label generation is enabled');
@@ -158,10 +336,227 @@ class BookingService {
         console.error('BookingService: Error checking DHL Returns configuration (non-fatal):', configError.message);
       }
 
+      // Send booking created notification email asynchronously
+      setImmediate(async () => {
+        try {
+          let customerEmail = bookingData?.guestInfo?.email || '';
+          let customerName = `${bookingData?.guestInfo?.firstName || ''} ${bookingData?.guestInfo?.lastName || ''}`.trim();
+
+          if (!customerEmail && bookingData.customerId) {
+            const customer = await User.findById(bookingData.customerId).select('firstName lastName email');
+            if (customer?.email) {
+              customerEmail = customer.email;
+              customerName = `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email;
+            }
+          }
+
+          if (!customerEmail) {
+            return;
+          }
+
+          await EmailService.sendTriggerEmail('booking_created', customerEmail, {
+            companyName: process.env.COMPANY_NAME || 'FixitHub',
+            customerName: customerName || customerEmail,
+            bookingNumber: savedBooking.bookingNumber,
+            bookingDate: new Date(savedBooking.createdAt || Date.now()).toLocaleDateString('de-DE'),
+            itemSummary: `${savedBooking.items?.length || 0} Position(en)`,
+            totalAmount: `EUR ${(savedBooking.totalCost || 0).toFixed(2)}`,
+            bookingStatus: savedBooking.status,
+            bookingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/bookings/${savedBooking._id}`,
+            supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+            supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+          });
+        } catch (notificationError) {
+          console.error('BookingService: Error sending booking created email:', notificationError.message);
+        }
+      });
+
       return savedBooking;
     } catch (error) {
       console.error('BookingService: Error creating booking:', error);
       throw error;
+    }
+  }
+
+  static async createShippingLabelForBooking(booking, options = {}) {
+    if (!booking?._id) {
+      return null;
+    }
+
+    if (booking.shippingLabelUrl && booking.trackingNumber) {
+      return booking;
+    }
+
+    const labelMode = await this.getBookingShippingLabelMode();
+
+    if (labelMode === 'live') {
+      try {
+        return await this.createLiveShippingLabelForBooking(booking, options);
+      } catch (error) {
+        console.error('BookingService: Live DHL booking label creation failed, falling back to dummy label:', error.message);
+      }
+    }
+
+    return this.createDummyShippingLabelForBooking(booking);
+  }
+
+  static async createDummyShippingLabelForBooking(booking) {
+    const refreshedBooking = await Booking.findById(booking._id);
+
+    if (!refreshedBooking) {
+      throw new Error('Booking not found after creation');
+    }
+
+    const trackingNumber = this.buildDummyBookingTrackingNumber(refreshedBooking);
+    const shippingCreatedAt = new Date();
+
+    refreshedBooking.trackingNumber = trackingNumber;
+    refreshedBooking.carrier = 'DHL';
+    refreshedBooking.shippingStatus = 'label-created';
+    refreshedBooking.shippingStatusDescription = 'DHL-Dummy-Versandlabel wurde vorbereitet';
+    refreshedBooking.shippingLabelUrl = this.buildDummyBookingLabelUrl(refreshedBooking, trackingNumber);
+    refreshedBooking.shippingCost = refreshedBooking.shippingCost || 0;
+    refreshedBooking.estimatedDelivery = refreshedBooking.estimatedDelivery || new Date(shippingCreatedAt.getTime() + (3 * 24 * 60 * 60 * 1000));
+    refreshedBooking.shippingCreatedAt = shippingCreatedAt;
+    refreshedBooking.timeline.push({
+      status: 'Shipping Label Prepared',
+      description: `Dummy DHL shipping label prepared for booking. Tracking number: ${trackingNumber}`,
+      completedAt: shippingCreatedAt,
+      staffId: 'system',
+      staffName: 'DHL Dummy Integration',
+    });
+
+    await refreshedBooking.save();
+    return refreshedBooking;
+  }
+
+  static async createLiveShippingLabelForBooking(booking, options = {}) {
+    const dhlConfig = await DHLService.getDHLConfig();
+    if (!dhlConfig?.isActive) {
+      throw new Error('DHL shipping integration is inactive');
+    }
+
+    const preferredOrderId = options.preferredOrderId ? String(options.preferredOrderId) : '';
+    const candidateOrderIds = [
+      preferredOrderId,
+      ...(Array.isArray(booking.repairOrderIds) ? booking.repairOrderIds.map((id) => String(id)) : []),
+      ...(Array.isArray(booking.orderIds) ? booking.orderIds.map((id) => String(id)) : []),
+    ].filter(Boolean).filter((value, index, array) => array.indexOf(value) === index);
+
+    if (candidateOrderIds.length === 0) {
+      throw new Error('No candidate orders found for live DHL shipping label generation');
+    }
+
+    let lastError = null;
+
+    for (const orderId of candidateOrderIds) {
+      try {
+        const shipmentResult = await DHLService.createShipment(orderId, {});
+        const refreshedBooking = await Booking.findById(booking._id);
+
+        if (!refreshedBooking) {
+          throw new Error('Booking not found after shipment creation');
+        }
+
+        refreshedBooking.trackingNumber = shipmentResult?.trackingNumber || refreshedBooking.trackingNumber;
+        refreshedBooking.carrier = 'DHL';
+        refreshedBooking.shippingStatus = 'label-created';
+        refreshedBooking.shippingStatusDescription = 'DHL-Buchungsversandlabel wurde erstellt';
+        refreshedBooking.shippingLabelUrl = shipmentResult?.labelUrl || refreshedBooking.shippingLabelUrl;
+        refreshedBooking.shippingCost = shipmentResult?.shippingCost || refreshedBooking.shippingCost || 0;
+        refreshedBooking.estimatedDelivery = shipmentResult?.estimatedDelivery || refreshedBooking.estimatedDelivery;
+        refreshedBooking.shippingCreatedAt = new Date();
+        refreshedBooking.timeline.push({
+          status: 'Shipping Label Created',
+          description: `Booking DHL shipping label created. Tracking number: ${refreshedBooking.trackingNumber || 'pending'}`,
+          completedAt: new Date(),
+          staffId: 'system',
+          staffName: 'DHL Parcel Integration',
+        });
+
+        await refreshedBooking.save();
+        return refreshedBooking;
+      } catch (error) {
+        lastError = error;
+        console.error(`BookingService: Failed to create live shipping label for order ${orderId}:`, error.message);
+      }
+    }
+
+    throw lastError || new Error('Failed to create live booking shipping label');
+  }
+
+  static async updateShippingStatus(bookingId) {
+    console.log('BookingService: Updating shipping status for booking:', bookingId)
+
+    const booking = await Booking.findById(bookingId)
+
+    if (!booking) {
+      throw new Error('Booking not found')
+    }
+
+    if (!booking.trackingNumber) {
+      throw new Error('No tracking number found for this booking')
+    }
+
+    if (this.isDummyBookingTrackingNumber(booking.trackingNumber)) {
+      const trackingInfo = this.buildDummyBookingTrackingInfo(booking)
+
+      booking.shippingStatus = 'label-created'
+      booking.shippingStatusDescription = trackingInfo.description
+
+      if (trackingInfo.estimatedDelivery) {
+        booking.estimatedDelivery = trackingInfo.estimatedDelivery
+      }
+
+      await booking.save()
+
+      return {
+        success: true,
+        booking,
+        trackingInfo,
+      }
+    }
+
+    const trackingInfo = await DHLService.getTrackingInfo(booking.trackingNumber)
+
+    const statusMapping = {
+      'pre-transit': 'label-created',
+      'transit': 'in-transit',
+      'delivered': 'delivered',
+      'failure': 'failed',
+      'out-for-delivery': 'out-for-delivery',
+    }
+
+    const newStatus = statusMapping[trackingInfo.status] || booking.shippingStatus
+    const statusChanged = newStatus !== booking.shippingStatus
+
+    booking.shippingStatus = newStatus
+    booking.shippingStatusDescription = trackingInfo.description || trackingInfo.status || booking.shippingStatusDescription
+
+    if (trackingInfo.estimatedDelivery) {
+      booking.estimatedDelivery = trackingInfo.estimatedDelivery
+    }
+
+    if (newStatus === 'delivered' && !booking.actualDelivery) {
+      booking.actualDelivery = new Date()
+    }
+
+    if (statusChanged) {
+      booking.timeline.push({
+        status: 'Shipping Status Updated',
+        description: `Booking shipment status: ${trackingInfo.description || newStatus}`,
+        completedAt: new Date(),
+        staffId: 'system',
+        staffName: 'DHL Integration',
+      })
+    }
+
+    await booking.save()
+
+    return {
+      success: true,
+      booking,
+      trackingInfo,
     }
   }
 
@@ -263,7 +658,7 @@ class BookingService {
             // Calculate overall progress from all orders
             let totalProgress = 0;
             allOrders.forEach(order => {
-              totalProgress += (order.progress || 0);
+              totalProgress += this.resolveOrderProgress(order);
             });
             bookingPlain.overallProgress = Math.round(totalProgress / allOrders.length);
 
@@ -313,8 +708,32 @@ class BookingService {
         .limit(filters.limit || 50)
         .skip(filters.skip || 0);
 
-      console.log('BookingService: Found', bookings.length, 'bookings for customer on current page');
-      return bookings;
+      const bookingsWithProgress = await Promise.all(
+        bookings.map(async (booking) => {
+          try {
+            const allOrders = await Order.find({ bookingId: booking._id });
+            const bookingPlain = booking.toObject({ virtuals: true });
+
+            if (allOrders.length === 0) {
+              return bookingPlain;
+            }
+
+            let totalProgress = 0;
+            allOrders.forEach((order) => {
+              totalProgress += this.resolveOrderProgress(order);
+            });
+
+            bookingPlain.overallProgress = Math.round(totalProgress / allOrders.length);
+            return bookingPlain;
+          } catch (error) {
+            console.error('BookingService: Error calculating customer booking progress for booking:', booking._id, error);
+            return booking.toObject({ virtuals: true });
+          }
+        })
+      );
+
+      console.log('BookingService: Found', bookingsWithProgress.length, 'bookings for customer on current page');
+      return bookingsWithProgress;
     } catch (error) {
       console.error('BookingService: Error getting bookings:', error);
       throw error;
@@ -364,6 +783,7 @@ class BookingService {
         throw new Error('Booking not found');
       }
 
+      const previousStatus = booking.status;
       booking.status = newStatus;
 
       // Add timeline entry
@@ -377,6 +797,43 @@ class BookingService {
 
       const savedBooking = await booking.save();
       console.log('BookingService: Booking status updated successfully');
+
+      // Send status email asynchronously
+      setImmediate(async () => {
+        try {
+          const populatedBooking = await Booking.findById(savedBooking._id).populate('customerId', 'firstName lastName email');
+          const customerEmail = populatedBooking?.customerId?.email || populatedBooking?.guestInfo?.email;
+          if (!customerEmail) {
+            return;
+          }
+
+          const customerName = populatedBooking?.customerId
+            ? `${populatedBooking.customerId.firstName || ''} ${populatedBooking.customerId.lastName || ''}`.trim() || customerEmail
+            : `${populatedBooking?.guestInfo?.firstName || ''} ${populatedBooking?.guestInfo?.lastName || ''}`.trim() || customerEmail;
+
+          const trigger = newStatus === 'completed' ? 'booking_ready_for_pickup' : 'booking_status_updated';
+
+          await EmailService.sendTriggerEmail(trigger, customerEmail, {
+            companyName: process.env.COMPANY_NAME || 'FixitHub',
+            customerName,
+            bookingNumber: populatedBooking.bookingNumber,
+            bookingStatus: newStatus,
+            statusNote: description || `Statuswechsel von ${previousStatus} auf ${newStatus}`,
+            itemSummary: `${populatedBooking.items?.length || 0} Position(en)`,
+            progressPercent: populatedBooking.overallProgress || 0,
+            updatedAt: new Date().toLocaleDateString('de-DE'),
+            bookingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/bookings/${populatedBooking._id}`,
+            pickupHours: process.env.PICKUP_HOURS || 'Mo-Fr 09:00-18:00',
+            workshopAddress: process.env.WORKSHOP_ADDRESS || 'Service Center',
+            readySince: new Date().toLocaleDateString('de-DE'),
+            holdUntil: new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)).toLocaleDateString('de-DE'),
+            supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+            supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+          });
+        } catch (notificationError) {
+          console.error('BookingService: Error sending booking status email:', notificationError.message);
+        }
+      });
 
       return savedBooking;
     } catch (error) {
@@ -479,6 +936,36 @@ class BookingService {
       const savedBooking = await booking.save();
       console.log('BookingService: Booking cancelled successfully');
 
+      setImmediate(async () => {
+        try {
+          const populatedBooking = await Booking.findById(savedBooking._id).populate('customerId', 'firstName lastName email');
+          const customerEmail = populatedBooking?.customerId?.email || populatedBooking?.guestInfo?.email;
+          if (!customerEmail) {
+            return;
+          }
+
+          const customerName = populatedBooking?.customerId
+            ? `${populatedBooking.customerId.firstName || ''} ${populatedBooking.customerId.lastName || ''}`.trim() || customerEmail
+            : `${populatedBooking?.guestInfo?.firstName || ''} ${populatedBooking?.guestInfo?.lastName || ''}`.trim() || customerEmail;
+
+          await EmailService.sendTriggerEmail('booking_cancelled', customerEmail, {
+            companyName: process.env.COMPANY_NAME || 'FixitHub',
+            customerName,
+            bookingNumber: populatedBooking.bookingNumber,
+            cancellationReason: 'Durch Service-Team storniert',
+            refundInfo: 'Falls zutreffend wird die Erstattung automatisch veranlasst',
+            refundAmount: `EUR ${(populatedBooking.totalCost || 0).toFixed(2)}`,
+            cancelledAt: new Date().toLocaleDateString('de-DE'),
+            cancelledBy: 'System',
+            newBookingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/bookings/new`,
+            supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+            supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+          });
+        } catch (notificationError) {
+          console.error('BookingService: Error sending booking cancellation email:', notificationError.message);
+        }
+      });
+
       return savedBooking;
     } catch (error) {
       console.error('BookingService: Error cancelling booking:', error);
@@ -523,6 +1010,7 @@ class BookingService {
 
       // Transform orders to match expected structure with current repair progress status
       const transformedOrders = orders.map(order => {
+        const orderProgress = this.resolveOrderProgress(order);
         let orderData = {
           orderId: order._id.toString(),
           orderNumber: order.orderNumber || order._id.toString().slice(-8).toUpperCase(),
@@ -531,7 +1019,7 @@ class BookingService {
           sourceComplaintId: order.sourceComplaintId ? order.sourceComplaintId.toString() : null,
           parentOrderId: order.parentOrderId ? order.parentOrderId.toString() : null,
           status: order.status || 'pending',
-          progress: order.progress || 0,
+          progress: orderProgress,
           cost: order.totalCost,
         };
 
@@ -663,10 +1151,26 @@ class BookingService {
       const savedInvoice = await invoice.save();
       console.log('BookingService: Invoice created successfully:', savedInvoice._id, 'Number:', savedInvoice.invoiceNumber);
 
-      // If sendImmediately is true, trigger notification (future implementation)
-      if (invoiceData.sendImmediately) {
-        console.log('BookingService: Sending invoice immediately to customer');
-        // TODO: Implement email notification
+      // Dispatch invoice notification template after invoice creation
+      if (customerEmail && customerEmail !== 'N/A') {
+        setImmediate(async () => {
+          try {
+            await EmailService.sendTriggerEmail('invoice_created', customerEmail, {
+              companyName: process.env.COMPANY_NAME || 'FixitHub',
+              customerName,
+              invoiceNumber: savedInvoice.invoiceNumber,
+              orderNumber: booking.orderIds && booking.orderIds.length > 0 ? String(booking.orderIds[0]) : booking.bookingNumber,
+              invoiceAmount: `EUR ${(savedInvoice.total || 0).toFixed(2)}`,
+              dueDate: new Date(savedInvoice.dueDate).toLocaleDateString('de-DE'),
+              paymentMethod: savedInvoice.paymentMethod || 'Ueberweisung',
+              invoiceUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/invoices/${savedInvoice._id}`,
+              supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+              supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+            });
+          } catch (notificationError) {
+            console.error('BookingService: Error sending invoice email:', notificationError.message);
+          }
+        });
       }
 
       return savedInvoice;
@@ -716,7 +1220,7 @@ class BookingService {
       let completedCount = 0;
 
       allOrders.forEach(order => {
-        totalProgress += (order.progress || 0);
+        totalProgress += this.resolveOrderProgress(order);
         if (order.status === 'completed') {
           completedCount++;
         }

@@ -1,54 +1,210 @@
 const nodemailer = require('nodemailer');
 const SystemConfigService = require('./systemConfigService');
 const NotificationTemplateService = require('./notificationTemplateService');
+const Logger = require('../utils/logger');
+const { EmailRetryHandler, EmailDeliveryTracker } = require('../utils/emailLogger');
 
+/**
+ * Email Service for sending emails via nodemailer
+ * Supports SMTP configuration from database and environment variables
+ * Includes advanced logging, retry logic, and delivery tracking
+ */
 class EmailService {
+  static TRIGGER_TEMPLATE_MAP = {
+    user_registered: 'Registrierung und Kontoaktivierung',
+    password_reset_requested: 'Passwort zuruecksetzen',
+    order_created: 'Auftragsbestaetigung Reparatur',
+    order_status_updated: 'Statusupdate Auftrag oder Buchung',
+    device_received: 'Geraet eingegangen',
+    quote_approval_requested: 'Kostenvoranschlag zur Freigabe',
+    order_completed: 'Reparatur abgeschlossen und Rueckversand',
+    payment_confirmed: 'Zahlung bestaetigt',
+    booking_created: 'Buchung angelegt',
+    booking_status_updated: 'Buchung Statusupdate',
+    booking_ready_for_pickup: 'Buchung bereit zur Abholung',
+    booking_cancelled: 'Buchung storniert',
+    repair_request_created: 'Repair Request eingegangen',
+    repair_request_processing: 'Repair Request in Bearbeitung',
+    repair_request_diagnosed: 'Repair Request Diagnose abgeschlossen',
+    repair_request_message: 'Repair Request neue Nachricht',
+    repair_request_completed: 'Repair Request abgeschlossen',
+    complaint_created: 'Reklamation eingegangen',
+    complaint_processing: 'Reklamation in Bearbeitung',
+    complaint_message: 'Reklamation neue Nachricht',
+    complaint_resolved: 'Reklamation geloest',
+    complaint_rejected: 'Reklamation abgelehnt',
+    appointment_reminder: 'Terminerinnerung',
+    warranty_reminder: 'Garantieerinnerung',
+    invoice_created: 'Neue Rechnung verfuegbar',
+    pickup_reminder: 'Abholung bereit Erinnerung',
+    system_notification: 'Allgemeine Systemnachricht'
+  };
+
+  static logger = new Logger('EmailService', { 
+    context: { 
+      service: 'email',
+      version: '2.0'
+    } 
+  });
+  
+  static retryHandler = new EmailRetryHandler({
+    maxRetries: 3,
+    baseDelay: 1000,
+    maxBackoffDelay: 30000,
+    exponentialBase: 2
+  });
+  
+  static deliveryTracker = new EmailDeliveryTracker();
   /**
    * Get email transporter from system configuration
    */
   static async getTransporter() {
     try {
       const config = await SystemConfigService.getSystemConfiguration();
-      const emailIntegration = config.integrations.find(
-        int => int.type === 'email' && int.enabled
-      );
+      let transporterConfig;
+      let configSource;
+      
+      // First, try to use emailSettings from system configuration
+      if (config.emailSettings && config.emailSettings.smtpHost && config.emailSettings.enableNotifications) {
+        this.logger.info('Using SMTP settings from system configuration');
+        
+        transporterConfig = {
+          host: config.emailSettings.smtpHost,
+          port: config.emailSettings.smtpPort || 587,
+          secure: config.emailSettings.requiresTLS && (config.emailSettings.smtpPort === 465),
+          requiresTLS: config.emailSettings.requiresTLS
+        };
 
-      if (!emailIntegration) {
-        console.warn('EmailService: No enabled email integration found, using default SMTP settings');
-        // Fallback to environment variables or default settings
-        return nodemailer.createTransport({
-          host: process.env.SMTP_HOST || 'smtp.gmail.com',
-          port: process.env.SMTP_PORT || 587,
-          secure: false,
-          auth: {
-            user: process.env.SMTP_USER || '',
-            pass: process.env.SMTP_PASS || ''
-          }
-        });
+        // Add authentication if required
+        if (config.emailSettings.requiresAuthentication) {
+          transporterConfig.auth = {
+            user: config.emailSettings.smtpUsername,
+            pass: config.emailSettings.smtpPassword
+          };
+        }
+
+        configSource = 'systemConfiguration';
+        this.logger.logSMTPConfig(transporterConfig);
+      } 
+      // Fallback to email integration if available
+      else if (config.integrations && Array.isArray(config.integrations)) {
+        const emailIntegration = config.integrations.find(
+          int => int.type === 'email' && int.isActive
+        );
+
+        if (emailIntegration) {
+          this.logger.info('Using email integration from system configuration');
+          transporterConfig = {
+            host: emailIntegration.settings.smtpHost || 'smtp.gmail.com',
+            port: emailIntegration.settings.smtpPort || 587,
+            secure: emailIntegration.settings.requiresTLS && (emailIntegration.settings.smtpPort === 465),
+            requiresTLS: emailIntegration.settings.requiresTLS,
+            auth: {
+              user: emailIntegration.apiKey,
+              pass: emailIntegration.apiSecret
+            }
+          };
+          configSource = 'emailIntegration';
+          this.logger.logSMTPConfig(transporterConfig);
+        }
       }
 
-      return nodemailer.createTransport({
-        host: emailIntegration.settings.smtpHost || 'smtp.gmail.com',
-        port: emailIntegration.settings.smtpPort || 587,
-        secure: false,
-        auth: {
-          user: emailIntegration.apiKey,
-          pass: emailIntegration.apiSecret
+      // Final fallback to environment variables
+      if (!transporterConfig) {
+        this.logger.warn('No email configuration found in system config, using environment variables');
+        transporterConfig = {
+          host: process.env.SMTP_HOST || 'smtp.gmail.com',
+          port: process.env.SMTP_PORT || 587,
+          secure: process.env.SMTP_SECURE === 'true',
+          requiresTLS: process.env.SMTP_TLS === 'true'
+        };
+
+        if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+          transporterConfig.auth = {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS
+          };
+        }
+
+        configSource = 'environment';
+        this.logger.logSMTPConfig(transporterConfig);
+      }
+
+      const transporter = nodemailer.createTransport(transporterConfig);
+
+      this.deliveryTracker.recordSMTPConnection({
+        source: configSource,
+        host: transporterConfig.host,
+        port: transporterConfig.port,
+        secure: transporterConfig.secure,
+        requiresTLS: transporterConfig.requiresTLS,
+        hasAuth: Boolean(transporterConfig.auth),
+        status: 'attempted',
+        message: 'SMTP transporter created'
+      });
+      
+      // Verify connection configuration on first use
+      transporter.verify((error, success) => {
+        if (error) {
+          this.deliveryTracker.recordSMTPConnection({
+            source: configSource,
+            host: transporterConfig.host,
+            port: transporterConfig.port,
+            secure: transporterConfig.secure,
+            requiresTLS: transporterConfig.requiresTLS,
+            hasAuth: Boolean(transporterConfig.auth),
+            status: 'failed',
+            message: 'SMTP verification failed',
+            error: error.message
+          });
+          this.logger.error(
+            `SMTP connection verification failed (${configSource})`,
+            error,
+            { host: transporterConfig.host, port: transporterConfig.port }
+          );
+        } else {
+          this.deliveryTracker.recordSMTPConnection({
+            source: configSource,
+            host: transporterConfig.host,
+            port: transporterConfig.port,
+            secure: transporterConfig.secure,
+            requiresTLS: transporterConfig.requiresTLS,
+            hasAuth: Boolean(transporterConfig.auth),
+            status: 'verified',
+            message: success ? 'SMTP verification successful' : 'SMTP verification completed'
+          });
+          this.logger.debug('SMTP connection verified successfully', {
+            configSource,
+            host: transporterConfig.host,
+            port: transporterConfig.port
+          });
         }
       });
+
+      return transporter;
     } catch (error) {
-      console.error('EmailService: Error getting transporter:', error);
+      this.deliveryTracker.recordSMTPConnection({
+        source: 'exception',
+        host: undefined,
+        port: undefined,
+        secure: false,
+        requiresTLS: false,
+        hasAuth: false,
+        status: 'failed',
+        message: 'Failed to initialize SMTP transporter',
+        error: error.message
+      });
+      this.logger.error('Error getting transporter', error, { context: 'getTransporter' });
       throw error;
     }
   }
 
   /**
    * Send guest order confirmation email with tracking link
+   * Uses retry logic and advanced logging
    */
   static async sendGuestOrderConfirmation(orderData) {
-    try {
-      console.log('EmailService: Sending guest order confirmation email to:', orderData.guestEmail);
-
+    const operation = async () => {
       const transporter = await this.getTransporter();
 
       // Generate tracking URL
@@ -65,12 +221,77 @@ class EmailService {
         text: this.buildGuestOrderConfirmationText(orderData, trackingUrl)
       };
 
-      const info = await transporter.sendMail(mailOptions);
-      console.log('EmailService: Guest order confirmation email sent successfully:', info.messageId);
-      return { success: true, messageId: info.messageId };
+      return await transporter.sendMail(mailOptions);
+    };
+
+    const emailInfo = {
+      to: orderData.guestEmail,
+      templateName: 'Guest Order Confirmation',
+      subject: `Order Confirmation - ${orderData.orderNumbers.join(', ')}`
+    };
+
+    try {
+      this.logger.info('Sending guest order confirmation email', {
+        to: orderData.guestEmail,
+        orderNumbers: orderData.orderNumbers
+      });
+
+      const result = await this.retryHandler.executeWithRetry(
+        operation.bind(this),
+        'sendGuestOrderConfirmation',
+        emailInfo
+      );
+
+      if (result.success) {
+        this.deliveryTracker.recordDelivery({
+          to: emailInfo.to,
+          templateName: emailInfo.templateName,
+          subject: emailInfo.subject,
+          messageId: result.result.messageId,
+          status: 'sent',
+          attempts: result.attempts,
+          duration: result.duration,
+          metadata: { orderNumbers: orderData.orderNumbers }
+        });
+
+        return {
+          success: true,
+          messageId: result.result.messageId,
+          attempts: result.attempts,
+          duration: result.duration
+        };
+      } else {
+        this.deliveryTracker.recordDelivery({
+          to: emailInfo.to,
+          templateName: emailInfo.templateName,
+          subject: emailInfo.subject,
+          status: 'failed',
+          attempts: result.attempts,
+          error: result.error?.message,
+          metadata: { orderNumbers: orderData.orderNumbers }
+        });
+
+        return {
+          success: false,
+          error: result.error?.message || 'Failed to send email after retries',
+          attempts: result.attempts
+        };
+      }
     } catch (error) {
-      console.error('EmailService: Error sending guest order confirmation email:', error);
-      // Don't throw error - email failure shouldn't block checkout
+      this.logger.error('Unexpected error in sendGuestOrderConfirmation', error, {
+        to: emailInfo.to,
+        orderNumbers: orderData.orderNumbers
+      });
+
+      this.deliveryTracker.recordDelivery({
+        to: emailInfo.to,
+        templateName: emailInfo.templateName,
+        subject: emailInfo.subject,
+        status: 'failed',
+        attempts: 0,
+        error: error.message
+      });
+
       return { success: false, error: error.message };
     }
   }
@@ -192,14 +413,25 @@ This is an automated email. Please do not reply to this message.
 
   /**
    * Generic method to send template-based email
+   * Uses retry logic and advanced logging for all template-based emails
    * @param {string} templateName - Template name (e.g., 'Registrierung und Kontoaktivierung')
    * @param {string} toEmail - Recipient email address
    * @param {object} variables - Template variables object
-   * @returns {Promise<object>} { success, messageId, error }
+   * @returns {Promise<object>} { success, messageId, error, attempts, duration }
    */
   static async sendTemplateEmail(templateName, toEmail, variables = {}) {
+    const emailInfo = {
+      to: toEmail,
+      templateName: templateName,
+      subject: ''
+    };
+
     try {
-      console.log(`EmailService: Sending template email "${templateName}" to ${toEmail}`);
+      this.logger.info('Attempting to send template email', {
+        templateName,
+        to: toEmail,
+        variableKeys: Object.keys(variables)
+      });
 
       // Validate required variables
       const validation = await NotificationTemplateService.validateTemplateVariables(
@@ -209,10 +441,26 @@ This is an automated email. Please do not reply to this message.
       );
 
       if (!validation.isValid) {
-        console.error(`EmailService: Missing required variables: ${validation.missingVariables.join(', ')}`);
+        const validationError = validation.error || `Missing required variables: ${validation.missingVariables.join(', ')}`;
+
+        this.logger.warn('Template validation failed - missing variables', {
+          templateName,
+          missingVariables: validation.missingVariables,
+          validationError,
+          to: toEmail
+        });
+
+        this.deliveryTracker.recordDelivery({
+          to: emailInfo.to,
+          templateName: emailInfo.templateName,
+          status: 'failed',
+          attempts: 0,
+          error: validationError
+        });
+
         return {
           success: false,
-          error: `Missing required variables: ${validation.missingVariables.join(', ')}`
+          error: validationError
         };
       }
 
@@ -220,35 +468,121 @@ This is an automated email. Please do not reply to this message.
       const rendered = await NotificationTemplateService.renderTemplate(templateName, 'email', variables);
       
       if (!rendered) {
+        this.logger.error('Template not found or inactive', new Error(`Template "${templateName}" not found`), {
+          templateName,
+          to: toEmail
+        });
+
+        this.deliveryTracker.recordDelivery({
+          to: emailInfo.to,
+          templateName: emailInfo.templateName,
+          status: 'failed',
+          attempts: 0,
+          error: `Template "${templateName}" not found or inactive`
+        });
+
         return {
           success: false,
           error: `Template "${templateName}" not found or inactive`
         };
       }
 
-      const transporter = await this.getTransporter();
-      const mailOptions = {
-        from: process.env.SMTP_FROM || 'noreply@fixithub.com',
-        to: toEmail,
-        subject: rendered.subject,
-        html: rendered.content,
-        text: rendered.text
+      emailInfo.subject = rendered.subject;
+
+      // Send email with retry logic
+      const operation = async () => {
+        const transporter = await this.getTransporter();
+        const mailOptions = {
+          from: process.env.SMTP_FROM || 'noreply@fixithub.com',
+          to: toEmail,
+          subject: rendered.subject,
+          html: rendered.content,
+          text: rendered.text,
+          replyTo: process.env.SUPPORT_EMAIL || 'support@fixithub.com'
+        };
+
+        return await transporter.sendMail(mailOptions);
       };
 
-      const info = await transporter.sendMail(mailOptions);
-      console.log(`EmailService: Template email sent successfully to ${toEmail}:`, info.messageId);
-      return { success: true, messageId: info.messageId };
+      const result = await this.retryHandler.executeWithRetry(
+        operation.bind(this),
+        `sendTemplateEmail(${templateName})`,
+        emailInfo
+      );
+
+      if (result.success) {
+        this.deliveryTracker.recordDelivery({
+          to: emailInfo.to,
+          templateName: emailInfo.templateName,
+          subject: emailInfo.subject,
+          messageId: result.result.messageId,
+          status: 'sent',
+          attempts: result.attempts,
+          duration: result.duration,
+          metadata: { variables: Object.keys(variables) }
+        });
+
+        return {
+          success: true,
+          messageId: result.result.messageId,
+          attempts: result.attempts,
+          duration: result.duration
+        };
+      } else {
+        this.deliveryTracker.recordDelivery({
+          to: emailInfo.to,
+          templateName: emailInfo.templateName,
+          subject: emailInfo.subject,
+          status: 'failed',
+          attempts: result.attempts,
+          error: result.error?.message,
+          metadata: { variables: Object.keys(variables) }
+        });
+
+        return {
+          success: false,
+          error: result.error?.message || 'Failed to send email after retries',
+          attempts: result.attempts
+        };
+      }
     } catch (error) {
-      console.error(`EmailService: Error sending template email: ${error.message}`);
+      this.logger.error('Unexpected error in sendTemplateEmail', error, {
+        templateName,
+        to: toEmail
+      });
+
+      this.deliveryTracker.recordDelivery({
+        to: emailInfo.to,
+        templateName: emailInfo.templateName,
+        subject: emailInfo.subject,
+        status: 'failed',
+        attempts: 0,
+        error: error.message
+      });
+
       return { success: false, error: error.message };
     }
+  }
+
+  static async sendTriggerEmail(trigger, toEmail, variables = {}) {
+    const templateName = this.TRIGGER_TEMPLATE_MAP[trigger];
+
+    if (!templateName) {
+      this.logger.warn('Unknown email trigger mapping', { trigger, to: toEmail });
+      return {
+        success: false,
+        error: `No template mapping configured for trigger "${trigger}"`
+      };
+    }
+
+    return this.sendTemplateEmail(templateName, toEmail, variables);
   }
 
   /**
    * Send registration/account activation email
    */
   static async sendRegistrationEmail(toEmail, customerName, verificationUrl, companyName = 'FixitHub') {
-    return this.sendTemplateEmail('Registrierung und Kontoaktivierung', toEmail, {
+    return this.sendTriggerEmail('user_registered', toEmail, {
       companyName,
       customerName,
       customerEmail: toEmail,
@@ -262,7 +596,7 @@ This is an automated email. Please do not reply to this message.
    * Send password reset email
    */
   static async sendPasswordResetEmail(toEmail, customerName, passwordResetUrl, resetExpiresAt, companyName = 'FixitHub') {
-    return this.sendTemplateEmail('Passwort zurücksetzen', toEmail, {
+    return this.sendTriggerEmail('password_reset_requested', toEmail, {
       companyName,
       customerName,
       customerEmail: toEmail,
@@ -277,7 +611,7 @@ This is an automated email. Please do not reply to this message.
    * Send order confirmation email
    */
   static async sendOrderConfirmationEmail(toEmail, orderData, companyName = 'FixitHub') {
-    return this.sendTemplateEmail('Auftragsbestätigung Reparatur', toEmail, {
+    return this.sendTriggerEmail('order_created', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
       customerEmail: toEmail,
@@ -296,7 +630,7 @@ This is an automated email. Please do not reply to this message.
    * Send order status update email
    */
   static async sendOrderStatusUpdateEmail(toEmail, orderData, companyName = 'FixitHub') {
-    return this.sendTemplateEmail('Statusupdate Auftrag oder Buchung', toEmail, {
+    return this.sendTriggerEmail('order_status_updated', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
       orderNumber: orderData.orderNumber,
@@ -313,7 +647,7 @@ This is an automated email. Please do not reply to this message.
    * Send device received email
    */
   static async sendDeviceReceivedEmail(toEmail, orderData, companyName = 'FixitHub') {
-    return this.sendTemplateEmail('Gerät eingegangen', toEmail, {
+    return this.sendTriggerEmail('device_received', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
       orderNumber: orderData.orderNumber,
@@ -330,7 +664,7 @@ This is an automated email. Please do not reply to this message.
    * Send quote approval request email
    */
   static async sendQuoteApprovalEmail(toEmail, orderData, companyName = 'FixitHub') {
-    return this.sendTemplateEmail('Kostenvoranschlag zur Freigabe', toEmail, {
+    return this.sendTriggerEmail('quote_approval_requested', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
       orderNumber: orderData.orderNumber,
@@ -349,7 +683,7 @@ This is an automated email. Please do not reply to this message.
    * Send repair completion and return shipping email
    */
   static async sendCompletionEmail(toEmail, orderData, companyName = 'FixitHub') {
-    return this.sendTemplateEmail('Reparatur abgeschlossen und Rückversand', toEmail, {
+    return this.sendTriggerEmail('order_completed', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
       orderNumber: orderData.orderNumber,
@@ -367,7 +701,7 @@ This is an automated email. Please do not reply to this message.
    * Send payment confirmation email
    */
   static async sendPaymentConfirmationEmail(toEmail, paymentData, companyName = 'FixitHub') {
-    return this.sendTemplateEmail('Zahlung bestätigt', toEmail, {
+    return this.sendTriggerEmail('payment_confirmed', toEmail, {
       companyName,
       customerName: paymentData.customerName || 'Valued Customer',
       orderNumber: paymentData.orderNumber,

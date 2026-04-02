@@ -259,6 +259,14 @@ type ProfitabilityColumnId =
   | "booking"
   | "date"
   | "customer"
+  | "customerGroupName"
+  | "cgInvoicePrefix"
+  | "cgPaymentTerms"
+  | "cgDueDays"
+  | "cgDiscount"
+  | "cgCreditLimit"
+  | "cgTaxMode"
+  | "cgCurrency"
   | "serviceType"
   | "status"
   | "netRevenue"
@@ -554,6 +562,78 @@ const PROFITABILITY_COLUMNS: ProfitabilityColumnDefinition[] = [
       </div>
     ),
     csvValue: (row) => `${row.customerName} (${row.customerGroup})`,
+  },
+  {
+    id: "customerGroupName",
+    label: "Customer Group",
+    description: "Primaergruppe fuer Finanzauflosung (Name/Key).",
+    defaultVisible: true,
+    cell: (row) => (
+      <div className="analytics-cell-stack">
+        <strong>{row.customerGroupName || "-"}</strong>
+        <span>{row.customerGroupKey || "-"}</span>
+      </div>
+    ),
+    csvValue: (row) => `${row.customerGroupName || "-"} (${row.customerGroupKey || "-"})`,
+  },
+  {
+    id: "cgInvoicePrefix",
+    label: "Rechnungs-Prefix",
+    description: "Customer-Group Rechnungskennzeichen.",
+    defaultVisible: true,
+    cell: (row) => row.customerGroupFinancialInvoicePrefix || "-",
+    csvValue: (row) => row.customerGroupFinancialInvoicePrefix || "-",
+  },
+  {
+    id: "cgPaymentTerms",
+    label: "Zahlungsbedingungen",
+    description: "Aufgeloeste Zahlungsbedingungen fuer die Buchung.",
+    defaultVisible: true,
+    cell: (row) => row.customerGroupFinancialPaymentTerms || "-",
+    csvValue: (row) => row.customerGroupFinancialPaymentTerms || "-",
+  },
+  {
+    id: "cgDueDays",
+    label: "Zahlungsziel",
+    description: "Aufgeloeste Due Days aus Kunde/Gruppe/System.",
+    defaultVisible: true,
+    align: "right",
+    cell: (row) => `${row.customerGroupFinancialPaymentDueDays} Tage`,
+    csvValue: (row) => row.customerGroupFinancialPaymentDueDays,
+  },
+  {
+    id: "cgDiscount",
+    label: "Gruppenrabatt",
+    description: "Aufgeloester Rabatt fuer Rechnungserstellung.",
+    defaultVisible: true,
+    align: "right",
+    cell: (row) => formatPercent(row.customerGroupFinancialDiscountPercent),
+    csvValue: (row) => row.customerGroupFinancialDiscountPercent.toFixed(2),
+  },
+  {
+    id: "cgCreditLimit",
+    label: "Kreditlimit",
+    description: "Customer-Group Kreditlimit.",
+    defaultVisible: false,
+    align: "right",
+    cell: (row) => formatCurrency(row.customerGroupFinancialCreditLimit),
+    csvValue: (row) => row.customerGroupFinancialCreditLimit.toFixed(2),
+  },
+  {
+    id: "cgTaxMode",
+    label: "Steuermodus",
+    description: "Aufgeloester Tax Mode fuer Faktura.",
+    defaultVisible: true,
+    cell: (row) => row.customerGroupFinancialTaxMode || "default",
+    csvValue: (row) => row.customerGroupFinancialTaxMode || "default",
+  },
+  {
+    id: "cgCurrency",
+    label: "Waehrung",
+    description: "Aufgeloeste Rechnungswaehrung.",
+    defaultVisible: true,
+    cell: (row) => row.customerGroupFinancialCurrency || "EUR",
+    csvValue: (row) => row.customerGroupFinancialCurrency || "EUR",
   },
   {
     id: "serviceType",

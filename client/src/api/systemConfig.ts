@@ -21,12 +21,15 @@ export type NotificationTemplateInput = Omit<NotificationTemplate, '_id' | 'crea
 export interface Integration {
   _id: string;
   name: string;
-  type: 'payment' | 'email' | 'sms' | 'storage' | 'analytics' | 'shipping';
+  type: 'payment' | 'email' | 'sms' | 'push' | 'storage' | 'analytics' | 'shipping';
   provider: string;
   apiKey: string;
   apiSecret?: string;
   endpoint?: string;
-  settings: Record<string, any>;
+  settings: {
+    bookingLabelMode?: 'dummy' | 'live';
+    [key: string]: any;
+  };
   isActive: boolean;
   lastTested?: string;
   testStatus: 'success' | 'failed' | 'pending';
@@ -82,6 +85,8 @@ export interface SystemConfig {
     smtpPort: number;
     smtpUsername: string;
     smtpPassword: string;
+    requiresAuthentication: boolean;
+    requiresTLS: boolean;
     enableNotifications: boolean;
   };
   notificationSettings: {
