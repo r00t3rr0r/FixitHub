@@ -1,6 +1,7 @@
 const DeviceInspection = require('../models/DeviceInspection');
 const Order = require('../models/Order');
 const NotificationService = require('./notificationService');
+const OrderService = require('./orderService');
 const pdfkit = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
@@ -52,28 +53,15 @@ class DeviceInspectionService {
           }
         }
 
-        // Update the order status to diagnostic-assessment when inspection is initiated
+        // Update order state through OrderService so status notifications stay centralized.
         try {
-          const order = await Order.findById(orderId);
-          if (order) {
-            const previousStatus = order.status;
-            order.status = 'diagnostic-assessment';
-
-            // Add timeline entry for inspection initialization
-            order.timeline.push({
-              status: 'Diagnostic Assessment',
-              description: 'Device inspection has been initiated by technician',
-              completedAt: new Date(),
-              staffId: technicianId.toString(),
-              staffName: 'Technician',
-              photos: []
-            });
-
-            await order.save();
-            console.log(`[DeviceInspection] Order status updated from '${previousStatus}' to 'diagnostic-assessment' for order: ${orderId}`);
-          } else {
-            console.warn(`[DeviceInspection] Order not found for status update: ${orderId}`);
-          }
+          const updatedOrder = await OrderService.updateStatus(
+            orderId,
+            'diagnostic-assessment',
+            'Device inspection has been initiated by technician',
+            technicianId
+          );
+          console.log(`[DeviceInspection] Order status updated to 'diagnostic-assessment' for order: ${updatedOrder?._id || orderId}`);
         } catch (orderError) {
           console.error(`[DeviceInspection] Error updating order status:`, orderError);
           // Don't throw - status update failure shouldn't block inspection initialization

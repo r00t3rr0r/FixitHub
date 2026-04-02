@@ -1,4 +1,4 @@
-const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 3;
+const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 4;
 
 const brand = {
   companyName: '{{companyName}}',
@@ -1198,6 +1198,58 @@ function getDefaultNotificationTemplates() {
         createVariable('pickupHours', 'Oeffnungszeiten'),
         createVariable('workshopAddress', 'Adresse der Abholung'),
         createVariable('trackingUrl', 'Link zur Auftragsseite'),
+        createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
+        createVariable('supportPhone', 'Service-Telefonnummer')
+      ],
+      isActive: true
+    },
+    {
+      name: 'Benachrichtigungs-Update fuer Kunden',
+      type: 'email',
+      subject: 'Neue Benachrichtigung bei {{companyName}}: {{notificationCategoryLabel}}',
+      content: renderEmailTemplate({
+        preheader: 'Sie haben eine neue Benachrichtigung in Ihrem Kundenkonto erhalten.',
+        eyebrow: 'Benachrichtigungszentrale',
+        title: 'Neue Benachrichtigung fuer Ihr Kundenkonto',
+        intro: 'Hallo {{customerName}}, es gibt ein neues Update zu Ihrem Konto. Unten finden Sie die wichtigsten Informationen zur aktuellen Benachrichtigung sowie eine kompakte Uebersicht aller relevanten Benachrichtigungstypen.',
+        highlights: [
+          { label: 'Kategorie', value: '{{notificationCategoryLabel}}' },
+          { label: 'Erstellt am', value: '{{notificationCreatedAt}}', tone: 'yellow' }
+        ],
+        detailRows: [
+          { label: 'Titel', value: '{{notificationTitle}}' },
+          { label: 'Inhalt', value: '{{notificationMessage}}' },
+          { label: 'Referenz', value: '{{notificationReference}}' },
+          { label: 'Empfohlene Aktion', value: '{{notificationActionLabel}}' },
+          { label: 'Auftraege', value: '{{ordersInfo}}' },
+          { label: 'Zahlungen', value: '{{paymentsInfo}}' },
+          { label: 'Nachrichten', value: '{{messagesInfo}}' },
+          { label: 'Zuweisungen', value: '{{assignmentsInfo}}' },
+          { label: 'Erinnerungen', value: '{{remindersInfo}}' },
+          { label: 'System', value: '{{systemInfo}}' }
+        ],
+        body: '<p style="margin:0 0 16px 0;">Mit dieser E-Mail informieren wir Sie automatisch ueber jede neue Benachrichtigung. So bleiben Sie bei Auftraegen, Zahlungen, Nachrichten, Zuweisungen, Erinnerungen und Systemhinweisen stets auf dem neuesten Stand.</p><p style="margin:0;">Im Kundenkonto koennen Sie alle Eintraege im Detail ansehen und als gelesen markieren.</p>',
+        ctaLabel: 'Benachrichtigungen im Kundenkonto oeffnen',
+        ctaUrl: '{{notificationsUrl}}',
+        closing: 'Vielen Dank fuer Ihr Vertrauen. Wir halten Sie aktiv und transparent informiert.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese E-Mail wurde automatisch durch eine neue Benachrichtigung erstellt.'
+      }),
+      variables: [
+        createVariable('companyName', 'Name des Unternehmens', true),
+        createVariable('customerName', 'Vor- und Nachname des Kunden', true),
+        createVariable('notificationCategoryLabel', 'Lesbare Kategorie der Benachrichtigung', true),
+        createVariable('notificationCreatedAt', 'Zeitpunkt der Benachrichtigung', true),
+        createVariable('notificationTitle', 'Titel der Benachrichtigung', true),
+        createVariable('notificationMessage', 'Inhalt der Benachrichtigung', true),
+        createVariable('notificationReference', 'Referenz wie Auftrag/Rechnung/Nachricht'),
+        createVariable('notificationActionLabel', 'Empfohlene Aktion fuer den Kunden'),
+        createVariable('ordersInfo', 'Statushinweis zu Auftragsbenachrichtigungen'),
+        createVariable('paymentsInfo', 'Statushinweis zu Zahlungsbenachrichtigungen'),
+        createVariable('messagesInfo', 'Statushinweis zu Nachrichtenbenachrichtigungen'),
+        createVariable('assignmentsInfo', 'Statushinweis zu Zuweisungsbenachrichtigungen'),
+        createVariable('remindersInfo', 'Statushinweis zu Erinnerungsbenachrichtigungen'),
+        createVariable('systemInfo', 'Statushinweis zu Systembenachrichtigungen'),
+        createVariable('notificationsUrl', 'Link zur Benachrichtigungsseite', true),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')
       ],

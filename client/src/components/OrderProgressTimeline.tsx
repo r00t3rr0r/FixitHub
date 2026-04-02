@@ -18,6 +18,25 @@ interface OrderProgressTimelineProps {
 // Displays 5 milestones: Creation → Diagnostic → Repair → Quality Check → Ready/Completed
 // Each stage shows icon, label, and completion date if available
 export function OrderProgressTimeline({ stages, currentStage }: OrderProgressTimelineProps) {
+  const activeStageIndex = (() => {
+    if (!Array.isArray(stages) || stages.length === 0) return 0
+
+    const directMatch = stages.findIndex((stage) => stage.id === currentStage)
+    if (directMatch >= 0) return directMatch
+
+    const inProgressMatch = stages.findIndex((stage) => stage.status === 'in-progress')
+    if (inProgressMatch >= 0) return inProgressMatch
+
+    const firstPending = stages.findIndex((stage) => stage.status !== 'completed')
+    if (firstPending >= 0) return firstPending
+
+    return stages.length - 1
+  })()
+
+  const progressFillWidth = stages.length > 1
+    ? (activeStageIndex / (stages.length - 1)) * 100
+    : 100
+
   return (
     <Card className="bg-white border-0 shadow-none">
       <div className="p-3">
@@ -29,7 +48,7 @@ export function OrderProgressTimeline({ stages, currentStage }: OrderProgressTim
             <div
               className="h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500"
               style={{
-                width: `${((stages.findIndex(s => s.id === currentStage) || 0) / (stages.length - 1)) * 100}%`
+                width: `${progressFillWidth}%`
               }}
             />
           </div>
@@ -38,7 +57,7 @@ export function OrderProgressTimeline({ stages, currentStage }: OrderProgressTim
           <div className="flex justify-between relative z-10">
             {stages.map((stage, index) => {
               const isCompleted = stage.status === 'completed'
-              const isActive = stage.id === currentStage
+              const isActive = index === activeStageIndex
 
               return (
                 <div key={stage.id} className="flex flex-col items-center flex-1">
@@ -95,7 +114,7 @@ export function OrderProgressTimeline({ stages, currentStage }: OrderProgressTim
             <span className="text-xs text-muted-foreground">
               Aktuell:{' '}
               <span className="font-medium text-foreground">
-                {stages.find(s => s.id === currentStage)?.label || 'Unbekannt'}
+                {stages[activeStageIndex]?.label || 'Unbekannt'}
               </span>
             </span>
           </div>

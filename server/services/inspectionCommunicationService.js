@@ -4,6 +4,59 @@ const DeviceInspection = require('../models/DeviceInspection');
 const NotificationService = require('./notificationService');
 
 class InspectionCommunicationService {
+  static async notifyMessageRecipients(orderId, senderId, senderType, senderName, content) {
+    try {
+      const order = await Order.findById(orderId).select('customerId assignedStaff orderNumber').lean();
+      if (!order) return;
+
+      const recipientIds = new Set();
+      const senderIdString = senderId ? String(senderId) : '';
+
+      if (senderType === 'customer') {
+        (order.assignedStaff || []).forEach((entry) => {
+          const staffId = entry?.staffId ? String(entry.staffId) : '';
+          if (staffId && staffId !== senderIdString) {
+            recipientIds.add(staffId);
+          }
+        });
+      } else {
+        const customerId = order.customerId ? String(order.customerId) : '';
+        if (customerId && customerId !== senderIdString) {
+          recipientIds.add(customerId);
+        }
+      }
+
+      if (!recipientIds.size) return;
+
+      const trimmedContent = String(content || '').trim();
+      const preview = trimmedContent.length > 140 ? `${trimmedContent.slice(0, 137)}...` : trimmedContent;
+      const title = senderType === 'customer'
+        ? 'Neue Kunden-Nachricht'
+        : 'Neue Team-Nachricht';
+      const orderReference = order.orderNumber ? `#${order.orderNumber}` : 'Ihrem Auftrag';
+
+      await Promise.all(
+        Array.from(recipientIds).map((recipientId) =>
+          NotificationService.createNotification({
+            userId: recipientId,
+            title,
+            message: `${senderName} hat eine neue Nachricht zu ${orderReference} gesendet${preview ? `: ${preview}` : '.'}`,
+            type: 'message',
+            orderId,
+            actionUrl: `/orders/${orderId}`,
+            metadata: {
+              senderId: senderIdString || null,
+              senderType,
+              messageType: 'text',
+            },
+          })
+        )
+      );
+    } catch (notificationError) {
+      console.error(`InspectionCommunicationService: Error notifying message recipients: ${notificationError.message || notificationError}`);
+    }
+  }
+
   // Get communication threads visible to the current user
   static async getCommunicationsForUser(userId, userRole = 'customer', filters = {}) {
     try {
@@ -177,6 +230,8 @@ class InspectionCommunicationService {
           return dateA - dateB;
         });
       }
+
+      await this.notifyMessageRecipients(orderId, senderId, senderType, senderName, content);
 
       console.log(`InspectionCommunicationService: Message sent successfully`);
       return communication;

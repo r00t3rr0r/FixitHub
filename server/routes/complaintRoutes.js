@@ -3,6 +3,7 @@ const router = express.Router();
 const { requireUser, requireAdmin, requireRole } = require('./middleware/auth');
 const ComplaintService = require('../services/complaintService');
 const BookingService = require('../services/bookingService');
+const OrderService = require('../services/orderService');
 const Complaint = require('../models/Complaint');
 const Order = require('../models/Order');
 const User = require('../models/User');
@@ -438,18 +439,12 @@ router.post('/:id/convert-offer-to-booking', requireUser, async (req, res) => {
     const newOrder = await Order.create(newOrderPayload);
     const booking = await BookingService.groupOrders([newOrder._id], complaintCustomerId);
 
-    complaintOrder.status = 'completed';
-    complaintOrder.progress = 100;
-    complaintOrder.completedAt = new Date();
-    complaintOrder.timeline = complaintOrder.timeline || [];
-    complaintOrder.timeline.push({
-      status: 'completed',
-      description: 'Reklamationsauftrag wurde nach Angebotsumwandlung abgeschlossen',
-      completedAt: new Date(),
-      staffId: req.user._id.toString(),
-      staffName: actorName(req.user),
-    });
-    await complaintOrder.save();
+    await OrderService.updateStatus(
+      complaintOrder._id,
+      'completed',
+      'Reklamationsauftrag wurde nach Angebotsumwandlung abgeschlossen',
+      req.user._id
+    );
 
     complaint.complaintLogs.push({
       actorId: req.user._id,

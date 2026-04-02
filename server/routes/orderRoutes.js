@@ -425,52 +425,9 @@ router.put('/:id/status', requireUser, requireRole(['admin', 'staff']), async (r
     }
 
     // Update order status via service
-    const order = await OrderService.updateStatus(req.params.id, status);
+    const order = await OrderService.updateStatus(req.params.id, status, statusMessage, req.user._id);
 
-    // Send status update email asynchronously (don't block response)
-    setImmediate(async () => {
-      try {
-        if (order.customerId && order.customerId.email) {
-          const statusData = {
-            customerName: `${order.customerId.firstName || ''} ${order.customerId.lastName || ''}`.trim() || 'Valued Customer',
-            orderNumber: order.orderNumber,
-            orderStatus: status,
-            statusMessage: statusMessage || `Your order status is now: ${status}`,
-            statusUpdatedAt: new Date(),
-            orderId: order._id,
-            trackingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders/${order._id}`
-          };
-
-          const emailResult = await EmailService.sendOrderStatusUpdateEmail(
-            order.customerId.email,
-            statusData
-          );
-
-          if (emailResult.success) {
-            console.log('Order status update email sent to:', order.customerId.email);
-          } else {
-            console.error('Failed to send status update email:', emailResult.error);
-          }
-        }
-      } catch (emailError) {
-        console.error('Error sending status update email:', emailError.message);
-      }
-
-      // Send in-app notification to customer
-      try {
-        const customerId = order.customerId._id || order.customerId;
-        if (customerId) {
-          await NotificationService.createOrderUpdateNotification(
-            order._id,
-            customerId,
-            status,
-            statusMessage || `Dein Auftrag ${order.orderNumber} wurde aktualisiert: ${status}`
-          );
-        }
-      } catch (notifError) {
-        console.error('Error creating order status notification:', notifError.message);
-      }
-    });
+    // Customer notifications and email dispatch are handled centrally in OrderService.updateStatus.
 
     return res.status(200).json({
       success: true,

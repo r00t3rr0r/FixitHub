@@ -2027,16 +2027,80 @@ export function OrderDetails() {
         return { label: translateOrderStatus(status || 'pending'), className: 'is-pending' }
     }
   }
-  const activeTimelineStage = Array.isArray(progressTimeline?.stages)
-    ? progressTimeline.stages.find((stage: any, index: number) => {
-        const stageId = stage?.id
-        const currentStage = progressTimeline?.currentStage
-        return stageId === currentStage || index === currentStage || stage?.status === 'in-progress'
+  const timelineStages = Array.isArray(progressTimeline?.stages) ? progressTimeline.stages : []
+  const timelineCurrentStageIndex = (() => {
+    if (!timelineStages.length) return -1
+
+    const currentStage = progressTimeline?.currentStage
+
+    if (typeof currentStage === 'number' && Number.isFinite(currentStage)) {
+      return Math.max(0, Math.min(timelineStages.length - 1, currentStage))
+    }
+
+    if (typeof currentStage === 'string' && currentStage.trim()) {
+      const directIdMatch = timelineStages.findIndex((stage: any) => String(stage?.id || '') === currentStage)
+      if (directIdMatch >= 0) return directIdMatch
+
+      const normalizedCurrentStage = currentStage.trim().toLowerCase()
+      const semanticMatch = timelineStages.findIndex((stage: any) => {
+        const candidateValues = [stage?.id, stage?.name, stage?.label]
+        return candidateValues.some((candidate) => String(candidate || '').trim().toLowerCase() === normalizedCurrentStage)
       })
+      if (semanticMatch >= 0) return semanticMatch
+    }
+
+    const inProgressIndex = timelineStages.findIndex((stage: any) => stage?.status === 'in-progress')
+    if (inProgressIndex >= 0) return inProgressIndex
+
+    const statusBasedStageId = (() => {
+      const normalizedOrderStatus = String(order.status || '').toLowerCase()
+      if (normalizedOrderStatus === 'in-progress') return 'repair'
+      if (normalizedOrderStatus === 'quality-check') return 'quality-check'
+      if (normalizedOrderStatus === 'completed' || normalizedOrderStatus === 'ready-for-pickup') return 'pickup'
+      if (normalizedOrderStatus !== 'pending') return 'diagnostic'
+      return 'order-received'
+    })()
+
+    const statusBasedIndex = timelineStages.findIndex((stage: any) => String(stage?.id || '') === statusBasedStageId)
+    if (statusBasedIndex >= 0) return statusBasedIndex
+
+    const firstPendingIndex = timelineStages.findIndex((stage: any) => stage?.status !== 'completed')
+    return firstPendingIndex >= 0 ? firstPendingIndex : timelineStages.length - 1
+  })()
+  const timelineCurrentStageId = timelineCurrentStageIndex >= 0
+    ? String(timelineStages[timelineCurrentStageIndex]?.id || '')
+    : String(progressTimeline?.currentStage || '')
+  const activeTimelineStage = timelineCurrentStageIndex >= 0
+    ? timelineStages[timelineCurrentStageIndex]
     : null
   const currentStageLabel = activeTimelineStage
     ? translateOrderStatus(activeTimelineStage.label || activeTimelineStage.name || 'Aktiver Schritt')
     : translateOrderStatus(order.status)
+  const rawOrderProgress = Math.max(0, Math.min(100, safeToNumber(order.progress)))
+  const timelineProgressValue = timelineStages.length > 1 && timelineCurrentStageIndex >= 0
+    ? Math.round((timelineCurrentStageIndex / (timelineStages.length - 1)) * 100)
+    : timelineStages.length === 1
+      ? 100
+      : null
+  const statusBasedProgressValue = (() => {
+    const normalizedStatus = String(order.status || '').toLowerCase()
+    switch (normalizedStatus) {
+      case 'pending':
+        return 0
+      case 'diagnosed':
+        return 25
+      case 'in-progress':
+        return 50
+      case 'quality-check':
+        return 75
+      case 'ready-for-pickup':
+      case 'completed':
+        return 100
+      default:
+        return null
+    }
+  })()
+  const calculatedProgressValue = timelineProgressValue ?? statusBasedProgressValue ?? rawOrderProgress
   const customerNextStepInfo = (() => {
     const normalizedStatus = String(order.status || '').toLowerCase()
     const normalizedStage = String(
@@ -2387,7 +2451,7 @@ export function OrderDetails() {
 
   const progressHistoryEntries = Array.isArray(progressTimeline?.stages)
     ? progressTimeline.stages.map((stage: any, index: number) => {
-        const isActiveStage = stage.id === progressTimeline?.currentStage || stage.status === 'in-progress'
+        const isActiveStage = index === timelineCurrentStageIndex || stage.status === 'in-progress'
 
         return {
           id: `progress-${stage.id || index}`,
@@ -3212,20 +3276,21 @@ export function OrderDetails() {
   }
 
   const renderRepairProgressCard = () => {
-    const progressValue = Math.max(0, Math.min(100, safeToNumber(order.progress)))
-    const progressLabel =
+    const progressValue = calculatedProgressValue
+    const progressLabel = currentStageLabel || (
       progressValue >= 100 ? 'Abgeschlossen' :
       progressValue >= 75 ? 'Qualitätskontrolle' :
       progressValue >= 50 ? 'Reparatur in Bearbeitung' :
       progressValue >= 25 ? 'Diagnosebewertung' :
       'Auftrag erhalten'
+    )
 
     const progressSteps = progressTimeline?.stages?.length
       ? progressTimeline.stages.map((stage: any, index: number) => ({
-          key: stage.name || `stage-${index}`,
+          key: stage.id || stage.name || `stage-${index}`,
           label: translateOrderStatus(stage.label || stage.name || `Schritt ${index + 1}`),
-          completed: Boolean(stage.completed) || index < (progressTimeline.currentStage ?? 0),
-          active: index === (progressTimeline.currentStage ?? 0),
+          completed: Boolean(stage.completed) || stage.status === 'completed' || (timelineCurrentStageIndex >= 0 && index < timelineCurrentStageIndex),
+          active: (timelineCurrentStageIndex >= 0 && index === timelineCurrentStageIndex) || stage.status === 'in-progress',
         }))
       : [
           { key: 'received', label: 'Auftrag erhalten', completed: true, active: progressValue < 25 },
@@ -4194,7 +4259,7 @@ export function OrderDetails() {
           <div className="order-admin-kpi-grid">
             <div className="order-admin-kpi-card">
               <span>Fortschritt</span>
-              <strong>{order.progress}%</strong>
+              <strong>{calculatedProgressValue}%</strong>
             </div>
             <div className="order-admin-kpi-card">
               <span>Status</span>
@@ -4229,7 +4294,7 @@ export function OrderDetails() {
                   id: stage.id || `stage-${index}`,
                   label: translateOrderStatus(stage.label || stage.name || `Schritt ${index + 1}`),
                 }))}
-                currentStage={progressTimeline.currentStage}
+                currentStage={timelineCurrentStageId}
               />
             </div>
           )}

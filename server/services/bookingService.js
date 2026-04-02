@@ -10,6 +10,37 @@ const SystemConfiguration = require('../models/SystemConfiguration');
 const EmailService = require('./emailService');
 
 class BookingService {
+  static clampProgress(value) {
+    const numericValue = Number.isFinite(Number(value)) ? Number(value) : 0;
+    return Math.max(0, Math.min(100, Math.round(numericValue)));
+  }
+
+  static resolveOrderProgress(order) {
+    const rawProgress = this.clampProgress(order?.progress || 0);
+    const normalizedStatus = String(order?.status || '').toLowerCase();
+
+    switch (normalizedStatus) {
+      case 'pending':
+        return Math.min(rawProgress, 24);
+      case 'diagnosed':
+      case 'awaiting-parts':
+        return Math.max(25, Math.min(rawProgress || 25, 49));
+      case 'in-progress':
+      case 'paused':
+      case 'on-hold':
+        return Math.max(50, Math.min(rawProgress || 50, 74));
+      case 'quality-check':
+        return Math.max(75, Math.min(rawProgress || 75, 99));
+      case 'ready-for-pickup':
+      case 'completed':
+        return 100;
+      case 'cancelled':
+        return 0;
+      default:
+        return rawProgress;
+    }
+  }
+
   static async getBookingShippingLabelMode() {
     const envMode = String(process.env.BOOKING_DHL_LABEL_MODE || '').trim().toLowerCase();
 
@@ -627,7 +658,7 @@ class BookingService {
             // Calculate overall progress from all orders
             let totalProgress = 0;
             allOrders.forEach(order => {
-              totalProgress += (order.progress || 0);
+              totalProgress += this.resolveOrderProgress(order);
             });
             bookingPlain.overallProgress = Math.round(totalProgress / allOrders.length);
 
@@ -677,8 +708,32 @@ class BookingService {
         .limit(filters.limit || 50)
         .skip(filters.skip || 0);
 
-      console.log('BookingService: Found', bookings.length, 'bookings for customer on current page');
-      return bookings;
+      const bookingsWithProgress = await Promise.all(
+        bookings.map(async (booking) => {
+          try {
+            const allOrders = await Order.find({ bookingId: booking._id });
+            const bookingPlain = booking.toObject({ virtuals: true });
+
+            if (allOrders.length === 0) {
+              return bookingPlain;
+            }
+
+            let totalProgress = 0;
+            allOrders.forEach((order) => {
+              totalProgress += this.resolveOrderProgress(order);
+            });
+
+            bookingPlain.overallProgress = Math.round(totalProgress / allOrders.length);
+            return bookingPlain;
+          } catch (error) {
+            console.error('BookingService: Error calculating customer booking progress for booking:', booking._id, error);
+            return booking.toObject({ virtuals: true });
+          }
+        })
+      );
+
+      console.log('BookingService: Found', bookingsWithProgress.length, 'bookings for customer on current page');
+      return bookingsWithProgress;
     } catch (error) {
       console.error('BookingService: Error getting bookings:', error);
       throw error;
@@ -955,6 +1010,7 @@ class BookingService {
 
       // Transform orders to match expected structure with current repair progress status
       const transformedOrders = orders.map(order => {
+        const orderProgress = this.resolveOrderProgress(order);
         let orderData = {
           orderId: order._id.toString(),
           orderNumber: order.orderNumber || order._id.toString().slice(-8).toUpperCase(),
@@ -963,7 +1019,7 @@ class BookingService {
           sourceComplaintId: order.sourceComplaintId ? order.sourceComplaintId.toString() : null,
           parentOrderId: order.parentOrderId ? order.parentOrderId.toString() : null,
           status: order.status || 'pending',
-          progress: order.progress || 0,
+          progress: orderProgress,
           cost: order.totalCost,
         };
 
@@ -1164,7 +1220,7 @@ class BookingService {
       let completedCount = 0;
 
       allOrders.forEach(order => {
-        totalProgress += (order.progress || 0);
+        totalProgress += this.resolveOrderProgress(order);
         if (order.status === 'completed') {
           completedCount++;
         }
