@@ -81,6 +81,10 @@ class RepairRequestService {
         throw new Error('Customer not found');
       }
 
+      const resolvedCustomerPhone = String(
+        customer.phone || data.customerPhone || data.phone || ''
+      ).trim();
+
       // Set review deadline (3 business days from now)
       const reviewDeadline = new Date();
       reviewDeadline.setDate(reviewDeadline.getDate() + 3);
@@ -89,7 +93,8 @@ class RepairRequestService {
         customerId,
         customerName: `${customer.firstName} ${customer.lastName}`,
         customerEmail: customer.email,
-        customerPhone: customer.phone,
+        // Keep requests creatable even if legacy customer profiles have no phone saved.
+        customerPhone: resolvedCustomerPhone || 'Nicht angegeben',
         deviceType: data.deviceType,
         deviceBrand: data.deviceBrand,
         deviceModel: data.deviceModel,

@@ -733,7 +733,7 @@ function getDefaultNotificationTemplates() {
 
     // ===== REPAIR REQUEST TEMPLATES =====
     {
-      name: 'Repair Request eingegangen',
+      name: 'Repair Requests eingegangen',
       type: 'email',
       subject: 'Ihre Reparaturanfrage {{requestNumber}} ist bei uns eingegangen',
       content: renderEmailTemplate({

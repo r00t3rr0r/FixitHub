@@ -1131,5 +1131,58 @@
         "supportPhone"
       ]
     }
+  },
+  {
+    "id": "1775120601607-7hw4j371z",
+    "timestamp": "2026-04-02T09:03:21.607Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Nachrichten",
+    "messageId": "<ce4da267-8fa6-33d7-2b1a-322ece903dc5@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1090,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775120873291-zfdohsll9",
+    "timestamp": "2026-04-02T09:07:53.291Z",
+    "to": "customer@example.com",
+    "templateName": "Repair Request eingegangen",
+    "subject": "Ihre Reparaturanfrage RR-1775120872408-00001 ist bei uns eingegangen",
+    "messageId": "<c755c5ee-1e73-3ef0-d728-79125299f998@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 857,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "requestNumber",
+        "deviceBrand",
+        "deviceModel",
+        "issueDescription",
+        "submittedAt",
+        "requestUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
   }
 ]

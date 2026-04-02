@@ -22,6 +22,14 @@ router.post('/', requireUser, async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating repair request:', error);
+
+    if (error?.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: error.message || 'Validation failed while creating repair request',
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to create repair request',

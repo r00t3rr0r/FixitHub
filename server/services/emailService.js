@@ -24,7 +24,7 @@ class EmailService {
     booking_status_updated: 'Buchung Statusupdate',
     booking_ready_for_pickup: 'Buchung bereit zur Abholung',
     booking_cancelled: 'Buchung storniert',
-    repair_request_created: 'Repair Request eingegangen',
+    repair_request_created: 'Repair Requests eingegangen',
     repair_request_processing: 'Repair Request in Bearbeitung',
     repair_request_diagnosed: 'Repair Request Diagnose abgeschlossen',
     repair_request_message: 'Repair Request neue Nachricht',
@@ -39,6 +39,11 @@ class EmailService {
     invoice_created: 'Neue Rechnung verfuegbar',
     pickup_reminder: 'Abholung bereit Erinnerung',
     system_notification: 'Allgemeine Systemnachricht'
+  };
+
+  // Backward compatibility for existing installations that still use older template names.
+  static TRIGGER_TEMPLATE_FALLBACKS = {
+    repair_request_created: ['Repair Request eingegangen']
   };
 
   static logger = new Logger('EmailService', { 
@@ -576,7 +581,24 @@ This is an automated email. Please do not reply to this message.
       };
     }
 
-    return this.sendTemplateEmail(templateName, toEmail, variables);
+    const candidateTemplates = [
+      templateName,
+      ...(this.TRIGGER_TEMPLATE_FALLBACKS[trigger] || [])
+    ].filter((name, index, arr) => Boolean(name) && arr.indexOf(name) === index);
+
+    let lastResult = null;
+    for (const candidateTemplate of candidateTemplates) {
+      const result = await this.sendTemplateEmail(candidateTemplate, toEmail, variables);
+      if (result?.success) {
+        return result;
+      }
+      lastResult = result;
+    }
+
+    return lastResult || {
+      success: false,
+      error: `Failed to send trigger email for "${trigger}"`
+    };
   }
 
   /**
