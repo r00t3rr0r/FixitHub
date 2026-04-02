@@ -10,6 +10,7 @@ const { generateAccessToken, generateRefreshToken } = require('../utils/auth.js'
 const jwt = require('jsonwebtoken');
 
 const router = express.Router();
+const normalizeEmailAddress = (email) => String(email || '').trim().toLowerCase();
 
 router.post('/login', async (req, res) => {
   console.log('Login request received:', { 
@@ -30,32 +31,33 @@ router.post('/login', async (req, res) => {
   };
 
   const { email, password } = req.body;
+  const normalizedEmail = normalizeEmailAddress(email);
 
-  if (!email || !password) {
+  if (!normalizedEmail || !password) {
     console.log('Missing email or password');
     return sendError('Email and password are required');
   }
 
   try {
-    console.log('Attempting to authenticate user:', email);
+    console.log('Attempting to authenticate user:', normalizedEmail);
     console.log('Password provided length:', password.length);
     console.log('Environment:', process.env.NODE_ENV);
 
     // Check if user exists first
-    const userExists = await User.findOne({ email }).exec();
+    const userExists = await User.findOne({ email: normalizedEmail }).exec();
     if (!userExists) {
-      console.log(`User not found in database: ${email}`);
+      console.log(`User not found in database: ${normalizedEmail}`);
       return sendError('Email or password is incorrect', {
         issue: 'user_not_found',
         suggestion: 'User may need to be created. Try running seed data endpoint.'
       });
     }
 
-    console.log(`User found: ${email}, role: ${userExists.role}, isActive: ${userExists.isActive}, status: ${userExists.status}`);
+    console.log(`User found: ${normalizedEmail}, role: ${userExists.role}, isActive: ${userExists.isActive}, status: ${userExists.status}`);
 
     // Check if user's email is verified (status must be 'active')
     if (userExists.status === 'inactive') {
-      console.log(`User email not verified for: ${email}`);
+      console.log(`User email not verified for: ${normalizedEmail}`);
       return sendError('Email address not verified. Please check your email and click the verification link.', {
         issue: 'email_not_verified',
         status: 'inactive'
@@ -64,13 +66,13 @@ router.post('/login', async (req, res) => {
 
     // Check if user is blocked or suspended
     if (userExists.status === 'blocked' || userExists.status === 'suspended') {
-      console.log(`User account is ${userExists.status} for: ${email}`);
+      console.log(`User account is ${userExists.status} for: ${normalizedEmail}`);
       return sendError(`Your account has been ${userExists.status}. Please contact support.`, {
         issue: `account_${userExists.status}`
       });
     }
 
-    const user = await UserService.authenticateWithPassword(email, password);
+    const user = await UserService.authenticateWithPassword(normalizedEmail, password);
 
     if (user) {
       console.log('User authenticated successfully:', user.email);
@@ -121,18 +123,46 @@ router.post('/register', async (req, res, next) => {
 
   try {
     const { email, password, firstName, lastName, phone, role } = req.body;
+    const normalizedEmail = normalizeEmailAddress(email);
 
-    console.log('Creating new user with email:', email);
-    const user = await UserService.create({
-      email,
-      password,
-      firstName: firstName || '',
-      lastName: lastName || '',
-      phone: phone || '',
-      role: role || 'customer',
-      status: 'inactive', // New users start as inactive until email is verified
-      isActive: false
-    });
+    let user;
+    const existingUser = await UserService.getByEmail(normalizedEmail);
+
+    if (existingUser) {
+      const canReuseInactiveCustomer =
+        existingUser.role === 'customer' &&
+        existingUser.status === 'inactive' &&
+        existingUser.isActive === false;
+
+      if (!canReuseInactiveCustomer) {
+        throw new Error('User with this email already exists');
+      }
+
+      existingUser.firstName = firstName || '';
+      existingUser.lastName = lastName || '';
+      existingUser.name = `${firstName || ''} ${lastName || ''}`.trim();
+      existingUser.phone = phone || '';
+      existingUser.status = 'inactive';
+      existingUser.isActive = false;
+      existingUser.refreshToken = null;
+      existingUser.passwordResetToken = null;
+      existingUser.passwordResetExpires = null;
+
+      user = await UserService.setPassword(existingUser, password);
+      console.log('Register: Reused inactive customer account for email:', normalizedEmail);
+    } else {
+      console.log('Creating new user with email:', normalizedEmail);
+      user = await UserService.create({
+        email: normalizedEmail,
+        password,
+        firstName: firstName || '',
+        lastName: lastName || '',
+        phone: phone || '',
+        role: role || 'customer',
+        status: 'inactive', // New users start as inactive until email is verified
+        isActive: false
+      });
+    }
 
     console.log('User created successfully:', user.email);
 
@@ -178,12 +208,13 @@ router.post('/logout', async (req, res) => {
   console.log('Logout request received:', req.body);
 
   const { email } = req.body;
+  const normalizedEmail = normalizeEmailAddress(email);
 
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email: normalizedEmail });
   if (user) {
     user.refreshToken = null;
     await user.save();
-    console.log('User logged out successfully:', email);
+    console.log('User logged out successfully:', normalizedEmail);
   }
 
   res.status(200).json({ message: 'User logged out successfully.' });

@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const User = require('../models/User.js');
 const { generatePasswordHash, validatePassword } = require('../utils/password.js');
 
+const normalizeEmailAddress = (email) => String(email || '').trim().toLowerCase();
+
 class UserService {
   static async list() {
     try {
@@ -74,12 +76,13 @@ class UserService {
 
   static async getByEmail(email) {
     try {
-      console.log(`UserService.getByEmail: Looking for user with email: ${email}`);
-      const user = await User.findOne({ email }).exec();
+      const normalizedEmail = normalizeEmailAddress(email);
+      console.log(`UserService.getByEmail: Looking for user with email: ${normalizedEmail}`);
+      const user = await User.findOne({ email: normalizedEmail }).exec();
       if (user) {
-        console.log(`UserService.getByEmail: Found user with email: ${email}, ID: ${user._id}, role: ${user.role}`);
+        console.log(`UserService.getByEmail: Found user with email: ${normalizedEmail}, ID: ${user._id}, role: ${user.role}`);
       } else {
-        console.log(`UserService.getByEmail: No user found with email: ${email}`);
+        console.log(`UserService.getByEmail: No user found with email: ${normalizedEmail}`);
       }
       return user;
     } catch (err) {
@@ -125,51 +128,53 @@ class UserService {
     if (!email) throw new Error('Email is required');
     if (!password) throw new Error('Password is required');
 
+    const normalizedEmail = normalizeEmailAddress(email);
+
     try {
-      console.log(`UserService.authenticateWithPassword: Attempting to authenticate user: ${email}`);
+      console.log(`UserService.authenticateWithPassword: Attempting to authenticate user: ${normalizedEmail}`);
       console.log(`UserService.authenticateWithPassword: Password provided length: ${password.length}`);
 
-      const user = await User.findOne({email}).exec();
+      const user = await User.findOne({ email: normalizedEmail }).exec();
       if (!user) {
-        console.log(`UserService.authenticateWithPassword: No user found with email: ${email}`);
+        console.log(`UserService.authenticateWithPassword: No user found with email: ${normalizedEmail}`);
         return null;
       }
 
-      console.log(`UserService.authenticateWithPassword: User found with email: ${email}, validating password...`);
+      console.log(`UserService.authenticateWithPassword: User found with email: ${normalizedEmail}, validating password...`);
       console.log(`UserService.authenticateWithPassword: Stored password hash length: ${user.password.length}`);
       console.log(`UserService.authenticateWithPassword: User role: ${user.role}, isActive: ${user.isActive}`);
 
       // Check if user is active
       if (!user.isActive) {
-        console.log(`UserService.authenticateWithPassword: User account is inactive: ${email}`);
+        console.log(`UserService.authenticateWithPassword: User account is inactive: ${normalizedEmail}`);
         return null;
       }
 
       const passwordValid = await validatePassword(password, user.password);
-      console.log(`UserService.authenticateWithPassword: Password validation result for ${email}: ${passwordValid}`);
+      console.log(`UserService.authenticateWithPassword: Password validation result for ${normalizedEmail}: ${passwordValid}`);
 
       if (!passwordValid) {
-        console.log(`UserService.authenticateWithPassword: Password validation failed for user: ${email}`);
+        console.log(`UserService.authenticateWithPassword: Password validation failed for user: ${normalizedEmail}`);
         
         // Log expected passwords for debugging in development
         if (process.env.NODE_ENV === 'development') {
-          if (email === 'admin@example.com') {
+          if (normalizedEmail === 'admin@example.com') {
             console.log(`UserService.authenticateWithPassword: Expected password for admin should be 'admin123'`);
-          } else if (email.includes('@example.com')) {
+          } else if (normalizedEmail.includes('@example.com')) {
             console.log(`UserService.authenticateWithPassword: Expected password for test users should be 'password123'`);
           }
         }
         return null;
       }
 
-      console.log(`UserService.authenticateWithPassword: Authentication successful for user: ${email}`);
+      console.log(`UserService.authenticateWithPassword: Authentication successful for user: ${normalizedEmail}`);
       user.lastLoginAt = Date.now();
       const updatedUser = await user.save();
-      console.log(`UserService.authenticateWithPassword: Last login time updated for user: ${email}`);
+      console.log(`UserService.authenticateWithPassword: Last login time updated for user: ${normalizedEmail}`);
       return updatedUser;
     } catch (err) {
-      console.error(`UserService.authenticateWithPassword: Database error while authenticating user ${email}:`, err);
-      throw new Error(`Database error while authenticating user ${email} with password: ${err}`);
+      console.error(`UserService.authenticateWithPassword: Database error while authenticating user ${normalizedEmail}:`, err);
+      throw new Error(`Database error while authenticating user ${normalizedEmail} with password: ${err}`);
     }
   }
 
@@ -186,24 +191,26 @@ class UserService {
     if (!email) throw new Error('Email is required');
     if (!password) throw new Error('Password is required');
 
-    console.log('UserService.create: Creating user with email:', email, 'role:', role);
+    const normalizedEmail = normalizeEmailAddress(email);
 
-    const existingUser = await UserService.getByEmail(email);
+    console.log('UserService.create: Creating user with email:', normalizedEmail, 'role:', role);
+
+    const existingUser = await UserService.getByEmail(normalizedEmail);
     if (existingUser) {
-      console.log(`UserService.create: User with email ${email} already exists`);
+      console.log(`UserService.create: User with email ${normalizedEmail} already exists`);
       throw new Error('User with this email already exists');
     }
 
-    console.log(`UserService.create: Generating password hash for user: ${email}`);
+    console.log(`UserService.create: Generating password hash for user: ${normalizedEmail}`);
     const hash = await generatePasswordHash(password);
-    console.log(`UserService.create: Password hash generated for user: ${email}, hash length: ${hash.length}`);
+    console.log(`UserService.create: Password hash generated for user: ${normalizedEmail}, hash length: ${hash.length}`);
 
     try {
       // Generate full name from first and last name
       const name = `${firstName} ${lastName}`.trim();
 
       const user = new User({
-        email,
+        email: normalizedEmail,
         password: hash,
         firstName,
         lastName,
@@ -216,7 +223,7 @@ class UserService {
         avatar: `https://via.placeholder.com/150x150/3b82f6/ffffff?text=${firstName.charAt(0)}${lastName.charAt(0)}`,
       });
 
-      console.log(`UserService.create: Saving user to database: ${email}`);
+      console.log(`UserService.create: Saving user to database: ${normalizedEmail}`);
       await user.save();
       console.log(`UserService.create: User created successfully with ID: ${user._id}, role: ${user.role}`);
       return user;

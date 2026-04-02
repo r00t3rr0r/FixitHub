@@ -2,11 +2,19 @@ import api from './api';
 
 interface ApiErrorLike {
   message?: string;
+  status?: number;
+  statusText?: string;
+  data?: {
+    message?: string;
+    error?: string;
+  };
   response?: {
     data?: {
       message?: string;
+      error?: string;
     };
     status?: number;
+    statusText?: string;
     headers?: unknown;
   };
 }
@@ -21,7 +29,18 @@ interface PasswordPolicy {
 
 const toErrorMessage = (error: unknown): string => {
   const typedError = error as ApiErrorLike;
-  return typedError?.response?.data?.message || typedError?.message || 'Unknown error';
+  const responseMessage = typedError?.response?.data?.message || typedError?.response?.data?.error;
+  if (responseMessage) return responseMessage;
+
+  const directMessage = typedError?.data?.message || typedError?.data?.error;
+  if (directMessage) return directMessage;
+
+  const statusCode = typedError?.response?.status ?? typedError?.status;
+  if (statusCode) {
+    return `Server error (${statusCode}). Please try again.`;
+  }
+
+  return typedError?.message || 'Network or server error. Please try again.';
 };
 
 // Description: Login user functionality

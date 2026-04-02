@@ -1,0 +1,65 @@
+[
+  {
+    "id": "1775091808133-yclc1twnu",
+    "timestamp": "2026-04-02T01:03:28.133Z",
+    "to": "diag.1775091788@example.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei FixitHub - bitte Konto aktivieren",
+    "messageId": "<66144a12-71d4-93b4-140d-9bc840f96fce@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 19883,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775091871949-dzhfpzz11",
+    "timestamp": "2026-04-02T01:04:31.949Z",
+    "to": "proxycheck.1775091867@example.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei FixitHub - bitte Konto aktivieren",
+    "messageId": "<d70ece27-9ae7-2db0-83be-cd0c55b9bc2c@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 4419,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775092009121-809312wnk",
+    "timestamp": "2026-04-02T01:06:49.121Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei FixitHub - bitte Konto aktivieren",
+    "messageId": "<6a59e7f4-daec-0b30-b695-08a3e52fafb3@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1371,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  }
+]

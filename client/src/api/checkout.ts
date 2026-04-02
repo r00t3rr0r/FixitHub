@@ -1,5 +1,21 @@
 import api from './api';
 
+export type CheckoutApiError = Error & {
+  status?: number;
+  missingFields?: Record<string, boolean>;
+};
+
+const toCheckoutError = (error: any, fallbackMessage: string): CheckoutApiError => {
+  const responseData = error?.response?.data || error?.data || {};
+  const message = responseData?.error || responseData?.message || error?.message || fallbackMessage;
+  const enrichedError = new Error(message) as CheckoutApiError;
+  enrichedError.status = error?.response?.status || error?.status;
+  if (responseData?.missingFields && typeof responseData.missingFields === 'object') {
+    enrichedError.missingFields = responseData.missingFields;
+  }
+  return enrichedError;
+};
+
 export interface BillingAddress {
   street: string;
   city: string;
@@ -93,7 +109,7 @@ export const completeCheckout = async (
     const response = await api.post('/api/checkout/complete', { paymentMethod, paymentData });
     return response.data;
   } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toCheckoutError(error, 'Checkout failed');
   }
 };
 
@@ -116,6 +132,6 @@ export const completeGuestCheckout = async (
     });
     return response.data;
   } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toCheckoutError(error, 'Guest checkout failed');
   }
 };
