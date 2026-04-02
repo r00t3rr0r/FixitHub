@@ -93,9 +93,7 @@ class NotificationService {
         if (!value) return '';
         if (/^https?:\/\//i.test(value)) return value;
 
-        const baseUrl = String(process.env.FRONTEND_URL || process.env.PUBLIC_APP_URL || '').trim();
-        if (!baseUrl) return value;
-
+        const baseUrl = String(process.env.FRONTEND_URL || process.env.PUBLIC_APP_URL || 'http://localhost:5173').trim();
         const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
         const normalizedPath = value.startsWith('/') ? value : `/${value}`;
         return `${normalizedBase}${normalizedPath}`;
@@ -120,7 +118,7 @@ class NotificationService {
       const templateName = await this.resolveCustomerNotificationTemplateName();
 
       const emailResult = await EmailService.sendTemplateEmail(templateName, user.email, {
-        companyName: process.env.COMPANY_NAME || 'FixitHub',
+        companyName: process.env.COMPANY_NAME || 'McRepair.de',
         customerName,
         notificationCategoryLabel,
         notificationCreatedAt,

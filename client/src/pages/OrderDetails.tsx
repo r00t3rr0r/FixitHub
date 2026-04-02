@@ -1988,6 +1988,7 @@ export function OrderDetails() {
       'invoice_uploaded': 'Rechnung hochgeladen',
       'return_exchange_requested': 'Rückgabe/Umtausch angefordert',
       'pending': 'Ausstehend',
+      'diagnostic-assessment': 'Diagnosebewertung',
       'in-progress': 'In Bearbeitung',
       'paused': 'Pausiert',
       'completed': 'Abgeschlossen',
@@ -1995,6 +1996,7 @@ export function OrderDetails() {
       'diagnosed': 'Diagnostiziert',
       'awaiting-parts': 'Wartet auf Teile',
       'ready-for-pickup': 'Abholbereit',
+      'cancelled': 'Storniert',
     }
     if (statusMap[status]) return statusMap[status]
     // Handle dynamic shipping status prefix
@@ -2062,7 +2064,8 @@ export function OrderDetails() {
 
     const statusBasedStageId = (() => {
       const normalizedOrderStatus = String(order.status || '').toLowerCase()
-      if (normalizedOrderStatus === 'in-progress') return 'repair'
+      if (normalizedOrderStatus === 'diagnostic-assessment') return 'diagnostic'
+      if (normalizedOrderStatus === 'in-progress' || normalizedOrderStatus === 'paused') return 'repair'
       if (normalizedOrderStatus === 'quality-check') return 'quality-check'
       if (normalizedOrderStatus === 'completed' || normalizedOrderStatus === 'ready-for-pickup') return 'pickup'
       if (normalizedOrderStatus !== 'pending') return 'diagnostic'
@@ -2085,6 +2088,13 @@ export function OrderDetails() {
     ? translateOrderStatus(activeTimelineStage.label || activeTimelineStage.name || 'Aktiver Schritt')
     : translateOrderStatus(order.status)
   const rawOrderProgress = Math.max(0, Math.min(100, safeToNumber(order.progress)))
+  const isRepairStageActive = (() => {
+    const normalizedOrderStatus = String(order.status || '').toLowerCase()
+    const normalizedStageId = String(activeTimelineStage?.id || '').toLowerCase()
+    return normalizedOrderStatus === 'in-progress'
+      || normalizedOrderStatus === 'paused'
+      || normalizedStageId === 'repair'
+  })()
   const timelineProgressValue = timelineStages.length > 1 && timelineCurrentStageIndex >= 0
     ? Math.round((timelineCurrentStageIndex / (timelineStages.length - 1)) * 100)
     : timelineStages.length === 1
@@ -2095,9 +2105,10 @@ export function OrderDetails() {
     switch (normalizedStatus) {
       case 'pending':
         return 0
-      case 'diagnosed':
+      case 'diagnostic-assessment':
         return 25
       case 'in-progress':
+      case 'paused':
         return 50
       case 'quality-check':
         return 75
@@ -2108,7 +2119,10 @@ export function OrderDetails() {
         return null
     }
   })()
-  const calculatedProgressValue = timelineProgressValue ?? statusBasedProgressValue ?? rawOrderProgress
+  const repairStageProgressValue = isRepairStageActive
+    ? Math.max(50, Math.min(75, Math.round(50 + (rawOrderProgress / 100) * 25)))
+    : null
+  const calculatedProgressValue = repairStageProgressValue ?? timelineProgressValue ?? statusBasedProgressValue ?? rawOrderProgress
   const customerNextStepInfo = (() => {
     const normalizedStatus = String(order.status || '').toLowerCase()
     const normalizedStage = String(
@@ -2175,7 +2189,7 @@ export function OrderDetails() {
       }
     }
 
-    if (normalizedStatus === 'diagnosed' || normalizedStage.includes('diagnos')) {
+    if (normalizedStatus === 'diagnosed' || normalizedStatus === 'diagnostic-assessment' || normalizedStage.includes('diagnos')) {
       return {
         eyebrow: 'Diagnose abgeschlossen',
         steps: [
@@ -2229,10 +2243,10 @@ export function OrderDetails() {
     )
     if (d !== desc) return d
 
-    // Order status changed … due to workflow being paused
+    // Order status changed … due to workflow activity
     d = d.replace(
-      /^Order status changed from (.+?) to (.+?) due to workflow being paused$/,
-      (_, from, to) => `Auftragsstatus geändert von ${translateOrderStatus(from)} zu ${translateOrderStatus(to)} – Workflow wurde pausiert`
+      /^Order status changed from (.+?) to (.+?) due to workflow (?:being paused|status update)$/,
+      (_, from, to) => `Auftragsstatus geändert von ${translateOrderStatus(from)} zu ${translateOrderStatus(to)} – Workflow-Status aktualisiert`
     )
     if (d !== desc) return d
 

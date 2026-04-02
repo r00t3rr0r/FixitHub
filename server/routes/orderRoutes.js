@@ -258,7 +258,7 @@ router.post('/:orderId/complaint', requireUser, async (req, res) => {
 
         if (admin.email) {
           await EmailService.sendTemplateEmail('Statusupdate Auftrag oder Buchung', admin.email, {
-            companyName: 'FixitHub',
+            companyName: 'McRepair.de',
             customerName: 'Admin Team',
             orderNumber: order.orderNumber,
             orderStatus: 'Neue Reklamation',
@@ -278,7 +278,7 @@ router.post('/:orderId/complaint', requireUser, async (req, res) => {
     try {
       if (req.user?.email) {
         await EmailService.sendTriggerEmail('complaint_created', req.user.email, {
-          companyName: process.env.COMPANY_NAME || 'FixitHub',
+          companyName: process.env.COMPANY_NAME || 'McRepair.de',
           customerName,
           complaintNumber: complaint.complaintNumber || complaintNumber,
           complaintCategory: complaint.category || 'service',

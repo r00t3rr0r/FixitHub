@@ -74,7 +74,7 @@ async function notifyAdminsAboutComplaint(complaint, customer, order) {
 
       if (admin.email) {
         await EmailService.sendTemplateEmail('Statusupdate Auftrag oder Buchung', admin.email, {
-          companyName: 'FixitHub',
+          companyName: 'McRepair.de',
           customerName: 'Admin Team',
           orderNumber: order.orderNumber,
           orderStatus: 'Reklamation eingegangen',
@@ -112,7 +112,7 @@ async function notifyCustomer(complaint, customerId, title, message, metadata = 
       const trigger = getComplaintEmailTrigger(complaint, metadata);
 
       await EmailService.sendTriggerEmail(trigger, customer.email, {
-        companyName: process.env.COMPANY_NAME || 'FixitHub',
+        companyName: process.env.COMPANY_NAME || 'McRepair.de',
         customerName,
         complaintNumber: complaint.complaintNumber || String(complaint._id),
         complaintStatus: complaint.status,
@@ -871,7 +871,7 @@ router.post('/', requireUser, async (req, res) => {
       const customer = await User.findById(req.user._id).select('email firstName lastName');
       if (customer?.email) {
         await EmailService.sendTriggerEmail('complaint_created', customer.email, {
-          companyName: process.env.COMPANY_NAME || 'FixitHub',
+          companyName: process.env.COMPANY_NAME || 'McRepair.de',
           customerName: `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email,
           complaintNumber: complaint.complaintNumber || String(complaint._id),
           complaintCategory: complaint.category,

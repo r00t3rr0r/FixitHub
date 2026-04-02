@@ -2,6 +2,7 @@ const DeviceInspection = require('../models/DeviceInspection');
 const Order = require('../models/Order');
 const NotificationService = require('./notificationService');
 const OrderService = require('./orderService');
+const EmailService = require('./emailService');
 const pdfkit = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
@@ -380,6 +381,39 @@ class DeviceInspectionService {
 
       await inspection.save();
       console.log(`[DeviceInspection] Inspection completed: ${inspection._id}`);
+
+      // Send customer notification email asynchronously (non-blocking)
+      setImmediate(async () => {
+        try {
+          const order = await Order.findById(orderId)
+            .populate('customerId', 'firstName lastName name email')
+            .select('orderNumber deviceBrand deviceModel customerId');
+
+          if (order && order.customerId && order.customerId.email) {
+            const customerName = String(
+              `${order.customerId.firstName || ''} ${order.customerId.lastName || ''}`.trim() ||
+              order.customerId.name ||
+              order.customerId.email
+            );
+
+            await EmailService.sendDiagnosisCompletedEmail(order.customerId.email, {
+              customerName,
+              orderNumber: order.orderNumber,
+              deviceBrand: order.deviceBrand,
+              deviceModel: order.deviceModel,
+              isRepairable,
+              orderId: String(orderId),
+              diagnosisCompletedAt: inspection.completedAt,
+              deviceCondition: inspection.externalInspection?.overallCondition || null,
+              recommendedAction: repairOffer
+                ? `Kostenvoranschlag: EUR ${Number(repairOffer.amount || 0).toFixed(2)}`
+                : (isRepairable ? 'Kostenvoranschlag wird erstellt' : 'Bitte kontaktieren Sie uns fuer weitere Optionen')
+            });
+          }
+        } catch (emailError) {
+          console.error(`[DeviceInspection] Error sending diagnosis completed email:`, emailError);
+        }
+      });
 
       return inspection;
     } catch (error) {

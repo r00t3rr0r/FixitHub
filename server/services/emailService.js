@@ -17,6 +17,7 @@ class EmailService {
     order_status_updated: 'Statusupdate Auftrag oder Buchung',
     device_received: 'Geraet eingegangen',
     quote_approval_requested: 'Kostenvoranschlag zur Freigabe',
+    diagnosis_completed: 'Diagnose abgeschlossen',
     order_completed: 'Reparatur abgeschlossen und Rueckversand',
     payment_confirmed: 'Zahlung bestaetigt',
     booking_created: 'Buchung angelegt',
@@ -581,7 +582,7 @@ This is an automated email. Please do not reply to this message.
   /**
    * Send registration/account activation email
    */
-  static async sendRegistrationEmail(toEmail, customerName, verificationUrl, companyName = 'FixitHub') {
+  static async sendRegistrationEmail(toEmail, customerName, verificationUrl, companyName = 'McRepair.de') {
     return this.sendTriggerEmail('user_registered', toEmail, {
       companyName,
       customerName,
@@ -595,7 +596,7 @@ This is an automated email. Please do not reply to this message.
   /**
    * Send password reset email
    */
-  static async sendPasswordResetEmail(toEmail, customerName, passwordResetUrl, resetExpiresAt, companyName = 'FixitHub') {
+  static async sendPasswordResetEmail(toEmail, customerName, passwordResetUrl, resetExpiresAt, companyName = 'McRepair.de') {
     return this.sendTriggerEmail('password_reset_requested', toEmail, {
       companyName,
       customerName,
@@ -610,7 +611,7 @@ This is an automated email. Please do not reply to this message.
   /**
    * Send order confirmation email
    */
-  static async sendOrderConfirmationEmail(toEmail, orderData, companyName = 'FixitHub') {
+  static async sendOrderConfirmationEmail(toEmail, orderData, companyName = 'McRepair.de') {
     return this.sendTriggerEmail('order_created', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
@@ -627,9 +628,30 @@ This is an automated email. Please do not reply to this message.
   }
 
   /**
+   * Send diagnosis completed email
+   */
+  static async sendDiagnosisCompletedEmail(toEmail, orderData, companyName = 'McRepair.de') {
+    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+    return this.sendTriggerEmail('diagnosis_completed', toEmail, {
+      companyName,
+      customerName: orderData.customerName || 'Geehrter Kunde',
+      orderNumber: orderData.orderNumber,
+      deviceBrand: orderData.deviceBrand,
+      deviceModel: orderData.deviceModel,
+      diagnosisResult: orderData.isRepairable ? 'Reparierbar' : 'Nicht reparierbar',
+      diagnosisCompletedAt: new Date(orderData.diagnosisCompletedAt || Date.now()).toLocaleString('de-DE'),
+      deviceCondition: orderData.deviceCondition || 'Wird im Bericht beschrieben',
+      recommendedAction: orderData.recommendedAction || (orderData.isRepairable ? 'Kostenvoranschlag wird erstellt' : 'Bitte kontaktieren Sie uns fuer weitere Optionen'),
+      orderUrl: `${FRONTEND_URL}/orders/${orderData.orderId}`,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+    });
+  }
+
+  /**
    * Send order status update email
    */
-  static async sendOrderStatusUpdateEmail(toEmail, orderData, companyName = 'FixitHub') {
+  static async sendOrderStatusUpdateEmail(toEmail, orderData, companyName = 'McRepair.de') {
     return this.sendTriggerEmail('order_status_updated', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
@@ -646,7 +668,7 @@ This is an automated email. Please do not reply to this message.
   /**
    * Send device received email
    */
-  static async sendDeviceReceivedEmail(toEmail, orderData, companyName = 'FixitHub') {
+  static async sendDeviceReceivedEmail(toEmail, orderData, companyName = 'McRepair.de') {
     return this.sendTriggerEmail('device_received', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
@@ -663,7 +685,7 @@ This is an automated email. Please do not reply to this message.
   /**
    * Send quote approval request email
    */
-  static async sendQuoteApprovalEmail(toEmail, orderData, companyName = 'FixitHub') {
+  static async sendQuoteApprovalEmail(toEmail, orderData, companyName = 'McRepair.de') {
     return this.sendTriggerEmail('quote_approval_requested', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
@@ -682,7 +704,7 @@ This is an automated email. Please do not reply to this message.
   /**
    * Send repair completion and return shipping email
    */
-  static async sendCompletionEmail(toEmail, orderData, companyName = 'FixitHub') {
+  static async sendCompletionEmail(toEmail, orderData, companyName = 'McRepair.de') {
     return this.sendTriggerEmail('order_completed', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
@@ -700,7 +722,7 @@ This is an automated email. Please do not reply to this message.
   /**
    * Send payment confirmation email
    */
-  static async sendPaymentConfirmationEmail(toEmail, paymentData, companyName = 'FixitHub') {
+  static async sendPaymentConfirmationEmail(toEmail, paymentData, companyName = 'McRepair.de') {
     return this.sendTriggerEmail('payment_confirmed', toEmail, {
       companyName,
       customerName: paymentData.customerName || 'Valued Customer',

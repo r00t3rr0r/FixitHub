@@ -111,7 +111,7 @@ class RepairRequestService {
       setImmediate(async () => {
         try {
           await EmailService.sendTriggerEmail('repair_request_created', repairRequest.customerEmail, {
-            companyName: process.env.COMPANY_NAME || 'FixitHub',
+            companyName: process.env.COMPANY_NAME || 'McRepair.de',
             customerName: repairRequest.customerName,
             requestNumber: repairRequest.requestNumber,
             deviceBrand: repairRequest.deviceBrand,
@@ -249,7 +249,7 @@ class RepairRequestService {
         try {
           const trigger = this.getRepairRequestStatusTrigger(status);
           await EmailService.sendTriggerEmail(trigger, request.customerEmail, {
-            companyName: process.env.COMPANY_NAME || 'FixitHub',
+            companyName: process.env.COMPANY_NAME || 'McRepair.de',
             customerName: request.customerName,
             requestNumber: request.requestNumber,
             deviceBrand: request.deviceBrand,
@@ -349,7 +349,7 @@ class RepairRequestService {
         setImmediate(async () => {
           try {
             await EmailService.sendTriggerEmail('repair_request_message', request.customerEmail, {
-              companyName: process.env.COMPANY_NAME || 'FixitHub',
+              companyName: process.env.COMPANY_NAME || 'McRepair.de',
               customerName: request.customerName,
               requestNumber: request.requestNumber,
               deviceBrand: request.deviceBrand,

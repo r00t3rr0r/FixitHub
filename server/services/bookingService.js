@@ -428,7 +428,7 @@ class BookingService {
           const shippingLabelUrl = savedBooking.shippingLabelUrl || bookingToReturn?.shippingLabelUrl || '';
 
           await EmailService.sendTriggerEmail('booking_created', customerEmail, {
-            companyName: process.env.COMPANY_NAME || 'FixitHub',
+            companyName: process.env.COMPANY_NAME || 'McRepair.de',
             customerName: customerName || customerEmail,
             bookingNumber: savedBooking.bookingNumber,
             bookingDate: new Date(savedBooking.createdAt || Date.now()).toLocaleDateString('de-DE'),
@@ -888,7 +888,7 @@ class BookingService {
           const trigger = newStatus === 'completed' ? 'booking_ready_for_pickup' : 'booking_status_updated';
 
           await EmailService.sendTriggerEmail(trigger, customerEmail, {
-            companyName: process.env.COMPANY_NAME || 'FixitHub',
+            companyName: process.env.COMPANY_NAME || 'McRepair.de',
             customerName,
             bookingNumber: populatedBooking.bookingNumber,
             bookingStatus: newStatus,
@@ -1023,7 +1023,7 @@ class BookingService {
             : `${populatedBooking?.guestInfo?.firstName || ''} ${populatedBooking?.guestInfo?.lastName || ''}`.trim() || customerEmail;
 
           await EmailService.sendTriggerEmail('booking_cancelled', customerEmail, {
-            companyName: process.env.COMPANY_NAME || 'FixitHub',
+            companyName: process.env.COMPANY_NAME || 'McRepair.de',
             customerName,
             bookingNumber: populatedBooking.bookingNumber,
             cancellationReason: 'Durch Service-Team storniert',
@@ -1230,7 +1230,7 @@ class BookingService {
         setImmediate(async () => {
           try {
             await EmailService.sendTriggerEmail('invoice_created', customerEmail, {
-              companyName: process.env.COMPANY_NAME || 'FixitHub',
+              companyName: process.env.COMPANY_NAME || 'McRepair.de',
               customerName,
               invoiceNumber: savedInvoice.invoiceNumber,
               orderNumber: booking.orderIds && booking.orderIds.length > 0 ? String(booking.orderIds[0]) : booking.bookingNumber,

@@ -61,6 +61,26 @@ class SystemConfigService {
       }
     }
 
+    if (previousVersion < 8) {
+      // Version 8: new "Diagnose abgeschlossen" template – added via missingTemplates push above;
+      // no content migration needed for existing templates.
+    }
+
+    if (previousVersion < 9) {
+      // Version 9: styled McRepair.de brand hardcoded in email header.
+      // Re-apply content for all email templates to pick up the new header HTML.
+      for (const defaultTemplate of defaultTemplates.filter((t) => t.type === 'email')) {
+        const key = normalizeTemplateKey(defaultTemplate);
+        const existing = (config.notificationTemplates || []).find(
+          (t) => normalizeTemplateKey(t) === key
+        );
+        if (existing) {
+          existing.content = defaultTemplate.content;
+        }
+      }
+      config.markModified('notificationTemplates');
+    }
+
     config.notificationTemplateDefaultsVersion = DEFAULT_NOTIFICATION_TEMPLATE_VERSION;
     await config.save();
 

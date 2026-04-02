@@ -1,7 +1,7 @@
-const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 7;
+const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 9;
 
 const brand = {
-  companyName: '{{companyName}}',
+  companyName: 'Mc<span style="color:#f5b800;font-weight:800;">Repair</span>.de',
   primary: '#1a2a5e',
   primaryDark: '#0f1d45',
   accent: '#f5b800',
@@ -365,6 +365,47 @@ function getDefaultNotificationTemplates() {
         createVariable('deviceModel', 'Geraetemodell', true),
         createVariable('receivedAt', 'Datum des Wareneingangs'),
         createVariable('trackingUrl', 'Link zur Auftragsverfolgung', true),
+        createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
+        createVariable('supportPhone', 'Service-Telefonnummer')
+      ],
+      isActive: true
+    },
+    {
+      name: 'Diagnose abgeschlossen',
+      type: 'email',
+      subject: 'Diagnose abgeschlossen: Auftrag {{orderNumber}} – {{deviceBrand}} {{deviceModel}}',
+      content: renderEmailTemplate({
+        preheader: 'Die Diagnose Ihres Geraetes wurde abgeschlossen. Hier finden Sie alle Ergebnisse auf einen Blick.',
+        eyebrow: 'Diagnose abgeschlossen',
+        title: 'Diagnosebericht fuer Ihr Geraet',
+        intro: 'Hallo {{customerName}}, die technische Diagnose Ihres Geraetes ist abgeschlossen. Im Folgenden finden Sie eine Zusammenfassung der Ergebnisse sowie die naechsten Schritte fuer Ihren Auftrag.',
+        highlights: [
+          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Diagnoseergebnis', value: '{{diagnosisResult}}', tone: 'yellow' }
+        ],
+        detailRows: [
+          { label: 'Auftragsnummer', value: '{{orderNumber}}' },
+          { label: 'Diagnose abgeschlossen am', value: '{{diagnosisCompletedAt}}' },
+          { label: 'Zustand', value: '{{deviceCondition}}' },
+          { label: 'Empfohlene Massnahme', value: '{{recommendedAction}}' }
+        ],
+        body: '<p style="margin:0 0 16px 0;">Im Kundenkonto koennen Sie den vollstaendigen Diagnosebericht einsehen und ggf. direkt auf unsere Empfehlung reagieren.</p><p style="margin:0;">Sollten Sie Fragen zu den Ergebnissen oder zum weiteren Vorgehen haben, stehen wir Ihnen jederzeit zur Verfuegung.</p>',
+        ctaLabel: 'Auftrag online einsehen',
+        ctaUrl: '{{orderUrl}}',
+        closing: 'Wir halten Sie weiterhin aktiv ueber den Fortschritt Ihres Auftrags informiert.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht wurde automatisch nach Abschluss der Gereatediagnose erstellt.'
+      }),
+      variables: [
+        createVariable('companyName', 'Name des Unternehmens', true),
+        createVariable('customerName', 'Vor- und Nachname des Kunden', true),
+        createVariable('orderNumber', 'Auftragsnummer', true),
+        createVariable('deviceBrand', 'Geraetemarke', true),
+        createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('diagnosisResult', 'Kernaussage des Diagnoseergebnisses (z.B. Reparierbar / Nicht reparierbar)', true),
+        createVariable('diagnosisCompletedAt', 'Datum und Uhrzeit des Diagnoseabschlusses', true),
+        createVariable('deviceCondition', 'Zustand des Geraetes nach Diagnose'),
+        createVariable('recommendedAction', 'Empfohlene Massnahme (z.B. Kostenvoranschlag folgt, Kundenfreigabe erforderlich)'),
+        createVariable('orderUrl', 'Vollstaendiger Link zur Auftragsdetailseite im Kundenkonto', true),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')
       ],

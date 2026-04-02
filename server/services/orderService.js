@@ -1533,9 +1533,17 @@ class OrderService {
       const oldOrderStatus = order.status;
       workflow.status = status;
 
+      const hasActiveWorkflow = () => order.workflows.some((workflowItem) => {
+        if (!workflowItem || String(workflowItem._id) === String(workflowId)) {
+          return false;
+        }
+
+        return workflowItem.status === 'in-progress';
+      });
+
       console.log('OrderService: Workflow status updating from', oldStatus, 'to', status);
 
-      // If pausing workflow (status = 'on-hold'), handle pause reason and update order status
+      // If pausing workflow (status = 'on-hold'), handle pause reason and keep the order in the repair stage.
       if (status === 'on-hold' && oldStatus !== 'on-hold') {
         console.log('OrderService: Pausing workflow with reason:', pauseReason);
         const pauseStartedAt = new Date();
@@ -1582,12 +1590,12 @@ class OrderService {
           });
         }
 
-        // Update order status to 'pending'
-        order.status = 'pending';
-        console.log('OrderService: Order status changed from', oldOrderStatus, 'to pending');
+        const nextOrderStatus = hasActiveWorkflow() ? 'in-progress' : 'paused';
+        order.status = nextOrderStatus;
+        console.log('OrderService: Order status changed from', oldOrderStatus, 'to', nextOrderStatus);
       }
 
-      // If resuming workflow (status = 'in-progress'), clear pause reason
+      // If resuming workflow (status = 'in-progress'), clear pause reason and return the order to repair mode.
       if (status === 'in-progress' && oldStatus === 'on-hold') {
         console.log('OrderService: Resuming workflow, clearing pause reason');
         const resumedAt = new Date();
@@ -1637,6 +1645,9 @@ class OrderService {
 
         workflow.pauseReason = '';
         workflow.pausedAt = null;
+        if (order.status === 'paused' || order.status === 'pending') {
+          order.status = 'in-progress';
+        }
         console.log('OrderService: Pause reason and timestamp cleared');
       }
 
@@ -1663,7 +1674,7 @@ class OrderService {
       if (oldOrderStatus !== order.status) {
         order.timeline.push({
           status: 'Order Status Updated',
-          description: `Order status changed from ${oldOrderStatus} to ${order.status} due to workflow being paused`,
+          description: `Order status changed from ${oldOrderStatus} to ${order.status} due to workflow status update`,
           completedAt: new Date(),
           staffId: staffId || 'system',
           staffName: staffName
@@ -1974,13 +1985,21 @@ class OrderService {
         {
           id: 'diagnostic',
           label: 'Diagnostic Assessment',
-          status: timelineMap['Diagnostic Assessment'] ? 'completed' : (order.status !== 'pending' ? 'completed' : 'pending'),
+          status: timelineMap['Diagnostic Assessment']
+            ? 'completed'
+            : order.status === 'diagnostic-assessment'
+              ? 'in-progress'
+              : (order.status !== 'pending' ? 'completed' : 'pending'),
           date: timelineMap['Diagnostic Assessment'] ? formatDate(timelineMap['Diagnostic Assessment'].completedAt) : null
         },
         {
           id: 'repair',
           label: 'Repair in Progress',
-          status: order.status === 'in-progress' ? 'in-progress' : (order.status === 'in-progress' || order.status === 'quality-check' || order.status === 'completed' || order.status === 'ready-for-pickup' ? 'completed' : 'pending'),
+          status: (order.status === 'in-progress' || order.status === 'paused')
+            ? 'in-progress'
+            : (order.status === 'quality-check' || order.status === 'completed' || order.status === 'ready-for-pickup'
+              ? 'completed'
+              : 'pending'),
           date: timelineMap['Repair in Progress'] ? formatDate(timelineMap['Repair in Progress'].completedAt) : null
         },
         {
@@ -1999,14 +2018,14 @@ class OrderService {
 
       // Determine current stage based on order status
       let currentStage = 'order-received';
-      if (order.status === 'in-progress') {
+      if (order.status === 'diagnostic-assessment') {
+        currentStage = 'diagnostic';
+      } else if (order.status === 'in-progress' || order.status === 'paused') {
         currentStage = 'repair';
       } else if (order.status === 'quality-check') {
         currentStage = 'quality-check';
       } else if (order.status === 'completed' || order.status === 'ready-for-pickup') {
         currentStage = 'pickup';
-      } else if (order.status !== 'pending') {
-        currentStage = 'diagnostic';
       }
 
       console.log('OrderService: Progress timeline calculated for order:', orderId, 'Current stage:', currentStage);
