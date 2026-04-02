@@ -173,7 +173,16 @@ class UserService {
     }
   }
 
-  static async create({ email, password, firstName = '', lastName = '', phone = '', role = 'customer' }) {
+  static async create({
+    email,
+    password,
+    firstName = '',
+    lastName = '',
+    phone = '',
+    role = 'customer',
+    status = 'active',
+    isActive,
+  }) {
     if (!email) throw new Error('Email is required');
     if (!password) throw new Error('Password is required');
 
@@ -201,6 +210,8 @@ class UserService {
         name,
         phone,
         role,
+        status,
+        isActive: isActive ?? status !== 'inactive',
         // Set default avatar based on initials
         avatar: `https://via.placeholder.com/150x150/3b82f6/ffffff?text=${firstName.charAt(0)}${lastName.charAt(0)}`,
       });

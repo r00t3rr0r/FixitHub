@@ -1,0 +1,1 @@
+{"timestamp":"2026-04-02T00:02:23.801Z","service":"EmailRetry","level":"INFO","message":"sendTemplateEmail(Registrierung und Kontoaktivierung) succeeded","context":{"retryHandler":true},"data":{"attempt":1,"duration":"1407ms","messageId":"<888991c8-1b7c-be72-db2e-c946010478ac@fixithub.com>","to":"verifyfix_1775088142@example.com"},"pid":76666}

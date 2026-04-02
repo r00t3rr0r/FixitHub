@@ -48,7 +48,24 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    console.log(`User found: ${email}, role: ${userExists.role}, isActive: ${userExists.isActive}`);
+    console.log(`User found: ${email}, role: ${userExists.role}, isActive: ${userExists.isActive}, status: ${userExists.status}`);
+
+    // Check if user's email is verified (status must be 'active')
+    if (userExists.status === 'inactive') {
+      console.log(`User email not verified for: ${email}`);
+      return sendError('Email address not verified. Please check your email and click the verification link.', {
+        issue: 'email_not_verified',
+        status: 'inactive'
+      });
+    }
+
+    // Check if user is blocked or suspended
+    if (userExists.status === 'blocked' || userExists.status === 'suspended') {
+      console.log(`User account is ${userExists.status} for: ${email}`);
+      return sendError(`Your account has been ${userExists.status}. Please contact support.`, {
+        issue: `account_${userExists.status}`
+      });
+    }
 
     const user = await UserService.authenticateWithPassword(email, password);
 
@@ -109,7 +126,9 @@ router.post('/register', async (req, res, next) => {
       firstName: firstName || '',
       lastName: lastName || '',
       phone: phone || '',
-      role: role || 'customer'
+      role: role || 'customer',
+      status: 'inactive', // New users start as inactive until email is verified
+      isActive: false
     });
 
     console.log('User created successfully:', user.email);
@@ -165,6 +184,81 @@ router.post('/logout', async (req, res) => {
   }
 
   res.status(200).json({ message: 'User logged out successfully.' });
+});
+
+// Verify email and activate account endpoint
+router.post('/verify-email', async (req, res) => {
+  console.log('Verify email request received');
+
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Verification token is required'
+      });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET || 'default_secret'
+      );
+    } catch (verifyError) {
+      console.error('Token verification failed:', verifyError.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Verification token is invalid or has expired. Please register again.'
+      });
+    }
+
+    const { userId, email } = decoded;
+
+    // Find user and verify token
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (user.email !== email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email mismatch. Token is invalid.'
+      });
+    }
+
+    // Repeated verification attempts should return a failure message
+    if (user.status === 'active') {
+      return res.status(400).json({
+        success: false,
+        message: 'Email has already been verified.'
+      });
+    }
+
+    // Activate account
+    user.status = 'active';
+    user.isActive = true;
+    await user.save();
+
+    console.log('Email verified and account activated for user:', email);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Email verified successfully! Your account is now active. You can log in.'
+    });
+  } catch (error) {
+    console.error('Error verifying email:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to verify email'
+    });
+  }
 });
 
 router.post('/refresh', async (req, res) => {
