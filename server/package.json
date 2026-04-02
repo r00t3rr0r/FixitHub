@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "dev:clean": "sh -c 'pkill -f \"/FixitHub/server/node_modules/.bin/nodemon server.js\" 2>/dev/null || true; pkill -f \"/FixitHub/server/server.js\" 2>/dev/null || true; PIDS=$(lsof -tiTCP:3000 -sTCP:LISTEN); if [ -n \"$PIDS\" ]; then echo \"Releasing port 3000 (PID: $PIDS)\"; kill -9 $PIDS; fi; sleep 1; exec nodemon server.js'",
     "test": "echo \"Error: no test specified\" && exit 1",
     "setup-mongodb": "node scripts/setup-mongodb-auth.js",
     "setup-env": "node scripts/setup-env.js",

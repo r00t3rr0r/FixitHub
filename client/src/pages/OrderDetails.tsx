@@ -764,8 +764,16 @@ export function OrderDetails() {
         description: `Order status updated to ${newStatus.replace('-', ' ')}`
       })
 
-      // Refresh order data
-      await refreshOrder()
+      // Refresh order data without turning a successful status update into a hard error.
+      try {
+        await refreshOrder()
+      } catch (refreshError) {
+        console.warn('OrderDetails: Status updated but refresh failed:', refreshError)
+        toast({
+          title: "Hinweis",
+          description: "Status wurde gespeichert. Die Ansicht wird jetzt neu geladen.",
+        })
+      }
     } catch (error: any) {
       console.error("OrderDetails: Error updating order status:", error)
       toast({

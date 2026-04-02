@@ -485,12 +485,13 @@ app.use((err, req, res, next) => {
 });
 
 console.log(`Attempting to start server on port ${port}...`);
-app.listen(port, (error) => {
-  if (error) {
-    console.error('Failed to start server:', error);
-    console.error('Stack trace:', error.stack);
-    process.exit(1);
-  }
+const server = app.listen(port, () => {
   console.log(`✅ Server running successfully at http://localhost:${port}`);
   console.log('=== FixitHub Server Ready ===');
+});
+
+server.on('error', (error) => {
+  console.error('Failed to start server:', error);
+  console.error('Stack trace:', error.stack);
+  process.exit(1);
 });

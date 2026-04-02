@@ -1,8 +1,31 @@
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const EmailService = require('./emailService');
+const NotificationTemplateService = require('./notificationTemplateService');
 
 class NotificationService {
+  static getCustomerNotificationTemplateCandidates() {
+    return [
+      'Benachrichtigungs-Updates fuer Kunden',
+      'Benachrichtigungs-Update fuer Kunden',
+      'Benachrichtigungs-Updates für Kunden',
+      'Benachrichtigungs-Update für Kunden'
+    ];
+  }
+
+  static async resolveCustomerNotificationTemplateName() {
+    const candidates = this.getCustomerNotificationTemplateCandidates();
+
+    for (const candidate of candidates) {
+      const template = await NotificationTemplateService.getTemplateByName(candidate, 'email');
+      if (template && template.isActive !== false) {
+        return template.name;
+      }
+    }
+
+    return candidates[0];
+  }
+
   static getNotificationCategoryLabel(type) {
     switch (String(type || '').toLowerCase()) {
       case 'order_update':
@@ -90,7 +113,9 @@ class NotificationService {
         ? 'Bitte oeffnen Sie den verlinkten Bereich im Kundenkonto.'
         : 'Bitte pruefen Sie Ihre Benachrichtigungen im Kundenkonto.';
 
-      await EmailService.sendTemplateEmail('Benachrichtigungs-Update fuer Kunden', user.email, {
+      const templateName = await this.resolveCustomerNotificationTemplateName();
+
+      const emailResult = await EmailService.sendTemplateEmail(templateName, user.email, {
         companyName: process.env.COMPANY_NAME || 'FixitHub',
         customerName,
         notificationCategoryLabel,
@@ -104,6 +129,10 @@ class NotificationService {
         supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789',
         ...typeSummary,
       });
+
+      if (!emailResult?.success) {
+        throw new Error(emailResult?.error || 'Template email send failed');
+      }
     } catch (error) {
       console.error('NotificationService: Error sending notification email:', error);
     }

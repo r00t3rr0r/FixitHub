@@ -61,5 +61,69 @@
         "supportPhone"
       ]
     }
+  },
+  {
+    "id": "1775099626052-nwwk74f6t",
+    "timestamp": "2026-04-02T03:13:46.052Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Update fuer Kunden",
+    "subject": "Neue Benachrichtigung bei FixitHub: Auftraege",
+    "messageId": "<54a8f138-543f-6ed2-83c9-e3f74eee0e4c@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3912,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "supportEmail",
+        "supportPhone",
+        "ordersInfo",
+        "paymentsInfo",
+        "messagesInfo",
+        "assignmentsInfo",
+        "remindersInfo",
+        "systemInfo"
+      ]
+    }
+  },
+  {
+    "id": "1775099775457-5yrcdeki1",
+    "timestamp": "2026-04-02T03:16:15.457Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Update fuer Kunden",
+    "subject": "Neue Benachrichtigung bei FixitHub: Auftraege",
+    "messageId": "<dff52d3b-7e11-9740-7859-76fff36ca975@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1694,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "supportEmail",
+        "supportPhone",
+        "ordersInfo",
+        "paymentsInfo",
+        "messagesInfo",
+        "assignmentsInfo",
+        "remindersInfo",
+        "systemInfo"
+      ]
+    }
   }
 ]

@@ -1204,7 +1204,7 @@ function getDefaultNotificationTemplates() {
       isActive: true
     },
     {
-      name: 'Benachrichtigungs-Update fuer Kunden',
+      name: 'Benachrichtigungs-Updates fuer Kunden',
       type: 'email',
       subject: 'Neue Benachrichtigung bei {{companyName}}: {{notificationCategoryLabel}}',
       content: renderEmailTemplate({

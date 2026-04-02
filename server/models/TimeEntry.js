@@ -69,7 +69,6 @@ const timeEntrySchema = new mongoose.Schema({
 // Indexes for efficient queries
 timeEntrySchema.index({ staffId: 1, timestamp: -1 });
 timeEntrySchema.index({ staffId: 1, type: 1, timestamp: -1 });
-timeEntrySchema.index({ sessionId: 1 });
 timeEntrySchema.index({ orderId: 1 });
 timeEntrySchema.index({ createdAt: 1 });
 
@@ -175,7 +174,6 @@ const workSessionSchema = new mongoose.Schema({
 // Indexes
 workSessionSchema.index({ staffId: 1, clockInTime: -1 });
 workSessionSchema.index({ staffId: 1, status: 1 });
-workSessionSchema.index({ sessionId: 1 });
 workSessionSchema.index({ 'ordersWorked.orderId': 1 });
 
 // Calculate durations before saving
