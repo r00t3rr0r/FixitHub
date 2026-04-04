@@ -2,6 +2,7 @@ const nodemailer = require('nodemailer');
 const SystemConfigService = require('./systemConfigService');
 const NotificationTemplateService = require('./notificationTemplateService');
 const Logger = require('../utils/logger');
+const WebsiteSettings = require('../models/WebsiteSettings');
 const { EmailRetryHandler, EmailDeliveryTracker } = require('../utils/emailLogger');
 
 /**
@@ -10,6 +11,11 @@ const { EmailRetryHandler, EmailDeliveryTracker } = require('../utils/emailLogge
  * Includes advanced logging, retry logic, and delivery tracking
  */
 class EmailService {
+  static systemBaseUrlCache = {
+    value: null,
+    expiresAt: 0
+  };
+
   static TRIGGER_TEMPLATE_MAP = {
     user_registered: 'Registrierung und Kontoaktivierung',
     password_reset_requested: 'Passwort zuruecksetzen',
@@ -61,6 +67,105 @@ class EmailService {
   });
   
   static deliveryTracker = new EmailDeliveryTracker();
+
+  static normalizeBaseUrl(value) {
+    const raw = String(value || '').trim();
+    if (!raw) {
+      return '';
+    }
+
+    const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+
+    try {
+      const parsed = new URL(withProtocol);
+      return `${parsed.protocol}//${parsed.host}`;
+    } catch (error) {
+      return '';
+    }
+  }
+
+  static async getSystemBaseUrl() {
+    const now = Date.now();
+    if (this.systemBaseUrlCache.value && this.systemBaseUrlCache.expiresAt > now) {
+      return this.systemBaseUrlCache.value;
+    }
+
+    const candidates = [];
+
+    try {
+      const websiteSettings = await WebsiteSettings.findOne()
+        .select('customDomain')
+        .lean();
+      if (websiteSettings?.customDomain) {
+        candidates.push(websiteSettings.customDomain);
+      }
+    } catch (error) {
+      this.logger.warn('Unable to resolve WebsiteSettings customDomain for email links', {
+        error: error.message
+      });
+    }
+
+    candidates.push(
+      process.env.FRONTEND_URL,
+      process.env.CLIENT_URL,
+      process.env.PUBLIC_APP_URL,
+      process.env.WEBSITE_URL,
+      process.env.APP_URL,
+      process.env.SERVER_URL,
+      'http://localhost:5173'
+    );
+
+    const resolvedBaseUrl = candidates
+      .map((candidate) => this.normalizeBaseUrl(candidate))
+      .find(Boolean) || 'http://localhost:5173';
+
+    this.systemBaseUrlCache = {
+      value: resolvedBaseUrl,
+      expiresAt: now + 5 * 60 * 1000
+    };
+
+    return resolvedBaseUrl;
+  }
+
+  static async buildSystemUrl(pathOrUrl = '') {
+    const value = String(pathOrUrl || '').trim();
+    if (!value) {
+      return '';
+    }
+
+    if (/^https?:\/\//i.test(value)) {
+      return value;
+    }
+
+    const baseUrl = await this.getSystemBaseUrl();
+    const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+    const normalizedPath = value.startsWith('/') ? value : `/${value}`;
+
+    return `${normalizedBase}${normalizedPath}`;
+  }
+
+  static async normalizeTemplateVariables(variables = {}) {
+    const normalizedVariables = { ...variables };
+    const urlKeyPattern = /(url|link)$/i;
+
+    for (const [key, rawValue] of Object.entries(normalizedVariables)) {
+      if (typeof rawValue !== 'string') {
+        continue;
+      }
+
+      const trimmedValue = rawValue.trim();
+      if (!trimmedValue) {
+        continue;
+      }
+
+      if (urlKeyPattern.test(key) || /^https?:\/\//i.test(trimmedValue) || trimmedValue.startsWith('/')) {
+        normalizedVariables[key] = await this.buildSystemUrl(trimmedValue);
+      }
+    }
+
+    return normalizedVariables;
+  }
+
   /**
    * Get email transporter from system configuration
    */
@@ -214,7 +319,8 @@ class EmailService {
       const transporter = await this.getTransporter();
 
       // Generate tracking URL
-      const trackingUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/track-order?token=${orderData.trackingToken}&email=${encodeURIComponent(orderData.guestEmail)}`;
+      const trackingUrlBase = await this.buildSystemUrl('/track-order');
+      const trackingUrl = `${trackingUrlBase}?token=${orderData.trackingToken}&email=${encodeURIComponent(orderData.guestEmail)}`;
 
       // Build email HTML
       const emailHtml = this.buildGuestOrderConfirmationEmail(orderData, trackingUrl);
@@ -433,17 +539,19 @@ This is an automated email. Please do not reply to this message.
     };
 
     try {
+      const normalizedVariables = await this.normalizeTemplateVariables(variables);
+
       this.logger.info('Attempting to send template email', {
         templateName,
         to: toEmail,
-        variableKeys: Object.keys(variables)
+        variableKeys: Object.keys(normalizedVariables)
       });
 
       // Validate required variables
       const validation = await NotificationTemplateService.validateTemplateVariables(
         templateName,
         'email',
-        variables
+        normalizedVariables
       );
 
       if (!validation.isValid) {
@@ -471,12 +579,13 @@ This is an automated email. Please do not reply to this message.
       }
 
       // Render template
-      const rendered = await NotificationTemplateService.renderTemplate(templateName, 'email', variables);
+      const rendered = await NotificationTemplateService.renderTemplate(templateName, 'email', normalizedVariables);
       
       if (!rendered) {
         this.logger.error('Template not found or inactive', new Error(`Template "${templateName}" not found`), {
           templateName,
-          to: toEmail
+          to: toEmail,
+          variableKeys: Object.keys(normalizedVariables)
         });
 
         this.deliveryTracker.recordDelivery({
@@ -525,7 +634,7 @@ This is an automated email. Please do not reply to this message.
           status: 'sent',
           attempts: result.attempts,
           duration: result.duration,
-          metadata: { variables: Object.keys(variables) }
+          metadata: { variables: Object.keys(normalizedVariables) }
         });
 
         return {
@@ -542,7 +651,7 @@ This is an automated email. Please do not reply to this message.
           status: 'failed',
           attempts: result.attempts,
           error: result.error?.message,
-          metadata: { variables: Object.keys(variables) }
+          metadata: { variables: Object.keys(normalizedVariables) }
         });
 
         return {
@@ -634,6 +743,7 @@ This is an automated email. Please do not reply to this message.
    * Send order confirmation email
    */
   static async sendOrderConfirmationEmail(toEmail, orderData, companyName = 'McRepair.de') {
+    const defaultTrackingUrl = await this.buildSystemUrl(`/orders/${orderData.orderId}`);
     return this.sendTriggerEmail('order_created', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
@@ -643,7 +753,7 @@ This is an automated email. Please do not reply to this message.
       deviceModel: orderData.deviceModel,
       serviceName: orderData.serviceName,
       estimatedCompletion: orderData.estimatedCompletion,
-      trackingUrl: orderData.trackingUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders/${orderData.orderId}`,
+      trackingUrl: orderData.trackingUrl || defaultTrackingUrl,
       supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
     });
@@ -653,7 +763,7 @@ This is an automated email. Please do not reply to this message.
    * Send diagnosis completed email
    */
   static async sendDiagnosisCompletedEmail(toEmail, orderData, companyName = 'McRepair.de') {
-    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const orderUrl = await this.buildSystemUrl(`/orders/${orderData.orderId}`);
     return this.sendTriggerEmail('diagnosis_completed', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Geehrter Kunde',
@@ -664,7 +774,7 @@ This is an automated email. Please do not reply to this message.
       diagnosisCompletedAt: new Date(orderData.diagnosisCompletedAt || Date.now()).toLocaleString('de-DE'),
       deviceCondition: orderData.deviceCondition || 'Wird im Bericht beschrieben',
       recommendedAction: orderData.recommendedAction || (orderData.isRepairable ? 'Kostenvoranschlag wird erstellt' : 'Bitte kontaktieren Sie uns fuer weitere Optionen'),
-      orderUrl: `${FRONTEND_URL}/orders/${orderData.orderId}`,
+      orderUrl,
       supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
     });
@@ -674,6 +784,7 @@ This is an automated email. Please do not reply to this message.
    * Send order status update email
    */
   static async sendOrderStatusUpdateEmail(toEmail, orderData, companyName = 'McRepair.de') {
+    const defaultTrackingUrl = await this.buildSystemUrl(`/orders/${orderData.orderId}`);
     return this.sendTriggerEmail('order_status_updated', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
@@ -681,7 +792,7 @@ This is an automated email. Please do not reply to this message.
       orderStatus: orderData.orderStatus,
       statusMessage: orderData.statusMessage,
       statusUpdatedAt: new Date(orderData.statusUpdatedAt || Date.now()).toLocaleDateString('de-DE'),
-      trackingUrl: orderData.trackingUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders/${orderData.orderId}`,
+      trackingUrl: orderData.trackingUrl || defaultTrackingUrl,
       supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
     });
@@ -691,6 +802,7 @@ This is an automated email. Please do not reply to this message.
    * Send device received email
    */
   static async sendDeviceReceivedEmail(toEmail, orderData, companyName = 'McRepair.de') {
+    const defaultTrackingUrl = await this.buildSystemUrl(`/orders/${orderData.orderId}`);
     return this.sendTriggerEmail('device_received', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
@@ -698,7 +810,7 @@ This is an automated email. Please do not reply to this message.
       deviceBrand: orderData.deviceBrand,
       deviceModel: orderData.deviceModel,
       receivedAt: new Date(orderData.receivedAt || Date.now()).toLocaleDateString('de-DE'),
-      trackingUrl: orderData.trackingUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders/${orderData.orderId}`,
+      trackingUrl: orderData.trackingUrl || defaultTrackingUrl,
       supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
     });
@@ -708,6 +820,7 @@ This is an automated email. Please do not reply to this message.
    * Send quote approval request email
    */
   static async sendQuoteApprovalEmail(toEmail, orderData, companyName = 'McRepair.de') {
+    const defaultApprovalUrl = await this.buildSystemUrl(`/orders/${orderData.orderId}/approve`);
     return this.sendTriggerEmail('quote_approval_requested', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
@@ -717,7 +830,7 @@ This is an automated email. Please do not reply to this message.
       serviceName: orderData.serviceName,
       quoteAmount: `€${(orderData.quoteAmount || 0).toFixed(2)}`,
       approvalDeadline: orderData.approvalDeadline || 'within 5 business days',
-      approvalUrl: orderData.approvalUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders/${orderData.orderId}/approve`,
+      approvalUrl: orderData.approvalUrl || defaultApprovalUrl,
       supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
     });
@@ -727,6 +840,7 @@ This is an automated email. Please do not reply to this message.
    * Send repair completion and return shipping email
    */
   static async sendCompletionEmail(toEmail, orderData, companyName = 'McRepair.de') {
+    const defaultTrackingUrl = await this.buildSystemUrl(`/orders/${orderData.orderId}`);
     return this.sendTriggerEmail('order_completed', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Valued Customer',
@@ -735,7 +849,7 @@ This is an automated email. Please do not reply to this message.
       deviceModel: orderData.deviceModel,
       returnShipmentStatus: orderData.returnShipmentStatus || 'dispatched',
       returnTrackingNumber: orderData.returnTrackingNumber || 'Tracking info will be updated soon',
-      trackingUrl: orderData.trackingUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders/${orderData.orderId}`,
+      trackingUrl: orderData.trackingUrl || defaultTrackingUrl,
       supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
     });
@@ -745,6 +859,7 @@ This is an automated email. Please do not reply to this message.
    * Send payment confirmation email
    */
   static async sendPaymentConfirmationEmail(toEmail, paymentData, companyName = 'McRepair.de') {
+    const defaultInvoiceUrl = await this.buildSystemUrl(`/invoices/${paymentData.invoiceId}`);
     return this.sendTriggerEmail('payment_confirmed', toEmail, {
       companyName,
       customerName: paymentData.customerName || 'Valued Customer',
@@ -759,7 +874,7 @@ This is an automated email. Please do not reply to this message.
         minute: '2-digit'
       }),
       invoiceNumber: paymentData.invoiceNumber,
-      invoiceUrl: paymentData.invoiceUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/invoices/${paymentData.invoiceId}`,
+      invoiceUrl: paymentData.invoiceUrl || defaultInvoiceUrl,
       supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
     });

@@ -88,16 +88,6 @@ class NotificationService {
         `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || user.email
       );
 
-      const toAbsoluteUrl = (url) => {
-        const value = String(url || '').trim();
-        if (!value) return '';
-        if (/^https?:\/\//i.test(value)) return value;
-
-        const baseUrl = String(process.env.FRONTEND_URL || process.env.PUBLIC_APP_URL || 'http://localhost:5173').trim();
-        const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-        const normalizedPath = value.startsWith('/') ? value : `/${value}`;
-        return `${normalizedBase}${normalizedPath}`;
-      };
 
       const notificationType = String(savedNotification.type || 'system').toLowerCase();
       const notificationCategoryLabel = this.getNotificationCategoryLabel(notificationType);
@@ -110,9 +100,9 @@ class NotificationService {
         ? 'Bitte oeffnen Sie den verlinkten Bereich im Kundenkonto.'
         : 'Bitte pruefen Sie Ihre Benachrichtigungen im Kundenkonto.';
 
-      const notificationsUrl = toAbsoluteUrl('/notifications');
+      const notificationsUrl = await EmailService.buildSystemUrl('/notifications');
       const notificationActionUrl = savedNotification.actionUrl
-        ? toAbsoluteUrl(savedNotification.actionUrl)
+        ? await EmailService.buildSystemUrl(savedNotification.actionUrl)
         : notificationsUrl;
 
       const templateName = await this.resolveCustomerNotificationTemplateName();

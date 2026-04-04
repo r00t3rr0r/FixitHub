@@ -80,7 +80,7 @@ async function notifyAdminsAboutComplaint(complaint, customer, order) {
           orderStatus: 'Reklamation eingegangen',
           statusMessage: notificationText,
           statusUpdatedAt: new Date().toLocaleDateString('de-DE'),
-          trackingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/admin/complaints`,
+          trackingUrl: await EmailService.buildSystemUrl('/admin/complaints'),
           supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
           supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
         });
@@ -134,7 +134,7 @@ async function notifyCustomer(complaint, customerId, title, message, metadata = 
         decision: title,
         decisionReason: message,
         decidedAt: new Date().toLocaleDateString('de-DE'),
-        complaintUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/complaints/${complaint._id}`,
+        complaintUrl: await EmailService.buildSystemUrl(`/complaints/${complaint._id}`),
         supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
         supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
       });
@@ -879,7 +879,7 @@ router.post('/', requireUser, async (req, res) => {
           orderNumber: complaint.orderId?.orderNumber || 'N/A',
           priority: complaint.priority || 'medium',
           submittedAt: new Date(complaint.createdAt || Date.now()).toLocaleDateString('de-DE'),
-          complaintUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/complaints/${complaint._id}`,
+          complaintUrl: await EmailService.buildSystemUrl(`/complaints/${complaint._id}`),
           supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
           supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
         });

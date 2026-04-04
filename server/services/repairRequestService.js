@@ -123,7 +123,7 @@ class RepairRequestService {
             deviceModel: repairRequest.deviceModel,
             issueDescription: repairRequest.issueDescription,
             submittedAt: new Date(repairRequest.createdAt || Date.now()).toLocaleDateString('de-DE'),
-            requestUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/repair-requests/${repairRequest._id}`,
+            requestUrl: await EmailService.buildSystemUrl(`/repair-requests/${repairRequest._id}`),
             supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
             supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
           });
@@ -268,8 +268,8 @@ class RepairRequestService {
             diagnosisDate: new Date(request.updatedAt || Date.now()).toLocaleDateString('de-DE'),
             resolutionSummary: `Status auf ${status} gesetzt`,
             completedAt: new Date(request.updatedAt || Date.now()).toLocaleDateString('de-DE'),
-            approvalUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/repair-requests/${request._id}`,
-            requestUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/repair-requests/${request._id}`,
+            approvalUrl: await EmailService.buildSystemUrl(`/repair-requests/${request._id}`),
+            requestUrl: await EmailService.buildSystemUrl(`/repair-requests/${request._id}`),
             supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
             supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
           });
@@ -361,7 +361,7 @@ class RepairRequestService {
               deviceModel: request.deviceModel,
               senderName: senderName || 'Service Team',
               messageSentAt: new Date().toLocaleString('de-DE'),
-              requestUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/repair-requests/${request._id}`,
+              requestUrl: await EmailService.buildSystemUrl(`/repair-requests/${request._id}`),
               supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
               supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
             });

@@ -34,7 +34,7 @@ router.post('/', requireUser, async (req, res) => {
           serviceName: order.serviceName || 'Repair Service',
           estimatedCompletion: order.estimatedCompletion || 'within 7-10 business days',
           orderId: order._id,
-          trackingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/orders/${order._id}`
+          trackingUrl: await EmailService.buildSystemUrl(`/orders/${order._id}`)
         };
 
         const emailResult = await EmailService.sendOrderConfirmationEmail(
@@ -264,7 +264,7 @@ router.post('/:orderId/complaint', requireUser, async (req, res) => {
             orderStatus: 'Neue Reklamation',
             statusMessage: `${customerName} hat eine Reklamation gemeldet: ${reason}`,
             statusUpdatedAt: new Date().toLocaleDateString('de-DE'),
-            trackingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/admin/complaints`,
+            trackingUrl: await EmailService.buildSystemUrl('/admin/complaints'),
             supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
             supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
           });
@@ -286,7 +286,7 @@ router.post('/:orderId/complaint', requireUser, async (req, res) => {
           orderNumber: order.orderNumber,
           priority: complaint.priority || 'medium',
           submittedAt: new Date().toLocaleDateString('de-DE'),
-          complaintUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/complaints/${complaint._id}`,
+          complaintUrl: await EmailService.buildSystemUrl(`/complaints/${complaint._id}`),
           supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
           supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
         });

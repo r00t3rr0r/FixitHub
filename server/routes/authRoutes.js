@@ -174,7 +174,8 @@ router.post('/register', async (req, res, next) => {
         { expiresIn: '7d' }
       );
       
-      const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}`;
+      const verificationBaseUrl = await EmailService.buildSystemUrl('/verify-email');
+      const verificationUrl = `${verificationBaseUrl}?token=${verificationToken}`;
       
       const emailResult = await EmailService.sendRegistrationEmail(
         user.email,
@@ -432,7 +433,8 @@ router.post('/forgot-password', async (req, res) => {
     await user.save();
 
     // Build reset URL with token
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${encodeURIComponent(rawResetToken)}`;
+    const resetBaseUrl = await EmailService.buildSystemUrl('/reset-password');
+    const resetUrl = `${resetBaseUrl}?token=${encodeURIComponent(rawResetToken)}`;
     const expiresAt = expiresAtDate.toLocaleString('de-DE');
 
     // Send password reset email

@@ -643,63 +643,67 @@ export function McRepairNav() {
 
           {/* Mobile Extras (only shown in mobile menu) */}
           <div className="nav-mobile-extras">
-            <button onClick={handleMobileSearchClick}>
-              <Search width={16} height={16} />
-              {t('common.search', 'Suche')}
-            </button>
-            <a href="tel:+4917012345678">
-              <Phone width={16} height={16} />
-              {t('home.topBar.hotline', '0170 123 4567')}
-            </a>
-            <a href="/annahmestellen">
-              <MapPin width={16} height={16} />
-              {t('home.topBar.locations', 'Annahmestellen')}
-            </a>
-            {!isAuthenticated && (
-              <button 
-                ref={loginButtonRef}
-                onClick={handleLoginClick}
-              >
-                <User width={16} height={16} />
-                {t('home.topBar.login', 'Anmelden')}
-              </button>
-            )}
-            {isAuthenticated && (
-              <>
-                <Link to="/profile" onClick={() => closeMobileMenu()}>
+            <div className="nav-mobile-user-priority">
+              {isAuthenticated ? (
+                <>
+                  <Link to="/profile" onClick={() => closeMobileMenu()}>
+                    <User width={16} height={16} />
+                    {t('navigation.profile', 'Profil')}
+                  </Link>
+                  <Link to="/bookings" onClick={() => closeMobileMenu()}>
+                    <Calendar width={16} height={16} />
+                    {t('navigation.bookings', 'Buchungen')}
+                  </Link>
+                  <Link to="/invoices" onClick={() => closeMobileMenu()}>
+                    <FileText width={16} height={16} />
+                    {t('navigation.invoices', 'Rechnungen')}
+                  </Link>
+                  <Link to="/messages" onClick={() => closeMobileMenu()}>
+                    <MessageSquare width={16} height={16} />
+                    {t('navigation.messages', 'Nachrichten')}
+                  </Link>
+                  <Link to="/notifications" onClick={() => closeMobileMenu()}>
+                    <Package width={16} height={16} />
+                    {t('navigation.notifications', 'Benachrichtigungen')}
+                  </Link>
+                  <Link to="/my-repair-requests" onClick={() => closeMobileMenu()}>
+                    <Wrench width={16} height={16} />
+                    Repair Requests
+                  </Link>
+                  <Link to="/my-complaints" onClick={() => closeMobileMenu()}>
+                    <AlertTriangle width={16} height={16} />
+                    Reklamationen
+                  </Link>
+                  <button onClick={handleMobileLogout}>
+                    <LogOut width={16} height={16} />
+                    {t('navigation.logout', 'Abmelden')}
+                  </button>
+                </>
+              ) : (
+                <button
+                  ref={loginButtonRef}
+                  onClick={handleLoginClick}
+                >
                   <User width={16} height={16} />
-                  {t('navigation.profile', 'Profil')}
-                </Link>
-                <Link to="/bookings" onClick={() => closeMobileMenu()}>
-                  <Calendar width={16} height={16} />
-                  {t('navigation.bookings', 'Buchungen')}
-                </Link>
-                <Link to="/invoices" onClick={() => closeMobileMenu()}>
-                  <FileText width={16} height={16} />
-                  {t('navigation.invoices', 'Rechnungen')}
-                </Link>
-                <Link to="/messages" onClick={() => closeMobileMenu()}>
-                  <MessageSquare width={16} height={16} />
-                  {t('navigation.messages', 'Nachrichten')}
-                </Link>
-                <Link to="/notifications" onClick={() => closeMobileMenu()}>
-                  <Package width={16} height={16} />
-                  {t('navigation.notifications', 'Benachrichtigungen')}
-                </Link>
-                <Link to="/my-repair-requests" onClick={() => closeMobileMenu()}>
-                  <Wrench width={16} height={16} />
-                  Repair Requests
-                </Link>
-                <Link to="/my-complaints" onClick={() => closeMobileMenu()}>
-                  <AlertTriangle width={16} height={16} />
-                  Reklamationen
-                </Link>
-                <button onClick={handleMobileLogout}>
-                  <LogOut width={16} height={16} />
-                  {t('navigation.logout', 'Abmelden')}
+                  {t('home.topBar.login', 'Anmelden')}
                 </button>
-              </>
-            )}
+              )}
+            </div>
+
+            <div className="nav-mobile-secondary-links" aria-label="Weitere Menüpunkte">
+              <button className="nav-mobile-secondary-link" onClick={handleMobileSearchClick}>
+                <Search width={16} height={16} />
+                {t('common.search', 'Suche')}
+              </button>
+              <a className="nav-mobile-secondary-link" href="tel:+4917012345678">
+                <Phone width={16} height={16} />
+                {t('home.topBar.hotline', '0170 123 4567')}
+              </a>
+              <a className="nav-mobile-secondary-link" href="/annahmestellen">
+                <MapPin width={16} height={16} />
+                {t('home.topBar.locations', 'Annahmestellen')}
+              </a>
+            </div>
           </div>
         </div>
 

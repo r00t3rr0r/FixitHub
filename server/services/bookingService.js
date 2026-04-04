@@ -435,7 +435,7 @@ class BookingService {
             itemSummary,
             totalAmount: this.formatCurrencyEUR(savedBooking.totalCost || 0),
             bookingStatus: savedBooking.status,
-            bookingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/bookings`,
+            bookingUrl: await EmailService.buildSystemUrl('/bookings'),
             shippingLabelUrl,
             supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
             supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
@@ -896,7 +896,7 @@ class BookingService {
             itemSummary: `${populatedBooking.items?.length || 0} Position(en)`,
             progressPercent: populatedBooking.overallProgress || 0,
             updatedAt: new Date().toLocaleDateString('de-DE'),
-            bookingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/bookings/${populatedBooking._id}`,
+            bookingUrl: await EmailService.buildSystemUrl(`/bookings/${populatedBooking._id}`),
             pickupHours: process.env.PICKUP_HOURS || 'Mo-Fr 09:00-18:00',
             workshopAddress: process.env.WORKSHOP_ADDRESS || 'Service Center',
             readySince: new Date().toLocaleDateString('de-DE'),
@@ -1031,7 +1031,7 @@ class BookingService {
             refundAmount: `EUR ${(populatedBooking.totalCost || 0).toFixed(2)}`,
             cancelledAt: new Date().toLocaleDateString('de-DE'),
             cancelledBy: 'System',
-            newBookingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/bookings/new`,
+            newBookingUrl: await EmailService.buildSystemUrl('/bookings/new'),
             supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
             supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
           });
@@ -1237,7 +1237,7 @@ class BookingService {
               invoiceAmount: `EUR ${(savedInvoice.total || 0).toFixed(2)}`,
               dueDate: new Date(savedInvoice.dueDate).toLocaleDateString('de-DE'),
               paymentMethod: savedInvoice.paymentMethod || 'Ueberweisung',
-              invoiceUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/invoices/${savedInvoice._id}`,
+              invoiceUrl: await EmailService.buildSystemUrl(`/invoices/${savedInvoice._id}`),
               supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
               supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
             });
