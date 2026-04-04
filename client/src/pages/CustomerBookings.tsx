@@ -467,29 +467,29 @@ export function CustomerBookings() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-amber-50/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Header Section */}
-        <div className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] rounded-2xl shadow-xl p-8 text-white relative overflow-hidden">
+        <div className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] rounded-2xl shadow-xl p-5 sm:p-8 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-[#f5b800] rounded-full opacity-5 blur-3xl"></div>
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#f5b800] rounded-full opacity-5 blur-3xl"></div>
           <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-3">
-              <Package className="h-8 w-8 text-[#f5b800]" />
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">{t('bookings.myBookings')}</h1>
+            <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+              <Package className="h-6 w-6 sm:h-8 sm:w-8 text-[#f5b800] flex-shrink-0" />
+              <h1 className="text-xl sm:text-3xl md:text-4xl font-bold tracking-tight">{t('bookings.myBookings')}</h1>
             </div>
-            <p className="text-blue-100 text-base md:text-lg">{t('bookings.manageYourBookings')}</p>
+            <p className="text-blue-100 text-sm sm:text-base md:text-lg">{t('bookings.manageYourBookings')}</p>
           </div>
         </div>
 
         {/* Filters */}
         <Card className="border-none shadow-lg bg-white">
           <CardContent className="py-3 px-4">
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="bookings-filter-bar flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2 text-[#1a2a5e]">
                 <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#f5b800] to-[#e5ab00] flex items-center justify-center flex-shrink-0">
                   <Filter className="h-4 w-4 text-white" />
                 </div>
                 <span className="font-bold text-sm uppercase tracking-wide whitespace-nowrap">{t('common.filter')}</span>
               </div>
-              <div className="flex-1 min-w-[200px]">
+              <div className="flex-1 min-w-0 w-full sm:min-w-[200px]">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
@@ -500,7 +500,7 @@ export function CustomerBookings() {
                   />
                 </div>
               </div>
-              <div className="min-w-[180px]">
+              <div className="w-full sm:min-w-[180px]">
                 <Select
                   value={statusFilter}
                   onValueChange={(value) => {
@@ -551,7 +551,7 @@ export function CustomerBookings() {
             </CardHeader>
             <CardContent className="pt-0 px-0">
               <ScrollArea className="w-full">
-                <Table>
+                <Table className="bookings-list-table">
                   <TableHeader>
                     <TableRow className="bg-slate-50 hover:bg-slate-50 border-b-2 border-slate-200">
                       <TableHead className="text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3"></TableHead>
@@ -819,7 +819,7 @@ export function CustomerBookings() {
                                 <div className="space-y-1.5">
                                   <h4 className="font-semibold text-xs mb-1.5 text-foreground/70">{t('bookings.ordersAndRepairs')}</h4>
                                   <div className="border rounded-md overflow-hidden">
-                                    <Table className="text-xs">
+                                    <Table className="text-xs orders-sub-table">
                                       <TableHeader>
                                         <TableRow className="bg-muted/40">
                                           <TableHead className="h-7 text-xs font-semibold text-foreground/70">{t('bookings.orderNumber')}</TableHead>
@@ -839,10 +839,10 @@ export function CustomerBookings() {
                                             className="hover:bg-muted/30 cursor-pointer transition-colors h-8"
                                             onClick={() => item.orderId && handleViewOrder(item.orderId)}
                                           >
-                                            <TableCell className="font-medium py-1 text-xs">
+                                            <TableCell className="font-medium py-1 text-xs" data-label="Auftrag">
                                               {item.orderNumber}
                                             </TableCell>
-                                            <TableCell className="py-1">
+                                            <TableCell className="py-1" data-label="Typ">
                                               {item.isComplaintFollowup ? (
                                                 <Badge className="text-xs bg-rose-100 text-rose-800 border border-rose-300">
                                                   {t('bookings.complaintFollowup')}
@@ -853,7 +853,7 @@ export function CustomerBookings() {
                                                 </Badge>
                                               )}
                                             </TableCell>
-                                            <TableCell className="py-1">
+                                            <TableCell className="py-1" data-label="Gerät">
                                               <div className="text-xs text-foreground/80">
                                                 {item.type === 'repair' ? (
                                                   <span>{item.device || t('bookings.device')}</span>
@@ -862,7 +862,7 @@ export function CustomerBookings() {
                                                 )}
                                               </div>
                                             </TableCell>
-                                            <TableCell className="py-1">
+                                            <TableCell className="py-1" data-label="Services">
                                               <div className="text-xs space-y-0.5">
                                                 {item.type === 'repair' && item.services && item.services.length > 0 ? (
                                                   <div>
@@ -884,7 +884,7 @@ export function CustomerBookings() {
                                                 )}
                                               </div>
                                             </TableCell>
-                                            <TableCell className="text-center py-1">
+                                            <TableCell className="text-center py-1" data-label="Fortschritt">
                                               <div className="flex items-center justify-center gap-1">
                                                 <div className="w-12 bg-muted rounded-full h-1">
                                                   <div
@@ -897,12 +897,12 @@ export function CustomerBookings() {
                                                 </span>
                                               </div>
                                             </TableCell>
-                                            <TableCell className="py-1">
+                                            <TableCell className="py-1" data-label="Status">
                                               <Badge className={`${getOrderStatusColor(item.status || 'pending')} text-xs`}>
                                                 {item.status || 'pending'}
                                               </Badge>
                                             </TableCell>
-                                            <TableCell className="text-center py-1">
+                                            <TableCell className="text-center py-1" data-label="Nachrichten">
                                               {item.orderId && unreadCounts[item.orderId] ? (
                                                 <div className="flex items-center justify-center">
                                                   <div className={`
@@ -932,7 +932,7 @@ export function CustomerBookings() {
                                                 <span className="text-xs text-foreground/40">—</span>
                                               )}
                                             </TableCell>
-                                            <TableCell className="text-right font-medium text-xs py-1">
+                                            <TableCell className="text-right font-medium text-xs py-1" data-label="Kosten">
                                               ${item.cost?.toFixed(2) || '0.00'}
                                             </TableCell>
                                           </TableRow>
@@ -958,12 +958,12 @@ export function CustomerBookings() {
 
             {/* Pagination Controls */}
             {filteredBookings.length > 0 && totalBookings > itemsPerPage && (
-              <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-3 sm:px-6 py-3 sm:py-4 gap-3 border-t border-slate-100 bg-slate-50">
                 <div className="text-sm text-slate-600">
                   {((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, totalBookings)} of {totalBookings}
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto">
                   <div className="flex items-center gap-2">
                     <label className="text-sm text-slate-600">Per page:</label>
                     <Select
@@ -1149,169 +1149,169 @@ function BookingDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-[var(--off-white,#f8f9fc)]">
-        <DialogHeader className="-mx-6 -mt-6 px-6 pt-6 pb-5 border-b-2 border-[var(--accent-yellow,#f5b800)] bg-gradient-to-r from-[var(--primary-blue,#1a2a5e)] to-[var(--primary-blue-light,#2a3f7e)]">
+      <DialogContent className="w-full max-w-[calc(100vw-12px)] sm:max-w-4xl max-h-[92dvh] overflow-y-auto overflow-x-hidden bg-[var(--off-white,#f8f9fc)] p-3 sm:p-6">
+        <DialogHeader className="-mx-3 -mt-3 sm:-mx-6 sm:-mt-6 px-3 sm:px-6 pt-3 sm:pt-6 pb-3 sm:pb-5 border-b-2 border-[var(--accent-yellow,#f5b800)] bg-gradient-to-r from-[var(--primary-blue,#1a2a5e)] to-[var(--primary-blue-light,#2a3f7e)]">
           <DialogTitle
-            className="text-2xl font-extrabold"
+            className="text-base sm:text-2xl font-extrabold"
             style={{ color: "#f5b800" }}
           >
             Buchungsdetails
           </DialogTitle>
-          <DialogDescription className="text-sm font-semibold text-white/85 mt-1">
+          <DialogDescription className="text-xs sm:text-sm font-semibold text-white/85 mt-0.5 sm:mt-1">
             {booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`}
           </DialogDescription>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-4">
-          <TabsList className="flex w-full md:grid md:grid-cols-5 h-auto md:h-10 bg-[var(--primary-blue,#1a2a5e)] rounded-lg p-1 gap-1 overflow-x-auto">
+          <TabsList className="grid grid-cols-5 h-auto bg-[var(--primary-blue,#1a2a5e)] rounded-lg p-0.5 sm:p-1 gap-0.5 sm:gap-1">
             <TabsTrigger 
               value="overview" 
-              className="text-sm font-semibold flex-shrink-0 min-w-[120px] md:min-w-0 data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+              className="text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
             >
               Übersicht
             </TabsTrigger>
             <TabsTrigger 
               value="repairs" 
-              className="text-sm font-semibold flex-shrink-0 min-w-[120px] md:min-w-0 data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+              className="text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
             >
-              Reparaturen
+              Repara&shy;turen
             </TabsTrigger>
             <TabsTrigger 
               value="items" 
-              className="text-sm font-semibold flex-shrink-0 min-w-[120px] md:min-w-0 data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+              className="text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
             >
               Artikel
             </TabsTrigger>
             <TabsTrigger 
               value="shipping" 
-              className="text-sm font-semibold flex-shrink-0 min-w-[120px] md:min-w-0 data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+              className="text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
             >
               Versand
             </TabsTrigger>
             <TabsTrigger 
               value="timeline" 
-              className="text-sm font-semibold flex-shrink-0 min-w-[120px] md:min-w-0 data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+              className="text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
             >
               Verlauf
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-5 mt-5">
-            <div className="grid grid-cols-2 gap-5">
-              <div className="bg-white rounded-lg p-5 shadow-md border border-[var(--gray-200,#d8dce6)]">
-                <h3 className="font-bold text-sm mb-3 text-[var(--primary-blue,#1a2a5e)] uppercase tracking-wide flex items-center gap-2">
+          <TabsContent value="overview" className="space-y-3 sm:space-y-5 mt-3 sm:mt-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5">
+              <div className="bg-white rounded-lg p-3 sm:p-5 shadow-md border border-[var(--gray-200,#d8dce6)]">
+                <h3 className="font-bold text-xs sm:text-sm mb-2 sm:mb-3 text-[var(--primary-blue,#1a2a5e)] uppercase tracking-wide flex items-center gap-2">
                   <span className="w-1 h-4 bg-[var(--accent-yellow,#f5b800)] rounded"></span>
                   Kunde
                 </h3>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-12 w-12 border-2 border-[var(--accent-yellow,#f5b800)]">
+                <div className="space-y-2 sm:space-y-3">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <Avatar className="h-9 w-9 sm:h-12 sm:w-12 border-2 border-[var(--accent-yellow,#f5b800)] flex-shrink-0">
                       <AvatarImage src={booking.customerId.avatar} />
-                      <AvatarFallback className="text-sm font-bold bg-[var(--primary-blue,#1a2a5e)] text-white">
+                      <AvatarFallback className="text-xs sm:text-sm font-bold bg-[var(--primary-blue,#1a2a5e)] text-white">
                         {(booking.customerId.firstName || booking.customerId.name || booking.customerId.email).charAt(0)}
                       </AvatarFallback>
                     </Avatar>
-                    <div>
-                      <p className="font-bold text-sm text-[var(--gray-800,#1a202c)]">
+                    <div className="min-w-0">
+                      <p className="font-bold text-xs sm:text-sm text-[var(--gray-800,#1a202c)] truncate">
                         {booking.customerId.firstName ? `${booking.customerId.firstName} ${booking.customerId.lastName || ''}` : (booking.customerId.name || booking.customerId.email)}
                       </p>
-                      <p className="text-sm text-[var(--gray-500,#636e85)]">{booking.customerId.email}</p>
+                      <p className="text-xs sm:text-sm text-[var(--gray-500,#636e85)] truncate">{booking.customerId.email}</p>
                     </div>
                   </div>
-                  <div className="text-sm pt-2 border-t border-[var(--gray-200,#d8dce6)]">
+                  <div className="text-xs sm:text-sm pt-2 border-t border-[var(--gray-200,#d8dce6)]">
                     <span className="text-[var(--gray-600,#4a5568)] font-semibold">Telefon: </span>
                     <span className="font-semibold text-[var(--gray-800,#1a202c)]">{booking.customerId.phone}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg p-5 shadow-md border border-[var(--gray-200,#d8dce6)]">
-                <h3 className="font-bold text-sm mb-3 text-[var(--primary-blue,#1a2a5e)] uppercase tracking-wide flex items-center gap-2">
+              <div className="bg-white rounded-lg p-3 sm:p-5 shadow-md border border-[var(--gray-200,#d8dce6)]">
+                <h3 className="font-bold text-xs sm:text-sm mb-2 sm:mb-3 text-[var(--primary-blue,#1a2a5e)] uppercase tracking-wide flex items-center gap-2">
                   <span className="w-1 h-4 bg-[var(--accent-yellow,#f5b800)] rounded"></span>
                   Status
                 </h3>
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   <div>
-                    <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-2 uppercase">Aktuell</p>
-                    <Badge className={`${getStatusColor(booking.status)} text-sm font-bold px-3 py-1`}>{booking.status}</Badge>
+                    <p className="text-[10px] sm:text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-1 sm:mb-2 uppercase">Aktuell</p>
+                    <Badge className={`${getStatusColor(booking.status)} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>{booking.status}</Badge>
                   </div>
                   <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
-                    <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-2 uppercase">Abrechnung</p>
-                    <Badge className={`${getBillingStatusColor(booking.billingStatus)} text-sm font-bold px-3 py-1`}>{booking.billingStatus}</Badge>
+                    <p className="text-[10px] sm:text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-1 sm:mb-2 uppercase">Abrechnung</p>
+                    <Badge className={`${getBillingStatusColor(booking.billingStatus)} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>{booking.billingStatus}</Badge>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-5">
-              <div className="bg-gradient-to-br from-[var(--primary-blue,#1a2a5e)] to-[var(--primary-blue-light,#2a3f7e)] rounded-lg p-5 shadow-lg text-white">
-                <p className="text-sm font-semibold opacity-90 mb-1">Gesamtkosten</p>
-                <p className="text-3xl font-extrabold tracking-tight">{formatCurrency(booking.totalCost)}</p>
+            <div className="grid grid-cols-2 gap-2 sm:gap-5">
+              <div className="bg-gradient-to-br from-[var(--primary-blue,#1a2a5e)] to-[var(--primary-blue-light,#2a3f7e)] rounded-lg p-2 sm:p-5 shadow-lg text-white min-w-0 overflow-hidden">
+                <p className="text-[10px] sm:text-sm font-semibold opacity-90 mb-0.5 sm:mb-1">Gesamtkosten</p>
+                <p className="text-base sm:text-3xl font-extrabold tracking-tight truncate">{formatCurrency(booking.totalCost)}</p>
               </div>
-              <div className="bg-gradient-to-br from-[var(--accent-yellow,#f5b800)] to-[var(--accent-yellow-hover,#e5ab00)] rounded-lg p-5 shadow-lg text-[var(--primary-blue,#1a2a5e)]">
-                <p className="text-sm font-semibold opacity-90 mb-1">Artikel</p>
-                <p className="text-3xl font-extrabold tracking-tight">{booking.items.length}</p>
+              <div className="bg-gradient-to-br from-[var(--accent-yellow,#f5b800)] to-[var(--accent-yellow-hover,#e5ab00)] rounded-lg p-2 sm:p-5 shadow-lg text-[var(--primary-blue,#1a2a5e)] min-w-0 overflow-hidden">
+                <p className="text-[10px] sm:text-sm font-semibold opacity-90 mb-0.5 sm:mb-1">Artikel</p>
+                <p className="text-base sm:text-3xl font-extrabold tracking-tight">{booking.items.length}</p>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg p-5 shadow-md border border-[var(--gray-200,#d8dce6)]">
-              <p className="text-sm text-[var(--primary-blue,#1a2a5e)] mb-3 font-bold uppercase tracking-wide flex items-center gap-2">
+            <div className="bg-white rounded-lg p-3 sm:p-5 shadow-md border border-[var(--gray-200,#d8dce6)]">
+              <p className="text-xs sm:text-sm text-[var(--primary-blue,#1a2a5e)] mb-2 sm:mb-3 font-bold uppercase tracking-wide flex items-center gap-2">
                 <span className="w-1 h-4 bg-[var(--accent-yellow,#f5b800)] rounded"></span>
                 Zeitstempel
               </p>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="flex items-center gap-2 bg-[var(--gray-50,#f5f6f8)] p-3 rounded-lg">
-                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                  <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 text-xs sm:text-sm">
+                <div className="flex items-center gap-2 bg-[var(--gray-50,#f5f6f8)] p-2 sm:p-3 rounded-lg">
+                  <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
+                  <div className="min-w-0">
                     <span className="text-[var(--gray-600,#4a5568)]">Erstellt: </span>
-                    <span className="font-bold text-[var(--gray-800,#1a202c)]">{formatDateTime(booking.createdAt)}</span>
+                    <span className="font-bold text-[var(--gray-800,#1a202c)] break-words">{formatDateTime(booking.createdAt)}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 bg-[var(--gray-50,#f5f6f8)] p-3 rounded-lg">
-                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                  <div>
+                <div className="flex items-center gap-2 bg-[var(--gray-50,#f5f6f8)] p-2 sm:p-3 rounded-lg">
+                  <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></div>
+                  <div className="min-w-0">
                     <span className="text-[var(--gray-600,#4a5568)]">Aktualisiert: </span>
-                    <span className="font-bold text-[var(--gray-800,#1a202c)]">{formatDateTime(booking.updatedAt)}</span>
+                    <span className="font-bold text-[var(--gray-800,#1a202c)] break-words">{formatDateTime(booking.updatedAt)}</span>
                   </div>
                 </div>
               </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="repairs" className="space-y-3 mt-5">
+          <TabsContent value="repairs" className="space-y-3 mt-3 sm:mt-5">
             {booking.items && booking.items.filter(item => item.type === 'repair').length > 0 ? (
               <div className="space-y-3">
                 {booking.items.filter(item => item.type === 'repair').map((item) => (
                   <div
                     key={item._id || item.orderId}
-                    className="bg-white border-2 border-[var(--gray-200,#d8dce6)] rounded-lg p-4 hover:border-[var(--accent-yellow,#f5b800)] hover:shadow-lg cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+                    className="bg-white border-2 border-[var(--gray-200,#d8dce6)] rounded-lg p-3 sm:p-4 hover:border-[var(--accent-yellow,#f5b800)] hover:shadow-lg cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
                     onClick={() => item.orderId && handleViewOrder(item.orderId)}
                   >
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 flex-wrap mb-2">
-                          <h4 className="font-bold text-base text-[var(--gray-800,#1a202c)]">{item.device || 'Gerät Reparatur'}</h4>
-                          <Badge className={`${getStatusColor(item.status || 'pending')} text-sm font-bold px-3 py-1`}>
+                    <div className="flex justify-between items-start mb-2 sm:mb-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1 sm:mb-2">
+                          <h4 className="font-bold text-sm sm:text-base text-[var(--gray-800,#1a202c)] truncate">{item.device || 'Gerät Reparatur'}</h4>
+                          <Badge className={`${getStatusColor(item.status || 'pending')} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>
                             {item.status || 'pending'}
                           </Badge>
                         </div>
                         {item.services && item.services.length > 0 && (
-                          <p className="text-sm text-[var(--gray-600,#4a5568)] font-medium">{item.services.map(s => s.name).join(', ')}</p>
+                          <p className="text-xs sm:text-sm text-[var(--gray-600,#4a5568)] font-medium line-clamp-2">{item.services.map(s => s.name).join(', ')}</p>
                         )}
                       </div>
                       {item.orderId && (
-                        <span className="text-sm text-[var(--primary-blue,#1a2a5e)] flex items-center gap-1 ml-3 font-semibold">
+                        <span className="text-sm text-[var(--primary-blue,#1a2a5e)] flex items-center gap-1 ml-2 font-semibold flex-shrink-0">
                           <ExternalLink className="h-4 w-4" />
                         </span>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-[var(--gray-200,#d8dce6)]">
-                      <div className="text-sm">
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3 pt-2 sm:pt-3 border-t border-[var(--gray-200,#d8dce6)]">
+                      <div className="text-xs sm:text-sm">
                         <span className="text-[var(--gray-600,#4a5568)]">Kosten: </span>
                         <span className="font-bold text-[var(--primary-blue,#1a2a5e)]">{formatCurrency(item.cost)}</span>
                       </div>
                       {item.services && item.services[0]?.estimatedTime && (
-                        <div className="text-sm text-right">
+                        <div className="text-xs sm:text-sm text-right">
                           <span className="text-[var(--gray-600,#4a5568)]">Geschätzt: </span>
                           <span className="font-bold text-[var(--gray-800,#1a202c)]">{item.services[0].estimatedTime}m</span>
                         </div>
@@ -1327,37 +1327,37 @@ function BookingDetailDialog({
             )}
           </TabsContent>
 
-          <TabsContent value="items" className="space-y-3 mt-5">
+          <TabsContent value="items" className="space-y-3 mt-3 sm:mt-5">
             {booking.items && booking.items.filter(item => item.type === 'product').length > 0 ? (
               <div className="space-y-3">
                 {booking.items.filter(item => item.type === 'product').map((item) => (
-                  <div key={item._id || item.orderId} className="bg-white border-2 border-[var(--gray-200,#d8dce6)] rounded-lg p-4 shadow-md">
-                    <div className="flex items-center justify-between mb-3 pb-3 border-b-2 border-[var(--accent-yellow,#f5b800)]">
-                      <h4 className="font-bold text-base text-[var(--primary-blue,#1a2a5e)]">Produkt</h4>
-                      <Badge className={`${getStatusColor(item.status || 'pending')} text-sm font-bold px-3 py-1`}>
+                  <div key={item._id || item.orderId} className="bg-white border-2 border-[var(--gray-200,#d8dce6)] rounded-lg p-3 sm:p-4 shadow-md">
+                    <div className="flex items-center justify-between mb-2 sm:mb-3 pb-2 sm:pb-3 border-b-2 border-[var(--accent-yellow,#f5b800)]">
+                      <h4 className="font-bold text-sm sm:text-base text-[var(--primary-blue,#1a2a5e)]">Produkt</h4>
+                      <Badge className={`${getStatusColor(item.status || 'pending')} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>
                         {item.status || 'pending'}
                       </Badge>
                     </div>
                     {item.products && item.products.length > 0 ? (
                       <div className="space-y-2">
                         {item.products.map((product, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-sm p-3 bg-[var(--gray-50,#f5f6f8)] rounded-lg border-l-4 border-[var(--primary-blue,#1a2a5e)]">
-                            <div>
-                              <p className="font-bold text-[var(--gray-800,#1a202c)]">{product.name}</p>
-                              <p className="text-sm text-[var(--gray-600,#4a5568)] mt-1">
+                          <div key={idx} className="flex justify-between items-center gap-2 text-xs sm:text-sm p-2 sm:p-3 bg-[var(--gray-50,#f5f6f8)] rounded-lg border-l-4 border-[var(--primary-blue,#1a2a5e)]">
+                            <div className="min-w-0">
+                              <p className="font-bold text-[var(--gray-800,#1a202c)] truncate">{product.name}</p>
+                              <p className="text-[11px] sm:text-sm text-[var(--gray-600,#4a5568)] mt-0.5">
                                 Menge: {product.quantity} × {formatCurrency(product.price)}
                               </p>
                             </div>
-                            <p className="font-extrabold text-base text-[var(--primary-blue,#1a2a5e)]">{formatCurrency(product.totalPrice)}</p>
+                            <p className="font-extrabold text-sm sm:text-base text-[var(--primary-blue,#1a2a5e)] flex-shrink-0">{formatCurrency(product.totalPrice)}</p>
                           </div>
                         ))}
-                        <div className="flex justify-between items-center text-sm mt-4 pt-3 border-t-2 border-[var(--gray-300,#b0b8c9)] font-bold">
+                        <div className="flex justify-between items-center text-xs sm:text-sm mt-3 sm:mt-4 pt-2 sm:pt-3 border-t-2 border-[var(--gray-300,#b0b8c9)] font-bold">
                           <span className="text-[var(--gray-700,#2d3748)] uppercase tracking-wide">Gesamt:</span>
-                          <span className="text-lg text-[var(--primary-blue,#1a2a5e)]">{formatCurrency(item.cost)}</span>
+                          <span className="text-sm sm:text-lg text-[var(--primary-blue,#1a2a5e)]">{formatCurrency(item.cost)}</span>
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm text-[var(--gray-500,#636e85)] text-center py-3">Keine Produkte</p>
+                      <p className="text-xs sm:text-sm text-[var(--gray-500,#636e85)] text-center py-3">Keine Produkte</p>
                     )}
                   </div>
                 ))}
@@ -1369,18 +1369,18 @@ function BookingDetailDialog({
             )}
           </TabsContent>
 
-          <TabsContent value="shipping" className="space-y-4 mt-5">
+          <TabsContent value="shipping" className="space-y-3 sm:space-y-4 mt-3 sm:mt-5">
             {(hasOutboundShipping || hasReturnShipping) ? (
               <div className="space-y-4">
                 {hasOutboundShipping && (
-                <div className="bg-white p-5 rounded-lg border-2 border-[var(--primary-blue,#1a2a5e)] shadow-md">
-                  <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-[var(--accent-yellow,#f5b800)]">
-                    <h3 className="font-bold text-base flex items-center gap-2 text-[var(--primary-blue,#1a2a5e)]">
-                      <Package className="h-5 w-5 text-[var(--accent-yellow,#f5b800)]" />
+                <div className="bg-white p-3 sm:p-5 rounded-lg border-2 border-[var(--primary-blue,#1a2a5e)] shadow-md">
+                  <div className="flex items-center justify-between flex-wrap gap-1 sm:gap-2 mb-3 sm:mb-4 pb-2 sm:pb-3 border-b-2 border-[var(--accent-yellow,#f5b800)]">
+                    <h3 className="font-bold text-sm sm:text-base flex items-center gap-1 sm:gap-2 text-[var(--primary-blue,#1a2a5e)]">
+                      <Package className="h-4 w-4 sm:h-5 sm:w-5 text-[var(--accent-yellow,#f5b800)] flex-shrink-0" />
                       Versand an McRepair
                     </h3>
                     {booking.shippingStatus && (
-                      <Badge className="bg-blue-100 text-[var(--primary-blue,#1a2a5e)] border border-blue-300 text-sm font-bold px-3 py-1">
+                      <Badge className="bg-blue-100 text-[var(--primary-blue,#1a2a5e)] border border-blue-300 text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1 flex-shrink-0">
                         {booking.shippingStatus}
                       </Badge>
                     )}
@@ -1388,9 +1388,9 @@ function BookingDetailDialog({
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {booking.trackingNumber && (
-                      <div className="bg-[var(--gray-50,#f5f6f8)] rounded-lg p-4 border border-[var(--gray-200,#d8dce6)]">
-                        <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-2 uppercase">Trackingnummer</p>
-                        <p className="font-mono font-bold text-base text-[var(--primary-blue,#1a2a5e)] break-all">{booking.trackingNumber}</p>
+                      <div className="bg-[var(--gray-50,#f5f6f8)] rounded-lg p-3 sm:p-4 border border-[var(--gray-200,#d8dce6)]">
+                        <p className="text-[10px] sm:text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-1 sm:mb-2 uppercase">Trackingnummer</p>
+                        <p className="font-mono font-bold text-sm sm:text-base text-[var(--primary-blue,#1a2a5e)] break-all">{booking.trackingNumber}</p>
                         {booking.carrier && (
                           <p className="text-sm font-medium text-[var(--gray-600,#4a5568)] mt-2">Versanddienst: {booking.carrier}</p>
                         )}
@@ -1404,39 +1404,39 @@ function BookingDetailDialog({
                           href={booking.shippingLabelUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary-blue,#1a2a5e)] text-white rounded-lg text-sm font-bold hover:bg-[var(--primary-blue-dark,#0f1d45)] transition-all hover:shadow-lg"
+                          className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-[var(--primary-blue,#1a2a5e)] text-white rounded-lg text-xs sm:text-sm font-bold hover:bg-[var(--primary-blue-dark,#0f1d45)] transition-all hover:shadow-lg"
                         >
-                          <FileText className="h-4 w-4" />
-                          Versandlabel zu McRepair öffnen
-                          <ExternalLink className="h-4 w-4" />
+                          <FileText className="h-4 w-4 flex-shrink-0" />
+                          <span>Versandlabel zu McRepair öffnen</span>
+                          <ExternalLink className="h-4 w-4 flex-shrink-0" />
                         </a>
                       </div>
                     )}
                   </div>
 
                   {(booking.shippingCreatedAt || booking.estimatedDelivery || booking.actualDelivery || booking.shippingStatusDescription) && (
-                    <div className="mt-4 pt-4 border-t border-[var(--gray-200,#d8dce6)] space-y-2 text-sm">
+                    <div className="mt-4 pt-4 border-t border-[var(--gray-200,#d8dce6)] space-y-2">
                       {booking.shippingStatusDescription && (
-                        <p className="text-[var(--gray-700,#2d3748)]">
+                        <p className="text-xs sm:text-sm text-[var(--gray-700,#2d3748)] break-words">
                           <span className="font-semibold text-[var(--gray-600,#4a5568)]">Statusinfo: </span>
                           {booking.shippingStatusDescription}
                         </p>
                       )}
                       {booking.shippingCreatedAt && (
-                        <p className="text-[var(--gray-700,#2d3748)]">
+                        <p className="text-xs sm:text-sm text-[var(--gray-700,#2d3748)] break-words">
                           <span className="font-semibold text-[var(--gray-600,#4a5568)]">Label erstellt: </span>
                           {formatDateTime(booking.shippingCreatedAt)}
                         </p>
                       )}
                       {booking.estimatedDelivery && (
-                        <p className="text-[var(--gray-700,#2d3748)]">
-                          <span className="font-semibold text-[var(--gray-600,#4a5568)]">Voraussichtliche Ankunft bei McRepair: </span>
+                        <p className="text-xs sm:text-sm text-[var(--gray-700,#2d3748)] break-words">
+                          <span className="font-semibold text-[var(--gray-600,#4a5568)]">Voraussichtl. Ankunft: </span>
                           {formatDateTime(booking.estimatedDelivery)}
                         </p>
                       )}
                       {booking.actualDelivery && (
-                        <p className="text-[var(--gray-700,#2d3748)]">
-                          <span className="font-semibold text-[var(--gray-600,#4a5568)]">Bei McRepair eingetroffen am: </span>
+                        <p className="text-xs sm:text-sm text-[var(--gray-700,#2d3748)] break-words">
+                          <span className="font-semibold text-[var(--gray-600,#4a5568)]">Eingetroffen am: </span>
                           {formatDateTime(booking.actualDelivery)}
                         </p>
                       )}
@@ -1446,14 +1446,14 @@ function BookingDetailDialog({
                 )}
 
                 {hasReturnShipping && (
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-lg border-2 border-[var(--primary-blue,#1a2a5e)] shadow-md">
-                  <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-[var(--accent-yellow,#f5b800)]">
-                    <h3 className="font-bold text-base flex items-center gap-2 text-[var(--primary-blue,#1a2a5e)]">
-                      <Truck className="h-5 w-5 text-[var(--accent-yellow,#f5b800)]" />
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-3 sm:p-5 rounded-lg border-2 border-[var(--primary-blue,#1a2a5e)] shadow-md">
+                  <div className="flex items-center justify-between flex-wrap gap-1 sm:gap-2 mb-3 sm:mb-4 pb-2 sm:pb-3 border-b-2 border-[var(--accent-yellow,#f5b800)]">
+                    <h3 className="font-bold text-sm sm:text-base flex items-center gap-1 sm:gap-2 text-[var(--primary-blue,#1a2a5e)]">
+                      <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-[var(--accent-yellow,#f5b800)] flex-shrink-0" />
                       Rücksendung
                     </h3>
                     {booking.returnShipmentStatus && (
-                      <Badge className={`${getReturnShipmentStatusColor(booking.returnShipmentStatus)} text-sm font-bold px-3 py-1`}>
+                      <Badge className={`${getReturnShipmentStatusColor(booking.returnShipmentStatus)} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1 flex-shrink-0`}>
                         {booking.returnShipmentStatus}
                       </Badge>
                     )}
@@ -1466,7 +1466,7 @@ function BookingDetailDialog({
                           <Package className="h-5 w-5 text-[var(--primary-blue,#1a2a5e)] mt-0.5 flex-shrink-0" />
                           <div className="flex-1">
                             <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-2 uppercase">Sendungsverfolgung</p>
-                            <p className="font-mono font-bold text-base text-[var(--primary-blue,#1a2a5e)]">
+                            <p className="font-mono font-bold text-sm sm:text-base text-[var(--primary-blue,#1a2a5e)] break-all">
                               {booking.returnTrackingNumber}
                             </p>
                             {booking.returnShipmentStatusDescription && (
@@ -1489,11 +1489,11 @@ function BookingDetailDialog({
                               href={booking.returnLabelUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary-blue,#1a2a5e)] text-white rounded-lg text-sm font-bold hover:bg-[var(--primary-blue-dark,#0f1d45)] transition-all hover:shadow-lg"
+                              className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-[var(--primary-blue,#1a2a5e)] text-white rounded-lg text-xs sm:text-sm font-bold hover:bg-[var(--primary-blue-dark,#0f1d45)] transition-all hover:shadow-lg"
                             >
-                              <FileText className="h-4 w-4" />
-                              PDF Herunterladen
-                              <ExternalLink className="h-4 w-4" />
+                              <FileText className="h-4 w-4 flex-shrink-0" />
+                              <span>PDF Herunterladen</span>
+                              <ExternalLink className="h-4 w-4 flex-shrink-0" />
                             </a>
                           </div>
                         </div>
@@ -1510,11 +1510,11 @@ function BookingDetailDialog({
                               href={booking.returnQRCodeUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 transition-all hover:shadow-lg"
+                              className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-green-600 text-white rounded-lg text-xs sm:text-sm font-bold hover:bg-green-700 transition-all hover:shadow-lg"
                             >
-                              <QrCode className="h-4 w-4" />
-                              Code Anzeigen
-                              <ExternalLink className="h-4 w-4" />
+                              <QrCode className="h-4 w-4 flex-shrink-0" />
+                              <span>Code Anzeigen</span>
+                              <ExternalLink className="h-4 w-4 flex-shrink-0" />
                             </a>
                           </div>
                         </div>
@@ -1529,17 +1529,17 @@ function BookingDetailDialog({
                             <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-3 uppercase">Zeitlinie</p>
                             <div className="space-y-2 text-sm">
                               {booking.returnCreatedAt && (
-                                <div className="flex items-center gap-3 bg-[var(--gray-50,#f5f6f8)] p-2 rounded-lg">
-                                  <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                                  <span className="text-[var(--gray-600,#4a5568)] font-semibold">Erstellt:</span>
-                                  <span className="font-bold text-[var(--gray-800,#1a202c)]">{formatDateTime(booking.returnCreatedAt)}</span>
+                                <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 bg-[var(--gray-50,#f5f6f8)] p-2 rounded-lg">
+                                  <div className="w-3 h-3 rounded-full bg-blue-500 flex-shrink-0"></div>
+                                  <span className="text-[var(--gray-600,#4a5568)] font-semibold text-xs sm:text-sm">Erstellt:</span>
+                                  <span className="font-bold text-[var(--gray-800,#1a202c)] text-xs sm:text-sm break-all">{formatDateTime(booking.returnCreatedAt)}</span>
                                 </div>
                               )}
                               {booking.returnReceivedAt && (
-                                <div className="flex items-center gap-3 bg-green-50 p-2 rounded-lg">
-                                  <div className="w-3 h-3 rounded-full bg-green-600"></div>
-                                  <span className="text-[var(--gray-600,#4a5568)] font-semibold">Erhalten:</span>
-                                  <span className="font-bold text-[var(--gray-800,#1a202c)]">{formatDateTime(booking.returnReceivedAt)}</span>
+                                <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 bg-green-50 p-2 rounded-lg">
+                                  <div className="w-3 h-3 rounded-full bg-green-600 flex-shrink-0"></div>
+                                  <span className="text-[var(--gray-600,#4a5568)] font-semibold text-xs sm:text-sm">Erhalten:</span>
+                                  <span className="font-bold text-[var(--gray-800,#1a202c)] text-xs sm:text-sm break-all">{formatDateTime(booking.returnReceivedAt)}</span>
                                 </div>
                               )}
                             </div>
@@ -1573,23 +1573,23 @@ function BookingDetailDialog({
             )}
           </TabsContent>
 
-          <TabsContent value="timeline" className="space-y-3 mt-5">
+          <TabsContent value="timeline" className="space-y-3 mt-3 sm:mt-5">
             {booking.timeline && booking.timeline.length > 0 ? (
               <div className="space-y-3">
                 {booking.timeline.map((event) => (
-                  <div key={event._id || event.completedAt} className="bg-white border-2 border-[var(--gray-200,#d8dce6)] p-4 rounded-lg flex gap-4 shadow-md hover:border-[var(--accent-yellow,#f5b800)] transition-all">
+                  <div key={event._id || event.completedAt} className="bg-white border-2 border-[var(--gray-200,#d8dce6)] p-3 sm:p-4 rounded-lg flex gap-3 sm:gap-4 shadow-md hover:border-[var(--accent-yellow,#f5b800)] transition-all">
                     <div className="flex-shrink-0">
-                      <CheckCircle className="h-6 w-6 text-green-600 mt-1" />
+                      <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 mt-0.5 sm:mt-1" />
                     </div>
-                    <div className="flex-1">
-                      <h4 className="font-bold text-base text-[var(--primary-blue,#1a2a5e)] mb-1">{event.status}</h4>
-                      <p className="text-sm text-[var(--gray-600,#4a5568)] mb-2">{event.description}</p>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-sm sm:text-base text-[var(--primary-blue,#1a2a5e)] mb-1">{event.status}</h4>
+                      <p className="text-xs sm:text-sm text-[var(--gray-600,#4a5568)] mb-1 sm:mb-2">{event.description}</p>
                       {event.staffName && (
-                        <p className="text-sm text-[var(--gray-600,#4a5568)] mb-2">
+                        <p className="text-xs sm:text-sm text-[var(--gray-600,#4a5568)] mb-1 sm:mb-2">
                           <span className="font-semibold">Von:</span> {event.staffName}
                         </p>
                       )}
-                      <p className="text-xs text-[var(--gray-500,#636e85)] font-semibold bg-[var(--gray-50,#f5f6f8)] inline-block px-3 py-1 rounded-full">
+                      <p className="text-[10px] sm:text-xs text-[var(--gray-500,#636e85)] font-semibold bg-[var(--gray-50,#f5f6f8)] inline-block px-2 sm:px-3 py-0.5 sm:py-1 rounded-full">
                         {formatDateTime(event.completedAt)}
                       </p>
                     </div>

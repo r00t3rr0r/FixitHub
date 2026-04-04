@@ -1907,7 +1907,8 @@
 }
 
 .customer-diagnosis-popup-body {
-  padding: 12px;
+  padding: 10px;
+  overflow-x: hidden;
 }
 
 .customer-order-inspection-summary-card .space-y-4 > .border-blue-200,
@@ -1946,15 +1947,20 @@
   .customer-repair-details-popup-dialog,
   .customer-repair-services-dialog,
   .customer-diagnosis-popup-dialog {
-    width: min(96vw, 96vw);
-    max-width: min(96vw, 96vw);
+    width: calc(100vw - 12px);
+    max-width: calc(100vw - 12px);
     border-radius: 12px;
   }
 
-  .customer-repair-details-popup-body,
+  .customer-repair-details-popup-body {
+    max-height: 62vh;
+    padding: 8px;
+    gap: 10px;
+  }
+
   .customer-repair-services-popup-body,
   .customer-diagnosis-popup-body {
-    max-height: 68vh;
+    max-height: 65vh;
     padding: 8px;
     gap: 10px;
   }
@@ -1964,10 +1970,89 @@
     padding: 8px;
   }
 
+  .customer-repair-services-popup-section h4 {
+    font-size: 0.82rem;
+    margin-bottom: 8px;
+  }
+
   .customer-repair-services-popup-item {
     gap: 8px;
     padding: 8px;
     border-radius: 10px;
+  }
+
+  .customer-inspection-empty-state {
+    padding: 10px;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 400px) {
+  .customer-repair-details-popup-dialog,
+  .customer-repair-services-dialog,
+  .customer-diagnosis-popup-dialog {
+    border-radius: 8px;
+  }
+
+  .customer-repair-details-popup-body {
+    max-height: 58vh;
+    padding: 6px;
+    gap: 8px;
+  }
+
+  .customer-repair-services-popup-body,
+  .customer-diagnosis-popup-body {
+    max-height: 60vh;
+    padding: 6px;
+    gap: 8px;
+  }
+
+  .customer-repair-services-popup-section {
+    padding: 6px;
+    border-radius: 8px;
+  }
+
+  .customer-repair-services-popup-section h4 {
+    font-size: 0.78rem;
+    margin-bottom: 6px;
+  }
+
+  /* Stack service items vertically so meta (badges) wrap below text */
+  .customer-repair-services-popup-item {
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px;
+    border-radius: 8px;
+  }
+
+  .customer-repair-services-popup-item .meta {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 4px;
+  }
+
+  .customer-repair-services-popup-item .title {
+    font-size: 0.8rem;
+  }
+
+  .customer-repair-services-popup-item .description,
+  .customer-repair-services-popup-item .notes {
+    font-size: 0.74rem;
+  }
+
+  .customer-inspection-empty-state {
+    padding: 8px;
+    gap: 6px;
+    font-size: 0.82rem;
+  }
+
+  .customer-inspection-empty-state strong {
+    font-size: 0.84rem;
+  }
+
+  .customer-inspection-empty-state p {
+    font-size: 0.78rem;
   }
 }
 

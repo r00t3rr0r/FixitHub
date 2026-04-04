@@ -1996,7 +1996,6 @@ export function OrderDetails() {
       'diagnosed': 'Diagnostiziert',
       'awaiting-parts': 'Wartet auf Teile',
       'ready-for-pickup': 'Abholbereit',
-      'cancelled': 'Storniert',
     }
     if (statusMap[status]) return statusMap[status]
     // Handle dynamic shipping status prefix
@@ -4045,7 +4044,7 @@ export function OrderDetails() {
       </div>
 
       <Dialog open={repairDetailsPopupOpen} onOpenChange={setRepairDetailsPopupOpen}>
-        <DialogContent className="order-dialog-content customer-repair-details-popup-dialog sm:max-w-3xl">
+        <DialogContent className="order-dialog-content customer-repair-details-popup-dialog w-[calc(100vw-12px)] sm:max-w-3xl max-h-[92dvh] overflow-y-auto">
           <DialogHeader className="order-dialog-header">
             <DialogTitle className="text-base flex items-center gap-2">
               <Wrench className="h-4 w-4" />
@@ -4063,7 +4062,7 @@ export function OrderDetails() {
       </Dialog>
 
       <Dialog open={diagnosisPopupOpen} onOpenChange={setDiagnosisPopupOpen}>
-        <DialogContent className="order-dialog-content customer-diagnosis-popup-dialog sm:max-w-2xl">
+        <DialogContent className="order-dialog-content customer-diagnosis-popup-dialog w-[calc(100vw-12px)] sm:max-w-2xl max-h-[92dvh] overflow-y-auto">
           <DialogHeader className="order-dialog-header">
             <DialogTitle className="text-base flex items-center gap-2">
               <FileText className="h-4 w-4" />
@@ -4081,7 +4080,7 @@ export function OrderDetails() {
       </Dialog>
 
       <Dialog open={repairServicesPopupOpen} onOpenChange={setRepairServicesPopupOpen}>
-        <DialogContent className="order-dialog-content customer-repair-services-dialog sm:max-w-2xl">
+        <DialogContent className="order-dialog-content customer-repair-services-dialog w-[calc(100vw-12px)] sm:max-w-2xl max-h-[92dvh] overflow-y-auto">
           <DialogHeader className="order-dialog-header">
             <DialogTitle className="text-base flex items-center gap-2">
               <Wrench className="h-4 w-4" />
@@ -4883,7 +4882,7 @@ export function OrderDetails() {
       )}
 
       <Dialog open={complaintDialogOpen} onOpenChange={setComplaintDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="w-[calc(100vw-12px)] sm:max-w-lg max-h-[92dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Reklamation anmelden</DialogTitle>
             <DialogDescription>
@@ -4917,7 +4916,7 @@ export function OrderDetails() {
       </Dialog>
 
       <Dialog open={complaintActionDialog === 'ack'} onOpenChange={(open) => !open && setComplaintActionDialog(null)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="w-[calc(100vw-12px)] sm:max-w-lg max-h-[92dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Techniker: Anerkennen</DialogTitle>
             <DialogDescription>Bitte Grund auswaehlen oder individuell angeben.</DialogDescription>
@@ -4958,11 +4957,11 @@ export function OrderDetails() {
       </Dialog>
 
       <Dialog open={complaintActionDialog === 'deny'} onOpenChange={(open) => !open && setComplaintActionDialog(null)}>
-        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-12px)] sm:max-w-xl max-h-[92dvh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm sm:text-base">
               <span>{user?.role === 'admin' ? 'Reklamation ablehnen bestaetigen' : 'Reklamation ablehnen'}</span>
-              <Badge className="bg-rose-100 text-rose-800 border border-rose-300 text-xs font-normal" variant="outline">Reparaturangebot erforderlich</Badge>
+              <Badge className="bg-rose-100 text-rose-800 border border-rose-300 text-xs font-normal flex-shrink-0" variant="outline">Reparaturangebot erforderlich</Badge>
             </DialogTitle>
             <DialogDescription>
               {user?.role === 'admin'

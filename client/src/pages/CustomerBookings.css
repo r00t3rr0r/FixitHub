@@ -242,3 +242,189 @@
   color: #7c2d12;
   border-color: #fdba74;
 }
+
+/* =============================================
+   Responsive Card Layout – Small Screens ≤640px
+   ============================================= */
+@media (max-width: 640px) {
+  /* Filter bar stacks vertically */
+  .bookings-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Convert main bookings table to card layout */
+  .bookings-list-table,
+  .bookings-list-table tbody {
+    display: block !important;
+    width: 100%;
+  }
+
+  .bookings-list-table thead {
+    display: none !important;
+  }
+
+  /* Each regular booking row → card */
+  .bookings-list-table tbody tr:not(.expanded-row) {
+    display: flex !important;
+    flex-direction: column;
+    position: relative;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    margin: 0 0 10px;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+    overflow: visible;
+  }
+
+  /* Each table cell → label + value row */
+  .bookings-list-table tbody tr:not(.expanded-row) > td {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-bottom: 1px solid #f3f4f6;
+    font-size: 0.85rem;
+    min-height: 34px;
+  }
+
+  /* Label prefix from data-label */
+  .bookings-list-table tbody tr:not(.expanded-row) > td[data-label]::before {
+    content: attr(data-label);
+    font-size: 0.67rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #9ca3af;
+    min-width: 82px;
+    flex-shrink: 0;
+  }
+
+  /* First data cell needs top padding to clear the absolute Actions button */
+  .bookings-list-table tbody tr:not(.expanded-row) > td:nth-child(2) {
+    padding-top: 28px;
+  }
+
+  /* Expand toggle cell → bottom of card */
+  .bookings-list-table tbody tr:not(.expanded-row) > td:nth-child(1) {
+    order: 99;
+    justify-content: center;
+    background: #f8fafc;
+    border-top: 1px solid #f3f4f6;
+    border-bottom: none !important;
+    border-radius: 0 0 12px 12px;
+    padding: 4px;
+    min-height: auto;
+  }
+
+  /* Actions cell → absolute top-right corner */
+  .bookings-list-table tbody tr:not(.expanded-row) > td:nth-last-child(1) {
+    position: absolute !important;
+    top: 4px;
+    right: 4px;
+    display: flex !important;
+    width: auto;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    min-height: auto;
+  }
+
+  .bookings-list-table tbody tr:not(.expanded-row) > td:nth-last-child(1)::before {
+    display: none !important;
+  }
+
+  /* Progress bar fills available space */
+  .bookings-list-table .progress-container {
+    flex: 1;
+    min-width: 80px;
+  }
+
+  /* Expanded row → full-width below the card */
+  .bookings-list-table tbody tr.expanded-row {
+    display: block !important;
+    margin: -8px 0 10px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+  }
+
+  .bookings-list-table tbody tr.expanded-row > td {
+    display: block !important;
+    padding: 0;
+    border: none;
+  }
+
+  /* Sub-orders nested table → stacked cards */
+  .orders-sub-table,
+  .orders-sub-table tbody {
+    display: block !important;
+    width: 100%;
+  }
+
+  .orders-sub-table thead {
+    display: none !important;
+  }
+
+  .orders-sub-table tbody tr {
+    display: flex !important;
+    flex-direction: column;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    overflow: hidden;
+  }
+
+  .orders-sub-table tbody tr td {
+    display: flex !important;
+    align-items: flex-start;
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    border-bottom: 1px solid #f9fafb;
+    min-height: 26px;
+  }
+
+  .orders-sub-table tbody tr td:last-child {
+    border-bottom: none;
+  }
+
+  .orders-sub-table tbody tr td[data-label]::before {
+    content: attr(data-label) ": ";
+    font-size: 0.63rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #9ca3af;
+    min-width: 72px;
+    flex-shrink: 0;
+    padding-top: 2px;
+  }
+}
+
+/* =============================================
+   Very Small Screens ≤480px
+   ============================================= */
+@media (max-width: 480px) {
+  .bookings-list-table tbody tr:not(.expanded-row) > td[data-label]::before {
+    min-width: 70px;
+    font-size: 0.63rem;
+  }
+
+  .bookings-list-table tbody tr:not(.expanded-row) {
+    border-radius: 10px;
+    margin: 0 0 8px;
+  }
+
+  .bookings-list-table tbody tr.expanded-row {
+    margin: -6px 0 8px;
+  }
+
+  .expanded-section {
+    padding: 0.75rem;
+  }
+
+  .info-grid {
+    gap: 0.5rem;
+  }
+}

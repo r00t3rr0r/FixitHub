@@ -366,7 +366,7 @@ export function ShoppingCartPage() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--off-white, #f8f9fc)' }}>
-      <div className="container mx-auto px-4 py-5 sm:py-6">
+      <div className="container mx-auto px-2.5 py-4 sm:px-4 sm:py-6">
         {/* Header */}
         <div className="mb-5">
           <div
@@ -445,16 +445,16 @@ export function ShoppingCartPage() {
                             Tippen fuer Detailansicht
                           </p>
                         </div>
-                        <span className="text-[11px] font-semibold text-white sm:text-xs">Details ansehen</span>
+                        <span className="hidden text-[11px] font-semibold text-white sm:inline sm:text-xs">Details ansehen</span>
                       </div>
 
-                      <div className="flex gap-3">
+                      <div className="flex gap-2 sm:gap-3">
                       {/* Product Image */}
                         <div className="relative flex-shrink-0">
                           <img
                             src={item.productId.images?.[0] || '/placeholder-product.png'}
                             alt={item.productId.name || 'Product'}
-                            className="relative h-20 w-20 rounded-lg object-cover shadow-sm transition-transform duration-300 group-hover:scale-105 sm:h-[88px] sm:w-[88px]"
+                            className="relative h-16 w-16 rounded-lg object-cover shadow-sm transition-transform duration-300 group-hover:scale-105 sm:h-[88px] sm:w-[88px]"
                             style={{ borderRadius: 'var(--radius-md, 10px)' }}
                           />
                         </div>
@@ -494,12 +494,12 @@ export function ShoppingCartPage() {
                       </div>
                     </div>
 
-                    <div className="mt-3 flex items-center justify-between border-t border-[#e7eaf1] pt-3">
-                      <div className="flex items-center gap-2">
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#e7eaf1] pt-3">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-8 w-8 shadow-sm transition-all"
+                          className="h-7 w-7 shadow-sm transition-all sm:h-8 sm:w-8"
                           style={{ 
                             borderColor: 'var(--gray-300, #b0b8c9)'
                           }}
@@ -509,15 +509,15 @@ export function ShoppingCartPage() {
                           }}
                           disabled={(updating === item.productId._id || updating === item._id) || item.quantity <= 1}
                         >
-                          <Minus className="h-3.5 w-3.5" />
+                          <Minus className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                         </Button>
-                        <span className="w-9 text-center text-sm font-bold sm:w-10" style={{ color: PRIMARY_BLUE }}>
+                        <span className="w-8 text-center text-xs font-bold sm:w-10 sm:text-sm" style={{ color: PRIMARY_BLUE }}>
                           {item.quantity}
                         </span>
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-8 w-8 shadow-sm transition-all"
+                          className="h-7 w-7 shadow-sm transition-all sm:h-8 sm:w-8"
                           style={{ 
                             borderColor: 'var(--gray-300, #b0b8c9)'
                           }}
@@ -527,11 +527,11 @@ export function ShoppingCartPage() {
                           }}
                           disabled={(updating === item.productId._id || updating === item._id) || !item.productId.inStock}
                         >
-                          <Plus className="h-3.5 w-3.5" />
+                          <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                         </Button>
                       </div>
 
-                      <div className="flex items-center gap-3">
+                      <div className="ml-auto flex items-center gap-2 sm:gap-3">
                         <div className="text-right">
                           <p className="text-base font-bold sm:text-lg" style={{ color: PRIMARY_BLUE }}>
                             {(item.productId.price * item.quantity).toFixed(2)} €
@@ -548,9 +548,9 @@ export function ShoppingCartPage() {
                             handleUpdateQuantity(item._id, item.productId._id, 0)
                           }}
                           disabled={updating === item.productId._id || updating === item._id}
-                          className="h-7 w-7 shrink-0 transition-colors hover:bg-red-50 hover:text-red-600"
+                          className="h-6 w-6 shrink-0 transition-colors hover:bg-red-50 hover:text-red-600 sm:h-7 sm:w-7"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                         </Button>
                       </div>
                     </div>
@@ -622,13 +622,13 @@ export function ShoppingCartPage() {
                         </div>
 
                         <div className="p-3 sm:p-3.5">
-                          <div className="flex gap-3">
+                          <div className="flex gap-2 sm:gap-3">
                             <div className="relative flex-shrink-0">
                               {deviceImage ? (
                                 <img
                                   src={deviceImage}
                                   alt={`${order.deviceBrand} ${order.deviceModel}`}
-                                  className="h-20 w-20 rounded-lg object-cover shadow-sm sm:h-[88px] sm:w-[88px]"
+                                  className="h-16 w-16 rounded-lg object-cover shadow-sm sm:h-[88px] sm:w-[88px]"
                                   onError={(event) => {
                                     event.currentTarget.style.display = 'none'
                                     const placeholder = event.currentTarget.nextElementSibling as HTMLElement | null
@@ -636,7 +636,7 @@ export function ShoppingCartPage() {
                                   }}
                                 />
                               ) : null}
-                              <div className={`${deviceImage ? 'hidden' : 'flex'} h-20 w-20 items-center justify-center rounded-lg bg-[#eef3fb] shadow-sm sm:h-[88px] sm:w-[88px]`}>
+                              <div className={`${deviceImage ? 'hidden' : 'flex'} h-16 w-16 items-center justify-center rounded-lg bg-[#eef3fb] shadow-sm sm:h-[88px] sm:w-[88px]`}>
                                 <Wrench className="h-8 w-8 text-[#1a2a5e]" />
                               </div>
                               {quantity > 1 && (
@@ -647,7 +647,7 @@ export function ShoppingCartPage() {
                             </div>
 
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-start justify-between gap-3">
+                              <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
                                 <div className="min-w-0 flex-1">
                                   <p className="line-clamp-2 text-sm font-semibold leading-5 text-[#1a2a5e] sm:text-[0.95rem]">
                                     {[order.deviceBrand, order.deviceModel].filter(Boolean).join(' ') || order.deviceType || 'Gerät'}
@@ -656,13 +656,13 @@ export function ShoppingCartPage() {
                                     {[order.deviceType, order.deviceBrand, order.deviceModel].filter(Boolean).join(' • ')}
                                   </p>
                                 </div>
-                                <div className="text-right">
+                                <div className="text-right sm:ml-auto">
                                   {quantity > 1 && (
-                                    <p className="text-[11px] font-medium text-[#636e85]">
+                                    <p className="text-[10px] font-medium text-[#636e85] sm:text-[11px]">
                                       {(order.totalCost || 0).toFixed(2)} € × {quantity}
                                     </p>
                                   )}
-                                  <p className="text-base font-bold text-[#1a2a5e] sm:text-lg">
+                                  <p className="text-sm font-bold text-[#1a2a5e] sm:text-lg">
                                     {((order.totalCost || 0) * quantity).toFixed(2)} €
                                   </p>
                                 </div>
@@ -701,7 +701,7 @@ export function ShoppingCartPage() {
                                 </div>
                               )}
 
-                              <div className="mt-2.5 flex items-center justify-between border-t border-[#e7eaf1] pt-2 text-[11px] sm:text-xs">
+                              <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-[#e7eaf1] pt-2 text-[11px] sm:text-xs">
                                 <div className="flex items-center gap-1.5 font-medium text-[#4a5568]">
                                   <Shield className="h-3.5 w-3.5 text-[#38a169]" />
                                   Professionelle Reparatur inklusive

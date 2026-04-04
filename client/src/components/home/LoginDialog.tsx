@@ -62,12 +62,22 @@ export function LoginDialog({ isOpen, onClose, anchorElement, onLoginSuccess }: 
     return null;
   }
 
-  const dialogStyle: React.CSSProperties = {
-    position: 'fixed',
-    top: position.top > 0 ? `${position.top}px` : '60px',
-    right: position.right > 0 ? `${position.right}px` : '20px',
-    zIndex: 99999
-  };
+  const isMobileViewport = typeof window !== 'undefined' && window.innerWidth <= 768;
+
+  const dialogStyle: React.CSSProperties = isMobileViewport
+    ? {
+        width: 'min(420px, calc(100vw - 16px))',
+        maxWidth: 'min(420px, calc(100vw - 16px))',
+        maxHeight: 'calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
+        overflowY: 'auto',
+        zIndex: 99999
+      }
+    : {
+        position: 'fixed',
+        top: position.top > 0 ? `${position.top}px` : '60px',
+        right: position.right > 0 ? `${position.right}px` : '20px',
+        zIndex: 99999
+      };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,11 +133,12 @@ export function LoginDialog({ isOpen, onClose, anchorElement, onLoginSuccess }: 
   };
 
   return (
-    <div 
-      ref={dialogRef}
-      className="login-dialog login-dialog-dropdown"
-      style={dialogStyle}
-    >
+    <div className={isMobileViewport ? 'login-dialog-mobile-container' : undefined}>
+      <div 
+        ref={dialogRef}
+        className={`login-dialog login-dialog-dropdown ${isMobileViewport ? 'login-dialog-mobile-centered' : ''}`}
+        style={dialogStyle}
+      >
       <button className="login-dialog-close" onClick={onClose} aria-label="Close">
         <X width={20} height={20} />
       </button>
@@ -206,6 +217,7 @@ export function LoginDialog({ isOpen, onClose, anchorElement, onLoginSuccess }: 
             {t('login.register', 'Jetzt registrieren')}
           </Link>
         </div>
+      </div>
     </div>
   );
 }

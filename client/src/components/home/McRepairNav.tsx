@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  Wrench,
   Package,
   BookOpen,
   Phone,
@@ -11,11 +10,18 @@ import {
   X,
   MapPin,
   User,
+  LogOut,
+  ChevronDown,
   Smartphone,
   Tablet,
   Laptop,
   Gamepad2,
-  ShoppingBag
+  ShoppingBag,
+  Calendar,
+  FileText,
+  MessageSquare,
+  Wrench,
+  AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ForceLightMode } from '@/components/ForceLightMode';
@@ -42,13 +48,15 @@ interface DeviceMenuData {
 
 export function McRepairNav() {
   const { t } = useTranslation();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileMenuClosing, setMobileMenuClosing] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [mobileCategoryOpen, setMobileCategoryOpen] = useState<keyof DeviceMenuData | null>(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const loginButtonRef = useRef<HTMLButtonElement>(null);
   const [deviceMenuData, setDeviceMenuData] = useState<DeviceMenuData>({
@@ -59,6 +67,8 @@ export function McRepairNav() {
   });
   const [loadingDevices, setLoadingDevices] = useState(true);
   const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const mobileMenuCloseTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const scrollLockTopRef = useRef(0);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -213,29 +223,77 @@ export function McRepairNav() {
     loadDeviceMenuData();
   }, []);
 
+  const closeMobileMenu = (onClosed?: () => void) => {
+    if (!mobileMenuOpen) {
+      if (onClosed) onClosed();
+      return;
+    }
+    setMobileMenuClosing(true);
+    if (mobileMenuCloseTimerRef.current) {
+      clearTimeout(mobileMenuCloseTimerRef.current);
+    }
+    mobileMenuCloseTimerRef.current = setTimeout(() => {
+      setMobileMenuOpen(false);
+      setMobileMenuClosing(false);
+      setMobileCategoryOpen(null);
+      if (onClosed) onClosed();
+      mobileMenuCloseTimerRef.current = null;
+    }, 180);
+  };
+
   const toggleMobileMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen);
+    if (mobileMenuOpen) {
+      closeMobileMenu();
+      return;
+    }
+    setMobileMenuClosing(false);
+    setMobileMenuOpen(true);
   };
 
   const toggleSearch = () => {
     setSearchOpen(!searchOpen);
   };
 
-  // Prevent body scroll when mobile menu is open
+  // Prevent background scroll when mobile menu is open/closing (mobile-safe, incl. iOS)
   useEffect(() => {
-    if (mobileMenuOpen) {
+    if (mobileMenuOpen || mobileMenuClosing) {
+      scrollLockTopRef.current = window.scrollY;
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollLockTopRef.current}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+      document.body.style.width = '100%';
       document.body.style.overflow = 'hidden';
       document.body.classList.add('mobile-menu-open');
     } else {
+      const top = document.body.style.top;
+      document.documentElement.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.width = '';
       document.body.style.overflow = '';
       document.body.classList.remove('mobile-menu-open');
+      if (top) {
+        const restoredY = Math.abs(parseInt(top, 10)) || scrollLockTopRef.current;
+        window.scrollTo(0, restoredY);
+      }
+      setMobileCategoryOpen(null);
     }
 
     return () => {
+      document.documentElement.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.width = '';
       document.body.style.overflow = '';
       document.body.classList.remove('mobile-menu-open');
     };
-  }, [mobileMenuOpen]);
+  }, [mobileMenuOpen, mobileMenuClosing]);
 
   const handleMouseEnter = (menuName: string) => {
     // Clear any pending close timer
@@ -259,6 +317,9 @@ export function McRepairNav() {
       if (closeTimerRef.current) {
         clearTimeout(closeTimerRef.current);
       }
+      if (mobileMenuCloseTimerRef.current) {
+        clearTimeout(mobileMenuCloseTimerRef.current);
+      }
     };
   }, []);
 
@@ -273,7 +334,7 @@ export function McRepairNav() {
     
     sessionStorage.setItem('navDeviceSelection', JSON.stringify(deviceInfo));
     setActiveDropdown(null);
-    setMobileMenuOpen(false);
+    closeMobileMenu();
 
     // Dispatch custom event to notify RepairOrderConfigurator
     window.dispatchEvent(new CustomEvent('navDeviceSelected'));
@@ -303,7 +364,7 @@ export function McRepairNav() {
     
     sessionStorage.setItem('navDeviceSelection', JSON.stringify(deviceInfo));
     setActiveDropdown(null);
-    setMobileMenuOpen(false);
+    closeMobileMenu();
 
     // Dispatch custom event to notify RepairOrderConfigurator
     window.dispatchEvent(new CustomEvent('navDeviceSelected'));
@@ -321,32 +382,69 @@ export function McRepairNav() {
     }
   };
 
-  const handleBookRepairClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setMobileMenuOpen(false);
-
-    // If already on homepage, scroll to configurator; otherwise navigate to homepage
-    if (location.pathname === '/') {
-      const configurator = document.getElementById('repair-order-configurator');
-      if (configurator) {
-        configurator.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    } else {
-      navigate('/');
-      // After navigation, scroll to configurator
-      setTimeout(() => {
-        const configurator = document.getElementById('repair-order-configurator');
-        if (configurator) {
-          configurator.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }, 100);
-    }
-  };
-
   const handleLoginClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setShowLoginDialog(true);
+    closeMobileMenu(() => setShowLoginDialog(true));
+  };
+
+  const handleMobileSearchClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    closeMobileMenu(() => setSearchOpen(true));
+  };
+
+  const handleMobileLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    closeMobileMenu(() => {
+      logout();
+      navigate('/');
+    });
+  };
+
+  const handleCategoryClick = (e: React.MouseEvent, category: keyof DeviceMenuData) => {
+    if (window.innerWidth <= 768 || mobileMenuOpen) {
+      e.preventDefault();
+      setMobileCategoryOpen((prev) => (prev === category ? null : category));
+    }
+  };
+
+  const renderMobileDeviceDropdown = (category: keyof DeviceMenuData) => {
+    const manufacturers = Object.entries(deviceMenuData[category]);
+
+    if (loadingDevices) {
+      return <div className="nav-mobile-dropdown-empty">Lade Geräte...</div>;
+    }
+
+    if (manufacturers.length === 0) {
+      return <div className="nav-mobile-dropdown-empty">Keine Geräte verfügbar</div>;
+    }
+
+    return (
+      <div className="nav-mobile-dropdown">
+        {manufacturers.map(([manufacturer, models]) => (
+          <div key={manufacturer} className="nav-mobile-dropdown-group">
+            <div className="nav-mobile-dropdown-title">{manufacturer}</div>
+            {models.map((model) => (
+              <Link
+                key={model}
+                to="/"
+                className="nav-mobile-dropdown-link"
+                onClick={() => handleDeviceClick(category, manufacturer, model)}
+              >
+                {model}
+              </Link>
+            ))}
+            <Link
+              to="/"
+              className="nav-mobile-dropdown-link nav-mobile-dropdown-link-all"
+              onClick={() => handleShowAllModels(category, manufacturer)}
+            >
+              {t('home.nav.allModels', 'Alle Modelle')} →
+            </Link>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   const renderDeviceDropdown = (category: keyof DeviceMenuData) => {
@@ -452,67 +550,103 @@ export function McRepairNav() {
         </Link>
 
         {/* Desktop Navigation Links */}
-        <div className={`nav-links ${mobileMenuOpen ? 'mobile-open' : ''}`} id="navLinks">
+        <div className={`nav-links ${mobileMenuOpen ? 'mobile-open' : ''} ${mobileMenuClosing ? 'mobile-closing' : ''}`} id="navLinks">
           {/* Smartphone */}
           <div 
-            className="nav-item-with-dropdown"
+            className="nav-item-with-dropdown nav-category-item"
             onMouseEnter={() => handleMouseEnter('smartphone')}
             onMouseLeave={handleMouseLeave}
           >
-            <a href="#smartphone" className="nav-link">
+            <a href="#smartphone" className="nav-link" onClick={(e) => handleCategoryClick(e, 'smartphone')}>
               <Smartphone width={16} height={16} />
               {t('home.nav.smartphone', 'Smartphone')}
+              {mobileMenuOpen && (
+                <ChevronDown
+                  width={16}
+                  height={16}
+                  className={`nav-mobile-caret ${mobileCategoryOpen === 'smartphone' ? 'open' : ''}`}
+                />
+              )}
             </a>
             {activeDropdown === 'smartphone' && renderDeviceDropdown('smartphone')}
+            {mobileMenuOpen && mobileCategoryOpen === 'smartphone' && renderMobileDeviceDropdown('smartphone')}
           </div>
 
           {/* Tablet */}
           <div 
-            className="nav-item-with-dropdown"
+            className="nav-item-with-dropdown nav-category-item"
             onMouseEnter={() => handleMouseEnter('tablet')}
             onMouseLeave={handleMouseLeave}
           >
-            <a href="#tablet" className="nav-link">
+            <a href="#tablet" className="nav-link" onClick={(e) => handleCategoryClick(e, 'tablet')}>
               <Tablet width={16} height={16} />
               {t('home.nav.tablet', 'Tablet')}
+              {mobileMenuOpen && (
+                <ChevronDown
+                  width={16}
+                  height={16}
+                  className={`nav-mobile-caret ${mobileCategoryOpen === 'tablet' ? 'open' : ''}`}
+                />
+              )}
             </a>
             {activeDropdown === 'tablet' && renderDeviceDropdown('tablet')}
+            {mobileMenuOpen && mobileCategoryOpen === 'tablet' && renderMobileDeviceDropdown('tablet')}
           </div>
 
           {/* Notebook */}
           <div 
-            className="nav-item-with-dropdown"
+            className="nav-item-with-dropdown nav-category-item"
             onMouseEnter={() => handleMouseEnter('notebook')}
             onMouseLeave={handleMouseLeave}
           >
-            <a href="#notebook" className="nav-link">
+            <a href="#notebook" className="nav-link" onClick={(e) => handleCategoryClick(e, 'notebook')}>
               <Laptop width={16} height={16} />
               {t('home.nav.notebook', 'Notebook')}
+              {mobileMenuOpen && (
+                <ChevronDown
+                  width={16}
+                  height={16}
+                  className={`nav-mobile-caret ${mobileCategoryOpen === 'notebook' ? 'open' : ''}`}
+                />
+              )}
             </a>
             {activeDropdown === 'notebook' && renderDeviceDropdown('notebook')}
+            {mobileMenuOpen && mobileCategoryOpen === 'notebook' && renderMobileDeviceDropdown('notebook')}
           </div>
 
           {/* Konsole */}
           <div 
-            className="nav-item-with-dropdown"
+            className="nav-item-with-dropdown nav-category-item"
             onMouseEnter={() => handleMouseEnter('konsole')}
             onMouseLeave={handleMouseLeave}
           >
-            <a href="#konsole" className="nav-link">
+            <a href="#konsole" className="nav-link" onClick={(e) => handleCategoryClick(e, 'konsole')}>
               <Gamepad2 width={16} height={16} />
               {t('home.nav.konsole', 'Konsole')}
+              {mobileMenuOpen && (
+                <ChevronDown
+                  width={16}
+                  height={16}
+                  className={`nav-mobile-caret ${mobileCategoryOpen === 'konsole' ? 'open' : ''}`}
+                />
+              )}
             </a>
             {activeDropdown === 'konsole' && renderDeviceDropdown('konsole')}
+            {mobileMenuOpen && mobileCategoryOpen === 'konsole' && renderMobileDeviceDropdown('konsole')}
           </div>
 
           {/* Shop */}
-          <a href="#shop" className="nav-link" onClick={() => setMobileMenuOpen(false)}>
+          <a href="#shop" className="nav-link nav-category-item" onClick={closeMobileMenu}>
             <ShoppingBag width={16} height={16} />
             {t('home.nav.shop', 'Shop')}
           </a>
 
           {/* Mobile Extras (only shown in mobile menu) */}
           <div className="nav-mobile-extras">
+            <button onClick={handleMobileSearchClick}>
+              <Search width={16} height={16} />
+              {t('common.search', 'Suche')}
+            </button>
             <a href="tel:+4917012345678">
               <Phone width={16} height={16} />
               {t('home.topBar.hotline', '0170 123 4567')}
@@ -529,6 +663,42 @@ export function McRepairNav() {
                 <User width={16} height={16} />
                 {t('home.topBar.login', 'Anmelden')}
               </button>
+            )}
+            {isAuthenticated && (
+              <>
+                <Link to="/profile" onClick={() => closeMobileMenu()}>
+                  <User width={16} height={16} />
+                  {t('navigation.profile', 'Profil')}
+                </Link>
+                <Link to="/bookings" onClick={() => closeMobileMenu()}>
+                  <Calendar width={16} height={16} />
+                  {t('navigation.bookings', 'Buchungen')}
+                </Link>
+                <Link to="/invoices" onClick={() => closeMobileMenu()}>
+                  <FileText width={16} height={16} />
+                  {t('navigation.invoices', 'Rechnungen')}
+                </Link>
+                <Link to="/messages" onClick={() => closeMobileMenu()}>
+                  <MessageSquare width={16} height={16} />
+                  {t('navigation.messages', 'Nachrichten')}
+                </Link>
+                <Link to="/notifications" onClick={() => closeMobileMenu()}>
+                  <Package width={16} height={16} />
+                  {t('navigation.notifications', 'Benachrichtigungen')}
+                </Link>
+                <Link to="/my-repair-requests" onClick={() => closeMobileMenu()}>
+                  <Wrench width={16} height={16} />
+                  Repair Requests
+                </Link>
+                <Link to="/my-complaints" onClick={() => closeMobileMenu()}>
+                  <AlertTriangle width={16} height={16} />
+                  Reklamationen
+                </Link>
+                <button onClick={handleMobileLogout}>
+                  <LogOut width={16} height={16} />
+                  {t('navigation.logout', 'Abmelden')}
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -550,22 +720,27 @@ export function McRepairNav() {
           </button>
 
           {/* Language Selector */}
-          <LanguageSelector />
+          <div className="language-selector-component">
+            <LanguageSelector />
+          </div>
 
           {/* Cart */}
-          <CartIcon />
+          <div className="nav-cart-trigger">
+            <CartIcon />
+          </div>
 
           {/* Notifications (if authenticated) */}
-          {isAuthenticated && <NotificationBell />}
+          {isAuthenticated && (
+            <div className="notification-bell-component">
+              <NotificationBell />
+            </div>
+          )}
 
-          {/* CTA Button or Profile */}
-          {isAuthenticated ? (
-            <ProfileDropdown />
-          ) : (
-            <a href="#" onClick={handleBookRepairClick} className="nav-cta">
-              <Wrench width={16} height={16} />
-              <span>{t('home.nav.bookRepair', 'Reparatur buchen')}</span>
-            </a>
+          {/* Profile (if authenticated) */}
+          {isAuthenticated && (
+            <div className="nav-profile-trigger">
+              <ProfileDropdown />
+            </div>
           )}
 
           {/* Mobile Menu Toggle */}

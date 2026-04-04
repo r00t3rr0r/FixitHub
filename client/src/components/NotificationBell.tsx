@@ -29,45 +29,35 @@ export function NotificationBell() {
   const { toast } = useToast()
 
   useEffect(() => {
-    console.log('NotificationBell: Initializing notification polling');
-    fetchNotifications()
+    fetchNotifications(true)
 
-    // Set up polling to refresh notifications every 5 seconds
+    // Set up polling to refresh notifications every 30 seconds (silent background refresh)
     const pollInterval = setInterval(() => {
-      console.log('NotificationBell: Polling for new notifications');
-      fetchNotifications()
-    }, 5000)
+      fetchNotifications(false)
+    }, 30000)
 
-    return () => {
-      console.log('NotificationBell: Cleaning up notification polling');
-      clearInterval(pollInterval)
-    }
+    return () => clearInterval(pollInterval)
   }, [])
 
-  // Refresh notifications when dropdown is opened
+  // Refresh notifications when dropdown is opened (silently, no spinner)
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open)
     if (open) {
-      console.log('NotificationBell: Dropdown opened, refreshing notifications');
-      fetchNotifications()
+      fetchNotifications(false)
     }
   }
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (showSpinner = false) => {
     try {
-      setLoading(true)
+      if (showSpinner) setLoading(true)
       const response = await getNotifications({ limit: 10 })
       const data = response as any
       setNotifications(data.notifications || [])
       setUnreadCount(data.unreadCount || 0)
-      console.log('NotificationBell: Notifications fetched:', {
-        count: data.notifications?.length || 0,
-        unreadCount: data.unreadCount || 0
-      })
     } catch (error) {
       console.error("NotificationBell: Error fetching notifications:", error)
     } finally {
-      setLoading(false)
+      if (showSpinner) setLoading(false)
     }
   }
 
@@ -142,12 +132,13 @@ export function NotificationBell() {
         </DropdownMenuTrigger>
         <DropdownMenuContent 
           align="end" 
-          className="w-[420px] p-0 shadow-xl border border-border"
-          sideOffset={12}
+          className="w-[420px] max-w-[calc(100vw-12px)] p-0 shadow-xl border border-border"
+          sideOffset={8}
+          collisionPadding={6}
         >
           <div className="bg-card">
             {/* Header with McRepair styling */}
-            <div className="px-5 py-4 border-b border-border bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e]">
+            <div className="px-3 sm:px-5 py-3 sm:py-4 border-b border-border bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e]">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-base flex items-center gap-2 text-white">
                   <Bell className="h-5 w-5 text-[#f5b800]" />
@@ -162,7 +153,7 @@ export function NotificationBell() {
             </div>
 
             {/* Notification Content */}
-            <div className="max-h-[450px] overflow-y-auto">
+            <div className="max-h-[68dvh] sm:max-h-[450px] overflow-y-auto">
               {loading ? (
                 <div className="p-10 text-center">
                   <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-3">
@@ -181,11 +172,11 @@ export function NotificationBell() {
                   <p className="text-sm text-muted-foreground">Sie haben alle Benachrichtigungen gelesen</p>
                 </div>
               ) : (
-                <div className="p-4 space-y-3">
+                <div className="p-2 sm:p-4 space-y-2 sm:space-y-3">
                   {notifications.map((notification) => (
                     <div
                       key={notification._id}
-                      className={`bg-card rounded-lg p-3 border transition-all duration-200 cursor-pointer ${
+                      className={`bg-card rounded-lg p-2.5 sm:p-3 border transition-all duration-200 cursor-pointer ${
                         !notification.isRead 
                           ? 'border-[#f5b800] bg-accent hover:shadow-md' 
                           : 'border-border hover:border-primary hover:shadow-md'
@@ -202,17 +193,17 @@ export function NotificationBell() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
-                            <p className="text-sm font-semibold text-foreground truncate">
+                            <p className="text-[13px] sm:text-sm font-semibold text-foreground truncate pr-1">
                               {notification.title}
                             </p>
                             {!notification.isRead && (
                               <div className="w-2 h-2 bg-[#f5b800] rounded-full flex-shrink-0 ml-2" />
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground line-clamp-2 mb-1.5 leading-relaxed">
+                          <p className="text-[11px] sm:text-xs text-muted-foreground line-clamp-2 mb-1.5 leading-relaxed">
                             {notification.message}
                           </p>
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1 text-[11px] sm:text-xs text-muted-foreground">
                             <Clock className="h-3 w-3" />
                             {formatTime(notification.createdAt)}
                           </div>
@@ -222,7 +213,7 @@ export function NotificationBell() {
                         <Link
                           to={notification.actionUrl}
                           className="block mt-2 text-xs font-semibold text-foreground hover:text-[#f5b800] transition-colors"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => { e.stopPropagation(); setIsOpen(false); }}
                         >
                           Details ansehen →
                         </Link>
@@ -235,10 +226,11 @@ export function NotificationBell() {
 
             {/* Footer */}
             {notifications.length > 0 && (
-              <div className="px-5 py-3 border-t border-border bg-muted">
+              <div className="px-3 sm:px-5 py-3 border-t border-border bg-muted">
                 <Link 
                   to="/notifications" 
                   className="block text-center text-sm font-semibold text-foreground hover:text-[#f5b800] transition-colors"
+                  onClick={() => setIsOpen(false)}
                 >
                   {t('navigation.viewAllNotifications')}
                 </Link>

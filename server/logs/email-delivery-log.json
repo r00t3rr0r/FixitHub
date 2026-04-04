@@ -1184,5 +1184,53 @@
         "supportPhone"
       ]
     }
+  },
+  {
+    "id": "1775149983644-jg747epft",
+    "timestamp": "2026-04-02T17:13:03.644Z",
+    "to": "netsparker@example.com",
+    "templateName": "Passwort zuruecksetzen",
+    "subject": "Passwort fuer Ihr McRepair.de Konto zuruecksetzen",
+    "messageId": "<df0cb949-869d-c2d0-caec-4db5bb1709ce@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1883,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "passwordResetUrl",
+        "resetExpiresAt",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775323818738-z1nq2tnhr",
+    "timestamp": "2026-04-04T17:30:18.738Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0010 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<64b3db3e-bd8e-5172-e948-233aa0064958@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1400,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
   }
 ]
