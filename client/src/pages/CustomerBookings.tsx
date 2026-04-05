@@ -818,7 +818,7 @@ export function CustomerBookings() {
                               ) : expandedOrdersData[booking._id] && expandedOrdersData[booking._id].length > 0 ? (
                                 <div className="space-y-1.5">
                                   <h4 className="font-semibold text-xs mb-1.5 text-foreground/70">{t('bookings.ordersAndRepairs')}</h4>
-                                  <div className="border rounded-md overflow-hidden">
+                                  <div className="border rounded-md overflow-hidden orders-sub-table-wrap">
                                     <Table className="text-xs orders-sub-table">
                                       <TableHeader>
                                         <TableRow className="bg-muted/40">
@@ -939,6 +939,115 @@ export function CustomerBookings() {
                                         ))}
                                       </TableBody>
                                     </Table>
+                                  </div>
+
+                                  <div className="orders-sub-cards-mobile">
+                                    {expandedOrdersData[booking._id].map((item: any) => (
+                                      <div
+                                        key={`mobile-${item.orderId || item._id}`}
+                                        className="orders-sub-card"
+                                      >
+                                        <div className="orders-sub-card-head">
+                                          <div className="orders-sub-card-order">{item.orderNumber}</div>
+                                          <Badge className={`${getOrderStatusColor(item.status || 'pending')} text-xs`}>
+                                            {item.status || 'pending'}
+                                          </Badge>
+                                        </div>
+
+                                        <div className="orders-sub-card-grid">
+                                          <div className="orders-sub-card-field">
+                                            <span className="orders-sub-card-label">{t('bookings.type')}</span>
+                                            <span className="orders-sub-card-value">
+                                              {item.isComplaintFollowup
+                                                ? t('bookings.complaintFollowup')
+                                                : item.type === 'repair'
+                                                  ? t('bookings.repair')
+                                                  : 'Prod.'}
+                                            </span>
+                                          </div>
+
+                                          <div className="orders-sub-card-field">
+                                            <span className="orders-sub-card-label">{t('bookings.device')}</span>
+                                            <span className="orders-sub-card-value orders-sub-card-truncate">
+                                              {item.type === 'repair'
+                                                ? (item.device || t('bookings.device'))
+                                                : (item.products?.map((p: any) => p.name).join(', ') || t('bookings.product'))}
+                                            </span>
+                                          </div>
+
+                                          <div className="orders-sub-card-field">
+                                            <span className="orders-sub-card-label">{t('bookings.services')}</span>
+                                            <span className="orders-sub-card-value orders-sub-card-truncate">
+                                              {item.type === 'repair' && item.services && item.services.length > 0
+                                                ? item.services.map((service: any) => service.name).join(', ')
+                                                : item.type === 'product' && item.products && item.products.length > 0
+                                                  ? `${item.products.length} ${t('bookings.items')}`
+                                                  : '—'}
+                                            </span>
+                                          </div>
+
+                                          <div className="orders-sub-card-field">
+                                            <span className="orders-sub-card-label">{t('bookings.costShort')}</span>
+                                            <span className="orders-sub-card-value">${item.cost?.toFixed(2) || '0.00'}</span>
+                                          </div>
+                                        </div>
+
+                                        <div className="orders-sub-card-progress-row">
+                                          <span className="orders-sub-card-label">{t('bookings.progressShort')}</span>
+                                          <div className="orders-sub-card-progress">
+                                            <div
+                                              className="orders-sub-card-progress-fill"
+                                              style={{ width: `${item.progress || 0}%` }}
+                                            ></div>
+                                          </div>
+                                          <span className="orders-sub-card-progress-text">{item.progress || 0}%</span>
+                                        </div>
+
+                                        <div className="orders-sub-card-footer">
+                                          <div className="orders-sub-card-messages">
+                                            <span className="orders-sub-card-label">{t('bookings.messages')}</span>
+                                            {item.orderId && unreadCounts[item.orderId] ? (
+                                              <span className="orders-sub-card-message-count">
+                                                {unreadCounts[item.orderId].unread > 99 ? '99+' : unreadCounts[item.orderId].unread}
+                                              </span>
+                                            ) : (
+                                              <span className="orders-sub-card-message-count orders-sub-card-message-empty">0</span>
+                                            )}
+                                          </div>
+
+                                          <div className="orders-sub-card-actions">
+                                            {item.orderId && (
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-7 text-[11px] px-2"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleOpenCommunication(item.orderId);
+                                                }}
+                                              >
+                                                <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                                                Chat
+                                              </Button>
+                                            )}
+
+                                            {item.orderId && (
+                                              <Button
+                                                size="sm"
+                                                className="h-7 text-[11px] px-2"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleViewOrder(item.orderId);
+                                                }}
+                                              >
+                                                <Eye className="h-3.5 w-3.5 mr-1" />
+                                                {t('common.view')}
+                                              </Button>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
                                   </div>
                                 </div>
                               ) : (
@@ -1149,8 +1258,8 @@ function BookingDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="w-full max-w-[calc(100vw-12px)] sm:max-w-4xl max-h-[92dvh] overflow-y-auto overflow-x-hidden bg-[var(--off-white,#f8f9fc)] p-3 sm:p-6">
-        <DialogHeader className="-mx-3 -mt-3 sm:-mx-6 sm:-mt-6 px-3 sm:px-6 pt-3 sm:pt-6 pb-3 sm:pb-5 border-b-2 border-[var(--accent-yellow,#f5b800)] bg-gradient-to-r from-[var(--primary-blue,#1a2a5e)] to-[var(--primary-blue-light,#2a3f7e)]">
+      <DialogContent className="booking-detail-dialog-content w-full max-w-[calc(100vw-12px)] sm:max-w-4xl max-h-[92dvh] overflow-y-auto overflow-x-hidden bg-[var(--off-white,#f8f9fc)] p-3 sm:p-6">
+        <DialogHeader className="booking-detail-dialog-header -mx-3 -mt-3 sm:-mx-6 sm:-mt-6 px-3 sm:px-6 pt-3 sm:pt-6 pb-3 sm:pb-5 border-b-2 border-[var(--accent-yellow,#f5b800)] bg-gradient-to-r from-[var(--primary-blue,#1a2a5e)] to-[var(--primary-blue-light,#2a3f7e)]">
           <DialogTitle
             className="text-base sm:text-2xl font-extrabold"
             style={{ color: "#f5b800" }}
@@ -1163,34 +1272,34 @@ function BookingDetailDialog({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-4">
-          <TabsList className="grid grid-cols-5 h-auto bg-[var(--primary-blue,#1a2a5e)] rounded-lg p-0.5 sm:p-1 gap-0.5 sm:gap-1">
+          <TabsList className="booking-detail-tabs-list grid grid-cols-5 h-auto bg-[var(--primary-blue,#1a2a5e)] rounded-lg p-0.5 sm:p-1 gap-0.5 sm:gap-1">
             <TabsTrigger 
               value="overview" 
-              className="text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+              className="booking-detail-tab-trigger text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
             >
               Übersicht
             </TabsTrigger>
             <TabsTrigger 
               value="repairs" 
-              className="text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+              className="booking-detail-tab-trigger text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
             >
               Repara&shy;turen
             </TabsTrigger>
             <TabsTrigger 
               value="items" 
-              className="text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+              className="booking-detail-tab-trigger text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
             >
               Artikel
             </TabsTrigger>
             <TabsTrigger 
               value="shipping" 
-              className="text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+              className="booking-detail-tab-trigger text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
             >
               Versand
             </TabsTrigger>
             <TabsTrigger 
               value="timeline" 
-              className="text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
+              className="booking-detail-tab-trigger text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
             >
               Verlauf
             </TabsTrigger>
@@ -1284,39 +1393,51 @@ function BookingDetailDialog({
                 {booking.items.filter(item => item.type === 'repair').map((item) => (
                   <div
                     key={item._id || item.orderId}
-                    className="bg-white border-2 border-[var(--gray-200,#d8dce6)] rounded-lg p-3 sm:p-4 hover:border-[var(--accent-yellow,#f5b800)] hover:shadow-lg cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+                    className="booking-detail-order-card bg-white border-2 border-[var(--gray-200,#d8dce6)] rounded-lg p-3 sm:p-4 hover:border-[var(--accent-yellow,#f5b800)] hover:shadow-lg cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
                     onClick={() => item.orderId && handleViewOrder(item.orderId)}
                   >
-                    <div className="flex justify-between items-start mb-2 sm:mb-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-1 sm:mb-2">
-                          <h4 className="font-bold text-sm sm:text-base text-[var(--gray-800,#1a202c)] truncate">{item.device || 'Gerät Reparatur'}</h4>
-                          <Badge className={`${getStatusColor(item.status || 'pending')} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>
-                            {item.status || 'pending'}
-                          </Badge>
-                        </div>
-                        {item.services && item.services.length > 0 && (
-                          <p className="text-xs sm:text-sm text-[var(--gray-600,#4a5568)] font-medium line-clamp-2">{item.services.map(s => s.name).join(', ')}</p>
-                        )}
+                    <div className="booking-detail-order-head">
+                      <div className="min-w-0">
+                        <p className="booking-detail-order-number">{item.orderId ? `Auftrag ${item.orderId.slice(-8).toUpperCase()}` : 'Auftrag'}</p>
+                        <h4 className="font-bold text-sm sm:text-base text-[var(--gray-800,#1a202c)] truncate">{item.device || 'Gerät Reparatur'}</h4>
                       </div>
-                      {item.orderId && (
-                        <span className="text-sm text-[var(--primary-blue,#1a2a5e)] flex items-center gap-1 ml-2 font-semibold flex-shrink-0">
-                          <ExternalLink className="h-4 w-4" />
-                        </span>
-                      )}
+                      <Badge className={`${getStatusColor(item.status || 'pending')} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>
+                        {item.status || 'pending'}
+                      </Badge>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 sm:gap-3 pt-2 sm:pt-3 border-t border-[var(--gray-200,#d8dce6)]">
-                      <div className="text-xs sm:text-sm">
+
+                    <div className="booking-detail-order-services text-xs sm:text-sm text-[var(--gray-600,#4a5568)] font-medium">
+                      {item.services && item.services.length > 0 ? item.services.map(s => s.name).join(', ') : 'Keine Services hinterlegt'}
+                    </div>
+
+                    <div className="booking-detail-order-meta grid grid-cols-2 gap-2 sm:gap-3 pt-2 sm:pt-3 border-t border-[var(--gray-200,#d8dce6)]">
+                      <div className="text-xs sm:text-sm min-w-0">
                         <span className="text-[var(--gray-600,#4a5568)]">Kosten: </span>
-                        <span className="font-bold text-[var(--primary-blue,#1a2a5e)]">{formatCurrency(item.cost)}</span>
+                        <span className="font-bold text-[var(--primary-blue,#1a2a5e)] break-words">{formatCurrency(item.cost)}</span>
                       </div>
                       {item.services && item.services[0]?.estimatedTime && (
-                        <div className="text-xs sm:text-sm text-right">
+                        <div className="text-xs sm:text-sm text-right min-w-0">
                           <span className="text-[var(--gray-600,#4a5568)]">Geschätzt: </span>
                           <span className="font-bold text-[var(--gray-800,#1a202c)]">{item.services[0].estimatedTime}m</span>
                         </div>
                       )}
                     </div>
+
+                    {item.orderId && (
+                      <div className="booking-detail-order-actions pt-2 mt-2 border-t border-[var(--gray-200,#d8dce6)]">
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs w-full sm:w-auto"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewOrder(item.orderId);
+                          }}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          Auftrag öffnen
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1331,9 +1452,14 @@ function BookingDetailDialog({
             {booking.items && booking.items.filter(item => item.type === 'product').length > 0 ? (
               <div className="space-y-3">
                 {booking.items.filter(item => item.type === 'product').map((item) => (
-                  <div key={item._id || item.orderId} className="bg-white border-2 border-[var(--gray-200,#d8dce6)] rounded-lg p-3 sm:p-4 shadow-md">
+                  <div key={item._id || item.orderId} className="booking-detail-order-card bg-white border-2 border-[var(--gray-200,#d8dce6)] rounded-lg p-3 sm:p-4 shadow-md">
                     <div className="flex items-center justify-between mb-2 sm:mb-3 pb-2 sm:pb-3 border-b-2 border-[var(--accent-yellow,#f5b800)]">
-                      <h4 className="font-bold text-sm sm:text-base text-[var(--primary-blue,#1a2a5e)]">Produkt</h4>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-sm sm:text-base text-[var(--primary-blue,#1a2a5e)]">Produkt</h4>
+                        {item.orderId && (
+                          <p className="booking-detail-order-number">Auftrag {item.orderId.slice(-8).toUpperCase()}</p>
+                        )}
+                      </div>
                       <Badge className={`${getStatusColor(item.status || 'pending')} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>
                         {item.status || 'pending'}
                       </Badge>
@@ -1341,14 +1467,14 @@ function BookingDetailDialog({
                     {item.products && item.products.length > 0 ? (
                       <div className="space-y-2">
                         {item.products.map((product, idx) => (
-                          <div key={idx} className="flex justify-between items-center gap-2 text-xs sm:text-sm p-2 sm:p-3 bg-[var(--gray-50,#f5f6f8)] rounded-lg border-l-4 border-[var(--primary-blue,#1a2a5e)]">
+                          <div key={idx} className="booking-detail-product-row flex justify-between items-center gap-2 text-xs sm:text-sm p-2 sm:p-3 bg-[var(--gray-50,#f5f6f8)] rounded-lg border-l-4 border-[var(--primary-blue,#1a2a5e)]">
                             <div className="min-w-0">
                               <p className="font-bold text-[var(--gray-800,#1a202c)] truncate">{product.name}</p>
                               <p className="text-[11px] sm:text-sm text-[var(--gray-600,#4a5568)] mt-0.5">
                                 Menge: {product.quantity} × {formatCurrency(product.price)}
                               </p>
                             </div>
-                            <p className="font-extrabold text-sm sm:text-base text-[var(--primary-blue,#1a2a5e)] flex-shrink-0">{formatCurrency(product.totalPrice)}</p>
+                            <p className="booking-detail-product-price font-extrabold text-sm sm:text-base text-[var(--primary-blue,#1a2a5e)] flex-shrink-0">{formatCurrency(product.totalPrice)}</p>
                           </div>
                         ))}
                         <div className="flex justify-between items-center text-xs sm:text-sm mt-3 sm:mt-4 pt-2 sm:pt-3 border-t-2 border-[var(--gray-300,#b0b8c9)] font-bold">

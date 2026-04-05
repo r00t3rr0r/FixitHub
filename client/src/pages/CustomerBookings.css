@@ -243,6 +243,135 @@
   border-color: #fdba74;
 }
 
+/* Expanded orders: mobile cards for very small displays */
+.orders-sub-cards-mobile {
+  display: none;
+}
+
+.orders-sub-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0.625rem;
+  background: #ffffff;
+  box-shadow: var(--shadow-sm);
+}
+
+.orders-sub-card + .orders-sub-card {
+  margin-top: 0.5rem;
+}
+
+.orders-sub-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.orders-sub-card-order {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--primary-blue);
+  word-break: break-word;
+}
+
+.orders-sub-card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.38rem;
+}
+
+.orders-sub-card-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.orders-sub-card-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  color: #6b7280;
+}
+
+.orders-sub-card-value {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.orders-sub-card-truncate {
+  overflow-wrap: anywhere;
+}
+
+.orders-sub-card-progress-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.55rem;
+}
+
+.orders-sub-card-progress {
+  height: 4px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.orders-sub-card-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-yellow) 0%, var(--accent-yellow-hover) 100%);
+  border-radius: 999px;
+}
+
+.orders-sub-card-progress-text {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--primary-blue);
+}
+
+.orders-sub-card-footer {
+  margin-top: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.orders-sub-card-messages {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.orders-sub-card-message-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #f97316;
+  color: #fff;
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.orders-sub-card-message-empty {
+  background: #94a3b8;
+}
+
+.orders-sub-card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 /* =============================================
    Responsive Card Layout – Small Screens ≤640px
    ============================================= */
@@ -286,6 +415,18 @@
     border-bottom: 1px solid #f3f4f6;
     font-size: 0.85rem;
     min-height: 34px;
+    min-width: 0;
+  }
+
+  .bookings-list-table tbody tr:not(.expanded-row) > td > * {
+    min-width: 0;
+  }
+
+  .bookings-list-table tbody tr:not(.expanded-row) > td span,
+  .bookings-list-table tbody tr:not(.expanded-row) > td div,
+  .bookings-list-table tbody tr:not(.expanded-row) > td p {
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   /* Label prefix from data-label */
@@ -384,6 +525,13 @@
     font-size: 0.78rem;
     border-bottom: 1px solid #f9fafb;
     min-height: 26px;
+    min-width: 0;
+  }
+
+  .orders-sub-table tbody tr td > * {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .orders-sub-table tbody tr td:last-child {
@@ -406,9 +554,25 @@
    Very Small Screens ≤480px
    ============================================= */
 @media (max-width: 480px) {
+  .orders-sub-table-wrap {
+    display: none;
+  }
+
+  .orders-sub-cards-mobile {
+    display: block;
+  }
+
   .bookings-list-table tbody tr:not(.expanded-row) > td[data-label]::before {
     min-width: 70px;
     font-size: 0.63rem;
+  }
+
+  .bookings-list-table tbody tr:not(.expanded-row) > td[data-label] {
+    gap: 0.4rem;
+  }
+
+  .bookings-list-table tbody tr:not(.expanded-row) > td[data-label]::before {
+    min-width: 64px;
   }
 
   .bookings-list-table tbody tr:not(.expanded-row) {
@@ -426,5 +590,220 @@
 
   .info-grid {
     gap: 0.5rem;
+  }
+
+  .orders-sub-card,
+  .expanded-section {
+    overflow: hidden;
+  }
+
+  .orders-sub-card-head,
+  .orders-sub-card-footer {
+    min-width: 0;
+  }
+
+  .orders-sub-card-value,
+  .orders-sub-card-order,
+  .orders-sub-card-progress-text {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}
+
+/* Booking detail dialog: tiny-screen usability */
+.booking-detail-order-card {
+  overflow: hidden;
+}
+
+.booking-detail-order-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.booking-detail-order-number {
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  color: #64748b;
+  margin-bottom: 0.14rem;
+}
+
+.booking-detail-order-services {
+  margin-bottom: 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.booking-detail-order-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.booking-detail-dialog-content,
+.booking-detail-dialog-content * {
+  box-sizing: border-box;
+}
+
+.booking-detail-dialog-content {
+  width: min(calc(100vw - 12px), 100%);
+  overflow-x: hidden !important;
+}
+
+.booking-detail-dialog-header {
+  max-width: 100%;
+}
+
+.booking-detail-dialog-content p,
+.booking-detail-dialog-content span,
+.booking-detail-dialog-content a,
+.booking-detail-dialog-content h3,
+.booking-detail-dialog-content h4 {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.booking-detail-dialog-content .grid > * {
+  min-width: 0;
+}
+
+@media (max-width: 420px) {
+  .booking-detail-dialog-header {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    margin-top: 0 !important;
+    border-radius: 0.5rem;
+  }
+
+  .booking-detail-tabs-list {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.35rem;
+    padding: 0.35rem;
+    overflow-x: hidden;
+    width: 100%;
+  }
+
+  .booking-detail-tab-trigger {
+    min-width: 0;
+    white-space: normal;
+    flex: 1 1 auto;
+    font-size: 10px !important;
+    line-height: 1.15;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .booking-detail-order-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .booking-detail-order-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-detail-order-actions {
+    justify-content: stretch;
+  }
+
+  .booking-detail-order-actions .button,
+  .booking-detail-order-actions button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 360px) {
+  .booking-detail-tabs-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.25rem;
+    padding: 0.25rem;
+  }
+
+  .booking-detail-tab-trigger {
+    min-width: 0;
+    font-size: 9px !important;
+    padding: 6px 4px !important;
+  }
+
+  .bookings-list-table tbody tr:not(.expanded-row) > td {
+    padding: 6px 8px;
+  }
+
+  .bookings-list-table tbody tr:not(.expanded-row) > td[data-label]::before {
+    min-width: 58px;
+    font-size: 0.6rem;
+  }
+}
+
+@media (max-width: 320px) {
+  .booking-detail-dialog-content {
+    max-width: calc(100vw - 6px) !important;
+    padding: 8px !important;
+  }
+
+  .booking-detail-dialog-header {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    margin-top: 0 !important;
+    padding: 8px !important;
+  }
+
+  .booking-detail-dialog-header h2 {
+    font-size: 0.9rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .booking-detail-dialog-header p {
+    font-size: 0.68rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .booking-detail-tabs-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.2rem;
+    padding: 0.2rem;
+  }
+
+  .booking-detail-tab-trigger {
+    font-size: 8.5px !important;
+    line-height: 1.1 !important;
+    padding: 5px 3px !important;
+  }
+
+  .booking-detail-dialog-content .badge {
+    font-size: 0.58rem;
+    padding: 2px 5px;
+    line-height: 1.1;
+    white-space: normal;
+    max-width: 100%;
+    text-align: center;
+  }
+
+  .booking-detail-dialog-content .grid.grid-cols-2.gap-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-detail-order-card,
+  .booking-detail-dialog-content .rounded-lg {
+    padding: 0.55rem;
+  }
+
+  .booking-detail-order-number {
+    font-size: 0.56rem;
+  }
+
+  .booking-detail-product-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+  }
+
+  .booking-detail-product-price {
+    width: 100%;
+    text-align: left;
+    font-size: 0.82rem;
   }
 }
