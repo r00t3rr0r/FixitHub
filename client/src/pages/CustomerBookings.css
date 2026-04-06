@@ -650,10 +650,203 @@
 .booking-detail-dialog-content {
   width: min(calc(100vw - 12px), 100%);
   overflow-x: hidden !important;
+  background: #ffffff;
 }
 
 .booking-detail-dialog-header {
   max-width: 100%;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  padding: 1.25rem 1.5rem;
+  padding-right: 2.75rem;
+  background: linear-gradient(to right, #1a2a5e, #2a3f7e);
+  border-bottom: none;
+}
+
+.booking-detail-dialog-header-content {
+  position: relative;
+  z-index: 1;
+}
+
+.booking-detail-dialog-close-x {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 10;
+  width: 2.1rem;
+  height: 2.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgb(245, 185, 0);
+  cursor: pointer;
+  transition: background 0.18s, transform 0.18s;
+}
+
+.booking-detail-dialog-close-x:hover {
+  background: rgba(245, 185, 0, 0.2);
+  transform: scale(1.1);
+}
+
+.booking-detail-dialog-close-x:active {
+  transform: scale(0.95);
+}
+
+.booking-detail-dialog-header-bg-orb {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.booking-detail-dialog-header-bg-orb--top {
+  top: 0;
+  right: 0;
+  width: 12rem;
+  height: 12rem;
+  background: radial-gradient(circle, rgba(245, 184, 0, 0.08) 0%, transparent 70%);
+}
+
+.booking-detail-dialog-header-bg-orb--bottom {
+  bottom: 0;
+  left: 0;
+  width: 9rem;
+  height: 9rem;
+  background: radial-gradient(circle, rgba(245, 184, 0, 0.06) 0%, transparent 70%);
+}
+
+.booking-detail-dialog-title {
+  margin: 0 0 0.25rem 0;
+  font-size: clamp(1.1rem, 3vw, 1.5rem);
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: rgb(245, 185, 0) !important;
+}
+
+.booking-detail-dialog-description {
+  margin: 0 0 0.75rem 0;
+  font-size: clamp(0.84rem, 2vw, 1rem);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.booking-detail-dialog-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.booking-detail-dialog-meta-item {
+  border-radius: 12px;
+  padding: 8px 6px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.booking-detail-dialog-meta-item p {
+  margin: 0;
+  margin-bottom: 2px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #bfdbfe;
+}
+
+.booking-detail-dialog-meta-item strong {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.booking-detail-dialog-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: linear-gradient(to bottom, #ffffff 0%, #fafbfc 100%);
+}
+
+.booking-detail-dialog-inner {
+  padding: 0.75rem;
+}
+
+.booking-detail-tabs-list {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.4rem;
+  padding: 0.35rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, #1a2a5e 0%, #2a3f7e 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  height: auto;
+}
+
+.booking-detail-tab-trigger {
+  min-width: 0;
+  white-space: normal;
+  height: auto;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.6rem;
+  border: 1px solid transparent;
+  font-size: 0.78rem;
+  line-height: 1.15;
+  font-weight: 700;
+  text-align: center;
+  color: rgb(245, 185, 0) !important;
+  background: transparent !important;
+  transition: var(--transition);
+}
+
+.booking-detail-tab-trigger:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.booking-detail-tab-trigger[data-state="active"] {
+  background: linear-gradient(135deg, #f5b800 0%, #e5ab00 100%) !important;
+  color: #1a2a5e !important;
+  border-color: rgba(229, 171, 0, 0.7);
+  box-shadow: 0 4px 10px rgba(245, 184, 0, 0.22);
+}
+
+.booking-detail-dialog-footer {
+  padding: 0.75rem 1rem;
+  background: linear-gradient(to bottom, #fafbfc 0%, #f5f6f8 100%);
+  border-top: 1px solid rgba(26, 42, 94, 0.08);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.booking-detail-dialog-close-button {
+  background: linear-gradient(135deg, #1a2a5e 0%, #2a3f7e 100%);
+  color: #ffffff;
+  padding: 0.5rem 1.5rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  border: none;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: 0 4px 12px rgba(26, 42, 94, 0.2);
+}
+
+.booking-detail-dialog-close-button:hover {
+  background: linear-gradient(135deg, var(--accent-yellow) 0%, var(--accent-yellow-hover) 100%);
+  color: var(--primary-blue);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245, 184, 0, 0.3);
+}
+
+.booking-detail-dialog-close-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(245, 184, 0, 0.2);
 }
 
 .booking-detail-dialog-content p,
@@ -675,25 +868,43 @@
     margin-right: 0 !important;
     margin-top: 0 !important;
     border-radius: 0.5rem;
+    padding: 1rem;
+    padding-right: 2.4rem;
+  }
+
+  .booking-detail-dialog-meta-grid {
+    gap: 6px;
+  }
+
+  .booking-detail-dialog-meta-item {
+    border-radius: 10px;
+    padding: 6px 4px;
+  }
+
+  .booking-detail-dialog-meta-item p {
+    font-size: 0.58rem;
+  }
+
+  .booking-detail-dialog-meta-item strong {
+    font-size: 0.72rem;
+  }
+
+  .booking-detail-dialog-inner {
+    padding: 0.5rem;
   }
 
   .booking-detail-tabs-list {
-    display: grid !important;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.35rem;
     padding: 0.35rem;
-    overflow-x: hidden;
-    width: 100%;
   }
 
   .booking-detail-tab-trigger {
-    min-width: 0;
-    white-space: normal;
-    flex: 1 1 auto;
     font-size: 10px !important;
     line-height: 1.15;
     overflow: hidden;
     text-overflow: ellipsis;
+    padding: 0.42rem 0.3rem;
   }
 
   .booking-detail-order-head {
@@ -723,7 +934,6 @@
   }
 
   .booking-detail-tab-trigger {
-    min-width: 0;
     font-size: 9px !important;
     padding: 6px 4px !important;
   }
@@ -741,14 +951,15 @@
 @media (max-width: 320px) {
   .booking-detail-dialog-content {
     max-width: calc(100vw - 6px) !important;
-    padding: 8px !important;
+    padding: 0 !important;
   }
 
   .booking-detail-dialog-header {
     margin-left: 0 !important;
     margin-right: 0 !important;
     margin-top: 0 !important;
-    padding: 8px !important;
+    padding: 0.85rem !important;
+    padding-right: 2.1rem !important;
   }
 
   .booking-detail-dialog-header h2 {
@@ -789,6 +1000,15 @@
   .booking-detail-order-card,
   .booking-detail-dialog-content .rounded-lg {
     padding: 0.55rem;
+  }
+
+  .booking-detail-dialog-footer {
+    padding: 0.55rem 0.65rem;
+  }
+
+  .booking-detail-dialog-close-button {
+    font-size: 0.76rem;
+    padding: 0.4rem 1rem;
   }
 
   .booking-detail-order-number {

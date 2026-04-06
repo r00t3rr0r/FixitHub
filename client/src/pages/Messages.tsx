@@ -24,8 +24,15 @@ import {
   AlertCircle,
   CheckCircle,
   ClipboardList,
-  RefreshCw
+  X
 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import "../styles/messages.css"
 
 export function Messages() {
@@ -47,6 +54,7 @@ export function Messages() {
   const [sendingFeedbackMessage, setSendingFeedbackMessage] = useState(false)
   const [respondingTo, setRespondingTo] = useState<string | null>(null)
   const [feedbackResponse, setFeedbackResponse] = useState<any>(null)
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false)
 
   const currentUserId = String((user as any)?._id || (user as any)?.id || '')
 
@@ -287,6 +295,15 @@ export function Messages() {
     }
   }
 
+  const closeFeedbackDialog = () => {
+    setShowFeedbackDialog(false)
+    setSelectedOrderFeedback(null)
+    setMobileMenuOpen(true)
+    setFeedbackMessage("")
+    setRespondingTo(null)
+    setFeedbackResponse(null)
+  }
+
   const unreadCount = orderFeedbacks.filter((feedback) => getUnreadCustomerFeedbackMessageCount(feedback) > 0).length
 
   const filteredOrderFeedbacks = orderFeedbacks.filter(feedback => {
@@ -406,20 +423,6 @@ export function Messages() {
         <div className="messages-wrapper">
             {/* Feedback Sidebar */}
             <div className={`messages-sidebar ${mobileMenuOpen ? 'open' : ''}`}>
-              <div className="messages-sidebar-header">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                    <h2>Vorgänge mit Feedback</h2>
-                    <button
-                      className="messages-action-btn"
-                      onClick={() => loadOrderFeedbacks()}
-                      disabled={feedbackLoading}
-                      title="Feedback aktualisieren"
-                    >
-                      <RefreshCw size={20} style={{ animation: feedbackLoading ? 'spin 1s linear infinite' : 'none' }} />
-                    </button>
-                  </div>
-              </div>
-
               {/* Search Box */}
               <div className="messages-search-box">
                 <Search size={18} />
@@ -453,6 +456,7 @@ export function Messages() {
                       onClick={() => {
                         setSelectedOrderFeedback(feedback)
                         setMobileMenuOpen(false)
+                        setShowFeedbackDialog(true)
                       }}
                     >
                       <div className="messages-feedback-item-header messages-feedback-item-header--compact">
@@ -494,28 +498,71 @@ export function Messages() {
 
             {/* Feedback Detail Area */}
             <div className="messages-feedback-detail">
-              {selectedOrderFeedback ? (
-                <div className="messages-feedback-container">
-                  {/* Header */}
-                  <div className="messages-feedback-header">
-                    <button 
-                      className="messages-mobile-back"
-                      onClick={() => setMobileMenuOpen(true)}
-                    >
-                      ←
-                    </button>
-                    <div>
-                      <h2>
-                        {getCommunicationTitle(selectedOrderFeedback)}
-                      </h2>
-                      {selectedOrderFeedback.customer && (
-                        <p className="messages-chat-customer">
-                          Kunde: {selectedOrderFeedback.customer.name}
-                          {selectedOrderFeedback.customer.email ? ` • ${selectedOrderFeedback.customer.email}` : ''}
-                        </p>
-                      )}
-                      <p>{selectedOrderFeedback.messages.length} Nachrichten</p>
+              <div className="messages-no-selection messages-no-selection-dialog-hint">
+                <ClipboardList size={64} />
+                <h3>Wählen Sie einen Vorgang aus</h3>
+                <p>Die Konversation wird als Dialog geöffnet.</p>
+                <button
+                  type="button"
+                  className="messages-open-list-btn"
+                  onClick={() => setMobileMenuOpen(true)}
+                >
+                  Vorgänge öffnen
+                </button>
+              </div>
+            </div>
+        </div>
+
+        <Dialog
+          open={showFeedbackDialog && !!selectedOrderFeedback}
+          onOpenChange={(open) => {
+            if (!open) {
+              closeFeedbackDialog()
+              return
+            }
+            setShowFeedbackDialog(true)
+          }}
+        >
+          <DialogContent className="messages-feedback-dialog-content max-w-[95vw] sm:max-w-3xl my-0 sm:my-3 max-h-dvh sm:max-h-[92vh] p-0 gap-0 overflow-hidden border-none rounded-[16px] sm:rounded-[24px] shadow-[0_20px_60px_rgba(26,42,94,0.3)] flex flex-col [&>button]:hidden">
+            {selectedOrderFeedback && (
+              <>
+                <DialogHeader className="messages-feedback-dialog-header">
+                  <button
+                    type="button"
+                    className="messages-feedback-dialog-close"
+                    aria-label="Dialog schließen"
+                    onClick={closeFeedbackDialog}
+                  >
+                    <X size={18} />
+                  </button>
+
+                  <DialogTitle className="messages-feedback-dialog-title" style={{ color: 'rgb(245, 185, 0)' }}>
+                    {getCommunicationTitle(selectedOrderFeedback)}
+                  </DialogTitle>
+                  <DialogDescription className="messages-feedback-dialog-description">
+                    {selectedOrderFeedback.customer
+                      ? `Kunde: ${selectedOrderFeedback.customer.name}${selectedOrderFeedback.customer.email ? ` • ${selectedOrderFeedback.customer.email}` : ''}`
+                      : 'Konversation zum Vorgang'}
+                  </DialogDescription>
+
+                  <div className="messages-feedback-dialog-meta-grid">
+                    <div className="messages-feedback-dialog-meta-item">
+                      <p>Nachrichten</p>
+                      <strong>{selectedOrderFeedback.messages.length}</strong>
                     </div>
+                    <div className="messages-feedback-dialog-meta-item">
+                      <p>Offen</p>
+                      <strong>{selectedOrderFeedback.pendingFeedbackCount || 0}</strong>
+                    </div>
+                    <div className="messages-feedback-dialog-meta-item">
+                      <p>Aktionen</p>
+                      <strong>{selectedOrderFeedback.pendingActionsCount || 0}</strong>
+                    </div>
+                  </div>
+                </DialogHeader>
+
+                <div className="messages-feedback-dialog-body">
+                  <div className="messages-feedback-dialog-toolbar">
                     {getCommunicationSourceId(selectedOrderFeedback) && (
                       <Link
                         to={getCommunicationLink(selectedOrderFeedback)}
@@ -526,7 +573,6 @@ export function Messages() {
                     )}
                   </div>
 
-                  {/* Messages */}
                   <div className="messages-feedback-messages">
                     {selectedOrderFeedback.messages.length === 0 ? (
                       <div className="messages-feedback-empty">
@@ -537,7 +583,6 @@ export function Messages() {
                       selectedOrderFeedback.messages.map((msg: CommunicationMessage) => (
                         <div key={msg._id} className="messages-feedback-message">
                           {msg.messageType === 'text' || msg.messageType === 'system_notification' ? (
-                            // Text Message
                             <div className={`messages-feedback-text`}>
                               <div className="messages-feedback-sender">
                                 <strong>{msg.senderName}</strong>
@@ -557,7 +602,6 @@ export function Messages() {
                               </span>
                             </div>
                           ) : msg.messageType === 'feedback_request' && msg.feedbackRequest ? (
-                            // Feedback Request
                             <div className="messages-feedback-request">
                               <div className="messages-feedback-request-header">
                                 <AlertCircle size={20} className="messages-icon-warning" />
@@ -569,7 +613,7 @@ export function Messages() {
                                 </div>
                               </div>
                               <p className="messages-feedback-question">{msg.feedbackRequest.question}</p>
-                              
+
                               {msg.feedbackRequest.status === 'pending' && respondingTo !== msg._id ? (
                                 <div className="messages-feedback-options">
                                   {msg.feedbackRequest.options.map((option) => (
@@ -592,7 +636,7 @@ export function Messages() {
                                     <button
                                       className="messages-confirm-btn primary"
                                       onClick={() => handleRespondToFeedback(
-                                        msg._id, 
+                                        msg._id,
                                         feedbackResponse
                                       )}
                                     >
@@ -620,7 +664,6 @@ export function Messages() {
                               ) : null}
                             </div>
                           ) : msg.messageType === 'quick_action' && msg.quickAction ? (
-                            // Quick Action
                             <div className="messages-quick-action">
                               <div className="messages-quick-action-header">
                                 <AlertCircle size={20} className="messages-icon-action" />
@@ -635,7 +678,7 @@ export function Messages() {
                               {msg.quickAction.description && (
                                 <p className="messages-action-description">{msg.quickAction.description}</p>
                               )}
-                              
+
                               {msg.quickAction.status === 'pending' && (
                                 <button
                                   className="messages-action-complete-btn"
@@ -651,14 +694,16 @@ export function Messages() {
                       ))
                     )}
                   </div>
+                </div>
 
+                <div className="messages-feedback-dialog-footer">
                   <div className="messages-chat-input">
                     <div className="messages-input-wrapper">
                       <button className="messages-input-btn" title="Datei anhängen" disabled>
                         <Paperclip size={20} />
                       </button>
                       <textarea
-                        placeholder="Nachricht zur Order-Kommunikation senden..."
+                        placeholder="Nachricht eingeben..."
                         value={feedbackMessage}
                         onChange={(e) => setFeedbackMessage(e.target.value)}
                         className="messages-textarea"
@@ -681,22 +726,10 @@ export function Messages() {
                     </div>
                   </div>
                 </div>
-              ) : (
-                <div className="messages-no-selection">
-                  <ClipboardList size={64} />
-                  <h3>Wählen Sie eine Order aus</h3>
-                  <p>Wählen Sie eine Order aus der Liste, um Feedback und Aktionen zu sehen</p>
-                  <button
-                    type="button"
-                    className="messages-open-list-btn"
-                    onClick={() => setMobileMenuOpen(true)}
-                  >
-                    Vorgänge öffnen
-                  </button>
-                </div>
-              )}
-            </div>
-        </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )

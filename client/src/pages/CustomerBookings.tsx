@@ -22,6 +22,7 @@ import {
   QrCode,
   FileText,
   MessageSquare,
+  X,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -322,6 +323,8 @@ export function CustomerBookings() {
   const handleViewOrder = (orderId: string) => {
     navigate(`/orders/${orderId}`);
   };
+
+  const bookingDialogTabTriggerClass = "booking-detail-tab-trigger";
 
   const handleOpenCommunication = (orderId: string) => {
     console.log('Opening communication panel for order:', orderId);
@@ -1258,52 +1261,70 @@ function BookingDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="booking-detail-dialog-content w-full max-w-[calc(100vw-12px)] sm:max-w-4xl max-h-[92dvh] overflow-y-auto overflow-x-hidden bg-[var(--off-white,#f8f9fc)] p-3 sm:p-6">
-        <DialogHeader className="booking-detail-dialog-header -mx-3 -mt-3 sm:-mx-6 sm:-mt-6 px-3 sm:px-6 pt-3 sm:pt-6 pb-3 sm:pb-5 border-b-2 border-[var(--accent-yellow,#f5b800)] bg-gradient-to-r from-[var(--primary-blue,#1a2a5e)] to-[var(--primary-blue-light,#2a3f7e)]">
-          <DialogTitle
-            className="text-base sm:text-2xl font-extrabold"
-            style={{ color: "#f5b800" }}
-          >
-            Buchungsdetails
-          </DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm font-semibold text-white/85 mt-0.5 sm:mt-1">
-            {booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`}
-          </DialogDescription>
+      <DialogContent className="booking-detail-dialog-content max-w-[95vw] sm:max-w-2xl my-0 sm:my-3 max-h-dvh sm:max-h-[92vh] p-0 gap-0 overflow-hidden border-none rounded-[16px] sm:rounded-[24px] shadow-[0_20px_60px_rgba(26,42,94,0.3)] flex flex-col [&>button]:hidden">
+        <DialogHeader className="booking-detail-dialog-header">
+          <div className="booking-detail-dialog-header-bg-orb booking-detail-dialog-header-bg-orb--top" />
+          <div className="booking-detail-dialog-header-bg-orb booking-detail-dialog-header-bg-orb--bottom" />
+
+          <div className="booking-detail-dialog-header-content">
+            <button
+              onClick={onClose}
+              className="booking-detail-dialog-close-x"
+              aria-label="Schließen"
+            >
+              <X size={22} />
+            </button>
+            <DialogTitle className="booking-detail-dialog-title">
+              Buchungsdetails
+            </DialogTitle>
+            <DialogDescription className="booking-detail-dialog-description">
+              {booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`}
+            </DialogDescription>
+
+            <div className="booking-detail-dialog-meta-grid">
+              <div className="booking-detail-dialog-meta-item">
+                <p>Erstellt</p>
+                <strong>{formatDate(booking.createdAt)}</strong>
+              </div>
+              <div className="booking-detail-dialog-meta-item">
+                <p>Aktualisiert</p>
+                <strong>{formatDate(booking.updatedAt)}</strong>
+              </div>
+              <div className="booking-detail-dialog-meta-item">
+                <p>Gesamt</p>
+                <strong>{formatCurrency(booking.totalCost)}</strong>
+              </div>
+            </div>
+          </div>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-4">
-          <TabsList className="booking-detail-tabs-list grid grid-cols-5 h-auto bg-[var(--primary-blue,#1a2a5e)] rounded-lg p-0.5 sm:p-1 gap-0.5 sm:gap-1">
-            <TabsTrigger 
-              value="overview" 
-              className="booking-detail-tab-trigger text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
-            >
+        <div className="booking-detail-dialog-body">
+          <div className="booking-detail-dialog-inner">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-0">
+          {(() => {
+            const activeStyle = { background: "linear-gradient(135deg, #f5b800 0%, #e5ab00 100%)", color: "#1a2a5e" } as const;
+            const inactiveStyle = { background: "transparent", color: "rgb(245, 185, 0)" } as const;
+            const tabStyle = (val: string) => activeTab === val ? activeStyle : inactiveStyle;
+            return (
+          <TabsList className="booking-detail-tabs-list">
+            <TabsTrigger value="overview" className="booking-detail-tab-trigger" style={tabStyle("overview")}>
               Übersicht
             </TabsTrigger>
-            <TabsTrigger 
-              value="repairs" 
-              className="booking-detail-tab-trigger text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
-            >
+            <TabsTrigger value="repairs" className="booking-detail-tab-trigger" style={tabStyle("repairs")}>
               Repara&shy;turen
             </TabsTrigger>
-            <TabsTrigger 
-              value="items" 
-              className="booking-detail-tab-trigger text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
-            >
+            <TabsTrigger value="items" className="booking-detail-tab-trigger" style={tabStyle("items")}>
               Artikel
             </TabsTrigger>
-            <TabsTrigger 
-              value="shipping" 
-              className="booking-detail-tab-trigger text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
-            >
+            <TabsTrigger value="shipping" className="booking-detail-tab-trigger" style={tabStyle("shipping")}>
               Versand
             </TabsTrigger>
-            <TabsTrigger 
-              value="timeline" 
-              className="booking-detail-tab-trigger text-[9px] sm:text-[11px] md:text-sm font-semibold px-0.5 sm:px-2 md:px-3 py-1.5 sm:py-2 h-auto leading-tight whitespace-normal data-[state=active]:bg-[var(--accent-yellow,#f5b800)] data-[state=active]:text-[var(--primary-blue,#1a2a5e)] text-white/80"
-            >
+            <TabsTrigger value="timeline" className="booking-detail-tab-trigger" style={tabStyle("timeline")}>
               Verlauf
             </TabsTrigger>
           </TabsList>
+            );
+          })()}
 
           <TabsContent value="overview" className="space-y-3 sm:space-y-5 mt-3 sm:mt-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5">
@@ -1729,6 +1750,10 @@ function BookingDetailDialog({
             )}
           </TabsContent>
         </Tabs>
+          </div>
+        </div>
+
+
       </DialogContent>
     </Dialog>
   );
