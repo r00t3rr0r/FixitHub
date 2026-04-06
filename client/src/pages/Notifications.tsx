@@ -200,15 +200,15 @@ export function Notifications() {
   }
 
   // Tab definitions
-  const tabs: { key: FilterType; label: string; icon?: React.ReactNode }[] = [
-    { key: "all",          label: "Alle" },
-    { key: "unread",       label: "Ungelesen" },
-    { key: "order_update", label: "Aufträge",    icon: <Package className="h-3.5 w-3.5" /> },
-    { key: "payment",      label: "Zahlungen",   icon: <CreditCard className="h-3.5 w-3.5" /> },
-    { key: "message",      label: "Nachrichten", icon: <MessageSquare className="h-3.5 w-3.5" /> },
-    { key: "assignment",   label: "Zuweisungen", icon: <UserCheck className="h-3.5 w-3.5" /> },
-    { key: "reminder",     label: "Erinnerungen",icon: <AlertCircle className="h-3.5 w-3.5" /> },
-    { key: "system",       label: "System",      icon: <Settings className="h-3.5 w-3.5" /> },
+  const tabs: { key: FilterType; label: string; shortLabel: string; icon?: React.ReactNode }[] = [
+    { key: "all",          label: "Alle",         shortLabel: "Alle" },
+    { key: "unread",       label: "Ungelesen",    shortLabel: "Neu" },
+    { key: "order_update", label: "Aufträge",     shortLabel: "Jobs", icon: <Package className="h-3.5 w-3.5" /> },
+    { key: "payment",      label: "Zahlungen",    shortLabel: "Zahl.", icon: <CreditCard className="h-3.5 w-3.5" /> },
+    { key: "message",      label: "Nachrichten",  shortLabel: "Msg", icon: <MessageSquare className="h-3.5 w-3.5" /> },
+    { key: "assignment",   label: "Zuweisungen",  shortLabel: "Zuweis.", icon: <UserCheck className="h-3.5 w-3.5" /> },
+    { key: "reminder",     label: "Erinnerungen", shortLabel: "Erinn.", icon: <AlertCircle className="h-3.5 w-3.5" /> },
+    { key: "system",       label: "System",       shortLabel: "System", icon: <Settings className="h-3.5 w-3.5" /> },
   ]
 
   return (
@@ -286,6 +286,57 @@ export function Notifications() {
         </div>
       </div>
 
+      {/* ── MOBILE FILTER ── */}
+      <div className="notifications-filter-mobile" aria-label="Benachrichtigungsfilter">
+        <label className="notifications-filter-mobile-label" htmlFor="notifications-filter-select">
+          Kategorie
+        </label>
+        <div className="notifications-filter-mobile-row">
+          <select
+            id="notifications-filter-select"
+            className="notifications-filter-mobile-select"
+            value={filter}
+            onChange={e => setFilter(e.target.value as FilterType)}
+          >
+            {tabs.map(tab => {
+              const count = tab.key === "all" ? notifications.length : (tab.key === "unread" ? unreadCount : (counts[tab.key] || 0))
+              return (
+                <option key={tab.key} value={tab.key}>
+                  {tab.label} ({count})
+                </option>
+              )
+            })}
+          </select>
+          {filter !== "all" && (
+            <button
+              type="button"
+              className="notifications-filter-mobile-reset"
+              onClick={() => setFilter("all")}
+            >
+              Zurücksetzen
+            </button>
+          )}
+        </div>
+        <div className="notifications-filter-mobile-quick" role="group" aria-label="Schnellfilter">
+          <button
+            type="button"
+            className={`notifications-filter-mobile-chip${filter === "all" ? " active" : ""}`}
+            onClick={() => setFilter("all")}
+          >
+            Alle
+            <span className="notifications-filter-mobile-chip-count">{notifications.length}</span>
+          </button>
+          <button
+            type="button"
+            className={`notifications-filter-mobile-chip${filter === "unread" ? " active" : ""}`}
+            onClick={() => setFilter("unread")}
+          >
+            Ungelesen
+            <span className="notifications-filter-mobile-chip-count">{unreadCount}</span>
+          </button>
+        </div>
+      </div>
+
       {/* ── TABS ── */}
       <div className="notifications-tabs">
         {tabs.map(tab => {
@@ -298,7 +349,8 @@ export function Notifications() {
               onClick={() => setFilter(tab.key)}
             >
               {tab.icon}
-              {tab.label}
+              <span className="notifications-tab-label" title={tab.label}>{tab.label}</span>
+              <span className="notifications-tab-label-short" title={tab.label}>{tab.shortLabel}</span>
               {showCount && (
                 <span className={`notifications-tab-count${tab.key === "unread" && unreadCount > 0 ? " unread" : ""}`}>
                   {tab.key === "all" ? notifications.length : count}
@@ -352,7 +404,7 @@ export function Notifications() {
                       <p className="notification-message">{notification.message}</p>
 
                       <div className="notification-footer">
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <div className="notification-footer-main">
                           <span className={`notification-type-badge ${notification.type}`}>
                             {getIcon(notification.type)}
                             {TYPE_LABELS[notification.type] || notification.type}
@@ -369,7 +421,7 @@ export function Notifications() {
                           {notification.type === "message" && (notification as any).metadata?.orderId && (
                             <button
                               className="notification-link"
-                              style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                              type="button"
                               onClick={e => {
                                 e.stopPropagation()
                                 const oid = (notification as any).metadata?.orderId as string
