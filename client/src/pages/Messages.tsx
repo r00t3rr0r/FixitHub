@@ -20,7 +20,6 @@ import {
   Paperclip,
   Clock,
   Circle,
-  X,
   Plus,
   AlertCircle,
   CheckCircle,
@@ -30,10 +29,15 @@ import {
 import "../styles/messages.css"
 
 export function Messages() {
+  type MobileMessageFilter = 'all' | 'unread'
+
   const { user } = useAuth()
   const userRole = user?.role || 'customer'
   const [searchTerm, setSearchTerm] = useState("")
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(() => (
+    typeof window !== 'undefined' ? window.innerWidth <= 768 : false
+  ))
+  const [mobileFilter, setMobileFilter] = useState<MobileMessageFilter>('all')
 
   // Order Feedback State
   const [orderFeedbacks, setOrderFeedbacks] = useState<OrderCommunication[]>([])
@@ -121,7 +125,7 @@ export function Messages() {
     console.log("Starting feedback polling...")
     const pollInterval = setInterval(() => {
       console.log("Polling for new feedback data...")
-      loadOrderFeedbacks()
+      loadOrderFeedbacks({ silent: true })
     }, 5000)
 
     return () => {
@@ -130,9 +134,11 @@ export function Messages() {
     }
   }, [])
 
-  const loadOrderFeedbacks = async () => {
+  const loadOrderFeedbacks = async ({ silent = false }: { silent?: boolean } = {}) => {
     try {
-      setFeedbackLoading(true)
+      if (!silent) {
+        setFeedbackLoading(true)
+      }
       const [inspectionResponse, repairRequestResponse] = await Promise.all([
         getInspectionCommunications({ page: 1, limit: 100 }),
         getRepairRequestCommunications({ page: 1, limit: 100 }),
@@ -180,7 +186,9 @@ export function Messages() {
     } catch (error) {
       console.error("Error loading order feedbacks:", error)
     } finally {
-      setFeedbackLoading(false)
+      if (!silent) {
+        setFeedbackLoading(false)
+      }
     }
   }
 
@@ -279,7 +287,13 @@ export function Messages() {
     }
   }
 
+  const unreadCount = orderFeedbacks.filter((feedback) => getUnreadCustomerFeedbackMessageCount(feedback) > 0).length
+
   const filteredOrderFeedbacks = orderFeedbacks.filter(feedback => {
+    if (mobileFilter === 'unread' && getUnreadCustomerFeedbackMessageCount(feedback) === 0) {
+      return false
+    }
+
     const orderId = (feedback.orderId || '').toString().toLowerCase()
     const repairRequestId = (feedback.repairRequestId || '').toString().toLowerCase()
     const requestNumber = (feedback.requestNumber || '').toString().toLowerCase()
@@ -331,7 +345,7 @@ export function Messages() {
   }
 
   return (
-    <div className="messages-page">
+    <div className={`messages-page${mobileMenuOpen ? ' mobile-menu-open' : ''}`}>
       {/* Header */}
       <div className="messages-header">
         <div className="container">
@@ -349,6 +363,46 @@ export function Messages() {
 
       {/* Main Content */}
       <div className="container">
+        <div className="messages-mobile-topbar" aria-label="Mobile Nachrichtensteuerung">
+          <button
+            type="button"
+            className="messages-mobile-topbar-btn"
+            onClick={() => setMobileMenuOpen(true)}
+          >
+            <ClipboardList size={16} />
+            Vorgänge
+          </button>
+          <div className="messages-mobile-topbar-search">
+            <Search size={16} />
+            <input
+              type="text"
+              placeholder="Vorgang suchen..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="messages-mobile-topbar-input"
+            />
+          </div>
+        </div>
+
+        <div className="messages-mobile-filter" role="group" aria-label="Nachrichtenfilter mobil">
+          <button
+            type="button"
+            className={`messages-mobile-filter-chip${mobileFilter === 'all' ? ' active' : ''}`}
+            onClick={() => setMobileFilter('all')}
+          >
+            Alle Nachrichten
+            <span className="messages-mobile-filter-chip-count">{orderFeedbacks.length}</span>
+          </button>
+          <button
+            type="button"
+            className={`messages-mobile-filter-chip${mobileFilter === 'unread' ? ' active' : ''}`}
+            onClick={() => setMobileFilter('unread')}
+          >
+            Ungelesene Nachrichten
+            <span className="messages-mobile-filter-chip-count">{unreadCount}</span>
+          </button>
+        </div>
+
         <div className="messages-wrapper">
             {/* Feedback Sidebar */}
             <div className={`messages-sidebar ${mobileMenuOpen ? 'open' : ''}`}>
@@ -364,12 +418,6 @@ export function Messages() {
                       <RefreshCw size={20} style={{ animation: feedbackLoading ? 'spin 1s linear infinite' : 'none' }} />
                     </button>
                   </div>
-                <button 
-                  className="messages-sidebar-close"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <X size={20} />
-                </button>
               </div>
 
               {/* Search Box */}
@@ -434,6 +482,15 @@ export function Messages() {
                 )}
               </div>
             </div>
+
+            {mobileMenuOpen && (
+              <button
+                type="button"
+                className="messages-sidebar-overlay"
+                aria-label="Vorgangsliste schließen"
+                onClick={() => setMobileMenuOpen(false)}
+              />
+            )}
 
             {/* Feedback Detail Area */}
             <div className="messages-feedback-detail">
@@ -629,6 +686,13 @@ export function Messages() {
                   <ClipboardList size={64} />
                   <h3>Wählen Sie eine Order aus</h3>
                   <p>Wählen Sie eine Order aus der Liste, um Feedback und Aktionen zu sehen</p>
+                  <button
+                    type="button"
+                    className="messages-open-list-btn"
+                    onClick={() => setMobileMenuOpen(true)}
+                  >
+                    Vorgänge öffnen
+                  </button>
                 </div>
               )}
             </div>
