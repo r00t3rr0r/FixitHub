@@ -1,7 +1,7 @@
-const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 4;
+const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 9;
 
 const brand = {
-  companyName: '{{companyName}}',
+  companyName: 'Mc<span style="color:#f5b800;font-weight:800;">Repair</span>.de',
   primary: '#1a2a5e',
   primaryDark: '#0f1d45',
   accent: '#f5b800',
@@ -58,16 +58,83 @@ function renderHighlights(items = []) {
     </table>`;
 }
 
-function renderButton(label, url) {
-  if (!label || !url) {
+function renderButtons({
+  primaryLabel,
+  primaryUrl,
+  secondaryLabel,
+  secondaryUrl,
+  primaryTone = 'accent',
+  secondaryTone = 'primary'
+} = {}) {
+  if (!primaryLabel || !primaryUrl) {
     return '';
   }
 
+  const toneToColors = (tone) => {
+    if (tone === 'accent') {
+      return {
+        background: brand.accent,
+        color: brand.primaryDark,
+      };
+    }
+
+    return {
+      background: brand.primary,
+      color: '#ffffff',
+    };
+  };
+
+  const buildButtonStyle = (tone) => {
+    const colors = toneToColors(tone);
+    return [
+      'display:block',
+      'padding:14px 18px',
+      'font-size:14px',
+      'font-weight:700',
+      'line-height:20px',
+      'text-decoration:none',
+      'text-align:center',
+      'border-radius:999px',
+      `background:${colors.background}`,
+      `color:${colors.color}`,
+    ].join(';');
+  };
+
+  const primaryButtonStyle = buildButtonStyle(primaryTone);
+  const secondaryButtonStyle = buildButtonStyle(secondaryTone);
+
+  const baseButtonStyle = [
+    'display:block',
+    'padding:14px 18px',
+    'font-size:14px',
+    'font-weight:700',
+    'line-height:20px',
+    'text-decoration:none',
+    'text-align:center',
+    'border-radius:999px',
+    `background:${brand.accent}`,
+    `color:${brand.primaryDark}`,
+  ].join(';');
+
+  if (!secondaryLabel || !secondaryUrl) {
+    return `
+      <table role="presentation" cellspacing="0" cellpadding="0" style="margin:28px 0 24px 0;">
+        <tr>
+          <td style="text-align:center;">
+            <a href="${primaryUrl}" style="${baseButtonStyle};min-width:280px;">${primaryLabel}</a>
+          </td>
+        </tr>
+      </table>`;
+  }
+
   return `
-    <table role="presentation" cellspacing="0" cellpadding="0" style="margin:28px 0 24px 0;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:28px 0 24px 0;">
       <tr>
-        <td style="border-radius:999px;background:${brand.accent};text-align:center;">
-          <a href="${url}" style="display:inline-block;padding:14px 28px;font-size:14px;font-weight:700;line-height:1;color:${brand.primaryDark};text-decoration:none;">${label}</a>
+        <td style="padding-right:6px;vertical-align:top;width:50%;">
+          <a href="${primaryUrl}" style="${primaryButtonStyle};">${primaryLabel}</a>
+        </td>
+        <td style="padding-left:6px;vertical-align:top;width:50%;">
+          <a href="${secondaryUrl}" style="${secondaryButtonStyle};">${secondaryLabel}</a>
         </td>
       </tr>
     </table>`;
@@ -80,9 +147,14 @@ function renderEmailTemplate({
   intro,
   highlights,
   detailRows,
+  extraTableRows,
   body,
   ctaLabel,
   ctaUrl,
+  ctaTone,
+  secondaryCtaLabel,
+  secondaryCtaUrl,
+  secondaryCtaTone,
   closing,
   footerNote
 }) {
@@ -115,12 +187,20 @@ function renderEmailTemplate({
               <h1 style="margin:0 0 14px 0;font-size:30px;line-height:1.2;font-weight:800;color:${brand.primaryDark};letter-spacing:-0.03em;">${title}</h1>
               <p style="margin:0 0 24px 0;font-size:16px;line-height:1.7;color:${brand.muted};">${intro}</p>
               ${renderHighlights(highlights)}
-              ${detailRows && detailRows.length ? `
+              ${(detailRows && detailRows.length) || extraTableRows ? `
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 24px 0;border-collapse:collapse;">
-                  ${renderDetailRows(detailRows)}
+                  ${renderDetailRows(detailRows || [])}
+                  ${extraTableRows || ''}
                 </table>` : ''}
               <div style="font-size:15px;line-height:1.8;color:${brand.text};">${body}</div>
-              ${renderButton(ctaLabel, ctaUrl)}
+              ${renderButtons({
+                primaryLabel: ctaLabel,
+                primaryUrl: ctaUrl,
+                primaryTone: ctaTone,
+                secondaryLabel: secondaryCtaLabel,
+                secondaryUrl: secondaryCtaUrl,
+                secondaryTone: secondaryCtaTone,
+              })}
               <div style="margin-top:28px;padding:18px 20px;background:${brand.softBlue};border-radius:18px;border:1px solid ${brand.border};font-size:14px;line-height:1.7;color:${brand.text};">
                 ${closing}
               </div>
@@ -285,6 +365,47 @@ function getDefaultNotificationTemplates() {
         createVariable('deviceModel', 'Geraetemodell', true),
         createVariable('receivedAt', 'Datum des Wareneingangs'),
         createVariable('trackingUrl', 'Link zur Auftragsverfolgung', true),
+        createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
+        createVariable('supportPhone', 'Service-Telefonnummer')
+      ],
+      isActive: true
+    },
+    {
+      name: 'Diagnose abgeschlossen',
+      type: 'email',
+      subject: 'Diagnose abgeschlossen: Auftrag {{orderNumber}} – {{deviceBrand}} {{deviceModel}}',
+      content: renderEmailTemplate({
+        preheader: 'Die Diagnose Ihres Geraetes wurde abgeschlossen. Hier finden Sie alle Ergebnisse auf einen Blick.',
+        eyebrow: 'Diagnose abgeschlossen',
+        title: 'Diagnosebericht fuer Ihr Geraet',
+        intro: 'Hallo {{customerName}}, die technische Diagnose Ihres Geraetes ist abgeschlossen. Im Folgenden finden Sie eine Zusammenfassung der Ergebnisse sowie die naechsten Schritte fuer Ihren Auftrag.',
+        highlights: [
+          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Diagnoseergebnis', value: '{{diagnosisResult}}', tone: 'yellow' }
+        ],
+        detailRows: [
+          { label: 'Auftragsnummer', value: '{{orderNumber}}' },
+          { label: 'Diagnose abgeschlossen am', value: '{{diagnosisCompletedAt}}' },
+          { label: 'Zustand', value: '{{deviceCondition}}' },
+          { label: 'Empfohlene Massnahme', value: '{{recommendedAction}}' }
+        ],
+        body: '<p style="margin:0 0 16px 0;">Im Kundenkonto koennen Sie den vollstaendigen Diagnosebericht einsehen und ggf. direkt auf unsere Empfehlung reagieren.</p><p style="margin:0;">Sollten Sie Fragen zu den Ergebnissen oder zum weiteren Vorgehen haben, stehen wir Ihnen jederzeit zur Verfuegung.</p>',
+        ctaLabel: 'Auftrag online einsehen',
+        ctaUrl: '{{orderUrl}}',
+        closing: 'Wir halten Sie weiterhin aktiv ueber den Fortschritt Ihres Auftrags informiert.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht wurde automatisch nach Abschluss der Gereatediagnose erstellt.'
+      }),
+      variables: [
+        createVariable('companyName', 'Name des Unternehmens', true),
+        createVariable('customerName', 'Vor- und Nachname des Kunden', true),
+        createVariable('orderNumber', 'Auftragsnummer', true),
+        createVariable('deviceBrand', 'Geraetemarke', true),
+        createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('diagnosisResult', 'Kernaussage des Diagnoseergebnisses (z.B. Reparierbar / Nicht reparierbar)', true),
+        createVariable('diagnosisCompletedAt', 'Datum und Uhrzeit des Diagnoseabschlusses', true),
+        createVariable('deviceCondition', 'Zustand des Geraetes nach Diagnose'),
+        createVariable('recommendedAction', 'Empfohlene Massnahme (z.B. Kostenvoranschlag folgt, Kundenfreigabe erforderlich)'),
+        createVariable('orderUrl', 'Vollstaendiger Link zur Auftragsdetailseite im Kundenkonto', true),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')
       ],
@@ -459,13 +580,17 @@ function getDefaultNotificationTemplates() {
         detailRows: [
           { label: 'Buchungsnummer', value: '{{bookingNumber}}' },
           { label: 'Buchungsdatum', value: '{{bookingDate}}' },
-          { label: 'Enthaltene Auftraege', value: '{{itemSummary}}' },
+          { label: 'Enthaltene Auftraege im Ueberblick', value: '{{itemSummary}}' },
           { label: 'Gesamtbetrag', value: '{{totalAmount}}' },
           { label: 'Status', value: '{{bookingStatus}}' }
         ],
         body: '<p style="margin:0 0 16px 0;">In Ihrer Buchung sind alle zugeordneten Reparaturauftraege und Leistungen zusammengefasst. Sie koennen den aktuellen Buchungsstatus jederzeit in Ihrem Kundenkonto einsehen.</p><p style="margin:0;">Bei Rueckfragen zu Ihrer Buchung steht Ihnen unser Support-Team gerne zur Verfuegung.</p>',
         ctaLabel: 'Buchung online einsehen',
         ctaUrl: '{{bookingUrl}}',
+        ctaTone: 'accent',
+        secondaryCtaLabel: 'Versandlabel (PDF)',
+        secondaryCtaUrl: '{{shippingLabelUrl}}',
+        secondaryCtaTone: 'primary',
         closing: 'Vielen Dank fuer Ihr Vertrauen. Wir halten Sie waehrend des gesamten Prozesses auf dem Laufenden.<br /><strong>Ihr {{companyName}} Team</strong>',
         footerNote: 'Diese Buchungsbestaetigung bezieht sich auf Ihre aktuell angelegte Buchung.'
       }),
@@ -474,10 +599,11 @@ function getDefaultNotificationTemplates() {
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('bookingNumber', 'Buchungsnummer', true),
         createVariable('bookingDate', 'Datum der Buchungserstellung'),
-        createVariable('itemSummary', 'Kurzuebersicht der enthaltenen Auftraege'),
+        createVariable('itemSummary', 'Nutzerfreundliche Uebersicht der enthaltenen Auftraege mit Status und Betrag'),
         createVariable('totalAmount', 'Gesamtbetrag der Buchung'),
         createVariable('bookingStatus', 'Aktueller Buchungsstatus'),
         createVariable('bookingUrl', 'Link zur Buchungsdetailseite', true),
+        createVariable('shippingLabelUrl', 'Direkter Download-Link zum Versandlabel als PDF'),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')
       ],
@@ -607,7 +733,7 @@ function getDefaultNotificationTemplates() {
 
     // ===== REPAIR REQUEST TEMPLATES =====
     {
-      name: 'Repair Request eingegangen',
+      name: 'Repair Requests eingegangen',
       type: 'email',
       subject: 'Ihre Reparaturanfrage {{requestNumber}} ist bei uns eingegangen',
       content: renderEmailTemplate({
@@ -1220,17 +1346,12 @@ function getDefaultNotificationTemplates() {
           { label: 'Titel', value: '{{notificationTitle}}' },
           { label: 'Inhalt', value: '{{notificationMessage}}' },
           { label: 'Referenz', value: '{{notificationReference}}' },
-          { label: 'Empfohlene Aktion', value: '{{notificationActionLabel}}' },
-          { label: 'Auftraege', value: '{{ordersInfo}}' },
-          { label: 'Zahlungen', value: '{{paymentsInfo}}' },
-          { label: 'Nachrichten', value: '{{messagesInfo}}' },
-          { label: 'Zuweisungen', value: '{{assignmentsInfo}}' },
-          { label: 'Erinnerungen', value: '{{remindersInfo}}' },
-          { label: 'System', value: '{{systemInfo}}' }
+          { label: 'Empfohlene Aktion', value: '{{notificationActionLabel}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Mit dieser E-Mail informieren wir Sie automatisch ueber jede neue Benachrichtigung. So bleiben Sie bei Auftraegen, Zahlungen, Nachrichten, Zuweisungen, Erinnerungen und Systemhinweisen stets auf dem neuesten Stand.</p><p style="margin:0;">Im Kundenkonto koennen Sie alle Eintraege im Detail ansehen und als gelesen markieren.</p>',
-        ctaLabel: 'Benachrichtigungen im Kundenkonto oeffnen',
-        ctaUrl: '{{notificationsUrl}}',
+        extraTableRows: '{{notificationTypeSummary}}',
+        body: '<p style="margin:0 0 16px 0;">Mit dieser E-Mail informieren wir Sie automatisch ueber jede neue Benachrichtigung. So bleiben Sie bei Auftraegen, Zahlungen, Nachrichten, Zuweisungen, Erinnerungen und Systemhinweisen stets auf dem neuesten Stand.</p><p style="margin:0;">Im Kundenkonto koennen Sie alle Eintraege im Detail ansehen und als gelesen markieren. <a href="{{notificationsUrl}}" style="color:#1a2a5e;font-weight:700;">Alle Benachrichtigungen ansehen</a></p>',
+        ctaLabel: 'Direkt zur Benachrichtigung',
+        ctaUrl: '{{notificationActionUrl}}',
         closing: 'Vielen Dank fuer Ihr Vertrauen. Wir halten Sie aktiv und transparent informiert.<br /><strong>Ihr {{companyName}} Team</strong>',
         footerNote: 'Diese E-Mail wurde automatisch durch eine neue Benachrichtigung erstellt.'
       }),
@@ -1243,13 +1364,9 @@ function getDefaultNotificationTemplates() {
         createVariable('notificationMessage', 'Inhalt der Benachrichtigung', true),
         createVariable('notificationReference', 'Referenz wie Auftrag/Rechnung/Nachricht'),
         createVariable('notificationActionLabel', 'Empfohlene Aktion fuer den Kunden'),
-        createVariable('ordersInfo', 'Statushinweis zu Auftragsbenachrichtigungen'),
-        createVariable('paymentsInfo', 'Statushinweis zu Zahlungsbenachrichtigungen'),
-        createVariable('messagesInfo', 'Statushinweis zu Nachrichtenbenachrichtigungen'),
-        createVariable('assignmentsInfo', 'Statushinweis zu Zuweisungsbenachrichtigungen'),
-        createVariable('remindersInfo', 'Statushinweis zu Erinnerungsbenachrichtigungen'),
-        createVariable('systemInfo', 'Statushinweis zu Systembenachrichtigungen'),
-        createVariable('notificationsUrl', 'Link zur Benachrichtigungsseite', true),
+        createVariable('notificationTypeSummary', 'Vorgerenderte HTML-Tabellenzeile fuer die aktive Benachrichtigungskategorie'),
+        createVariable('notificationsUrl', 'Vollstaendiger Link zur Benachrichtigungsseite (/notifications)', true),
+        createVariable('notificationActionUrl', 'Vollstaendiger direkter Link zur ausloesenden Ressource (Auftrag, Anfrage etc.) oder Benachrichtigungsseite', true),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')
       ],

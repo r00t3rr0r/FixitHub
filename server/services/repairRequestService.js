@@ -81,6 +81,10 @@ class RepairRequestService {
         throw new Error('Customer not found');
       }
 
+      const resolvedCustomerPhone = String(
+        customer.phone || data.customerPhone || data.phone || ''
+      ).trim();
+
       // Set review deadline (3 business days from now)
       const reviewDeadline = new Date();
       reviewDeadline.setDate(reviewDeadline.getDate() + 3);
@@ -89,7 +93,8 @@ class RepairRequestService {
         customerId,
         customerName: `${customer.firstName} ${customer.lastName}`,
         customerEmail: customer.email,
-        customerPhone: customer.phone,
+        // Keep requests creatable even if legacy customer profiles have no phone saved.
+        customerPhone: resolvedCustomerPhone || 'Nicht angegeben',
         deviceType: data.deviceType,
         deviceBrand: data.deviceBrand,
         deviceModel: data.deviceModel,
@@ -111,14 +116,14 @@ class RepairRequestService {
       setImmediate(async () => {
         try {
           await EmailService.sendTriggerEmail('repair_request_created', repairRequest.customerEmail, {
-            companyName: process.env.COMPANY_NAME || 'FixitHub',
+            companyName: process.env.COMPANY_NAME || 'McRepair.de',
             customerName: repairRequest.customerName,
             requestNumber: repairRequest.requestNumber,
             deviceBrand: repairRequest.deviceBrand,
             deviceModel: repairRequest.deviceModel,
             issueDescription: repairRequest.issueDescription,
             submittedAt: new Date(repairRequest.createdAt || Date.now()).toLocaleDateString('de-DE'),
-            requestUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/repair-requests/${repairRequest._id}`,
+            requestUrl: await EmailService.buildSystemUrl(`/repair-requests/${repairRequest._id}`),
             supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
             supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
           });
@@ -249,7 +254,7 @@ class RepairRequestService {
         try {
           const trigger = this.getRepairRequestStatusTrigger(status);
           await EmailService.sendTriggerEmail(trigger, request.customerEmail, {
-            companyName: process.env.COMPANY_NAME || 'FixitHub',
+            companyName: process.env.COMPANY_NAME || 'McRepair.de',
             customerName: request.customerName,
             requestNumber: request.requestNumber,
             deviceBrand: request.deviceBrand,
@@ -263,8 +268,8 @@ class RepairRequestService {
             diagnosisDate: new Date(request.updatedAt || Date.now()).toLocaleDateString('de-DE'),
             resolutionSummary: `Status auf ${status} gesetzt`,
             completedAt: new Date(request.updatedAt || Date.now()).toLocaleDateString('de-DE'),
-            approvalUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/repair-requests/${request._id}`,
-            requestUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/repair-requests/${request._id}`,
+            approvalUrl: await EmailService.buildSystemUrl(`/repair-requests/${request._id}`),
+            requestUrl: await EmailService.buildSystemUrl(`/repair-requests/${request._id}`),
             supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
             supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
           });
@@ -349,14 +354,14 @@ class RepairRequestService {
         setImmediate(async () => {
           try {
             await EmailService.sendTriggerEmail('repair_request_message', request.customerEmail, {
-              companyName: process.env.COMPANY_NAME || 'FixitHub',
+              companyName: process.env.COMPANY_NAME || 'McRepair.de',
               customerName: request.customerName,
               requestNumber: request.requestNumber,
               deviceBrand: request.deviceBrand,
               deviceModel: request.deviceModel,
               senderName: senderName || 'Service Team',
               messageSentAt: new Date().toLocaleString('de-DE'),
-              requestUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/repair-requests/${request._id}`,
+              requestUrl: await EmailService.buildSystemUrl(`/repair-requests/${request._id}`),
               supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
               supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
             });

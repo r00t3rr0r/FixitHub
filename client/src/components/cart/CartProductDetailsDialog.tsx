@@ -44,9 +44,9 @@ export function CartProductDetailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl gap-0 overflow-hidden border-0 bg-white p-0 shadow-2xl [&>button]:text-[#f5b800] [&>button]:opacity-100 [&>button:hover]:text-[#f5b800]">
-        <DialogHeader className="gap-2 bg-[#1a2a5e] px-5 py-4 text-left sm:px-6 sm:py-5">
-          <div className="flex items-start justify-between gap-4 pr-8">
+      <DialogContent className="w-[calc(100vw-12px)] sm:max-w-4xl max-h-[92dvh] gap-0 overflow-hidden border-0 bg-white p-0 shadow-2xl [&>button]:text-[#f5b800] [&>button]:opacity-100 [&>button:hover]:text-[#f5b800]">
+        <DialogHeader className="gap-2 bg-[#1a2a5e] px-3 py-3 text-left sm:px-6 sm:py-5">
+          <div className="flex items-start justify-between gap-3 pr-7 sm:gap-4 sm:pr-8">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge className="border-0 bg-white/14 px-2 py-0.5 text-[11px] font-semibold text-white shadow-none">
@@ -67,7 +67,7 @@ export function CartProductDetailsDialog({
                   </Badge>
                 )}
               </div>
-              <DialogTitle className="text-xl font-bold tracking-tight sm:text-[1.35rem]" style={{ color: "#f5b800" }}>
+              <DialogTitle className="text-sm font-bold tracking-tight sm:text-[1.35rem]" style={{ color: "#f5b800" }}>
                 {product?.name || "Produktdetails"}
               </DialogTitle>
               <DialogDescription className="text-xs leading-5 text-blue-100 sm:text-sm">
@@ -78,7 +78,7 @@ export function CartProductDetailsDialog({
         </DialogHeader>
 
         {product && (
-          <div className="max-h-[80vh] overflow-y-auto px-5 py-4 sm:px-6 sm:py-5">
+          <div className="max-h-[82dvh] overflow-y-auto px-2.5 py-2.5 sm:px-6 sm:py-5">
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
               <div className="space-y-4">
                 <div className="overflow-hidden rounded-2xl border border-[#d8dce6] bg-[linear-gradient(145deg,#f8f9fc_0%,#eef3fb_100%)] p-3 shadow-sm">
@@ -86,7 +86,7 @@ export function CartProductDetailsDialog({
                     <img
                       src={primaryImage}
                       alt={product.name}
-                      className="h-[300px] w-full object-contain p-4 sm:h-[360px]"
+                      className="h-[180px] w-full object-contain p-2.5 sm:h-[360px] sm:p-4"
                       onError={(event) => {
                         event.currentTarget.src = "/placeholder-product.png"
                       }}
@@ -95,7 +95,7 @@ export function CartProductDetailsDialog({
                 </div>
 
                 {images.length > 1 && (
-                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+                  <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5 sm:gap-2">
                     {images.slice(0, 5).map((image, index) => (
                       <div
                         key={`${image}-${index}`}
@@ -104,7 +104,7 @@ export function CartProductDetailsDialog({
                         <img
                           src={image}
                           alt={`${product.name} Ansicht ${index + 1}`}
-                          className="h-16 w-full rounded-lg object-cover sm:h-20"
+                          className="h-14 w-full rounded-lg object-cover sm:h-20"
                           onError={(event) => {
                             event.currentTarget.src = "/placeholder-product.png"
                           }}
@@ -125,7 +125,7 @@ export function CartProductDetailsDialog({
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#636e85]">Einzelpreis</p>
                         <div className="mt-1 flex items-end gap-2">
-                          <span className="text-3xl font-bold text-[#1a2a5e]">
+                          <span className="text-xl font-bold text-[#1a2a5e] sm:text-3xl">
                             {product.price.toFixed(2)} €
                           </span>
                           {product.originalPrice && (

@@ -1472,9 +1472,19 @@ export function OrderDetails() {
       console.log("OrderDetails: Refreshing workflows after step completion")
       // Refresh workflows to get updated step status
       const workflowsResponse = await getOrderWorkflows(id)
-      setWorkflows((workflowsResponse as any).workflows || [])
+      const updatedWorkflows = (workflowsResponse as any).workflows || []
+      setWorkflows(updatedWorkflows)
 
-      // Refresh order to get updated progress
+      // Keep the modal in sync with the latest workflow data so it reflects
+      // the new step/workflow status (e.g. last step completed → workflow 'completed')
+      if (selectedWorkflowForExecution) {
+        const refreshedWorkflow = updatedWorkflows.find((w: any) => w._id === selectedWorkflowForExecution._id)
+        if (refreshedWorkflow) {
+          setSelectedWorkflowForExecution(refreshedWorkflow)
+        }
+      }
+
+      // Refresh order to get updated progress and status
       await refreshOrder()
 
       toast({
@@ -1988,6 +1998,7 @@ export function OrderDetails() {
       'invoice_uploaded': 'Rechnung hochgeladen',
       'return_exchange_requested': 'Rückgabe/Umtausch angefordert',
       'pending': 'Ausstehend',
+      'diagnostic-assessment': 'Diagnosebewertung',
       'in-progress': 'In Bearbeitung',
       'paused': 'Pausiert',
       'completed': 'Abgeschlossen',
@@ -2062,7 +2073,8 @@ export function OrderDetails() {
 
     const statusBasedStageId = (() => {
       const normalizedOrderStatus = String(order.status || '').toLowerCase()
-      if (normalizedOrderStatus === 'in-progress') return 'repair'
+      if (normalizedOrderStatus === 'diagnostic-assessment') return 'diagnostic'
+      if (normalizedOrderStatus === 'in-progress' || normalizedOrderStatus === 'paused') return 'repair'
       if (normalizedOrderStatus === 'quality-check') return 'quality-check'
       if (normalizedOrderStatus === 'completed' || normalizedOrderStatus === 'ready-for-pickup') return 'pickup'
       if (normalizedOrderStatus !== 'pending') return 'diagnostic'
@@ -2085,6 +2097,13 @@ export function OrderDetails() {
     ? translateOrderStatus(activeTimelineStage.label || activeTimelineStage.name || 'Aktiver Schritt')
     : translateOrderStatus(order.status)
   const rawOrderProgress = Math.max(0, Math.min(100, safeToNumber(order.progress)))
+  const isRepairStageActive = (() => {
+    const normalizedOrderStatus = String(order.status || '').toLowerCase()
+    const normalizedStageId = String(activeTimelineStage?.id || '').toLowerCase()
+    return normalizedOrderStatus === 'in-progress'
+      || normalizedOrderStatus === 'paused'
+      || normalizedStageId === 'repair'
+  })()
   const timelineProgressValue = timelineStages.length > 1 && timelineCurrentStageIndex >= 0
     ? Math.round((timelineCurrentStageIndex / (timelineStages.length - 1)) * 100)
     : timelineStages.length === 1
@@ -2095,9 +2114,10 @@ export function OrderDetails() {
     switch (normalizedStatus) {
       case 'pending':
         return 0
-      case 'diagnosed':
+      case 'diagnostic-assessment':
         return 25
       case 'in-progress':
+      case 'paused':
         return 50
       case 'quality-check':
         return 75
@@ -2108,7 +2128,10 @@ export function OrderDetails() {
         return null
     }
   })()
-  const calculatedProgressValue = timelineProgressValue ?? statusBasedProgressValue ?? rawOrderProgress
+  const repairStageProgressValue = isRepairStageActive
+    ? Math.max(50, Math.min(75, Math.round(50 + (rawOrderProgress / 100) * 25)))
+    : null
+  const calculatedProgressValue = repairStageProgressValue ?? timelineProgressValue ?? statusBasedProgressValue ?? rawOrderProgress
   const customerNextStepInfo = (() => {
     const normalizedStatus = String(order.status || '').toLowerCase()
     const normalizedStage = String(
@@ -2175,7 +2198,7 @@ export function OrderDetails() {
       }
     }
 
-    if (normalizedStatus === 'diagnosed' || normalizedStage.includes('diagnos')) {
+    if (normalizedStatus === 'diagnosed' || normalizedStatus === 'diagnostic-assessment' || normalizedStage.includes('diagnos')) {
       return {
         eyebrow: 'Diagnose abgeschlossen',
         steps: [
@@ -2229,10 +2252,10 @@ export function OrderDetails() {
     )
     if (d !== desc) return d
 
-    // Order status changed … due to workflow being paused
+    // Order status changed … due to workflow activity
     d = d.replace(
-      /^Order status changed from (.+?) to (.+?) due to workflow being paused$/,
-      (_, from, to) => `Auftragsstatus geändert von ${translateOrderStatus(from)} zu ${translateOrderStatus(to)} – Workflow wurde pausiert`
+      /^Order status changed from (.+?) to (.+?) due to workflow (?:being paused|status update)$/,
+      (_, from, to) => `Auftragsstatus geändert von ${translateOrderStatus(from)} zu ${translateOrderStatus(to)} – Workflow-Status aktualisiert`
     )
     if (d !== desc) return d
 
@@ -4031,7 +4054,7 @@ export function OrderDetails() {
       </div>
 
       <Dialog open={repairDetailsPopupOpen} onOpenChange={setRepairDetailsPopupOpen}>
-        <DialogContent className="order-dialog-content customer-repair-details-popup-dialog sm:max-w-3xl">
+        <DialogContent className="order-dialog-content customer-repair-details-popup-dialog w-[calc(100vw-12px)] sm:max-w-3xl max-h-[92dvh] overflow-y-auto">
           <DialogHeader className="order-dialog-header">
             <DialogTitle className="text-base flex items-center gap-2">
               <Wrench className="h-4 w-4" />
@@ -4049,7 +4072,7 @@ export function OrderDetails() {
       </Dialog>
 
       <Dialog open={diagnosisPopupOpen} onOpenChange={setDiagnosisPopupOpen}>
-        <DialogContent className="order-dialog-content customer-diagnosis-popup-dialog sm:max-w-2xl">
+        <DialogContent className="order-dialog-content customer-diagnosis-popup-dialog w-[calc(100vw-12px)] sm:max-w-2xl max-h-[92dvh] overflow-y-auto">
           <DialogHeader className="order-dialog-header">
             <DialogTitle className="text-base flex items-center gap-2">
               <FileText className="h-4 w-4" />
@@ -4067,7 +4090,7 @@ export function OrderDetails() {
       </Dialog>
 
       <Dialog open={repairServicesPopupOpen} onOpenChange={setRepairServicesPopupOpen}>
-        <DialogContent className="order-dialog-content customer-repair-services-dialog sm:max-w-2xl">
+        <DialogContent className="order-dialog-content customer-repair-services-dialog w-[calc(100vw-12px)] sm:max-w-2xl max-h-[92dvh] overflow-y-auto">
           <DialogHeader className="order-dialog-header">
             <DialogTitle className="text-base flex items-center gap-2">
               <Wrench className="h-4 w-4" />
@@ -4869,7 +4892,7 @@ export function OrderDetails() {
       )}
 
       <Dialog open={complaintDialogOpen} onOpenChange={setComplaintDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="w-[calc(100vw-12px)] sm:max-w-lg max-h-[92dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Reklamation anmelden</DialogTitle>
             <DialogDescription>
@@ -4903,7 +4926,7 @@ export function OrderDetails() {
       </Dialog>
 
       <Dialog open={complaintActionDialog === 'ack'} onOpenChange={(open) => !open && setComplaintActionDialog(null)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="w-[calc(100vw-12px)] sm:max-w-lg max-h-[92dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Techniker: Anerkennen</DialogTitle>
             <DialogDescription>Bitte Grund auswaehlen oder individuell angeben.</DialogDescription>
@@ -4944,11 +4967,11 @@ export function OrderDetails() {
       </Dialog>
 
       <Dialog open={complaintActionDialog === 'deny'} onOpenChange={(open) => !open && setComplaintActionDialog(null)}>
-        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-12px)] sm:max-w-xl max-h-[92dvh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm sm:text-base">
               <span>{user?.role === 'admin' ? 'Reklamation ablehnen bestaetigen' : 'Reklamation ablehnen'}</span>
-              <Badge className="bg-rose-100 text-rose-800 border border-rose-300 text-xs font-normal" variant="outline">Reparaturangebot erforderlich</Badge>
+              <Badge className="bg-rose-100 text-rose-800 border border-rose-300 text-xs font-normal flex-shrink-0" variant="outline">Reparaturangebot erforderlich</Badge>
             </DialogTitle>
             <DialogDescription>
               {user?.role === 'admin'

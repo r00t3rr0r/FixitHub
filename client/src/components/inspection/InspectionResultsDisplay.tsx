@@ -191,37 +191,37 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
     const progress = calculateProgress();
     const currentStep = getCurrentStep();
 
-    // For customers: show simple status card without continue button
-    if (!canAccessInspectionWorkflow) {
+      // For customers: show simple status card without continue button
+      if (!canAccessInspectionWorkflow) {
       return (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <Card className="border-blue-200 bg-blue-50">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-blue-600" />
-                  <CardTitle className="text-blue-900">{t('deviceInspection.deviceInspection')}</CardTitle>
+            <CardHeader className="pb-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileText className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                  <CardTitle className="text-sm text-blue-900">{t('deviceInspection.deviceInspection')}</CardTitle>
                 </div>
-                <Badge className="bg-blue-500">{t('deviceInspection.inProgress')}</Badge>
+                <Badge className="bg-blue-500 text-xs flex-shrink-0">{t('deviceInspection.inProgress')}</Badge>
               </div>
-              <CardDescription className="text-blue-800">
+              <CardDescription className="text-blue-800 text-xs">
                 {t('deviceInspection.inspectionBeingPerformed')}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3 pt-0">
               {/* Progress Bar */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">{t('deviceInspection.step')} {currentStep} {t('deviceInspection.of')} 6</span>
-                  <span className="text-sm font-medium">{progress}% {t('deviceInspection.complete')}</span>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium">{t('deviceInspection.step')} {currentStep} {t('deviceInspection.of')} 6</span>
+                  <span className="text-xs font-medium">{progress}%</span>
                 </div>
                 <Progress value={progress} className="h-2" />
               </div>
 
               {/* Current Step Information */}
-              <div className="bg-white p-3 rounded border border-blue-200">
-                <p className="text-sm font-medium text-blue-900 mb-1">{t('deviceInspection.currentStep')}:</p>
-                <p className="text-sm text-muted-foreground">
+              <div className="bg-white p-2 rounded border border-blue-200">
+                <p className="text-xs font-medium text-blue-900 mb-1">{t('deviceInspection.currentStep')}:</p>
+                <p className="text-xs text-muted-foreground">
                   {currentStep === 1 && t('deviceInspection.modelVerification')}
                   {currentStep === 2 && t('deviceInspection.deviceIdentification')}
                   {currentStep === 3 && t('deviceInspection.accessoriesPackaging')}
@@ -229,7 +229,7 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                   {currentStep === 5 && t('deviceInspection.deviceTesting')}
                   {currentStep === 6 && t('deviceInspection.appleSpecificChecks')}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-[10px] text-muted-foreground mt-1">
                   {t('deviceInspection.inspectionWillBeCompletedShortly')}
                 </p>
               </div>
@@ -241,34 +241,34 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
 
     // For admin/staff: show continue button
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         {/* In-Progress Card */}
         <Card className="border-blue-200 bg-blue-50">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-blue-600" />
-                <CardTitle className="text-blue-900">Device Inspection</CardTitle>
+          <CardHeader className="pb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <FileText className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                <CardTitle className="text-sm text-blue-900">Device Inspection</CardTitle>
               </div>
-              <Badge className="bg-blue-500">In Progress</Badge>
+              <Badge className="bg-blue-500 text-xs flex-shrink-0">In Progress</Badge>
             </div>
-            <CardDescription className="text-blue-800">
+            <CardDescription className="text-blue-800 text-xs">
               Continue where you left off
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 pt-0">
             {/* Progress Bar */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">{t('deviceInspection.step')} {currentStep} {t('deviceInspection.of')} 6</span>
-                <span className="text-sm font-medium">{progress}% {t('deviceInspection.complete')}</span>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium">{t('deviceInspection.step')} {currentStep} {t('deviceInspection.of')} 6</span>
+                <span className="text-xs font-medium">{progress}%</span>
               </div>
               <Progress value={progress} className="h-2" />
             </div>
 
             {/* Step Information */}
-            <div className="bg-white p-3 rounded border border-blue-200">
-              <p className="text-sm text-muted-foreground">
+            <div className="bg-white p-2 rounded border border-blue-200">
+              <p className="text-xs text-muted-foreground">
                 {currentStep === 1 && t('deviceInspection.modelVerification')}
                 {currentStep === 2 && t('deviceInspection.deviceIdentification')}
                 {currentStep === 3 && t('deviceInspection.accessoriesPackaging')}
@@ -276,12 +276,12 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                 {currentStep === 5 && t('deviceInspection.deviceTesting')}
                 {currentStep === 6 && t('deviceInspection.appleSpecificChecks')}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">{t('deviceInspection.clickContinue')}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">{t('deviceInspection.clickContinue')}</p>
             </div>
 
             {/* Continue Button */}
-            <Button onClick={handleStartInspection} className="w-full bg-blue-600 hover:bg-blue-700">
-              <Play className="h-4 w-4 mr-2" />
+            <Button onClick={handleStartInspection} className="w-full h-8 text-xs bg-blue-600 hover:bg-blue-700">
+              <Play className="h-3 w-3 mr-1.5" />
               {t('deviceInspection.continueInspection')}
             </Button>
           </CardContent>
@@ -291,39 +291,39 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Main Inspection Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              <CardTitle>{t('deviceInspection.deviceInspectionReport')}</CardTitle>
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-2">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <FileText className="h-4 w-4 flex-shrink-0" />
+              <CardTitle className="text-sm leading-tight">{t('deviceInspection.deviceInspectionReport')}</CardTitle>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1 flex-shrink-0">
               {getStatusBadge(inspection.status)}
               {inspection.hasFailedTests && (
-                <Badge className="bg-red-500">{t('deviceInspection.failed')}</Badge>
+                <Badge className="bg-red-500 text-xs">{t('deviceInspection.failed')}</Badge>
               )}
             </div>
           </div>
-          <CardDescription>
+          <CardDescription className="text-xs">
             {t('deviceInspection.completedOn')} {inspection.completedAt ? new Date(inspection.completedAt).toLocaleDateString() : t('deviceInspection.pending')}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {/* Compact Summary Grid */}
-          <div className="grid grid-cols-2 gap-2 text-xs">
+        <CardContent className="space-y-3 pt-0">
+          {/* Summary Grid — 1 col on tiny screens, 2 cols on sm+ */}
+          <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
             {/* Model Verification */}
             {inspection.modelVerification && (
-              <div className="border-l-2 border-blue-500 pl-2">
+              <div className="border-l-2 border-blue-500 pl-2 min-w-0">
                 <p className="text-muted-foreground">{t('deviceInspection.model')}</p>
-                <p className="font-medium">{inspection.modelVerification.actualModel}</p>
+                <p className="font-medium break-words">{inspection.modelVerification.actualModel}</p>
                 <div className="flex items-center gap-1 mt-0.5">
                   {inspection.modelVerification.verified ? (
-                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                    <CheckCircle2 className="h-3 w-3 text-green-500 flex-shrink-0" />
                   ) : (
-                    <AlertCircle className="h-3 w-3 text-red-500" />
+                    <AlertCircle className="h-3 w-3 text-red-500 flex-shrink-0" />
                   )}
                   <span className="text-xs capitalize">
                     {inspection.modelVerification.verificationStatus.replace(/-/g, ' ')}
@@ -334,18 +334,18 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
 
             {/* Device Identification */}
             {inspection.identification && (
-              <div className="border-l-2 border-purple-500 pl-2">
+              <div className="border-l-2 border-purple-500 pl-2 min-w-0">
                 <p className="text-muted-foreground">{t('deviceInspection.deviceType')}</p>
-                <p className="font-medium">{inspection.identification.deviceType}</p>
+                <p className="font-medium break-words">{inspection.identification.deviceType}</p>
                 {inspection.identification.imei && (
-                  <p className="text-xs text-muted-foreground truncate">IMEI: {inspection.identification.imei}</p>
+                  <p className="text-xs text-muted-foreground break-all">IMEI: {inspection.identification.imei}</p>
                 )}
               </div>
             )}
 
             {/* Device Tests Summary */}
             {inspection.deviceTest && (
-              <div className="border-l-2 border-green-500 pl-2">
+              <div className="border-l-2 border-green-500 pl-2 min-w-0">
                 <p className="text-muted-foreground">{t('deviceInspection.deviceTests')}</p>
                 <p className="font-medium">
                   {inspection.hasFailedTests ? (
@@ -363,7 +363,7 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
 
             {/* Repair Assessment */}
             {inspection.isRepairable !== undefined && (
-              <div className={`border-l-2 pl-2 ${inspection.isRepairable ? 'border-green-500' : 'border-red-500'}`}>
+              <div className={`border-l-2 pl-2 min-w-0 ${inspection.isRepairable ? 'border-green-500' : 'border-red-500'}`}>
                 <p className="text-muted-foreground">{t('deviceInspection.repairable')}</p>
                 <p className="font-medium">
                   {inspection.isRepairable ? (
@@ -420,7 +420,7 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                 ))}
               </div>
               {inspection.externalInspection.visibleDamages?.hasDamage && (
-                <p className="text-red-600 mt-1 text-xs">{t('deviceInspection.visibleDamage')} {inspection.externalInspection.visibleDamages.description}</p>
+                <p className="text-red-600 mt-1 text-xs break-words">{t('deviceInspection.visibleDamage')} {inspection.externalInspection.visibleDamages.description}</p>
               )}
             </div>
           )}

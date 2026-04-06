@@ -89,6 +89,15 @@ Before setting up the project, ensure you have the following installed:
    node scripts/setup-env.js
    ```
 
+   For correct homepage link previews (Open Graph/Twitter/canonical), configure the frontend site URL:
+   ```sh
+   cp client/.env.example client/.env
+   ```
+
+   ```env
+   VITE_SITE_URL=https://www.fixithub.com
+   ```
+
 4. **Start the project**:
    ```sh
    npm run start

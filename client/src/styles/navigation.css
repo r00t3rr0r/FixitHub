@@ -150,6 +150,21 @@
   z-index: 1;
 }
 
+@media (max-width: 768px) {
+  .login-dialog-dropdown {
+    border-radius: 14px;
+    max-width: calc(100vw - 16px);
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .login-dialog-dropdown::before {
+    display: none;
+  }
+}
+
 .login-dialog-overlay {
   position: fixed;
   top: 0;
@@ -164,6 +179,27 @@
   z-index: 10100; /* Above dropdowns */
   padding: 20px;
   animation: fadeIn 0.2s ease-out;
+}
+
+.login-dialog-mobile-container {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  z-index: 99999;
+  pointer-events: none;
+}
+
+.login-dialog-mobile-centered {
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  left: auto !important;
+  transform: none !important;
+  margin: 0 auto;
+  pointer-events: auto;
 }
 
 @keyframes fadeIn {
@@ -184,6 +220,21 @@
   position: relative;
   animation: slideInScale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   overflow: hidden;
+}
+
+/* This component uses both classes at once; keep dropdown animation only,
+   otherwise transform keyframes from .login-dialog override inline centering. */
+.login-dialog.login-dialog-dropdown {
+  animation: dropdownFade 0.2s ease-out;
+}
+
+@keyframes dropdownFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideInScale {
@@ -826,15 +877,15 @@
 
   /* Mobile adjustments for login dialog */
   .login-dialog-dropdown {
-    max-width: calc(100vw - 32px);
-    width: calc(100vw - 32px);
-    left: 16px !important;
-    right: 16px !important;
+    max-width: calc(100vw - 16px);
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .login-dialog-dropdown::before {
-    right: auto;
-    left: calc(100% - 40px);
+    display: none;
   }
 
   .login-dialog-header {
@@ -944,6 +995,20 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   }
 
+  .nav-links.mobile-open .nav-category-item .nav-link,
+  .nav-links.mobile-open > .nav-link.nav-category-item {
+    font-size: 0.83rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.72);
+  }
+
+  .nav-links.mobile-open .nav-category-item .nav-link svg,
+  .nav-links.mobile-open > .nav-link.nav-category-item svg {
+    opacity: 0.75;
+    width: 14px;
+    height: 14px;
+  }
+
   /* Hide dropdowns on mobile */
   .nav-item-with-dropdown {
     width: 100%;
@@ -975,18 +1040,151 @@
     transition: color 0.2s;
   }
 
+  .nav-mobile-extras button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 11px 0;
+    color: rgba(255, 255, 255, 0.86);
+    font-size: 0.88rem;
+    text-decoration: none;
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    background: transparent;
+    transition: color 0.2s;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .nav-mobile-user-priority {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .nav-mobile-user-priority a,
+  .nav-mobile-user-priority button {
+    color: #ffffff;
+    font-size: 0.91rem;
+    font-weight: 600;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .nav-mobile-secondary-links {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.11);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .nav-mobile-secondary-link,
+  .nav-mobile-secondary-links a,
+  .nav-mobile-secondary-links button {
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+
   .nav-mobile-extras a:last-child {
     border-bottom: none;
   }
 
   .nav-mobile-extras a:hover,
-  .nav-mobile-extras a:active {
+  .nav-mobile-extras a:active,
+  .nav-mobile-extras button:hover,
+  .nav-mobile-extras button:active {
     color: var(--accent-yellow);
   }
 
   .nav-mobile-extras svg {
     flex-shrink: 0;
     opacity: 0.7;
+  }
+}
+
+@media (max-width: 360px) {
+  .login-dialog-mobile-container {
+    padding: 6px;
+  }
+
+  .login-dialog-dropdown {
+    width: calc(100vw - 12px);
+    max-width: calc(100vw - 12px);
+    max-height: calc(100dvh - 12px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+
+  .login-dialog-header {
+    padding: 14px 14px 10px;
+  }
+
+  .login-dialog-icon {
+    width: 36px;
+    height: 36px;
+    margin: 0 auto 6px;
+  }
+
+  .login-dialog-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .login-dialog-header h2 {
+    font-size: 1.06rem;
+    margin-bottom: 2px;
+  }
+
+  .login-dialog-header p {
+    font-size: 0.72rem;
+  }
+
+  .login-dialog-form {
+    padding: 12px 14px;
+  }
+
+  .login-dialog-form .form-group {
+    margin-bottom: 10px;
+  }
+
+  .login-dialog-form label {
+    font-size: 0.78rem;
+    margin-bottom: 4px;
+  }
+
+  .login-dialog-form input {
+    padding: 8px 10px;
+    font-size: 0.84rem;
+  }
+
+  .login-dialog-form .password-input-wrapper input {
+    padding-right: 40px;
+  }
+
+  .login-dialog-form .form-actions {
+    margin-bottom: 12px;
+  }
+
+  .login-dialog-form .forgot-password {
+    font-size: 0.78rem;
+  }
+
+  .login-dialog-form .btn-submit {
+    padding: 10px 14px;
+    font-size: 0.86rem;
+    gap: 8px;
+  }
+
+  .login-dialog-footer {
+    padding: 10px 14px 12px;
+    font-size: 0.75rem;
+  }
+
+  .login-dialog-close {
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
   }
 }
 
@@ -998,10 +1196,8 @@
 
   /* Extra small screens for login dialog */
   .login-dialog-dropdown {
-    max-width: calc(100vw - 20px);
-    width: calc(100vw - 20px);
-    left: 10px !important;
-    right: 10px !important;
+    max-width: calc(100vw - 12px);
+    width: calc(100vw - 12px);
   }
 
   .login-dialog-header {

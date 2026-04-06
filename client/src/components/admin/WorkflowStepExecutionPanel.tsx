@@ -112,10 +112,19 @@ export function WorkflowStepExecutionPanel({
   const [timerTick, setTimerTick] = useState(() => Date.now())
   const [fallbackStartedAt, setFallbackStartedAt] = useState<string>(() => new Date().toISOString())
 
+  const normalizeStepStatus = (status?: string) => {
+    const normalizedStatus = String(status || '').trim().toLowerCase()
+    if (normalizedStatus === 'in_progress') return 'in-progress'
+    return normalizedStatus
+  }
+
   const canGoNext = currentStepIndex < steps.length - 1
   const canGoPrev = currentStepIndex > 0
-  const completedSteps = steps.filter((s) => s.status === 'completed').length
-  const progressPercentage = (completedSteps / steps.length) * 100
+  const completedSteps = steps.filter((stepItem) => {
+    const stepStatus = normalizeStepStatus(stepItem.status)
+    return stepStatus === 'completed' || stepStatus === 'skipped'
+  }).length
+  const progressPercentage = steps.length > 0 ? Math.round((completedSteps / steps.length) * 100) : 0
 
   useEffect(() => {
     if (normalizedStep.startedAt) {
@@ -316,8 +325,10 @@ export function WorkflowStepExecutionPanel({
       })
 
       toast({
-        title: "Erfolg",
-        description: `Schritt "${step.name}" wurde erfolgreich abgeschlossen`,
+        title: canGoNext ? "Erfolg" : "Workflow abgeschlossen!",
+        description: canGoNext
+          ? `Schritt "${step.name}" wurde erfolgreich abgeschlossen`
+          : `Letzter Schritt "${step.name}" abgeschlossen – der gesamte Workflow ist nun fertig.`,
       })
 
       // Reset form for next step if available
@@ -514,7 +525,7 @@ export function WorkflowStepExecutionPanel({
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Workflow-Fortschritt</span>
               <span className="text-sm text-muted-foreground">
-                {completedSteps}/{steps.length} Schritte
+                {completedSteps}/{steps.length} Schritte erledigt
               </span>
             </div>
             <Progress value={progressPercentage} className="h-2" />

@@ -14,6 +14,8 @@ import {
   getCommunicationThread,
   sendMessage,
   markMessagesAsRead,
+  respondToFeedback,
+  completeQuickAction,
 } from "@/api/repairRequestCommunication"
 import {
   Search,
@@ -45,7 +47,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { ScrollArea } from "@/components/ui/scroll-area"
+
 
 interface ExtendedRepairRequest extends RepairRequest {
   unreadMessages?: number
@@ -73,6 +75,10 @@ export function CustomerRepairRequests() {
   const [commLoading, setCommLoading] = useState(false)
   const [commMessage, setCommMessage] = useState("")
   const [commSending, setCommSending] = useState(false)
+  // Feedback response state
+  const [respondingTo, setRespondingTo] = useState<string | null>(null)
+  const [pendingFeedbackOption, setPendingFeedbackOption] = useState<{ label: string; value: string } | null>(null)
+  const [completingAction, setCompletingAction] = useState<string | null>(null)
 
   // Fetch customer's repair requests
   useEffect(() => {
@@ -184,6 +190,33 @@ export function CustomerRepairRequests() {
     const interval = setInterval(loadThread, 5000)
     return () => { cancelled = true; clearInterval(interval) }
   }, [selectedRequest?._id, showDetailsDialog])
+
+  // Respond to a feedback request
+  const handleFeedbackResponse = async (messageId: string, option: { label: string; value: string }) => {
+    if (!selectedRequest?._id) return
+    try {
+      const updated = await respondToFeedback(selectedRequest._id, messageId, option)
+      setCommThread(updated)
+      setRespondingTo(null)
+      setPendingFeedbackOption(null)
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Fehler", description: error?.message || "Antwort konnte nicht gesendet werden" })
+    }
+  }
+
+  // Complete a quick action
+  const handleCompleteAction = async (messageId: string) => {
+    if (!selectedRequest?._id) return
+    try {
+      setCompletingAction(messageId)
+      const updated = await completeQuickAction(selectedRequest._id, messageId)
+      setCommThread(updated)
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Fehler", description: error?.message || "Aktion konnte nicht abgeschlossen werden" })
+    } finally {
+      setCompletingAction(null)
+    }
+  }
 
   // Send message in details dialog
   const handleCommSend = async () => {
@@ -439,7 +472,7 @@ export function CustomerRepairRequests() {
 
       {/* Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={(open) => { setShowDetailsDialog(open); if (!open) { setCommThread(null); setCommMessage("") } }}>
-        <DialogContent className="max-w-[95vw] sm:max-w-2xl my-3 max-h-[92vh] p-0 gap-0 overflow-hidden border-none rounded-[16px] sm:rounded-[24px] shadow-[0_20px_60px_rgba(26,42,94,0.3)] flex flex-col">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl my-0 sm:my-3 max-h-dvh sm:max-h-[92vh] p-0 gap-0 overflow-hidden border-none rounded-[16px] sm:rounded-[24px] shadow-[0_20px_60px_rgba(26,42,94,0.3)] flex flex-col">
 
           {/* Header */}
           <DialogHeader className="relative overflow-hidden flex-shrink-0" style={{ padding: '1.25rem 1.5rem', paddingRight: '3rem', background: 'linear-gradient(to right, #1a2a5e, #2a3f7e)', borderBottom: 'none' }}>
@@ -487,7 +520,7 @@ export function CustomerRepairRequests() {
               <Loader2 className="h-7 w-7 animate-spin" style={{ color: '#1a2a5e' }} />
             </div>
           ) : selectedRequest ? (
-            <ScrollArea className="flex-1 min-h-0">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
               {/* customer-repair-requests wrapper gives CSS scope for all dialog classes */}
               <div className="customer-repair-requests" style={{ padding: 0, maxWidth: 'none', background: 'transparent', minHeight: 'auto', margin: 0 }}>
                 <div className="dialog-body">
@@ -629,7 +662,61 @@ export function CustomerRepairRequests() {
                               </span>
                               <span className="crr-comm-time">{formatDate(msg.createdAt)}</span>
                             </div>
-                            <p className="crr-comm-text">{msg.content}</p>
+
+                            {msg.messageType === 'feedback_request' && msg.feedbackRequest ? (
+                              <div className="crr-feedback">
+                                <p className="crr-feedback-badge">❓ Feedback erforderlich</p>
+                                <p className="crr-feedback-question">{msg.feedbackRequest.question}</p>
+                                {msg.feedbackRequest.status === 'pending' && respondingTo !== msg._id ? (
+                                  <div className="crr-feedback-options">
+                                    {(msg.feedbackRequest.options || []).map((opt: any) => (
+                                      <button
+                                        key={opt.value}
+                                        className="crr-feedback-option-btn"
+                                        onClick={() => { setRespondingTo(msg._id); setPendingFeedbackOption(opt) }}
+                                      >
+                                        {opt.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : respondingTo === msg._id ? (
+                                  <div className="crr-feedback-confirm">
+                                    <p>Bestätigen: <strong>{pendingFeedbackOption?.label}</strong></p>
+                                    <div className="crr-feedback-confirm-btns">
+                                      <button className="crr-feedback-confirm-ok" onClick={() => handleFeedbackResponse(msg._id, pendingFeedbackOption!)}>Ja, absenden</button>
+                                      <button className="crr-feedback-confirm-cancel" onClick={() => { setRespondingTo(null); setPendingFeedbackOption(null) }}>Abbrechen</button>
+                                    </div>
+                                  </div>
+                                ) : msg.feedbackRequest.response ? (
+                                  <div className="crr-feedback-answered">
+                                    <CheckCircle size={14} />
+                                    <span>Ihre Antwort: <strong>{msg.feedbackRequest.response.label}</strong></span>
+                                  </div>
+                                ) : null}
+                              </div>
+                            ) : msg.messageType === 'quick_action' && msg.quickAction ? (
+                              <div className="crr-quick-action">
+                                <p className="crr-quick-action-badge">⚡ Aktion erforderlich</p>
+                                <p className="crr-quick-action-label">{msg.quickAction.actionLabel}</p>
+                                {msg.quickAction.description && (
+                                  <p className="crr-quick-action-desc">{msg.quickAction.description}</p>
+                                )}
+                                {msg.quickAction.status === 'pending' ? (
+                                  <button
+                                    className="crr-quick-action-btn"
+                                    disabled={completingAction === msg._id}
+                                    onClick={() => handleCompleteAction(msg._id)}
+                                  >
+                                    {completingAction === msg._id ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle size={13} />}
+                                    Als erledigt markieren
+                                  </button>
+                                ) : (
+                                  <p className="crr-quick-action-done">✓ Abgeschlossen</p>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="crr-comm-text">{msg.content}</p>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -660,7 +747,7 @@ export function CustomerRepairRequests() {
 
                 </div>
               </div>
-            </ScrollArea>
+            </div>
           ) : null}
 
           {/* Footer */}

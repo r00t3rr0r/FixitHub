@@ -1,6 +1,7 @@
 const express = require('express');
 const SystemConfigService = require('../services/systemConfigService');
 const ProviderConfigService = require('../services/providerConfigService');
+const EmailService = require('../services/emailService');
 const { requireUser, requireRole } = require('./middleware/auth');
 
 const router = express.Router();
@@ -157,6 +158,11 @@ router.post('/notification-templates/:id/send-test', requireUser, requireRole(['
       return res.status(400).json({ success: false, message: 'Only email templates can be sent as test email' });
     }
 
+    const sampleTrackingUrl = await EmailService.buildSystemUrl('/tracking/REP-2026-0001');
+    const sampleVerificationUrl = await EmailService.buildSystemUrl('/verify/example-token');
+    const samplePasswordResetUrl = await EmailService.buildSystemUrl('/reset/example-token');
+    const sampleInvoiceUrl = await EmailService.buildSystemUrl('/invoice/INV-2026-0001');
+
     // Replace all {{variable}} placeholders with sample values
     const fillPlaceholders = (text) => {
       const sampleValues = {
@@ -179,10 +185,10 @@ router.post('/notification-templates/:id/send-test', requireUser, requireRole(['
         shopAddress: 'Musterstraße 1, 12345 Musterstadt',
         supportEmail: 'support@fixithub.de',
         supportPhone: '+49 123 456789',
-        trackingUrl: 'https://fixithub.de/tracking/REP-2026-0001',
-        verificationUrl: 'https://fixithub.de/verify/example-token',
-        passwordResetUrl: 'https://fixithub.de/reset/example-token',
-        invoiceUrl: 'https://fixithub.de/invoice/INV-2026-0001',
+        trackingUrl: sampleTrackingUrl,
+        verificationUrl: sampleVerificationUrl,
+        passwordResetUrl: samplePasswordResetUrl,
+        invoiceUrl: sampleInvoiceUrl,
       };
       return text.replace(/{{(\w+)}}/g, (match, key) => sampleValues[key] || `[${key}]`);
     };

@@ -125,5 +125,1585 @@
         "systemInfo"
       ]
     }
+  },
+  {
+    "id": "1775110863999-04iwu2tea",
+    "timestamp": "2026-04-02T06:21:03.999Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Update fuer Kunden",
+    "subject": "Neue Benachrichtigung bei FixitHub: Nachrichten",
+    "messageId": "<0f2b55ce-cc2e-8d78-0ced-9b0c2f8cc568@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1608,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "supportEmail",
+        "supportPhone",
+        "ordersInfo",
+        "paymentsInfo",
+        "messagesInfo",
+        "assignmentsInfo",
+        "remindersInfo",
+        "systemInfo"
+      ]
+    }
+  },
+  {
+    "id": "1775112627951-2fy2syuej",
+    "timestamp": "2026-04-02T06:50:27.951Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0004 wurde erfolgreich angelegt – FixitHub",
+    "messageId": "<677128fc-2d96-36a7-22f6-bb5faaf1ff3f@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 907,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "bookingUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775113850108-ar1qmicjt",
+    "timestamp": "2026-04-02T07:10:50.108Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0005 wurde erfolgreich angelegt – FixitHub",
+    "messageId": "<b6282a5a-df3e-ad14-188f-763eccefbb6a@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1060,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "bookingUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775114353118-6motbs0nn",
+    "timestamp": "2026-04-02T07:19:13.118Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0006 wurde erfolgreich angelegt – FixitHub",
+    "messageId": "<0f41e9a5-bd11-84a3-267e-136aef70a77e@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 996,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775114583132-8szqfnspp",
+    "timestamp": "2026-04-02T07:23:03.132Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0007 wurde erfolgreich angelegt – FixitHub",
+    "messageId": "<956bef10-2748-0b33-bd2a-277c7d35b30c@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 972,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775115012428-arohjjo0k",
+    "timestamp": "2026-04-02T07:30:12.428Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei FixitHub: Auftraege",
+    "messageId": "<9066000c-663a-61b2-360f-0a98451fe204@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 971,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "supportEmail",
+        "supportPhone",
+        "ordersInfo",
+        "paymentsInfo",
+        "messagesInfo",
+        "assignmentsInfo",
+        "remindersInfo",
+        "systemInfo"
+      ]
+    }
+  },
+  {
+    "id": "1775115013040-36jy9d7zw",
+    "timestamp": "2026-04-02T07:30:13.040Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei FixitHub: Auftraege",
+    "messageId": "<4d9953fb-0441-e5c6-e8fd-2aa6db78c5ea@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1580,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "supportEmail",
+        "supportPhone",
+        "ordersInfo",
+        "paymentsInfo",
+        "messagesInfo",
+        "assignmentsInfo",
+        "remindersInfo",
+        "systemInfo"
+      ]
+    }
+  },
+  {
+    "id": "1775117007232-32y5nlbjb",
+    "timestamp": "2026-04-02T08:03:27.232Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<7feebed7-4f8b-1599-c232-68d80f8f1be7@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1002,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775117171426-21bsqhoru",
+    "timestamp": "2026-04-02T08:06:11.427Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<aadcc0ec-fdcc-7306-1e99-a64bfeb6e7d4@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 915,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775117443394-u2vvezvtn",
+    "timestamp": "2026-04-02T08:10:43.394Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<dd494279-896c-b760-3e42-90becfb61290@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1062,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775117582046-ycoh146k6",
+    "timestamp": "2026-04-02T08:13:02.046Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<3296f0b4-3179-0a19-2d97-cd19b4161083@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1057,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775117642872-zpz352s5c",
+    "timestamp": "2026-04-02T08:14:02.872Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<f3a395e3-7e8e-e142-4452-9359bfc69fb8@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1115,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775117817974-kintpdo69",
+    "timestamp": "2026-04-02T08:16:57.974Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<3c57b330-3d8a-9177-6be1-6f0f0160bee5@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1058,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775117934094-ps82p1vpl",
+    "timestamp": "2026-04-02T08:18:54.094Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<6f025ca8-56fa-99cd-24ff-dd21872d3a05@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 969,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775117941262-i3bbq59tl",
+    "timestamp": "2026-04-02T08:19:01.262Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<56a3e3b4-1742-1164-50e0-2429e831f6aa@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 862,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775118034408-p1v7ohtwr",
+    "timestamp": "2026-04-02T08:20:34.408Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0008 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<4ee38a25-4cfe-fb1e-fc74-d108b1c1db37@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1019,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775118116366-q6u0gqgd6",
+    "timestamp": "2026-04-02T08:21:56.366Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<7044ccf4-58d2-b47a-d588-192cd917a701@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 991,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775118116410-mxx3t4j3q",
+    "timestamp": "2026-04-02T08:21:56.410Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<48bc9fa3-378a-8796-5992-5dd437e18a60@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1039,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775118142989-lzuqbthah",
+    "timestamp": "2026-04-02T08:22:22.989Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Diagnose abgeschlossen",
+    "subject": "Diagnose abgeschlossen: Auftrag ORD-2026-012 – Apple Iphone11",
+    "messageId": "<ea793a06-c6db-e6a1-6260-e57d435b112c@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1038,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "diagnosisResult",
+        "diagnosisCompletedAt",
+        "deviceCondition",
+        "recommendedAction",
+        "orderUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775118260340-5dnn5mamx",
+    "timestamp": "2026-04-02T08:24:20.340Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<e2da7056-d74f-a9f4-3127-c79d54884a48@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1178,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775118318297-jg280fu0h",
+    "timestamp": "2026-04-02T08:25:18.297Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<577667aa-7609-17dc-6e39-7fd68816f0fc@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 993,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775118368474-nfmnndv9w",
+    "timestamp": "2026-04-02T08:26:08.474Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<c579fb29-fdf7-e7c5-c3fa-33e880a180b3@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 965,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775118411891-lq2agzvfb",
+    "timestamp": "2026-04-02T08:26:51.891Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<74c35693-3268-b51e-7749-47d183b899bb@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 956,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775119024771-pwgrg81w3",
+    "timestamp": "2026-04-02T08:37:04.771Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0009 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<a95c8f10-1131-1a35-fb8e-0b793568a026@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1007,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775119050046-7sqfnyr81",
+    "timestamp": "2026-04-02T08:37:30.046Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<0638043f-db74-866e-7f31-1358c5d54752@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 889,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775119050455-ynhjj1tx5",
+    "timestamp": "2026-04-02T08:37:30.455Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<988aa5a9-0542-5841-02b4-709b369b9656@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1296,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775119074423-8dxfoox21",
+    "timestamp": "2026-04-02T08:37:54.423Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Diagnose abgeschlossen",
+    "subject": "Diagnose abgeschlossen: Auftrag ORD-2026-013 – Apple MacBook Pro 16\"",
+    "messageId": "<6545f9c1-f747-48fe-4385-814ecb1d1575@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 959,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "diagnosisResult",
+        "diagnosisCompletedAt",
+        "deviceCondition",
+        "recommendedAction",
+        "orderUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775119109847-4efj5xooi",
+    "timestamp": "2026-04-02T08:38:29.847Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<b5da8885-a56c-83f1-8442-143060077ebd@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1159,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775119137495-mrsvr4xat",
+    "timestamp": "2026-04-02T08:38:57.495Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<9ba4b461-463e-bbad-ffeb-6b1d29967d8e@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 846,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775119255255-qod86jt6t",
+    "timestamp": "2026-04-02T08:40:55.255Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<53b780eb-c11f-cb63-c76b-4df7e897c295@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 851,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775119283108-a7ui0ljfo",
+    "timestamp": "2026-04-02T08:41:23.108Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<d823f24f-e00d-2bec-02e4-833b21b6d249@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 910,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775119391651-p0z7u0fp8",
+    "timestamp": "2026-04-02T08:43:11.651Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<0a0aaa73-76b4-5f7c-31e1-6ee797d6eb4d@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 976,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775119457187-slm3yuppg",
+    "timestamp": "2026-04-02T08:44:17.187Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<aa4d6fc3-4e9b-5428-231d-4661176b2448@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 956,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775119470499-xruj9c41q",
+    "timestamp": "2026-04-02T08:44:30.499Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<56ea7f9c-e497-2c3a-412b-1f483e28553b@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 996,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775119481967-55025u2hn",
+    "timestamp": "2026-04-02T08:44:41.967Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<8198b98e-4b5f-4b79-97a2-382c5e126d13@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1002,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775119545455-h5cbzxe1h",
+    "timestamp": "2026-04-02T08:45:45.455Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<aef2656b-6780-a8bf-4597-fae001ea12eb@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 988,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775120601607-7hw4j371z",
+    "timestamp": "2026-04-02T09:03:21.607Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Nachrichten",
+    "messageId": "<ce4da267-8fa6-33d7-2b1a-322ece903dc5@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1090,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775120873291-zfdohsll9",
+    "timestamp": "2026-04-02T09:07:53.291Z",
+    "to": "customer@example.com",
+    "templateName": "Repair Request eingegangen",
+    "subject": "Ihre Reparaturanfrage RR-1775120872408-00001 ist bei uns eingegangen",
+    "messageId": "<c755c5ee-1e73-3ef0-d728-79125299f998@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 857,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "requestNumber",
+        "deviceBrand",
+        "deviceModel",
+        "issueDescription",
+        "submittedAt",
+        "requestUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775149983644-jg747epft",
+    "timestamp": "2026-04-02T17:13:03.644Z",
+    "to": "netsparker@example.com",
+    "templateName": "Passwort zuruecksetzen",
+    "subject": "Passwort fuer Ihr McRepair.de Konto zuruecksetzen",
+    "messageId": "<df0cb949-869d-c2d0-caec-4db5bb1709ce@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1883,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "passwordResetUrl",
+        "resetExpiresAt",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775323818738-z1nq2tnhr",
+    "timestamp": "2026-04-04T17:30:18.738Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0010 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<64b3db3e-bd8e-5172-e948-233aa0064958@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1400,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775456010110-ihvh1wr78",
+    "timestamp": "2026-04-06T06:13:30.110Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0011 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<78c8996b-e12d-7ad7-eb2e-94217a4384ad@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1016,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775456010790-eamigmvas",
+    "timestamp": "2026-04-06T06:13:30.790Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Guest Order Confirmation",
+    "subject": "Order Confirmation - ORD-2026-015",
+    "messageId": "<d7f09002-3d15-3856-17ea-b04c5d4aa236@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1720,
+    "metadata": {
+      "orderNumbers": [
+        "ORD-2026-015"
+      ]
+    }
+  },
+  {
+    "id": "1775457298044-3unjgq292",
+    "timestamp": "2026-04-06T06:34:58.044Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0012 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<720e7e64-82fe-bdde-93a7-98d54d87724d@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 929,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775458040322-asy56s393",
+    "timestamp": "2026-04-06T06:47:20.322Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Repair Requests eingegangen",
+    "status": "failed",
+    "attempts": 0,
+    "error": "Template \"Repair Requests eingegangen\" (email) not found",
+    "metadata": {}
+  },
+  {
+    "id": "1775458041236-u54upsv1b",
+    "timestamp": "2026-04-06T06:47:21.236Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Repair Request eingegangen",
+    "subject": "Ihre Reparaturanfrage RR-1775458040299-00002 ist bei uns eingegangen",
+    "messageId": "<a5f74958-d3c9-252c-edbe-499896a2ca87@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 899,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "requestNumber",
+        "deviceBrand",
+        "deviceModel",
+        "issueDescription",
+        "submittedAt",
+        "requestUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775458231752-pxekon9ft",
+    "timestamp": "2026-04-06T06:50:31.752Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Nachrichten",
+    "messageId": "<22b36304-0e1b-81dd-dedd-c8c1f3d917dd@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 839,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775461002069-9s0h7lunf",
+    "timestamp": "2026-04-06T07:36:42.069Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Repair Requests eingegangen",
+    "status": "failed",
+    "attempts": 0,
+    "error": "Template \"Repair Requests eingegangen\" (email) not found",
+    "metadata": {}
+  },
+  {
+    "id": "1775461003105-pwauki9ny",
+    "timestamp": "2026-04-06T07:36:43.105Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Repair Request eingegangen",
+    "subject": "Ihre Reparaturanfrage RR-1775461002050-00003 ist bei uns eingegangen",
+    "messageId": "<851caf58-73a3-a5d1-386f-53a97947733a@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1020,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "requestNumber",
+        "deviceBrand",
+        "deviceModel",
+        "issueDescription",
+        "submittedAt",
+        "requestUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775461153713-mix6xh4fe",
+    "timestamp": "2026-04-06T07:39:13.713Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<2155db5a-4572-ef85-176e-87ba5327641c@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 911,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775461182909-vgvlq1j2e",
+    "timestamp": "2026-04-06T07:39:42.909Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Nachrichten",
+    "messageId": "<4190787b-d9b2-8c1e-c785-ac43ff81f644@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1273,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775461343506-z8buvus3d",
+    "timestamp": "2026-04-06T07:42:23.506Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Diagnose abgeschlossen",
+    "subject": "Diagnose abgeschlossen: Auftrag ORD-2026-016 – Apple iPhone 14 Pro",
+    "messageId": "<8c5f819d-81de-c0bb-6899-e3a1883e7389@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 861,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "diagnosisResult",
+        "diagnosisCompletedAt",
+        "deviceCondition",
+        "recommendedAction",
+        "orderUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775461557039-cz2rgud23",
+    "timestamp": "2026-04-06T07:45:57.039Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<0ba9ad5e-9589-107b-63ff-5f180a278f29@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1262,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775461651137-i66p2ambs",
+    "timestamp": "2026-04-06T07:47:31.137Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<5fbc0a2b-f3ae-d775-9787-d465056da0b7@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 908,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775461703445-oaa8ofcs4",
+    "timestamp": "2026-04-06T07:48:23.445Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<e363c96f-e5bb-1f84-ff0f-f8a21e9b11c8@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 889,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775501732846-gbtiv98yu",
+    "timestamp": "2026-04-06T18:55:32.846Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<94e2db0a-52f1-8cc4-c93c-a1f67b02e487@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1132,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775501765509-5xlzrcnbw",
+    "timestamp": "2026-04-06T18:56:05.509Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<01a9d32e-d55f-7806-3cd6-d14e44763382@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 850,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775501880619-mzd6yb0lg",
+    "timestamp": "2026-04-06T18:58:00.619Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<2afe64c8-e4ca-644f-c5b4-e67327f7312a@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 837,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775501880915-851bxximr",
+    "timestamp": "2026-04-06T18:58:00.915Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<32231af6-26ac-ad6a-c99f-bef4a49193df@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1136,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775516602210-ql8wp2r5e",
+    "timestamp": "2026-04-06T23:03:22.210Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Nachrichten",
+    "messageId": "<082e6b60-9755-85c8-ec60-7af791a523d9@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1421,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
   }
 ]

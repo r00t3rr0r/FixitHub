@@ -74,13 +74,13 @@ async function notifyAdminsAboutComplaint(complaint, customer, order) {
 
       if (admin.email) {
         await EmailService.sendTemplateEmail('Statusupdate Auftrag oder Buchung', admin.email, {
-          companyName: 'FixitHub',
+          companyName: 'McRepair.de',
           customerName: 'Admin Team',
           orderNumber: order.orderNumber,
           orderStatus: 'Reklamation eingegangen',
           statusMessage: notificationText,
           statusUpdatedAt: new Date().toLocaleDateString('de-DE'),
-          trackingUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/admin/complaints`,
+          trackingUrl: await EmailService.buildSystemUrl('/admin/complaints'),
           supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
           supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
         });
@@ -112,7 +112,7 @@ async function notifyCustomer(complaint, customerId, title, message, metadata = 
       const trigger = getComplaintEmailTrigger(complaint, metadata);
 
       await EmailService.sendTriggerEmail(trigger, customer.email, {
-        companyName: process.env.COMPANY_NAME || 'FixitHub',
+        companyName: process.env.COMPANY_NAME || 'McRepair.de',
         customerName,
         complaintNumber: complaint.complaintNumber || String(complaint._id),
         complaintStatus: complaint.status,
@@ -134,7 +134,7 @@ async function notifyCustomer(complaint, customerId, title, message, metadata = 
         decision: title,
         decisionReason: message,
         decidedAt: new Date().toLocaleDateString('de-DE'),
-        complaintUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/complaints/${complaint._id}`,
+        complaintUrl: await EmailService.buildSystemUrl(`/complaints/${complaint._id}`),
         supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
         supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
       });
@@ -871,7 +871,7 @@ router.post('/', requireUser, async (req, res) => {
       const customer = await User.findById(req.user._id).select('email firstName lastName');
       if (customer?.email) {
         await EmailService.sendTriggerEmail('complaint_created', customer.email, {
-          companyName: process.env.COMPANY_NAME || 'FixitHub',
+          companyName: process.env.COMPANY_NAME || 'McRepair.de',
           customerName: `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email,
           complaintNumber: complaint.complaintNumber || String(complaint._id),
           complaintCategory: complaint.category,
@@ -879,7 +879,7 @@ router.post('/', requireUser, async (req, res) => {
           orderNumber: complaint.orderId?.orderNumber || 'N/A',
           priority: complaint.priority || 'medium',
           submittedAt: new Date(complaint.createdAt || Date.now()).toLocaleDateString('de-DE'),
-          complaintUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/complaints/${complaint._id}`,
+          complaintUrl: await EmailService.buildSystemUrl(`/complaints/${complaint._id}`),
           supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
           supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
         });

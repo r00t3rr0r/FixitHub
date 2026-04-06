@@ -79,10 +79,48 @@ export function WorkflowExecutionModal({
   }, [mode])
 
   useEffect(() => {
-    if (workflow?.currentStepIndex !== undefined && Number.isInteger(workflow.currentStepIndex)) {
-      setCurrentStepIndex(Math.max(0, workflow.currentStepIndex))
+    if (!workflow) {
+      return
     }
-  }, [workflow?._id, workflow?.currentStepIndex])
+
+    const nextStepIndex = resolveActiveStepIndex(workflow.steps || [], workflow.currentStepIndex)
+    setCurrentStepIndex(nextStepIndex)
+  }, [workflow?._id, workflow?.currentStepIndex, workflow?.steps])
+
+  if (!workflow) return null
+
+  const normalizeStepStatus = (status?: string) => {
+    const normalizedStatus = String(status || '').trim().toLowerCase()
+    if (normalizedStatus === 'in_progress') return 'in-progress'
+    return normalizedStatus
+  }
+
+  const resolveActiveStepIndex = (stepsData: any[], explicitIndex?: number) => {
+    if (!Array.isArray(stepsData) || stepsData.length === 0) {
+      return 0
+    }
+
+    if (Number.isInteger(explicitIndex)) {
+      return Math.min(Math.max(Number(explicitIndex), 0), stepsData.length - 1)
+    }
+
+    const inProgressIndex = stepsData.findIndex((step: any) => normalizeStepStatus(step?.status) === 'in-progress')
+    if (inProgressIndex >= 0) {
+      return inProgressIndex
+    }
+
+    const firstPendingIndex = stepsData.findIndex((step: any) => normalizeStepStatus(step?.status) === 'pending')
+    if (firstPendingIndex >= 0) {
+      return firstPendingIndex
+    }
+
+    const lastFinishedIndex = [...stepsData].reverse().findIndex((step: any) => {
+      const stepStatus = normalizeStepStatus(step?.status)
+      return stepStatus === 'completed' || stepStatus === 'skipped'
+    })
+
+    return lastFinishedIndex >= 0 ? stepsData.length - 1 - lastFinishedIndex : 0
+  }
 
   useEffect(() => {
     if (!open || workflow?.status !== 'on-hold') {
@@ -98,21 +136,24 @@ export function WorkflowExecutionModal({
     }
   }, [open, workflow?.status])
 
-  if (!workflow) return null
-
   // Normalize steps to ensure consistent naming (handle both `name` and `stepName`)
   const normalizeSteps = (stepsData: any[]): WorkflowStep[] => {
     return stepsData.map((step: any) => ({
       ...step,
       // Use name if available, otherwise use stepName
       name: step.name || step.stepName || 'Unnamed Step',
+      status: normalizeStepStatus(step.status),
     })) as WorkflowStep[]
   }
 
   const steps: WorkflowStep[] = normalizeSteps(workflow.steps || [])
   const totalSteps = steps.length
-  const completedSteps = steps.filter((s: any) => s.status === 'completed').length
-  const progressPercentage = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0
+  const completedSteps = steps.filter((step: any) => {
+    return step.status === 'completed' || step.status === 'skipped'
+  }).length
+  const progressPercentage = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0
+  const activeStepIndex = resolveActiveStepIndex(steps, workflow.currentStepIndex)
+  const activeStep = steps[activeStepIndex] || null
 
   const currentStep = steps[currentStepIndex] || null
   const nextStep = steps[currentStepIndex + 1] || null
@@ -292,11 +333,11 @@ export function WorkflowExecutionModal({
                       />
                     </div>
                     <p className="mt-2 text-xs text-blue-100">
-                      {completedSteps}/{totalSteps} Steps abgeschlossen
+                      {completedSteps}/{totalSteps} Steps erledigt
                     </p>
                   </div>
                   <Badge variant="outline" className="whitespace-nowrap border-white/30 bg-white text-[#1a2a5e]">
-                    Aktiver Step {currentStepIndex + 1}
+                    Aktiver Step {activeStepIndex + 1}
                   </Badge>
                 </div>
               </div>
@@ -321,7 +362,7 @@ export function WorkflowExecutionModal({
                     <div className="flex items-center justify-between">
                       <span className="font-medium">Workflow-Fortschritt</span>
                       <span className="text-sm text-muted-foreground">
-                        {completedSteps}/{totalSteps} Schritte abgeschlossen
+                        {completedSteps}/{totalSteps} Schritte erledigt
                       </span>
                     </div>
                     <Progress value={progressPercentage} className="h-2" />
@@ -346,9 +387,9 @@ export function WorkflowExecutionModal({
                           Grund: <span className="font-medium">{workflow.pauseReason || openPauseEntry?.reason}</span>
                         </p>
                       )}
-                      {(openPauseEntry?.stepName || currentStep?.stepName) && (
+                      {(openPauseEntry?.stepName || activeStep?.stepName || currentStep?.stepName) && (
                         <p>
-                          Betroffener Schritt: <span className="font-medium">{openPauseEntry?.stepName || currentStep?.stepName}</span>
+                          Betroffener Schritt: <span className="font-medium">{openPauseEntry?.stepName || activeStep?.stepName || currentStep?.stepName}</span>
                         </p>
                       )}
 
@@ -640,7 +681,7 @@ export function WorkflowExecutionModal({
                     />
                   </div>
                   <p className="mt-2 text-xs text-blue-100">
-                    {completedSteps}/{totalSteps} Steps abgeschlossen
+                    {completedSteps}/{totalSteps} Steps erledigt
                   </p>
                 </div>
                 <Badge variant="outline" className="whitespace-nowrap border-white/30 bg-white text-[#1a2a5e]">
@@ -658,7 +699,7 @@ export function WorkflowExecutionModal({
               <div className="flex items-center justify-between">
                 <span className="font-medium">Gesamtfortschritt</span>
                 <span className="text-sm text-muted-foreground">
-                  {completedSteps}/{totalSteps} Schritte abgeschlossen
+                  {completedSteps}/{totalSteps} Schritte erledigt
                 </span>
               </div>
               <Progress value={progressPercentage} className="h-2" />

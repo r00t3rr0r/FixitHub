@@ -216,6 +216,18 @@ export function CartIcon() {
           flex-shrink: 0;
         }
 
+        @media (max-width: 480px) {
+          .cart-item-image,
+          .cart-device-image,
+          .cart-item-placeholder {
+            width: 44px;
+            height: 44px;
+          }
+          .cart-device-image {
+            padding: 5px;
+          }
+        }
+
         .cart-item-card {
           transition: all 0.2s ease;
         }
@@ -251,20 +263,20 @@ export function CartIcon() {
         </PopoverTrigger>
 
         <PopoverContent 
-          className="w-[420px] p-0 shadow-xl border border-[#d8dce6] cart-dropdown-content" 
+          className="w-[min(420px,calc(100vw-12px))] p-0 shadow-xl border border-[#d8dce6] cart-dropdown-content" 
           align="end"
           sideOffset={12}
         >
           <div className="bg-white">
             {/* Header with McRepair styling */}
-            <div className="px-5 py-4 border-b border-[#eceef3] bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e]">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-base flex items-center gap-2 text-white">
-                  <ShoppingCart className="h-5 w-5 text-[#f5b800]" />
+            <div className="px-3 py-3 sm:px-5 sm:py-4 border-b border-[#eceef3] bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e]">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-bold text-sm sm:text-base flex items-center gap-2 text-white">
+                  <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 text-[#f5b800] flex-shrink-0" />
                   Warenkorb
                 </h3>
                 {itemCount > 0 && (
-                  <Badge className="bg-[#f5b800] hover:bg-[#e5ab00] text-[#1a2a5e] font-semibold text-xs px-2.5 py-0.5">
+                  <Badge className="bg-[#f5b800] hover:bg-[#e5ab00] text-[#1a2a5e] font-semibold text-xs px-2 py-0.5 flex-shrink-0">
                     {itemCount} {itemCount === 1 ? 'Artikel' : 'Artikel'}
                   </Badge>
                 )}
@@ -274,15 +286,15 @@ export function CartIcon() {
             {/* Cart Content */}
             <div className="max-h-[450px] overflow-y-auto">
               {!cart || itemCount === 0 ? (
-                <div className="p-10 text-center">
-                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#f5f6f8] mb-4">
-                    <ShoppingCart className="h-10 w-10 text-[#b0b8c9]" />
+                <div className="p-6 sm:p-10 text-center">
+                  <div className="inline-flex items-center justify-center w-14 h-14 sm:w-20 sm:h-20 rounded-full bg-[#f5f6f8] mb-3 sm:mb-4">
+                    <ShoppingCart className="h-7 w-7 sm:h-10 sm:w-10 text-[#b0b8c9]" />
                   </div>
-                  <p className="font-semibold text-[#2d3748] text-base mb-1">Ihr Warenkorb ist leer</p>
-                  <p className="text-sm text-[#636e85]">Entdecken Sie unsere Produkte und Reparaturservices</p>
+                  <p className="font-semibold text-[#2d3748] text-sm sm:text-base mb-1">Ihr Warenkorb ist leer</p>
+                  <p className="text-xs sm:text-sm text-[#636e85]">Entdecken Sie unsere Produkte und Reparaturservices</p>
                 </div>
               ) : (
-                <div className="p-4 space-y-3">
+                <div className="p-3 sm:p-4 space-y-2 sm:space-y-3">
                   {/* Repair Orders */}
                   {cart.repairOrders && cart.repairOrders.length > 0 && (
                     <div className="space-y-3">
@@ -292,9 +304,9 @@ export function CartIcon() {
                         return (
                           <div 
                             key={order._id || index}
-                            className="cart-item-card cart-item-enter bg-white rounded-lg p-3 border border-[#d8dce6] hover:border-[#1a2a5e] hover:shadow-md"
+                            className="cart-item-card cart-item-enter bg-white rounded-lg p-2 sm:p-3 border border-[#d8dce6] hover:border-[#1a2a5e] hover:shadow-md"
                           >
-                            <div className="flex items-start gap-3">
+                            <div className="flex items-start gap-2 sm:gap-3">
                               {/* Device Image or Icon */}
                               <CartPreviewImage
                                 src={deviceImage}
@@ -305,16 +317,16 @@ export function CartIcon() {
                               />
 
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold text-sm text-[#1a2a5e] truncate leading-tight">
+                                <h4 className="font-semibold text-xs sm:text-sm text-[#1a2a5e] truncate leading-tight">
                                   {order.deviceBrand} {order.deviceModel}
                                 </h4>
-                                <div className="mt-1">
-                                  <p className="text-xs text-[#636e85]">
+                                <div className="mt-0.5 sm:mt-1">
+                                  <p className="text-[11px] sm:text-xs text-[#636e85]">
                                     {order.services.length} Reparatur{order.services.length !== 1 ? 'en' : ''}
                                     {order.addOns && order.addOns.length > 0 && ` + ${order.addOns.length} Extra${order.addOns.length !== 1 ? 's' : ''}`}
                                   </p>
                                 </div>
-                                <p className="font-bold text-[#1a2a5e] text-base mt-1.5">
+                                <p className="font-bold text-[#1a2a5e] text-sm sm:text-base mt-1">
                                   {order.totalCost.toFixed(2)} €
                                 </p>
                               </div>
@@ -338,9 +350,9 @@ export function CartIcon() {
                         return (
                           <div 
                             key={item._id}
-                            className="cart-item-card cart-item-enter bg-white rounded-lg p-3 border border-[#d8dce6] hover:border-[#f5b800] hover:shadow-md"
+                            className="cart-item-card cart-item-enter bg-white rounded-lg p-2 sm:p-3 border border-[#d8dce6] hover:border-[#f5b800] hover:shadow-md"
                           >
-                            <div className="flex items-start gap-3">
+                            <div className="flex items-start gap-2 sm:gap-3">
                               {/* Product Image or Icon */}
                               <CartPreviewImage
                                 src={productImage}
@@ -351,13 +363,13 @@ export function CartIcon() {
                               />
 
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold text-sm text-[#1a2a5e] leading-tight line-clamp-2">
+                                <h4 className="font-semibold text-xs sm:text-sm text-[#1a2a5e] leading-tight line-clamp-2">
                                   {product.name}
                                 </h4>
-                                <p className="text-xs text-[#636e85] mt-1">
+                                <p className="text-[11px] sm:text-xs text-[#636e85] mt-0.5 sm:mt-1">
                                   Menge: {item.quantity} × {product.price.toFixed(2)} €
                                 </p>
-                                <p className="font-bold text-[#1a2a5e] text-base mt-1.5">
+                                <p className="font-bold text-[#1a2a5e] text-sm sm:text-base mt-1">
                                   {(product.price * item.quantity).toFixed(2)} €
                                 </p>
                               </div>
@@ -373,16 +385,16 @@ export function CartIcon() {
 
             {/* Footer */}
             {cart && itemCount > 0 && (
-              <div className="px-5 py-4 border-t border-[#eceef3] bg-[#f8f9fc] space-y-3">
-                <div className="flex items-center justify-between">
+              <div className="px-3 py-3 sm:px-5 sm:py-4 border-t border-[#eceef3] bg-[#f8f9fc] space-y-2 sm:space-y-3">
+                <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold text-[#2d3748] text-sm">Gesamt:</span>
-                  <span className="font-bold text-2xl text-[#1a2a5e]">
+                  <span className="font-bold text-lg sm:text-2xl text-[#1a2a5e]">
                     {cart.total.toFixed(2)} €
                   </span>
                 </div>
                 <Button 
                   asChild 
-                  className="w-full bg-[#f5b800] hover:bg-[#e5ab00] text-[#1a2a5e] font-bold shadow-md hover:shadow-lg transition-all duration-200 h-11 text-sm"
+                  className="w-full bg-[#f5b800] hover:bg-[#e5ab00] text-[#1a2a5e] font-bold shadow-md hover:shadow-lg transition-all duration-200 h-9 sm:h-11 text-xs sm:text-sm"
                 >
                   <Link to="/cart" className="flex items-center justify-center gap-2">
                     Zum Warenkorb
