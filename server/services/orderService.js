@@ -1316,24 +1316,50 @@ class OrderService {
       const currentIndex = workflow.steps.findIndex(s => s._id.toString() === stepId);
       const nextIndex = currentIndex + 1;
 
+      // Fetch staff once for use in both timeline entries and step assignment
+      const staff = await User.findById(staffId);
+      const previousOrderStatus = order.status;
+
       if (nextIndex < workflow.steps.length) {
         workflow.currentStepIndex = nextIndex;
         workflow.steps[nextIndex].status = 'in-progress';
         workflow.steps[nextIndex].startedAt = new Date();
-        if (staffId) {
-          const staff = await User.findById(staffId);
-          if (staff) {
-            applyWorkflowStepAssignment(workflow.steps[nextIndex], [staff], staffId);
-          }
+        if (staff) {
+          applyWorkflowStepAssignment(workflow.steps[nextIndex], [staff], staffId);
         }
       } else {
-        // All steps completed
+        // All steps in this workflow completed
+        const workflowCompletedAt = new Date();
         workflow.status = 'completed';
-        workflow.completedAt = new Date();
+        workflow.completedAt = workflowCompletedAt;
+
+        // Add workflow completion timeline entry
+        order.timeline.push({
+          status: 'Workflow Completed',
+          description: `Workflow "${workflow.workflowName}" wurde vollständig abgeschlossen (${workflow.steps.length} Schritte)`,
+          completedAt: workflowCompletedAt,
+          staffId: staffId || 'system',
+          staffName: staff ? staff.name : 'Staff Member',
+        });
+
+        // If every workflow on this order is now done, advance the order status
+        const allWorkflowsDone = order.workflows.every(wf =>
+          wf._id.toString() === workflowId.toString() ? true : wf.status === 'completed'
+        );
+        if (allWorkflowsDone && ['in-progress', 'quality-check', 'diagnostic-assessment'].includes(order.status)) {
+          order.status = 'ready-for-pickup';
+          order.actualCompletion = workflowCompletedAt;
+          order.timeline.push({
+            status: 'Order Ready',
+            description: `Auftrag ${order.orderNumber} ist abgeschlossen und bereit zur Abholung`,
+            completedAt: workflowCompletedAt,
+            staffId: staffId || 'system',
+            staffName: staff ? staff.name : 'Staff Member',
+          });
+        }
       }
 
-      // Add timeline entry
-      const staff = await User.findById(staffId);
+      // Add step completion timeline entry
       const timingSummary = step.estimatedDurationMinutes > 0
         ? ` (actual ${step.actualDurationMinutes} min vs estimated ${step.estimatedDurationMinutes} min)`
         : ` (actual ${step.actualDurationMinutes} min)`;
@@ -1367,6 +1393,15 @@ class OrderService {
         await this.notifyCustomerOrderUpdate(
           updatedOrder,
           `Ihr Auftrag ${updatedOrder.orderNumber} hat einen neuen Reparaturfortschritt erreicht: ${updatedOrder.progress || 0}% (${progressDelta >= 0 ? '+' : ''}${progressDelta}%). Letzter Schritt: ${step.stepName}.`
+        );
+      }
+
+      // Notify customer if order became ready for pickup
+      if (previousOrderStatus !== updatedOrder.status && updatedOrder.status === 'ready-for-pickup') {
+        await this.notifyCustomerOrderUpdate(
+          updatedOrder,
+          `Gute Nachrichten! Ihr Auftrag ${updatedOrder.orderNumber} ist fertig und kann abgeholt werden. Alle Reparaturschritte wurden erfolgreich abgeschlossen.`,
+          'ready-for-pickup'
         );
       }
 

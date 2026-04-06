@@ -1472,9 +1472,19 @@ export function OrderDetails() {
       console.log("OrderDetails: Refreshing workflows after step completion")
       // Refresh workflows to get updated step status
       const workflowsResponse = await getOrderWorkflows(id)
-      setWorkflows((workflowsResponse as any).workflows || [])
+      const updatedWorkflows = (workflowsResponse as any).workflows || []
+      setWorkflows(updatedWorkflows)
 
-      // Refresh order to get updated progress
+      // Keep the modal in sync with the latest workflow data so it reflects
+      // the new step/workflow status (e.g. last step completed → workflow 'completed')
+      if (selectedWorkflowForExecution) {
+        const refreshedWorkflow = updatedWorkflows.find((w: any) => w._id === selectedWorkflowForExecution._id)
+        if (refreshedWorkflow) {
+          setSelectedWorkflowForExecution(refreshedWorkflow)
+        }
+      }
+
+      // Refresh order to get updated progress and status
       await refreshOrder()
 
       toast({

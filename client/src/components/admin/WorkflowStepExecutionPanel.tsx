@@ -325,8 +325,10 @@ export function WorkflowStepExecutionPanel({
       })
 
       toast({
-        title: "Erfolg",
-        description: `Schritt "${step.name}" wurde erfolgreich abgeschlossen`,
+        title: canGoNext ? "Erfolg" : "Workflow abgeschlossen!",
+        description: canGoNext
+          ? `Schritt "${step.name}" wurde erfolgreich abgeschlossen`
+          : `Letzter Schritt "${step.name}" abgeschlossen – der gesamte Workflow ist nun fertig.`,
       })
 
       // Reset form for next step if available

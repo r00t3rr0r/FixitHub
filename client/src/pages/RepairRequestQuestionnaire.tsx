@@ -359,8 +359,8 @@ export function RepairRequestQuestionnaire() {
         description: t('repairRequest.successMessage'),
       })
 
-      // Navigate to customer orders/requests page
-      navigate("/orders")
+      // Navigate to customer repair requests page
+      navigate("/my-repair-requests")
     } catch (error: any) {
       console.error("Error submitting repair request:", error)
       toast({
