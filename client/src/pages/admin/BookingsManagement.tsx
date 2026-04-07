@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import "./BookingsManagement.css"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -34,6 +34,7 @@ import {
   getUnreadMessageCounts
 } from "@/api/inspectionCommunication"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
+import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation"
 import {
   Search,
   Filter,
@@ -222,6 +223,7 @@ export function BookingsManagement() {
   console.log('BookingsManagement: Component rendered/mounted')
   const { t } = useTranslation()
   const { user } = useAuth()
+  const location = useLocation()
   const navigate = useNavigate()
   const [bookings, setBookings] = useState<ExpandedBooking[]>([])
   const [filteredBookings, setFilteredBookings] = useState<ExpandedBooking[]>([])
@@ -263,6 +265,25 @@ export function BookingsManagement() {
     console.log('BookingsManagement: useEffect - Fetching bookings (pagination/filter changed)')
     fetchBookings()
   }, [currentPage, itemsPerPage, statusFilter, billingStatusFilter])
+
+  useEffect(() => {
+    const reopenBookingId = (location.state as { reopenBookingDialog?: string } | null)?.reopenBookingDialog
+    if (!reopenBookingId) {
+      return
+    }
+
+    const reopenBookingDialog = async () => {
+      try {
+        const response = await getBooking(reopenBookingId)
+        setSelectedBooking(response.booking)
+        setShowDetailDialog(true)
+      } catch (error) {
+        console.error('BookingsManagement: Error reopening booking dialog:', error)
+      }
+    }
+
+    reopenBookingDialog()
+  }, [location.state])
 
   useEffect(() => {
     // Ensure admins always land on the full booking list by default.
@@ -1609,6 +1630,8 @@ function BookingDetailDialog({
   navigate: any;
   onStatusUpdate: () => void
 }) {
+  const { t } = useTranslation()
+  const location = useLocation()
   const customer = getSafeBookingCustomer(booking)
   const customerDisplayName = getCustomerDisplayName(customer)
   const [activeTab, setActiveTab] = useState("overview")
@@ -1656,7 +1679,12 @@ function BookingDetailDialog({
       console.warn("No order ID provided for navigation")
       return
     }
-    navigate(`/orders/${orderId}`)
+    navigate(getOrderDetailsPath(orderId), {
+      state: buildOrderDetailsState(location, {
+        label: t('common.back'),
+        restoreState: { reopenBookingDialog: booking._id },
+      }),
+    })
   }
 
   const handleStatusUpdate = async () => {

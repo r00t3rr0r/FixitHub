@@ -2,8 +2,11 @@ const Payment = require('../models/Payment');
 const Invoice = require('../models/Invoice');
 const DunningRun = require('../models/DunningRun');
 const Order = require('../models/Order');
+const Booking = require('../models/Booking');
 const User = require('../models/User');
 const SystemConfiguration = require('../models/SystemConfiguration');
+const EmailService = require('./emailService');
+const NotificationService = require('./notificationService');
 
 function parseDueDaysFromTerms(paymentTerms) {
   if (!paymentTerms) return null;
@@ -460,12 +463,62 @@ class FinancialService {
         throw new Error('Invoice not found');
       }
 
+      const recipientEmail = String(email || invoice.customerEmail || '').trim();
+      if (!recipientEmail) {
+        throw new Error('Invoice recipient email is required');
+      }
+
+      let referenceNumber = '-';
+      if (invoice.bookingId) {
+        const booking = await Booking.findById(invoice.bookingId).select('bookingNumber').lean();
+        referenceNumber = booking?.bookingNumber || String(invoice.bookingId);
+      } else if (invoice.orderId?.orderNumber) {
+        referenceNumber = String(invoice.orderId.orderNumber);
+      } else if (invoice.orderId) {
+        const order = await Order.findById(invoice.orderId).select('orderNumber').lean();
+        referenceNumber = order?.orderNumber || String(invoice.orderId);
+      }
+
+      const customerName = String(invoice.customerName || '').trim() || 'Kunde';
+      const invoiceAmount = Number(invoice.total || 0);
+      const invoiceUrl = await EmailService.buildSystemUrl(`/customer/invoices?invoiceId=${invoice._id}`);
+
+      const emailResult = await EmailService.sendTriggerEmail('invoice_created', recipientEmail, {
+        companyName: process.env.COMPANY_NAME || 'McRepair.de',
+        customerName,
+        invoiceNumber: invoice.invoiceNumber,
+        orderNumber: referenceNumber,
+        invoiceAmount: `EUR ${invoiceAmount.toFixed(2)}`,
+        dueDate: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('de-DE') : '-',
+        paymentMethod: invoice.paymentMethod || 'Ueberweisung',
+        invoiceUrl,
+        customMessage: String(message || '').trim(),
+        supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+        supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+      });
+
+      if (!emailResult?.success) {
+        throw new Error(emailResult?.error || 'Failed to send invoice email');
+      }
+
       // Update invoice status
       invoice.status = 'sent';
       invoice.sentAt = new Date();
       await invoice.save();
 
-      // Here you would integrate with email service (SendGrid, etc.)
+      await NotificationService.createNotification({
+        userId: invoice.customerId,
+        title: 'Neue Rechnung verfuegbar',
+        message: `Ihre Rechnung ${invoice.invoiceNumber} wurde versendet.`,
+        type: 'system',
+        orderId: invoice.orderId || undefined,
+        actionUrl: '/customer/invoices',
+        metadata: {
+          invoiceId: String(invoice._id),
+          invoiceNumber: invoice.invoiceNumber
+        }
+      }, { sendEmail: false });
+
       console.log('FinancialService: Invoice sent successfully');
       return { success: true, message: 'Invoice sent successfully' };
     } catch (error) {

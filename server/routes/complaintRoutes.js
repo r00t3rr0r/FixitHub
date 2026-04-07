@@ -93,15 +93,19 @@ async function notifyAdminsAboutComplaint(complaint, customer, order) {
 
 async function notifyCustomer(complaint, customerId, title, message, metadata = {}) {
   try {
+    const event = String(metadata.event || '').toLowerCase();
+    const isMessageEvent = ['comment_added', 'message_added', 'feedback_request', 'quick_action'].includes(event);
+
     await NotificationService.createNotification({
       userId: customerId,
       title,
       message,
-      type: 'order_update',
+      type: isMessageEvent ? 'message' : 'order_update',
       orderId: complaint.orderId,
-      actionUrl: `/orders/${complaint.orderId}`,
+      actionUrl: '/my-complaints',
       metadata: {
         complaintId: complaint._id,
+        complaintNumber: complaint.complaintNumber || null,
         ...metadata
       }
     });
@@ -938,6 +942,16 @@ router.post('/:id/comments', requireUser, async (req, res) => {
       return res.status(400).json({ success: false, error: 'comment is required' });
     }
 
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) {
+      return res.status(404).json({ success: false, error: 'Complaint not found' });
+    }
+
+    const complaintCustomerId = getComplaintCustomerId(complaint);
+    if (req.user.role === 'customer' && complaintCustomerId !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
     const commentData = {
       userId: req.user._id,
       userName: actorName(req.user),
@@ -947,6 +961,26 @@ router.post('/:id/comments', requireUser, async (req, res) => {
     };
 
     const updatedComplaint = await ComplaintService.addComment(req.params.id, commentData);
+
+    const shouldNotifyCustomer =
+      !commentData.isInternal &&
+      req.user.role !== 'customer' &&
+      complaintCustomerId;
+
+    if (shouldNotifyCustomer) {
+      await notifyCustomer(
+        updatedComplaint,
+        complaintCustomerId,
+        'Neue Nachricht zu Ihrer Reklamation',
+        `${commentData.userName}: ${String(comment).trim()}`,
+        {
+          event: 'comment_added',
+          senderName: commentData.userName,
+          commentId: updatedComplaint.comments?.[updatedComplaint.comments.length - 1]?._id,
+        }
+      );
+    }
+
     return res.json({ success: true, complaint: updatedComplaint });
   } catch (error) {
     console.error('ComplaintRoutes: Error adding comment:', error);

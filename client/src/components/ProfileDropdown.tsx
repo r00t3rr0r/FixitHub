@@ -133,7 +133,7 @@ export function ProfileDropdown() {
           </Button>
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="end" className="w-56 animate-slide-down">
+        <DropdownMenuContent align="end" className="w-56 animate-slide-down text-left">
           {/* User Info Section */}
           <DropdownMenuLabel className="flex flex-col space-y-1 py-2">
             <p className="font-semibold text-sm">{userName}</p>
@@ -143,52 +143,52 @@ export function ProfileDropdown() {
           <DropdownMenuSeparator />
 
           {/* Navigation Items */}
-          <DropdownMenuItem asChild className="cursor-pointer transition-colors hover:bg-yellow-50">
-            <Link to="/profile" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              <span>{t('navigation.profile')}</span>
-            </Link>
-          </DropdownMenuItem>
-
-          <DropdownMenuItem asChild className="cursor-pointer transition-colors hover:bg-yellow-50">
-            <Link to="/bookings" className="flex items-center gap-2">
+          <DropdownMenuItem asChild className="cursor-pointer justify-start text-left text-[13px] transition-colors hover:bg-yellow-50">
+            <Link to="/bookings" className="flex w-full items-center justify-start gap-2 text-left">
               <Calendar className="h-4 w-4" />
               <span>{t('navigation.bookings')}</span>
             </Link>
           </DropdownMenuItem>
 
-          <DropdownMenuItem asChild className="cursor-pointer transition-colors hover:bg-yellow-50">
-            <Link to="/invoices" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              <span>{t('navigation.invoices')}</span>
-            </Link>
-          </DropdownMenuItem>
-
-          <DropdownMenuItem asChild className="cursor-pointer transition-colors hover:bg-yellow-50">
-            <Link to="/messages" className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
-              <span>{t('navigation.messages', 'Nachrichten')}</span>
-            </Link>
-          </DropdownMenuItem>
-
-          <DropdownMenuItem asChild className="cursor-pointer transition-colors hover:bg-yellow-50">
-            <Link to="/notifications" className="flex items-center gap-2">
-              <Bell className="h-4 w-4" />
-              <span>{t('navigation.notifications', 'Benachrichtigungen')}</span>
-            </Link>
-          </DropdownMenuItem>
-
-          <DropdownMenuItem asChild className="cursor-pointer transition-colors hover:bg-yellow-50">
-            <Link to="/my-repair-requests" className="flex items-center gap-2">
+          <DropdownMenuItem asChild className="cursor-pointer justify-start text-left text-[13px] transition-colors hover:bg-yellow-50">
+            <Link to="/my-repair-requests" className="flex w-full items-center justify-start gap-2 text-left">
               <Wrench className="h-4 w-4" />
               <span>Repair Requests</span>
             </Link>
           </DropdownMenuItem>
 
-          <DropdownMenuItem asChild className="cursor-pointer transition-colors hover:bg-yellow-50">
-            <Link to="/my-complaints" className="flex items-center gap-2">
+          <DropdownMenuItem asChild className="cursor-pointer justify-start text-left text-[13px] transition-colors hover:bg-yellow-50">
+            <Link to="/my-complaints" className="flex w-full items-center justify-start gap-2 text-left">
               <AlertTriangle className="h-4 w-4" />
               <span>Reklamationen</span>
+            </Link>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem asChild className="cursor-pointer justify-start text-left text-[13px] transition-colors hover:bg-yellow-50">
+            <Link to="/invoices" className="flex w-full items-center justify-start gap-2 text-left">
+              <FileText className="h-4 w-4" />
+              <span>{t('navigation.invoices')}</span>
+            </Link>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem asChild className="cursor-pointer justify-start text-left text-[13px] transition-colors hover:bg-yellow-50">
+            <Link to="/notifications" className="flex w-full items-center justify-start gap-2 text-left">
+              <Bell className="h-4 w-4" />
+              <span>{t('navigation.notifications', 'Benachrichtigungen')}</span>
+            </Link>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem asChild className="cursor-pointer justify-start text-left text-[13px] transition-colors hover:bg-yellow-50">
+            <Link to="/messages" className="flex w-full items-center justify-start gap-2 text-left">
+              <MessageSquare className="h-4 w-4" />
+              <span>{t('navigation.messages', 'Nachrichten')}</span>
+            </Link>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem asChild className="cursor-pointer justify-start text-left text-[13px] transition-colors hover:bg-yellow-50">
+            <Link to="/profile" className="flex w-full items-center justify-start gap-2 text-left">
+              <User className="h-4 w-4" />
+              <span>{t('navigation.profile')}</span>
             </Link>
           </DropdownMenuItem>
 
@@ -197,7 +197,7 @@ export function ProfileDropdown() {
           {/* Logout Item */}
           <DropdownMenuItem
             onClick={handleLogout}
-            className="cursor-pointer transition-colors hover:bg-red-50 text-red-600 hover:text-red-700"
+            className="cursor-pointer justify-start text-left text-[13px] transition-colors hover:bg-red-50 text-red-600 hover:text-red-700"
           >
             <LogOut className="h-4 w-4 mr-2" />
             <span>{t('navigation.logout')}</span>

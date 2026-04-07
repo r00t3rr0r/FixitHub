@@ -1,8 +1,11 @@
  import { useState, useEffect } from "react"
+import { useTranslation } from "react-i18next"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
 import "./CustomerComplaints.css"
 import {
   AlertTriangle,
   Search,
+  Filter,
   Plus,
   Clock,
   CheckCircle2,
@@ -39,6 +42,7 @@ import {
   acceptComplaintOffer,
   rejectComplaintOffer,
 } from "@/api/complaints"
+import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation"
 
 /* ────────────────────────────────────────────────
    Status metadata
@@ -156,7 +160,11 @@ function StatusBadge({ status }: { status: string }) {
    Main Component
    ──────────────────────────────────────────────── */
 export function CustomerComplaints() {
+  const { t } = useTranslation()
   const { toast } = useToast()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { complaintId } = useParams<{ complaintId?: string }>()
 
   const [complaints, setComplaints] = useState<Complaint[]>([])
   const [filtered, setFiltered] = useState<Complaint[]>([])
@@ -238,6 +246,28 @@ export function CustomerComplaints() {
       setDetailLoading(false)
     }
   }
+
+  useEffect(() => {
+    // Handle URL parameter (direct link)
+    if (complaintId && complaints.length > 0) {
+      const complaintToOpen = complaints.find((complaint) => complaint._id === complaintId)
+      if (complaintToOpen) {
+        openDetail(complaintToOpen)
+        return
+      }
+    }
+
+    // Handle location.state (restore from order details navigation)
+    const reopenComplaintId = (location.state as { reopenComplaintId?: string } | null)?.reopenComplaintId
+    if (!reopenComplaintId || complaints.length === 0) {
+      return
+    }
+
+    const complaintToOpen = complaints.find((complaint) => complaint._id === reopenComplaintId)
+    if (complaintToOpen) {
+      openDetail(complaintToOpen)
+    }
+  }, [complaintId, location.state, complaints])
 
   /* ── Send message ── */
   async function handleSend() {
@@ -338,20 +368,25 @@ export function CustomerComplaints() {
   return (
     <div className="customer-complaints">
       {/* ── Page Header ── */}
-      <div className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] rounded-2xl shadow-xl p-8 text-white relative overflow-hidden mb-8">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-[#f5b800] rounded-full opacity-5 blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#f5b800] rounded-full opacity-5 blur-3xl"></div>
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-3">
-            <FileText className="h-8 w-8 text-[#f5b800]" />
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Meine Reklamationen</h1>
+      <div className="mb-8 w-full overflow-hidden rounded-[18px] border-b border-[#2a3f7e] bg-gradient-to-br from-[#1a2a5e] to-[#0f1d45] px-6 py-12 text-white max-[480px]:rounded-[12px] max-[480px]:px-3 max-[360px]:px-[10px]">
+        <div className="flex items-start gap-4 sm:items-center max-[480px]:items-start max-[480px]:gap-[10px]">
+          <FileText className="h-12 w-12 flex-shrink-0 text-[#f5b800] max-sm:h-[34px] max-sm:w-[34px]" />
+          <div>
+            <h1 className="m-0 text-[2rem] font-extrabold leading-[1.2] tracking-[-0.5px] max-[480px]:text-[1rem] max-[480px]:leading-[1.25] max-[360px]:text-[0.92rem]">Meine Reklamationen</h1>
+            <p className="mt-1 text-[0.95rem] leading-[1.35] text-[rgba(255,255,255,0.85)] opacity-90 max-[480px]:text-[0.76rem] max-[360px]:text-[0.72rem]">Verfolge und verwalte deine Reklamationen</p>
           </div>
-          <p className="text-blue-100 text-base md:text-lg">Verfolge und verwalte deine Reklamationen</p>
         </div>
       </div>
 
       {/* ── Filter Bar ── */}
       <div className="cc-filter-bar">
+        <div className="cc-filter-bar-label">
+          <div className="cc-filter-bar-icon">
+            <Filter size={16} />
+          </div>
+          <span>Filter</span>
+        </div>
+
         <div className="cc-search-wrapper">
           <Search />
           <input
@@ -361,19 +396,21 @@ export function CustomerComplaints() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <select
-          className="cc-filter-select"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          <option value="all">Alle Status</option>
-          <option value="open">Offen</option>
-          <option value="in-progress">In Bearbeitung</option>
-          <option value="pending-customer">Antwort erforderlich</option>
-          <option value="denied">Angebot vorhanden</option>
-          <option value="resolved">Gelöst</option>
-          <option value="closed">Geschlossen</option>
-        </select>
+        <div className="cc-filter-select-wrap">
+          <select
+            className="cc-filter-select"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="all">Alle Status</option>
+            <option value="open">Offen</option>
+            <option value="in-progress">In Bearbeitung</option>
+            <option value="pending-customer">Antwort erforderlich</option>
+            <option value="denied">Angebot vorhanden</option>
+            <option value="resolved">Gelöst</option>
+            <option value="closed">Geschlossen</option>
+          </select>
+        </div>
       </div>
 
       {/* ── Loading ── */}
@@ -451,217 +488,252 @@ export function CustomerComplaints() {
       {/* ════════════════════════════════════════
           Detail Dialog
           ════════════════════════════════════════ */}
-      <Dialog open={showDetail} onOpenChange={setShowDetail}>
-        <DialogContent className="cc-dialog-content cc-dialog-content--detail">
-          <DialogHeader className="cc-dialog-header cc-dialog-header--detail">
-            <DialogTitle className="cc-dialog-title">
-              {selected?.subject ?? "Reklamation"}
-            </DialogTitle>
-            <div className="cc-dialog-meta-row">
-              {selected?.status && <StatusBadge status={selected.status} />}
-            </div>
-            <p className="cc-dialog-subtitle">Eingereicht am {selected ? formatDate(selected.createdAt) : ""}</p>
-            <div className="cc-dialog-order-row">
-              <span className="cc-dialog-order-label">Zugrundeliegender Auftrag</span>
-              {baseOrderId ? (
-                <a href={`/orders/${baseOrderId}`} className="cc-dialog-order-link">
-                  <FileText size={13} />
-                  {baseOrderNumber}
-                  <ExternalLink size={12} />
-                </a>
-              ) : (
-                <span className="cc-dialog-order-missing">Kein Auftrag verknüpft</span>
+      <Dialog open={showDetail} onOpenChange={(open) => {
+        setShowDetail(open)
+        if (!open) {
+          setMessage("")
+          if (complaintId) {
+            navigate('/my-complaints', { replace: true })
+          }
+        }
+      }}>
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl my-0 sm:my-3 max-h-dvh sm:max-h-[92vh] p-0 gap-0 overflow-hidden border-none rounded-[16px] sm:rounded-[24px] shadow-[0_20px_60px_rgba(26,42,94,0.3)] flex flex-col">
+          <DialogHeader className="relative overflow-hidden flex-shrink-0" style={{ padding: '1.25rem 1.5rem', paddingRight: '3rem', background: 'linear-gradient(to right, #1a2a5e, #2a3f7e)', borderBottom: 'none' }}>
+            <div className="absolute top-0 right-0 w-48 h-48 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(245,184,0,0.08) 0%, transparent 70%)' }} />
+            <div className="absolute bottom-0 left-0 w-36 h-36 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(245,184,0,0.06) 0%, transparent 70%)' }} />
+            <div className="relative z-10">
+              <DialogTitle className="font-extrabold tracking-tight leading-tight" style={{ color: '#f5b800', fontSize: 'clamp(1.1rem, 3vw, 1.5rem)', marginBottom: '0.25rem' }}>
+                Reklamation #{selected?.complaintNumber || "-"}
+              </DialogTitle>
+              <p className="font-medium" style={{ color: 'rgba(255,255,255,0.85)', fontSize: 'clamp(0.85rem, 2vw, 1rem)', marginBottom: '0.75rem' }}>
+                {selected?.subject ?? "Reklamation"}
+              </p>
+
+              {selected && (
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <StatusBadge status={selected.status} />
+                  <span className="inline-flex items-center rounded-full font-semibold" style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem', background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)' }}>
+                    {CATEGORY_LABELS[selected.category] ?? selected.category}
+                  </span>
+                </div>
+              )}
+
+              {selected && (
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-xl text-center" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', padding: '0.5rem 0.25rem' }}>
+                    <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#bfdbfe', fontWeight: 600, marginBottom: '0.2rem' }}>Eingereicht</p>
+                    <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#fff' }}>{formatDate(selected.createdAt)}</p>
+                  </div>
+                  <div className="rounded-xl text-center" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', padding: '0.5rem 0.25rem' }}>
+                    <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#bfdbfe', fontWeight: 600, marginBottom: '0.2rem' }}>Aktualisiert</p>
+                    <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#fff' }}>{formatDate(selected.updatedAt)}</p>
+                  </div>
+                  <div className="rounded-xl text-center" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', padding: '0.5rem 0.25rem' }}>
+                    <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#bfdbfe', fontWeight: 600, marginBottom: '0.2rem' }}>Nachrichten</p>
+                    <p style={{ fontSize: '0.8rem', fontWeight: 800, color: '#f5b800' }}>{visibleComments.length}</p>
+                  </div>
+                </div>
               )}
             </div>
           </DialogHeader>
 
-          {detailLoading && (
-            <div className="cc-loading" style={{ padding: "2rem" }}>
-              <Loader2 size={24} />
+          {detailLoading ? (
+            <div className="flex-1 flex items-center justify-center" style={{ background: '#f8f9fc' }}>
+              <Loader2 className="h-7 w-7 animate-spin" style={{ color: '#1a2a5e' }} />
             </div>
-          )}
-
-          {!detailLoading && selected && (
-            <div className="cc-detail-layout">
-              {/* ── Summary ── */}
-              <div className="cc-detail-section cc-section-summary">
-                <p className="cc-detail-section-title">Übersicht</p>
-                <div className="cc-detail-grid">
-                  <div className="cc-detail-item">
-                    <label>Status</label>
-                    <span>
-                      <StatusBadge status={selected.status} />
-                    </span>
-                  </div>
-                  <div className="cc-detail-item">
-                    <label>Kategorie</label>
-                    <span>{CATEGORY_LABELS[selected.category] ?? selected.category}</span>
-                  </div>
-                  <div className="cc-detail-item">
-                    <label>Auftragsnummer</label>
-                    <span>
-                      {(selected.orderId as any)?.orderNumber ?? (selected.orderId as string) ?? "—"}
-                    </span>
-                  </div>
-                  <div className="cc-detail-item">
-                    <label>Eingereicht am</label>
-                    <span>{formatDate(selected.createdAt)}</span>
-                  </div>
-                  {selected.newOrderId && (
+          ) : selected ? (
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+              <div className="cc-detail-dialog-body">
+                <div className="cc-detail-section cc-section-summary">
+                  <p className="cc-detail-section-title">Übersicht</p>
+                  <div className="cc-detail-grid">
                     <div className="cc-detail-item">
-                      <label>Verknüpfter Reklamationsauftrag</label>
-                      <span>
-                        {(selected.newOrderId as any)?.orderNumber
-                          ? (selected.newOrderId as any).orderNumber
-                          : `#${(selected.newOrderId as string).slice(-8).toUpperCase()}`}
-                      </span>
-                      {(selected.newOrderId as any)?._id && (
-                        <a
-                          href={`/orders/${(selected.newOrderId as any)._id}`}
+                      <label>Auftragsnummer</label>
+                      <span>{baseOrderNumber}</span>
+                      {baseOrderId && (
+                        <button
+                          type="button"
                           className="cc-detail-link"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigate(getOrderDetailsPath(baseOrderId), {
+                              state: buildOrderDetailsState(location, {
+                                label: t('common.back'),
+                                restoreState: selected?._id ? { reopenComplaintId: selected._id } : undefined,
+                              }),
+                            })
+                          }}
                         >
                           <ExternalLink size={12} />
                           Auftrag öffnen
-                        </a>
+                        </button>
                       )}
                     </div>
-                  )}
-                  {selected.shippingLabelUrl && (
-                    <div className="cc-detail-item">
-                      <label>Versandlabel</label>
-                      <span>Verfügbar</span>
-                      <a
-                        href={selected.shippingLabelUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="cc-detail-link cc-detail-link--primary"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Download size={12} />
-                        Label herunterladen
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* ── Description ── */}
-              <div className="cc-detail-section cc-section-description">
-                <p className="cc-detail-section-title">Beschreibung</p>
-                <div className="cc-description-box">{selected.description}</div>
-              </div>
-
-              {/* ── Technician reason ── */}
-              {selected.technicianReason && (
-                <div className="cc-detail-section cc-section-technician">
-                  <p className="cc-detail-section-title">Techniker-Begründung</p>
-                  <div className="cc-info-box cc-info-box--technician">
-                    <Wrench size={15} className="cc-info-box-icon" />
-                    <p>{selected.technicianReason}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Repair Offer ── */}
-              {showOffer && selected.repairOffer && (
-                <div className="cc-offer-box cc-section-offer">
-                  <p className="cc-offer-box-title">
-                    <AlertTriangle size={16} />
-                    Reparaturangebot
-                  </p>
-                  <p className="cc-offer-amount">
-                    {selected.repairOffer.amount.toFixed(2)} €
-                  </p>
-                  <p className="cc-offer-description">
-                    {selected.repairOffer.description}
-                  </p>
-                  <div className="cc-offer-actions">
-                    <button
-                      className="cc-btn-accept"
-                      onClick={handleAcceptOffer}
-                      disabled={offerLoading}
-                    >
-                      {offerLoading ? (
-                        <Loader2 size={14} />
-                      ) : (
-                        <ThumbsUp size={14} />
-                      )}
-                      Angebot annehmen
-                    </button>
-                    <button
-                      className="cc-btn-reject"
-                      onClick={handleRejectOffer}
-                      disabled={offerLoading}
-                    >
-                      <ThumbsDown size={14} />
-                      Angebot ablehnen
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Communication thread ── */}
-              <div className="cc-detail-section cc-section-communication">
-                <p className="cc-detail-section-title">
-                  Kommunikation ({visibleComments.length})
-                </p>
-
-                {visibleComments.length === 0 ? (
-                  <div className="cc-thread-empty">
-                    Noch keine Nachrichten. Schreiben Sie uns Ihre Fragen oder Anmerkungen.
-                  </div>
-                ) : (
-                  <div className="cc-thread">
-                    {visibleComments.map((cm) => (
-                      <div
-                        key={cm._id}
-                        className={`cc-thread-item${cm.userRole !== "customer" ? " is-staff" : ""}`}
-                      >
-                        <div className="cc-thread-meta">
-                          <span className="cc-thread-author">{cm.userName}</span>
-                          <span
-                            className={`cc-thread-role ${cm.userRole === "customer" ? "customer" : "staff"}`}
+                    {selected.newOrderId && (
+                      <div className="cc-detail-item" style={{ gridColumn: '1 / -1' }}>
+                        <label>Verknüpfter Reklamationsauftrag</label>
+                        <span>
+                          {(selected.newOrderId as any)?.orderNumber
+                            ? (selected.newOrderId as any).orderNumber
+                            : `#${(selected.newOrderId as string).slice(-8).toUpperCase()}`}
+                        </span>
+                        {(selected.newOrderId as any)?._id && (
+                          <button
+                            type="button"
+                            className="cc-detail-link"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(getOrderDetailsPath((selected.newOrderId as any)._id), {
+                                state: buildOrderDetailsState(location, {
+                                  label: t('common.back'),
+                                  restoreState: selected?._id ? { reopenComplaintId: selected._id } : undefined,
+                                }),
+                              })
+                            }}
                           >
-                            {cm.userRole === "customer" ? "Sie" : "Support"}
-                          </span>
-                          <span className="cc-thread-time">
-                            {formatDate(cm.createdAt)}
-                          </span>
-                        </div>
-                        <p className="cc-thread-text">{cm.comment}</p>
+                            <ExternalLink size={12} />
+                            Auftrag öffnen
+                          </button>
+                        )}
                       </div>
-                    ))}
+                    )}
+                    {selected.shippingLabelUrl && (
+                      <div className="cc-detail-item">
+                        <label>Versandlabel</label>
+                        <span>Verfügbar</span>
+                        <a
+                          href={selected.shippingLabelUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="cc-detail-link cc-detail-link--primary"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Download size={12} />
+                          Label herunterladen
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="cc-detail-section cc-section-description">
+                  <p className="cc-detail-section-title">Beschreibung</p>
+                  <div className="cc-description-box">{selected.description}</div>
+                </div>
+
+                {selected.technicianReason && (
+                  <div className="cc-detail-section cc-section-technician">
+                    <p className="cc-detail-section-title">Techniker-Begründung</p>
+                    <div className="cc-info-box cc-info-box--technician">
+                      <Wrench size={15} className="cc-info-box-icon" />
+                      <p>{selected.technicianReason}</p>
+                    </div>
                   </div>
                 )}
 
-                {/* Composer — only if complaint is not closed/resolved */}
-                {!["closed", "resolved"].includes(selected.status) && (
-                  <div className="cc-composer">
-                    <textarea
-                      rows={3}
-                      placeholder="Nachricht schreiben…"
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSend()
-                      }}
-                    />
-                    <div className="cc-composer-footer">
+                {showOffer && selected.repairOffer && (
+                  <div className="cc-offer-box cc-section-offer">
+                    <p className="cc-offer-box-title">
+                      <AlertTriangle size={16} />
+                      Reparaturangebot
+                    </p>
+                    <p className="cc-offer-amount">
+                      {selected.repairOffer.amount.toFixed(2)} €
+                    </p>
+                    <p className="cc-offer-description">
+                      {selected.repairOffer.description}
+                    </p>
+                    <div className="cc-offer-actions">
                       <button
-                        className="cc-send-btn"
-                        onClick={handleSend}
-                        disabled={sending || !message.trim()}
+                        className="cc-btn-accept"
+                        onClick={handleAcceptOffer}
+                        disabled={offerLoading}
                       >
-                        {sending ? <Loader2 size={14} /> : <Send size={14} />}
-                        Senden
+                        {offerLoading ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <ThumbsUp size={14} />
+                        )}
+                        Angebot annehmen
+                      </button>
+                      <button
+                        className="cc-btn-reject"
+                        onClick={handleRejectOffer}
+                        disabled={offerLoading}
+                      >
+                        <ThumbsDown size={14} />
+                        Angebot ablehnen
                       </button>
                     </div>
                   </div>
                 )}
+
+                <div className="cc-detail-section cc-section-communication">
+                  <p className="cc-detail-section-title">
+                    Kommunikation ({visibleComments.length})
+                  </p>
+
+                  {visibleComments.length === 0 ? (
+                    <div className="cc-thread-empty">
+                      Noch keine Nachrichten. Schreiben Sie uns Ihre Fragen oder Anmerkungen.
+                    </div>
+                  ) : (
+                    <div className="cc-thread">
+                      {visibleComments.map((cm) => (
+                        <div
+                          key={cm._id}
+                          className={`cc-thread-item${cm.userRole !== "customer" ? " is-staff" : ""}`}
+                        >
+                          <div className="cc-thread-meta">
+                            <span className="cc-thread-author">{cm.userName}</span>
+                            <span
+                              className={`cc-thread-role ${cm.userRole === "customer" ? "customer" : "staff"}`}
+                            >
+                              {cm.userRole === "customer" ? "Sie" : "Support"}
+                            </span>
+                            <span className="cc-thread-time">
+                              {formatDate(cm.createdAt)}
+                            </span>
+                          </div>
+                          <p className="cc-thread-text">{cm.comment}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {!['closed', 'resolved'].includes(selected.status) && (
+                    <div className="cc-composer">
+                      <textarea
+                        rows={3}
+                        placeholder="Nachricht schreiben…"
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSend()
+                        }}
+                      />
+                      <div className="cc-composer-footer">
+                        <button
+                          className="cc-send-btn"
+                          onClick={handleSend}
+                          disabled={sending || !message.trim()}
+                        >
+                          {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                          Senden
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          )}
+          ) : null}
+
+          <div className="cc-detail-footer">
+            <button className="cc-detail-close-btn" onClick={() => setShowDetail(false)}>
+              Schließen
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
 

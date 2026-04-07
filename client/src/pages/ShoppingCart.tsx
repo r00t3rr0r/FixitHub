@@ -133,6 +133,11 @@ export function ShoppingCartPage() {
   const [pendingRepairOrderIds, setPendingRepairOrderIds] = useState<string[]>([])
   const { toast } = useToast()
 
+  const notifyCartUpdated = () => {
+    window.dispatchEvent(new Event('cartUpdated'))
+    window.dispatchEvent(new Event('guestCartUpdate'))
+  }
+
   useEffect(() => {
     const fetchCart = async () => {
       try {
@@ -183,6 +188,7 @@ export function ShoppingCartPage() {
       // Refresh cart
       const response = await getCart()
       setCart((response as any).cart)
+      notifyCartUpdated()
     } catch (error: any) {
       console.error("Error updating cart:", error)
       toast({
@@ -211,6 +217,7 @@ export function ShoppingCartPage() {
       // Refresh cart
       const response = await getCart()
       setCart((response as any).cart)
+      notifyCartUpdated()
       setPromoCode("")
     } catch (error: any) {
       console.error("Error applying promo code:", error)
@@ -252,6 +259,7 @@ export function ShoppingCartPage() {
       // Refresh cart
       const response = await getCart()
       setCart((response as any).cart)
+      notifyCartUpdated()
     } catch (error: any) {
       console.error("Error removing repair order:", error)
       toast({

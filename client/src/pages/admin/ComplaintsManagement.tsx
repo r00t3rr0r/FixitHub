@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
+import { useLocation, useNavigate } from "react-router-dom"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -33,6 +34,7 @@ import {
   denyComplaint,
   Complaint,
 } from "@/api/complaints"
+import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation"
 
 interface AdminComplaintRow {
   _id: string
@@ -106,6 +108,8 @@ const STATUS_META: Record<string, { label: string; icon: LucideIcon; className: 
 type ActionDialogType = "reject" | "ack" | "deny" | null
 
 export function ComplaintsManagement() {
+  const { t } = useTranslation()
+  const location = useLocation()
   const navigate = useNavigate()
   const [complaints, setComplaints] = useState<Complaint[]>([])
   const [rows, setRows] = useState<AdminComplaintRow[]>([])
@@ -186,6 +190,15 @@ export function ComplaintsManagement() {
   useEffect(() => {
     fetchComplaints()
   }, [])
+
+  useEffect(() => {
+    const reopenComplaintId = (location.state as { reopenComplaintId?: string } | null)?.reopenComplaintId
+    if (!reopenComplaintId) {
+      return
+    }
+
+    loadComplaintDetails(reopenComplaintId)
+  }, [location.state])
 
   const loadComplaintDetails = async (complaintId: string) => {
     try {
@@ -418,7 +431,12 @@ export function ComplaintsManagement() {
                             className="complaints-secondary-button"
                             onClick={(e) => {
                               e.stopPropagation()
-                              navigate(`/orders/${row.complaintOrderId}`)
+                              navigate(getOrderDetailsPath(row.complaintOrderId), {
+                                state: buildOrderDetailsState(location, {
+                                  label: t('common.back'),
+                                  restoreState: { reopenComplaintId: row._id },
+                                }),
+                              })
                             }}
                           >
                             Details
@@ -535,7 +553,12 @@ export function ComplaintsManagement() {
                           variant="outline"
                           size="sm"
                           className="complaints-secondary-button"
-                          onClick={() => navigate(`/orders/${selectedComplaintOrderId}`)}
+                          onClick={() => navigate(getOrderDetailsPath(selectedComplaintOrderId), {
+                            state: buildOrderDetailsState(location, {
+                              label: t('common.back'),
+                              restoreState: selectedComplaint?._id ? { reopenComplaintId: selectedComplaint._id } : undefined,
+                            }),
+                          })}
                         >
                           Reklamationsauftrag bearbeiten
                         </Button>

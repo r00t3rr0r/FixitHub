@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import "./CustomerBookings.css";
 import {
   Package,
@@ -64,6 +64,7 @@ import { getBookings, getBookingOrders, getBooking } from "@/api/bookings";
 import { getUnreadMessageCounts } from "@/api/inspectionCommunication";
 import { useToast } from "@/hooks/useToast";
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel";
+import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation";
 
 interface Booking {
   _id: string;
@@ -130,6 +131,7 @@ interface Booking {
 export function CustomerBookings() {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const location = useLocation();
   const navigate = useNavigate();
 
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -160,6 +162,25 @@ export function CustomerBookings() {
   useEffect(() => {
     fetchBookings();
   }, [statusFilter, currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    const reopenBookingId = (location.state as { reopenBookingDialog?: string } | null)?.reopenBookingDialog;
+    if (!reopenBookingId) {
+      return;
+    }
+
+    const reopenBookingDialog = async () => {
+      try {
+        const response = await getBooking(reopenBookingId);
+        setSelectedBooking(response.booking);
+        setShowDetailDialog(true);
+      } catch (error) {
+        console.error("CustomerBookings: Error reopening booking dialog:", error);
+      }
+    };
+
+    reopenBookingDialog();
+  }, [location.state]);
 
   // Fetch unread counts when bookings change
   useEffect(() => {
@@ -321,7 +342,11 @@ export function CustomerBookings() {
   };
 
   const handleViewOrder = (orderId: string) => {
-    navigate(`/orders/${orderId}`);
+    navigate(getOrderDetailsPath(orderId), {
+      state: buildOrderDetailsState(location, {
+        label: t('common.back'),
+      }),
+    });
   };
 
   const bookingDialogTabTriggerClass = "booking-detail-tab-trigger";
@@ -468,17 +493,15 @@ export function CustomerBookings() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-amber-50/20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      <div className="mx-auto w-[calc(100%-2rem)] max-w-[1200px] pb-8 space-y-8 max-[480px]:w-[calc(100%-0.8rem)] max-[360px]:w-[calc(100%-0.5rem)]">
         {/* Header Section */}
-        <div className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] rounded-2xl shadow-xl p-5 sm:p-8 text-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-[#f5b800] rounded-full opacity-5 blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#f5b800] rounded-full opacity-5 blur-3xl"></div>
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-              <Package className="h-6 w-6 sm:h-8 sm:w-8 text-[#f5b800] flex-shrink-0" />
-              <h1 className="text-xl sm:text-3xl md:text-4xl font-bold tracking-tight">{t('bookings.myBookings')}</h1>
+        <div className="w-full overflow-hidden rounded-[18px] border-b border-[#2a3f7e] bg-gradient-to-br from-[#1a2a5e] to-[#0f1d45] px-6 py-12 text-white max-[480px]:rounded-[12px] max-[480px]:px-3 max-[360px]:px-[10px]">
+          <div className="flex items-start gap-4 sm:items-center max-[480px]:items-start max-[480px]:gap-[10px]">
+            <Package className="h-12 w-12 flex-shrink-0 text-[#f5b800] max-sm:h-[34px] max-sm:w-[34px]" />
+            <div>
+              <h1 className="m-0 text-[2rem] font-extrabold leading-[1.2] tracking-[-0.5px] max-[480px]:text-[1rem] max-[480px]:leading-[1.25] max-[360px]:text-[0.92rem]">{t('bookings.myBookings')}</h1>
+              <p className="mt-1 text-[0.95rem] leading-[1.35] text-[rgba(255,255,255,0.85)] opacity-90 max-[480px]:text-[0.76rem] max-[360px]:text-[0.72rem]">{t('bookings.manageYourBookings')}</p>
             </div>
-            <p className="text-blue-100 text-sm sm:text-base md:text-lg">{t('bookings.manageYourBookings')}</p>
           </div>
         </div>
 
@@ -1171,6 +1194,7 @@ export function CustomerBookings() {
             setSelectedBooking(null);
           }}
           navigate={navigate}
+          location={location}
           formatCurrency={formatCurrency}
           formatDate={formatDate}
           formatDateTime={formatDateTime}
@@ -1213,6 +1237,7 @@ interface BookingDetailDialogProps {
   open: boolean;
   onClose: () => void;
   navigate: any;
+  location: ReturnType<typeof useLocation>;
   formatCurrency: (value: number) => string;
   formatDate: (dateString: string) => string;
   formatDateTime: (dateString: string) => string;
@@ -1226,6 +1251,7 @@ function BookingDetailDialog({
   open,
   onClose,
   navigate,
+  location,
   formatCurrency,
   formatDate,
   formatDateTime,
@@ -1233,6 +1259,7 @@ function BookingDetailDialog({
   getBillingStatusColor,
   getReturnShipmentStatusColor
 }: BookingDetailDialogProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("overview");
   const hasOutboundShipping = Boolean(
     booking.trackingNumber ||
@@ -1256,7 +1283,12 @@ function BookingDetailDialog({
       console.warn("No order ID provided for navigation");
       return;
     }
-    navigate(`/orders/${orderId}`);
+    navigate(getOrderDetailsPath(orderId), {
+      state: buildOrderDetailsState(location, {
+        label: t('common.back'),
+        restoreState: { reopenBookingDialog: booking._id },
+      }),
+    });
   };
 
   return (

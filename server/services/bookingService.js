@@ -1205,6 +1205,8 @@ class BookingService {
 
       console.log('BookingService: Created', invoiceItems.length, 'invoice items with types');
 
+      const shouldSendImmediately = Boolean(invoiceData.sendImmediately);
+
       // Create invoice
       const invoice = new Invoice({
         customerId: booking.customerId._id,
@@ -1217,16 +1219,17 @@ class BookingService {
         tax: booking.tax || 0,
         discount: booking.discount || 0,
         total: booking.totalCost,
-        status: 'draft',
+        status: shouldSendImmediately ? 'sent' : 'draft',
         dueDate: invoiceData.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
         notes: invoiceData.notes || '',
+        sentAt: shouldSendImmediately ? new Date() : undefined,
       });
 
       const savedInvoice = await invoice.save();
       console.log('BookingService: Invoice created successfully:', savedInvoice._id, 'Number:', savedInvoice.invoiceNumber);
 
-      // Dispatch invoice notification template after invoice creation
-      if (customerEmail && customerEmail !== 'N/A') {
+      // Only send notification when invoice is explicitly sent to the customer.
+      if (shouldSendImmediately && customerEmail && customerEmail !== 'N/A') {
         setImmediate(async () => {
           try {
             await EmailService.sendTriggerEmail('invoice_created', customerEmail, {

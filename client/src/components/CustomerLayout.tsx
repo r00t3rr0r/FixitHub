@@ -7,9 +7,10 @@ import { Footer } from "./Footer";
 export function CustomerLayout() {
   const location = useLocation();
   const isOrderDetailsPage = /^\/orders\/[^/]+$/.test(location.pathname);
+  const isMyComplaintsPage = location.pathname === "/my-complaints";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 flex flex-col">
+    <div className={`${isMyComplaintsPage ? "bg-white" : "bg-gradient-to-br from-background via-background to-secondary/20"} min-h-screen flex flex-col`}>
       <style>{`
         @keyframes fadeInDown {
           from {
@@ -55,8 +56,8 @@ export function CustomerLayout() {
       </div>
 
       {/* Main content area with padding for navbar and footer */}
-      <main className="flex-1 overflow-y-auto pt-6 pb-12">
-        <div className={`${isOrderDetailsPage ? "max-w-[1680px]" : "container"} mx-auto px-4 animate-slide-up`}>
+      <main className={`flex-1 overflow-y-auto ${isMyComplaintsPage ? "bg-white pt-0 pb-0" : "pt-6 pb-12"}`}>
+        <div className={`${isMyComplaintsPage ? "w-full bg-white px-0" : isOrderDetailsPage ? "max-w-[1680px]" : "container"} mx-auto animate-slide-up ${isMyComplaintsPage ? "" : "px-4"}`}>
           <Outlet />
         </div>
       </main>

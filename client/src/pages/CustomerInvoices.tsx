@@ -456,17 +456,15 @@ export function CustomerInvoices() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-amber-50/20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      <div className="mx-auto w-[calc(100%-2rem)] max-w-[1200px] pb-8 space-y-8 max-[480px]:w-[calc(100%-0.8rem)] max-[360px]:w-[calc(100%-0.5rem)]">
         {/* Header Section */}
-        <div className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] rounded-2xl shadow-xl p-8 text-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-[#f5b800] rounded-full opacity-5 blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#f5b800] rounded-full opacity-5 blur-3xl"></div>
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-3">
-              <FileText className="h-8 w-8 text-[#f5b800]" />
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">{t('invoices.myInvoices')}</h1>
+        <div className="w-full overflow-hidden rounded-[18px] border-b border-[#2a3f7e] bg-gradient-to-br from-[#1a2a5e] to-[#0f1d45] px-6 py-12 text-white max-[480px]:rounded-[12px] max-[480px]:px-3 max-[360px]:px-[10px]">
+          <div className="flex items-start gap-4 sm:items-center max-[480px]:items-start max-[480px]:gap-[10px]">
+            <FileText className="h-12 w-12 flex-shrink-0 text-[#f5b800] max-sm:h-[34px] max-sm:w-[34px]" />
+            <div>
+              <h1 className="m-0 text-[2rem] font-extrabold leading-[1.2] tracking-[-0.5px] max-[480px]:text-[1rem] max-[480px]:leading-[1.25] max-[360px]:text-[0.92rem]">{t('invoices.myInvoices')}</h1>
+              <p className="mt-1 text-[0.95rem] leading-[1.35] text-[rgba(255,255,255,0.85)] opacity-90 max-[480px]:text-[0.76rem] max-[360px]:text-[0.72rem]">{t('invoices.manageYourInvoices')}</p>
             </div>
-            <p className="text-blue-100 text-base md:text-lg">{t('invoices.manageYourInvoices')}</p>
           </div>
         </div>
 
@@ -498,7 +496,6 @@ export function CustomerInvoices() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">{t('common.all')}</SelectItem>
-                    <SelectItem value="draft">{t('invoiceStatus.draft')}</SelectItem>
                     <SelectItem value="sent">{t('invoiceStatus.sent')}</SelectItem>
                     <SelectItem value="viewed">{t('invoiceStatus.viewed')}</SelectItem>
                     <SelectItem value="paid">{t('invoiceStatus.paid')}</SelectItem>

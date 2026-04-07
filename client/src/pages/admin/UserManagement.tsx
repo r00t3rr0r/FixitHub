@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useLocation } from "react-router-dom"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import "./UserManagement.css"
 import { Button } from "@/components/ui/button"
@@ -106,6 +107,7 @@ type SortDirection = 'asc' | 'desc'
 
 export function UserManagement() {
   const { t } = useTranslation()
+  const location = useLocation()
   const [users, setUsers] = useState<User[]>([])
   const [totalUsers, setTotalUsers] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
@@ -130,6 +132,16 @@ export function UserManagement() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [showCSVImportDialog, setShowCSVImportDialog] = useState(false)
   const { toast } = useToast()
+
+  useEffect(() => {
+    const reopenUserDetailsId = (location.state as { reopenUserDetailsId?: string } | null)?.reopenUserDetailsId
+    if (!reopenUserDetailsId) {
+      return
+    }
+
+    setSelectedUserId(reopenUserDetailsId)
+    setShowDetailsDialog(true)
+  }, [location.state])
 
   // Form state
   const [formData, setFormData] = useState({

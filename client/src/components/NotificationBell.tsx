@@ -50,7 +50,7 @@ export function NotificationBell() {
   const fetchNotifications = async (showSpinner = false) => {
     try {
       if (showSpinner) setLoading(true)
-      const response = await getNotifications({ limit: 10 })
+      const response = await getNotifications({ limit: 10, unreadOnly: true })
       const data = response as any
       setNotifications(data.notifications || [])
       setUnreadCount(data.unreadCount || 0)
@@ -65,11 +65,7 @@ export function NotificationBell() {
     try {
       console.log('NotificationBell: Marking notification as read:', notificationId)
       await markNotificationAsRead(notificationId)
-      setNotifications(prev =>
-        prev.map(notif =>
-          notif._id === notificationId ? { ...notif, isRead: true } : notif
-        )
-      )
+      setNotifications(prev => prev.filter(notif => notif._id !== notificationId))
       setUnreadCount(prev => Math.max(0, prev - 1))
       console.log('NotificationBell: Notification marked as read successfully')
     } catch (error: any) {
@@ -107,6 +103,19 @@ export function NotificationBell() {
     } else {
       return `${Math.floor(diffInMinutes / 1440)}d ago`
     }
+  }
+
+  const isInvoiceNotification = (notification: Notification) => {
+    const title = String(notification.title || '').toLowerCase()
+    const message = String(notification.message || '').toLowerCase()
+    return title.includes('rechnung') || message.includes('rechnung')
+  }
+
+  const resolveActionUrl = (notification: Notification) => {
+    if (isInvoiceNotification(notification)) {
+      return '/customer/invoices'
+    }
+    return notification.actionUrl || ''
   }
 
   return (
@@ -209,11 +218,17 @@ export function NotificationBell() {
                           </div>
                         </div>
                       </div>
-                      {notification.actionUrl && (
+                      {resolveActionUrl(notification) && (
                         <Link
-                          to={notification.actionUrl}
+                          to={resolveActionUrl(notification)}
                           className="block mt-2 text-xs font-semibold text-foreground hover:text-[#f5b800] transition-colors"
-                          onClick={(e) => { e.stopPropagation(); setIsOpen(false); }}
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            if (!notification.isRead) {
+                              await handleMarkAsRead(notification._id)
+                            }
+                            setIsOpen(false)
+                          }}
                         >
                           Details ansehen →
                         </Link>
