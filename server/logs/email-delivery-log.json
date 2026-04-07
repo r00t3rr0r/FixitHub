@@ -1864,5 +1864,33 @@
         "supportPhone"
       ]
     }
+  },
+  {
+    "id": "1775526590956-cga9dy630",
+    "timestamp": "2026-04-07T01:49:50.956Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<42a3ac65-1477-f4a4-2d17-24590a2df04e@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1464,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
   }
 ]

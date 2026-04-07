@@ -303,7 +303,7 @@ class InspectionCommunicationService {
 
           await NotificationService.createNotification({
             userId: order.customerId,
-            title: 'Feedback Required on Your Repair Inspection',
+            title: 'Rueckmeldung zu Ihrer Reparaturpruefung erforderlich',
             message: question,
             type: 'message',
             orderId,
@@ -402,10 +402,10 @@ class InspectionCommunicationService {
 
       // Define action labels
       const actionLabels = {
-        part_replacement: 'Part Replacement Required',
-        incorrect_device: 'Incorrect Device Specified',
-        incorrect_unlock_code: 'Incorrect Unlock Code',
-        additional_costs: 'Additional Costs Required',
+        part_replacement: 'Teileaustausch erforderlich',
+        incorrect_device: 'Falsches Geraet angegeben',
+        incorrect_unlock_code: 'Falscher Entsperrcode angegeben',
+        additional_costs: 'Zusaetzliche Kosten erforderlich',
       };
 
       const message = {

@@ -236,8 +236,8 @@ class NotificationService {
   static async createOrderUpdateNotification(orderId, userId, status, message) {
     return this.createNotification({
       userId,
-      title: 'Order Status Update',
-      message,
+      title: 'Statusupdate zu Ihrem Auftrag',
+      message: message || 'Der Status Ihres Auftrags wurde aktualisiert.',
       type: 'order_update',
       orderId,
       actionUrl: `/orders/${orderId}`
@@ -246,10 +246,10 @@ class NotificationService {
 
   // Create payment notification
   static async createPaymentNotification(userId, amount, status, orderId = null) {
-    const title = status === 'completed' ? 'Payment Processed' : 'Payment Failed';
+    const title = status === 'completed' ? 'Zahlung erfolgreich verarbeitet' : 'Zahlung fehlgeschlagen';
     const message = status === 'completed' 
-      ? `Payment of $${amount} has been successfully processed`
-      : `Payment of $${amount} failed. Please try again.`;
+      ? `Ihre Zahlung ueber ${Number(amount || 0).toFixed(2)} EUR wurde erfolgreich verarbeitet.`
+      : `Ihre Zahlung ueber ${Number(amount || 0).toFixed(2)} EUR ist fehlgeschlagen. Bitte versuchen Sie es erneut.`;
 
     return this.createNotification({
       userId,

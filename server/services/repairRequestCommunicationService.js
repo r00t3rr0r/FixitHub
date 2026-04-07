@@ -220,7 +220,7 @@ class RepairRequestCommunicationService {
             // Notify customer if message is from staff
             await NotificationService.createNotification({
               userId: repairRequest.customerId,
-              title: 'New Message on Your Repair Request',
+              title: 'Neue Nachricht zu Ihrer Reparaturanfrage',
               message: content.substring(0, 100),
               type: 'message',
               actionUrl: `/my-repair-requests`,
@@ -313,7 +313,7 @@ class RepairRequestCommunicationService {
 
           await NotificationService.createNotification({
             userId: repairRequest.customerId,
-            title: 'Feedback Requested on Your Repair Request',
+            title: 'Rueckmeldung zu Ihrer Reparaturanfrage erforderlich',
             message: question,
             type: 'message',
             actionUrl: `/my-repair-requests`,
@@ -418,11 +418,11 @@ class RepairRequestCommunicationService {
 
       // Map action type to label
       const actionLabels = {
-        'parts_needed': 'Parts Needed',
-        'approval_required': 'Customer Approval Required',
-        'additional_cost': 'Additional Cost Estimate',
-        'status_update': 'Repair Status Update',
-        'schedule_appointment': 'Schedule Appointment',
+        'parts_needed': 'Ersatzteile erforderlich',
+        'approval_required': 'Kundenfreigabe erforderlich',
+        'additional_cost': 'Zusatzkosten-Schaetzung',
+        'status_update': 'Statusupdate zur Reparatur',
+        'schedule_appointment': 'Terminvereinbarung erforderlich',
       };
 
       const message = {
@@ -477,7 +477,7 @@ class RepairRequestCommunicationService {
           await NotificationService.createNotification({
             userId: repairRequest.customerId,
             title: actionLabels[actionType] || actionType,
-            message: description || 'An action has been requested on your repair request',
+            message: description || 'Zu Ihrer Reparaturanfrage ist eine Aktion erforderlich.',
             type: 'message',
             actionUrl: `/my-repair-requests`,
             metadata: { repairRequestId, messageId: lastMessage?._id, messageType: 'quick_action', actionType }

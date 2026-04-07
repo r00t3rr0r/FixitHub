@@ -101,8 +101,8 @@ class OrderServiceManagementService {
       try {
         await sendNotification(order.customerId, {
           type: 'order_update',
-          title: 'Service Updated',
-          message: `A repair service has been updated in your repair order #${order.orderNumber}`,
+          title: 'Service aktualisiert',
+          message: `Ein Reparaturservice in Ihrem Auftrag #${order.orderNumber} wurde aktualisiert.`,
           orderId: orderId,
         });
       } catch (notifError) {
@@ -209,8 +209,8 @@ class OrderServiceManagementService {
       try {
         await sendNotification(order.customerId, {
           type: 'order_update',
-          title: 'Service Added',
-          message: `A new repair service has been added to your repair order #${order.orderNumber}`,
+          title: 'Service hinzugefuegt',
+          message: `Ein neuer Reparaturservice wurde Ihrem Auftrag #${order.orderNumber} hinzugefuegt.`,
           orderId: orderId,
         });
       } catch (notifError) {
@@ -280,8 +280,8 @@ class OrderServiceManagementService {
       try {
         await sendNotification(order.customerId, {
           type: 'order_update',
-          title: 'Service Removed',
-          message: `A repair service has been removed from your repair order #${order.orderNumber}`,
+          title: 'Service entfernt',
+          message: `Ein Reparaturservice wurde aus Ihrem Auftrag #${order.orderNumber} entfernt.`,
           orderId: orderId,
         });
       } catch (notifError) {
