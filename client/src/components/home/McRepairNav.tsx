@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  Package,
+  Bell,
   BookOpen,
   Phone,
   Search,
@@ -551,6 +551,64 @@ export function McRepairNav() {
 
         {/* Desktop Navigation Links */}
         <div className={`nav-links ${mobileMenuOpen ? 'mobile-open' : ''} ${mobileMenuClosing ? 'mobile-closing' : ''}`} id="navLinks">
+          {mobileMenuOpen && (
+            <div className="nav-mobile-user-priority">
+              <div className="nav-mobile-section-title">
+                {isAuthenticated ? t('navigation.accountArea', 'Mein Bereich') : t('navigation.accountAccess', 'Konto')}
+              </div>
+              {isAuthenticated ? (
+                <>
+                  <Link to="/bookings" onClick={() => closeMobileMenu()}>
+                    <Calendar width={16} height={16} />
+                    {t('navigation.bookings', 'Buchungen')}
+                  </Link>
+                  <Link to="/my-repair-requests" onClick={() => closeMobileMenu()}>
+                    <Wrench width={16} height={16} />
+                    Repair Requests
+                  </Link>
+                  <Link to="/my-complaints" onClick={() => closeMobileMenu()}>
+                    <AlertTriangle width={16} height={16} />
+                    Reklamationen
+                  </Link>
+                  <Link to="/invoices" onClick={() => closeMobileMenu()}>
+                    <FileText width={16} height={16} />
+                    {t('navigation.invoices', 'Rechnungen')}
+                  </Link>
+                  <Link to="/notifications" onClick={() => closeMobileMenu()}>
+                    <Bell width={16} height={16} />
+                    {t('navigation.notifications', 'Benachrichtigungen')}
+                  </Link>
+                  <Link to="/messages" onClick={() => closeMobileMenu()}>
+                    <MessageSquare width={16} height={16} />
+                    {t('navigation.messages', 'Nachrichten')}
+                  </Link>
+                  <Link to="/profile" onClick={() => closeMobileMenu()}>
+                    <User width={16} height={16} />
+                    {t('navigation.profile', 'Profil')}
+                  </Link>
+                  <button className="nav-mobile-logout" onClick={handleMobileLogout}>
+                    <LogOut width={16} height={16} />
+                    {t('navigation.logout', 'Abmelden')}
+                  </button>
+                </>
+              ) : (
+                <button
+                  ref={loginButtonRef}
+                  onClick={handleLoginClick}
+                >
+                  <User width={16} height={16} />
+                  {t('home.topBar.login', 'Anmelden')}
+                </button>
+              )}
+            </div>
+          )}
+
+          {mobileMenuOpen && (
+            <div className="nav-mobile-section-title nav-mobile-section-title-spaced">
+              {t('navigation.repairCategories', 'Reparaturkategorien')}
+            </div>
+          )}
+
           {/* Smartphone */}
           <div 
             className="nav-item-with-dropdown nav-category-item"
@@ -643,54 +701,10 @@ export function McRepairNav() {
 
           {/* Mobile Extras (only shown in mobile menu) */}
           <div className="nav-mobile-extras">
-            <div className="nav-mobile-user-priority">
-              {isAuthenticated ? (
-                <>
-                  <Link to="/profile" onClick={() => closeMobileMenu()}>
-                    <User width={16} height={16} />
-                    {t('navigation.profile', 'Profil')}
-                  </Link>
-                  <Link to="/bookings" onClick={() => closeMobileMenu()}>
-                    <Calendar width={16} height={16} />
-                    {t('navigation.bookings', 'Buchungen')}
-                  </Link>
-                  <Link to="/invoices" onClick={() => closeMobileMenu()}>
-                    <FileText width={16} height={16} />
-                    {t('navigation.invoices', 'Rechnungen')}
-                  </Link>
-                  <Link to="/messages" onClick={() => closeMobileMenu()}>
-                    <MessageSquare width={16} height={16} />
-                    {t('navigation.messages', 'Nachrichten')}
-                  </Link>
-                  <Link to="/notifications" onClick={() => closeMobileMenu()}>
-                    <Package width={16} height={16} />
-                    {t('navigation.notifications', 'Benachrichtigungen')}
-                  </Link>
-                  <Link to="/my-repair-requests" onClick={() => closeMobileMenu()}>
-                    <Wrench width={16} height={16} />
-                    Repair Requests
-                  </Link>
-                  <Link to="/my-complaints" onClick={() => closeMobileMenu()}>
-                    <AlertTriangle width={16} height={16} />
-                    Reklamationen
-                  </Link>
-                  <button onClick={handleMobileLogout}>
-                    <LogOut width={16} height={16} />
-                    {t('navigation.logout', 'Abmelden')}
-                  </button>
-                </>
-              ) : (
-                <button
-                  ref={loginButtonRef}
-                  onClick={handleLoginClick}
-                >
-                  <User width={16} height={16} />
-                  {t('home.topBar.login', 'Anmelden')}
-                </button>
-              )}
-            </div>
-
             <div className="nav-mobile-secondary-links" aria-label="Weitere Menüpunkte">
+              <div className="nav-mobile-section-title nav-mobile-section-title-spaced">
+                {t('navigation.moreOptions', 'Weitere Menüpunkte')}
+              </div>
               <button className="nav-mobile-secondary-link" onClick={handleMobileSearchClick}>
                 <Search width={16} height={16} />
                 {t('common.search', 'Suche')}
