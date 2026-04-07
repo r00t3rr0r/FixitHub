@@ -132,14 +132,16 @@ class NotificationService {
   }
 
   // Create a new notification
-  static async createNotification(notificationData) {
+  static async createNotification(notificationData, options = {}) {
     console.log('NotificationService: Creating notification for user:', notificationData.userId);
 
     try {
       const notification = new Notification(notificationData);
       const savedNotification = await notification.save();
 
-      await this.sendCustomerNotificationEmail(savedNotification);
+      if (options.sendEmail !== false) {
+        await this.sendCustomerNotificationEmail(savedNotification);
+      }
 
       console.log('NotificationService: Notification created successfully');
       return savedNotification;

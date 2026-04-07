@@ -40,6 +40,9 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 
+const PRIMARY_BLUE = 'var(--primary-blue, #1a2a5e)'
+const OFF_WHITE = 'var(--off-white, #f8f9fc)'
+
 export function WebShop() {
   const [products, setProducts] = useState<Product[]>([])
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
@@ -201,15 +204,15 @@ export function WebShop() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white">
-        <div className="container mx-auto px-4 py-6 space-y-6">
+      <div className="min-h-screen" style={{ backgroundColor: OFF_WHITE }}>
+        <div className="container mx-auto px-2.5 py-4 sm:px-4 sm:py-6 space-y-6">
           {/* Header skeleton */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="rounded-2xl px-4 py-4 shadow-lg sm:px-5" style={{ backgroundColor: PRIMARY_BLUE }}>
             <div className="space-y-2 flex-1">
-              <div className="h-8 w-48 bg-gray-200 rounded animate-pulse"></div>
-              <div className="h-4 w-72 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-8 w-48 bg-white/30 rounded animate-pulse"></div>
+              <div className="h-4 w-72 bg-white/20 rounded animate-pulse"></div>
             </div>
-            <div className="h-8 w-24 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-8 w-24 mt-3 sm:mt-0 bg-white/20 rounded animate-pulse"></div>
           </div>
 
           {/* Filters skeleton */}
@@ -244,30 +247,49 @@ export function WebShop() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="container mx-auto px-4 py-6 space-y-6">
+    <div className="min-h-screen" style={{ backgroundColor: OFF_WHITE }}>
+      <div className="container mx-auto px-2.5 py-4 sm:px-4 sm:py-6 space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div className="space-y-1">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
-              Web Shop
-            </h1>
-            <p className="text-gray-600 flex items-center gap-2 text-base">
-              <Sparkles className="h-4 w-4 text-yellow-500" />
-              Find premium accessories and parts for your devices
-            </p>
-          </div>
-          <Button
-            asChild
-            size="sm"
-            className="bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-semibold shadow-md hover:shadow-lg transition-all duration-300 h-8 text-xs sm:text-sm"
+        <div className="mb-5">
+          <div
+            className="flex flex-col gap-3 rounded-2xl px-4 py-4 shadow-lg sm:flex-row sm:items-center sm:justify-between sm:px-5"
+            style={{ backgroundColor: PRIMARY_BLUE }}
           >
-            <Link to="/cart">
-              <ShoppingCart className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline">View Cart</span>
-              <span className="sm:hidden">Cart</span>
-            </Link>
-          </Button>
+            <div className="space-y-1">
+              <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.9rem]">
+                Web Shop
+              </h1>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <Badge
+                  variant="secondary"
+                  className="px-2.5 py-1 text-xs font-semibold shadow-sm"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.14)', color: '#ffffff' }}
+                >
+                  <Package className="mr-1.5 h-3.5 w-3.5" />
+                  {filteredProducts.length} {filteredProducts.length === 1 ? 'Produkt' : 'Produkte'}
+                </Badge>
+                <span className="text-xs font-medium text-blue-100 sm:text-sm flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-[#f5b800]" />
+                  Premium Zubehoer und Ersatzteile fuer Ihre Geraete
+                </span>
+              </div>
+            </div>
+            <Button
+              asChild
+              variant="outline"
+              className="group h-9 border-white/30 bg-white/10 px-3 text-xs font-semibold text-white transition-all duration-300 hover:bg-white hover:text-[#1a2a5e] sm:text-sm"
+              style={{
+                borderWidth: '1px',
+                borderColor: 'rgba(255,255,255,0.3)'
+              }}
+            >
+              <Link to="/cart">
+                <ShoppingCart className="h-4 w-4 mr-2 transition-transform group-hover:scale-110" />
+                <span className="hidden sm:inline">Zum Warenkorb</span>
+                <span className="sm:hidden">Warenkorb</span>
+              </Link>
+            </Button>
+          </div>
         </div>
 
         {/* Filters and Search Card */}

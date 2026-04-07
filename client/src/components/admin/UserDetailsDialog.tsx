@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
+import { useLocation, useNavigate } from "react-router-dom"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -42,6 +43,7 @@ import {
   ExternalLink,
   FileText
 } from "lucide-react"
+import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation"
 import "./UserDetailsDialog.css"
 
 interface UserDetailsDialogProps {
@@ -55,7 +57,9 @@ export function UserDetailsDialog({ userId, open, onOpenChange }: UserDetailsDia
   const [loading, setLoading] = useState(false)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loadingInvoices, setLoadingInvoices] = useState(false)
+  const { t } = useTranslation()
   const { toast } = useToast()
+  const location = useLocation()
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -105,7 +109,12 @@ export function UserDetailsDialog({ userId, open, onOpenChange }: UserDetailsDia
     // Close the user details dialog first
     onOpenChange(false)
     // Navigate to order details page
-    navigate(`/orders/${orderId}`)
+    navigate(getOrderDetailsPath(orderId), {
+      state: buildOrderDetailsState(location, {
+        label: t('common.back'),
+        restoreState: userId ? { reopenUserDetailsId: userId } : undefined,
+      }),
+    })
   }
 
   const handleInvoiceClick = (invoiceId: string) => {

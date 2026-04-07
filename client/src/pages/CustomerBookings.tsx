@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import "./CustomerBookings.css";
 import {
   Package,
@@ -64,6 +64,7 @@ import { getBookings, getBookingOrders, getBooking } from "@/api/bookings";
 import { getUnreadMessageCounts } from "@/api/inspectionCommunication";
 import { useToast } from "@/hooks/useToast";
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel";
+import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation";
 
 interface Booking {
   _id: string;
@@ -130,6 +131,7 @@ interface Booking {
 export function CustomerBookings() {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const location = useLocation();
   const navigate = useNavigate();
 
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -160,6 +162,25 @@ export function CustomerBookings() {
   useEffect(() => {
     fetchBookings();
   }, [statusFilter, currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    const reopenBookingId = (location.state as { reopenBookingDialog?: string } | null)?.reopenBookingDialog;
+    if (!reopenBookingId) {
+      return;
+    }
+
+    const reopenBookingDialog = async () => {
+      try {
+        const response = await getBooking(reopenBookingId);
+        setSelectedBooking(response.booking);
+        setShowDetailDialog(true);
+      } catch (error) {
+        console.error("CustomerBookings: Error reopening booking dialog:", error);
+      }
+    };
+
+    reopenBookingDialog();
+  }, [location.state]);
 
   // Fetch unread counts when bookings change
   useEffect(() => {
@@ -321,7 +342,11 @@ export function CustomerBookings() {
   };
 
   const handleViewOrder = (orderId: string) => {
-    navigate(`/orders/${orderId}`);
+    navigate(getOrderDetailsPath(orderId), {
+      state: buildOrderDetailsState(location, {
+        label: t('common.back'),
+      }),
+    });
   };
 
   const bookingDialogTabTriggerClass = "booking-detail-tab-trigger";
@@ -1169,6 +1194,7 @@ export function CustomerBookings() {
             setSelectedBooking(null);
           }}
           navigate={navigate}
+          location={location}
           formatCurrency={formatCurrency}
           formatDate={formatDate}
           formatDateTime={formatDateTime}
@@ -1211,6 +1237,7 @@ interface BookingDetailDialogProps {
   open: boolean;
   onClose: () => void;
   navigate: any;
+  location: ReturnType<typeof useLocation>;
   formatCurrency: (value: number) => string;
   formatDate: (dateString: string) => string;
   formatDateTime: (dateString: string) => string;
@@ -1224,6 +1251,7 @@ function BookingDetailDialog({
   open,
   onClose,
   navigate,
+  location,
   formatCurrency,
   formatDate,
   formatDateTime,
@@ -1231,6 +1259,7 @@ function BookingDetailDialog({
   getBillingStatusColor,
   getReturnShipmentStatusColor
 }: BookingDetailDialogProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("overview");
   const hasOutboundShipping = Boolean(
     booking.trackingNumber ||
@@ -1254,7 +1283,12 @@ function BookingDetailDialog({
       console.warn("No order ID provided for navigation");
       return;
     }
-    navigate(`/orders/${orderId}`);
+    navigate(getOrderDetailsPath(orderId), {
+      state: buildOrderDetailsState(location, {
+        label: t('common.back'),
+        restoreState: { reopenBookingDialog: booking._id },
+      }),
+    });
   };
 
   return (

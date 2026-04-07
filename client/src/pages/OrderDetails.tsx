@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
 import { safeToNumber, formatPrice } from "@/lib/utils"
+import { OrderDetailsNavigationState } from "@/lib/orderDetailsNavigation"
 import "./OrderDetails.css"
 import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct } from "@/api/orders"
 import { getComplaint, acknowledgeComplaint, denyComplaint, acceptComplaintOffer, rejectComplaintOffer, convertAcceptedOfferToBooking, Complaint as ComplaintRecord } from "@/api/complaints"
@@ -204,8 +205,11 @@ export function OrderDetails() {
     "Defekt hat nichts mit unserer Reparatur zu tun / eigenständiger Defekt",
   ]
 
+  const orderDetailsState = (location.state as OrderDetailsNavigationState | null) || null
+  const backTarget = orderDetailsState?.backTarget
+
   const requestedWorkflowId = (() => {
-    const state = location.state as {
+    const state = orderDetailsState as {
       openWorkflowId?: string
       workflowMode?: 'start' | 'resume' | 'execute' | 'view'
     } | null
@@ -214,7 +218,7 @@ export function OrderDetails() {
   })()
 
   const requestedWorkflowMode = (() => {
-    const state = location.state as {
+    const state = orderDetailsState as {
       openWorkflowId?: string
       workflowMode?: 'start' | 'resume' | 'execute' | 'view'
     } | null
@@ -1799,10 +1803,14 @@ export function OrderDetails() {
             <Package className="h-20 w-20 mx-auto mb-4 opacity-30" />
             <h3>Order not found</h3>
             <p>The order you're looking for doesn't exist</p>
-            <Link to="/bookings" className="order-btn order-btn-primary mt-4">
+            <button
+              type="button"
+              className="order-btn order-btn-primary mt-4"
+              onClick={() => handleBackNavigation()}
+            >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              {t('orderDetails.backToBookings')}
-            </Link>
+              {backButtonLabel}
+            </button>
           </div>
         </div>
       </div>
@@ -1829,6 +1837,24 @@ export function OrderDetails() {
   const complaintWorkflowStatus = complaintWorkflow?.status || ''
   const canRunComplaintTechnicianActions = isComplaintFollowupOrder && user?.role === 'staff' && complaintWorkflowStatus === 'approved'
   const canRunComplaintAdminDenyReview = isComplaintFollowupOrder && user?.role === 'admin' && complaintWorkflowStatus === 'pending_approval'
+  const fallbackBackPath = user?.role === 'admin' ? '/admin/orders' : user?.role === 'staff' ? '/staff/bookings' : '/bookings'
+  const backButtonLabel = backTarget?.label || (isStaffOrAdmin ? t('orderDetails.backToOrders') : t('common.back'))
+
+  const handleBackNavigation = () => {
+    if (backTarget?.pathname) {
+      navigate(`${backTarget.pathname}${backTarget.search || ''}${backTarget.hash || ''}`, {
+        state: backTarget.state,
+      })
+      return
+    }
+
+    if (window.history.length > 1) {
+      navigate(-1)
+      return
+    }
+
+    navigate(fallbackBackPath)
+  }
 
   const handleAcceptRepairOffer = async () => {
     if (!complaintWorkflow?._id) return
@@ -1931,8 +1957,6 @@ export function OrderDetails() {
   const convertedOrderNumber = (latestOfferConversionLog as any)?.metadata?.orderNumber
   const hasConvertedAcceptedOffer = Boolean(convertedBookingId && convertedOrderId)
   const bookingOverviewPath = user?.role === 'admin' ? '/admin/bookings' : user?.role === 'staff' ? '/staff/bookings' : '/bookings'
-  const backLinkPath = user?.role === 'admin' ? '/admin/orders' : user?.role === 'staff' ? '/staff/bookings' : '/bookings'
-  const backLinkLabel = isStaffOrAdmin ? 'Back to Order Queue' : t('orderDetails.backToBookings')
   const staffCount = order.assignedStaff?.length || 0
   const serviceCount = (repairServices?.filter((s) => s && s._id).length || 0) + (order.addOns?.length || 0)
   const lastUpdate = order.updatedAt ? new Date(order.updatedAt).toLocaleString() : '-'
@@ -4004,47 +4028,6 @@ export function OrderDetails() {
 
   const renderCustomerLayout = () => (
     <div className="customer-order-flow">
-      <div className="customer-dashboard-hero">
-        <div className="customer-dashboard-hero-main customer-dashboard-device-main">
-          <span className="customer-dashboard-hero-eyebrow">Geräteinformationen</span>
-          <div className="customer-dashboard-device-head">
-            {getDeviceImage(order) ? (
-              <img
-                src={getDeviceImage(order)}
-                alt={`${order.deviceBrand} ${order.deviceModel}`}
-                className="customer-dashboard-device-image"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                  const fallback = e.currentTarget.nextElementSibling as HTMLElement
-                  if (fallback) fallback.style.display = 'flex'
-                }}
-              />
-            ) : null}
-            <div className="customer-dashboard-device-placeholder" style={{ display: getDeviceImage(order) ? 'none' : 'flex' }}>
-              <Smartphone className="h-6 w-6" />
-            </div>
-            <div className="customer-dashboard-device-copy">
-              <h2>{order.deviceBrand} {order.deviceModel}</h2>
-              <p>Auftrag #{order.orderNumber || order._id.slice(-6)} • Erstellt am {orderCreatedText}</p>
-            </div>
-          </div>
-        </div>
-        <div className="customer-dashboard-hero-stats">
-          <div>
-            <span>Auftrag</span>
-            <strong>#{order.orderNumber || order._id.slice(-6)}</strong>
-          </div>
-          <div>
-            <span>Gerät</span>
-            <strong>{order.deviceBrand} {order.deviceModel}</strong>
-          </div>
-          <div>
-            <span>Aktiver Schritt</span>
-            <strong>{currentStageLabel}</strong>
-          </div>
-        </div>
-      </div>
-
       {renderRepairProgressCard()}
 
       <div className="customer-order-secondary">
@@ -4175,22 +4158,52 @@ export function OrderDetails() {
   return (
     <div className={`order-details-container ${isStaffOrAdmin ? 'admin-order-workspace' : 'customer-order-workspace'}`}>
       {/* Back Button */}
-      <Link to={backLinkPath} className="order-back-button">
+      <button
+        type="button"
+        className="order-back-button"
+        onClick={handleBackNavigation}
+      >
         <ArrowLeft className="h-4 w-4" />
-        {backLinkLabel}
-      </Link>
+        {backButtonLabel}
+      </button>
 
       {/* Order Header */}
       <div className="order-details-header">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div className="order-header-title-block">
-            <h1>
-              <Package className="h-7 w-7" />
-              Order #{order.orderNumber || order._id.slice(-6)}
-            </h1>
-            <p>
-              {order.deviceBrand} {order.deviceModel} • {new Date(order.createdAt).toLocaleDateString()}
-            </p>
+            {isStaffOrAdmin ? (
+              <>
+                <h1>
+                  <Package className="h-7 w-7" />
+                  Order #{order.orderNumber || order._id.slice(-6)}
+                </h1>
+                <p>
+                  {order.deviceBrand} {order.deviceModel} • {new Date(order.createdAt).toLocaleDateString()}
+                </p>
+              </>
+            ) : (
+              <div className="customer-dashboard-device-head">
+                {getDeviceImage(order) ? (
+                  <img
+                    src={getDeviceImage(order)}
+                    alt={`${order.deviceBrand} ${order.deviceModel}`}
+                    className="customer-dashboard-device-image"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none'
+                      const fallback = e.currentTarget.nextElementSibling as HTMLElement
+                      if (fallback) fallback.style.display = 'flex'
+                    }}
+                  />
+                ) : null}
+                <div className="customer-dashboard-device-placeholder" style={{ display: getDeviceImage(order) ? 'none' : 'flex' }}>
+                  <Smartphone className="h-6 w-6" />
+                </div>
+                <div className="customer-dashboard-device-copy">
+                  <h2>{order.deviceBrand} {order.deviceModel}</h2>
+                  <p>Auftrag #{order.orderNumber || order._id.slice(-6)} • Erstellt am {orderCreatedText}</p>
+                </div>
+              </div>
+            )}
             {isComplaintFollowupOrder && (
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                 <Badge className="bg-rose-100 text-rose-800 border border-rose-300" variant="outline">

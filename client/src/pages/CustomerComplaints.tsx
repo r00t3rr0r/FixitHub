@@ -1,4 +1,6 @@
  import { useState, useEffect } from "react"
+import { useTranslation } from "react-i18next"
+import { useLocation, useNavigate } from "react-router-dom"
 import "./CustomerComplaints.css"
 import {
   AlertTriangle,
@@ -40,6 +42,7 @@ import {
   acceptComplaintOffer,
   rejectComplaintOffer,
 } from "@/api/complaints"
+import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation"
 
 /* ────────────────────────────────────────────────
    Status metadata
@@ -157,7 +160,10 @@ function StatusBadge({ status }: { status: string }) {
    Main Component
    ──────────────────────────────────────────────── */
 export function CustomerComplaints() {
+  const { t } = useTranslation()
   const { toast } = useToast()
+  const location = useLocation()
+  const navigate = useNavigate()
 
   const [complaints, setComplaints] = useState<Complaint[]>([])
   const [filtered, setFiltered] = useState<Complaint[]>([])
@@ -239,6 +245,18 @@ export function CustomerComplaints() {
       setDetailLoading(false)
     }
   }
+
+  useEffect(() => {
+    const reopenComplaintId = (location.state as { reopenComplaintId?: string } | null)?.reopenComplaintId
+    if (!reopenComplaintId || complaints.length === 0) {
+      return
+    }
+
+    const complaintToOpen = complaints.find((complaint) => complaint._id === reopenComplaintId)
+    if (complaintToOpen) {
+      openDetail(complaintToOpen)
+    }
+  }, [location.state, complaints])
 
   /* ── Send message ── */
   async function handleSend() {
@@ -472,11 +490,20 @@ export function CustomerComplaints() {
             <div className="cc-dialog-order-row">
               <span className="cc-dialog-order-label">Zugrundeliegender Auftrag</span>
               {baseOrderId ? (
-                <a href={`/orders/${baseOrderId}`} className="cc-dialog-order-link">
+                <button
+                  type="button"
+                  className="cc-dialog-order-link"
+                  onClick={() => navigate(getOrderDetailsPath(baseOrderId), {
+                    state: buildOrderDetailsState(location, {
+                      label: t('common.back'),
+                      restoreState: selected?._id ? { reopenComplaintId: selected._id } : undefined,
+                    }),
+                  })}
+                >
                   <FileText size={13} />
                   {baseOrderNumber}
                   <ExternalLink size={12} />
-                </a>
+                </button>
               ) : (
                 <span className="cc-dialog-order-missing">Kein Auftrag verknüpft</span>
               )}
@@ -524,14 +551,22 @@ export function CustomerComplaints() {
                           : `#${(selected.newOrderId as string).slice(-8).toUpperCase()}`}
                       </span>
                       {(selected.newOrderId as any)?._id && (
-                        <a
-                          href={`/orders/${(selected.newOrderId as any)._id}`}
+                        <button
+                          type="button"
                           className="cc-detail-link"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigate(getOrderDetailsPath((selected.newOrderId as any)._id), {
+                              state: buildOrderDetailsState(location, {
+                                label: t('common.back'),
+                                restoreState: selected?._id ? { reopenComplaintId: selected._id } : undefined,
+                              }),
+                            })
+                          }}
                         >
                           <ExternalLink size={12} />
                           Auftrag öffnen
-                        </a>
+                        </button>
                       )}
                     </div>
                   )}

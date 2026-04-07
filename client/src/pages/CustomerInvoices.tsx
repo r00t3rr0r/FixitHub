@@ -496,7 +496,6 @@ export function CustomerInvoices() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">{t('common.all')}</SelectItem>
-                    <SelectItem value="draft">{t('invoiceStatus.draft')}</SelectItem>
                     <SelectItem value="sent">{t('invoiceStatus.sent')}</SelectItem>
                     <SelectItem value="viewed">{t('invoiceStatus.viewed')}</SelectItem>
                     <SelectItem value="paid">{t('invoiceStatus.paid')}</SelectItem>

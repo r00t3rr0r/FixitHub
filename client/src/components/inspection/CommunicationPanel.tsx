@@ -526,6 +526,7 @@ export function CommunicationPanel({
 
   // Check if user is staff or admin
   const isStaffOrAdmin = user?.role === 'staff' || user?.role === 'admin'
+  const canSendMessages = Boolean(user?.role)
 
   if (loading) {
     return null // Don't show while loading
@@ -536,8 +537,8 @@ export function CommunicationPanel({
     ["text", "feedback_request", "quick_action", "repair_offer"].includes(msg.messageType)
   ) || []
 
-  // Show panel if there are communication messages OR if user is staff/admin (so they can send)
-  const shouldShowPanel = communicationMessages.length > 0 || isStaffOrAdmin
+  // Show panel if there are communication messages OR if user can compose new ones.
+  const shouldShowPanel = communicationMessages.length > 0 || canSendMessages
 
   if (!shouldShowPanel) {
     return null
@@ -592,54 +593,6 @@ export function CommunicationPanel({
             </div>
           )}
         </div>
-
-        {/* Message Input Area - Staff/Admin Only */}
-        {isStaffOrAdmin && (
-          <div className="inspection-comm-input-section border rounded-lg p-3 bg-blue-50">
-            <Label htmlFor="message-input" className="text-xs font-semibold mb-2 block">
-              Nachricht senden
-            </Label>
-            <div className="flex gap-2">
-              <Textarea
-                id="message-input"
-                placeholder="Nachricht eingeben..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                className="min-h-[60px] resize-none text-xs"
-                disabled={sendingMessage}
-              />
-            </div>
-            <div className="flex justify-end gap-2 mt-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setNewMessage("")}
-                disabled={sendingMessage || !newMessage.trim()}
-                className="h-7 text-xs"
-              >
-                Löschen
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleSendMessage}
-                disabled={sendingMessage || !newMessage.trim()}
-                className="h-7 text-xs gap-1"
-              >
-                {sendingMessage ? (
-                  <>
-                    <span className="inline-block animate-spin">⏳</span>
-                    Sendet...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-3 h-3" />
-                    Senden
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
 
         {/* Communication Messages - Scrollable History */}
         {communicationMessages.length > 0 && (
@@ -860,6 +813,54 @@ export function CommunicationPanel({
           <div className="inspection-comm-empty flex flex-col items-center justify-center p-8 border rounded-lg bg-gray-50">
             <MessageCircle className="w-8 h-8 mb-2" />
             <p className="text-sm text-center">{t('communicationPanel.noCommunicationMessages')}</p>
+          </div>
+        )}
+
+        {/* Message Input Area */}
+        {canSendMessages && (
+          <div className={`inspection-comm-input-section border rounded-lg p-3 ${isStaffOrAdmin ? 'bg-blue-50' : 'bg-white'}`}>
+            <Label htmlFor="message-input" className="text-xs font-semibold mb-2 block">
+              {isStaffOrAdmin ? 'Nachricht senden' : 'Nachricht an das Reparaturteam'}
+            </Label>
+            <div className="flex gap-2">
+              <Textarea
+                id="message-input"
+                placeholder={isStaffOrAdmin ? 'Nachricht eingeben...' : 'Ihre Nachricht an das Reparaturteam...'}
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                className="min-h-[60px] resize-none text-xs"
+                disabled={sendingMessage}
+              />
+            </div>
+            <div className="flex justify-end gap-2 mt-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setNewMessage("")}
+                disabled={sendingMessage || !newMessage.trim()}
+                className="h-7 text-xs"
+              >
+                Löschen
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSendMessage}
+                disabled={sendingMessage || !newMessage.trim()}
+                className="h-7 text-xs gap-1"
+              >
+                {sendingMessage ? (
+                  <>
+                    <span className="inline-block animate-spin">⏳</span>
+                    Sendet...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3 h-3" />
+                    Senden
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         )}
       </div>

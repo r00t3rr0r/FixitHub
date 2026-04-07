@@ -77,8 +77,19 @@ router.get('/', requireUser, async (req, res) => {
 
     const { status, limit = 50, skip = 0 } = req.query;
 
-    const filters = { customerId: req.user._id };
+    const filters = {
+      customerId: req.user._id,
+      status: { $ne: 'draft' }
+    };
+
     if (status) {
+      if (status === 'draft') {
+        return res.json({
+          success: true,
+          invoices: [],
+          count: 0,
+        });
+      }
       filters.status = status;
     }
 
@@ -592,12 +603,22 @@ router.get('/:id', requireUser, async (req, res) => {
       });
     }
 
+    const isPrivilegedUser = req.user.role === 'admin' || req.user.role === 'staff';
+    const isOwner = invoice.customerId.toString() === req.user._id.toString();
+
     // Verify ownership
-    if (invoice.customerId.toString() !== req.user._id.toString() && req.user.role !== 'admin' && req.user.role !== 'staff') {
+    if (!isOwner && !isPrivilegedUser) {
       console.log('InvoiceRoutes: Unauthorized access to invoice');
       return res.status(403).json({
         success: false,
         error: 'You do not have permission to view this invoice',
+      });
+    }
+
+    if (!isPrivilegedUser && invoice.status === 'draft') {
+      return res.status(404).json({
+        success: false,
+        error: 'Invoice not found',
       });
     }
 
@@ -671,17 +692,19 @@ router.get('/stats/summary', requireUser, async (req, res) => {
   try {
     console.log('InvoiceRoutes: Getting invoice statistics for user:', req.user._id);
 
-    const totalInvoices = await Invoice.countDocuments({ customerId: req.user._id });
-    const paidInvoices = await Invoice.countDocuments({ customerId: req.user._id, status: 'paid' });
+    const customerInvoiceScope = { customerId: req.user._id, status: { $ne: 'draft' } };
+
+    const totalInvoices = await Invoice.countDocuments(customerInvoiceScope);
+    const paidInvoices = await Invoice.countDocuments({ ...customerInvoiceScope, status: 'paid' });
     const unpaidInvoices = await Invoice.countDocuments({
-      customerId: req.user._id,
+      ...customerInvoiceScope,
       status: { $in: ['sent', 'viewed', 'overdue'] }
     });
-    const overdueInvoices = await Invoice.countDocuments({ customerId: req.user._id, status: 'overdue' });
+    const overdueInvoices = await Invoice.countDocuments({ ...customerInvoiceScope, status: 'overdue' });
 
     // Calculate total amounts
     const totalAmount = await Invoice.aggregate([
-      { $match: { customerId: req.user._id } },
+      { $match: customerInvoiceScope },
       { $group: { _id: null, total: { $sum: '$total' } } }
     ]);
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
-import { Link } from "react-router-dom"
+import { useTranslation } from "react-i18next"
+import { Link, useLocation } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import {
   getInspectionCommunications,
@@ -33,12 +34,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { buildOrderDetailsState } from "@/lib/orderDetailsNavigation"
 import "../styles/messages.css"
 
 export function Messages() {
   type MobileMessageFilter = 'all' | 'unread'
 
+  const { t } = useTranslation()
   const { user } = useAuth()
+  const location = useLocation()
   const userRole = user?.role || 'customer'
   const [searchTerm, setSearchTerm] = useState("")
   const [mobileMenuOpen, setMobileMenuOpen] = useState(() => (
@@ -55,6 +59,19 @@ export function Messages() {
   const [respondingTo, setRespondingTo] = useState<string | null>(null)
   const [feedbackResponse, setFeedbackResponse] = useState<any>(null)
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false)
+
+  useEffect(() => {
+    const reopenFeedbackDialogId = (location.state as { reopenFeedbackDialogId?: string } | null)?.reopenFeedbackDialogId
+    if (!reopenFeedbackDialogId || orderFeedbacks.length === 0) {
+      return
+    }
+
+    const feedbackToOpen = orderFeedbacks.find((feedback) => feedback._id === reopenFeedbackDialogId)
+    if (feedbackToOpen) {
+      setSelectedOrderFeedback(feedbackToOpen)
+      setShowFeedbackDialog(true)
+    }
+  }, [location.state, orderFeedbacks])
 
   const currentUserId = String((user as any)?._id || (user as any)?.id || '')
 
@@ -566,6 +583,16 @@ export function Messages() {
                     {getCommunicationSourceId(selectedOrderFeedback) && (
                       <Link
                         to={getCommunicationLink(selectedOrderFeedback)}
+                        state={
+                          !isRepairRequestCommunication(selectedOrderFeedback)
+                            ? buildOrderDetailsState(location, {
+                                label: t('common.back'),
+                                restoreState: selectedOrderFeedback?._id
+                                  ? { reopenFeedbackDialogId: selectedOrderFeedback._id }
+                                  : undefined,
+                              })
+                            : undefined
+                        }
                         className="messages-order-link-btn"
                       >
                         Zum Vorgang

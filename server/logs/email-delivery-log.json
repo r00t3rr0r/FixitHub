@@ -1705,5 +1705,164 @@
         "supportPhone"
       ]
     }
+  },
+  {
+    "id": "1775523995716-rbim516gp",
+    "timestamp": "2026-04-07T01:06:35.716Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<27b01bb9-4e84-c770-6dac-f5e604fb6c60@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1144,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775524058692-m0ow26m2y",
+    "timestamp": "2026-04-07T01:07:38.692Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<c268db48-a60a-224a-4012-72cdaba1ef22@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1223,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775524940873-pct0q9enj",
+    "timestamp": "2026-04-07T01:22:20.873Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Neue Rechnung verfuegbar",
+    "subject": "Ihre Rechnung INV-2026-0001 von McRepair.de steht bereit",
+    "messageId": "<a177d8cf-8b7a-927d-8e1c-81044a3e6683@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1518,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "invoiceNumber",
+        "orderNumber",
+        "invoiceAmount",
+        "dueDate",
+        "paymentMethod",
+        "invoiceUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775525716353-vul012srk",
+    "timestamp": "2026-04-07T01:35:16.353Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Neue Rechnung verfuegbar",
+    "subject": "Ihre Rechnung INV-2026-0003 von McRepair.de steht bereit",
+    "messageId": "<1f22f990-30fe-dc98-b19a-010d71bb521b@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1440,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "invoiceNumber",
+        "orderNumber",
+        "invoiceAmount",
+        "dueDate",
+        "paymentMethod",
+        "invoiceUrl",
+        "customMessage",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775525717621-ruiifzzu6",
+    "timestamp": "2026-04-07T01:35:17.621Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Neue Rechnung verfuegbar",
+    "subject": "Ihre Rechnung INV-2026-0003 von McRepair.de steht bereit",
+    "messageId": "<470ebbe7-6586-c93d-9d61-f8a591657d6f@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1274,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "invoiceNumber",
+        "orderNumber",
+        "invoiceAmount",
+        "dueDate",
+        "paymentMethod",
+        "invoiceUrl",
+        "customMessage",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775526182476-rpm1z5txq",
+    "timestamp": "2026-04-07T01:43:02.476Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Neue Rechnung verfuegbar",
+    "subject": "Ihre Rechnung INV-2026-0003 von McRepair.de steht bereit",
+    "messageId": "<9561b28f-c3c8-0dd9-38cf-d3eae08be34c@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1346,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "invoiceNumber",
+        "orderNumber",
+        "invoiceAmount",
+        "dueDate",
+        "paymentMethod",
+        "invoiceUrl",
+        "customMessage",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
   }
 ]
