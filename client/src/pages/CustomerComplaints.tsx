@@ -3,6 +3,7 @@ import "./CustomerComplaints.css"
 import {
   AlertTriangle,
   Search,
+  Filter,
   Plus,
   Clock,
   CheckCircle2,
@@ -338,20 +339,25 @@ export function CustomerComplaints() {
   return (
     <div className="customer-complaints">
       {/* ── Page Header ── */}
-      <div className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] rounded-2xl shadow-xl p-8 text-white relative overflow-hidden mb-8">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-[#f5b800] rounded-full opacity-5 blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#f5b800] rounded-full opacity-5 blur-3xl"></div>
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-3">
-            <FileText className="h-8 w-8 text-[#f5b800]" />
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Meine Reklamationen</h1>
+      <div className="mb-8 w-full overflow-hidden rounded-[18px] border-b border-[#2a3f7e] bg-gradient-to-br from-[#1a2a5e] to-[#0f1d45] px-6 py-12 text-white max-[480px]:rounded-[12px] max-[480px]:px-3 max-[360px]:px-[10px]">
+        <div className="flex items-start gap-4 sm:items-center max-[480px]:items-start max-[480px]:gap-[10px]">
+          <FileText className="h-12 w-12 flex-shrink-0 text-[#f5b800] max-sm:h-[34px] max-sm:w-[34px]" />
+          <div>
+            <h1 className="m-0 text-[2rem] font-extrabold leading-[1.2] tracking-[-0.5px] max-[480px]:text-[1rem] max-[480px]:leading-[1.25] max-[360px]:text-[0.92rem]">Meine Reklamationen</h1>
+            <p className="mt-1 text-[0.95rem] leading-[1.35] text-[rgba(255,255,255,0.85)] opacity-90 max-[480px]:text-[0.76rem] max-[360px]:text-[0.72rem]">Verfolge und verwalte deine Reklamationen</p>
           </div>
-          <p className="text-blue-100 text-base md:text-lg">Verfolge und verwalte deine Reklamationen</p>
         </div>
       </div>
 
       {/* ── Filter Bar ── */}
       <div className="cc-filter-bar">
+        <div className="cc-filter-bar-label">
+          <div className="cc-filter-bar-icon">
+            <Filter size={16} />
+          </div>
+          <span>Filter</span>
+        </div>
+
         <div className="cc-search-wrapper">
           <Search />
           <input
@@ -361,19 +367,21 @@ export function CustomerComplaints() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <select
-          className="cc-filter-select"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          <option value="all">Alle Status</option>
-          <option value="open">Offen</option>
-          <option value="in-progress">In Bearbeitung</option>
-          <option value="pending-customer">Antwort erforderlich</option>
-          <option value="denied">Angebot vorhanden</option>
-          <option value="resolved">Gelöst</option>
-          <option value="closed">Geschlossen</option>
-        </select>
+        <div className="cc-filter-select-wrap">
+          <select
+            className="cc-filter-select"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="all">Alle Status</option>
+            <option value="open">Offen</option>
+            <option value="in-progress">In Bearbeitung</option>
+            <option value="pending-customer">Antwort erforderlich</option>
+            <option value="denied">Angebot vorhanden</option>
+            <option value="resolved">Gelöst</option>
+            <option value="closed">Geschlossen</option>
+          </select>
+        </div>
       </div>
 
       {/* ── Loading ── */}

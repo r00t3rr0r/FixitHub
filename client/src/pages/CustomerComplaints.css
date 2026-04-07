@@ -34,11 +34,23 @@
 
   font-family: var(--font-main);
   color: var(--gray-700);
-  padding: 2.5rem 1.5rem;
-  max-width: 1100px;
+  width: min(1200px, calc(100% - 2rem));
+  padding: 0 0 2.5rem;
   margin: 0 auto;
   background: var(--off-white);
   min-height: 100vh;
+}
+
+@media (max-width: 480px) {
+  .customer-complaints {
+    width: calc(100% - 0.8rem);
+  }
+}
+
+@media (max-width: 360px) {
+  .customer-complaints {
+    width: calc(100% - 0.5rem);
+  }
 }
 
 /* ── Page Header ───────────────────────────── */
@@ -100,13 +112,47 @@
   gap: 0.75rem;
   margin-bottom: 1.5rem;
   flex-wrap: wrap;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--white);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--gray-100);
+  box-shadow: var(--shadow-sm);
+}
+
+.cc-filter-bar-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--primary-blue);
+  flex-shrink: 0;
+}
+
+.cc-filter-bar-label span {
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.cc-filter-bar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg, var(--accent-yellow) 0%, var(--accent-yellow-hover) 100%);
+  color: var(--white);
+  flex-shrink: 0;
 }
 
 .cc-search-wrapper {
   position: relative;
   flex: 1;
-  min-width: 200px;
-  max-width: 360px;
+  min-width: 0;
+  max-width: none;
 }
 
 .cc-search-wrapper svg {
@@ -122,6 +168,7 @@
 
 .cc-search-input {
   width: 100%;
+  height: 2.25rem;
   padding: 0.55rem 0.75rem 0.55rem 2.3rem;
   font-size: 0.875rem;
   border: 1px solid var(--gray-200);
@@ -138,6 +185,8 @@
 }
 
 .cc-filter-select {
+  width: 100%;
+  height: 2.25rem;
   padding: 0.55rem 0.75rem;
   font-size: 0.875rem;
   border: 1px solid var(--gray-200);
@@ -150,9 +199,39 @@
   font-family: var(--font-main);
 }
 
+.cc-filter-select-wrap {
+  width: 100%;
+}
+
 .cc-filter-select:focus {
   border-color: var(--accent-yellow);
   box-shadow: 0 0 0 2px rgba(245, 184, 0, 0.15);
+}
+
+@media (min-width: 640px) {
+  .cc-search-wrapper {
+    min-width: 200px;
+  }
+
+  .cc-filter-select-wrap {
+    min-width: 180px;
+    width: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .cc-filter-bar {
+    padding: 0.75rem;
+  }
+
+  .cc-filter-bar-label {
+    width: 100%;
+  }
+
+  .cc-search-wrapper,
+  .cc-filter-select-wrap {
+    width: 100%;
+  }
 }
 
 /* ── Empty State ────────────────────────────── */
