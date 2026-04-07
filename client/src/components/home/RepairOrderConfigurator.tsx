@@ -239,14 +239,16 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                   
                   toast({
                     title: t('common.success'),
-                    description: `${matchedModel.name} wurde ausgewählt`,
+                    description: `${matchedModel.name} ${t('home.configurator.toasts.deviceSelectedTitle').toLowerCase()}`,
                   });
                 } else {
                   // If no exact match, at least show the filtered models
                   setModelSearchQuery(navDeviceSelection.modelName || '');
                   toast({
-                    title: 'Modell auswählen',
-                    description: `Bitte wählen Sie Ihr ${navDeviceSelection.manufacturer} Modell aus`,
+                    title: t('home.configurator.toasts.selectModelTitle'),
+                    description: t('home.configurator.toasts.selectModelDescription', {
+                      brand: navDeviceSelection.manufacturer,
+                    }),
                   });
                 }
 
@@ -285,8 +287,11 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 setLoadingModels(false);
 
                 toast({
-                  title: 'Filter angewendet',
-                  description: `${navDeviceSelection.manufacturer} ${navDeviceSelection.deviceType} Modelle`,
+                  title: t('home.configurator.toasts.filterAppliedTitle'),
+                  description: t('home.configurator.toasts.filterAppliedDescription', {
+                    manufacturer: navDeviceSelection.manufacturer,
+                    deviceType: navDeviceSelection.deviceType,
+                  }),
                 });
               }
 
@@ -303,7 +308,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
         console.error('Error fetching device types:', error);
         toast({
           title: t('common.error'),
-          description: 'Fehler beim Laden der Gerätetypen',
+          description: t('home.configurator.toasts.loadDeviceTypesError'),
           variant: 'destructive'
         });
       } finally {
@@ -375,7 +380,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                   setSelectedModel(matchingModel);
                   setModelSearchQuery(matchingModel.name);
                   toast({
-                    title: t('newOrder.deviceSelection.success', 'Gerät ausgewählt'),
+                    title: t('home.configurator.toasts.deviceSelectedTitle'),
                     description: `${matchingManufacturer.name} ${matchingModel.name}`,
                     variant: 'default'
                   });
@@ -400,8 +405,10 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
               setFilteredModels(modelsList);
 
               toast({
-                title: t('newOrder.deviceSelection.filterApplied', 'Filter angewendet'),
-                description: `${matchingManufacturer.name} Modelle werden angezeigt`,
+                title: t('home.configurator.toasts.filterAppliedTitle'),
+                description: t('home.configurator.toasts.showingModels', {
+                  manufacturer: matchingManufacturer.name,
+                }),
                 variant: 'default'
               });
             }
@@ -438,7 +445,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
       console.error('Error fetching manufacturers:', error);
       toast({
         title: t('common.error'),
-        description: 'Fehler beim Laden der Marken',
+        description: t('home.configurator.toasts.loadBrandsError'),
         variant: 'destructive'
       });
     } finally {
@@ -465,7 +472,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
       console.error('Error fetching models:', error);
       toast({
         title: t('common.error'),
-        description: 'Fehler beim Laden der Modelle',
+        description: t('home.configurator.toasts.loadModelsError'),
         variant: 'destructive'
       });
     } finally {
@@ -508,7 +515,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           console.error('Error fetching repair services:', error);
           toast({
             title: t('common.error'),
-            description: 'Fehler beim Laden der Reparaturen',
+            description: t('home.configurator.toasts.loadRepairsError'),
             variant: 'destructive'
           });
         } finally {
@@ -544,7 +551,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           console.error('Error fetching add-on services:', error);
           toast({
             title: t('common.error'),
-            description: 'Fehler beim Laden der Zusatzleistungen',
+            description: t('home.configurator.toasts.loadAddOnsError'),
             variant: 'destructive'
           });
           setAddOnServices([]);
@@ -603,16 +610,16 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   const goToNextStep = () => {
     if (currentStep === 2 && !selectedModel) {
       toast({
-        title: 'Modell wählen',
-        description: 'Bitte wählen Sie ein Modell aus.',
+        title: t('home.configurator.toasts.chooseModelTitle'),
+        description: t('home.configurator.toasts.chooseModelDescription'),
         variant: 'destructive'
       });
       return;
     }
     if (currentStep === 3 && selectedRepairs.length === 0) {
       toast({
-        title: 'Reparatur wählen',
-        description: 'Bitte wählen Sie mindestens eine Reparatur aus oder nutzen Sie "Reparatur anfragen".',
+        title: t('home.configurator.toasts.chooseRepairTitle'),
+        description: t('home.configurator.toasts.chooseRepairDescription'),
         variant: 'destructive'
       });
       return;
@@ -660,8 +667,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
     if (files.length + photos.length > 5) {
       toast({
-        title: 'Zu viele Bilder',
-        description: 'Sie können maximal 5 Bilder hochladen',
+        title: t('home.configurator.toasts.tooManyImagesTitle'),
+        description: t('home.configurator.toasts.tooManyImagesDescription'),
         variant: 'destructive'
       });
       return;
@@ -671,16 +678,16 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     const validFiles = files.filter(file => {
       if (!file.type.startsWith('image/')) {
         toast({
-          title: 'Ungültiger Dateityp',
-          description: `${file.name} ist kein Bild`,
+          title: t('home.configurator.toasts.invalidFileTypeTitle'),
+          description: t('home.configurator.toasts.invalidFileTypeDescription', { file: file.name }),
           variant: 'destructive'
         });
         return false;
       }
       if (file.size > 5 * 1024 * 1024) { // 5MB limit
         toast({
-          title: 'Datei zu groß',
-          description: `${file.name} überschreitet die 5MB Grenze`,
+          title: t('home.configurator.toasts.fileTooLargeTitle'),
+          description: t('home.configurator.toasts.fileTooLargeDescription', { file: file.name }),
           variant: 'destructive'
         });
         return false;
@@ -710,8 +717,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   const addAnotherDevice = () => {
     if (!selectedModel || selectedRepairs.length === 0) {
       toast({
-        title: 'Gerät unvollständig',
-        description: 'Bitte wählen Sie zuerst ein Modell und Reparaturen aus.',
+        title: t('home.configurator.toasts.deviceIncompleteTitle'),
+        description: t('home.configurator.toasts.deviceIncompleteDescription'),
         variant: 'destructive'
       });
       return;
@@ -759,8 +766,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     setCurrentStep(1);
 
     toast({
-      title: 'Gerät hinzugefügt',
-      description: `Sie haben jetzt ${devices.length + 1} verschiedene Geräte in Ihrer Bestellung`,
+      title: t('home.configurator.toasts.deviceAddedTitle'),
+      description: t('home.configurator.toasts.deviceAddedDescription', { count: devices.length + 1 }),
     });
   };
 
@@ -768,8 +775,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   const navigateToRepairRequest = () => {
     if (!selectedModel) {
       toast({
-        title: 'Kein Gerät ausgewählt',
-        description: 'Bitte wählen Sie zuerst ein Gerät aus.',
+        title: t('home.configurator.toasts.noDeviceSelectedTitle'),
+        description: t('home.configurator.toasts.noDeviceSelectedDescription'),
         variant: 'destructive'
       });
       return;
@@ -857,8 +864,10 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
       window.dispatchEvent(new Event('guestCartUpdate'));
 
       toast({
-        title: 'Erfolgreich hinzugefügt!',
-        description: `${allDevices.reduce((sum, d) => sum + (d.quantity || 1), 0)} Reparaturauftrag/Aufträge zum Warenkorb hinzugefügt.`,
+        title: t('home.configurator.toasts.addToCartSuccessTitle'),
+        description: t('home.configurator.toasts.addToCartSuccessDescription', {
+          count: allDevices.reduce((sum, d) => sum + (d.quantity || 1), 0),
+        }),
         variant: 'default'
       });
 
@@ -871,8 +880,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     } catch (error: any) {
       console.error('Error adding to cart:', error);
       toast({
-        title: 'Fehler',
-        description: error.message || 'Konnte nicht zum Warenkorb hinzugefügt werden.',
+        title: t('home.configurator.toasts.addToCartErrorTitle'),
+        description: error.message || t('home.configurator.toasts.addToCartErrorDescription'),
         variant: 'destructive'
       });
     }
@@ -901,6 +910,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   };
 
   const previewData = getDevicePreviewData();
+  const getChoiceLabel = (option: 'yes' | 'no' | 'unsure') => t(`home.configurator.${option}`);
+  const getConditionLabel = (option: 'original' | 'refurbished' | 'unsure') => t(`home.configurator.${option}`);
 
   return (
     <>
@@ -911,7 +922,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
           </svg>
-          <h3>Reparatur-Konfigurator</h3>
+          <h3>{t('home.configurator.title')}</h3>
         </div>
 
         <div className="configurator-body">
@@ -919,27 +930,27 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           <div className="config-steps">
             <div className={`config-step-indicator ${currentStep >= 1 ? 'active' : ''}`} data-step="1">
               <span className="step-num">1</span>
-              <span className="step-label">Gerätetyp</span>
+              <span className="step-label">{t('home.configurator.steps.deviceType')}</span>
             </div>
             <div className={`config-step-indicator ${currentStep >= 2 ? 'active' : ''}`} data-step="2">
               <span className="step-num">2</span>
-              <span className="step-label">Modell</span>
+              <span className="step-label">{t('home.configurator.steps.model')}</span>
             </div>
             <div className={`config-step-indicator ${currentStep >= 3 ? 'active' : ''}`} data-step="3">
               <span className="step-num">3</span>
-              <span className="step-label">Reparatur</span>
+              <span className="step-label">{t('home.configurator.steps.repair')}</span>
             </div>
             <div className={`config-step-indicator ${currentStep >= 4 ? 'active' : ''}`} data-step="4">
               <span className="step-num">4</span>
-              <span className="step-label">Extras</span>
+              <span className="step-label">{t('home.configurator.steps.extras')}</span>
             </div>
             <div className={`config-step-indicator ${currentStep >= 5 ? 'active' : ''}`} data-step="5">
               <span className="step-num">5</span>
-              <span className="step-label">Infos</span>
+              <span className="step-label">{t('home.configurator.steps.info')}</span>
             </div>
             <div className={`config-step-indicator ${currentStep >= 6 ? 'active' : ''}`} data-step="6">
               <span className="step-num">6</span>
-              <span className="step-label">Total</span>
+              <span className="step-label">{t('home.configurator.steps.total')}</span>
             </div>
           </div>
 
@@ -949,7 +960,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
               <div className="device-grid">
                 {loadingDeviceTypes ? (
                   <div className="col-span-full text-center py-8 text-muted-foreground">
-                    Lade Gerätetypen...
+                    {t('home.configurator.loadingDeviceTypes')}
                   </div>
                 ) : deviceTypes.length > 0 ? (
                   deviceTypes.map((deviceType) => {
@@ -970,7 +981,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                   })
                 ) : (
                   <div className="col-span-full text-center py-8 text-muted-foreground">
-                    Keine Gerätetypen verfügbar
+                    {t('home.configurator.noDeviceTypes')}
                   </div>
                 )}
               </div>
@@ -982,10 +993,10 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
             <div className="config-step-content active" data-step="2">
               <div className="config-select-group">
                 <div className="config-select-wrapper">
-                  <label htmlFor="brandSelect">Marke auswählen</label>
+                    <label htmlFor="brandSelect">{t('home.configurator.selectBrand')}</label>
                   <Select value={selectedBrand} onValueChange={handleBrandSelect} disabled={loadingManufacturers}>
                     <SelectTrigger className="config-select">
-                      <SelectValue placeholder={loadingManufacturers ? "Lade Marken..." : "Bitte wäh len..."} />
+                        <SelectValue placeholder={loadingManufacturers ? t('home.configurator.loadingBrands') : t('home.configurator.selectPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
                       {manufacturers.map((manufacturer) => (
@@ -998,12 +1009,12 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 </div>
 
                 <div className="config-select-wrapper autocomplete-wrapper">
-                  <label htmlFor="modelInput">Modell suchen</label>
+                  <label htmlFor="modelInput">{t('home.configurator.searchModel')}</label>
                   <Input
                     type="text"
                     className="config-input"
                     id="modelInput"
-                    placeholder={loadingModels ? "Lade Modelle..." : "z.B. iPhone 15 Pro..."}
+                    placeholder={loadingModels ? t('home.configurator.loadingModels') : t('home.configurator.modelSearchPlaceholder')}
                     value={modelSearchQuery}
                     onChange={(e) => setModelSearchQuery(e.target.value)}
                     onFocus={() => setShowModelDropdown(true)}
@@ -1029,14 +1040,14 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
               <div className="config-nav">
                 <button className="config-nav-btn back" onClick={goToPreviousStep}>
                   <ChevronLeft className="w-4 h-4" />
-                  Zurück
+                  {t('home.configurator.back')}
                 </button>
                 <button 
                   className="config-nav-btn next" 
                   onClick={goToNextStep}
                   disabled={!selectedModel}
                 >
-                  Weiter
+                  {t('home.configurator.next')}
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -1050,7 +1061,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
               <div className="repair-grid">
                 {loadingRepairs ? (
                   <div className="col-span-full text-center py-8 text-muted-foreground">
-                    Lade Reparaturen...
+                    {t('home.configurator.loadingRepairs')}
                   </div>
                 ) : repairServices.length > 0 ? (
                   repairServices.map((service) => (
@@ -1062,7 +1073,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                       <Wrench className="w-6 h-6" />
                       <div className="repair-info">
                         <div className="repair-name">{service.name}</div>
-                        <div className="repair-price">ab {service.price.toFixed(2)} €</div>
+                        <div className="repair-price">{t('home.configurator.repairFrom', { price: service.price.toFixed(2) })}</div>
                       </div>
                       {selectedRepairs.find(s => s._id === service._id) && (
                         <div className="absolute top-2 right-2">
@@ -1073,7 +1084,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                   ))
                 ) : (
                   <div className="col-span-full text-center py-8 text-muted-foreground">
-                    Keine Reparaturen verfügbar für dieses Gerät
+                    {t('home.configurator.noRepairs')}
                   </div>
                 )}
               </div>
@@ -1084,7 +1095,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                   <path d="M9 11l3 3L22 4"></path>
                   <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
                 </svg>
-                Nicht sicher, was kaputt ist? <span>Vorabdiagnose starten</span>
+                {t('home.configurator.diagnosisHint')} <span>{t('home.configurator.startDiagnosis')}</span>
               </div>
 
               {/* Divider */}
@@ -1094,7 +1105,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
                   <span className="bg-white px-3 text-gray-400 font-medium">
-                    Oder
+                    {t('home.configurator.or')}
                   </span>
                 </div>
               </div>
@@ -1105,10 +1116,10 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                   <FileText className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <h4 className="font-semibold text-sm text-gray-800 mb-1">
-                      Reparatur anfragen
+                      {t('home.configurator.requestRepairTitle')}
                     </h4>
                     <p className="text-xs text-gray-600 leading-relaxed mb-2.5">
-                      Nicht sicher, welche Reparatur Sie benötigen? Beschreiben Sie das Problem und erhalten Sie eine kostenlose Diagnose.
+                      {t('home.configurator.requestRepairDescription')}
                     </p>
                     <button
                       type="button"
@@ -1121,7 +1132,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                       onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0f1d45'}
                       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1a2a5e'}
                     >
-                      <span>Jetzt Reparatur anfragen</span>
+                      <span>{t('home.configurator.requestRepairButton')}</span>
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
@@ -1130,14 +1141,14 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
               <div className="config-nav">
                 <button className="config-nav-btn back" onClick={goToPreviousStep}>
                   <ChevronLeft className="w-4 h-4" />
-                  Zurück
+                  {t('home.configurator.back')}
                 </button>
                 <button 
                   className="config-nav-btn next" 
                   onClick={goToNextStep}
                   disabled={selectedRepairs.length === 0}
                 >
-                  Weiter
+                  {t('home.configurator.next')}
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -1149,13 +1160,13 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
             <div className="config-step-content active" data-step="4">
               <div className="mb-4">
                 <p className="text-sm text-gray-600">
-                  Erweitern Sie Ihre Reparatur mit optionalen Zusatzleistungen:
+                  {t('home.configurator.extrasDescription')}
                 </p>
               </div>
               <div className="extras-grid">
                 {loadingAddOns ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    Lade Zusatzleistungen...
+                    {t('home.configurator.loadingAddOns')}
                   </div>
                 ) : addOnServices.length > 0 ? (
                   addOnServices.map((addon) => (
@@ -1188,18 +1199,18 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <AlertCircle className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                    <p className="font-medium">Keine Zusatzleistungen verfügbar</p>
-                    <p className="text-xs mt-1">Aktuell sind keine Add-On Services in der Datenbank vorhanden.</p>
+                    <p className="font-medium">{t('home.configurator.noAddOnsTitle')}</p>
+                    <p className="text-xs mt-1">{t('home.configurator.noAddOnsDescription')}</p>
                   </div>
                 )}
               </div>
               <div className="config-nav">
                 <button className="config-nav-btn back" onClick={goToPreviousStep}>
                   <ChevronLeft className="w-4 h-4" />
-                  Zurück
+                  {t('home.configurator.back')}
                 </button>
                 <button className="config-nav-btn next" onClick={goToNextStep}>
-                  Weiter
+                  {t('home.configurator.next')}
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -1238,7 +1249,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                   >
                     <div className="flex items-center gap-2">
                       <Lock className="w-4 h-4" style={{ color: '#1a2a5e' }} />
-                      <h3 className="font-semibold text-sm" style={{ color: '#1a2a5e' }}>Gerätesperre</h3>
+                      <h3 className="font-semibold text-sm" style={{ color: '#1a2a5e' }}>{t('home.configurator.deviceLockTitle')}</h3>
                     </div>
                     {showUnlockDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </button>
@@ -1246,7 +1257,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                   {showUnlockDetails && (
                     <div style={{ padding: '16px' }}>
                       <p className="text-xs text-gray-600 mb-3">
-                        Bitte geben Sie die Entsperrinformationen an, damit unsere Techniker das Gerät testen können.
+                        {t('home.configurator.deviceLockDescription')}
                       </p>
                       
                       <UnlockPatternInput
@@ -1296,10 +1307,10 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                     <Info className="w-5 h-5" style={{ color: '#1a2a5e', flexShrink: 0 }} />
                     <div style={{ flex: 1, textAlign: 'left' }}>
                       <h4 className="font-semibold text-sm mb-1" style={{ color: '#1a2a5e' }}>
-                        Zusätzliche Informationen angeben
+                        {t('home.configurator.additionalInfoTitle')}
                       </h4>
                       <p className="text-xs" style={{ color: '#4a5568' }}>
-                        Je mehr Informationen Sie uns zur Verfügung stellen, desto besser können wir Ihre Reparatur durchführen und Ihnen ein genaues Angebot machen.
+                        {t('home.configurator.additionalInfoDescription')}
                       </p>
                     </div>
                     {showAdditionalInfo ? <ChevronUp className="w-5 h-5" style={{ color: '#1a2a5e' }} /> : <ChevronDown className="w-5 h-5" style={{ color: '#1a2a5e' }} />}
@@ -1323,11 +1334,11 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         }}
                       >
                         <AlertCircle className="w-4 h-4" style={{ color: '#1a2a5e' }} />
-                        Fehlerbeschreibung
+                        {t('home.configurator.errorDescription')}
                       </label>
                       <textarea
                         id="errorDesc"
-                        placeholder="Beschreiben Sie das Problem mit Ihrem Gerät..."
+                        placeholder={t('home.configurator.errorDescriptionPlaceholder')}
                         value={errorDescription}
                         onChange={(e) => setErrorDescription(e.target.value)}
                         rows={4}
@@ -1367,7 +1378,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         }}
                       >
                         <Droplets className="w-4 h-4" style={{ color: '#1a2a5e' }} />
-                        Wasserschaden?
+                        {t('home.configurator.waterDamage')}
                       </label>
                       <div style={{ display: 'flex', gap: '10px' }}>
                         {['no', 'yes', 'unsure'].map((option) => (
@@ -1401,7 +1412,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                               }
                             }}
                           >
-                            {option === 'no' ? 'Nein' : option === 'yes' ? 'Ja' : 'Nicht sicher'}
+                            {getChoiceLabel(option as 'yes' | 'no' | 'unsure')}
                           </button>
                         ))}
                       </div>
@@ -1420,7 +1431,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         }}
                       >
                         <Wrench className="w-4 h-4" style={{ color: '#1a2a5e' }} />
-                        Vorherige Reparaturversuche?
+                        {t('home.configurator.previousRepairAttempts')}
                       </label>
                       <div style={{ display: 'flex', gap: '10px' }}>
                         {['no', 'yes', 'unsure'].map((option) => (
@@ -1454,14 +1465,14 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                               }
                             }}
                           >
-                            {option === 'no' ? 'Nein' : option === 'yes' ? 'Ja' : 'Nicht sicher'}
+                            {getChoiceLabel(option as 'yes' | 'no' | 'unsure')}
                           </button>
                         ))}
                       </div>
 
                       {previousRepairAttempts === 'yes' && (
                         <textarea
-                          placeholder="Details zu vorherigen Reparaturversuchen..."
+                          placeholder={t('home.configurator.previousRepairAttemptsPlaceholder')}
                           value={previousRepairDetails}
                           onChange={(e) => setPreviousRepairDetails(e.target.value)}
                           rows={3}
@@ -1503,7 +1514,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         }}
                       >
                         <Package className="w-4 h-4" style={{ color: '#1a2a5e' }} />
-                        Zustand des Geräts
+                        {t('home.configurator.itemCondition')}
                       </label>
                       <div style={{ display: 'flex', gap: '10px' }}>
                         {['original', 'refurbished', 'unsure'].map((option) => (
@@ -1537,7 +1548,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                               }
                             }}
                           >
-                            {option === 'original' ? 'Original' : option === 'refurbished' ? 'Generalüberholt' : 'Nicht sicher'}
+                            {getConditionLabel(option as 'original' | 'refurbished' | 'unsure')}
                           </button>
                         ))}
                       </div>
@@ -1557,7 +1568,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         }}
                       >
                         <Upload className="w-4 h-4" style={{ color: '#1a2a5e' }} />
-                        Fotos hochladen (optional, max. 5)
+                        {t('home.configurator.uploadPhotos')}
                       </label>
                       <Input
                         id="photos"
@@ -1575,7 +1586,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         }}
                       />
                       <p style={{ fontSize: '0.75rem', color: '#8892a8' }}>
-                        {photos.length}/5 Bilder hochgeladen
+                        {t('home.configurator.uploadedPhotos', { count: photos.length })}
                       </p>
 
                       {/* Photo Previews */}
@@ -1585,7 +1596,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                             <div key={index} className="relative group">
                               <img
                                 src={url}
-                                alt={`Preview ${index + 1}`}
+                                alt={t('home.configurator.photoPreviewAlt', { index: index + 1 })}
                                 style={{ 
                                   width: '100%', 
                                   height: '96px', 
@@ -1613,10 +1624,10 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
               <div className="config-nav mt-4">
                 <button className="config-nav-btn back" onClick={goToPreviousStep}>
                   <ChevronLeft className="w-4 h-4" />
-                  Zurück
+                  {t('home.configurator.back')}
                 </button>
                 <button className="config-nav-btn next" onClick={goToNextStep}>
-                  Weiter
+                  {t('home.configurator.next')}
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -1629,7 +1640,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
               {/* Order Summary Container */}
               <div className="config-result">
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem', color: '#1a2a5e' }}>
-                  Bestellzusammenfassung
+                  {t('home.configurator.orderSummary')}
                 </h3>
 
                 {/* All Devices Summary */}
@@ -1678,7 +1689,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         >
                           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                             <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#1a2a5e' }}>
-                              Gerät {idx + 1}: {device.model?.name}
+                              {t('home.configurator.deviceLabel', { index: idx + 1, model: device.model?.name })}
                             </h4>
                             {quantity > 1 && !isCurrentDevice && (
                               <span style={{
@@ -1694,13 +1705,13 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                             )}
                           </div>
                           <div style={{ fontSize: '0.8rem', color: '#4a5568' }}>
-                            <p style={{ marginBottom: '0.25rem' }}><strong>Typ:</strong> {device.deviceType?.name}</p>
-                            <p style={{ marginBottom: '0.25rem' }}><strong>Marke:</strong> {device.brand?.name}</p>
+                            <p style={{ marginBottom: '0.25rem' }}><strong>{t('home.configurator.type')}:</strong> {device.deviceType?.name}</p>
+                            <p style={{ marginBottom: '0.25rem' }}><strong>{t('home.configurator.brand')}:</strong> {device.brand?.name}</p>
                             
                             {/* Repair Services List */}
                             {device.repairs.length > 0 && (
                               <div style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
-                                <p style={{ marginBottom: '0.35rem', color: '#f5b800', fontWeight: 600 }}>Reparaturen:</p>
+                                <p style={{ marginBottom: '0.35rem', color: '#f5b800', fontWeight: 600 }}>{t('home.configurator.repairs')}:</p>
                                 {device.repairs.map((repair: any, repairIdx: number) => (
                                   <div key={repairIdx} style={{ 
                                     marginLeft: '0.5rem', 
@@ -1719,7 +1730,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                             {/* Add-ons List */}
                             {device.addOns.length > 0 && (
                               <div style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
-                                <p style={{ marginBottom: '0.35rem', color: '#f5b800', fontWeight: 600 }}>Extras:</p>
+                                <p style={{ marginBottom: '0.35rem', color: '#f5b800', fontWeight: 600 }}>{t('home.configurator.extras')}:</p>
                                 {device.addOns.map((addon: any, addonIdx: number) => (
                                   <div key={addonIdx} style={{ 
                                     marginLeft: '0.5rem', 
@@ -1736,10 +1747,10 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                             )}
                             
                             {(device.unlockPattern?.length > 0 || device.unlockCode || device.noDeviceLock) && (
-                              <p style={{ marginBottom: '0.25rem' }}><strong>Entsperrung:</strong> ✓</p>
+                              <p style={{ marginBottom: '0.25rem' }}><strong>{t('home.configurator.unlock')}:</strong> ✓</p>
                             )}
                             {device.photos?.length > 0 && (
-                              <p style={{ marginBottom: '0.25rem' }}><strong>Fotos:</strong> {device.photos.length}</p>
+                              <p style={{ marginBottom: '0.25rem' }}><strong>{t('home.configurator.photos')}:</strong> {device.photos.length}</p>
                             )}
                             
                             {/* Quantity Control for Current Device */}
@@ -1753,7 +1764,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                               }}>
                                 <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#f5b800', marginBottom: '0.5rem' }}>
                                   <Package className="w-3 h-3" style={{ display: 'inline', marginRight: '0.3rem' }} />
-                                  Anzahl für diese Konfiguration:
+                                  {t('home.configurator.quantityForConfiguration')}
                                 </p>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                   <Button
@@ -1778,7 +1789,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                                       {currentDeviceQuantity}
                                     </div>
                                     <div style={{ fontSize: '0.65rem', color: '#718096', marginTop: '0.1rem' }}>
-                                      {currentDeviceQuantity === 1 ? 'Gerät' : 'Geräte'}
+                                      {currentDeviceQuantity === 1 ? t('home.configurator.singleDevice') : t('home.configurator.multipleDevices')}
                                     </div>
                                   </div>
                                   <Button
@@ -1807,10 +1818,10 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                                     borderRadius: '4px'
                                   }}>
                                     <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#1a2a5e' }}>
-                                      💡 Sie bestellen {currentDeviceQuantity}x identische Reparaturen
+                                      {t('home.configurator.identicalRepairsTitle', { count: currentDeviceQuantity })}
                                     </p>
                                     <p style={{ fontSize: '0.7rem', color: '#718096', marginTop: '0.15rem' }}>
-                                      Jedes Gerät wird mit den gleichen {device.repairs.length} Reparatur{device.repairs.length !== 1 ? 'en' : ''} bearbeitet
+                                      {t('home.configurator.identicalRepairsDescription', { count: device.repairs.length })}
                                     </p>
                                   </div>
                                 )}
@@ -1820,11 +1831,11 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                             <div style={{ paddingTop: '0.5rem', borderTop: '1px solid #e2e8f0', marginTop: '0.5rem' }}>
                               {quantity > 1 && (
                                 <p style={{ marginBottom: '0.25rem', color: '#718096' }}>
-                                  Preis pro Gerät: {singleDeviceTotal.toFixed(2)} €
+                                  {t('home.configurator.pricePerDevice', { price: singleDeviceTotal.toFixed(2) })}
                                 </p>
                               )}
                               <p style={{ fontSize: '1.125rem', fontWeight: 700, color: '#1a2a5e' }}>
-                                {quantity > 1 ? 'Gesamt' : 'Preis'}: {deviceTotal.toFixed(2)} €
+                                {quantity > 1 ? t('home.configurator.totalPrice', { price: deviceTotal.toFixed(2) }) : t('home.configurator.singlePrice', { price: deviceTotal.toFixed(2) })}
                               </p>
                             </div>
                           </div>
@@ -1837,7 +1848,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 {/* Total Summary Grid */}
                 <div className="config-result-grid">
                   <div className="config-result-item">
-                    <div className="label">Geräte gesamt</div>
+                    <div className="label">{t('home.configurator.totalDevices')}</div>
                     <div className="value">{(() => {
                       let count = devices.reduce((sum, d) => sum + (d.quantity || 1), 0);
                       if (selectedModel && selectedRepairs.length > 0) count += currentDeviceQuantity;
@@ -1845,7 +1856,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                     })()}</div>
                   </div>
                   <div className="config-result-item">
-                    <div className="label">Gerätetypen</div>
+                    <div className="label">{t('home.configurator.deviceTypes')}</div>
                     <div className="value small">{(() => {
                       let count = devices.length;
                       if (selectedModel && selectedRepairs.length > 0) count++;
@@ -1853,7 +1864,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                     })()}</div>
                   </div>
                   <div className="config-result-item">
-                    <div className="label">Preis gesamt</div>
+                    <div className="label">{t('home.configurator.priceTotal')}</div>
                     <div className="value">{(() => {
                       const allDevices = [...devices];
                       if (selectedModel && selectedRepairs.length > 0) {
@@ -1873,8 +1884,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                     })()} €</div>
                   </div>
                   <div className="config-result-item">
-                    <div className="label">Versand</div>
-                    <div className="value small">Gratis</div>
+                    <div className="label">{t('home.configurator.shipping')}</div>
+                    <div className="value small">{t('home.configurator.free')}</div>
                   </div>
                 </div>
               </div>
@@ -1897,10 +1908,10 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                   color: '#1a2a5e'
                 }}>
                   <Plus className="w-4 h-4" style={{ color: '#f5b800' }} />
-                  Anderes Gerät zur Bestellung hinzufügen?
+                  {t('home.configurator.addAnotherDeviceTitle')}
                 </h4>
                 <p style={{ fontSize: '0.8rem', color: '#4a5568', marginBottom: '0.65rem' }}>
-                  Möchten Sie ein <strong>anderes Gerät-Modell</strong> oder eine <strong>andere Reparatur-Konfiguration</strong> hinzufügen?
+                  {t('home.configurator.addAnotherDeviceDescription')}
                 </p>
                 <button
                   type="button"
@@ -1925,25 +1936,25 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f5b800'}
                 >
                   <Plus className="w-4 h-4" />
-                  Weiteres Gerät-Modell hinzufügen
+                  {t('home.configurator.addAnotherDeviceButton')}
                 </button>
                 <p style={{ fontSize: '0.7rem', color: '#718096', marginTop: '0.4rem', textAlign: 'center' }}>
-                  (Für gleiche Geräte verwenden Sie bitte den Anzahl-Zähler oben)
+                  {t('home.configurator.addAnotherDeviceHint')}
                 </p>
               </div>
 
               {/* CTA Button */}
               <button className="config-result-cta" onClick={handleAddToCart} style={{ marginTop: '1.5rem' }}>
-                Reparatur zum Warenkorb hinzufügen
+                {t('home.configurator.addToCart')}
                 <ChevronRight className="w-5 h-5 ml-2" />
               </button>
               <div className="config-nav" style={{ marginTop: '16px' }}>
                 <button className="config-nav-btn back" onClick={goToPreviousStep}>
                   <ChevronLeft className="w-4 h-4" />
-                  Zurück
+                  {t('home.configurator.back')}
                 </button>
                 <button className="config-nav-btn back" onClick={resetConfigurator}>
-                  Neu starten
+                  {t('home.configurator.restart')}
                 </button>
               </div>
             </div>
@@ -1973,7 +1984,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
             <div className="device-preview-panel-problems">
               <div className="device-preview-panel-problems-title">
                 <AlertCircle className="w-3 h-3" />
-                Häufige Probleme
+                  {t('home.configurator.commonProblems')}
               </div>
               <ul className="device-preview-panel-list" id="devicePreviewList">
                 {previewData?.problems.length ? (
@@ -1981,7 +1992,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                     <li key={index}>{problem}</li>
                   ))
                 ) : (
-                  <li>Keine häufigen Probleme hinterlegt</li>
+                    <li>{t('home.configurator.noCommonProblems')}</li>
                 )}
               </ul>
             </div>

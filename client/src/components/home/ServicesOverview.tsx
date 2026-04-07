@@ -6,8 +6,8 @@ export function ServicesOverview() {
   return (
     <div className="container">
       <div className="section-title">
-        <h2>So einfach geht's</h2>
-        <p>In 4 Schritten zum reparierten Gerät</p>
+        <h2>{t('home.servicesOverview.title')}</h2>
+        <p>{t('home.servicesOverview.subtitle')}</p>
         <div className="accent-line"></div>
       </div>
       <div className="steps-grid">
@@ -20,8 +20,8 @@ export function ServicesOverview() {
             </svg>
           </div>
           <span className="step-number">1</span>
-          <h4>Reparatur buchen</h4>
-          <p>Gerät & Reparatur online wählen</p>
+          <h4>{t('home.servicesOverview.step1Title')}</h4>
+          <p>{t('home.servicesOverview.step1Description')}</p>
         </div>
         <div className="step-card">
           <div className="step-icon">
@@ -33,8 +33,8 @@ export function ServicesOverview() {
             </svg>
           </div>
           <span className="step-number">2</span>
-          <h4>Label erhalten</h4>
-          <p>Versandlabel kostenlos per E-Mail</p>
+          <h4>{t('home.servicesOverview.step2Title')}</h4>
+          <p>{t('home.servicesOverview.step2Description')}</p>
         </div>
         <div className="step-card">
           <div className="step-icon">
@@ -46,8 +46,8 @@ export function ServicesOverview() {
             </svg>
           </div>
           <span className="step-number">3</span>
-          <h4>Einsenden</h4>
-          <p>Gerät sicher verpacken & absenden</p>
+          <h4>{t('home.servicesOverview.step3Title')}</h4>
+          <p>{t('home.servicesOverview.step3Description')}</p>
         </div>
         <div className="step-card">
           <div className="step-icon">
@@ -57,8 +57,8 @@ export function ServicesOverview() {
             </svg>
           </div>
           <span className="step-number">4</span>
-          <h4>Repariert zurück</h4>
-          <p>Gerät repariert & versichert erhalten</p>
+          <h4>{t('home.servicesOverview.step4Title')}</h4>
+          <p>{t('home.servicesOverview.step4Description')}</p>
         </div>
       </div>
     </div>

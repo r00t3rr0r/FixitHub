@@ -412,11 +412,11 @@ export function McRepairNav() {
     const manufacturers = Object.entries(deviceMenuData[category]);
 
     if (loadingDevices) {
-      return <div className="nav-mobile-dropdown-empty">Lade Geräte...</div>;
+      return <div className="nav-mobile-dropdown-empty">{t('home.nav.loadingDevices')}</div>;
     }
 
     if (manufacturers.length === 0) {
-      return <div className="nav-mobile-dropdown-empty">Keine Geräte verfügbar</div>;
+      return <div className="nav-mobile-dropdown-empty">{t('home.nav.noDevices')}</div>;
     }
 
     return (
@@ -465,7 +465,7 @@ export function McRepairNav() {
         >
           <div className="nav-dropdown-inner">
             <div className="text-center py-4 text-muted-foreground">
-              Lade Geräte...
+              {t('home.nav.loadingDevices')}
             </div>
           </div>
         </div>
@@ -487,7 +487,7 @@ export function McRepairNav() {
         >
           <div className="nav-dropdown-inner">
             <div className="text-center py-4 text-muted-foreground">
-              Keine Geräte verfügbar
+              {t('home.nav.noDevices')}
             </div>
           </div>
         </div>
@@ -564,11 +564,11 @@ export function McRepairNav() {
                   </Link>
                   <Link to="/my-repair-requests" onClick={() => closeMobileMenu()}>
                     <Wrench width={16} height={16} />
-                    Repair Requests
+                    {t('home.nav.repairRequests')}
                   </Link>
                   <Link to="/my-complaints" onClick={() => closeMobileMenu()}>
                     <AlertTriangle width={16} height={16} />
-                    Reklamationen
+                    {t('home.nav.complaints')}
                   </Link>
                   <Link to="/invoices" onClick={() => closeMobileMenu()}>
                     <FileText width={16} height={16} />
@@ -605,7 +605,7 @@ export function McRepairNav() {
 
           {mobileMenuOpen && (
             <div className="nav-mobile-section-title nav-mobile-section-title-spaced">
-              {t('navigation.repairCategories', 'Reparaturkategorien')}
+              {t('home.nav.repairCategories')}
             </div>
           )}
 
@@ -701,9 +701,9 @@ export function McRepairNav() {
 
           {/* Mobile Extras (only shown in mobile menu) */}
           <div className="nav-mobile-extras">
-            <div className="nav-mobile-secondary-links" aria-label="Weitere Menüpunkte">
+            <div className="nav-mobile-secondary-links" aria-label={t('home.nav.moreOptions')}>
               <div className="nav-mobile-section-title nav-mobile-section-title-spaced">
-                {t('navigation.moreOptions', 'Weitere Menüpunkte')}
+                {t('home.nav.moreOptions')}
               </div>
               <button className="nav-mobile-secondary-link" onClick={handleMobileSearchClick}>
                 <Search width={16} height={16} />
@@ -732,7 +732,7 @@ export function McRepairNav() {
           <button
             className={`nav-search-toggle lg:hidden ${searchOpen ? 'active' : ''}`}
             onClick={toggleSearch}
-            aria-label="Toggle search"
+            aria-label={t('home.nav.toggleSearch')}
           >
             <Search width={18} height={18} />
           </button>

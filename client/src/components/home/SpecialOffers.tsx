@@ -1,11 +1,14 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export function SpecialOffers() {
+  const { t } = useTranslation();
+
   return (
     <section className="section section-alt section-compact" id="offers">
       <div className="container">
         <div className="section-title section-title-sm">
-          <h2>Unsere Spezialangebote</h2>
+          <h2>{t('home.specialOffers.title')}</h2>
           <div className="accent-line"></div>
         </div>
         <div className="offers-grid">
@@ -19,14 +22,11 @@ export function SpecialOffers() {
               </svg>
             </div>
             <div className="offer-card-content">
-              <span className="offer-tag">Special Offer</span>
+              <span className="offer-tag">{t('home.specialOffers.tag')}</span>
               <h3>MyFirstPhone</h3>
-              <p>
-                Schenken Sie Ihr altes Smartphone Ihrem Kind – repariert und mit Versicherung, 
-                Prepaid-Karte und Kindersicherung.
-              </p>
+              <p>{t('home.specialOffers.myFirstPhoneDescription')}</p>
               <Link to="/offers/myfirstphone" className="offer-cta">
-                Mehr erfahren
+                {t('home.specialOffers.learnMore')}
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
@@ -43,14 +43,11 @@ export function SpecialOffers() {
               </svg>
             </div>
             <div className="offer-card-content">
-              <span className="offer-tag">Special Offer</span>
+              <span className="offer-tag">{t('home.specialOffers.tag')}</span>
               <h3>McStudent</h3>
-              <p>
-                Profitieren Sie von unserem Angebot speziell für Studenten und erhalten Sie 
-                zusätzlichen Rabatt auf Ihre Reparatur.
-              </p>
+              <p>{t('home.specialOffers.mcStudentDescription')}</p>
               <Link to="/offers/mcstudent" className="offer-cta">
-                Mehr erfahren
+                {t('home.specialOffers.learnMore')}
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>

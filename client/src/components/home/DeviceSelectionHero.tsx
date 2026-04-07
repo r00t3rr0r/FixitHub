@@ -37,7 +37,7 @@ export function DeviceSelectionHero({
       
       {/* Hero woman decorative image */}
       <div className="hero-woman">
-        <img src="/images/hero-woman-noBG.png" alt="Kundin mit Smartphone" loading="eager" />
+        <img src="/images/hero-woman-noBG.png" alt={t('home.hero.imageAlt')} loading="eager" />
       </div>
 
       <div className="hero-content container">
@@ -49,25 +49,25 @@ export function DeviceSelectionHero({
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
               </svg>
-              Nr. 1 Reparaturwerkstatt in Deutschland
+              {t('home.hero.badge')}
             </div>
 
             {/* Main Headline */}
             <h1 className="hero-title">
-              Smartphone kaputt?
+              {title || t('home.hero.titleLine1')}
               <br />
-              <span>Wir reparieren es.</span>
+              <span>{subtitle || t('home.hero.titleLine2')}</span>
             </h1>
 
             {/* Secondary Helper Cards */}
             <div className="hero-helpers">
               <div className="hero-helper-card">
-                <h4>Welches Gerät habe ich?</h4>
-                <p>Rausfinden in 3 Minuten</p>
+                <h4>{t('home.hero.helperDeviceTitle')}</h4>
+                <p>{t('home.hero.helperDeviceDesc')}</p>
               </div>
               <a href="/vorabdiagnose" className="hero-helper-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-                <h4>Welche Reparatur brauche ich?</h4>
-                <p>Rausfinden in wenigen Schritten</p>
+                <h4>{t('home.hero.helperRepairTitle')}</h4>
+                <p>{t('home.hero.helperRepairDesc')}</p>
               </a>
             </div>
 
@@ -81,19 +81,19 @@ export function DeviceSelectionHero({
               <input
                 type="text"
                 className="hero-tracking-input"
-                placeholder="Buchungsnummer (z.B. BKG-2026-0001)"
+                placeholder={t('home.hero.trackingBookingPlaceholder')}
                 value={bookingNumber}
                 onChange={(e) => setBookingNumber(e.target.value)}
               />
               <input
                 type="email"
                 className="hero-tracking-input"
-                placeholder="E-Mail-Adresse"
+                placeholder={t('home.hero.trackingEmailPlaceholder')}
                 value={trackEmail}
                 onChange={(e) => setTrackEmail(e.target.value)}
               />
               <button type="submit" className="hero-tracking-btn" disabled={!bookingNumber.trim() || !trackEmail.trim()}>
-                Auftrag verfolgen
+                {t('home.hero.trackingButton')}
               </button>
             </form>
           </div>
