@@ -12,6 +12,11 @@ const contentBlockSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  titleTranslations: {
+    type: Map,
+    of: String,
+    default: undefined
+  },
   content: {
     type: mongoose.Schema.Types.Mixed,
     required: true
@@ -186,6 +191,11 @@ const homepageSectionSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  nameTranslations: {
+    type: Map,
+    of: String,
+    default: undefined
+  },
   blocks: [contentBlockSchema],
   layout: {
     type: String,
@@ -329,6 +339,11 @@ const homepageSectionSchema = new mongoose.Schema({
     customHTML: {
       type: String,
       default: ''
+    },
+    customHTMLTranslations: {
+      type: Map,
+      of: String,
+      default: undefined
     },
     customCSS: {
       type: String,
@@ -528,6 +543,11 @@ const homepageSectionStandaloneSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  nameTranslations: {
+    type: Map,
+    of: String,
+    default: undefined
+  },
   type: {
     type: String,
     required: true,
@@ -537,6 +557,11 @@ const homepageSectionStandaloneSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true
+  },
+  titleTranslations: {
+    type: Map,
+    of: String,
+    default: undefined
   },
   content: {
     type: mongoose.Schema.Types.Mixed,

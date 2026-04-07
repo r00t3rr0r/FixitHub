@@ -1,9 +1,14 @@
 import api from './api';
 
+export interface HomepageLocalizedText {
+  [locale: string]: string;
+}
+
 export interface ContentBlock {
   _id: string;
   type: 'hero' | 'services' | 'testimonials' | 'cta' | 'gallery' | 'banner' | 'features' | 'stats' | 'html';
   title: string;
+  titleTranslations?: HomepageLocalizedText;
   content: any;
   settings: {
     backgroundColor?: string;
@@ -56,6 +61,7 @@ export interface ContentBlock {
 export interface HomepageSection {
   _id: string;
   name: string;
+  nameTranslations?: HomepageLocalizedText;
   blocks: ContentBlock[];
   layout: 'single' | 'two-column' | 'three-column' | 'grid';
   order: number;
@@ -97,6 +103,7 @@ export interface HomepageSection {
       grayscale?: number;
     };
     customHTML?: string;
+    customHTMLTranslations?: HomepageLocalizedText;
     customCSS?: string;
   };
 }
