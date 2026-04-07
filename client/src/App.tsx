@@ -160,6 +160,7 @@ function App() {
             </Route>
             <Route path="/my-complaints" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
               <Route index element={<CustomerComplaints />} />
+              <Route path=":complaintId" element={<CustomerComplaints />} />
             </Route>
 
             {/* Staff routes */}

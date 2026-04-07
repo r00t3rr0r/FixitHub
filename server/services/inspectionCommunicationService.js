@@ -1,13 +1,39 @@
 const InspectionCommunication = require('../models/InspectionCommunication');
 const Order = require('../models/Order');
 const DeviceInspection = require('../models/DeviceInspection');
+const Complaint = require('../models/Complaint');
 const NotificationService = require('./notificationService');
 
 class InspectionCommunicationService {
+  static async getComplaintNotificationContext(orderId) {
+    try {
+      const complaint = await Complaint.findOne({
+        $or: [{ orderId }, { newOrderId: orderId }],
+      })
+        .select('_id complaintNumber subject')
+        .lean();
+
+      if (!complaint) {
+        return null;
+      }
+
+      return {
+        complaintId: complaint._id.toString(),
+        complaintNumber: complaint.complaintNumber || null,
+        complaintSubject: complaint.subject || null,
+        actionUrl: '/my-complaints',
+      };
+    } catch (error) {
+      console.error(`InspectionCommunicationService: Error resolving complaint context for notifications: ${error.message || error}`);
+      return null;
+    }
+  }
+
   static async notifyMessageRecipients(orderId, senderId, senderType, senderName, content) {
     try {
       const order = await Order.findById(orderId).select('customerId assignedStaff orderNumber').lean();
       if (!order) return;
+      const complaintContext = await this.getComplaintNotificationContext(orderId);
 
       const recipientIds = new Set();
       const senderIdString = senderId ? String(senderId) : '';
@@ -30,24 +56,29 @@ class InspectionCommunicationService {
 
       const trimmedContent = String(content || '').trim();
       const preview = trimmedContent.length > 140 ? `${trimmedContent.slice(0, 137)}...` : trimmedContent;
-      const title = senderType === 'customer'
-        ? 'Neue Kunden-Nachricht'
-        : 'Neue Team-Nachricht';
+      const title = complaintContext
+        ? (senderType === 'customer' ? 'Neue Nachricht zur Reklamation' : 'Neue Team-Nachricht zur Reklamation')
+        : (senderType === 'customer' ? 'Neue Kunden-Nachricht' : 'Neue Team-Nachricht');
       const orderReference = order.orderNumber ? `#${order.orderNumber}` : 'Ihrem Auftrag';
+      const notificationReference = complaintContext?.complaintNumber
+        ? `Reklamation ${complaintContext.complaintNumber}`
+        : orderReference;
 
       await Promise.all(
         Array.from(recipientIds).map((recipientId) =>
           NotificationService.createNotification({
             userId: recipientId,
             title,
-            message: `${senderName} hat eine neue Nachricht zu ${orderReference} gesendet${preview ? `: ${preview}` : '.'}`,
+            message: `${senderName} hat eine neue Nachricht zu ${notificationReference} gesendet${preview ? `: ${preview}` : '.'}`,
             type: 'message',
             orderId,
-            actionUrl: `/orders/${orderId}`,
+            actionUrl: complaintContext?.actionUrl || `/orders/${orderId}`,
             metadata: {
               senderId: senderIdString || null,
               senderType,
               messageType: 'text',
+              complaintId: complaintContext?.complaintId || null,
+              complaintNumber: complaintContext?.complaintNumber || null,
             },
           })
         )
@@ -296,6 +327,7 @@ class InspectionCommunicationService {
       try {
         const order = await Order.findById(orderId);
         if (order && order.customerId) {
+          const complaintContext = await this.getComplaintNotificationContext(orderId);
           // Get the last message to access the generated _id
           const lastMessage = communication && communication.messages && communication.messages.length > 0
             ? communication.messages[communication.messages.length - 1]
@@ -303,12 +335,20 @@ class InspectionCommunicationService {
 
           await NotificationService.createNotification({
             userId: order.customerId,
-            title: 'Rueckmeldung zu Ihrer Reparaturpruefung erforderlich',
+            title: complaintContext
+              ? 'Rueckmeldung zu Ihrer Reklamation erforderlich'
+              : 'Rueckmeldung zu Ihrer Reparaturpruefung erforderlich',
             message: question,
             type: 'message',
             orderId,
-            actionUrl: `/orders/${orderId}`,
-            metadata: { messageId: lastMessage?._id, inspectionId, messageType: 'feedback_request' }
+            actionUrl: complaintContext?.actionUrl || `/orders/${orderId}`,
+            metadata: {
+              messageId: lastMessage?._id,
+              inspectionId,
+              messageType: 'feedback_request',
+              complaintId: complaintContext?.complaintId || null,
+              complaintNumber: complaintContext?.complaintNumber || null,
+            }
           });
         }
       } catch (notificationError) {
@@ -449,6 +489,7 @@ class InspectionCommunicationService {
       try {
         const order = await Order.findById(orderId);
         if (order && order.customerId) {
+          const complaintContext = await this.getComplaintNotificationContext(orderId);
           // Get the last message to access the generated _id
           const lastMessage = communication && communication.messages && communication.messages.length > 0
             ? communication.messages[communication.messages.length - 1]
@@ -456,12 +497,21 @@ class InspectionCommunicationService {
 
           await NotificationService.createNotification({
             userId: order.customerId,
-            title: `${actionLabels[actionType] || actionType}`,
+            title: complaintContext
+              ? `Reklamation: ${actionLabels[actionType] || actionType}`
+              : `${actionLabels[actionType] || actionType}`,
             message: description || actionLabels[actionType] || actionType,
             type: 'message',
             orderId,
-            actionUrl: `/orders/${orderId}`,
-            metadata: { messageId: lastMessage?._id, actionType, inspectionId, messageType: 'quick_action' }
+            actionUrl: complaintContext?.actionUrl || `/orders/${orderId}`,
+            metadata: {
+              messageId: lastMessage?._id,
+              actionType,
+              inspectionId,
+              messageType: 'quick_action',
+              complaintId: complaintContext?.complaintId || null,
+              complaintNumber: complaintContext?.complaintNumber || null,
+            }
           });
         }
       } catch (notificationError) {
@@ -752,14 +802,19 @@ class InspectionCommunicationService {
       try {
         const order = await Order.findById(orderId);
         if (order && order.customerId) {
+          const complaintContext = await this.getComplaintNotificationContext(orderId);
           await NotificationService.createNotification({
             userId: order.customerId,
             title: 'Neues Reparaturangebot verfügbar',
             message: `${offerDescription} – ${Number(offerAmount).toFixed(2)} €. Bitte annehmen oder ablehnen.`,
             type: 'message',
             orderId,
-            actionUrl: `/orders/${orderId}`,
-            metadata: { complaintId: complaintId.toString(), messageType: 'repair_offer' },
+            actionUrl: complaintContext?.actionUrl || `/orders/${orderId}`,
+            metadata: {
+              complaintId: complaintId.toString(),
+              messageType: 'repair_offer',
+              complaintNumber: complaintContext?.complaintNumber || null,
+            },
           });
         }
       } catch (notificationError) {

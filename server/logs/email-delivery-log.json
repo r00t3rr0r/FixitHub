@@ -1892,5 +1892,253 @@
         "supportPhone"
       ]
     }
+  },
+  {
+    "id": "1775528231510-6f7ogd6av",
+    "timestamp": "2026-04-07T02:17:11.510Z",
+    "to": "admin@example.com",
+    "templateName": "Statusupdate Auftrag oder Buchung",
+    "subject": "Statusupdate zu Ihrem Auftrag ORD-2026-013: Neue Reklamation",
+    "messageId": "<240cfece-dd0b-acf1-94ee-01fd7cf6d383@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 938,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "orderNumber",
+        "orderStatus",
+        "statusMessage",
+        "statusUpdatedAt",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775528232430-bmksdw0bm",
+    "timestamp": "2026-04-07T02:17:12.430Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Reklamation eingegangen",
+    "subject": "Ihre Reklamation R69ce2aafa83081076e198763 wurde erfolgreich aufgenommen",
+    "messageId": "<36b463da-8f07-8aa3-2ea3-56aff651d72b@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 898,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "complaintNumber",
+        "complaintCategory",
+        "complaintSubject",
+        "orderNumber",
+        "priority",
+        "submittedAt",
+        "complaintUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775528888919-lueb0wfng",
+    "timestamp": "2026-04-07T02:28:08.919Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<59a1d52b-f286-9217-c06c-2f55e9e442e0@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1003,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775528890046-jxbl3xvsv",
+    "timestamp": "2026-04-07T02:28:10.046Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Reklamation in Bearbeitung",
+    "subject": "Ihre Reklamation R69ce2aafa83081076e198763 wird bearbeitet",
+    "messageId": "<de9b5f5f-a670-4db1-0821-a363e07d3dfd@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1104,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "complaintNumber",
+        "complaintStatus",
+        "complaintCategory",
+        "complaintSubject",
+        "orderNumber",
+        "priority",
+        "submittedAt",
+        "handlerName",
+        "processingStartedAt",
+        "estimatedResolutionDate",
+        "senderName",
+        "messageSentAt",
+        "resolutionSummary",
+        "compensationInfo",
+        "resolvedAt",
+        "decision",
+        "decisionReason",
+        "decidedAt",
+        "complaintUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775529223974-2j463er46",
+    "timestamp": "2026-04-07T02:33:43.974Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Nachrichten",
+    "messageId": "<94518bf9-5da2-89e4-f678-cf692897f696@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1481,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775529225100-de99jn25u",
+    "timestamp": "2026-04-07T02:33:45.100Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Reklamation neue Nachricht",
+    "subject": "Neue Mitteilung zu Ihrer Reklamation R69ce2aafa83081076e198763",
+    "messageId": "<76b85db3-ccd9-e4ba-5e79-078f184323ea@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1113,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "complaintNumber",
+        "complaintStatus",
+        "complaintCategory",
+        "complaintSubject",
+        "orderNumber",
+        "priority",
+        "submittedAt",
+        "handlerName",
+        "processingStartedAt",
+        "estimatedResolutionDate",
+        "senderName",
+        "messageSentAt",
+        "resolutionSummary",
+        "compensationInfo",
+        "resolvedAt",
+        "decision",
+        "decisionReason",
+        "decidedAt",
+        "complaintUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775529527079-e1t7l6p7m",
+    "timestamp": "2026-04-07T02:38:47.079Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Nachrichten",
+    "messageId": "<9b05d8c9-78bc-5c24-3c4c-673dbce91912@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1430,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1775529528410-f0tywh0kl",
+    "timestamp": "2026-04-07T02:38:48.410Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Reklamation neue Nachricht",
+    "subject": "Neue Mitteilung zu Ihrer Reklamation R69ce2aafa83081076e198763",
+    "messageId": "<b650b475-98db-1b50-5be5-fc90b3b33e59@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1315,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "complaintNumber",
+        "complaintStatus",
+        "complaintCategory",
+        "complaintSubject",
+        "orderNumber",
+        "priority",
+        "submittedAt",
+        "handlerName",
+        "processingStartedAt",
+        "estimatedResolutionDate",
+        "senderName",
+        "messageSentAt",
+        "resolutionSummary",
+        "compensationInfo",
+        "resolvedAt",
+        "decision",
+        "decisionReason",
+        "decidedAt",
+        "complaintUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
   }
 ]
