@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom"
+import { useEffect } from "react"
 import { ThemeProvider } from "./components/ui/theme-provider"
 import { Toaster } from "./components/ui/toaster"
 import { AuthProvider } from "./contexts/AuthContext"
@@ -75,11 +76,20 @@ import { GuestBookingTracking } from "./pages/GuestBookingTracking"
 import { Vorabdiagnose } from "./pages/Vorabdiagnose"
 import { Annahmestellen } from "./pages/Annahmestellen"
 
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
+  return null
+}
+
 function App() {
   return (
     <AuthProvider>
       <ThemeProvider defaultTheme="light" storageKey="ui-theme">
         <Router>
+          <ScrollToTop />
           {/* Public routes - accessible to all users */}
           <Routes>
             {/* Home page as default landing page for all users */}
