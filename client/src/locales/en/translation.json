@@ -114,6 +114,7 @@
       "title": "Customer communication",
       "pendingFeedback": "pending feedback",
       "pendingActions": "pending actions",
+      "lastUpdated": "Last updated",
       "loadFailed": "Communication could not be loaded.",
       "sendFailed": "Message could not be sent.",
       "respondFailed": "Feedback response failed.",
@@ -129,6 +130,23 @@
       "messagePlaceholder": "Write your message...",
       "messageHint": "You can reply because this order has an active request or inbound message.",
       "waitForContact": "Messaging is enabled once support contacts you or when a feedback/action request is pending."
+    },
+    "shipping": {
+      "bookingTitle": "Shipping information",
+      "carrier": "Carrier",
+      "trackingNumber": "Tracking number",
+      "status": "Shipping status",
+      "downloadLabel": "Download shipping label",
+      "openTracking": "Open tracking",
+      "statuses": {
+        "pending": "Pending",
+        "label-created": "Label created",
+        "in-transit": "In transit",
+        "out-for-delivery": "Out for delivery",
+        "delivered": "Delivered",
+        "returned": "Returned",
+        "exception": "Exception"
+      }
     },
     "statuses": {
       "pending": "Pending",
