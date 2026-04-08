@@ -9,24 +9,36 @@ import {
   Clock,
   FileText,
   Mail,
+  MapPin,
+  MessageSquare,
   Package,
   Search,
+  Send,
   TrendingUp,
   User,
-  MapPin,
 } from "lucide-react";
 
+import {
+  completeGuestBookingOrderAction,
+  getGuestBookingOrderCommunication,
+  GuestOrderCommunication,
+  respondGuestBookingOrderFeedback,
+  sendGuestBookingOrderMessage,
+  trackBooking,
+  trackBookingByNumber,
+  TrackedOrder,
+} from "@/api/orderTracking";
 import { useToast } from "@/hooks/useToast";
-import { trackBooking, trackBookingByNumber, TrackedOrder } from "@/api/orderTracking";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 
 export function GuestBookingTracking() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
 
@@ -35,6 +47,17 @@ export function GuestBookingTracking() {
   const [orders, setOrders] = useState<TrackedOrder[]>([]);
   const [email, setEmail] = useState("");
   const [token, setToken] = useState("");
+  const [bookingNumber, setBookingNumber] = useState("");
+
+  const [communicationByOrderId, setCommunicationByOrderId] = useState<Record<string, GuestOrderCommunication | null>>({});
+  const [communicationDialogOpen, setCommunicationDialogOpen] = useState(false);
+  const [selectedOrderForCommunication, setSelectedOrderForCommunication] = useState<TrackedOrder | null>(null);
+  const [communicationLoading, setCommunicationLoading] = useState(false);
+  const [guestMessage, setGuestMessage] = useState("");
+  const [sendingGuestMessage, setSendingGuestMessage] = useState(false);
+  const [respondingToMessageId, setRespondingToMessageId] = useState<string | null>(null);
+  const [pendingOption, setPendingOption] = useState<{ label: string; value: string } | null>(null);
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     const urlToken = searchParams.get("token");
@@ -43,6 +66,7 @@ export function GuestBookingTracking() {
 
     if (urlBookingNumber && urlEmail) {
       setEmail(urlEmail);
+      setBookingNumber(urlBookingNumber);
       handleTrackByNumber(urlBookingNumber, urlEmail);
       return;
     }
@@ -55,11 +79,20 @@ export function GuestBookingTracking() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const handleTrackByNumber = async (bookingNumber: string, trackingEmail: string) => {
+  const trackAccess = useMemo(
+    () => ({
+      email,
+      token: token || undefined,
+      bookingNumber: bookingNumber || undefined,
+    }),
+    [email, token, bookingNumber]
+  );
+
+  const handleTrackByNumber = async (trackingBookingNumber: string, trackingEmail: string) => {
     try {
       setLoading(true);
       const response = await trackBookingByNumber({
-        bookingNumber,
+        bookingNumber: trackingBookingNumber,
         email: trackingEmail,
       });
 
@@ -101,6 +134,7 @@ export function GuestBookingTracking() {
       const response = await trackBooking({ token: finalToken, email: finalEmail });
       setBooking(response.booking);
       setOrders(response.orders || []);
+      setBookingNumber("");
 
       toast({
         title: t("common.success"),
@@ -155,8 +189,17 @@ export function GuestBookingTracking() {
     }
   };
 
-  const formatStatus = (status: string) => String(status || "-").replace(/-/g, " ");
-  const formatDate = (value?: string | Date) => (value ? new Date(value).toLocaleString("de-DE") : "-");
+  const locale = i18n.language?.toLowerCase().startsWith("de") ? "de-DE" : "en-US";
+  const currencyFormatter = useMemo(
+    () => new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }),
+    [locale]
+  );
+
+  const formatStatus = (status: string) =>
+    t(`orderTracking.statuses.${status}`, {
+      defaultValue: String(status || "-").replace(/-/g, " "),
+    });
+  const formatDate = (value?: string | Date) => (value ? new Date(value).toLocaleString(locale) : "-");
 
   const totalOrders = booking?.totalOrders || orders.length;
   const totalCost = typeof booking?.totalCost === "number" ? booking.totalCost : 0;
@@ -167,20 +210,169 @@ export function GuestBookingTracking() {
     [orders]
   );
 
+  const selectedCommunication = selectedOrderForCommunication
+    ? communicationByOrderId[selectedOrderForCommunication._id] || null
+    : null;
+
+  const canGuestWriteMessage = useMemo(() => {
+    if (!selectedCommunication) {
+      return false;
+    }
+
+    const hasInboundMessage = (selectedCommunication.messages || []).some(
+      (message) => message.senderType === "staff" || message.senderType === "system"
+    );
+
+    return hasInboundMessage
+      || (selectedCommunication.pendingFeedbackCount || 0) > 0
+      || (selectedCommunication.pendingActionsCount || 0) > 0;
+  }, [selectedCommunication]);
+
+  const loadCommunication = async (orderId: string) => {
+    try {
+      setCommunicationLoading(true);
+      const response = await getGuestBookingOrderCommunication(orderId, trackAccess);
+      setCommunicationByOrderId((previous) => ({
+        ...previous,
+        [orderId]: response.communication,
+      }));
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message || t("orderTracking.communication.loadFailed", { defaultValue: "Communication could not be loaded." }),
+        variant: "destructive",
+      });
+    } finally {
+      setCommunicationLoading(false);
+    }
+  };
+
+  const openCommunicationDialog = async (order: TrackedOrder) => {
+    setSelectedOrderForCommunication(order);
+    setCommunicationDialogOpen(true);
+    setGuestMessage("");
+    setRespondingToMessageId(null);
+    setPendingOption(null);
+    await loadCommunication(order._id);
+  };
+
+  const handleGuestMessageSend = async () => {
+    if (!selectedOrderForCommunication || !guestMessage.trim() || !canGuestWriteMessage) {
+      return;
+    }
+
+    try {
+      setSendingGuestMessage(true);
+      const response = await sendGuestBookingOrderMessage(
+        selectedOrderForCommunication._id,
+        trackAccess,
+        guestMessage.trim()
+      );
+
+      setCommunicationByOrderId((previous) => ({
+        ...previous,
+        [selectedOrderForCommunication._id]: response.communication,
+      }));
+      setGuestMessage("");
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message || t("orderTracking.communication.sendFailed", { defaultValue: "Message could not be sent." }),
+        variant: "destructive",
+      });
+    } finally {
+      setSendingGuestMessage(false);
+    }
+  };
+
+  const handleFeedbackResponse = async (messageId: string, responseOption: { label: string; value: string }) => {
+    if (!selectedOrderForCommunication) {
+      return;
+    }
+
+    try {
+      setActionBusyId(messageId);
+      const response = await respondGuestBookingOrderFeedback(
+        selectedOrderForCommunication._id,
+        messageId,
+        responseOption,
+        trackAccess
+      );
+
+      setCommunicationByOrderId((previous) => ({
+        ...previous,
+        [selectedOrderForCommunication._id]: response.communication,
+      }));
+      setRespondingToMessageId(null);
+      setPendingOption(null);
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message || t("orderTracking.communication.respondFailed", { defaultValue: "Feedback response failed." }),
+        variant: "destructive",
+      });
+    } finally {
+      setActionBusyId(null);
+    }
+  };
+
+  const handleQuickActionComplete = async (messageId: string) => {
+    if (!selectedOrderForCommunication) {
+      return;
+    }
+
+    try {
+      setActionBusyId(messageId);
+      const response = await completeGuestBookingOrderAction(selectedOrderForCommunication._id, messageId, trackAccess);
+      setCommunicationByOrderId((previous) => ({
+        ...previous,
+        [selectedOrderForCommunication._id]: response.communication,
+      }));
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message || t("orderTracking.communication.completeFailed", { defaultValue: "Action could not be completed." }),
+        variant: "destructive",
+      });
+    } finally {
+      setActionBusyId(null);
+    }
+  };
+
+  const getPendingCommunicationCount = (orderId: string) => {
+    const communication = communicationByOrderId[orderId];
+    if (!communication) {
+      return 0;
+    }
+
+    return Number(communication.pendingFeedbackCount || 0) + Number(communication.pendingActionsCount || 0);
+  };
+
   return (
     <div className="min-h-[calc(100vh-100px)] bg-slate-50">
-      <div className="container max-w-6xl py-10">
+      <div className="container max-w-6xl py-6 sm:py-10">
         <div className="mb-8">
-          <Link
-            to="/"
-            className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition-colors hover:text-[#1a2a5e]"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            {t("common.back")}
-          </Link>
+          <div className="mb-6 w-full overflow-hidden rounded-[18px] border-b border-[#2a3f7e] bg-gradient-to-br from-[#1a2a5e] to-[#0f1d45] px-6 py-8 text-white max-[480px]:rounded-[12px] max-[480px]:px-3 max-[360px]:px-[10px] max-[360px]:py-5">
+            <Link
+              to="/"
+              className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-white/80 transition-colors hover:text-[#f5b800]"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              {t("common.back")}
+            </Link>
 
-          <h1 className="text-3xl font-bold tracking-tight text-[#1a2a5e]">{t("orderTracking.trackBooking")}</h1>
-          <p className="mt-2 text-slate-600">{t("orderTracking.trackBookingDescription")}</p>
+            <div className="flex items-start gap-4 sm:items-center max-[480px]:gap-[10px]">
+              <FileText className="h-11 w-11 flex-shrink-0 text-[#f5b800] max-[480px]:h-8 max-[480px]:w-8" />
+              <div>
+                <h1 className="m-0 text-[2rem] font-extrabold leading-[1.2] tracking-[-0.5px] break-words max-[480px]:text-[1.1rem] max-[360px]:text-[1rem]">
+                  {t("orderTracking.trackBooking")}
+                </h1>
+                <p className="mt-1 text-[0.95rem] leading-[1.35] text-white/85 max-[480px]:text-[0.76rem] max-[360px]:text-[0.72rem]">
+                  {t("orderTracking.trackBookingDescription")}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {!booking && (
@@ -243,7 +435,7 @@ export function GuestBookingTracking() {
 
         {booking && (
           <div className="space-y-6">
-            <Card className="border-none bg-white shadow-lg">
+            <Card className="border-none bg-white shadow-lg overflow-hidden">
               <CardHeader className="gap-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -276,7 +468,7 @@ export function GuestBookingTracking() {
                   </div>
                   <div className="rounded-xl border border-slate-200 bg-white p-4">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("orderTracking.totalCost")}</p>
-                    <p className="mt-1 text-2xl font-bold text-[#1a2a5e]">€{totalCost.toFixed(2)}</p>
+                    <p className="mt-1 text-2xl font-bold text-[#1a2a5e]">{currencyFormatter.format(totalCost)}</p>
                   </div>
                   <div className="rounded-xl border border-slate-200 bg-white p-4">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("orderTracking.bookingSummary")}</p>
@@ -345,7 +537,7 @@ export function GuestBookingTracking() {
                           {index < booking.timeline.length - 1 && (
                             <div className="absolute left-1 top-4 h-[calc(100%+8px)] w-px bg-slate-200" />
                           )}
-                          <p className="text-sm font-semibold text-slate-800">{event.status}</p>
+                          <p className="text-sm font-semibold text-slate-800">{formatStatus(String(event?.status || ""))}</p>
                           <p className="text-sm text-slate-600">{event.description}</p>
                           <p className="text-xs text-slate-500">{formatDate(event.completedAt)}</p>
                         </div>
@@ -363,6 +555,8 @@ export function GuestBookingTracking() {
                     setOrders([]);
                     setEmail("");
                     setToken("");
+                    setBookingNumber("");
+                    setCommunicationByOrderId({});
                   }}
                 >
                   {t("orderTracking.trackAnotherBooking")}
@@ -383,9 +577,9 @@ export function GuestBookingTracking() {
                       className="rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-[#f5b800]"
                     >
                       <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                          <p className="text-base font-semibold text-slate-900">{order.orderNumber}</p>
-                          <p className="text-sm text-slate-600">{order.deviceBrand} {order.deviceModel}</p>
+                        <div className="min-w-0">
+                          <p className="text-base font-semibold text-slate-900 break-all">{order.orderNumber}</p>
+                          <p className="text-sm text-slate-600 break-words">{order.deviceBrand} {order.deviceModel}</p>
                         </div>
                         <Badge className={`border ${statusStyle(order.status)} inline-flex items-center gap-1.5`}>
                           {statusIcon(order.status)}
@@ -407,7 +601,7 @@ export function GuestBookingTracking() {
                           {order.services.map((service: any, index: number) => (
                             <div key={`${order._id}-service-${index}`} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
                               <span className="text-slate-700">{service?.serviceId?.name || t("common.service")}</span>
-                              <span className="font-semibold text-[#1a2a5e]">€{Number(service?.price || 0).toFixed(2)}</span>
+                              <span className="font-semibold text-[#1a2a5e]">{currencyFormatter.format(Number(service?.price || 0))}</span>
                             </div>
                           ))}
                         </div>
@@ -415,8 +609,22 @@ export function GuestBookingTracking() {
 
                       <div className="flex items-center justify-between border-t border-slate-100 pt-3">
                         <span className="text-sm font-semibold text-slate-700">{t("orderTracking.totalCost")}</span>
-                        <span className="text-lg font-bold text-[#1a2a5e]">€{Number(order.totalCost || 0).toFixed(2)}</span>
+                        <span className="text-lg font-bold text-[#1a2a5e]">{currencyFormatter.format(Number(order.totalCost || 0))}</span>
                       </div>
+
+                      <Button
+                        variant="outline"
+                        className="mt-3 w-full border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white"
+                        onClick={() => openCommunicationDialog(order)}
+                      >
+                        <MessageSquare className="mr-2 h-4 w-4" />
+                        {t("orderTracking.communication.open", { defaultValue: "Open communication" })}
+                        {getPendingCommunicationCount(order._id) > 0 && (
+                          <span className="ml-2 inline-flex min-w-[18px] items-center justify-center rounded-full bg-[#f5b800] px-1.5 py-0.5 text-[11px] font-bold text-[#1a2a5e]">
+                            {getPendingCommunicationCount(order._id)}
+                          </span>
+                        )}
+                      </Button>
                     </div>
                   ))}
                 </CardContent>
@@ -425,6 +633,201 @@ export function GuestBookingTracking() {
           </div>
         )}
       </div>
+
+      <Dialog
+        open={communicationDialogOpen && !!selectedOrderForCommunication}
+        onOpenChange={(isOpen) => {
+          setCommunicationDialogOpen(isOpen);
+          if (!isOpen) {
+            setGuestMessage("");
+            setRespondingToMessageId(null);
+            setPendingOption(null);
+            setSelectedOrderForCommunication(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-[95vw] sm:max-w-3xl my-0 sm:my-3 max-h-dvh sm:max-h-[92vh] p-0 gap-0 overflow-hidden border-none rounded-[16px] sm:rounded-[24px] shadow-[0_20px_60px_rgba(26,42,94,0.3)] flex flex-col [&>button]:hidden">
+          {selectedOrderForCommunication && (
+            <>
+              <DialogHeader className="relative overflow-hidden flex-shrink-0 px-4 py-4 sm:px-6 sm:py-5 pr-12 bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e]">
+                <DialogTitle className="text-[#f5b800] font-extrabold tracking-tight text-[clamp(1rem,3vw,1.35rem)] break-all">
+                  {t("orderTracking.communication.title", { defaultValue: "Customer communication" })}
+                </DialogTitle>
+                <DialogDescription className="text-white/85 text-xs sm:text-sm">
+                  {selectedOrderForCommunication.orderNumber} • {selectedOrderForCommunication.deviceBrand} {selectedOrderForCommunication.deviceModel}
+                </DialogDescription>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Badge className={`border ${statusStyle(selectedOrderForCommunication.status)} inline-flex items-center gap-1.5`}>
+                    {statusIcon(selectedOrderForCommunication.status)}
+                    {formatStatus(selectedOrderForCommunication.status)}
+                  </Badge>
+                  <span className="inline-flex items-center rounded-full border border-white/30 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
+                    {selectedCommunication?.pendingFeedbackCount || 0} {t("orderTracking.communication.pendingFeedback", { defaultValue: "pending feedback" })}
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-white/30 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
+                    {selectedCommunication?.pendingActionsCount || 0} {t("orderTracking.communication.pendingActions", { defaultValue: "pending actions" })}
+                  </span>
+                </div>
+              </DialogHeader>
+
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gradient-to-b from-white to-slate-50 p-3 sm:p-5">
+                {communicationLoading ? (
+                  <div className="text-sm text-slate-500">{t("common.loading")}</div>
+                ) : !selectedCommunication ? (
+                  <div className="rounded-xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-600">
+                    {t("orderTracking.communication.empty", { defaultValue: "No communication thread exists yet for this order." })}
+                  </div>
+                ) : selectedCommunication.messages.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-600">
+                    {t("orderTracking.communication.noMessages", { defaultValue: "No messages yet." })}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {selectedCommunication.messages.map((message) => (
+                      <div key={message._id} className="rounded-xl border border-slate-200 bg-white p-3">
+                        {(message.messageType === "text" || message.messageType === "system_notification") && (
+                          <>
+                            <div className="mb-1 flex items-center justify-between gap-2">
+                              <p className="text-sm font-semibold text-slate-800">{message.senderName}</p>
+                              <span className="text-[11px] text-slate-500">{formatDate(message.createdAt)}</span>
+                            </div>
+                            <p className="text-sm text-slate-700 break-words">{message.content}</p>
+                          </>
+                        )}
+
+                        {message.messageType === "feedback_request" && message.feedbackRequest && (
+                          <>
+                            <p className="text-sm font-semibold text-slate-900">{t("orderTracking.communication.feedbackRequired", { defaultValue: "Feedback required" })}</p>
+                            <p className="mt-1 text-sm text-slate-700">{message.feedbackRequest.question}</p>
+
+                            {message.feedbackRequest.status === "pending" && (
+                              <div className="mt-3 space-y-2">
+                                {respondingToMessageId === message._id ? (
+                                  <div className="rounded-lg bg-slate-50 p-3 text-sm">
+                                    <p className="mb-2 text-slate-700">
+                                      {t("orderTracking.communication.confirmSelection", { defaultValue: "Confirm selection" })}: <strong>{pendingOption?.label}</strong>
+                                    </p>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        size="sm"
+                                        className="bg-[#1a2a5e] hover:bg-[#2a3f7e]"
+                                        disabled={actionBusyId === message._id || !pendingOption}
+                                        onClick={() => pendingOption && handleFeedbackResponse(message._id, pendingOption)}
+                                      >
+                                        {t("common.confirm")}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          setRespondingToMessageId(null);
+                                          setPendingOption(null);
+                                        }}
+                                      >
+                                        {t("common.cancel")}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="grid gap-2">
+                                    {message.feedbackRequest.options.map((option) => (
+                                      <Button
+                                        key={option.value}
+                                        variant="outline"
+                                        className="justify-start"
+                                        disabled={actionBusyId === message._id}
+                                        onClick={() => {
+                                          setRespondingToMessageId(message._id);
+                                          setPendingOption(option);
+                                        }}
+                                      >
+                                        {option.label}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {message.feedbackRequest.status === "responded" && message.feedbackRequest.response && (
+                              <div className="mt-2 rounded-lg bg-emerald-50 p-2 text-xs font-medium text-emerald-800">
+                                {t("orderTracking.communication.response", { defaultValue: "Your response" })}: {message.feedbackRequest.response.label}
+                              </div>
+                            )}
+                          </>
+                        )}
+
+                        {message.messageType === "quick_action" && message.quickAction && (
+                          <>
+                            <p className="text-sm font-semibold text-slate-900">{t("orderTracking.communication.actionRequired", { defaultValue: "Action required" })}</p>
+                            <p className="mt-1 text-sm text-slate-700">{message.quickAction.actionLabel}</p>
+                            {message.quickAction.description && (
+                              <p className="mt-1 text-xs text-slate-500">{message.quickAction.description}</p>
+                            )}
+
+                            {message.quickAction.status === "pending" ? (
+                              <Button
+                                size="sm"
+                                className="mt-3 bg-[#1a2a5e] hover:bg-[#2a3f7e]"
+                                disabled={actionBusyId === message._id}
+                                onClick={() => handleQuickActionComplete(message._id)}
+                              >
+                                {t("orderTracking.communication.markCompleted", { defaultValue: "Mark as completed" })}
+                              </Button>
+                            ) : (
+                              <div className="mt-2 rounded-lg bg-emerald-50 p-2 text-xs font-medium text-emerald-800">
+                                {t("orderTracking.communication.actionCompleted", { defaultValue: "Action completed" })}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-slate-200 bg-slate-50 p-3 sm:p-4 space-y-2">
+                {canGuestWriteMessage ? (
+                  <>
+                    <div className="flex items-end gap-2">
+                      <textarea
+                        className="w-full resize-none rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1a2a5e]"
+                        placeholder={t("orderTracking.communication.messagePlaceholder", { defaultValue: "Write your message..." })}
+                        rows={2}
+                        value={guestMessage}
+                        onChange={(event) => setGuestMessage(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" && !event.shiftKey) {
+                            event.preventDefault();
+                            handleGuestMessageSend();
+                          }
+                        }}
+                      />
+                      <Button
+                        className="bg-[#1a2a5e] hover:bg-[#2a3f7e]"
+                        disabled={sendingGuestMessage || !guestMessage.trim()}
+                        onClick={handleGuestMessageSend}
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {t("orderTracking.communication.messageHint", { defaultValue: "You can reply because this order has an active request or inbound message." })}
+                    </p>
+                  </>
+                ) : (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                    {t("orderTracking.communication.waitForContact", {
+                      defaultValue: "Messaging is enabled once support contacts you or when a feedback/action request is pending.",
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

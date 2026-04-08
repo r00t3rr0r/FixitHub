@@ -2,6 +2,98 @@ const express = require('express');
 const router = express.Router();
 const Order = require('../models/Order');
 const Booking = require('../models/Booking');
+const User = require('../models/User');
+const InspectionCommunication = require('../models/InspectionCommunication');
+
+const normalizeGuestCommunication = (communication) => {
+  if (!communication) {
+    return null;
+  }
+
+  const sortedMessages = [...(communication.messages || [])].sort((a, b) => {
+    const dateA = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const dateB = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return dateA - dateB;
+  });
+
+  return {
+    _id: communication._id,
+    orderId: communication.orderId,
+    status: communication.status,
+    pendingFeedbackCount: communication.pendingFeedbackCount || 0,
+    pendingActionsCount: communication.pendingActionsCount || 0,
+    lastMessageAt: communication.lastMessageAt || communication.updatedAt,
+    createdAt: communication.createdAt,
+    updatedAt: communication.updatedAt,
+    messages: sortedMessages,
+  };
+};
+
+const resolveGuestBookingContext = async ({ token, bookingNumber, email, orderId }) => {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (!normalizedEmail) {
+    throw new Error('Email is required');
+  }
+
+  let booking = null;
+  if (token) {
+    booking = await Booking.findOne({ guestTrackingToken: String(token).trim() }).lean();
+  } else if (bookingNumber) {
+    booking = await Booking.findOne({ bookingNumber: String(bookingNumber).trim() }).lean();
+  } else {
+    throw new Error('Tracking token or booking number is required');
+  }
+
+  if (!booking) {
+    throw new Error('Booking not found');
+  }
+
+  let bookingEmail = booking.guestInfo?.email;
+  if (!bookingEmail && booking.customerId) {
+    const customer = await User.findById(booking.customerId).select('email').lean();
+    bookingEmail = customer?.email;
+  }
+
+  if (!bookingEmail || bookingEmail.toLowerCase() !== normalizedEmail) {
+    throw new Error('Email does not match booking records');
+  }
+
+  const bookingOrderIds = (booking.orderIds || []).map((id) => id.toString());
+  if (!bookingOrderIds.includes(orderId.toString())) {
+    throw new Error('Order does not belong to booking');
+  }
+
+  const order = await Order.findById(orderId)
+    .select('_id orderNumber deviceBrand deviceModel guestInfo customerId')
+    .lean();
+
+  if (!order) {
+    throw new Error('Order not found');
+  }
+
+  const guestName = `${order?.guestInfo?.firstName || ''} ${order?.guestInfo?.lastName || ''}`.trim() || 'Guest Customer';
+
+  return {
+    booking,
+    order,
+    guestName,
+    guestEmail: normalizedEmail,
+  };
+};
+
+const canGuestSendMessage = (communication) => {
+  if (!communication) {
+    return false;
+  }
+
+  const hasStaffOrSystemMessage = (communication.messages || []).some(
+    (message) => message?.senderType === 'staff' || message?.senderType === 'system'
+  );
+
+  return hasStaffOrSystemMessage
+    || (communication.pendingFeedbackCount || 0) > 0
+    || (communication.pendingActionsCount || 0) > 0;
+};
 
 // Description: Track guest order using tracking token and email
 // Endpoint: GET /api/track-order
@@ -254,6 +346,180 @@ router.get('/by-number', async (req, res) => {
       success: false,
       error: error.message
     });
+  }
+});
+
+// Description: Get booking communication thread for a specific order as guest
+// Endpoint: GET /api/track-order/booking/:orderId/communication
+// Query Params: email + (token OR bookingNumber)
+// Response: { success: boolean, communication: InspectionCommunication | null }
+router.get('/booking/:orderId/communication', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { token, bookingNumber, email } = req.query;
+
+    await resolveGuestBookingContext({ token, bookingNumber, email, orderId });
+
+    const communication = await InspectionCommunication.findOne({ orderId }).lean();
+
+    res.json({
+      success: true,
+      communication: normalizeGuestCommunication(communication),
+    });
+  } catch (error) {
+    const message = error?.message || 'Failed to load communication';
+    const statusCode = /required/i.test(message) ? 400 : /not found|does not belong|does not match/i.test(message) ? 404 : 500;
+    res.status(statusCode).json({ success: false, error: message });
+  }
+});
+
+// Description: Send guest message to booking communication thread (only when inbound communication exists)
+// Endpoint: POST /api/track-order/booking/:orderId/communication/message
+// Body: { email, token?, bookingNumber?, content }
+// Response: { success: boolean, communication: InspectionCommunication }
+router.post('/booking/:orderId/communication/message', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { token, bookingNumber, email, content } = req.body || {};
+
+    if (!content || !String(content).trim()) {
+      return res.status(400).json({ success: false, error: 'Message content is required' });
+    }
+
+    const { guestName, guestEmail } = await resolveGuestBookingContext({ token, bookingNumber, email, orderId });
+
+    const communication = await InspectionCommunication.findOne({ orderId });
+    if (!canGuestSendMessage(communication)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Guest messages are enabled after staff contact or when feedback/action is pending',
+      });
+    }
+
+    communication.messages.push({
+      senderType: 'customer',
+      senderName: guestName,
+      senderRole: 'guest',
+      messageType: 'text',
+      content: String(content).trim(),
+      metadata: {
+        guestEmail,
+      },
+      readBy: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    communication.lastMessageAt = new Date();
+    await communication.save();
+
+    const updatedCommunication = await InspectionCommunication.findById(communication._id).lean();
+
+    res.status(201).json({
+      success: true,
+      communication: normalizeGuestCommunication(updatedCommunication),
+    });
+  } catch (error) {
+    const message = error?.message || 'Failed to send message';
+    const statusCode = /required/i.test(message) ? 400 : /not found|does not belong|does not match/i.test(message) ? 404 : 500;
+    res.status(statusCode).json({ success: false, error: message });
+  }
+});
+
+// Description: Respond to pending feedback as guest
+// Endpoint: POST /api/track-order/booking/:orderId/communication/feedback-response
+// Body: { email, token?, bookingNumber?, messageId, response: { label, value } }
+// Response: { success: boolean, communication: InspectionCommunication }
+router.post('/booking/:orderId/communication/feedback-response', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { token, bookingNumber, email, messageId, response } = req.body || {};
+
+    if (!messageId || !response || !response.value) {
+      return res.status(400).json({ success: false, error: 'messageId and response are required' });
+    }
+
+    const { guestEmail } = await resolveGuestBookingContext({ token, bookingNumber, email, orderId });
+
+    const communication = await InspectionCommunication.findOne({ orderId });
+    if (!communication) {
+      return res.status(404).json({ success: false, error: 'Communication thread not found' });
+    }
+
+    const targetMessage = communication.messages.find((message) => message?._id?.toString() === String(messageId));
+    if (!targetMessage || !targetMessage.feedbackRequest) {
+      return res.status(404).json({ success: false, error: 'Feedback request not found' });
+    }
+
+    if (targetMessage.feedbackRequest.status !== 'pending') {
+      return res.status(409).json({ success: false, error: 'Feedback request already answered' });
+    }
+
+    targetMessage.feedbackRequest.response = response;
+    targetMessage.feedbackRequest.respondedAt = new Date();
+    targetMessage.feedbackRequest.status = 'responded';
+    targetMessage.metadata = {
+      ...(targetMessage.metadata || {}),
+      guestResponderEmail: guestEmail,
+    };
+
+    communication.pendingFeedbackCount = Math.max(0, (communication.pendingFeedbackCount || 0) - 1);
+    communication.lastMessageAt = new Date();
+    await communication.save();
+
+    const updatedCommunication = await InspectionCommunication.findById(communication._id).lean();
+
+    res.json({
+      success: true,
+      communication: normalizeGuestCommunication(updatedCommunication),
+    });
+  } catch (error) {
+    const message = error?.message || 'Failed to respond to feedback';
+    const statusCode = /required/i.test(message) ? 400 : /not found|does not belong|does not match/i.test(message) ? 404 : 500;
+    res.status(statusCode).json({ success: false, error: message });
+  }
+});
+
+// Description: Complete pending quick action as guest
+// Endpoint: PUT /api/track-order/booking/:orderId/communication/quick-action/:messageId/complete
+// Body: { email, token?, bookingNumber? }
+// Response: { success: boolean, communication: InspectionCommunication }
+router.put('/booking/:orderId/communication/quick-action/:messageId/complete', async (req, res) => {
+  try {
+    const { orderId, messageId } = req.params;
+    const { token, bookingNumber, email } = req.body || {};
+
+    await resolveGuestBookingContext({ token, bookingNumber, email, orderId });
+
+    const communication = await InspectionCommunication.findOne({ orderId });
+    if (!communication) {
+      return res.status(404).json({ success: false, error: 'Communication thread not found' });
+    }
+
+    const targetMessage = communication.messages.find((message) => message?._id?.toString() === String(messageId));
+    if (!targetMessage || !targetMessage.quickAction) {
+      return res.status(404).json({ success: false, error: 'Quick action not found' });
+    }
+
+    if (targetMessage.quickAction.status !== 'pending') {
+      return res.status(409).json({ success: false, error: 'Quick action already completed' });
+    }
+
+    targetMessage.quickAction.status = 'completed';
+    targetMessage.quickAction.completedAt = new Date();
+    communication.pendingActionsCount = Math.max(0, (communication.pendingActionsCount || 0) - 1);
+    communication.lastMessageAt = new Date();
+    await communication.save();
+
+    const updatedCommunication = await InspectionCommunication.findById(communication._id).lean();
+
+    res.json({
+      success: true,
+      communication: normalizeGuestCommunication(updatedCommunication),
+    });
+  } catch (error) {
+    const message = error?.message || 'Failed to complete action';
+    const statusCode = /required/i.test(message) ? 400 : /not found|does not belong|does not match/i.test(message) ? 404 : 500;
+    res.status(statusCode).json({ success: false, error: message });
   }
 });
 

@@ -90,6 +90,47 @@ export interface BookingNumberTrackingData {
   email: string;
 }
 
+export interface GuestTrackingAccess {
+  token?: string;
+  bookingNumber?: string;
+  email: string;
+}
+
+export interface GuestCommunicationMessage {
+  _id: string;
+  senderType: 'staff' | 'customer' | 'system';
+  senderName: string;
+  senderRole?: string;
+  messageType: 'text' | 'feedback_request' | 'quick_action' | 'system_notification' | 'repair_offer';
+  content: string;
+  feedbackRequest?: {
+    question: string;
+    options: Array<{ label: string; value: string }>;
+    response?: { label: string; value: string };
+    respondedAt?: string;
+    status: 'pending' | 'responded' | 'expired';
+  };
+  quickAction?: {
+    actionType: string;
+    actionLabel: string;
+    description?: string;
+    status: 'pending' | 'completed' | 'cancelled';
+    createdAt: string;
+    completedAt?: string;
+  };
+  createdAt: string;
+}
+
+export interface GuestOrderCommunication {
+  _id: string;
+  orderId: string;
+  status: 'active' | 'archived' | 'resolved';
+  pendingFeedbackCount: number;
+  pendingActionsCount: number;
+  lastMessageAt?: string;
+  messages: GuestCommunicationMessage[];
+}
+
 export const trackBookingByNumber = async (data: BookingNumberTrackingData): Promise<BookingTrackingResponse> => {
   try {
     const response = await api.get('/api/track-order/by-number', {
@@ -97,6 +138,79 @@ export const trackBookingByNumber = async (data: BookingNumberTrackingData): Pro
         bookingNumber: data.bookingNumber,
         email: data.email
       }
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export const getGuestBookingOrderCommunication = async (
+  orderId: string,
+  access: GuestTrackingAccess
+): Promise<{ success: boolean; communication: GuestOrderCommunication | null }> => {
+  try {
+    const response = await api.get(`/api/track-order/booking/${orderId}/communication`, {
+      params: {
+        token: access.token,
+        bookingNumber: access.bookingNumber,
+        email: access.email,
+      },
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export const sendGuestBookingOrderMessage = async (
+  orderId: string,
+  access: GuestTrackingAccess,
+  content: string
+): Promise<{ success: boolean; communication: GuestOrderCommunication }> => {
+  try {
+    const response = await api.post(`/api/track-order/booking/${orderId}/communication/message`, {
+      token: access.token,
+      bookingNumber: access.bookingNumber,
+      email: access.email,
+      content,
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export const respondGuestBookingOrderFeedback = async (
+  orderId: string,
+  messageId: string,
+  selectedResponse: { label: string; value: string },
+  access: GuestTrackingAccess
+): Promise<{ success: boolean; communication: GuestOrderCommunication }> => {
+  try {
+    const response = await api.post(`/api/track-order/booking/${orderId}/communication/feedback-response`, {
+      token: access.token,
+      bookingNumber: access.bookingNumber,
+      email: access.email,
+      messageId,
+      response: selectedResponse,
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export const completeGuestBookingOrderAction = async (
+  orderId: string,
+  messageId: string,
+  access: GuestTrackingAccess
+): Promise<{ success: boolean; communication: GuestOrderCommunication }> => {
+  try {
+    const response = await api.put(`/api/track-order/booking/${orderId}/communication/quick-action/${messageId}/complete`, {
+      token: access.token,
+      bookingNumber: access.bookingNumber,
+      email: access.email,
     });
     return response.data;
   } catch (error: any) {
