@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { ClipboardCheck, Phone, MapPin, Wrench } from 'lucide-react'
 import { McRepairNav } from '@/components/home/McRepairNav'
+import { Footer } from '@/components/Footer'
 import { VorabdiagnoseWizard } from '@/components/VorabdiagnoseWizard'
 
 export function Vorabdiagnose() {
@@ -64,6 +65,8 @@ export function Vorabdiagnose() {
           </div>
         </div>
       </section>
+
+      <Footer />
     </>
   )
 }
