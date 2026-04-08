@@ -131,6 +131,8 @@ console.log('Loading admin analytics routes...');
 const adminAnalyticsRoutes = require("./routes/adminAnalyticsRoutes");
 console.log('Loading customer group routes...');
 const customerGroupRoutes = require("./routes/customerGroupRoutes");
+console.log('Loading contact routes...');
+const contactRoutes = require("./routes/contactRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -392,6 +394,8 @@ app.use('/api/system-config', systemConfigRoutes);
 app.use('/api/admin/financial', financialRoutes);
 // Customer Group Management Routes
 app.use('/api/admin/customer-groups', customerGroupRoutes);
+// Contact Routes (Public - no authentication required)
+app.use('/api/contact', contactRoutes);
 // Database Management Routes
 app.use('/api/database', databaseRoutes);
 // Security Routes

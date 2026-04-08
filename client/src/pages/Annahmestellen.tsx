@@ -5,6 +5,7 @@ import { MapPin, Search, Map, List, Home, ChevronRight, Shield, Clock, MapPinned
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { McRepairNav } from '@/components/home/McRepairNav'
+import { Footer } from '@/components/Footer'
 import { LOCATIONS, type LocationData } from '@/data/annahmestellenData'
 
 const ZOOM_LABEL_THRESHOLD = 9
@@ -469,6 +470,8 @@ export function Annahmestellen() {
           </div>
         </div>
       </section>
+
+      <Footer />
     </>
   )
 }

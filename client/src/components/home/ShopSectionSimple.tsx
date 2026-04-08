@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { getProducts, Product, addToCart } from '@/api/shop';
 import { ShoppingCart, Package, Eye, Plus, Star } from 'lucide-react';
 import {
@@ -13,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/useToast";
 
 export function ShopSection() {
+  const { t, i18n } = useTranslation();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -41,7 +43,9 @@ export function ShopSection() {
   };
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('de-DE', {
+    const locale = i18n.language?.startsWith('de') ? 'de-DE' : 'en-GB';
+
+    return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: 'EUR'
     }).format(price);
@@ -60,14 +64,14 @@ export function ShopSection() {
       window.dispatchEvent(new Event('cartUpdated'));
       
       toast({
-        title: "Erfolgreich!",
-        description: "Produkt zum Warenkorb hinzugefügt",
+        title: t('home.shop.addedToCartTitle'),
+        description: t('home.shop.addedToCartDescription'),
       });
     } catch (error) {
       console.error("Error adding to cart:", error);
       toast({
-        title: "Fehler",
-        description: error.message || "Produkt konnte nicht hinzugefügt werden",
+        title: t('home.shop.addToCartErrorTitle'),
+        description: error.message || t('home.shop.addToCartErrorDescription'),
         variant: "destructive"
       });
     } finally {
@@ -85,8 +89,8 @@ export function ShopSection() {
   return (
     <div className="container">
       <div className="section-title">
-        <h2>Passendes Zubehör zu deinem Gerät</h2>
-        <p>Schütze dein Gerät nach der Reparatur</p>
+        <h2>{t('home.shop.title')}</h2>
+        <p>{t('home.shop.subtitle')}</p>
         <div className="accent-line"></div>
       </div>
 
@@ -131,10 +135,10 @@ export function ShopSection() {
                       </svg>
                     )}
                     {product.originalPrice && product.originalPrice > product.price && (
-                      <span className="shop-badge">Sale</span>
+                      <span className="shop-badge">{t('home.shop.saleBadge')}</span>
                     )}
                     {!product.originalPrice && product.stockCount < 10 && (
-                      <span className="shop-badge">Neu</span>
+                      <span className="shop-badge">{t('home.shop.newBadge')}</span>
                     )}
                   </div>
                 </Link>
@@ -153,21 +157,21 @@ export function ShopSection() {
                       onClick={(e) => handleAddToCart(product._id, e)}
                       disabled={!product.inStock || addingToCart === product._id}
                       className="btn-add-to-cart"
-                      title="In den Warenkorb"
+                      title={t('home.shop.cartButtonTitle')}
                     >
                       {addingToCart === product._id ? (
                         <div className="btn-spinner"></div>
                       ) : (
                         <>
                           <ShoppingCart size={16} />
-                          <span>In den Warenkorb</span>
+                          <span>{t('home.shop.addToCart')}</span>
                         </>
                       )}
                     </button>
                     <button
                       onClick={(e) => handleQuickView(product, e)}
                       className="btn-quick-view"
-                      title="Details ansehen"
+                      title={t('home.shop.quickViewTitle')}
                     >
                       <Eye size={16} />
                     </button>
@@ -187,16 +191,14 @@ export function ShopSection() {
               }}
             >
               <ShoppingCart size={18} />
-              Alle Produkte ansehen
+              {t('home.shop.viewAllButton')}
             </Link>
           </div>
         </>
       ) : (
         <div style={{ textAlign: 'center', padding: '48px 0' }}>
           <Package className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-          <p style={{ color: 'var(--gray-500)' }}>
-            Derzeit sind keine Produkte verfügbar.
-          </p>
+          <p style={{ color: 'var(--gray-500)' }}>{t('home.shop.noProducts')}</p>
         </div>
       )}
 
@@ -225,7 +227,7 @@ export function ShopSection() {
                     />
                     {selectedProduct.originalPrice && selectedProduct.originalPrice > selectedProduct.price && (
                       <Badge className="absolute top-3 left-3 bg-red-500 border-0 text-xs px-3 py-1">
-                        Sale - {formatPrice(selectedProduct.originalPrice - selectedProduct.price)} sparen
+                        {t('home.shop.quickViewSaveBadge', { amount: formatPrice(selectedProduct.originalPrice - selectedProduct.price) })}
                       </Badge>
                     )}
                   </div>
@@ -237,7 +239,7 @@ export function ShopSection() {
                         <img
                           key={index}
                           src={image}
-                          alt={`${selectedProduct.name} Ansicht ${index + 1}`}
+                          alt={t('home.shop.additionalImageAlt', { name: selectedProduct.name, index: index + 1 })}
                           className="w-full h-16 object-cover rounded border cursor-pointer hover:border-yellow-500 transition-colors"
                           style={{ borderColor: 'var(--gray-200)' }}
                         />
@@ -263,7 +265,7 @@ export function ShopSection() {
                       ))}
                     </div>
                     <span className="text-sm font-medium" style={{ color: 'var(--gray-700)' }}>
-                      {selectedProduct.rating.toFixed(1)} ({selectedProduct.reviewCount} Bewertungen)
+                      {t('home.shop.ratingLabel', { rating: selectedProduct.rating.toFixed(1), count: selectedProduct.reviewCount })}
                     </span>
                   </div>
 
@@ -283,18 +285,18 @@ export function ShopSection() {
                   <div>
                     {selectedProduct.inStock ? (
                       <Badge className="bg-green-500 text-white text-xs px-3 py-1">
-                        Auf Lager ({selectedProduct.stockCount} verfügbar)
+                        {t('home.shop.stockAvailable', { count: selectedProduct.stockCount })}
                       </Badge>
                     ) : (
                       <Badge variant="destructive" className="text-xs px-3 py-1">
-                        Nicht auf Lager
+                        {t('home.shop.stockUnavailable')}
                       </Badge>
                     )}
                   </div>
 
                   {/* Description */}
                   <div>
-                    <h3 className="font-bold text-sm mb-1.5" style={{ color: 'var(--gray-900)' }}>Beschreibung</h3>
+                    <h3 className="font-bold text-sm mb-1.5" style={{ color: 'var(--gray-900)' }}>{t('home.shop.description')}</h3>
                     <p className="text-xs leading-relaxed" style={{ color: 'var(--gray-700)' }}>
                       {selectedProduct.description}
                     </p>
@@ -303,7 +305,7 @@ export function ShopSection() {
                   {/* Features */}
                   {selectedProduct.features && selectedProduct.features.length > 0 && (
                     <div>
-                      <h3 className="font-bold text-sm mb-2" style={{ color: 'var(--gray-900)' }}>Hauptmerkmale</h3>
+                      <h3 className="font-bold text-sm mb-2" style={{ color: 'var(--gray-900)' }}>{t('home.shop.features')}</h3>
                       <div className="flex flex-wrap gap-1.5">
                         {selectedProduct.features.map((feature, index) => (
                           <Badge
@@ -326,11 +328,11 @@ export function ShopSection() {
                   {/* Category and Brand */}
                   <div className="grid grid-cols-2 gap-3 pt-1">
                     <div>
-                      <p className="text-xs mb-0.5" style={{ color: 'var(--gray-600)' }}>Kategorie</p>
+                      <p className="text-xs mb-0.5" style={{ color: 'var(--gray-600)' }}>{t('home.shop.category')}</p>
                       <p className="font-semibold text-sm" style={{ color: 'var(--gray-900)' }}>{selectedProduct.category}</p>
                     </div>
                     <div>
-                      <p className="text-xs mb-0.5" style={{ color: 'var(--gray-600)' }}>Marke</p>
+                      <p className="text-xs mb-0.5" style={{ color: 'var(--gray-600)' }}>{t('home.shop.brand')}</p>
                       <p className="font-semibold text-sm" style={{ color: 'var(--gray-900)' }}>{selectedProduct.brand}</p>
                     </div>
                   </div>
@@ -347,12 +349,12 @@ export function ShopSection() {
                     {addingToCart === selectedProduct._id ? (
                       <span className="flex items-center gap-2">
                         <div className="btn-spinner-dialog"></div>
-                        Wird hinzugefügt...
+                        {t('home.shop.addingToCart')}
                       </span>
                     ) : (
                       <>
                         <ShoppingCart className="h-4 w-4" />
-                        In den Warenkorb
+                        {t('home.shop.addToCart')}
                       </>
                     )}
                   </button>

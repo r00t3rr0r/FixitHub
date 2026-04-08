@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { getBlogPosts, type BlogPost } from '@/api/blog';
 
 export function BlogSection() {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +34,9 @@ export function BlogSection() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('de-DE', {
+    const locale = i18n.language?.startsWith('de') ? 'de-DE' : 'en-GB';
+
+    return date.toLocaleDateString(locale, {
       day: 'numeric',
       month: 'long',
       year: 'numeric'
@@ -43,8 +47,8 @@ export function BlogSection() {
     return (
       <div className="container">
         <div className="section-title">
-          <h2>Neueste Blogartikel</h2>
-          <p>Tipps & Wissenswertes rund um Ihr Gerät</p>
+          <h2>{t('home.blog.title')}</h2>
+          <p>{t('home.blog.subtitle')}</p>
           <div className="accent-line"></div>
         </div>
         <div className="blog-grid">
@@ -56,9 +60,9 @@ export function BlogSection() {
                 </svg>
               </div>
               <div className="blog-card-body">
-                <span className="blog-category">Laden...</span>
-                <h4>Blogartikel wird geladen...</h4>
-                <p>Bitte warten Sie einen Moment.</p>
+                <span className="blog-category">{t('home.blog.loadingCategory')}</span>
+                <h4>{t('home.blog.loadingTitle')}</h4>
+                <p>{t('home.blog.loadingDescription')}</p>
               </div>
             </div>
           ))}
@@ -71,8 +75,8 @@ export function BlogSection() {
     return (
       <div className="container">
         <div className="section-title">
-          <h2>Neueste Blogartikel</h2>
-          <p>Tipps & Wissenswertes rund um Ihr Gerät</p>
+          <h2>{t('home.blog.title')}</h2>
+          <p>{t('home.blog.subtitle')}</p>
           <div className="accent-line"></div>
         </div>
         <div className="blog-grid">
@@ -84,9 +88,9 @@ export function BlogSection() {
               </svg>
             </div>
             <div className="blog-card-body">
-              <span className="blog-category">Info</span>
-              <h4>Bald verfügbar</h4>
-              <p>Wir bereiten interessante Blogartikel für Sie vor.</p>
+              <span className="blog-category">{t('home.blog.emptyCategory')}</span>
+              <h4>{t('home.blog.emptyTitle')}</h4>
+              <p>{t('home.blog.emptyDescription')}</p>
             </div>
           </div>
         </div>
@@ -97,8 +101,8 @@ export function BlogSection() {
   return (
     <div className="container">
       <div className="section-title">
-        <h2>Neueste Blogartikel</h2>
-        <p>Tipps & Wissenswertes rund um Ihr Gerät</p>
+        <h2>{t('home.blog.title')}</h2>
+        <p>{t('home.blog.subtitle')}</p>
         <div className="accent-line"></div>
       </div>
       <div className="blog-grid">
@@ -121,7 +125,7 @@ export function BlogSection() {
               )}
             </div>
             <div className="blog-card-body">
-              <span className="blog-category">{post.category?.name || 'Allgemein'}</span>
+              <span className="blog-category">{post.category?.name || t('home.blog.defaultCategory')}</span>
               <h4>{post.title}</h4>
               <p>{post.excerpt}</p>
               <span className="blog-date">{formatDate(post.publishedAt || post.createdAt)}</span>

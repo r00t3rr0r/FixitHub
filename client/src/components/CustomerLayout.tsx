@@ -55,8 +55,8 @@ export function CustomerLayout() {
         <McRepairNav />
       </div>
 
-      {/* Main content area with padding for navbar and footer */}
-      <main className={`flex-1 overflow-y-auto ${isMyComplaintsPage ? "bg-white pt-0 pb-0" : "pt-6 pb-12"}`}>
+      {/* Main content area with consistent top spacing under header/nav */}
+      <main className={`flex-1 overflow-y-auto pt-6 ${isMyComplaintsPage ? "bg-white pb-0" : "pb-12"}`}>
         <div className={`${isMyComplaintsPage ? "w-full bg-white px-0" : isOrderDetailsPage ? "max-w-[1680px]" : "container"} mx-auto animate-slide-up ${isMyComplaintsPage ? "" : "px-4"}`}>
           <Outlet />
         </div>

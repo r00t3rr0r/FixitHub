@@ -11,6 +11,8 @@ import { Footer } from '@/components/Footer'
 import { CookieBanner } from '@/components/CookieBanner'
 import { MobileCTAFab } from '@/components/home/MobileCTAFab'
 import type { HomepageSection } from '@/api/homepage'
+import { useTranslation } from 'react-i18next'
+import { localizeHomepageValue, resolveHomepageField } from '@/lib/homepageLocalization'
 
 interface HomepagePreviewProps {
   sections: HomepageSection[]
@@ -23,6 +25,7 @@ interface HomepagePreviewProps {
  * with all components in their current design
  */
 export const HomepagePreview: React.FC<HomepagePreviewProps> = ({ sections, device = 'desktop', highlightedBlockId }) => {
+  const { i18n } = useTranslation()
   const toSafeSelectorSuffix = (value: string) => value.replace(/[^a-zA-Z0-9_-]/g, '_')
 
   const buildScopedCustomCss = (css: string | undefined, selector: string) => {
@@ -100,7 +103,8 @@ export const HomepagePreview: React.FC<HomepagePreviewProps> = ({ sections, devi
   }
 
   const getSectionKind = (section: HomepageSection) => {
-    const name = section.name?.toLowerCase() || ''
+    const localizedName = resolveHomepageField(section.name, section.nameTranslations, i18n.language, section.name) || ''
+    const name = localizedName.toLowerCase()
     const id = section._id?.toLowerCase() || ''
     const blockTypes = section.blocks?.map((block) => block.type) || []
 
@@ -191,7 +195,15 @@ export const HomepagePreview: React.FC<HomepagePreviewProps> = ({ sections, devi
   }
 
   const renderGenericBlock = (block: any, blockIdx: number) => {
-    const ctaText = block.content?.ctaText || block.content?.buttonText
+    const localizedContent = localizeHomepageValue(block.content, i18n.language) || {}
+    const localizedTitle = resolveHomepageField(block.title, block.titleTranslations, i18n.language, block.title)
+    const localizedHtml = resolveHomepageField(
+      localizedContent?.html,
+      block.settings?.customHTMLTranslations,
+      i18n.language,
+      localizedContent?.html
+    )
+    const ctaText = localizedContent?.ctaText || localizedContent?.buttonText
     const blockClassName = `hp-preview-block--${toSafeSelectorSuffix(String(block._id || `idx_${blockIdx}`))}`
     const blockScopedCss = buildScopedCustomCss(block.settings?.customCSS, `.${blockClassName}`)
     const isHighlighted = highlightedBlockId && block._id === highlightedBlockId
@@ -202,40 +214,40 @@ export const HomepagePreview: React.FC<HomepagePreviewProps> = ({ sections, devi
         className={`hp-preview-block ${blockClassName} ${isHighlighted ? 'hp-preview-block-highlighted' : ''}`}
         style={getBlockStyle(block)}
       >
-        {block.title && (
+        {localizedTitle && (
           <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', fontWeight: 600 }}>
-            {block.title}
+            {localizedTitle}
           </h3>
         )}
 
-        {block.content?.heading && (
+        {localizedContent?.heading && (
           <h4 style={{ margin: '8px 0', fontSize: '16px', fontWeight: 600 }}>
-            {block.content.heading}
+            {localizedContent.heading}
           </h4>
         )}
 
-        {block.content?.subheading && (
+        {localizedContent?.subheading && (
           <p style={{ margin: '8px 0', fontSize: '14px', lineHeight: '1.6', opacity: 0.9 }}>
-            {block.content.subheading}
+            {localizedContent.subheading}
           </p>
         )}
 
-        {block.content?.description && (
+        {localizedContent?.description && (
           <p style={{ margin: '8px 0', fontSize: '14px', lineHeight: '1.6' }}>
-            {block.content.description}
+            {localizedContent.description}
           </p>
         )}
 
-        {block.content?.text && (
+        {localizedContent?.text && (
           <p style={{ margin: '8px 0', fontSize: '14px', lineHeight: '1.6' }}>
-            {block.content.text}
+            {localizedContent.text}
           </p>
         )}
 
-        {block.content?.html && (
+        {localizedHtml && (
           <div
             style={{ marginTop: '12px' }}
-            dangerouslySetInnerHTML={{ __html: block.content.html }}
+            dangerouslySetInnerHTML={{ __html: localizedHtml }}
           />
         )}
 
@@ -262,15 +274,21 @@ export const HomepagePreview: React.FC<HomepagePreviewProps> = ({ sections, devi
 
   const renderSectionContent = (section: HomepageSection) => {
     const sectionKind = getSectionKind(section)
+    const localizedCustomHtml = resolveHomepageField(
+      section.settings?.customHTML,
+      section.settings?.customHTMLTranslations,
+      i18n.language,
+      section.settings?.customHTML
+    )
 
-    if (typeof section.settings?.customHTML === 'string' && section.settings.customHTML.trim().length > 0) {
+    if (typeof localizedCustomHtml === 'string' && localizedCustomHtml.trim().length > 0) {
       return (
         <div
           className="container"
           style={{
             maxWidth: section.settings?.maxWidth || '1200px',
           }}
-          dangerouslySetInnerHTML={{ __html: section.settings.customHTML }}
+          dangerouslySetInnerHTML={{ __html: localizedCustomHtml }}
         />
       )
     }

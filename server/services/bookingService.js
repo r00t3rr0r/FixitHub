@@ -409,6 +409,11 @@ class BookingService {
       // Send booking created notification email asynchronously
       setImmediate(async () => {
         try {
+          const isGuestBooking = Boolean(bookingData?.guestInfo?.isGuest);
+          if (isGuestBooking) {
+            return;
+          }
+
           let customerEmail = bookingData?.guestInfo?.email || '';
           let customerName = `${bookingData?.guestInfo?.firstName || ''} ${bookingData?.guestInfo?.lastName || ''}`.trim();
 

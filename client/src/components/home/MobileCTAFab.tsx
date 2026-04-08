@@ -71,6 +71,7 @@ export function MobileCTAFab() {
       className={`mobile-cta-fab ${visible ? 'visible' : ''} ${
         positionTop ? 'position-top' : 'position-bottom'
       }`}
+      aria-label={t('home.nav.bookRepair')}
     >
       <Wrench width={16} height={16} />
       <span>{t('home.nav.bookRepair', 'Reparatur buchen')}</span>

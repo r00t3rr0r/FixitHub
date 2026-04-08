@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Bell,
   BookOpen,
+  Mail,
   Phone,
   Search,
   Menu,
@@ -53,6 +54,7 @@ export function McRepairNav() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileMenuClosing, setMobileMenuClosing] = useState(false);
+  const [navMode, setNavMode] = useState<'full' | 'partial' | 'compact'>('full');
   const [searchOpen, setSearchOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
@@ -69,6 +71,10 @@ export function McRepairNav() {
   const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
   const mobileMenuCloseTimerRef = useRef<NodeJS.Timeout | null>(null);
   const scrollLockTopRef = useRef(0);
+  const navInnerRef = useRef<HTMLDivElement | null>(null);
+  const navLogoRef = useRef<HTMLAnchorElement | null>(null);
+  const navLinksRef = useRef<HTMLDivElement | null>(null);
+  const navRightRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -78,6 +84,86 @@ export function McRepairNav() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Switch into compact nav mode when there is not enough horizontal space.
+  useEffect(() => {
+    const updateCompactMode = () => {
+      const viewportWidth = window.innerWidth;
+
+      // Deterministic hysteresis zones avoid visual flip-flops while resizing.
+      const enterCompactViewport = 930;
+      const leaveCompactViewport = 1020;
+      const leavePartialToFullViewport = 1380;
+      const leaveFullToPartialViewport = 1280;
+
+      // Three-level behavior:
+      // full: all links visible
+      // partial: key links visible, remaining links available in dropdown
+      // compact: full dropdown
+      setNavMode((prev) => {
+        if (prev === 'compact') {
+          if (viewportWidth >= leaveCompactViewport) {
+            return 'partial';
+          }
+          return 'compact';
+        }
+
+        if (prev === 'partial') {
+          if (viewportWidth <= enterCompactViewport) {
+            return 'compact';
+          }
+          if (viewportWidth >= leavePartialToFullViewport) {
+            return 'full';
+          }
+          return 'partial';
+        }
+
+        if (viewportWidth <= leaveFullToPartialViewport) {
+          if (viewportWidth <= enterCompactViewport) {
+            return 'compact';
+          }
+          return 'partial';
+        }
+
+        return 'full';
+      });
+    };
+
+    let rafId: number | null = null;
+
+    const scheduleCompactModeUpdate = () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      rafId = requestAnimationFrame(() => {
+        updateCompactMode();
+        rafId = null;
+      });
+    };
+
+    scheduleCompactModeUpdate();
+
+    window.addEventListener('resize', scheduleCompactModeUpdate);
+
+    return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      window.removeEventListener('resize', scheduleCompactModeUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (navMode === 'full') {
+      setMobileMenuOpen(false);
+      setMobileMenuClosing(false);
+      setMobileCategoryOpen(null);
+      setSearchOpen(false);
+    }
+  }, [navMode]);
+
+  const isDropdownNav = navMode !== 'full';
+  const isCompactNav = navMode === 'compact';
 
   // Load device menu data from API
   useEffect(() => {
@@ -402,7 +488,7 @@ export function McRepairNav() {
   };
 
   const handleCategoryClick = (e: React.MouseEvent, category: keyof DeviceMenuData) => {
-    if (window.innerWidth <= 768 || mobileMenuOpen) {
+    if (isDropdownNav || mobileMenuOpen) {
       e.preventDefault();
       setMobileCategoryOpen((prev) => (prev === category ? null : category));
     }
@@ -412,11 +498,11 @@ export function McRepairNav() {
     const manufacturers = Object.entries(deviceMenuData[category]);
 
     if (loadingDevices) {
-      return <div className="nav-mobile-dropdown-empty">Lade Geräte...</div>;
+      return <div className="nav-mobile-dropdown-empty">{t('home.nav.loadingDevices')}</div>;
     }
 
     if (manufacturers.length === 0) {
-      return <div className="nav-mobile-dropdown-empty">Keine Geräte verfügbar</div>;
+      return <div className="nav-mobile-dropdown-empty">{t('home.nav.noDevices')}</div>;
     }
 
     return (
@@ -465,7 +551,7 @@ export function McRepairNav() {
         >
           <div className="nav-dropdown-inner">
             <div className="text-center py-4 text-muted-foreground">
-              Lade Geräte...
+              {t('home.nav.loadingDevices')}
             </div>
           </div>
         </div>
@@ -487,7 +573,7 @@ export function McRepairNav() {
         >
           <div className="nav-dropdown-inner">
             <div className="text-center py-4 text-muted-foreground">
-              Keine Geräte verfügbar
+              {t('home.nav.noDevices')}
             </div>
           </div>
         </div>
@@ -540,17 +626,21 @@ export function McRepairNav() {
   return (
     <>
     <ForceLightMode />
-    <nav className={`main-nav ${scrolled ? 'scrolled' : ''}`} id="mainNav">
-      <div className="nav-inner">
+    <nav className={`main-nav ${scrolled ? 'scrolled' : ''} ${isDropdownNav ? 'dropdown-nav' : ''} ${isCompactNav ? 'compact-nav' : ''} ${navMode === 'partial' ? 'partial-nav' : ''}`} id="mainNav">
+      <div className="nav-inner" ref={navInnerRef}>
         {/* Logo */}
-        <Link to="/" className="nav-logo">
+        <Link to="/" className="nav-logo" ref={navLogoRef}>
           <div className="nav-logo-text">
             Mc<span>Repair</span>.de
           </div>
         </Link>
 
         {/* Desktop Navigation Links */}
-        <div className={`nav-links ${mobileMenuOpen ? 'mobile-open' : ''} ${mobileMenuClosing ? 'mobile-closing' : ''}`} id="navLinks">
+        <div
+          className={`nav-links ${mobileMenuOpen ? 'mobile-open' : ''} ${mobileMenuClosing ? 'mobile-closing' : ''}`}
+          id="navLinks"
+          ref={navLinksRef}
+        >
           {mobileMenuOpen && (
             <div className="nav-mobile-user-priority">
               <div className="nav-mobile-section-title">
@@ -564,11 +654,11 @@ export function McRepairNav() {
                   </Link>
                   <Link to="/my-repair-requests" onClick={() => closeMobileMenu()}>
                     <Wrench width={16} height={16} />
-                    Repair Requests
+                    {t('home.nav.repairRequests')}
                   </Link>
                   <Link to="/my-complaints" onClick={() => closeMobileMenu()}>
                     <AlertTriangle width={16} height={16} />
-                    Reklamationen
+                    {t('home.nav.complaints')}
                   </Link>
                   <Link to="/invoices" onClick={() => closeMobileMenu()}>
                     <FileText width={16} height={16} />
@@ -605,13 +695,13 @@ export function McRepairNav() {
 
           {mobileMenuOpen && (
             <div className="nav-mobile-section-title nav-mobile-section-title-spaced">
-              {t('navigation.repairCategories', 'Reparaturkategorien')}
+              {t('home.nav.repairCategories')}
             </div>
           )}
 
           {/* Smartphone */}
           <div 
-            className="nav-item-with-dropdown nav-category-item"
+            className="nav-item-with-dropdown nav-category-item nav-priority-link"
             onMouseEnter={() => handleMouseEnter('smartphone')}
             onMouseLeave={handleMouseLeave}
           >
@@ -632,7 +722,7 @@ export function McRepairNav() {
 
           {/* Tablet */}
           <div 
-            className="nav-item-with-dropdown nav-category-item"
+            className="nav-item-with-dropdown nav-category-item nav-priority-link"
             onMouseEnter={() => handleMouseEnter('tablet')}
             onMouseLeave={handleMouseLeave}
           >
@@ -653,7 +743,7 @@ export function McRepairNav() {
 
           {/* Notebook */}
           <div 
-            className="nav-item-with-dropdown nav-category-item"
+            className="nav-item-with-dropdown nav-category-item nav-partial-hidden"
             onMouseEnter={() => handleMouseEnter('notebook')}
             onMouseLeave={handleMouseLeave}
           >
@@ -674,7 +764,7 @@ export function McRepairNav() {
 
           {/* Konsole */}
           <div 
-            className="nav-item-with-dropdown nav-category-item"
+            className="nav-item-with-dropdown nav-category-item nav-partial-hidden"
             onMouseEnter={() => handleMouseEnter('konsole')}
             onMouseLeave={handleMouseLeave}
           >
@@ -694,16 +784,21 @@ export function McRepairNav() {
           </div>
 
           {/* Shop */}
-          <a href="#shop" className="nav-link nav-category-item" onClick={closeMobileMenu}>
+          <a href="#shop" className="nav-link nav-category-item nav-priority-link" onClick={closeMobileMenu}>
             <ShoppingBag width={16} height={16} />
             {t('home.nav.shop', 'Shop')}
           </a>
 
+          <Link to="/contact" className="nav-link nav-category-item nav-partial-hidden" onClick={() => closeMobileMenu()}>
+            <Mail width={16} height={16} />
+            {t('home.nav.contact', 'Kontakt')}
+          </Link>
+
           {/* Mobile Extras (only shown in mobile menu) */}
           <div className="nav-mobile-extras">
-            <div className="nav-mobile-secondary-links" aria-label="Weitere Menüpunkte">
+            <div className="nav-mobile-secondary-links" aria-label={t('home.nav.moreOptions')}>
               <div className="nav-mobile-section-title nav-mobile-section-title-spaced">
-                {t('navigation.moreOptions', 'Weitere Menüpunkte')}
+                {t('home.nav.moreOptions')}
               </div>
               <button className="nav-mobile-secondary-link" onClick={handleMobileSearchClick}>
                 <Search width={16} height={16} />
@@ -722,7 +817,7 @@ export function McRepairNav() {
         </div>
 
         {/* Right Side Actions */}
-        <div className="nav-right">
+        <div className="nav-right" ref={navRightRef}>
           {/* Desktop Search - Using NavbarSearch Component */}
           <div className="nav-search hidden lg:block">
             <NavbarSearch />
@@ -730,9 +825,9 @@ export function McRepairNav() {
 
           {/* Mobile Search Toggle */}
           <button
-            className={`nav-search-toggle lg:hidden ${searchOpen ? 'active' : ''}`}
+            className={`nav-search-toggle ${searchOpen ? 'active' : ''}`}
             onClick={toggleSearch}
-            aria-label="Toggle search"
+            aria-label={t('home.nav.toggleSearch')}
           >
             <Search width={18} height={18} />
           </button>
@@ -748,14 +843,14 @@ export function McRepairNav() {
           </div>
 
           {/* Notifications (if authenticated) */}
-          {isAuthenticated && (
+          {isAuthenticated && !isDropdownNav && (
             <div className="notification-bell-component">
               <NotificationBell />
             </div>
           )}
 
           {/* Profile (if authenticated) */}
-          {isAuthenticated && (
+          {isAuthenticated && !isDropdownNav && (
             <div className="nav-profile-trigger">
               <ProfileDropdown />
             </div>
