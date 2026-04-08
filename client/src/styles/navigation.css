@@ -1091,6 +1091,11 @@
   line-height: 1.35;
 }
 
+.main-nav.dropdown-nav .nav-mobile-secondary-link-yellow {
+  color: #f5b800 !important;
+  font-weight: 600;
+}
+
 .main-nav.dropdown-nav .nav-mobile-section-title {
   display: flex;
   align-items: center;

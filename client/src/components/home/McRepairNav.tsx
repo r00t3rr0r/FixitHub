@@ -22,7 +22,8 @@ import {
   FileText,
   MessageSquare,
   Wrench,
-  AlertTriangle
+  AlertTriangle,
+  ClipboardCheck
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ForceLightMode } from '@/components/ForceLightMode';
@@ -812,6 +813,10 @@ export function McRepairNav() {
                 <MapPin width={16} height={16} />
                 {t('home.topBar.locations', 'Annahmestellen')}
               </a>
+              <Link to="/vorabdiagnose" className="nav-mobile-secondary-link nav-mobile-secondary-link-yellow" onClick={() => closeMobileMenu()}>
+                <ClipboardCheck width={16} height={16} />
+                {t('vorabdiagnose.title', 'Vorabdiagnose')}
+              </Link>
             </div>
           </div>
         </div>
