@@ -86,6 +86,9 @@ export function ProfileDropdown() {
     ? `${userProfile.firstName} ${userProfile.lastName}`
     : userProfile?.firstName || userProfile?.email || 'User';
 
+  const itemClassName = 'cursor-pointer justify-start rounded-[10px] border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-[13px] text-white/95 transition-colors hover:border-yellow-300/30 hover:bg-yellow-400/10';
+  const linkClassName = 'flex w-full items-center justify-start gap-2 text-left';
+
   return (
     <>
       <style>{`
@@ -133,71 +136,79 @@ export function ProfileDropdown() {
           </Button>
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="end" className="w-56 animate-slide-down text-left">
+        <DropdownMenuContent
+          align="end"
+          className="w-72 animate-slide-down rounded-xl border border-white/15 bg-gradient-to-b from-[#1a2a5e] to-[#152553] p-2 text-left text-white shadow-2xl"
+        >
           {/* User Info Section */}
-          <DropdownMenuLabel className="flex flex-col space-y-1 py-2">
-            <p className="font-semibold text-sm">{userName}</p>
-            <p className="text-xs text-muted-foreground truncate">{userProfile?.email}</p>
+          <DropdownMenuLabel className="mb-1 rounded-lg border border-yellow-300/25 bg-gradient-to-b from-yellow-400/15 to-white/[0.04] px-3 py-2">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-yellow-100/80">
+              {t('navigation.accountArea', 'Mein Bereich')}
+            </div>
+            <p className="font-semibold text-sm text-white">{userName}</p>
+            <p className="truncate text-xs text-white/70">{userProfile?.email}</p>
           </DropdownMenuLabel>
 
-          <DropdownMenuSeparator />
+          <div className="px-3 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-white/45">
+            {t('navigation.quickAccess', 'Schnellzugriff')}
+          </div>
 
           {/* Navigation Items */}
-          <DropdownMenuItem asChild className="cursor-pointer justify-start text-left text-[13px] transition-colors hover:bg-yellow-50">
-            <Link to="/bookings" className="flex w-full items-center justify-start gap-2 text-left">
+          <DropdownMenuItem asChild className={itemClassName}>
+            <Link to="/bookings" className={linkClassName}>
               <Calendar className="h-4 w-4" />
               <span>{t('navigation.bookings')}</span>
             </Link>
           </DropdownMenuItem>
 
-          <DropdownMenuItem asChild className="cursor-pointer justify-start text-left text-[13px] transition-colors hover:bg-yellow-50">
-            <Link to="/my-repair-requests" className="flex w-full items-center justify-start gap-2 text-left">
+          <DropdownMenuItem asChild className={itemClassName}>
+            <Link to="/my-repair-requests" className={linkClassName}>
               <Wrench className="h-4 w-4" />
               <span>Repair Requests</span>
             </Link>
           </DropdownMenuItem>
 
-          <DropdownMenuItem asChild className="cursor-pointer justify-start text-left text-[13px] transition-colors hover:bg-yellow-50">
-            <Link to="/my-complaints" className="flex w-full items-center justify-start gap-2 text-left">
+          <DropdownMenuItem asChild className={itemClassName}>
+            <Link to="/my-complaints" className={linkClassName}>
               <AlertTriangle className="h-4 w-4" />
               <span>Reklamationen</span>
             </Link>
           </DropdownMenuItem>
 
-          <DropdownMenuItem asChild className="cursor-pointer justify-start text-left text-[13px] transition-colors hover:bg-yellow-50">
-            <Link to="/invoices" className="flex w-full items-center justify-start gap-2 text-left">
+          <DropdownMenuItem asChild className={itemClassName}>
+            <Link to="/invoices" className={linkClassName}>
               <FileText className="h-4 w-4" />
               <span>{t('navigation.invoices')}</span>
             </Link>
           </DropdownMenuItem>
 
-          <DropdownMenuItem asChild className="cursor-pointer justify-start text-left text-[13px] transition-colors hover:bg-yellow-50">
-            <Link to="/notifications" className="flex w-full items-center justify-start gap-2 text-left">
+          <DropdownMenuItem asChild className={itemClassName}>
+            <Link to="/notifications" className={linkClassName}>
               <Bell className="h-4 w-4" />
               <span>{t('navigation.notifications', 'Benachrichtigungen')}</span>
             </Link>
           </DropdownMenuItem>
 
-          <DropdownMenuItem asChild className="cursor-pointer justify-start text-left text-[13px] transition-colors hover:bg-yellow-50">
-            <Link to="/messages" className="flex w-full items-center justify-start gap-2 text-left">
+          <DropdownMenuItem asChild className={itemClassName}>
+            <Link to="/messages" className={linkClassName}>
               <MessageSquare className="h-4 w-4" />
               <span>{t('navigation.messages', 'Nachrichten')}</span>
             </Link>
           </DropdownMenuItem>
 
-          <DropdownMenuItem asChild className="cursor-pointer justify-start text-left text-[13px] transition-colors hover:bg-yellow-50">
-            <Link to="/profile" className="flex w-full items-center justify-start gap-2 text-left">
+          <DropdownMenuItem asChild className={itemClassName}>
+            <Link to="/profile" className={linkClassName}>
               <User className="h-4 w-4" />
               <span>{t('navigation.profile')}</span>
             </Link>
           </DropdownMenuItem>
 
-          <DropdownMenuSeparator />
+          <DropdownMenuSeparator className="my-1 bg-white/10" />
 
           {/* Logout Item */}
           <DropdownMenuItem
             onClick={handleLogout}
-            className="cursor-pointer justify-start text-left text-[13px] transition-colors hover:bg-red-50 text-red-600 hover:text-red-700"
+            className="cursor-pointer justify-start rounded-[10px] border border-red-300/20 bg-red-400/10 px-3 py-2 text-left text-[13px] text-red-100 transition-colors hover:bg-red-500/20 hover:text-white"
           >
             <LogOut className="h-4 w-4 mr-2" />
             <span>{t('navigation.logout')}</span>
