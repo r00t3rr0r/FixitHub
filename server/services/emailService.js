@@ -27,6 +27,7 @@ class EmailService {
     order_completed: 'Reparatur abgeschlossen und Rueckversand',
     payment_confirmed: 'Zahlung bestaetigt',
     booking_created: 'Buchung angelegt',
+    guest_booking_created: 'Gast Buchung Tracking',
     booking_status_updated: 'Buchung Statusupdate',
     booking_ready_for_pickup: 'Buchung bereit zur Abholung',
     booking_cancelled: 'Buchung storniert',

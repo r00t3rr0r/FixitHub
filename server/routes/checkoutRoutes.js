@@ -714,33 +714,41 @@ router.post('/guest-complete', async (req, res) => {
 
     console.log('CheckoutRoutes: Guest checkout completed successfully');
 
-    // Send guest order confirmation email with tracking link
+    // Send guest booking confirmation email with booking tracking link
     try {
-      // Calculate total amount from all orders
       const totalAmount = createdOrders.reduce((sum, order) => sum + order.totalCost, 0);
-      
-      // Get tracking token from first order (all orders belong to same guest/booking)
-      const trackingToken = createdOrders[0]?.guestTrackingToken || '';
-      
-      const emailData = {
-        guestEmail: guestInfo.email,
-        guestName: `${guestInfo.firstName} ${guestInfo.lastName}`,
-        orderNumbers: createdOrders.map(o => o.orderNumber),
-        bookingNumber: booking?.bookingNumber || null,
-        totalAmount: totalAmount,
-        trackingToken: trackingToken
-      };
 
-      console.log('CheckoutRoutes: Sending guest order confirmation email');
-      const emailResult = await EmailService.sendGuestOrderConfirmation(emailData);
-      
+      const bookingToken = booking?.guestTrackingToken || null;
+      const bookingTrackingPath = bookingToken
+        ? `/track-order/booking?token=${encodeURIComponent(bookingToken)}&email=${encodeURIComponent(guestInfo.email)}`
+        : '/track-order/booking';
+
+      const itemSummary = createdOrders
+        .map((order) => `${order.orderNumber} (${order.status || 'pending'})`)
+        .join(', ');
+
+      console.log('CheckoutRoutes: Sending guest booking tracking email');
+      let emailResult = await EmailService.sendTriggerEmail('guest_booking_created', guestInfo.email, {
+        companyName: process.env.COMPANY_NAME || 'McRepair.de',
+        customerName: `${guestInfo.firstName} ${guestInfo.lastName}`,
+        bookingNumber: booking?.bookingNumber || 'N/A',
+        bookingDate: new Date(booking?.createdAt || Date.now()).toLocaleDateString('de-DE'),
+        itemSummary,
+        totalAmount: `€${Number(totalAmount || 0).toFixed(2)}`,
+        bookingStatus: booking?.status || 'pending',
+        bookingUrl: bookingTrackingPath,
+        shippingLabelUrl: booking?.shippingLabelUrl || bookingTrackingPath,
+        supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+        supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+      });
+
       if (emailResult.success) {
-        console.log('CheckoutRoutes: Guest order confirmation email sent successfully');
+        console.log('CheckoutRoutes: Guest booking tracking email sent successfully');
       } else {
-        console.warn('CheckoutRoutes: Failed to send guest order confirmation email:', emailResult.error);
+        console.warn('CheckoutRoutes: Failed to send guest booking tracking email:', emailResult.error);
       }
     } catch (emailError) {
-      console.error('CheckoutRoutes: Error sending guest order confirmation email:', emailError);
+      console.error('CheckoutRoutes: Error sending guest booking tracking email:', emailError);
       // Don't fail the checkout if email fails
     }
 
