@@ -44,6 +44,7 @@ class EmailService {
     warranty_reminder: 'Garantieerinnerung',
     invoice_created: 'Neue Rechnung verfuegbar',
     pickup_reminder: 'Abholung bereit Erinnerung',
+    contact_form_confirmation: 'Kontaktformular Bestaetigung an Absender',
     system_notification: 'Allgemeine Systemnachricht'
   };
 
@@ -877,6 +878,46 @@ This is an automated email. Please do not reply to this message.
       invoiceUrl: paymentData.invoiceUrl || defaultInvoiceUrl,
       supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+    });
+  }
+
+  /**
+   * Send contact form confirmation email to sender.
+   */
+  static async sendContactFormConfirmationEmail(toEmail, contactData, companyName = 'McRepair.de') {
+    const submittedAt = contactData.submittedAt || new Date().toLocaleString('de-DE', {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    });
+
+    const preview = String(contactData.message || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 220);
+
+    const subjectLabels = {
+      repair: 'Reparaturanfrage',
+      status: 'Statusanfrage',
+      business: 'Geschaeftliche Anfrage',
+      complaint: 'Reklamation',
+      other: 'Allgemeine Anfrage'
+    };
+
+    const subjectLabel = subjectLabels[contactData.subject] || subjectLabels.other;
+    const supportEmail = process.env.SUPPORT_EMAIL || 'support@fixithub.com';
+    const supportPhone = process.env.SUPPORT_PHONE || '+49 (0) 123/456789';
+    const contactUrl = await this.buildSystemUrl('/contact');
+
+    return this.sendTriggerEmail('contact_form_confirmation', toEmail, {
+      companyName,
+      customerName: contactData.name || 'Kunde',
+      customerEmail: toEmail,
+      contactSubject: subjectLabel,
+      submittedAt,
+      messagePreview: preview || '-',
+      supportEmail,
+      supportPhone,
+      contactUrl
     });
   }
 }

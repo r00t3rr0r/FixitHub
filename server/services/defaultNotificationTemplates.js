@@ -1,4 +1,4 @@
-const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 9;
+const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 10;
 
 const brand = {
   companyName: 'Mc<span style="color:#f5b800;font-weight:800;">Repair</span>.de',
@@ -1880,6 +1880,44 @@ function getDefaultNotificationTemplates() {
         createVariable('invoiceNumber', 'Rechnungsnummer', true),
         createVariable('invoiceAmount', 'Rechnungsbetrag', true),
         createVariable('invoiceUrl', 'Deep-Link zur Rechnung', true)
+      ],
+      isActive: true
+    },
+    {
+      name: 'Kontaktformular Bestaetigung an Absender',
+      type: 'email',
+      subject: 'Wir haben Ihre Anfrage erhalten - {{companyName}}',
+      content: renderEmailTemplate({
+        preheader: 'Ihre Kontaktanfrage wurde erfolgreich uebermittelt.',
+        eyebrow: 'Kontakt & Service',
+        title: 'Danke fuer Ihre Nachricht',
+        intro: 'Hallo {{customerName}}, wir haben Ihre Anfrage erhalten und an unser Service-Team weitergeleitet. Sie erhalten in der Regel innerhalb eines Werktages eine persoenliche Rueckmeldung.',
+        highlights: [
+          { label: 'Anliegen', value: '{{contactSubject}}' },
+          { label: 'Eingang', value: '{{submittedAt}}', tone: 'yellow' }
+        ],
+        detailRows: [
+          { label: 'Absender', value: '{{customerName}}' },
+          { label: 'E-Mail', value: '{{customerEmail}}' },
+          { label: 'Anliegen', value: '{{contactSubject}}' }
+        ],
+        body: '<p style="margin:0 0 14px 0;">Zur schnellen Einordnung haben wir folgenden Auszug Ihrer Nachricht gespeichert:</p><div style="padding:14px 16px;border:1px solid #d8dce6;background:#f8f9fc;border-radius:12px;font-size:14px;line-height:1.7;color:#2d3748;">{{messagePreview}}</div><p style="margin:16px 0 0 0;">Falls Sie weitere Informationen nachreichen moechten, antworten Sie einfach auf diese E-Mail.</p>',
+        ctaLabel: 'Kontaktseite aufrufen',
+        ctaUrl: '{{contactUrl}}',
+        ctaTone: 'primary',
+        closing: 'Vielen Dank fuer Ihr Vertrauen in {{companyName}}.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Dies ist eine automatische Eingangsbestaetigung auf Ihre Kontaktanfrage.'
+      }),
+      variables: [
+        createVariable('companyName', 'Name des Unternehmens', true),
+        createVariable('customerName', 'Vor- und Nachname des Absenders', true),
+        createVariable('customerEmail', 'E-Mail-Adresse des Absenders', true),
+        createVariable('contactSubject', 'Kategorie der Anfrage', true),
+        createVariable('submittedAt', 'Zeitpunkt der Anfrage', true),
+        createVariable('messagePreview', 'Kurzvorschau der Anfrage', true),
+        createVariable('contactUrl', 'Link zur Kontaktseite', true),
+        createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
+        createVariable('supportPhone', 'Service-Telefonnummer')
       ],
       isActive: true
     }

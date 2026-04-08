@@ -125,9 +125,9 @@ export function Footer() {
                 </a>
               </li>
               <li>
-                <a href="#contact">
+                <Link to="/contact">
                   {t('home.footer.contact', 'Kontakt')}
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

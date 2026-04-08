@@ -81,6 +81,11 @@ class SystemConfigService {
       config.markModified('notificationTemplates');
     }
 
+    if (previousVersion < 10) {
+      // Version 10: adds contact-form sender confirmation email template.
+      // Added automatically via missingTemplates push above.
+    }
+
     config.notificationTemplateDefaultsVersion = DEFAULT_NOTIFICATION_TEMPLATE_VERSION;
     await config.save();
 

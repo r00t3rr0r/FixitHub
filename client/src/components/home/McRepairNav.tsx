@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Bell,
   BookOpen,
+  Mail,
   Phone,
   Search,
   Menu,
@@ -698,6 +699,11 @@ export function McRepairNav() {
             <ShoppingBag width={16} height={16} />
             {t('home.nav.shop', 'Shop')}
           </a>
+
+          <Link to="/contact" className="nav-link nav-category-item" onClick={() => closeMobileMenu()}>
+            <Mail width={16} height={16} />
+            {t('home.nav.contact', 'Kontakt')}
+          </Link>
 
           {/* Mobile Extras (only shown in mobile menu) */}
           <div className="nav-mobile-extras">
