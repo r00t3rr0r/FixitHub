@@ -2576,10 +2576,32 @@ ul, ol {
     gap: 4px;
   }
 
-  .language-selector-component,
   .nav-profile-trigger,
   .nav-search-toggle {
     display: none !important;
+  }
+
+  .language-selector-component {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .language-selector-component button {
+    min-width: 42px;
+    min-height: 42px;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .language-selector-component svg {
+    width: 19px;
+    height: 19px;
   }
 
   .notification-bell-component {
@@ -2667,9 +2689,28 @@ ul, ol {
     gap: 4px;
   }
 
-  /* Hide language selector on extremely small screens */
+  /* Keep language selector visible and compact on extremely small screens */
   .language-selector-component {
-    display: none !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .language-selector-component button {
+    min-width: 40px;
+    min-height: 40px;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .language-selector-component svg {
+    width: 18px;
+    height: 18px;
   }
 
   /* Hide search toggle icon on extremely small screens (search in mobile menu) */
@@ -2852,6 +2893,7 @@ ul, ol {
     gap: 2px;
   }
 
+  .language-selector-component button,
   .nav-cart-trigger button,
   .nav-mobile-toggle,
   .nav-profile-trigger button {
@@ -2861,6 +2903,7 @@ ul, ol {
     height: 40px;
   }
 
+  .language-selector-component svg,
   .nav-cart-trigger svg,
   .nav-mobile-toggle svg,
   .nav-profile-trigger svg {
