@@ -82,18 +82,18 @@ export function Footer() {
                 </a>
               </li>
               <li>
-                <Link to="/new-order">
-                  {t('home.footer.shippingRepair', 'Versand-Reparatur')}
+                <Link to="/privacy">
+                  {t('home.footer.shippingRepair', 'Datenschutz')}
                 </Link>
               </li>
               <li>
-                <Link to="/new-order">
-                  {t('home.footer.deviceFinder', 'Geräte-Finder')}
+                <Link to="/about">
+                  {t('home.footer.aboutUs', 'Über uns')}
                 </Link>
               </li>
               <li>
-                <Link to="/orders">
-                  {t('home.footer.repairStatus', 'Reparatur-Status')}
+                <Link to="/terms">
+                  {t('home.footer.repairStatus', 'AGB')}
                 </Link>
               </li>
             </ul>
@@ -103,11 +103,6 @@ export function Footer() {
           <div className="footer-col">
             <h4>{t('home.footer.companyTitle', 'Unternehmen')}</h4>
             <ul>
-              <li>
-                <Link to="/about">
-                  {t('home.footer.aboutUs', 'Über uns')}
-                </Link>
-              </li>
               <li>
                 <a href="#careers">
                   {t('home.footer.careers', 'Karriere')}
