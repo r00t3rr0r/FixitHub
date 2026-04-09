@@ -78,6 +78,7 @@ import { Annahmestellen } from "./pages/Annahmestellen"
 import { Contact } from "./pages/Contact"
 import { PartnerWerden } from "./pages/PartnerWerden"
 import Newsletter from "./pages/Newsletter"
+import { Sitemap } from "./pages/Sitemap"
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -99,6 +100,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/home" element={<Home />} />
             <Route path="/newsletter" element={<Newsletter />} />
+            <Route path="/sitemap" element={<Sitemap />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/verify-email" element={<VerifyEmail />} />

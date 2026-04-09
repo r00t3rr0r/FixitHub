@@ -61,8 +61,8 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="/new-order">
-                  {t('home.footer.expressRepair', 'Express-Reparatur')}
+                <Link to="/sitemap">
+                  {t('home.footer.sitemap', 'Sitemap')}
                 </Link>
               </li>
             </ul>

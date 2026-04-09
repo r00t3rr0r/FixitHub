@@ -970,6 +970,132 @@
     "openGraphSettings": "Open Graph-Einstellungen",
     "twitterCardSettings": "Twitter Card-Einstellungen"
   },
+  "sitemapPage": {
+    "badge": "HTML-Sitemap",
+    "title": "Alle wichtigen Seiten auf einen Blick",
+    "description": "Diese Sitemap bietet eine klare, klickbare Übersicht der wichtigsten Bereiche von McRepair. Sie hilft Besuchern, sich schnell zu orientieren und gezielt zur passenden Seite zu gelangen.",
+    "ariaNav": "Sitemap-Bereiche",
+    "quickLinksTitle": "Direkteinstiege",
+    "quickLinksSubtitle": "Die am häufigsten genutzten Seiten für einen schnellen Start.",
+    "overviewTitle": "Nutzerfreundliche Navigation statt Linkwüste",
+    "overviewDescription": "Auf dieser Seite sind bewusst nur die zentralen, öffentlich relevanten Bereiche aufgeführt. Interne, doppelte oder technisch irrelevante Seiten sind ausgeklammert.",
+    "statsPages": "wichtige Seiten",
+    "statsSections": "Bereiche",
+    "ctaTitle": "Nicht sicher, wohin als Nächstes?",
+    "ctaDescription": "Starten Sie direkt mit einer Reparaturanfrage oder nehmen Sie Kontakt auf, wenn Sie eine persönliche Beratung brauchen.",
+    "ctaStartRepair": "Reparatur starten",
+    "ctaContact": "Kontakt aufnehmen",
+    "quickLinks": {
+      "startRepair": {
+        "title": "Reparatur starten",
+        "description": "Direkter Einstieg zur Reparaturbeauftragung mit Versand oder Abgabe."
+      },
+      "preDiagnosis": {
+        "title": "Vorabdiagnose",
+        "description": "Ersteinschätzung für Defekt und Reparaturbedarf."
+      },
+      "faq": {
+        "title": "FAQ",
+        "description": "Schnelle Antworten zu Ablauf, Versand, Garantie und Preisen."
+      },
+      "contact": {
+        "title": "Kontakt",
+        "description": "Direkter Draht zu Support, Rückfragen und individuellen Anliegen."
+      }
+    },
+    "sections": {
+      "repair": {
+        "title": "Reparatur & Leistungen",
+        "description": "Die wichtigsten Einstiege rund um Reparaturanfrage, Diagnose und Servicezugang."
+      },
+      "support": {
+        "title": "Service & Hilfe",
+        "description": "Supportseiten für Orientierung, Kontaktaufnahme und Statusabfragen."
+      },
+      "company": {
+        "title": "Unternehmen & Inhalte",
+        "description": "Seiten für Vertrauen, Hintergrundinformationen und redaktionelle Inhalte."
+      },
+      "legal": {
+        "title": "Rechtliches",
+        "description": "Wichtige Informationsseiten für Transparenz, Datenschutz und rechtliche Hinweise."
+      }
+    },
+    "links": {
+      "home": {
+        "label": "Startseite",
+        "description": "Übersicht über Leistungen, Vorteile und zentrale Einstiege."
+      },
+      "newOrder": {
+        "label": "Reparatur beauftragen",
+        "description": "Direkt zur Erfassung eines neuen Reparaturauftrags."
+      },
+      "repairRequest": {
+        "label": "Reparaturanfrage",
+        "description": "Fragebogen für individuelle oder komplexere Reparaturfälle."
+      },
+      "preDiagnosis": {
+        "label": "Vorabdiagnose",
+        "description": "Hilft bei der ersten Einschätzung des Defekts."
+      },
+      "locations": {
+        "label": "Annahmestellen",
+        "description": "Standorte und Abgabemöglichkeiten in Ihrer Nähe."
+      },
+      "shop": {
+        "label": "Shop",
+        "description": "Öffentlicher Bereich für Produkte, Zubehör und weitere Angebote."
+      },
+      "faq": {
+        "label": "FAQ",
+        "description": "Antworten auf häufige Fragen zu Reparaturen und Abläufen."
+      },
+      "trackOrder": {
+        "label": "Reparaturstatus verfolgen",
+        "description": "Öffentliche Statusabfrage für bestehende Aufträge."
+      },
+      "trackBooking": {
+        "label": "Buchungsstatus verfolgen",
+        "description": "Statusansicht für Buchungen und Termine."
+      },
+      "contact": {
+        "label": "Kontakt",
+        "description": "Kontaktformular und direkte Kommunikationswege."
+      },
+      "newsletter": {
+        "label": "Newsletter",
+        "description": "Informationen, Aktionen und Neuigkeiten abonnieren."
+      },
+      "about": {
+        "label": "Über uns",
+        "description": "Einblick in McRepair, Arbeitsweise und Qualitätsanspruch."
+      },
+      "partnerWerden": {
+        "label": "Partner werden",
+        "description": "Informationen für potenzielle Partner und Kooperationen."
+      },
+      "blog": {
+        "label": "Blog",
+        "description": "Beiträge, Tipps und Hintergrundwissen rund um Reparaturen."
+      },
+      "imprint": {
+        "label": "Impressum",
+        "description": "Anbieterkennzeichnung und rechtliche Basisinformationen."
+      },
+      "privacy": {
+        "label": "Datenschutz",
+        "description": "Informationen zur Verarbeitung personenbezogener Daten."
+      },
+      "terms": {
+        "label": "AGB",
+        "description": "Allgemeine Geschäftsbedingungen für Leistungen und Bestellungen."
+      },
+      "withdrawal": {
+        "label": "Widerrufsrecht",
+        "description": "Hinweise zu Widerruf, Fristen und Verbraucherrechten."
+      }
+    }
+  },
   "financialManagement": {
     "title": "Finanzverwaltung",
     "description": "Verwalten Sie Zahlungen und Finanzberichte",
@@ -1660,6 +1786,7 @@
       "becomePartner": "Partner werden",
       "consoleRepair": "Konsolen Reparatur",
       "expressRepair": "Express-Reparatur",
+      "sitemap": "Sitemap",
       "serviceTitle": "Service",
       "locations": "Annahmestellen",
       "shippingRepair": "Versand-Reparatur",
