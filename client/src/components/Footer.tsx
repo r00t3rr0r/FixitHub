@@ -72,13 +72,13 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Service Column */}
+          {/* Informationen Column */}
           <div className="footer-col">
-            <h4>{t('home.footer.serviceTitle', 'Service')}</h4>
+            <h4>{t('home.footer.serviceTitle', 'Informationen')}</h4>
             <ul>
               <li>
-                <a href="/annahmestellen">
-                  {t('home.footer.locations', 'Annahmestellen')}
+                <a href="/widerrufsrecht">
+                  {t('home.footer.locations', 'Widerrufsrecht')}
                 </a>
               </li>
               <li>
