@@ -184,8 +184,8 @@ export function Contact() {
       <TopBar />
       <McRepairNav />
 
-      <section className="container px-4 py-10 md:py-14">
-        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+      <section className="container px-4 pb-10 md:pb-14">
+        <div className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr] md:mt-10">
           <Card className="border-0 shadow-xl overflow-hidden">
             <CardContent className="p-0">
               <div
