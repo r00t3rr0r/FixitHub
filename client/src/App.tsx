@@ -76,6 +76,9 @@ import { GuestBookingTracking } from "./pages/GuestBookingTracking"
 import { Vorabdiagnose } from "./pages/Vorabdiagnose"
 import { Annahmestellen } from "./pages/Annahmestellen"
 import { Contact } from "./pages/Contact"
+import { PartnerWerden } from "./pages/PartnerWerden"
+import Newsletter from "./pages/Newsletter"
+import { Sitemap } from "./pages/Sitemap"
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -96,6 +99,8 @@ function App() {
             {/* Home page as default landing page for all users */}
             <Route path="/" element={<Home />} />
             <Route path="/home" element={<Home />} />
+            <Route path="/newsletter" element={<Newsletter />} />
+            <Route path="/sitemap" element={<Sitemap />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
@@ -136,6 +141,8 @@ function App() {
             <Route path="/faq" element={<FAQ />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/kontakt" element={<Contact />} />
+            <Route path="/partner-werden" element={<PartnerWerden />} />
+            <Route path="/partner" element={<PartnerWerden />} />
             <Route path="/widerrufsrecht" element={<Widerrufsrecht />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/datenschutz" element={<Privacy />} />
