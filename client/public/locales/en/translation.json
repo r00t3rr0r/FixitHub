@@ -1,5 +1,22 @@
-{
-  "common": {
+  "newsletter": {
+    "subscribeTitle": "Subscribe to Newsletter",
+    "subscribeDesc": "To subscribe to our newsletter, please enter your email address below and click",
+    "subscribeBtn": "Subscribe",
+    "subscribing": "Subscribing...",
+    "unsubscribeAnytime": "Unsubscribe at any time",
+    "email": "Email",
+    "emailPlaceholder": "name@example.com",
+    "emailRequired": "Email required",
+    "emailRequiredDesc": "Please enter your email address.",
+    "success": "Success",
+    "subscribeSuccess": "You have successfully subscribed to the newsletter.",
+    "unsubscribeTitle": "Unsubscribe from Newsletter",
+    "unsubscribeDesc": "To unsubscribe from the newsletter, please enter your email address below and click",
+    "unsubscribeBtn": "Unsubscribe",
+    "unsubscribing": "Unsubscribing...",
+    "unsubscribeSuccess": "Unsubscribed successfully",
+    "unsubscribeSuccessDesc": "You have been unsubscribed from the newsletter."
+  ,
     "welcome": "Welcome",
     "loading": "Loading",
     "error": "Error",

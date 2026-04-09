@@ -1,4 +1,22 @@
-{
+  "newsletter": {
+    "subscribeTitle": "Newsletter abonnieren",
+    "subscribeDesc": "Um sich für unseren Newsletter anzumelden, tragen Sie bitte hier Ihre E-Mail-Adresse ein und klicken anschließend auf",
+    "subscribeBtn": "Abonnieren",
+    "subscribing": "Abonniere...",
+    "unsubscribeAnytime": "Abmeldung jederzeit möglich",
+    "email": "E-Mail",
+    "emailPlaceholder": "name@beispiel.de",
+    "emailRequired": "E-Mail erforderlich",
+    "emailRequiredDesc": "Bitte geben Sie Ihre E-Mail-Adresse ein.",
+    "success": "Erfolg",
+    "subscribeSuccess": "Sie haben den Newsletter erfolgreich abonniert.",
+    "unsubscribeTitle": "Newsletter abmelden",
+    "unsubscribeDesc": "Zum Abmelden des Newsletters tragen Sie bitte Ihre E-Mail-Adresse im unten stehenden Feld ein. Klicken Sie anschließend auf",
+    "unsubscribeBtn": "Abmelden",
+    "unsubscribing": "Melde ab...",
+    "unsubscribeSuccess": "Abmeldung erfolgreich",
+    "unsubscribeSuccessDesc": "Sie wurden vom Newsletter abgemeldet."
+    }
   "common": {
     "welcome": "Willkommen",
     "loading": "Lädt",
@@ -147,7 +165,8 @@
   },
   "footer": {
     "madeWith": "Erstellt mit",
-    "by": "von"
+    "by": "von",
+    "newsletter": "Newsletter"
   },
   "login": {
     "title": "Bei FixitHub anmelden",

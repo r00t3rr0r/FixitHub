@@ -77,6 +77,7 @@ import { Vorabdiagnose } from "./pages/Vorabdiagnose"
 import { Annahmestellen } from "./pages/Annahmestellen"
 import { Contact } from "./pages/Contact"
 import { PartnerWerden } from "./pages/PartnerWerden"
+import Newsletter from "./pages/Newsletter"
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -97,6 +98,7 @@ function App() {
             {/* Home page as default landing page for all users */}
             <Route path="/" element={<Home />} />
             <Route path="/home" element={<Home />} />
+            <Route path="/newsletter" element={<Newsletter />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
