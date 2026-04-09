@@ -38,21 +38,21 @@ export function Footer() {
 
           {/* Repair Services Column */}
           <div className="footer-col">
-            <h4>{t('home.footer.repairTitle', 'Reparatur')}</h4>
+            <h4>{t('home.footer.repairTitle', 'Shop Service')}</h4>
             <ul>
               <li>
-                <Link to="/new-order">
-                  {t('home.footer.smartphoneRepair', 'Smartphone Reparatur')}
+                <Link to="/faq">
+                  {t('home.footer.faq', 'FAQ')}
                 </Link>
               </li>
               <li>
-                <Link to="/new-order">
-                  {t('home.footer.tabletRepair', 'Tablet Reparatur')}
+                <Link to="/contact">
+                  {t('home.footer.contact', 'Kontakt')}
                 </Link>
               </li>
               <li>
-                <Link to="/new-order">
-                  {t('home.footer.notebookRepair', 'Notebook Reparatur')}
+                <Link to="/partner-werden">
+                  {t('home.footer.becomePartner', 'Partner werden')}
                 </Link>
               </li>
               <li>
@@ -92,11 +92,6 @@ export function Footer() {
                   {t('home.footer.repairStatus', 'Reparatur-Status')}
                 </Link>
               </li>
-              <li>
-                <Link to="/faq">
-                  {t('home.footer.faq', 'FAQ')}
-                </Link>
-              </li>
             </ul>
           </div>
 
@@ -123,11 +118,6 @@ export function Footer() {
                 <a href="#press">
                   {t('home.footer.press', 'Presse')}
                 </a>
-              </li>
-              <li>
-                <Link to="/contact">
-                  {t('home.footer.contact', 'Kontakt')}
-                </Link>
               </li>
             </ul>
           </div>

@@ -63,6 +63,36 @@
     "login": "Login",
     "register": "Register"
   },
+  "partnerPage": {
+    "badge": "McRepair Partner Program",
+    "title": "Become a McRepair Partner",
+    "description": "McRepair is one of the leading service providers for professional smartphone, tablet, and notebook repairs. Our central workshop in Berlin cooperates with more than 350 drop-off locations across Germany and supports you with highly reliable and professional specialists. Become a McRepair partner too!",
+    "facts": {
+      "centralWorkshop": "Central workshop in Berlin",
+      "locations": "350+ drop-off locations nationwide"
+    },
+    "advantages": {
+      "title": "Your Benefits",
+      "item1": "Benefit from attractive discounts",
+      "item2": "Use additional revenue opportunities",
+      "item3": "Increase your local in-store business",
+      "item4": "Get access to additional shipping options",
+      "item5": "Integrate additional services into your business",
+      "item6": "Achieve higher customer foot traffic in store"
+    },
+    "steps": {
+      "title": "How it Works",
+      "item1": "Fill out the contact form.",
+      "item2": "Our key account manager will contact you.",
+      "item3": "You will receive a welcome partner package with marketing materials.",
+      "item4": "Profit!"
+    },
+    "cta": {
+      "description": "Want to get started right away? Contact us and we will get back to you as soon as possible.",
+      "contactButton": "Go to contact page",
+      "locationsButton": "View drop-off locations"
+    }
+  },
   "orderTracking": {
     "title": "Track your order",
     "description": "Enter your email and tracking token to see the latest status of your repair order.",
@@ -1623,10 +1653,11 @@
     },
     "footer": {
       "tagline": "Your reliable partner for fast and professional repairs. Quality you can count on.",
-      "repairTitle": "Repairs",
+      "repairTitle": "Shop Service",
       "smartphoneRepair": "Smartphone repair",
       "tabletRepair": "Tablet repair",
       "notebookRepair": "Notebook repair",
+      "becomePartner": "Become a partner",
       "consoleRepair": "Console repair",
       "expressRepair": "Express repair",
       "serviceTitle": "Service",

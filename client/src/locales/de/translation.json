@@ -63,6 +63,36 @@
     "login": "Anmelden",
     "register": "Registrieren"
   },
+  "partnerPage": {
+    "badge": "McRepair Partnerprogramm",
+    "title": "McRepair-Partner werden",
+    "description": "McRepair ist einer der führenden Dienstleister für die professionelle Reparatur von Smartphones, Tablets und Notebooks. Unsere Zentralwerkstatt mit Sitz in Berlin arbeitet bundesweit mit über 350 Annahmestellen zusammen und hilft Ihnen mit absoluten zuverlässigen und professionellen Fachkräften. Werden auch Sie ein McRepair-Partner!",
+    "facts": {
+      "centralWorkshop": "Zentrale in Berlin",
+      "locations": "350+ Annahmestellen bundesweit"
+    },
+    "advantages": {
+      "title": "Ihre Vorteile",
+      "item1": "Profitieren Sie von attraktiven Rabatten",
+      "item2": "Nutzen Sie zusätzliche Ertragschancen",
+      "item3": "Gewinnen Sie mehr Präsenzgeschäft",
+      "item4": "Greifen Sie auf weitere Versandmöglichkeiten",
+      "item5": "Integrieren Sie zusätzliche Dienstleistungen in Ihr Geschäftsfeld",
+      "item6": "Erzielen Sie höhere Kundenfrequenz im Geschäft"
+    },
+    "steps": {
+      "title": "So funktioniert's",
+      "item1": "Sie füllen das Kontaktformular aus.",
+      "item2": "Unser(e) Key-Account-Manager(in) kontaktiert Sie.",
+      "item3": "Sie erhalten ein Willkommens-Partnerpaket mit Werbematerialien.",
+      "item4": "Profit!"
+    },
+    "cta": {
+      "description": "Sie möchten direkt starten? Kontaktieren Sie uns und wir melden uns schnellstmöglich bei Ihnen.",
+      "contactButton": "Zur Kontaktseite",
+      "locationsButton": "Annahmestellen ansehen"
+    }
+  },
   "orderTracking": {
     "title": "Auftrag verfolgen",
     "description": "Geben Sie E-Mail-Adresse und Tracking-Token ein, um den aktuellen Status Ihres Reparaturauftrags zu sehen.",
@@ -1623,10 +1653,11 @@
     },
     "footer": {
       "tagline": "Ihr zuverlässiger Partner für schnelle und professionelle Reparaturen. Qualität, auf die Sie sich verlassen können.",
-      "repairTitle": "Reparatur",
+      "repairTitle": "Shop Service",
       "smartphoneRepair": "Smartphone Reparatur",
       "tabletRepair": "Tablet Reparatur",
       "notebookRepair": "Notebook Reparatur",
+      "becomePartner": "Partner werden",
       "consoleRepair": "Konsolen Reparatur",
       "expressRepair": "Express-Reparatur",
       "serviceTitle": "Service",

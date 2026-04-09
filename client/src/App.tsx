@@ -76,6 +76,7 @@ import { GuestBookingTracking } from "./pages/GuestBookingTracking"
 import { Vorabdiagnose } from "./pages/Vorabdiagnose"
 import { Annahmestellen } from "./pages/Annahmestellen"
 import { Contact } from "./pages/Contact"
+import { PartnerWerden } from "./pages/PartnerWerden"
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -136,6 +137,8 @@ function App() {
             <Route path="/faq" element={<FAQ />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/kontakt" element={<Contact />} />
+            <Route path="/partner-werden" element={<PartnerWerden />} />
+            <Route path="/partner" element={<PartnerWerden />} />
             <Route path="/widerrufsrecht" element={<Widerrufsrecht />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/datenschutz" element={<Privacy />} />
