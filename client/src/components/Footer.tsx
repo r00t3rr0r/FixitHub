@@ -15,9 +15,13 @@ export function Footer() {
             <h3>
               Mc<span>Repair</span>.de
             </h3>
-            <p>
-              {t('home.footer.tagline', 'Ihr zuverlässiger Partner für schnelle und professionelle Reparaturen. Qualität, auf die Sie sich verlassen können.')}
-            </p>
+            <div className="footer-hotline" aria-label={t('home.footer.hotlineAriaLabel', 'Service-Hotline und Erreichbarkeit')}>
+              <p className="footer-hotline-title">{t('home.footer.hotlineTitle', 'Service Hotline')}</p>
+              <p className="footer-hotline-hours">{t('home.footer.hotlineHours', 'Mo.- Fr. 10.00 - 12:00 Uhr und 14:00 - 16:00 Uhr')}</p>
+              <a className="footer-hotline-phone" href="tel:+4930403688951">
+                {t('home.footer.hotlinePhone', 'Tel: 030 403 688 951')}
+              </a>
+            </div>
             
             {/* Social Media Icons */}
             <div className="footer-social">
@@ -38,63 +42,58 @@ export function Footer() {
 
           {/* Repair Services Column */}
           <div className="footer-col">
-            <h4>{t('home.footer.repairTitle', 'Reparatur')}</h4>
+            <h4>{t('home.footer.repairTitle', 'Shop Service')}</h4>
             <ul>
               <li>
-                <Link to="/new-order">
-                  {t('home.footer.smartphoneRepair', 'Smartphone Reparatur')}
+                <Link to="/faq">
+                  {t('home.footer.faq', 'FAQ')}
                 </Link>
               </li>
               <li>
-                <Link to="/new-order">
-                  {t('home.footer.tabletRepair', 'Tablet Reparatur')}
+                <Link to="/contact">
+                  {t('home.footer.contact', 'Kontakt')}
                 </Link>
               </li>
               <li>
-                <Link to="/new-order">
-                  {t('home.footer.notebookRepair', 'Notebook Reparatur')}
+                <Link to="/partner-werden">
+                  {t('home.footer.becomePartner', 'Partner werden')}
                 </Link>
               </li>
               <li>
-                <Link to="/new-order">
-                  {t('home.footer.consoleRepair', 'Konsolen Reparatur')}
+                <Link to="/newsletter">
+                  {t('home.footer.newsletter', 'Newsletter')}
                 </Link>
               </li>
               <li>
-                <Link to="/new-order">
-                  {t('home.footer.expressRepair', 'Express-Reparatur')}
+                <Link to="/sitemap">
+                  {t('home.footer.sitemap', 'Sitemap')}
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* Service Column */}
+          {/* Informationen Column */}
           <div className="footer-col">
-            <h4>{t('home.footer.serviceTitle', 'Service')}</h4>
+            <h4>{t('home.footer.serviceTitle', 'Informationen')}</h4>
             <ul>
               <li>
-                <a href="/annahmestellen">
-                  {t('home.footer.locations', 'Annahmestellen')}
+                <a href="/widerrufsrecht">
+                  {t('home.footer.locations', 'Widerrufsrecht')}
                 </a>
               </li>
               <li>
-                <Link to="/new-order">
-                  {t('home.footer.shippingRepair', 'Versand-Reparatur')}
+                <Link to="/privacy">
+                  {t('home.footer.shippingRepair', 'Datenschutz')}
                 </Link>
               </li>
               <li>
-                <Link to="/new-order">
-                  {t('home.footer.deviceFinder', 'Geräte-Finder')}
+                <Link to="/about">
+                  {t('home.footer.aboutUs', 'Über uns')}
                 </Link>
               </li>
               <li>
-                <Link to="/orders">
-                  {t('home.footer.repairStatus', 'Reparatur-Status')}
-                </Link>
-              </li>
-              <li>
-                <Link to="/faq">
-                  {t('home.footer.faq', 'FAQ')}
+                <Link to="/terms">
+                  {t('home.footer.repairStatus', 'AGB')}
                 </Link>
               </li>
             </ul>
@@ -104,11 +103,6 @@ export function Footer() {
           <div className="footer-col">
             <h4>{t('home.footer.companyTitle', 'Unternehmen')}</h4>
             <ul>
-              <li>
-                <Link to="/about">
-                  {t('home.footer.aboutUs', 'Über uns')}
-                </Link>
-              </li>
               <li>
                 <a href="#careers">
                   {t('home.footer.careers', 'Karriere')}
@@ -123,11 +117,6 @@ export function Footer() {
                 <a href="#press">
                   {t('home.footer.press', 'Presse')}
                 </a>
-              </li>
-              <li>
-                <Link to="/contact">
-                  {t('home.footer.contact', 'Kontakt')}
-                </Link>
               </li>
             </ul>
           </div>

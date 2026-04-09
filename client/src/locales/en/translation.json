@@ -63,6 +63,36 @@
     "login": "Login",
     "register": "Register"
   },
+  "partnerPage": {
+    "badge": "McRepair Partner Program",
+    "title": "Become a McRepair Partner",
+    "description": "McRepair is one of the leading service providers for professional smartphone, tablet, and notebook repairs. Our central workshop in Berlin cooperates with more than 350 drop-off locations across Germany and supports you with highly reliable and professional specialists. Become a McRepair partner too!",
+    "facts": {
+      "centralWorkshop": "Central workshop in Berlin",
+      "locations": "350+ drop-off locations nationwide"
+    },
+    "advantages": {
+      "title": "Your Benefits",
+      "item1": "Benefit from attractive discounts",
+      "item2": "Use additional revenue opportunities",
+      "item3": "Increase your local in-store business",
+      "item4": "Get access to additional shipping options",
+      "item5": "Integrate additional services into your business",
+      "item6": "Achieve higher customer foot traffic in store"
+    },
+    "steps": {
+      "title": "How it Works",
+      "item1": "Fill out the contact form.",
+      "item2": "Our key account manager will contact you.",
+      "item3": "You will receive a welcome partner package with marketing materials.",
+      "item4": "Profit!"
+    },
+    "cta": {
+      "description": "Want to get started right away? Contact us and we will get back to you as soon as possible.",
+      "contactButton": "Go to contact page",
+      "locationsButton": "View drop-off locations"
+    }
+  },
   "orderTracking": {
     "title": "Track your order",
     "description": "Enter your email and tracking token to see the latest status of your repair order.",
@@ -940,6 +970,132 @@
     "openGraphSettings": "Open Graph Settings",
     "twitterCardSettings": "Twitter Card Settings"
   },
+  "sitemapPage": {
+    "badge": "HTML Sitemap",
+    "title": "All Important Pages at a Glance",
+    "description": "This sitemap provides a clear, clickable overview of the most important areas of McRepair. It helps visitors quickly get their bearings and navigate to the right page.",
+    "ariaNav": "Sitemap sections",
+    "quickLinksTitle": "Quick access",
+    "quickLinksSubtitle": "The most frequently used pages for a quick start.",
+    "overviewTitle": "User-friendly navigation instead of a link jungle",
+    "overviewDescription": "This page deliberately only lists the central, publicly relevant areas. Internal, duplicate, or technically irrelevant pages are excluded.",
+    "statsPages": "key pages",
+    "statsSections": "sections",
+    "ctaTitle": "Not sure where to go next?",
+    "ctaDescription": "Start directly with a repair request or get in touch if you need personal advice.",
+    "ctaStartRepair": "Start repair",
+    "ctaContact": "Contact us",
+    "quickLinks": {
+      "startRepair": {
+        "title": "Start repair",
+        "description": "Quick access to submitting a new repair order by mail or drop-off."
+      },
+      "preDiagnosis": {
+        "title": "Pre-diagnosis",
+        "description": "Initial assessment for defects and repair requirements."
+      },
+      "faq": {
+        "title": "FAQ",
+        "description": "Quick answers on process, shipping, warranty and pricing."
+      },
+      "contact": {
+        "title": "Contact",
+        "description": "Direct line to support for questions and individual concerns."
+      }
+    },
+    "sections": {
+      "repair": {
+        "title": "Repair & Services",
+        "description": "The most important entry points for repair requests, diagnosis and service access."
+      },
+      "support": {
+        "title": "Service & Help",
+        "description": "Support pages for orientation, contact and status queries."
+      },
+      "company": {
+        "title": "Company & Content",
+        "description": "Pages for trust, background information and editorial content."
+      },
+      "legal": {
+        "title": "Legal",
+        "description": "Important information pages for transparency, privacy and legal notices."
+      }
+    },
+    "links": {
+      "home": {
+        "label": "Home",
+        "description": "Overview of services, benefits and key entry points."
+      },
+      "newOrder": {
+        "label": "Request repair",
+        "description": "Directly to submitting a new repair order."
+      },
+      "repairRequest": {
+        "label": "Repair request",
+        "description": "Questionnaire for individual or complex repair cases."
+      },
+      "preDiagnosis": {
+        "label": "Pre-diagnosis",
+        "description": "Helps with the initial assessment of the defect."
+      },
+      "locations": {
+        "label": "Drop-off locations",
+        "description": "Locations and drop-off options near you."
+      },
+      "shop": {
+        "label": "Shop",
+        "description": "Public area for products, accessories and further offers."
+      },
+      "faq": {
+        "label": "FAQ",
+        "description": "Answers to common questions about repairs and processes."
+      },
+      "trackOrder": {
+        "label": "Track repair status",
+        "description": "Public status query for existing orders."
+      },
+      "trackBooking": {
+        "label": "Track booking status",
+        "description": "Status view for bookings and appointments."
+      },
+      "contact": {
+        "label": "Contact",
+        "description": "Contact form and direct communication channels."
+      },
+      "newsletter": {
+        "label": "Newsletter",
+        "description": "Subscribe to information, offers and news."
+      },
+      "about": {
+        "label": "About us",
+        "description": "Insights into McRepair, our approach and quality standards."
+      },
+      "partnerWerden": {
+        "label": "Become a partner",
+        "description": "Information for potential partners and cooperations."
+      },
+      "blog": {
+        "label": "Blog",
+        "description": "Articles, tips and background knowledge on repairs."
+      },
+      "imprint": {
+        "label": "Imprint",
+        "description": "Provider information and basic legal details."
+      },
+      "privacy": {
+        "label": "Privacy policy",
+        "description": "Information on the processing of personal data."
+      },
+      "terms": {
+        "label": "Terms & Conditions",
+        "description": "General terms and conditions for services and orders."
+      },
+      "withdrawal": {
+        "label": "Right of withdrawal",
+        "description": "Notes on withdrawal, deadlines and consumer rights."
+      }
+    }
+  },
   "financialManagement": {
     "title": "Financial Management",
     "description": "Manage payments and financial reports",
@@ -1623,14 +1779,16 @@
     },
     "footer": {
       "tagline": "Your reliable partner for fast and professional repairs. Quality you can count on.",
-      "repairTitle": "Repairs",
+      "repairTitle": "Shop Service",
       "smartphoneRepair": "Smartphone repair",
       "tabletRepair": "Tablet repair",
       "notebookRepair": "Notebook repair",
+      "becomePartner": "Become a partner",
       "consoleRepair": "Console repair",
       "expressRepair": "Express repair",
-      "serviceTitle": "Service",
-      "locations": "Drop-off locations",
+      "sitemap": "Sitemap",
+      "serviceTitle": "Informationen",
+      "locations": "Widerrufsrecht",
       "shippingRepair": "Mail-in repair",
       "deviceFinder": "Device finder",
       "repairStatus": "Repair status",
