@@ -7,6 +7,8 @@ import {
   CheckCircle2,
   ChevronLeft,
   Clock,
+  Download,
+  ExternalLink,
   FileText,
   Mail,
   MapPin,
@@ -50,6 +52,7 @@ export function GuestBookingTracking() {
   const [bookingNumber, setBookingNumber] = useState("");
 
   const [communicationByOrderId, setCommunicationByOrderId] = useState<Record<string, GuestOrderCommunication | null>>({});
+  const [communicationUpdatedAtByOrderId, setCommunicationUpdatedAtByOrderId] = useState<Record<string, string>>({});
   const [communicationDialogOpen, setCommunicationDialogOpen] = useState(false);
   const [selectedOrderForCommunication, setSelectedOrderForCommunication] = useState<TrackedOrder | null>(null);
   const [communicationLoading, setCommunicationLoading] = useState(false);
@@ -58,6 +61,81 @@ export function GuestBookingTracking() {
   const [respondingToMessageId, setRespondingToMessageId] = useState<string | null>(null);
   const [pendingOption, setPendingOption] = useState<{ label: string; value: string } | null>(null);
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
+
+  const trackAccess = useMemo(
+    () => ({
+      email,
+      token: token || undefined,
+      bookingNumber: bookingNumber || undefined,
+    }),
+    [email, token, bookingNumber]
+  );
+
+  useEffect(() => {
+    if (!orders.length || !trackAccess.email) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const preloadCommunication = async () => {
+      try {
+        const results = await Promise.all(
+          orders.map(async (order) => {
+            try {
+              const response = await getGuestBookingOrderCommunication(order._id, trackAccess);
+              return [order._id, response.communication] as const;
+            } catch {
+              return [order._id, null] as const;
+            }
+          })
+        );
+
+        if (isCancelled) {
+          return;
+        }
+
+        setCommunicationByOrderId((previous) => {
+          const next = { ...previous };
+          results.forEach(([orderId, communication]) => {
+            next[orderId] = communication;
+          });
+          return next;
+        });
+
+        const refreshedAt = new Date().toISOString();
+        setCommunicationUpdatedAtByOrderId((previous) => {
+          const next = { ...previous };
+          results.forEach(([orderId]) => {
+            next[orderId] = refreshedAt;
+          });
+          return next;
+        });
+      } catch {
+        // Do not block booking UI if communication preload fails.
+      }
+    };
+
+    preloadCommunication();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [orders, trackAccess]);
+
+  useEffect(() => {
+    if (!communicationDialogOpen || !selectedOrderForCommunication || !trackAccess.email) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      loadCommunication(selectedOrderForCommunication._id, { silent: true });
+    }, 15000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [communicationDialogOpen, selectedOrderForCommunication, trackAccess.email]);
 
   useEffect(() => {
     const urlToken = searchParams.get("token");
@@ -78,15 +156,6 @@ export function GuestBookingTracking() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
-
-  const trackAccess = useMemo(
-    () => ({
-      email,
-      token: token || undefined,
-      bookingNumber: bookingNumber || undefined,
-    }),
-    [email, token, bookingNumber]
-  );
 
   const handleTrackByNumber = async (trackingBookingNumber: string, trackingEmail: string) => {
     try {
@@ -228,22 +297,33 @@ export function GuestBookingTracking() {
       || (selectedCommunication.pendingActionsCount || 0) > 0;
   }, [selectedCommunication]);
 
-  const loadCommunication = async (orderId: string) => {
+  const loadCommunication = async (orderId: string, options: { silent?: boolean } = {}) => {
+    const { silent = false } = options;
     try {
-      setCommunicationLoading(true);
+      if (!silent) {
+        setCommunicationLoading(true);
+      }
       const response = await getGuestBookingOrderCommunication(orderId, trackAccess);
       setCommunicationByOrderId((previous) => ({
         ...previous,
         [orderId]: response.communication,
       }));
+      setCommunicationUpdatedAtByOrderId((previous) => ({
+        ...previous,
+        [orderId]: new Date().toISOString(),
+      }));
     } catch (error: any) {
-      toast({
-        title: t("common.error"),
-        description: error.message || t("orderTracking.communication.loadFailed", { defaultValue: "Communication could not be loaded." }),
-        variant: "destructive",
-      });
+      if (!silent) {
+        toast({
+          title: t("common.error"),
+          description: error.message || t("orderTracking.communication.loadFailed", { defaultValue: "Communication could not be loaded." }),
+          variant: "destructive",
+        });
+      }
     } finally {
-      setCommunicationLoading(false);
+      if (!silent) {
+        setCommunicationLoading(false);
+      }
     }
   };
 
@@ -272,6 +352,10 @@ export function GuestBookingTracking() {
       setCommunicationByOrderId((previous) => ({
         ...previous,
         [selectedOrderForCommunication._id]: response.communication,
+      }));
+      setCommunicationUpdatedAtByOrderId((previous) => ({
+        ...previous,
+        [selectedOrderForCommunication._id]: new Date().toISOString(),
       }));
       setGuestMessage("");
     } catch (error: any) {
@@ -303,6 +387,10 @@ export function GuestBookingTracking() {
         ...previous,
         [selectedOrderForCommunication._id]: response.communication,
       }));
+      setCommunicationUpdatedAtByOrderId((previous) => ({
+        ...previous,
+        [selectedOrderForCommunication._id]: new Date().toISOString(),
+      }));
       setRespondingToMessageId(null);
       setPendingOption(null);
     } catch (error: any) {
@@ -328,6 +416,10 @@ export function GuestBookingTracking() {
         ...previous,
         [selectedOrderForCommunication._id]: response.communication,
       }));
+      setCommunicationUpdatedAtByOrderId((previous) => ({
+        ...previous,
+        [selectedOrderForCommunication._id]: new Date().toISOString(),
+      }));
     } catch (error: any) {
       toast({
         title: t("common.error"),
@@ -347,6 +439,20 @@ export function GuestBookingTracking() {
 
     return Number(communication.pendingFeedbackCount || 0) + Number(communication.pendingActionsCount || 0);
   };
+
+  const getCommunicationUpdatedAtLabel = (orderId: string) => {
+    const updatedAt = communicationUpdatedAtByOrderId[orderId];
+    if (!updatedAt) {
+      return "-";
+    }
+
+    return formatDate(updatedAt);
+  };
+
+  const formatShippingStatus = (status?: string) =>
+    t(`orderTracking.shipping.statuses.${status || "pending"}`, {
+      defaultValue: String(status || "pending").replace(/-/g, " "),
+    });
 
   return (
     <div className="min-h-[calc(100vh-100px)] bg-slate-50">
@@ -475,6 +581,63 @@ export function GuestBookingTracking() {
                     <p className="mt-1 text-2xl font-bold text-emerald-700">{completedOrders}/{totalOrders}</p>
                   </div>
                 </div>
+
+                {(booking?.returnLabelUrl || booking?.returnTrackingNumber || booking?.returnShipmentStatus) && (
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
+                      <Package className="h-4 w-4 text-[#1a2a5e]" />
+                      {t("orderTracking.shipping.bookingTitle", { defaultValue: "Shipping information" })}
+                    </h3>
+
+                    <div className="grid gap-3 sm:grid-cols-3 text-sm">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          {t("orderTracking.shipping.carrier", { defaultValue: "Carrier" })}
+                        </p>
+                        <p className="mt-1 font-medium text-slate-800">{booking?.carrier || "DHL"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          {t("orderTracking.shipping.trackingNumber", { defaultValue: "Tracking number" })}
+                        </p>
+                        <p className="mt-1 font-medium text-slate-800 break-all">{booking?.returnTrackingNumber || booking?.trackingNumber || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          {t("orderTracking.shipping.status", { defaultValue: "Shipping status" })}
+                        </p>
+                        <p className="mt-1 font-medium text-slate-800">{formatShippingStatus(booking?.returnShipmentStatus || booking?.shippingStatus)}</p>
+                      </div>
+                    </div>
+
+                    {(booking?.returnLabelUrl || booking?.shippingLabelUrl) && (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {booking?.returnLabelUrl && (
+                          <a
+                            href={booking.returnLabelUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 rounded-md bg-[#1a2a5e] px-3 py-2 text-xs font-semibold text-white hover:bg-[#2a3f7e]"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            {t("orderTracking.shipping.downloadLabel", { defaultValue: "Download shipping label" })}
+                          </a>
+                        )}
+                        {booking?.shippingLabelUrl && !booking?.returnLabelUrl && (
+                          <a
+                            href={booking.shippingLabelUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 rounded-md bg-[#1a2a5e] px-3 py-2 text-xs font-semibold text-white hover:bg-[#2a3f7e]"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            {t("orderTracking.shipping.downloadLabel", { defaultValue: "Download shipping label" })}
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid gap-4 lg:grid-cols-2">
                   <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -625,6 +788,50 @@ export function GuestBookingTracking() {
                           </span>
                         )}
                       </Button>
+
+                      {(order?.shippingLabelUrl || order?.trackingNumber || order?.shippingStatus) && (
+                        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                          <div className="grid gap-2 sm:grid-cols-3">
+                            <p>
+                              <span className="font-semibold text-slate-900">{t("orderTracking.shipping.carrier", { defaultValue: "Carrier" })}: </span>
+                              {order.carrier || "DHL"}
+                            </p>
+                            <p className="break-all">
+                              <span className="font-semibold text-slate-900">{t("orderTracking.shipping.trackingNumber", { defaultValue: "Tracking number" })}: </span>
+                              {order.trackingNumber || "-"}
+                            </p>
+                            <p>
+                              <span className="font-semibold text-slate-900">{t("orderTracking.shipping.status", { defaultValue: "Shipping status" })}: </span>
+                              {formatShippingStatus(order.shippingStatus)}
+                            </p>
+                          </div>
+
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {order.shippingLabelUrl && (
+                              <a
+                                href={order.shippingLabelUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 rounded-md bg-white px-2.5 py-1.5 font-semibold text-[#1a2a5e] ring-1 ring-slate-200 hover:bg-slate-100"
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                                {t("orderTracking.shipping.downloadLabel", { defaultValue: "Download shipping label" })}
+                              </a>
+                            )}
+                            {order.trackingNumber && (
+                              <a
+                                href={`https://www.dhl.de/de/privatkunden/pakete-empfangen/verfolgen.html?piececode=${encodeURIComponent(order.trackingNumber)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 rounded-md bg-white px-2.5 py-1.5 font-semibold text-[#1a2a5e] ring-1 ring-slate-200 hover:bg-slate-100"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                {t("orderTracking.shipping.openTracking", { defaultValue: "Open tracking" })}
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </CardContent>
@@ -650,7 +857,7 @@ export function GuestBookingTracking() {
           {selectedOrderForCommunication && (
             <>
               <DialogHeader className="relative overflow-hidden flex-shrink-0 px-4 py-4 sm:px-6 sm:py-5 pr-12 bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e]">
-                <DialogTitle className="text-[#f5b800] font-extrabold tracking-tight text-[clamp(1rem,3vw,1.35rem)] break-all">
+                <DialogTitle className="!text-[#f5b800] font-extrabold tracking-tight text-[clamp(1rem,3vw,1.35rem)] break-all">
                   {t("orderTracking.communication.title", { defaultValue: "Customer communication" })}
                 </DialogTitle>
                 <DialogDescription className="text-white/85 text-xs sm:text-sm">
@@ -666,6 +873,9 @@ export function GuestBookingTracking() {
                   </span>
                   <span className="inline-flex items-center rounded-full border border-white/30 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
                     {selectedCommunication?.pendingActionsCount || 0} {t("orderTracking.communication.pendingActions", { defaultValue: "pending actions" })}
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-white/30 bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">
+                    {t("orderTracking.communication.lastUpdated", { defaultValue: "Last updated" })}: {getCommunicationUpdatedAtLabel(selectedOrderForCommunication._id)}
                   </span>
                 </div>
               </DialogHeader>

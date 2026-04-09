@@ -29,6 +29,12 @@
       ]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": [
+    "src/**/*.backup.ts",
+    "src/**/*.backup.tsx",
+    "src/**/*_BROKEN.ts",
+    "src/**/*_BROKEN.tsx"
+  ]
 }
 

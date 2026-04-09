@@ -58,17 +58,20 @@ const resolveGuestBookingContext = async ({ token, bookingNumber, email, orderId
     throw new Error('Email does not match booking records');
   }
 
-  const bookingOrderIds = (booking.orderIds || []).map((id) => id.toString());
-  if (!bookingOrderIds.includes(orderId.toString())) {
-    throw new Error('Order does not belong to booking');
-  }
-
   const order = await Order.findById(orderId)
-    .select('_id orderNumber deviceBrand deviceModel guestInfo customerId')
+    .select('_id orderNumber deviceBrand deviceModel guestInfo customerId bookingId')
     .lean();
 
   if (!order) {
     throw new Error('Order not found');
+  }
+
+  const bookingOrderIds = (booking.orderIds || []).map((id) => id.toString());
+  const isOrderIdLinked = bookingOrderIds.includes(order._id.toString());
+  const isBookingIdLinked = order.bookingId && order.bookingId.toString() === booking._id.toString();
+
+  if (!isOrderIdLinked && !isBookingIdLinked) {
+    throw new Error('Order does not belong to booking');
   }
 
   const guestName = `${order?.guestInfo?.firstName || ''} ${order?.guestInfo?.lastName || ''}`.trim() || 'Guest Customer';

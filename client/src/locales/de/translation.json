@@ -114,6 +114,7 @@
       "title": "Kundenkommunikation",
       "pendingFeedback": "offene Rückmeldungen",
       "pendingActions": "offene Aktionen",
+      "lastUpdated": "Zuletzt aktualisiert",
       "loadFailed": "Kommunikation konnte nicht geladen werden.",
       "sendFailed": "Nachricht konnte nicht gesendet werden.",
       "respondFailed": "Rückmeldung konnte nicht gespeichert werden.",
@@ -129,6 +130,23 @@
       "messagePlaceholder": "Nachricht eingeben...",
       "messageHint": "Sie können antworten, weil zu diesem Auftrag eine aktive Anfrage oder eingehende Nachricht vorliegt.",
       "waitForContact": "Nachrichten sind möglich, sobald der Support Sie kontaktiert hat oder eine Rückmeldung/Aktion aussteht."
+    },
+    "shipping": {
+      "bookingTitle": "Versandinformationen",
+      "carrier": "Versanddienstleister",
+      "trackingNumber": "Sendungsnummer",
+      "status": "Versandstatus",
+      "downloadLabel": "Versandlabel herunterladen",
+      "openTracking": "Sendungsverfolgung öffnen",
+      "statuses": {
+        "pending": "Ausstehend",
+        "label-created": "Label erstellt",
+        "in-transit": "Unterwegs",
+        "out-for-delivery": "In Zustellung",
+        "delivered": "Zugestellt",
+        "returned": "Retourniert",
+        "exception": "Abweichung"
+      }
     },
     "statuses": {
       "pending": "Ausstehend",

@@ -30,8 +30,12 @@ export interface TrackedOrder {
     shippingAddress: any;
   };
   shippingStatus?: string;
+  shippingStatusDescription?: string;
   trackingNumber?: string;
   carrier?: string;
+  shippingLabelUrl?: string;
+  estimatedDelivery?: string | Date;
+  actualDelivery?: string | Date;
   createdAt: string;
   updatedAt: string;
 }
