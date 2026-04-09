@@ -164,21 +164,49 @@ export function ShoppingCartPage() {
   const handleUpdateQuantity = async (itemId: string, productId: string, newQuantity: number) => {
     if (newQuantity < 0) return
 
+    const currentItem = cart?.items.find(
+      (item) => item._id === itemId || item.productId?._id === productId
+    )
+    const rawStockCount = (currentItem?.productId as any)?.stockCount
+    const parsedStockCount = Number(rawStockCount)
+    const hasStockCount =
+      rawStockCount !== null &&
+      rawStockCount !== undefined &&
+      rawStockCount !== '' &&
+      Number.isFinite(parsedStockCount)
+    const maxStock = hasStockCount ? Math.max(0, parsedStockCount) : undefined
+    const hasInStockFlag = typeof currentItem?.productId?.inStock === 'boolean'
+    const currentInStock = hasInStockFlag ? Boolean(currentItem?.productId?.inStock) : true
+    const shouldEnforceMaxStock = typeof maxStock === 'number' && (maxStock > 0 || !currentInStock)
+    let targetQuantity = newQuantity
+
+    if (shouldEnforceMaxStock && targetQuantity > (maxStock as number)) {
+      targetQuantity = maxStock
+      toast({
+        title: 'Lagerbestand erreicht',
+        description: `Maximal ${maxStock} Stück verfügbar.`,
+      })
+    }
+
+    if (shouldEnforceMaxStock && currentItem && targetQuantity === currentItem.quantity) {
+      return
+    }
+
     try {
       const cartItemIdentifier = isUserAuthenticated() ? productId : itemId
-      const updatingKey = newQuantity === 0 ? itemId : cartItemIdentifier
+      const updatingKey = targetQuantity === 0 ? itemId : cartItemIdentifier
 
       setUpdating(updatingKey)
-      console.log("Updating cart item:", { itemId, productId, newQuantity, cartItemIdentifier })
+      console.log("Updating cart item:", { itemId, productId, targetQuantity, cartItemIdentifier })
 
-      if (newQuantity === 0) {
+      if (targetQuantity === 0) {
         await removeFromCart(itemId)
         toast({
           title: t('cart.itemRemoved'),
           description: t('cart.itemRemovedDesc')
         })
       } else {
-        await updateCartItem(cartItemIdentifier, newQuantity)
+        await updateCartItem(cartItemIdentifier, targetQuantity)
         toast({
           title: t('cart.cartUpdated'),
           description: t('cart.cartUpdatedDesc')
@@ -414,7 +442,25 @@ export function ShoppingCartPage() {
           {/* Cart Items - Left Column (2/3 width) */}
           <div className="space-y-3 lg:col-span-2">
             {/* Product Items */}
-            {cart.items.filter((item) => item.productId).map((item, index) => (
+            {cart.items.filter((item) => item.productId).map((item, index) => {
+              const rawStockCount = (item.productId as any)?.stockCount
+              const parsedStockCount = Number(rawStockCount)
+              const hasStockCount =
+                rawStockCount !== null &&
+                rawStockCount !== undefined &&
+                rawStockCount !== '' &&
+                Number.isFinite(parsedStockCount)
+              const effectiveStockCount = hasStockCount ? Math.max(0, parsedStockCount) : 0
+              const hasInStockFlag = typeof item.productId.inStock === 'boolean'
+              const fallbackInStock = hasInStockFlag ? item.productId.inStock : true
+              const effectiveInStock = hasStockCount
+                ? (effectiveStockCount > 0 || fallbackInStock)
+                : fallbackInStock
+              const isAtStockLimit = hasStockCount && effectiveStockCount > 0
+                ? item.quantity >= effectiveStockCount
+                : false
+
+              return (
               <div
                 key={item._id}
                 className="group"
@@ -443,7 +489,7 @@ export function ShoppingCartPage() {
                               <Package className="mr-1 h-3 w-3" />
                               Shopping-Artikel
                             </Badge>
-                            {!item.productId.inStock && (
+                            {!effectiveInStock && (
                               <Badge variant="destructive" className="border-0 text-[11px] shadow-none">
                                 {t('shop.outOfStock')}
                               </Badge>
@@ -494,7 +540,9 @@ export function ShoppingCartPage() {
                           <div className="mt-2.5 flex items-center justify-between border-t border-[#e7eaf1] pt-2 text-[11px] sm:text-xs">
                             <div className="flex items-center gap-1.5 font-medium text-[#4a5568]">
                               <Shield className="h-3.5 w-3.5 text-[#38a169]" />
-                              {item.productId.inStock ? `${item.productId.stockCount} verfuegbar` : t('shop.outOfStock')}
+                              {effectiveInStock
+                                ? (hasStockCount && effectiveStockCount > 0 ? `${effectiveStockCount} verfuegbar` : 'Verfuegbar')
+                                : t('shop.outOfStock')}
                             </div>
                             <span className="font-semibold text-[#1a2a5e]">Zum Produktdialog</span>
                           </div>
@@ -533,7 +581,7 @@ export function ShoppingCartPage() {
                             event.stopPropagation()
                             handleUpdateQuantity(item._id, item.productId._id, item.quantity + 1)
                           }}
-                          disabled={(updating === item.productId._id || updating === item._id) || !item.productId.inStock}
+                          disabled={(updating === item.productId._id || updating === item._id) || !effectiveInStock || isAtStockLimit}
                         >
                           <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                         </Button>
@@ -565,7 +613,7 @@ export function ShoppingCartPage() {
                   </CardContent>
                 </Card>
               </div>
-            ))}
+            )})}
 
             {/* Repair Orders */}
             {groupedRepairOrders.map(({ order, ordersGroup, quantity }, groupIndex) => {

@@ -34,7 +34,11 @@ export function ShopSection() {
       const response = await getProducts({ limit: 8, sortBy: 'createdAt', sortOrder: 'desc' });
       const productsData = (response as any).products || [];
       // Filter only active and in-stock products
-      const activeProducts = productsData.filter((p: Product) => p.isActive && p.inStock);
+      const activeProducts = productsData.filter((p: Product) => {
+        const hasStockCount = typeof p.stockCount === 'number';
+        const effectiveInStock = hasStockCount ? p.stockCount > 0 : Boolean(p.inStock);
+        return p.isActive && effectiveInStock;
+      });
       setProducts(activeProducts.slice(0, 8));
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -92,6 +96,13 @@ export function ShopSection() {
   const quickViewImages = selectedProduct?.images?.filter(Boolean) || [];
   const quickViewPrimaryImage = selectedQuickViewImage || quickViewImages[0] || "/placeholder-product.png";
   const quickViewSavings = selectedProduct?.originalPrice ? selectedProduct.originalPrice - selectedProduct.price : 0;
+  const selectedHasStockCount = typeof selectedProduct?.stockCount === 'number';
+  const selectedStockCount = selectedHasStockCount ? Math.max(0, Number(selectedProduct?.stockCount)) : 0;
+  const selectedEffectiveInStock = selectedHasStockCount ? selectedStockCount > 0 : Boolean(selectedProduct?.inStock);
+  const selectedPrice = typeof selectedProduct?.price === 'number' ? selectedProduct.price : 0;
+  const selectedOriginalPrice = typeof selectedProduct?.originalPrice === 'number' ? selectedProduct.originalPrice : undefined;
+  const selectedRating = typeof selectedProduct?.rating === 'number' ? selectedProduct.rating : 0;
+  const selectedReviewCount = typeof selectedProduct?.reviewCount === 'number' ? selectedProduct.reviewCount : 0;
 
   return (
     <div className="container">
@@ -118,7 +129,11 @@ export function ShopSection() {
       ) : products.length > 0 ? (
         <>
           <div className="shop-grid">
-            {products.map((product) => (
+            {products.map((product) => {
+              const hasStockCount = typeof product.stockCount === 'number';
+              const productEffectiveInStock = hasStockCount ? product.stockCount > 0 : Boolean(product.inStock);
+
+              return (
               <div 
                 key={product._id} 
                 className="shop-card"
@@ -166,7 +181,7 @@ export function ShopSection() {
                   <div className="shop-card-actions">
                     <button
                       onClick={(e) => handleAddToCart(product._id, e)}
-                      disabled={!product.inStock || addingToCart === product._id}
+                      disabled={!productEffectiveInStock || addingToCart === product._id}
                       className="btn-add-to-cart"
                       title={t('home.shop.cartButtonTitle')}
                     >
@@ -189,7 +204,7 @@ export function ShopSection() {
                   </div>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
           <div style={{ textAlign: 'center', marginTop: '32px' }}>
             <Link 
@@ -230,7 +245,7 @@ export function ShopSection() {
                         <Sparkles className="mr-1 h-3.5 w-3.5" />
                         Shop Quick View
                       </Badge>
-                      {selectedProduct.inStock ? (
+                      {selectedEffectiveInStock ? (
                         <Badge className="border-0 bg-[#38a169] px-2.5 py-1 text-[11px] font-semibold text-white shadow-none">
                           Sofort verfuegbar
                         </Badge>
@@ -339,23 +354,25 @@ export function ShopSection() {
                             <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#63708a]">Aktueller Preis</p>
                             <div className="mt-1 flex items-end gap-2">
                               <span className="text-3xl font-bold tracking-tight text-[#1a2a5e]">
-                                {selectedProduct.price.toFixed(2)} €
+                                {selectedPrice.toFixed(2)} €
                               </span>
-                              {selectedProduct.originalPrice && (
+                              {typeof selectedOriginalPrice === 'number' && (
                                 <span className="pb-1 text-sm font-medium text-[#8a94a6] line-through">
-                                  {selectedProduct.originalPrice.toFixed(2)} €
+                                  {selectedOriginalPrice.toFixed(2)} €
                                 </span>
                               )}
                             </div>
                           </div>
 
                           <Badge className={`border-0 px-3 py-1 text-xs font-semibold shadow-none ${
-                            selectedProduct.inStock
+                            selectedEffectiveInStock
                               ? "bg-[#e8f6ee] text-[#2f855a]"
                               : "bg-[#fdecec] text-[#c53030]"
                           }`}>
                             <Shield className="mr-1 h-3.5 w-3.5" />
-                            {selectedProduct.inStock ? `${selectedProduct.stockCount} verfuegbar` : "Aktuell ausverkauft"}
+                            {selectedEffectiveInStock
+                              ? (selectedHasStockCount ? `${selectedStockCount} verfuegbar` : 'Verfuegbar')
+                              : "Aktuell ausverkauft"}
                           </Badge>
                         </div>
 
@@ -365,7 +382,7 @@ export function ShopSection() {
                               <Star
                                 key={i}
                                 className={`h-4 w-4 ${
-                                  i < Math.floor(selectedProduct.rating)
+                                  i < Math.floor(selectedRating)
                                     ? "fill-[#f5b800] text-[#f5b800]"
                                     : "text-[#d2d8e4]"
                                 }`}
@@ -373,7 +390,7 @@ export function ShopSection() {
                             ))}
                           </div>
                           <span className="text-sm font-medium text-[#43506a]">
-                            {selectedProduct.rating.toFixed(1)} von 5 ({selectedProduct.reviewCount} Bewertungen)
+                            {selectedRating.toFixed(1)} von 5 ({selectedReviewCount} Bewertungen)
                           </span>
                         </div>
 
@@ -389,7 +406,7 @@ export function ShopSection() {
                           <div className="rounded-2xl bg-[#f8f9fc] px-3 py-3">
                             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#63708a]">Lieferstatus</p>
                             <p className="mt-1 text-sm font-semibold text-[#1a2a5e]">
-                              {selectedProduct.inStock ? "Sofort lieferbar" : "Nicht verfuegbar"}
+                              {selectedEffectiveInStock ? "Sofort lieferbar" : "Nicht verfuegbar"}
                             </p>
                           </div>
                         </div>
@@ -473,7 +490,7 @@ export function ShopSection() {
                             setAddingToCart(null);
                           }
                         }}
-                        disabled={!selectedProduct.inStock || addingToCart === selectedProduct._id}
+                        disabled={!selectedEffectiveInStock || addingToCart === selectedProduct._id}
                         className="h-12 w-full bg-gradient-to-r from-[#f5b800] to-[#f0c419] text-[#1a2a5e] font-bold text-sm shadow-[0_14px_28px_rgba(245,184,0,0.28)] transition-all duration-300 hover:from-[#f0c419] hover:to-[#e0b000] hover:shadow-[0_18px_34px_rgba(245,184,0,0.34)] disabled:opacity-50"
                       >
                         {addingToCart === selectedProduct._id ? (
