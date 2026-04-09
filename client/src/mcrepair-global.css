@@ -1785,6 +1785,38 @@ ul, ol {
   max-width: 300px;
 }
 
+.footer-hotline {
+  margin-bottom: 20px;
+  max-width: 320px;
+}
+
+.footer-hotline-title {
+  color: var(--white);
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.footer-hotline-hours {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  margin-bottom: 4px;
+  color: rgba(255,255,255,0.78);
+}
+
+.footer-hotline-phone {
+  display: inline-block;
+  color: var(--accent-yellow);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.footer-hotline-phone:hover {
+  color: var(--white);
+}
+
 .footer-social {
   display: flex;
   gap: 10px;

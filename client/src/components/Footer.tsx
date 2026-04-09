@@ -15,9 +15,13 @@ export function Footer() {
             <h3>
               Mc<span>Repair</span>.de
             </h3>
-            <p>
-              {t('home.footer.tagline', 'Ihr zuverlässiger Partner für schnelle und professionelle Reparaturen. Qualität, auf die Sie sich verlassen können.')}
-            </p>
+            <div className="footer-hotline" aria-label={t('home.footer.hotlineAriaLabel', 'Service-Hotline und Erreichbarkeit')}>
+              <p className="footer-hotline-title">{t('home.footer.hotlineTitle', 'Service Hotline')}</p>
+              <p className="footer-hotline-hours">{t('home.footer.hotlineHours', 'Mo.- Fr. 10.00 - 12:00 Uhr und 14:00 - 16:00 Uhr')}</p>
+              <a className="footer-hotline-phone" href="tel:+4930403688951">
+                {t('home.footer.hotlinePhone', 'Tel: 030 403 688 951')}
+              </a>
+            </div>
             
             {/* Social Media Icons */}
             <div className="footer-social">

@@ -1778,7 +1778,11 @@
       "getStarted": "Loslegen"
     },
     "footer": {
-      "tagline": "Ihr zuverlässiger Partner für schnelle und professionelle Reparaturen. Qualität, auf die Sie sich verlassen können.",
+      "tagline": "Service Hotline",
+      "hotlineAriaLabel": "Service-Hotline und Erreichbarkeit",
+      "hotlineTitle": "Service Hotline",
+      "hotlineHours": "Mo.- Fr. 10.00 - 12:00 Uhr und 14:00 - 16:00 Uhr",
+      "hotlinePhone": "Tel: 030 403 688 951",
       "repairTitle": "Shop Service",
       "smartphoneRepair": "Smartphone Reparatur",
       "tabletRepair": "Tablet Reparatur",
