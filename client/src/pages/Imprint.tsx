@@ -1,9 +1,12 @@
+import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/home/TopBar';
 import { McRepairNav } from '@/components/home/McRepairNav';
 import { Footer } from '@/components/Footer';
 import './Imprint.css';
 
 export function Imprint() {
+  const { t } = useTranslation();
+
   return (
     <>
       {/* Top Bar - Info bar with Hotline, Locations, Login */}
@@ -18,48 +21,48 @@ export function Imprint() {
           <div className="imprint-content">
             {/* Header */}
             <header className="imprint-header">
-              <h1>Impressum</h1>
+              <h1>{t('imprint.title')}</h1>
             </header>
 
             {/* Legal Provider Information */}
             <section className="imprint-section">
-              <h2>Gesetzliche Anbieterkennung</h2>
+              <h2>{t('imprint.legalProvider.heading')}</h2>
               <div className="company-info">
-                <p><strong>Online Point GmbH</strong></p>
-                <p>diese vertreten durch den Geschäftsführer Julian Szymansky</p>
+                <p><strong>{t('imprint.legalProvider.companyName')}</strong></p>
+                <p>{t('imprint.legalProvider.representative')}</p>
                 <p>
-                  Kurfürstenstr. 106<br />
-                  10787 Berlin<br />
-                  Deutschland
+                  {t('imprint.legalProvider.address')}<br />
+                  {t('imprint.legalProvider.city')}<br />
+                  {t('imprint.legalProvider.country')}
                 </p>
               </div>
             </section>
 
             {/* Contact Information */}
             <section className="imprint-section">
-              <h2>Kontakt</h2>
+              <h2>{t('imprint.contact.heading')}</h2>
               <div className="contact-info">
-                <p><strong>Telefon Service:</strong> 030 403 688 951</p>
-                <p><strong>Telefon Verwaltung:</strong> 030 403 688 950</p>
-                <p><strong>E-Mail:</strong> <a href="mailto:kontakt@onlinepoint-gmbh.de">kontakt@onlinepoint-gmbh.de</a></p>
-                <p><strong>Ust-ID.:</strong> DE318981969</p>
+                <p><strong>{t('imprint.contact.phoneService')}:</strong> 030 403 688 951</p>
+                <p><strong>{t('imprint.contact.phoneAdmin')}:</strong> 030 403 688 950</p>
+                <p><strong>{t('imprint.contact.email')}:</strong> <a href="mailto:kontakt@onlinepoint-gmbh.de">kontakt@onlinepoint-gmbh.de</a></p>
+                <p><strong>{t('imprint.contact.vatId')}:</strong> DE318981969</p>
               </div>
             </section>
 
             {/* Company Registration */}
             <section className="imprint-section">
-              <h2>Handelsregister</h2>
+              <h2>{t('imprint.companyReg.heading')}</h2>
               <div className="registry-info">
-                <p>eingetragen im Handelsregister des Amtsgerichtes Charlottenburg</p>
-                <p><strong>Handelsregisternummer:</strong> HRB 136735 B</p>
-                <p><strong>Sitz der Gesellschaft:</strong> Berlin</p>
-                <p><strong>LUCID-Registrierungsnummer:</strong> DE1709904514391</p>
+                <p>{t('imprint.companyReg.intro')}</p>
+                <p><strong>{t('imprint.companyReg.regNumber')}:</strong> {t('imprint.companyReg.regNumberValue')}</p>
+                <p><strong>{t('imprint.companyReg.companySeat')}:</strong> {t('imprint.companyReg.companySeatValue')}</p>
+                <p><strong>{t('imprint.companyReg.lucidNumber')}:</strong> {t('imprint.companyReg.lucidNumberValue')}</p>
               </div>
             </section>
 
             {/* Design & Development */}
             <section className="imprint-section">
-              <h2>Konzeption, Design & Umsetzung</h2>
+              <h2>{t('imprint.design.heading')}</h2>
               <p>
                 <a href="https://vais-concepts.de" target="_blank" rel="noopener noreferrer">
                   https://vais-concepts.de
@@ -69,32 +72,29 @@ export function Imprint() {
 
             {/* Alternative Dispute Resolution */}
             <section className="imprint-section">
-              <h2>Alternative Streitbeilegung</h2>
+              <h2>{t('imprint.disputeResolution.heading')}</h2>
               <div className="info-box">
                 <p>
-                  Alternative Streitbeilegung gemäß Art. 14 Abs. 1 ODR-VO und § 36 VSBG: 
-                  Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit, 
-                  die Sie unter <a href="http://ec.europa.eu/consumers/odr/" target="_blank" rel="noopener noreferrer">
+                  {t('imprint.disputeResolution.text1before')}
+                  <a href="http://ec.europa.eu/consumers/odr/" target="_blank" rel="noopener noreferrer">
                     http://ec.europa.eu/consumers/odr/
-                  </a> finden.
+                  </a>
+                  {t('imprint.disputeResolution.text1after')}
                 </p>
-                <p>
-                  Zur Teilnahme an einem Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle 
-                  sind wir nicht verpflichtet und nicht bereit.
-                </p>
+                <p>{t('imprint.disputeResolution.text2')}</p>
               </div>
             </section>
 
             {/* Trademarks */}
             <section className="imprint-section last-section">
-              <h2>Markenhinweise</h2>
+              <h2>{t('imprint.trademarks.heading')}</h2>
               <div className="trademarks-info">
-                <p>Die Marken <strong>iPhone</strong>, <strong>iPad</strong> sind eingetragene Warenzeichen von Apple Inc., Cupertino Calif., US.</p>
-                <p>Die Marke <strong>HTC</strong> ist ein eingetragenes Warenzeichen von High Tech Computer Corporation, Taoyuan, TW.</p>
-                <p>Die Marke <strong>LG</strong> ist ein eingetragenes Warenzeichen von LG Corp., Seoul/Soul, KR.</p>
-                <p>Die Marke <strong>Nokia</strong> ist ein eingetragenes Warenzeichen von Nokia Corporation, Helsinki, FI.</p>
-                <p>Die Marke <strong>Samsung</strong> ist ein eingetragenes Warenzeichen von Samsung Electronics Co., Ltd., Suwon Kyonggi, KR.</p>
-                <p>Die Marke <strong>Sony Ericsson</strong> ist ein eingetragenes Warenzeichen von Sony Ericsson Mobile Communications AB, London, UK.</p>
+                <p>{t('imprint.trademarks.iphone')}</p>
+                <p>{t('imprint.trademarks.htc')}</p>
+                <p>{t('imprint.trademarks.lg')}</p>
+                <p>{t('imprint.trademarks.nokia')}</p>
+                <p>{t('imprint.trademarks.samsung')}</p>
+                <p>{t('imprint.trademarks.sonyEricsson')}</p>
               </div>
             </section>
           </div>

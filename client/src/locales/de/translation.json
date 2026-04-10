@@ -2763,6 +2763,255 @@
     "symbolHg": "Hg = Batterie enthält mehr als 0,0005 Masseprozent Quecksilber.",
     "finalNote": "Bitte beachten Sie die vorstehenden Hinweise."
   },
+  "withdrawalPage": {
+    "title": "Widerrufsrecht Reparatur",
+    "consumer": {
+      "title": "Widerrufsrecht für Verbraucher",
+      "definition": "(Verbraucher ist jede natürliche Person, die ein Rechtsgeschäft zu Zwecken abschließt, die überwiegend weder ihrer gewerblichen noch ihrer selbstständigen beruflichen Tätigkeit zugerechnet werden kann.)"
+    },
+    "instruction": {
+      "title": "Widerrufsbelehrung",
+      "rightTitle": "Widerrufsrecht",
+      "paragraphs": {
+        "p1": "Sie haben das Recht, binnen vierzehn Tagen ohne Angabe von Gründen diesen Vertrag zu widerrufen.",
+        "p2": "Die Widerrufsfrist beträgt vierzehn Tage ab dem Tag des Vertragsabschlusses.",
+        "p3": "Um Ihr Widerrufsrecht auszuüben, müssen Sie uns (Online Point GmbH, Kurfürstenstr. 106, 10787 Berlin, Telefonnummer: 030 403 688 951, E-Mail-Adresse: kontakt@mcrepair.de) mittels einer eindeutigen Erklärung (z.B. ein mit der Post versandter Brief, Telefax oder E-Mail) über Ihren Entschluss, diesen Vertrag zu widerrufen, informieren. Sie können dafür das beigefügte Muster-Widerrufsformular verwenden, das jedoch nicht vorgeschrieben ist.",
+        "p4": "Sie können das Muster-Widerrufsformular oder eine andere eindeutige Erklärung auch auf unserer Webseite (www.mcrepair.de) elektronisch ausfüllen und übermitteln. Machen Sie von dieser Möglichkeit Gebrauch, so werden wir Ihnen unverzüglich (z.B. per E-Mail) eine Bestätigung über den Eingang eines solchen Widerrufs übermitteln.",
+        "p5": "Zur Wahrung der Widerrufsfrist reicht es aus, dass Sie die Mitteilung über die Ausübung des Widerrufsrechts vor Ablauf der Widerrufsfrist absenden."
+      }
+    },
+    "consequences": {
+      "title": "Folgen des Widerrufs",
+      "paragraphs": {
+        "p1": "Wenn Sie diesen Vertrag widerrufen, haben wir Ihnen alle Zahlungen, die wir von Ihnen erhalten haben, einschließlich der Lieferkosten (mit Ausnahme der zusätzlichen Kosten, die sich daraus ergeben, dass Sie eine andere Art der Lieferung als die von uns angebotene, günstigste Standardlieferung gewählt haben), unverzüglich und spätestens binnen vierzehn Tagen ab dem Tag zurückzuzahlen, an dem die Mitteilung über Ihren Widerruf dieses Vertrags bei uns eingegangen ist. Für diese Rückzahlung verwenden wir dasselbe Zahlungsmittel, das Sie bei der ursprünglichen Transaktion eingesetzt haben, es sei denn, mit Ihnen wurde ausdrücklich etwas anderes vereinbart; in keinem Fall werden Ihnen wegen dieser Rückzahlung Entgelte berechnet.",
+        "p2": "Haben Sie verlangt, dass die Dienstleistungen während der Widerrufsfrist beginnen soll, so haben Sie uns einen angemessenen Betrag zu zahlen, der dem Anteil der bis zu dem Zeitpunkt, zu dem Sie uns von der Ausübung des Widerrufsrechts hinsichtlich dieses Vertrags unterrichten, bereits erbrachten Dienstleistungen im Vergleich zum Gesamtumfang der im Vertrag vorgesehenen Dienstleistungen entspricht."
+      }
+    },
+    "exclusions": {
+      "title": "Ausschluss- bzw. Erlöschensgründe",
+      "paragraphs": {
+        "p1": "Das Widerrufsrecht besteht nicht bei Verträgen zur Erbringung von Dienstleistungen im Zusammenhang mit Freizeitbetätigungen, wenn der Vertrag für die Erbringung einen spezifischen Termin oder Zeitraum vorsieht.",
+        "p2": "Das Widerrufsrecht erlischt bei einem Vertrag zur Erbringung von Dienstleistungen, wenn der Unternehmer die Dienstleistung vollständig erbracht hat und mit der Ausführung der Dienstleistung erst begonnen hat, nachdem der Verbraucher dazu seine ausdrückliche Zustimmung gegeben hat und gleichzeitig seine Kenntnis davon bestätigt hat, dass er sein Widerrufsrecht bei vollständiger Vertragserfüllung durch den Unternehmer verliert."
+      }
+    },
+    "form": {
+      "title": "Muster-Widerrufsformular",
+      "intro": "(Wenn Sie den Vertrag widerrufen wollen, dann füllen Sie bitte dieses Formular aus und senden Sie es zurück.)",
+      "addressLine": "- An Online Point GmbH, Kurfürstenstr. 106, 10787 Berlin, E-Mail-Adresse: kontakt@mcrepair.de:",
+      "declarationLine": "- Hiermit widerrufe(n) ich/ wir (*) den von mir/ uns (*) abgeschlossenen Vertrag über den Kauf der folgenden Waren (*) / die Erbringung der folgenden Dienstleistung (*)",
+      "fields": {
+        "orderedOnReceivedOn": "- Bestellt am (*) / erhalten am (*)",
+        "consumerName": "- Name des/ der Verbraucher(s)",
+        "consumerAddress": "- Anschrift des/ der Verbraucher(s)",
+        "consumerSignature": "- Unterschrift des/ der Verbraucher(s) (nur bei Mitteilung auf Papier)",
+        "date": "- Datum"
+      },
+      "footer": "(*) Unzutreffendes streichen."
+    }
+  },
+  "privacyPage": {
+    "title": "Datenschutzerklaerung",
+    "intro": "Soweit nachstehend keine anderen Angaben gemacht werden, ist die Bereitstellung Ihrer personenbezogenen Daten weder gesetzlich noch vertraglich vorgeschrieben und fuer einen Vertragsabschluss nicht erforderlich. Sie sind zur Bereitstellung der Daten nicht verpflichtet. Eine Nichtbereitstellung hat keine Folgen, soweit bei den nachfolgenden Verarbeitungsvorgaengen nichts anderes angegeben ist.",
+    "definition": "\"Personenbezogene Daten\" sind alle Informationen, die sich auf eine identifizierte oder identifizierbare natuerliche Person beziehen.",
+    "labels": {
+      "legalBasis": "Rechtsgrundlage:",
+      "dataTransfer": "Datenuebermittlung:",
+      "privacyInfo": "Datenschutz:",
+      "website": "Website:",
+      "and": "und"
+    },
+    "controller": {
+      "title": "Verantwortlicher",
+      "country": "Deutschland",
+      "phoneLabel": "Telefon:",
+      "emailLabel": "E-Mail:"
+    },
+    "serverLogs": {
+      "title": "Server-Logfiles",
+      "text": "Sie koennen unsere Website besuchen, ohne Angaben zu Ihrer Person zu machen. Bei jedem Zugriff werden Nutzungsdaten durch Ihren Browser uebermittelt und in Protokolldaten gespeichert. Dazu gehoeren z. B. Seitenname, Datum und Uhrzeit, uebertragene Datenmenge und anfragender Provider. Diese Daten dienen ausschliesslich der Gewaehrleistung eines stoerungsfreien Betriebs und der Verbesserung unseres Angebots.",
+      "legalBasis": "Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)"
+    },
+    "contactForm": {
+      "title": "Erhebung und Verarbeitung bei Nutzung des Kontaktformulars",
+      "text1": "Bei Nutzung des Kontaktformulars erheben wir Ihre personenbezogenen Daten (Name, E-Mail-Adresse, Nachricht) nur in dem von Ihnen bereitgestellten Umfang. Die Verarbeitung dient der Kontaktaufnahme.",
+      "text2": "Sie koennen Ihre Einwilligung jederzeit mit Wirkung fuer die Zukunft widerrufen. Ihre E-Mail-Adresse wird nur zur Bearbeitung Ihrer Anfrage genutzt und anschliessend geloescht, sofern keine weitergehende Einwilligung vorliegt.",
+      "legalBasis": "Art. 6 Abs. 1 lit. a DSGVO (Einwilligung)"
+    },
+    "recaptcha": {
+      "title": "Verwendung von Google reCAPTCHA",
+      "text1": "Wir verwenden reCAPTCHA von Google, um zu unterscheiden, ob Eingaben durch einen Menschen oder automatisiert erfolgen.",
+      "text2": "Dabei koennen Ihre IP-Adresse und weitere fuer den Dienst erforderliche technische Daten an Google uebermittelt werden.",
+      "legalBasis": "Art. 6 Abs. 1 lit. a DSGVO (Einwilligung)",
+      "transfer": "USA (Angemessenheitsbeschluss der EU-Kommission)",
+      "moreInfo": "Weitere Informationen finden Sie unter:"
+    },
+    "account": {
+      "title": "Kundenkonto",
+      "text1": "Bei der Eroeffnung eines Kundenkontos verarbeiten wir personenbezogene Daten, um Ihr Einkaufserlebnis zu verbessern und die Bestellabwicklung zu vereinfachen.",
+      "text2": "Sie koennen Ihre Einwilligung jederzeit widerrufen. Ihr Kundenkonto wird anschliessend geloescht.",
+      "legalBasis": "Art. 6 Abs. 1 lit. a DSGVO (Einwilligung)"
+    },
+    "orders": {
+      "title": "Erhebung, Verarbeitung und Nutzung bei Bestellungen",
+      "text1": "Bei Bestellungen verarbeiten wir personenbezogene Daten nur, soweit dies zur Vertragserfuellung und Bearbeitung Ihrer Anfragen erforderlich ist. Die Bereitstellung der Daten ist fuer den Vertragsschluss erforderlich.",
+      "text2": "Eine Weitergabe erfolgt nur an Dienstleistungspartner, die wir fuer die Vertragsabwicklung benoetigen, oder an Auftragsverarbeiter.",
+      "text3": "In allen Faellen beachten wir die gesetzlichen Vorgaben und beschraenken die Datenuebermittlung auf das notwendige Minimum.",
+      "legalBasis": "Art. 6 Abs. 1 lit. b DSGVO (Vertragserfuellung)",
+      "recipients": {
+        "shipping": "Versanddienstleister",
+        "payment": "Zahlungsdienstleister",
+        "erp": "Warenwirtschaftsdienstleister",
+        "orderProcessing": "Diensteanbieter fuer die Bestellabwicklung",
+        "hosting": "Webhoster",
+        "it": "IT-Dienstleister",
+        "dropshipping": "Dropshipping-Partner"
+      }
+    },
+    "reviews": {
+      "title": "Kundenbewertungen",
+      "text1": "Wir verwenden ein Kundenbewertungssystem der Haendlerbund Management AG fuer verifizierte Bewertungen nach einer Bestellung.",
+      "text2": "Zu diesem Zweck kontaktieren wir Sie ggf. per E-Mail und nutzen das technische System des Anbieters im Rahmen einer Auftragsverarbeitung.",
+      "text3": "Ein Widerspruch ist jederzeit ueber die Kontaktdaten im Impressum oder ueber den Link in der Bewertungsanfrage moeglich.",
+      "text4": "In diesem Zusammenhang gespeicherte Daten werden nach drei Monaten geloescht.",
+      "legalBasis": "Art. 6 Abs. 1 lit. a DSGVO (Einwilligung) oder Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an verifizierten Bewertungen)"
+    },
+    "newsletter": {
+      "title": "Verwendung der E-Mail-Adresse fuer Newsletter",
+      "text1": "Wir nutzen Ihre E-Mail-Adresse fuer eigene Newsletter-Werbung nur, wenn Sie ausdruecklich eingewilligt haben.",
+      "text2": "Sie koennen die Einwilligung jederzeit ueber den Abmeldelink oder durch Nachricht an uns widerrufen.",
+      "legalBasis": "Art. 6 Abs. 1 lit. a DSGVO (Einwilligung)"
+    },
+    "shippingStatus": {
+      "title": "Weitergabe der E-Mail-Adresse an Versandunternehmen",
+      "text1": "Wenn Sie im Bestellprozess einwilligen, geben wir Ihre E-Mail-Adresse an das Versandunternehmen weiter, damit Sie Versandstatus-Informationen erhalten.",
+      "text2": "Sie koennen diese Einwilligung jederzeit gegenueber uns oder dem Versandunternehmen widerrufen.",
+      "legalBasis": "Art. 6 Abs. 1 lit. a DSGVO (Einwilligung)"
+    },
+    "erp": {
+      "title": "Externes Warenwirtschaftssystem",
+      "text": "Zur Vertragsabwicklung nutzen wir ein externes Warenwirtschaftssystem und uebermitteln relevante Bestelldaten im Rahmen einer Auftragsverarbeitung an JTL-Software-GmbH, Rheinstr. 7, 41836 Hueckelhoven, Deutschland."
+    },
+    "paypal": {
+      "title": "Verwendung von PayPal",
+      "text": "Alle PayPal-Transaktionen unterliegen der PayPal-Datenschutzerklaerung:"
+    },
+    "cookies": {
+      "title": "Cookies",
+      "text1": "Unsere Website verwendet Cookies. Cookies sind kleine Textdateien, die im Browser gespeichert werden und grundlegende Funktionen ermoeglichen.",
+      "text2": "Wir setzen Cookies ein, um unser Angebot nutzerfreundlicher, effektiver und sicherer zu machen.",
+      "text3": "Darueber hinaus nutzen wir Cookies fuer Analysezwecke und ggf. interessenbezogene Werbung.",
+      "text4": "Die erhobenen Daten koennen pseudonymisiert sein und lassen sich nicht immer einer Person zuordnen.",
+      "text5": "Sie haben das Recht, aus Gruenden Ihrer besonderen Situation der Verarbeitung gemaess Art. 6 Abs. 1 lit. f DSGVO zu widersprechen.",
+      "text6": "Sie koennen in Ihrem Browser Cookies blockieren oder loeschen. Beachten Sie, dass dann ggf. nicht alle Funktionen der Website verfuegbar sind.",
+      "legalBasis": "§ 15 Abs. 3 TMG sowie Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)",
+      "browserTitle": "Cookie-Verwaltung in Browsern:",
+      "browserChrome": "Chrome Browser",
+      "browserIe": "Internet Explorer",
+      "browserFirefox": "Mozilla Firefox",
+      "browserSafari": "Safari"
+    },
+    "analytics": {
+      "title": "Nutzung von Google Analytics",
+      "text1": "Wir verwenden Google Analytics zur Analyse der Website-Nutzung und zur Verbesserung unseres Angebots.",
+      "text2": "Google Analytics verwendet Cookies und kann Informationen an Server in den USA uebermitteln. Die IP-Anonymisierung ist auf dieser Website aktiviert.",
+      "legalBasis": "Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)",
+      "transfer": "USA (Angemessenheitsbeschluss der EU-Kommission)",
+      "optOut": "Sie koennen die Datenerfassung durch Google Analytics ueber ein Browser-Add-on verhindern:",
+      "optOutLinkLabel": "Google Analytics deaktivieren",
+      "moreInfo": "Weitere Informationen finden Sie unter"
+    },
+    "remarketing": {
+      "title": "Google Remarketing / Aehnliche Zielgruppen",
+      "text1": "Wir nutzen Remarketing-Funktionen von Google, um interessenbezogene Werbung anzuzeigen.",
+      "legalBasis": "Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)",
+      "transfer": "USA (Angemessenheitsbeschluss der EU-Kommission)",
+      "optOut": "Sie koennen Google-Cookies dauerhaft deaktivieren unter:",
+      "optOutLinkLabel": "Google Ads deaktivieren",
+      "networkOptOut": "Alternativ koennen Sie Drittanbieter-Cookies ueber die Network Advertising Initiative deaktivieren unter",
+      "moreInfo": "Weitere Informationen finden Sie unter:"
+    },
+    "conversionTracking": {
+      "title": "Google AdWords Conversion-Tracking",
+      "text1": "Wir verwenden Google Ads Conversion-Tracking zur Messung der Wirksamkeit von Werbekampagnen.",
+      "text2": "Beim Klick auf eine Google-Anzeige wird ein Conversion-Cookie gesetzt. Diese Cookies dienen nicht der direkten Identifizierung.",
+      "legalBasis": "Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)",
+      "moreInfo": "Weiterfuehrende Informationen finden Sie unter:"
+    },
+    "facebook": {
+      "title": "Facebook Remarketing",
+      "text": "Wir nutzen Facebook Custom Audiences, um Website-Besucher mit interessenbezogener Werbung anzusprechen.",
+      "legalBasis": "Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)",
+      "moreInfo": "Weitere Informationen zum Datenschutz bei Facebook finden Sie unter"
+    },
+    "adsense": {
+      "title": "Google AdSense",
+      "text": "Wir nutzen Google AdSense, um zielgerichtete Werbeanzeigen auf unserer Website bereitzustellen.",
+      "legalBasis": "Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)",
+      "optOut": "Sie koennen Google-Cookies dauerhaft deaktivieren unter:",
+      "optOutLinkLabel": "Google Ads deaktivieren",
+      "moreInfo": "Weitere Informationen finden Sie unter:"
+    },
+    "bingAds": {
+      "title": "Bing Ads",
+      "text": "Wir verwenden Bing Ads von Microsoft. Beim Klick auf eine Bing-Anzeige kann ein Conversion-Cookie gesetzt werden.",
+      "legalBasis": "Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)",
+      "privacyInfo": "Microsoft hat Datenschutzinformationen zu Bing Ads und verbundenen Diensten veroeffentlicht.",
+      "moreInfo": "Weitere Informationen finden Sie unter:"
+    },
+    "social": {
+      "title": "Social Plug-ins mit Shariff",
+      "text1": "Wir verwenden Social-Plugins und datenschutzfreundliche Shariff-Schaltflaechen.",
+      "text2": "Ohne Ihre aktive Interaktion wird keine direkte Verbindung zu Servern sozialer Netzwerke hergestellt.",
+      "text3": "Erst beim Anklicken einer Schaltflaeche koennen Daten an den jeweiligen Anbieter uebermittelt werden.",
+      "networksTitle": "Eingebundene soziale Netzwerke:",
+      "privacyLabel": "Datenschutz"
+    },
+    "youtube": {
+      "title": "YouTube",
+      "text1": "Wir binden YouTube-Videos im erweiterten Datenschutzmodus ein.",
+      "text2": "Erst beim Start eines Videos koennen Informationen an YouTube uebermittelt werden.",
+      "moreInfo": "Weitere Informationen finden Sie unter:"
+    },
+    "maps": {
+      "title": "Google Maps",
+      "text": "Wir nutzen Google Maps zur Darstellung geografischer Informationen und interaktiver Karten.",
+      "legalBasis": "Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)",
+      "transfer": "USA (Angemessenheitsbeschluss der EU-Kommission)",
+      "moreInfo": "Weitere Informationen finden Sie unter"
+    },
+    "retention": {
+      "title": "Dauer der Speicherung",
+      "text": "Nach vollstaendiger Vertragsabwicklung werden Daten fuer Gewaehrleistungsfristen und gesetzliche Aufbewahrungsfristen gespeichert und anschliessend geloescht, sofern keine weitergehende Verarbeitung vereinbart wurde.",
+      "boxTitle": "Gesetzliche Aufbewahrungsfristen:",
+      "commercialLabel": "Handelsrechtlich:",
+      "commercialValue": "6-10 Jahre (§ 257 HGB)",
+      "taxLabel": "Steuerrechtlich:",
+      "taxValue": "10 Jahre (§ 147 AO)"
+    },
+    "rights": {
+      "title": "Rechte der betroffenen Person",
+      "intro": "Bei Vorliegen der gesetzlichen Voraussetzungen haben Sie folgende Rechte nach Art. 15 bis 20 DSGVO:",
+      "items": {
+        "access": "Recht auf Auskunft",
+        "rectification": "Recht auf Berichtigung",
+        "erasure": "Recht auf Loeschung",
+        "restriction": "Recht auf Einschraenkung der Verarbeitung",
+        "portability": "Recht auf Datenuebertragbarkeit"
+      },
+      "objection": "Ausserdem steht Ihnen nach Art. 21 Abs. 1 DSGVO ein Widerspruchsrecht gegen Verarbeitungen auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO sowie gegen Direktwerbung zu.",
+      "contactStrong": "Kontaktieren Sie uns auf Wunsch.",
+      "contactText": "Die Kontaktdaten finden Sie in unserem Impressum."
+    },
+    "complaint": {
+      "title": "Beschwerderecht bei der Aufsichtsbehoerde",
+      "text": "Sie haben gemaess Art. 77 DSGVO das Recht, sich bei einer Aufsichtsbehoerde zu beschweren, wenn Sie der Ansicht sind, dass die Verarbeitung Ihrer personenbezogenen Daten nicht rechtmaessig erfolgt.",
+      "authorityTitle": "Zustaendige Aufsichtsbehoerde fuer Berlin:",
+      "authorityName": "Berliner Beauftragte fuer Datenschutz und Informationsfreiheit"
+    },
+    "updatedLabel": "Stand dieser Datenschutzerklaerung:",
+    "updatedValue": "Maerz 2026",
+    "finalNote": "Wir behalten uns vor, diese Datenschutzerklaerung anzupassen, damit sie stets den aktuellen rechtlichen Anforderungen entspricht oder um Aenderungen unserer Leistungen abzubilden. Fuer Ihren erneuten Besuch gilt dann die neue Datenschutzerklaerung."
+  },
   "vorabdiagnose": {
     "title": "Vorabdiagnose",
     "badge": "Schnell & Einfach",
@@ -2784,6 +3033,111 @@
     "bookRepairShort": "Reparatur buchen",
     "bookOnline": "Direkt online buchen",
     "toConfigurator": "Zum Konfigurator"
+  },
+  "aboutPage": {
+    "header": {
+      "title": "Über McRepair.de",
+      "intro": "McRepair ist einer der führenden Dienstleister für die professionelle Reparatur von Smartphones, Tablets und Notebooks. Unsere Zentralwerkstatt mit Sitz in Berlin arbeitet bundesweit mit über 350 Annahmestellen zusammen und hilft Ihnen mit absolut zuverlässigen und professionellen Fachkräften Ihr kaputtes Gerät wieder instand zu setzen."
+    },
+    "steps": {
+      "title": "So einfach geht's",
+      "step1Title": "Gerät und Reparatur auswählen",
+      "step1Desc": "Wählen Sie Ihr Gerät und die benötigte Reparatur aus unserem umfangreichen Angebot",
+      "step2Title": "Gerät einsenden oder vorbeibringen",
+      "step2Desc": "Nutzen Sie unseren kostenlosen Versandservice oder eine unserer 350 Annahmestellen",
+      "step3Title": "Wir reparieren es schnell und zuverlässig",
+      "step3Desc": "Unsere erfahrenen Techniker reparieren Ihr Gerät in nur 1-3 Werktagen",
+      "step4Title": "Sie erhalten Ihr Gerät repariert zurück",
+      "step4Desc": "Ihr Gerät wird sicher zu Ihnen zurückgeschickt oder kann abgeholt werden"
+    },
+    "whatWeDo": {
+      "title": "Was macht McRepair?",
+      "subtitle": "Ganz einfach: Wir reparieren Ihr Smartphone, Tablet oder Notebook",
+      "text": "Ist Ihr Smartphone defekt oder Ihr Tablet beschädigt, befindet es sich bei unseren hochqualifizierten Technikern in besten Händen. Wir sind deutschlandweit einer der größten Reparaturwerkstätten für Smartphones, Tablet und Notebooks und können auf langjährige Erfahrung verweisen. Wir übernehmen Diagnose und Reparatur - selbstverständlich mit Datenerhalt. Unabhängig davon, ob Ihr Apple iPhone heruntergefallen ist oder Ihr Samsung Galaxy Ladeprobleme aufweist - häufig handelt es sich lediglich um kleine Fehler oder Schäden, die unsere Fachkräfte schnell und kostengünstig beheben können."
+    },
+    "whyUs": {
+      "title": "Was uns auszeichnet",
+      "highlightTitle": "Über 350 Annahmestellen bundesweit und einer zentralen Hauptwerkstatt mit langjährig-erfahrenen Technikern.",
+      "highlightText": "Für kurze Reaktionszeiten haben wir qualitativ hochwertige Ersatzteile für alle namhaften Hersteller wie Apple oder Samsung stets in großer Stückzahl vorrätig. Dank bundesweit über 350 Annahmestellen können Sie unseren komfortablen und sicheren Service auch in Ihrer Nähe in Anspruch nehmen. Wir bauen unser Netzwerk beständig aus. Sollten Sie keinen Partner in Ihrer Region finden, freuen wir uns immer über neue Empfehlungen. Der Hin- und Rückversand Ihres mobilen Endgeräts mit unserem Partner DHL ist natürlich kostenlos."
+    },
+    "gallery": {
+      "title": "Galerie",
+      "altWorkshop": "McRepair Werkstatt",
+      "altLaptop": "McRepair Laptop Reparatur",
+      "altLaptop2": "McRepair Laptop Reparatur 2",
+      "altPhone3": "McRepair Smartphone Reparatur 3",
+      "altPhone2": "McRepair Smartphone Reparatur 2",
+      "altPhone": "McRepair Smartphone Reparatur",
+      "altBattery": "McRepair Akkutausch",
+      "altBattery2": "McRepair Akkutausch 2"
+    },
+    "locations": {
+      "title": "Unsere Annahmestellen",
+      "subtitle": "Annahmestellen in ganz Deutschland",
+      "text1": "Nutzen Sie eine unserer 350 Annahmestellen in ganz Deutschland, um Ihr Gerät ganz bequem in unsere Obhut zu geben.",
+      "text2": "Dank kurzer Durchlaufzeiten von nur ein bis drei Werktagen müssen Sie bei uns nicht länger als absolut nötig auf Ihr Smartphone oder Tablet verzichten. Stellen Sie unser konsequentes Qualitätsbewusstsein auf die Probe - wir werden Ihre Erwartungen übertreffen und machen Sie schnell für Ihr privates und berufliches Umfeld wieder uneingeschränkt erreichbar.",
+      "text3Bold": "Wo Sie sich die nächste Annahmestelle befindet?",
+      "text3Rest": " Schauen Sie einfach auf unserer Umgebungssuche nach.",
+      "mapAlt": "Deutschland Annahmestellen Karte"
+    },
+    "manufacturers": {
+      "title": "Hersteller",
+      "intro": "Wir führen Reparaturen aller namhaften Hersteller von Smartphones, Tablets und Notebooks aus. Falls Sie Ihren gewünschten Hersteller bei uns nicht gefunden haben, dann können Sie gerne eine individuelle Preisanfrage für die Reparatur Ihres Gerätes unter Kontakt anfragen.",
+      "sonyRepair": "Sony Reparatur",
+      "googleRepair": "Google Reparatur",
+      "appleRepair": "Apple Reparatur",
+      "asusRepair": "Asus Reparatur",
+      "lgRepair": "LG Reparatur",
+      "oneplusRepair": "OnePlus Reparatur",
+      "motorolaRepair": "Motorola Reparatur",
+      "htcRepair": "HTC Reparatur"
+    }
+  },
+  "imprint": {
+    "title": "Impressum",
+    "legalProvider": {
+      "heading": "Gesetzliche Anbieterkennung",
+      "companyName": "Online Point GmbH",
+      "representative": "diese vertreten durch den Geschäftsführer Julian Szymansky",
+      "address": "Kurfürstenstr. 106",
+      "city": "10787 Berlin",
+      "country": "Deutschland"
+    },
+    "contact": {
+      "heading": "Kontakt",
+      "phoneService": "Telefon Service",
+      "phoneAdmin": "Telefon Verwaltung",
+      "email": "E-Mail",
+      "vatId": "Ust-ID."
+    },
+    "companyReg": {
+      "heading": "Handelsregister",
+      "intro": "eingetragen im Handelsregister des Amtsgerichtes Charlottenburg",
+      "regNumber": "Handelsregisternummer",
+      "regNumberValue": "HRB 136735 B",
+      "companySeat": "Sitz der Gesellschaft",
+      "companySeatValue": "Berlin",
+      "lucidNumber": "LUCID-Registrierungsnummer",
+      "lucidNumberValue": "DE1709904514391"
+    },
+    "design": {
+      "heading": "Konzeption, Design & Umsetzung"
+    },
+    "disputeResolution": {
+      "heading": "Alternative Streitbeilegung",
+      "text1before": "Alternative Streitbeilegung gemäß Art. 14 Abs. 1 ODR-VO und § 36 VSBG: Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit, die Sie unter ",
+      "text1after": " finden.",
+      "text2": "Zur Teilnahme an einem Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle sind wir nicht verpflichtet und nicht bereit."
+    },
+    "trademarks": {
+      "heading": "Markenhinweise",
+      "iphone": "Die Marken iPhone, iPad sind eingetragene Warenzeichen von Apple Inc., Cupertino Calif., US.",
+      "htc": "Die Marke HTC ist ein eingetragenes Warenzeichen von High Tech Computer Corporation, Taoyuan, TW.",
+      "lg": "Die Marke LG ist ein eingetragenes Warenzeichen von LG Corp., Seoul/Soul, KR.",
+      "nokia": "Die Marke Nokia ist ein eingetragenes Warenzeichen von Nokia Corporation, Helsinki, FI.",
+      "samsung": "Die Marke Samsung ist ein eingetragenes Warenzeichen von Samsung Electronics Co., Ltd., Suwon Kyonggi, KR.",
+      "sonyEricsson": "Die Marke Sony Ericsson ist ein eingetragenes Warenzeichen von Sony Ericsson Mobile Communications AB, London, UK."
+    }
   },
   "orderTracking": {
     "title": "Auftragsverfolgung",
