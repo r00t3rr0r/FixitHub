@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -23,6 +24,7 @@ const compactFieldClassName = "h-8 text-xs";
 const compactLabelClassName = "text-[11px] font-medium uppercase tracking-wide text-muted-foreground";
 
 export function PartsManagement() {
+  const { t } = useTranslation()
   const [parts, setParts] = useState<Part[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -107,8 +109,8 @@ export function PartsManagement() {
     } catch (error) {
       console.error('PartsManagement: Error fetching parts:', error);
       toast({
-        title: "Error",
-        description: "Failed to fetch parts data",
+        title: t('common.error'),
+        description: t('partsManagement.failedToLoadParts'),
         variant: "destructive",
       });
     } finally {
@@ -142,18 +144,18 @@ export function PartsManagement() {
 
   const handleDeleteClick = async (e: React.MouseEvent, partId: string) => {
     e.stopPropagation(); // Prevent row click
-    if (window.confirm('Are you sure you want to delete this part?')) {
+    if (window.confirm(t('partsManagement.confirmDelete'))) {
       try {
         await deletePart(partId);
         toast({
-          title: "Success",
-          description: "Part deleted successfully",
+          title: t('common.success'),
+          description: t('partsManagement.partDeleted'),
         });
         fetchParts();
       } catch (error) {
         toast({
-          title: "Error",
-          description: "Failed to delete part",
+          title: t('common.error'),
+          description: t('partsManagement.failedToDeletePart'),
           variant: "destructive",
         });
       }
@@ -165,8 +167,8 @@ export function PartsManagement() {
       console.log('PartsManagement: Adding new part with data:', formData);
       await createInventoryItem(formData);
       toast({
-        title: "Success",
-        description: "Part added successfully",
+        title: t('common.success'),
+        description: t('partsManagement.partCreatedSuccess'),
       });
       setShowAddDialog(false);
       resetForm();
@@ -174,8 +176,8 @@ export function PartsManagement() {
     } catch (error) {
       console.error('Error adding part:', error);
       toast({
-        title: "Error",
-        description: "Failed to add part",
+        title: t('common.error'),
+        description: t('partsManagement.failedToCreatePart'),
         variant: "destructive",
       });
     }
@@ -188,8 +190,8 @@ export function PartsManagement() {
       console.log('PartsManagement: Updating part with data:', formData);
       await updatePart(selectedPart._id, formData);
       toast({
-        title: "Success",
-        description: "Part updated successfully",
+        title: t('common.success'),
+        description: t('partsManagement.partUpdated'),
       });
       setShowEditDialog(false);
       resetForm();
@@ -197,8 +199,8 @@ export function PartsManagement() {
     } catch (error) {
       console.error('Error updating part:', error);
       toast({
-        title: "Error",
-        description: "Failed to update part",
+        title: t('common.error'),
+        description: t('partsManagement.failedToUpdatePart'),
         variant: "destructive",
       });
     }
@@ -280,7 +282,7 @@ export function PartsManagement() {
     } catch (error) {
       console.error('Error fetching need lists:', error);
       toast({
-        title: "Error",
+        title: t('common.error'),
         description: "Failed to fetch need lists",
         variant: "destructive",
       });
@@ -313,7 +315,7 @@ export function PartsManagement() {
       if (createNewNeedList) {
         if (!newNeedListName.trim()) {
           toast({
-            title: "Error",
+            title: t('common.error'),
             description: "Please enter a name for the new need list",
             variant: "destructive",
           });
@@ -333,7 +335,7 @@ export function PartsManagement() {
 
       if (!targetNeedListId) {
         toast({
-          title: "Error",
+          title: t('common.error'),
           description: "Please select a need list or create a new one",
           variant: "destructive",
         });
@@ -352,7 +354,7 @@ export function PartsManagement() {
       }
 
       toast({
-        title: "Success",
+        title: t('common.success'),
         description: `Added ${partsToAdd.length} part(s) to need list successfully`,
       });
 
@@ -367,7 +369,7 @@ export function PartsManagement() {
     } catch (error: any) {
       console.error('Error adding to need list:', error);
       toast({
-        title: "Error",
+        title: t('common.error'),
         description: error.message || "Failed to add parts to need list",
         variant: "destructive",
       });
@@ -423,11 +425,11 @@ export function PartsManagement() {
     const minStock = part.minStockLevel || 0;
     
     if (totalStock === 0) {
-      return <Badge variant="destructive">Out of Stock</Badge>;
+      return <Badge variant="destructive">{t('partsManagement.outOfStock')}</Badge>;
     } else if (totalStock <= minStock) {
-      return <Badge variant="secondary">Low Stock</Badge>;
+      return <Badge variant="secondary">{t('partsManagement.lowStock')}</Badge>;
     } else {
-      return <Badge variant="default">In Stock</Badge>;
+      return <Badge variant="default">{t('partsManagement.inStock')}</Badge>;
     }
   };
 
@@ -446,7 +448,7 @@ export function PartsManagement() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Loading parts...</div>
+        <div className="text-lg">{t('common.loading')}</div>
       </div>
     );
   }
@@ -458,9 +460,9 @@ export function PartsManagement() {
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-2xl font-bold leading-none">
             <Package className="h-6 w-6" />
-            Parts Management
+            {t('partsManagement.title')}
           </h1>
-          <p className="text-sm text-white/80">Manage inventory parts and supplies in a compact admin workspace</p>
+          <p className="text-sm text-white/80">{t('partsManagement.description')}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -483,12 +485,12 @@ export function PartsManagement() {
                 setShowAddDialog(true);
               }} size="sm" className="bg-white text-[#1a2a5e] hover:bg-[#f8f9fc]">
                 <Plus className="mr-2 h-4 w-4" />
-                Add Part
+                {t('partsManagement.createNewPart')}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[88vh] max-w-4xl overflow-y-auto p-4 sm:p-5">
               <DialogHeader className={adminDialogHeaderClassName}>
-                <DialogTitle className="text-base font-semibold">Add New Part</DialogTitle>
+                <DialogTitle className="text-base font-semibold">{t('partsManagement.createNewPart')}</DialogTitle>
                 <DialogDescription className="text-xs text-[#d8dce6]">
                   Create a new inventory item with compact stock and version details.
                 </DialogDescription>
@@ -554,7 +556,7 @@ export function PartsManagement() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search parts..."
+                  placeholder={t('partsManagement.searchParts')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="h-9 pl-10 text-sm"
@@ -563,10 +565,10 @@ export function PartsManagement() {
             </div>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger className="h-9 w-full text-sm sm:w-[190px]">
-                <SelectValue placeholder="Filter by category" />
+                <SelectValue placeholder={t('partsManagement.filterByCategory')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="all">{t('partsManagement.allCategories')}</SelectItem>
                 {categories.map(category => (
                   <SelectItem key={category} value={category}>
                     {category.charAt(0).toUpperCase() + category.slice(1)}
@@ -620,7 +622,7 @@ export function PartsManagement() {
                     onClick={() => handleSort('sku')}
                   >
                     <div className="flex items-center">
-                      Part Number
+                      {t('partsManagement.partNumber')}
                       {getSortIcon('sku')}
                     </div>
                   </TableHead>
@@ -629,7 +631,7 @@ export function PartsManagement() {
                     onClick={() => handleSort('itemName')}
                   >
                     <div className="flex items-center">
-                      Name
+                      {t('partsManagement.partName')}
                       {getSortIcon('itemName')}
                     </div>
                   </TableHead>
@@ -638,7 +640,7 @@ export function PartsManagement() {
                     onClick={() => handleSort('category')}
                   >
                     <div className="flex items-center">
-                      Category
+                      {t('partsManagement.category')}
                       {getSortIcon('category')}
                     </div>
                   </TableHead>
@@ -652,16 +654,16 @@ export function PartsManagement() {
                     </div>
                   </TableHead>
                   <TableHead className="h-10 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Stock</TableHead>
-                  <TableHead className="h-10 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Status</TableHead>
+                  <TableHead className="h-10 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('partsManagement.status')}</TableHead>
                   <TableHead className="h-10 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Location</TableHead>
-                  <TableHead className="h-10 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</TableHead>
+                  <TableHead className="h-10 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {parts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
-                      No parts found
+                      {t('partsManagement.noPartsFound')}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -811,7 +813,7 @@ export function PartsManagement() {
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="max-h-[88vh] max-w-4xl overflow-y-auto p-4 sm:p-5">
           <DialogHeader className={adminDialogHeaderClassName}>
-            <DialogTitle className="text-base font-semibold">Edit Part</DialogTitle>
+            <DialogTitle className="text-base font-semibold">{t('partsManagement.editPart')}</DialogTitle>
             <DialogDescription className="text-xs text-[#d8dce6]">
               Update inventory metadata, device compatibility and version stock levels.
             </DialogDescription>
@@ -857,7 +859,7 @@ export function PartsManagement() {
           <DialogHeader className={adminDialogHeaderClassName}>
             <DialogTitle className="flex items-center gap-2 text-base font-semibold">
               <ListPlus className="h-5 w-5" />
-              Add Parts to Need List
+              {t('partsManagement.bulkAddToNeedList')}
             </DialogTitle>
             <DialogDescription className="text-xs text-[#d8dce6]">
               Assign selected parts to an existing draft list or create a new one.
@@ -969,14 +971,14 @@ export function PartsManagement() {
                 }}
                 disabled={addingToNeedList}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={handleAddToNeedList}
                 disabled={addingToNeedList}
                 size="sm"
               >
-                {addingToNeedList ? 'Adding...' : 'Add to Need List'}
+                {addingToNeedList ? t('common.loading') : t('partsManagement.addToNeedList')}
               </Button>
             </DialogFooter>
           </div>
@@ -998,6 +1000,7 @@ export function PartsManagement() {
 
 // Part Detail View Component
 function PartDetailView({ part }: { part: Part }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-4">
       {/* Basic Information */}
@@ -1011,11 +1014,11 @@ function PartDetailView({ part }: { part: Part }) {
           </CardHeader>
           <CardContent className="space-y-2.5 px-4 pb-4 pt-0">
             <div className="space-y-1">
-              <Label className={compactLabelClassName}>Part Number</Label>
+              <Label className={compactLabelClassName}>{t('partsManagement.partNumber')}</Label>
               <p className="text-sm font-mono">{part.partNumber}</p>
             </div>
             <div className="space-y-1">
-              <Label className={compactLabelClassName}>Name</Label>
+              <Label className={compactLabelClassName}>{t('partsManagement.partName')}</Label>
               <p className="text-sm">{part.name}</p>
             </div>
             <div className="space-y-1">
@@ -1023,7 +1026,7 @@ function PartDetailView({ part }: { part: Part }) {
               <p className="text-sm leading-snug">{part.description || 'No description available'}</p>
             </div>
             <div className="space-y-1">
-              <Label className={compactLabelClassName}>Category</Label>
+              <Label className={compactLabelClassName}>{t('partsManagement.category')}</Label>
               <Badge variant="outline" className="text-[11px]">
                 {part.category?.charAt(0).toUpperCase() + part.category?.slice(1)}
               </Badge>
@@ -1033,7 +1036,7 @@ function PartDetailView({ part }: { part: Part }) {
               <p className="text-sm">{part.model}</p>
             </div>
             <div className="space-y-1">
-              <Label className={compactLabelClassName}>Supplier</Label>
+              <Label className={compactLabelClassName}>{t('partsManagement.supplier')}</Label>
               <p className="text-sm">{part.supplier}</p>
             </div>
           </CardContent>
@@ -1085,11 +1088,11 @@ function PartDetailView({ part }: { part: Part }) {
         <CardContent className="px-4 pb-4 pt-0">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="space-y-1">
-              <Label className={compactLabelClassName}>Cost Price</Label>
+              <Label className={compactLabelClassName}>{t('partsManagement.costPrice')}</Label>
               <p className="text-lg font-semibold">${part.cost?.toFixed(2)}</p>
             </div>
             <div className="space-y-1">
-              <Label className={compactLabelClassName}>Selling Price</Label>
+              <Label className={compactLabelClassName}>{t('partsManagement.sellingPrice')}</Label>
               <p className="text-lg font-semibold">${part.sellingPrice?.toFixed(2)}</p>
             </div>
           </div>
@@ -1155,7 +1158,7 @@ function PartDetailView({ part }: { part: Part }) {
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
                     <div>
-                      <Label className={compactLabelClassName}>Quantity</Label>
+                      <Label className={compactLabelClassName}>{t('partsManagement.quantity')}</Label>
                       <p className="font-medium">{version.quantity}</p>
                     </div>
                     <div>
@@ -1163,7 +1166,7 @@ function PartDetailView({ part }: { part: Part }) {
                       <p className="font-medium">${version.unitCost?.toFixed(2)}</p>
                     </div>
                     <div>
-                      <Label className={compactLabelClassName}>Selling Price</Label>
+                      <Label className={compactLabelClassName}>{t('partsManagement.sellingPrice')}</Label>
                       <p className="font-medium">${version.sellingPrice?.toFixed(2)}</p>
                     </div>
                     <div>
@@ -1189,7 +1192,7 @@ function PartDetailView({ part }: { part: Part }) {
         <CardContent className="px-4 py-3">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Calendar className="h-4 w-4" />
-            Last updated: {part.lastUpdated ? new Date(part.lastUpdated).toLocaleString() : 'Unknown'}
+            {t('partsManagement.lastUpdated')}: {part.lastUpdated ? new Date(part.lastUpdated).toLocaleString() : 'Unknown'}
           </div>
         </CardContent>
       </Card>
@@ -1221,6 +1224,7 @@ function AddEditPartForm({
   updateVersion: (index: number, field: string, value: any) => void;
   isEdit: boolean;
 }) {
+  const { t } = useTranslation()
   // Auto-generate Item Name when manufacturer, model, or category changes
   const handleFieldChange = (field: string, value: any) => {
     const updatedFormData = { ...formData, [field]: value };
@@ -1262,7 +1266,7 @@ function AddEditPartForm({
               </p>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="category" className={compactLabelClassName}>Category *</Label>
+              <Label htmlFor="category" className={compactLabelClassName}>{t('partsManagement.category')} *</Label>
               <Select
                 value={formData.category}
                 onValueChange={(value) => handleFieldChange('category', value)}
@@ -1371,7 +1375,7 @@ function AddEditPartForm({
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className={compactLabelClassName}>Quantity *</Label>
+                        <Label className={compactLabelClassName}>{t('partsManagement.quantity')} *</Label>
                         <Input
                           type="number"
                           value={version.quantity || 0}
@@ -1404,7 +1408,7 @@ function AddEditPartForm({
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className={compactLabelClassName}>Selling Price *</Label>
+                        <Label className={compactLabelClassName}>{t('partsManagement.sellingPrice')} *</Label>
                         <Input
                           type="number"
                           step="0.01"
@@ -1461,10 +1465,10 @@ function AddEditPartForm({
 
       <div className="flex justify-end gap-3">
         <Button type="button" variant="outline" onClick={onCancel} size="sm">
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button type="button" onClick={onSubmit} size="sm">
-          {isEdit ? 'Update Part' : 'Add Part'}
+          {isEdit ? t('partsManagement.editPart') : t('partsManagement.createNewPart')}
         </Button>
       </div>
     </div>

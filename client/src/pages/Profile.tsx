@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
+import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -42,6 +43,7 @@ export function Profile() {
   const [sameAsInvoice, setSameAsInvoice] = useState(true)
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null)
   const { toast } = useToast()
+  const { t } = useTranslation()
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm()
 
@@ -118,14 +120,14 @@ export function Profile() {
       setProfile((response as any).user)
 
       toast({
-        title: "Success!",
-        description: "Your profile has been updated"
+        title: t('common.success'),
+        description: t('profilePage.profileUpdated')
       })
     } catch (error: any) {
       console.error("Error updating profile:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to update profile",
+        title: t('common.error'),
+        description: error.message || t('profilePage.updateFailed'),
         variant: "destructive"
       })
     } finally {
@@ -143,8 +145,8 @@ export function Profile() {
       const response = await uploadAvatar(file)
 
       toast({
-        title: "Success!",
-        description: "Profile picture updated"
+        title: t('common.success'),
+        description: t('profilePage.pictureUpdated')
       })
 
       // Update profile with new avatar
@@ -157,8 +159,8 @@ export function Profile() {
     } catch (error: any) {
       console.error("Error uploading avatar:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to upload avatar",
+        title: t('common.error'),
+        description: error.message || t('profilePage.uploadFailed'),
         variant: "destructive"
       })
     } finally {
@@ -176,8 +178,8 @@ export function Profile() {
     setValue("paymentAddress.country", profile.invoiceAddress.country)
 
     toast({
-      title: "Address copied",
-      description: "Invoice address has been copied to payment address"
+      title: t('profilePage.addressCopied'),
+      description: t('profilePage.addressCopiedDesc')
     })
   }
 
@@ -232,7 +234,7 @@ export function Profile() {
               >
                 <span>
                   <Camera className="h-4 w-4 mr-2" />
-                  {uploadingAvatar ? "Uploading..." : "Change Photo"}
+                  {uploadingAvatar ? t('profilePage.uploading') : t('profilePage.changePhoto')}
                 </span>
               </Button>
             </Label>
@@ -265,7 +267,7 @@ export function Profile() {
             <div className="profile-member-since">
               <Calendar className="h-4 w-4" />
               <span>
-                Member since {new Date(profile.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                {t('profilePage.memberSince')} {new Date(profile.createdAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
               </span>
             </div>
           </div>
@@ -280,7 +282,7 @@ export function Profile() {
               <TrendingUp className="h-5 w-5" />
             </div>
             <div className="profile-stat-info">
-              <p className="profile-stat-label">Total Orders</p>
+              <p className="profile-stat-label">{t('profilePage.totalOrders')}</p>
               <p className="profile-stat-value">{profile.totalOrders}</p>
             </div>
           </CardContent>
@@ -292,7 +294,7 @@ export function Profile() {
               <DollarSign className="h-5 w-5" />
             </div>
             <div className="profile-stat-info">
-              <p className="profile-stat-label">Total Spent</p>
+              <p className="profile-stat-label">{t('profilePage.totalSpent')}</p>
               <p className="profile-stat-value">${profile.totalSpent.toFixed(2)}</p>
             </div>
           </CardContent>
@@ -304,7 +306,7 @@ export function Profile() {
               <Shield className="h-5 w-5" />
             </div>
             <div className="profile-stat-info">
-              <p className="profile-stat-label">Member Since</p>
+              <p className="profile-stat-label">{t('profilePage.memberSinceLabel')}</p>
               <p className="profile-stat-value">
                 {new Date(profile.createdAt).getFullYear()}
               </p>
@@ -321,10 +323,10 @@ export function Profile() {
               {deviceInfo.isMobile ? <Smartphone className="h-5 w-5" /> :
                deviceInfo.isTablet ? <Tablet className="h-5 w-5" /> :
                <Monitor className="h-5 w-5" />}
-              Current Device Information
+              {t('profilePage.currentDeviceInfo')}
             </CardTitle>
             <CardDescription className="profile-card-description">
-              Details about the device you're currently using
+              {t('profilePage.currentDeviceDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="profile-card-content">
@@ -335,10 +337,10 @@ export function Profile() {
                   {deviceInfo.isMobile ? <Smartphone className="h-4 w-4" /> :
                    deviceInfo.isTablet ? <Tablet className="h-4 w-4" /> :
                    <Monitor className="h-4 w-4" />}
-                  Device Type
+                  {t('profilePage.deviceType')}
                 </div>
                 <p className="profile-device-value">
-                  {deviceInfo.isMobile ? 'Mobile' : deviceInfo.isTablet ? 'Tablet' : 'Desktop'}
+                  {deviceInfo.isMobile ? t('profilePage.mobile') : deviceInfo.isTablet ? t('profilePage.tablet') : t('profilePage.desktop')}
                 </p>
                 <p className="profile-device-detail">{deviceInfo.deviceModel}</p>
               </div>
@@ -347,7 +349,7 @@ export function Profile() {
               <div className="profile-device-item">
                 <div className="profile-device-label">
                   <Globe className="h-4 w-4" />
-                  Operating System
+                  {t('profilePage.operatingSystem')}
                 </div>
                 <p className="profile-device-value">{deviceInfo.os}</p>
                 <p className="profile-device-detail">Version {deviceInfo.osVersion}</p>
@@ -357,7 +359,7 @@ export function Profile() {
               <div className="profile-device-item">
                 <div className="profile-device-label">
                   <Globe className="h-4 w-4" />
-                  Browser
+                  {t('profilePage.browser')}
                 </div>
                 <p className="profile-device-value">{deviceInfo.browser}</p>
                 <p className="profile-device-detail">Version {deviceInfo.browserVersion}</p>
@@ -367,7 +369,7 @@ export function Profile() {
               <div className="profile-device-item">
                 <div className="profile-device-label">
                   <Monitor className="h-4 w-4" />
-                  Screen Resolution
+                  {t('profilePage.screenResolution')}
                 </div>
                 <p className="profile-device-value">
                   {deviceInfo.screenWidth} × {deviceInfo.screenHeight}
@@ -381,7 +383,7 @@ export function Profile() {
               <div className="profile-device-item">
                 <div className="profile-device-label">
                   <Smartphone className="h-4 w-4" />
-                  Touch Support
+                  {t('profilePage.touchSupport')}
                 </div>
                 <p className="profile-device-value">
                   {deviceInfo.touchSupport ? 'Yes' : 'No'}
@@ -397,7 +399,7 @@ export function Profile() {
               <div className="profile-device-item">
                 <div className="profile-device-label">
                   <Wifi className="h-4 w-4" />
-                  Connection
+                  {t('profilePage.connection')}
                 </div>
                 <p className="profile-device-value">
                   {deviceInfo.effectiveType !== 'Unknown' ? deviceInfo.effectiveType.toUpperCase() : 'Unknown'}
@@ -411,7 +413,7 @@ export function Profile() {
               <div className="profile-device-item">
                 <div className="profile-device-label">
                   <Info className="h-4 w-4" />
-                  Vendor
+                  {t('profilePage.vendor')}
                 </div>
                 <p className="profile-device-value">{deviceInfo.vendor}</p>
                 <p className="profile-device-detail">{deviceInfo.platform}</p>
@@ -421,7 +423,7 @@ export function Profile() {
               <div className="profile-device-item">
                 <div className="profile-device-label">
                   <Globe className="h-4 w-4" />
-                  Language & Timezone
+                  {t('profilePage.languageTimezone')}
                 </div>
                 <p className="profile-device-value">{deviceInfo.language}</p>
                 <p className="profile-device-detail">{deviceInfo.timezone}</p>
@@ -431,7 +433,7 @@ export function Profile() {
               <div className="profile-device-item">
                 <div className="profile-device-label">
                   <Calendar className="h-4 w-4" />
-                  Detected
+                  {t('profilePage.detected')}
                 </div>
                 <p className="profile-device-value">
                   {localStorage.getItem('deviceInfoTimestamp')
@@ -462,16 +464,16 @@ export function Profile() {
           <CardHeader className="profile-card-header">
             <CardTitle className="profile-card-title">
               <User className="h-5 w-5" />
-              Personal Information
+              {t('profile.personalInfo')}
             </CardTitle>
             <CardDescription className="profile-card-description">
-              Update your personal details and contact information
+              {t('profilePage.personalInfoDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="profile-card-content">
             <div className="profile-form-grid">
               <div className="profile-form-field">
-                <Label htmlFor="firstName" className="profile-label">First Name</Label>
+                <Label htmlFor="firstName" className="profile-label">{t('profile.firstName')}</Label>
                 <Input
                   id="firstName"
                   {...register("firstName", { required: "First name is required" })}
@@ -483,7 +485,7 @@ export function Profile() {
               </div>
 
               <div className="profile-form-field">
-                <Label htmlFor="lastName" className="profile-label">Last Name</Label>
+                <Label htmlFor="lastName" className="profile-label">{t('profile.lastName')}</Label>
                 <Input
                   id="lastName"
                   {...register("lastName", { required: "Last name is required" })}
@@ -495,7 +497,7 @@ export function Profile() {
               </div>
 
               <div className="profile-form-field">
-                <Label htmlFor="email" className="profile-label">Email Address</Label>
+                <Label htmlFor="email" className="profile-label">{t('profile.email')}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -504,12 +506,12 @@ export function Profile() {
                   className="profile-input profile-input-disabled"
                 />
                 <p className="profile-field-hint">
-                  Contact support to change your email address
+                  {t('profilePage.emailChangeHint')}
                 </p>
               </div>
 
               <div className="profile-form-field">
-                <Label htmlFor="phone" className="profile-label">Phone Number</Label>
+                <Label htmlFor="phone" className="profile-label">{t('profile.phone')}</Label>
                 <Input
                   id="phone"
                   type="tel"
@@ -526,15 +528,15 @@ export function Profile() {
           <CardHeader className="profile-card-header">
             <CardTitle className="profile-card-title">
               <FileText className="h-5 w-5" />
-              Invoice Address
+              {t('profile.invoiceAddress')}
             </CardTitle>
             <CardDescription className="profile-card-description">
-              Address used for billing and invoices
+              {t('profilePage.invoiceAddressDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="profile-card-content">
             <div className="profile-form-field profile-form-field-full">
-              <Label htmlFor="invoiceStreet" className="profile-label">Street Address</Label>
+              <Label htmlFor="invoiceStreet" className="profile-label">{t('profilePage.streetAddress')}</Label>
               <Input
                 id="invoiceStreet"
                 {...register("invoiceAddress.street")}
@@ -544,7 +546,7 @@ export function Profile() {
 
             <div className="profile-form-grid">
               <div className="profile-form-field">
-                <Label htmlFor="invoiceCity" className="profile-label">City</Label>
+                <Label htmlFor="invoiceCity" className="profile-label">{t('profilePage.city')}</Label>
                 <Input
                   id="invoiceCity"
                   {...register("invoiceAddress.city")}
@@ -553,7 +555,7 @@ export function Profile() {
               </div>
 
               <div className="profile-form-field">
-                <Label htmlFor="invoiceState" className="profile-label">State</Label>
+                <Label htmlFor="invoiceState" className="profile-label">{t('profilePage.state')}</Label>
                 <Input
                   id="invoiceState"
                   {...register("invoiceAddress.state")}
@@ -564,7 +566,7 @@ export function Profile() {
 
             <div className="profile-form-grid">
               <div className="profile-form-field">
-                <Label htmlFor="invoiceZipCode" className="profile-label">ZIP Code</Label>
+                <Label htmlFor="invoiceZipCode" className="profile-label">{t('profilePage.zipCode')}</Label>
                 <Input
                   id="invoiceZipCode"
                   {...register("invoiceAddress.zipCode")}
@@ -573,7 +575,7 @@ export function Profile() {
               </div>
 
               <div className="profile-form-field">
-                <Label htmlFor="invoiceCountry" className="profile-label">Country</Label>
+                <Label htmlFor="invoiceCountry" className="profile-label">{t('profilePage.country')}</Label>
                 <Input
                   id="invoiceCountry"
                   {...register("invoiceAddress.country")}
@@ -589,10 +591,10 @@ export function Profile() {
             <CardHeader className="profile-card-header">
               <CardTitle className="profile-card-title">
                 <CreditCard className="h-5 w-5" />
-                Payment Address
+                {t('profile.paymentAddress')}
               </CardTitle>
               <CardDescription className="profile-card-description">
-                Address used for payment processing and shipping
+                {t('profilePage.paymentAddressDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="profile-card-content">
@@ -609,7 +611,7 @@ export function Profile() {
                     }}
                   />
                   <Label htmlFor="sameAsInvoice" className="profile-same-address-label">
-                    Same as invoice address
+                    {t('profilePage.sameAsInvoice')}
                   </Label>
                 </div>
                 {!sameAsInvoice && (
@@ -621,7 +623,7 @@ export function Profile() {
                     className="profile-copy-btn"
                   >
                     <Copy className="h-4 w-4 mr-2" />
-                    Copy from invoice
+                    {t('profilePage.copyFromInvoice')}
                   </Button>
                 )}
               </div>
@@ -629,7 +631,7 @@ export function Profile() {
               {!sameAsInvoice && (
                 <>
                   <div className="profile-form-field profile-form-field-full">
-                    <Label htmlFor="paymentStreet" className="profile-label">Street Address</Label>
+                    <Label htmlFor="paymentStreet" className="profile-label">{t('profilePage.streetAddress')}</Label>
                     <Input
                       id="paymentStreet"
                       {...register("paymentAddress.street")}
@@ -639,7 +641,7 @@ export function Profile() {
 
                   <div className="profile-form-grid">
                     <div className="profile-form-field">
-                      <Label htmlFor="paymentCity" className="profile-label">City</Label>
+                      <Label htmlFor="paymentCity" className="profile-label">{t('profilePage.city')}</Label>
                       <Input
                         id="paymentCity"
                         {...register("paymentAddress.city")}
@@ -648,7 +650,7 @@ export function Profile() {
                     </div>
 
                     <div className="profile-form-field">
-                      <Label htmlFor="paymentState" className="profile-label">State</Label>
+                      <Label htmlFor="paymentState" className="profile-label">{t('profilePage.state')}</Label>
                       <Input
                         id="paymentState"
                         {...register("paymentAddress.state")}
@@ -659,7 +661,7 @@ export function Profile() {
 
                   <div className="profile-form-grid">
                     <div className="profile-form-field">
-                      <Label htmlFor="paymentZipCode" className="profile-label">ZIP Code</Label>
+                      <Label htmlFor="paymentZipCode" className="profile-label">{t('profilePage.zipCode')}</Label>
                       <Input
                         id="paymentZipCode"
                         {...register("paymentAddress.zipCode")}
@@ -668,7 +670,7 @@ export function Profile() {
                     </div>
 
                     <div className="profile-form-field">
-                      <Label htmlFor="paymentCountry" className="profile-label">Country</Label>
+                      <Label htmlFor="paymentCountry" className="profile-label">{t('profilePage.country')}</Label>
                       <Input
                         id="paymentCountry"
                         {...register("paymentAddress.country")}
@@ -686,18 +688,18 @@ export function Profile() {
             <CardHeader className="profile-card-header">
               <CardTitle className="profile-card-title">
                 <Bell className="h-5 w-5" />
-                Notification Preferences
+                {t('profile.notifications')}
               </CardTitle>
               <CardDescription className="profile-card-description">
-                Choose how you want to receive notifications
+                {t('profilePage.notificationDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="profile-card-content">
               <div className="profile-notification-item">
                 <div>
-                  <Label htmlFor="email-notifications" className="profile-notification-label">Email Notifications</Label>
+                  <Label htmlFor="email-notifications" className="profile-notification-label">{t('profile.emailNotifications')}</Label>
                   <p className="profile-notification-desc">
-                    Receive order updates via email
+                    {t('profilePage.emailNotificationsDesc')}
                   </p>
                 </div>
                 <Switch
@@ -708,9 +710,9 @@ export function Profile() {
 
               <div className="profile-notification-item">
                 <div>
-                  <Label htmlFor="sms-notifications" className="profile-notification-label">SMS Notifications</Label>
+                  <Label htmlFor="sms-notifications" className="profile-notification-label">{t('profile.smsNotifications')}</Label>
                   <p className="profile-notification-desc">
-                    Receive order updates via SMS
+                    {t('profilePage.smsNotificationsDesc')}
                   </p>
                 </div>
                 <Switch
@@ -721,9 +723,9 @@ export function Profile() {
 
               <div className="profile-notification-item">
                 <div>
-                  <Label htmlFor="push-notifications" className="profile-notification-label">Push Notifications</Label>
+                  <Label htmlFor="push-notifications" className="profile-notification-label">{t('profile.pushNotifications')}</Label>
                   <p className="profile-notification-desc">
-                    Receive browser notifications
+                    {t('profilePage.pushNotificationsDesc')}
                   </p>
                 </div>
                 <Switch
@@ -742,7 +744,7 @@ export function Profile() {
               className="profile-save-btn"
             >
               <Save className="h-4 w-4 mr-2" />
-              {saving ? "Saving..." : "Save Changes"}
+              {saving ? t('profilePage.saving') : t('profilePage.saveChanges')}
             </Button>
           </div>
         </form>

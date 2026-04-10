@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from 'react-i18next'
 import { useToast } from "@/hooks/useToast"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -108,6 +109,7 @@ const DEFAULT_EMAIL_SETTINGS: EmailSettings = {
 }
 
 export function EmailAdministration() {
+  const { t } = useTranslation()
   const { toast } = useToast()
 
   const [stats, setStats] = useState<EmailStats | null>(null)
@@ -137,8 +139,8 @@ export function EmailAdministration() {
 
   const [composeTestEmailDialog, setComposeTestEmailDialog] = useState(false)
   const [composeEmailTo, setComposeEmailTo] = useState("")
-  const [composeEmailSubject, setComposeEmailSubject] = useState("FixitHub SMTP Test")
-  const [composeEmailBody, setComposeEmailBody] = useState("Dies ist eine Test-E-Mail aus dem FixitHub SMTP-Konfigurationspanel.\n\nWenn Sie diese Nachricht erhalten, ist Ihre SMTP-Konfiguration korrekt eingerichtet.")
+  const [composeEmailSubject, setComposeEmailSubject] = useState(t('emailAdmin.defaultTestSubject'))
+  const [composeEmailBody, setComposeEmailBody] = useState(t('emailAdmin.defaultTestBody'))
   const [composeEmailFrom, setComposeEmailFrom] = useState("")
   const [sendingComposedEmail, setSendingComposedEmail] = useState(false)
   const [selectedDeliveryRecord, setSelectedDeliveryRecord] = useState<DeliveryRecord | null>(null)
@@ -234,8 +236,8 @@ export function EmailAdministration() {
       console.error("Error loading stats:", error)
       toast({
         variant: "destructive",
-        title: "Fehler",
-        description: "Statistiken konnten nicht geladen werden",
+        title: t('common.error'),
+        description: t('emailAdmin.failedToLoadStats'),
       })
     } finally {
       setLoadingStats(false)
@@ -264,8 +266,8 @@ export function EmailAdministration() {
       console.error("Error loading delivery history:", error)
       toast({
         variant: "destructive",
-        title: "Fehler",
-        description: "Verlauf konnte nicht geladen werden",
+        title: t('common.error'),
+        description: t('emailAdmin.failedToLoadHistory'),
       })
     } finally {
       setLoadingHistory(false)
@@ -292,14 +294,14 @@ export function EmailAdministration() {
         setTotalPages(data.pagination?.pages || 1)
       } else {
         const data = await response.json().catch(() => ({}))
-        throw new Error(data.error || data.message || "Erweitertes Protokoll konnte nicht geladen werden")
+        throw new Error(data.error || data.message || t('emailAdmin.failedToLoadAdvancedLog'))
       }
     } catch (error) {
       console.error("Error loading delivery log:", error)
       toast({
         variant: "destructive",
-        title: "Fehler",
-        description: "Versandprotokoll konnte nicht geladen werden",
+        title: t('common.error'),
+        description: t('emailAdmin.failedToLoadDeliveryLog'),
       })
     } finally {
       setLoadingLog(false)
@@ -307,7 +309,7 @@ export function EmailAdministration() {
   }
 
   const handleClearDeliveryLog = async () => {
-    const confirmed = window.confirm('Moechten Sie das Versandprotokoll wirklich loeschen?')
+    const confirmed = window.confirm(t('emailAdmin.confirmClearDeliveryLog'))
     if (!confirmed) return
 
     try {
@@ -320,18 +322,18 @@ export function EmailAdministration() {
 
       const data = await response.json().catch(() => ({}))
       if (!response.ok || !data.success) {
-        throw new Error(data.error || data.message || 'Versandprotokoll konnte nicht geloescht werden')
+        throw new Error(data.error || data.message || t('emailAdmin.failedToClearDeliveryLog'))
       }
 
       await Promise.all([loadStats(), loadDeliveryLog()])
-      toast({ title: 'Erfolgreich', description: `${data.clearedCount || 0} Versandprotokolleintraege geloescht` })
+      toast({ title: t('common.success'), description: t('emailAdmin.deliveryLogCleared', { count: data.clearedCount || 0 }) })
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Fehler', description: error.message || 'Versandprotokoll konnte nicht geloescht werden' })
+      toast({ variant: 'destructive', title: t('common.error'), description: error.message || t('emailAdmin.failedToClearDeliveryLog') })
     }
   }
 
   const handleClearSmtpLog = async () => {
-    const confirmed = window.confirm('Moechten Sie das SMTP-Verbindungsprotokoll wirklich loeschen?')
+    const confirmed = window.confirm(t('emailAdmin.confirmClearSmtpLog'))
     if (!confirmed) return
 
     try {
@@ -344,13 +346,13 @@ export function EmailAdministration() {
 
       const data = await response.json().catch(() => ({}))
       if (!response.ok || !data.success) {
-        throw new Error(data.error || data.message || 'SMTP-Protokoll konnte nicht geloescht werden')
+        throw new Error(data.error || data.message || t('emailAdmin.failedToClearSmtpLog'))
       }
 
       await Promise.all([loadStats(), loadDeliveryLog()])
-      toast({ title: 'Erfolgreich', description: `${data.clearedCount || 0} SMTP-Eintraege geloescht` })
+      toast({ title: t('common.success'), description: t('emailAdmin.smtpLogCleared', { count: data.clearedCount || 0 }) })
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Fehler', description: error.message || 'SMTP-Protokoll konnte nicht geloescht werden' })
+      toast({ variant: 'destructive', title: t('common.error'), description: error.message || t('emailAdmin.failedToClearSmtpLog') })
     }
   }
 
@@ -358,8 +360,8 @@ export function EmailAdministration() {
     if (!testEmailTo) {
       toast({
         variant: "destructive",
-        title: "Fehler",
-        description: "Bitte E-Mail-Adresse eingeben",
+        title: t('common.error'),
+        description: t('emailAdmin.enterEmailAddress'),
       })
       return
     }
@@ -386,23 +388,23 @@ export function EmailAdministration() {
       const data = await response.json()
       if (response.ok && data.success) {
         toast({
-          title: "Erfolgreich",
-          description: data.message || "SMTP-Test erfolgreich",
+          title: t('common.success'),
+          description: data.message || t('emailAdmin.smtpTestSuccess'),
         })
         setTestEmailDialog(false)
       } else {
         toast({
           variant: "destructive",
-          title: "Fehler",
-          description: data.message || "SMTP-Test fehlgeschlagen",
+          title: t('common.error'),
+          description: data.message || t('emailAdmin.smtpTestFailed'),
         })
       }
     } catch (error) {
       console.error("Error testing SMTP:", error)
       toast({
         variant: "destructive",
-        title: "Fehler",
-        description: "Verbindungsfehler beim Testen",
+        title: t('common.error'),
+        description: t('emailAdmin.connectionErrorTesting'),
       })
     } finally {
       setSendingTest(false)
@@ -411,11 +413,11 @@ export function EmailAdministration() {
 
   const handleSendComposedEmail = async () => {
     if (!composeEmailTo.trim()) {
-      toast({ variant: "destructive", title: "Fehler", description: "Empfänger-Adresse ist erforderlich" })
+      toast({ variant: "destructive", title: t('common.error'), description: t('emailAdmin.recipientRequired') })
       return
     }
     if (!composeEmailSubject.trim()) {
-      toast({ variant: "destructive", title: "Fehler", description: "Betreff ist erforderlich" })
+      toast({ variant: "destructive", title: t('common.error'), description: t('emailAdmin.subjectRequired') })
       return
     }
     setSendingComposedEmail(true)
@@ -441,14 +443,14 @@ export function EmailAdministration() {
       })
       const data = await response.json()
       if (response.ok && data.success) {
-        toast({ title: "E-Mail gesendet", description: data.message || `Test-E-Mail erfolgreich an ${composeEmailTo} gesendet` })
+        toast({ title: t('emailAdmin.emailSent'), description: data.message || t('emailAdmin.testEmailSentSuccess', { email: composeEmailTo }) })
         setComposeTestEmailDialog(false)
       } else {
-        toast({ variant: "destructive", title: "Senden fehlgeschlagen", description: data.message || "Test-E-Mail konnte nicht gesendet werden" })
+        toast({ variant: "destructive", title: t('emailAdmin.sendFailed'), description: data.message || t('emailAdmin.failedToSendTestEmail') })
       }
     } catch (error) {
       console.error("Error sending test email:", error)
-      toast({ variant: "destructive", title: "Verbindungsfehler", description: "E-Mail konnte nicht gesendet werden" })
+      toast({ variant: "destructive", title: t('emailAdmin.connectionError'), description: t('emailAdmin.failedToSendEmail') })
     } finally {
       setSendingComposedEmail(false)
     }
@@ -459,8 +461,8 @@ export function EmailAdministration() {
     if (!emailSettings.smtpHost.trim()) {
       toast({
         variant: "destructive",
-        title: "Validierungsfehler",
-        description: "SMTP-Host ist erforderlich",
+        title: t('emailAdmin.validationError'),
+        description: t('emailAdmin.smtpHostRequired'),
       })
       return
     }
@@ -468,8 +470,8 @@ export function EmailAdministration() {
     if (emailSettings.smtpPort < 1 || emailSettings.smtpPort > 65535) {
       toast({
         variant: "destructive",
-        title: "Validierungsfehler",
-        description: "SMTP-Port muss zwischen 1 und 65535 liegen",
+        title: t('emailAdmin.validationError'),
+        description: t('emailAdmin.smtpPortRange'),
       })
       return
     }
@@ -478,8 +480,8 @@ export function EmailAdministration() {
       if (!emailSettings.smtpUsername.trim()) {
         toast({
           variant: "destructive",
-          title: "Validierungsfehler",
-          description: "SMTP-Benutzername ist erforderlich wenn Authentifizierung aktiviert ist",
+          title: t('emailAdmin.validationError'),
+          description: t('emailAdmin.smtpUsernameRequired'),
         })
         return
       }
@@ -518,23 +520,23 @@ export function EmailAdministration() {
         setEmailSettings(savedSettings)
 
         toast({
-          title: "Erfolgreich",
-          description: "SMTP-Konfiguration wurde gespeichert",
+          title: t('common.success'),
+          description: t('emailAdmin.smtpConfigSaved'),
         })
       } else {
         toast({
           variant: "destructive",
-          title: "Fehler",
+          title: t('common.error'),
           description:
-            data.error || data.message || "Fehler beim Speichern der SMTP-Konfiguration",
+            data.error || data.message || t('emailAdmin.failedToSaveSmtpConfig'),
         })
       }
     } catch (error) {
       console.error("Error saving settings:", error)
       toast({
         variant: "destructive",
-        title: "Fehler",
-        description: "Verbindungsfehler beim Speichern der Konfiguration",
+        title: t('common.error'),
+        description: t('emailAdmin.connectionErrorSaving'),
       })
     } finally {
       setSavingSettings(false)
@@ -544,14 +546,14 @@ export function EmailAdministration() {
   const handleRefresh = async () => {
     await Promise.all([loadStats(), loadDeliveryLog()])
     toast({
-      title: "Erfolgreich",
-      description: "Daten wurden aktualisiert",
+      title: t('common.success'),
+      description: t('emailAdmin.dataRefreshed'),
     })
   }
 
   const handleDownloadLog = () => {
     const csv = [
-      ["Zeitstempel", "Empfaenger", "Vorlage", "Status", "Versuche", "Dauer (ms)", "Fehler"].join(","),
+      [t('emailAdmin.csvTimestamp'), t('emailAdmin.csvRecipient'), t('emailAdmin.csvTemplate'), t('emailAdmin.csvStatus'), t('emailAdmin.csvAttempts'), t('emailAdmin.csvDuration'), t('emailAdmin.csvError')].join(","),
       ...deliveryLog.map((record) =>
         [
           record.timestamp,
@@ -587,9 +589,9 @@ export function EmailAdministration() {
   const formatDuration = (ms: number) => (ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(2)}s`)
 
   const getStatusBadge = (status: string) => {
-    if (status === "sent") return <Badge variant="outline" className="bg-green-50 text-green-900">Versendet</Badge>
-    if (status === "failed") return <Badge variant="outline" className="bg-red-50 text-red-900">Fehlgeschlagen</Badge>
-    if (status === "queued") return <Badge variant="outline" className="bg-blue-50 text-blue-900">In Warteschlange</Badge>
+    if (status === "sent") return <Badge variant="outline" className="bg-green-50 text-green-900">{t('emailAdmin.statusSent')}</Badge>
+    if (status === "failed") return <Badge variant="outline" className="bg-red-50 text-red-900">{t('emailAdmin.statusFailed')}</Badge>
+    if (status === "queued") return <Badge variant="outline" className="bg-blue-50 text-blue-900">{t('emailAdmin.statusQueued')}</Badge>
     return <Badge>{status}</Badge>
   }
 
@@ -597,7 +599,7 @@ export function EmailAdministration() {
     return (
       <div className="email-admin-loading">
         <RefreshCw className="h-6 w-6 animate-spin" />
-        <p>Email-Verwaltung wird geladen...</p>
+        <p>{t('emailAdmin.loadingPage')}</p>
       </div>
     )
   }
@@ -606,51 +608,51 @@ export function EmailAdministration() {
     <div className="email-administration">
       <div className="email-admin-header">
         <div>
-          <h1 className="text-3xl font-bold">Email-Verwaltung</h1>
-          <p className="text-muted-foreground">SMTP Email-Integration Monitor und Konfiguration</p>
+          <h1 className="text-3xl font-bold">{t('emailAdmin.title')}</h1>
+          <p className="text-muted-foreground">{t('emailAdmin.description')}</p>
         </div>
         <Button onClick={handleRefresh} disabled={loadingStats} variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />Aktualisieren
+          <RefreshCw className="h-4 w-4 mr-2" />{t('common.refresh')}
         </Button>
       </div>
 
       <Tabs defaultValue="statistics" className="email-admin-tabs">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="statistics"><BarChart3 className="h-4 w-4 mr-2" />Statistiken</TabsTrigger>
-          <TabsTrigger value="history"><Clock className="h-4 w-4 mr-2" />Verlauf</TabsTrigger>
-          <TabsTrigger value="logs"><Mail className="h-4 w-4 mr-2" />Protokoll</TabsTrigger>
-          <TabsTrigger value="settings"><Settings className="h-4 w-4 mr-2" />Einstellungen</TabsTrigger>
+          <TabsTrigger value="statistics"><BarChart3 className="h-4 w-4 mr-2" />{t('emailAdmin.statistics')}</TabsTrigger>
+          <TabsTrigger value="history"><Clock className="h-4 w-4 mr-2" />{t('emailAdmin.history')}</TabsTrigger>
+          <TabsTrigger value="logs"><Mail className="h-4 w-4 mr-2" />{t('emailAdmin.logs')}</TabsTrigger>
+          <TabsTrigger value="settings"><Settings className="h-4 w-4 mr-2" />{t('emailAdmin.settings')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="statistics" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card><CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Gesamt</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{stats?.totalRecords || 0}</div><p className="text-xs text-muted-foreground mt-1">E-Mails im Speicher</p></CardContent></Card>
-            <Card className="border-green-200"><CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-green-900 flex items-center gap-2"><CheckCircle2 className="h-4 w-4" />Versendet</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-green-900">{stats?.sent || 0}</div></CardContent></Card>
-            <Card className="border-red-200"><CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-red-900 flex items-center gap-2"><AlertCircle className="h-4 w-4" />Fehlgeschlagen</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-red-900">{stats?.failed || 0}</div></CardContent></Card>
-            <Card className="border-blue-200"><CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-blue-900 flex items-center gap-2"><TrendingUp className="h-4 w-4" />Durchschnitt</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-blue-900">{formatDuration(stats?.averageDuration || 0)}</div></CardContent></Card>
+            <Card><CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">{t('emailAdmin.total')}</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{stats?.totalRecords || 0}</div><p className="text-xs text-muted-foreground mt-1">{t('emailAdmin.emailsInStorage')}</p></CardContent></Card>
+            <Card className="border-green-200"><CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-green-900 flex items-center gap-2"><CheckCircle2 className="h-4 w-4" />{t('emailAdmin.statusSent')}</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-green-900">{stats?.sent || 0}</div></CardContent></Card>
+            <Card className="border-red-200"><CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-red-900 flex items-center gap-2"><AlertCircle className="h-4 w-4" />{t('emailAdmin.statusFailed')}</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-red-900">{stats?.failed || 0}</div></CardContent></Card>
+            <Card className="border-blue-200"><CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-blue-900 flex items-center gap-2"><TrendingUp className="h-4 w-4" />{t('emailAdmin.average')}</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-blue-900">{formatDuration(stats?.averageDuration || 0)}</div></CardContent></Card>
           </div>
         </TabsContent>
 
         <TabsContent value="history" className="space-y-6">
           <Card>
-            <CardHeader><CardTitle>Empfaenger-Verlauf</CardTitle><CardDescription>Versandverlauf fuer eine spezifische E-Mail-Adresse</CardDescription></CardHeader>
+            <CardHeader><CardTitle>{t('emailAdmin.recipientHistory')}</CardTitle><CardDescription>{t('emailAdmin.recipientHistoryDesc')}</CardDescription></CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-2">
-                <Input placeholder="E-Mail-Adresse eingeben..." value={selectedEmail} onChange={(e) => setSelectedEmail(e.target.value)} type="email" />
+                <Input placeholder={t('emailAdmin.enterEmailPlaceholder')} value={selectedEmail} onChange={(e) => setSelectedEmail(e.target.value)} type="email" />
                 <Button onClick={() => loadDeliveryHistory(selectedEmail)} disabled={loadingHistory || !selectedEmail}><Search className="h-4 w-4" /></Button>
               </div>
               {selectedEmail && (
                 <div className="space-y-3">
                   {loadingHistory ? (
-                    <div className="flex items-center justify-center py-8"><RefreshCw className="h-4 w-4 animate-spin mr-2" />Wird geladen...</div>
+                    <div className="flex items-center justify-center py-8"><RefreshCw className="h-4 w-4 animate-spin mr-2" />{t('common.loading')}</div>
                   ) : deliveryHistory.length === 0 ? (
-                    <p className="text-muted-foreground text-sm py-8 text-center">Keine Versandaktualisierungen gefunden</p>
+                    <p className="text-muted-foreground text-sm py-8 text-center">{t('emailAdmin.noDeliveryRecords')}</p>
                   ) : (
                     deliveryHistory.map((record) => (
                       <div key={record.id} className="border rounded-lg p-3">
                         <div className="flex items-center gap-2 mb-1"><span className="font-medium text-sm">{record.templateName}</span>{getStatusBadge(record.status)}</div>
                         <p className="text-sm text-muted-foreground line-clamp-1">{record.subject}</p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground"><span>Versuche: {record.attempts}</span><span>Dauer: {formatDuration(record.duration)}</span><span>{formatDate(record.timestamp)}</span></div>
+                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground"><span>{t('emailAdmin.attempts')}: {record.attempts}</span><span>{t('emailAdmin.duration')}: {formatDuration(record.duration)}</span><span>{formatDate(record.timestamp)}</span></div>
                         {record.error && <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">{record.error}</div>}
                       </div>
                     ))
@@ -663,23 +665,23 @@ export function EmailAdministration() {
 
         <TabsContent value="logs" className="space-y-6">
           <Card>
-            <CardHeader><CardTitle>Email-Versandprotokoll</CardTitle></CardHeader>
+            <CardHeader><CardTitle>{t('emailAdmin.deliveryLog')}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div className="rounded-lg border p-3">
-                  <p className="text-xs text-muted-foreground">SMTP gesamt</p>
+                  <p className="text-xs text-muted-foreground">{t('emailAdmin.smtpTotal')}</p>
                   <p className="text-xl font-semibold">{smtpStats?.totalRecords || 0}</p>
                 </div>
                 <div className="rounded-lg border p-3">
-                  <p className="text-xs text-muted-foreground">SMTP verified</p>
+                  <p className="text-xs text-muted-foreground">{t('emailAdmin.smtpVerified')}</p>
                   <p className="text-xl font-semibold text-green-700">{smtpStats?.verified || 0}</p>
                 </div>
                 <div className="rounded-lg border p-3">
-                  <p className="text-xs text-muted-foreground">SMTP attempted</p>
+                  <p className="text-xs text-muted-foreground">{t('emailAdmin.smtpAttempted')}</p>
                   <p className="text-xl font-semibold text-blue-700">{smtpStats?.attempted || 0}</p>
                 </div>
                 <div className="rounded-lg border p-3">
-                  <p className="text-xs text-muted-foreground">SMTP failed</p>
+                  <p className="text-xs text-muted-foreground">{t('emailAdmin.smtpFailed')}</p>
                   <p className="text-xl font-semibold text-red-700">{smtpStats?.failed || 0}</p>
                 </div>
               </div>
@@ -688,41 +690,41 @@ export function EmailAdministration() {
                 <Select value={logFilter} onValueChange={(value) => { setLogFilter(value as typeof logFilter); setLogPage(1) }}>
                   <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Alle</SelectItem>
-                    <SelectItem value="sent">Versendet</SelectItem>
-                    <SelectItem value="failed">Fehlgeschlagen</SelectItem>
-                    <SelectItem value="queued">In Warteschlange</SelectItem>
+                    <SelectItem value="all">{t('common.all')}</SelectItem>
+                    <SelectItem value="sent">{t('emailAdmin.statusSent')}</SelectItem>
+                    <SelectItem value="failed">{t('emailAdmin.statusFailed')}</SelectItem>
+                    <SelectItem value="queued">{t('emailAdmin.statusQueued')}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={smtpFilter} onValueChange={(value) => setSmtpFilter(value as typeof smtpFilter)}>
-                  <SelectTrigger className="w-48"><SelectValue placeholder="SMTP-Status" /></SelectTrigger>
+                  <SelectTrigger className="w-48"><SelectValue placeholder={t('emailAdmin.smtpStatusPlaceholder')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">SMTP: Alle</SelectItem>
-                    <SelectItem value="attempted">SMTP: Attempted</SelectItem>
-                    <SelectItem value="verified">SMTP: Verified</SelectItem>
-                    <SelectItem value="failed">SMTP: Failed</SelectItem>
+                    <SelectItem value="all">{t('emailAdmin.smtpAll')}</SelectItem>
+                    <SelectItem value="attempted">{t('emailAdmin.smtpAttemptedFilter')}</SelectItem>
+                    <SelectItem value="verified">{t('emailAdmin.smtpVerifiedFilter')}</SelectItem>
+                    <SelectItem value="failed">{t('emailAdmin.smtpFailedFilter')}</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button onClick={handleDownloadLog} variant="outline"><Download className="h-4 w-4 mr-2" />CSV Exportieren</Button>
-                <Button onClick={handleClearDeliveryLog} variant="outline">Versandprotokoll leeren</Button>
-                <Button onClick={handleClearSmtpLog} variant="outline">SMTP-Protokoll leeren</Button>
+                <Button onClick={handleDownloadLog} variant="outline"><Download className="h-4 w-4 mr-2" />{t('emailAdmin.exportCsv')}</Button>
+                <Button onClick={handleClearDeliveryLog} variant="outline">{t('emailAdmin.clearDeliveryLog')}</Button>
+                <Button onClick={handleClearSmtpLog} variant="outline">{t('emailAdmin.clearSmtpLog')}</Button>
               </div>
 
               {loadingLog ? (
-                <div className="flex items-center justify-center py-8"><RefreshCw className="h-4 w-4 animate-spin mr-2" />Wird geladen...</div>
+                <div className="flex items-center justify-center py-8"><RefreshCw className="h-4 w-4 animate-spin mr-2" />{t('common.loading')}</div>
               ) : deliveryLog.length === 0 ? (
-                <p className="text-muted-foreground text-sm py-8 text-center">Keine Versandaktualisierungen vorhanden</p>
+                <p className="text-muted-foreground text-sm py-8 text-center">{t('emailAdmin.noDeliveryLogs')}</p>
               ) : (
                 <div className="space-y-3">
                   {deliveryLog.map((record) => (
                     <div key={record.id} className="border rounded-lg p-3">
                       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                        <div><p className="text-xs text-muted-foreground">Empfaenger</p><p className="font-medium text-sm truncate">{record.to}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Vorlage</p><p className="text-sm truncate">{record.templateName}</p></div>
-                        <div><p className="text-xs text-muted-foreground">Status</p>{getStatusBadge(record.status)}</div>
-                        <div><p className="text-xs text-muted-foreground">Dauer</p><p className="text-sm">{formatDuration(record.duration)}</p></div>
+                        <div><p className="text-xs text-muted-foreground">{t('emailAdmin.recipient')}</p><p className="font-medium text-sm truncate">{record.to}</p></div>
+                        <div><p className="text-xs text-muted-foreground">{t('emailAdmin.template')}</p><p className="text-sm truncate">{record.templateName}</p></div>
+                        <div><p className="text-xs text-muted-foreground">{t('common.status')}</p>{getStatusBadge(record.status)}</div>
+                        <div><p className="text-xs text-muted-foreground">{t('emailAdmin.duration')}</p><p className="text-sm">{formatDuration(record.duration)}</p></div>
                         <div>
-                          <p className="text-xs text-muted-foreground">Zeit</p>
+                          <p className="text-xs text-muted-foreground">{t('emailAdmin.time')}</p>
                           <p className="text-sm whitespace-nowrap">{new Date(record.timestamp).toLocaleTimeString()}</p>
                           <Button
                             variant="ghost"
@@ -730,11 +732,11 @@ export function EmailAdministration() {
                             className="mt-1 h-7 px-2"
                             onClick={() => setSelectedDeliveryRecord(record)}
                           >
-                            Details
+                            {t('emailAdmin.details')}
                           </Button>
                         </div>
                       </div>
-                      {record.error && <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">Fehler: {record.error}</div>}
+                      {record.error && <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">{t('common.error')}: {record.error}</div>}
                     </div>
                   ))}
                 </div>
@@ -742,10 +744,10 @@ export function EmailAdministration() {
 
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4">
-                  <div className="text-sm text-muted-foreground">Seite {logPage} von {totalPages}</div>
+                  <div className="text-sm text-muted-foreground">{t('emailAdmin.pageOfPages', { page: logPage, total: totalPages })}</div>
                   <div className="flex gap-2">
-                    <Button onClick={() => setLogPage(Math.max(1, logPage - 1))} disabled={logPage === 1} variant="outline" size="sm">Zurueck</Button>
-                    <Button onClick={() => setLogPage(Math.min(totalPages, logPage + 1))} disabled={logPage === totalPages} variant="outline" size="sm">Weiter</Button>
+                    <Button onClick={() => setLogPage(Math.max(1, logPage - 1))} disabled={logPage === 1} variant="outline" size="sm">{t('common.previous')}</Button>
+                    <Button onClick={() => setLogPage(Math.min(totalPages, logPage + 1))} disabled={logPage === totalPages} variant="outline" size="sm">{t('common.next')}</Button>
                   </div>
                 </div>
               )}
@@ -754,12 +756,12 @@ export function EmailAdministration() {
 
               <div className="space-y-3">
                 <div>
-                  <h4 className="font-medium">SMTP-Verbindungslog</h4>
-                  <p className="text-sm text-muted-foreground">Erweitertes Protokoll der SMTP-Transporter- und Verbindungspruefung</p>
+                  <h4 className="font-medium">{t('emailAdmin.smtpConnectionLog')}</h4>
+                  <p className="text-sm text-muted-foreground">{t('emailAdmin.smtpConnectionLogDesc')}</p>
                 </div>
 
                 {smtpConnectionLog.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">Keine SMTP-Verbindungseintraege vorhanden</p>
+                  <p className="text-muted-foreground text-sm">{t('emailAdmin.noSmtpEntries')}</p>
                 ) : (
                   <div className="space-y-2">
                     {smtpConnectionLog.map((entry) => (
@@ -776,15 +778,15 @@ export function EmailAdministration() {
                               className="h-7 px-2"
                               onClick={() => setSelectedSmtpRecord(entry)}
                             >
-                              Details
+                              {t('emailAdmin.details')}
                             </Button>
                           </div>
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">
-                          {formatDate(entry.timestamp)} | TLS: {entry.requiresTLS ? "Ja" : "Nein"} | Secure: {entry.secure ? "Ja" : "Nein"} | Auth: {entry.hasAuth ? "Ja" : "Nein"}
+                          {formatDate(entry.timestamp)} | TLS: {entry.requiresTLS ? t('common.yes') : t('common.no')} | Secure: {entry.secure ? t('common.yes') : t('common.no')} | Auth: {entry.hasAuth ? t('common.yes') : t('common.no')}
                         </div>
                         {entry.message && <div className="mt-1 text-xs">{entry.message}</div>}
-                        {entry.error && <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">Fehler: {entry.error}</div>}
+                        {entry.error && <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">{t('common.error')}: {entry.error}</div>}
                       </div>
                     ))}
                   </div>
@@ -796,19 +798,19 @@ export function EmailAdministration() {
 
         <TabsContent value="settings" className="space-y-6">
           <Card>
-            <CardHeader><CardTitle>SMTP-Konfiguration</CardTitle><CardDescription>SMTP Einstellungen fuer den E-Mail-Versand</CardDescription></CardHeader>
+            <CardHeader><CardTitle>{t('emailAdmin.smtpConfig')}</CardTitle><CardDescription>{t('emailAdmin.smtpConfigDesc')}</CardDescription></CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2"><Label htmlFor="smtp-host">SMTP-Server</Label><Input id="smtp-host" placeholder="smtp.gmail.com" value={emailSettings.smtpHost} onChange={(e) => setEmailSettings((prev) => ({ ...prev, smtpHost: e.target.value }))} /></div>
+                <div className="space-y-2"><Label htmlFor="smtp-host">{t('emailAdmin.smtpServer')}</Label><Input id="smtp-host" placeholder="smtp.gmail.com" value={emailSettings.smtpHost} onChange={(e) => setEmailSettings((prev) => ({ ...prev, smtpHost: e.target.value }))} /></div>
                 <div className="space-y-2">
-                  <Label htmlFor="smtp-port">SMTP-Port</Label>
+                  <Label htmlFor="smtp-port">{t('emailAdmin.smtpPort')}</Label>
                   <Select value={String(emailSettings.smtpPort)} onValueChange={(value) => setEmailSettings((prev) => ({ ...prev, smtpPort: parseInt(value, 10) }))}>
                     <SelectTrigger id="smtp-port"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="25">25 (Unverschluesselt)</SelectItem>
-                      <SelectItem value="587">587 (TLS - Empfohlen)</SelectItem>
-                      <SelectItem value="465">465 (SSL)</SelectItem>
-                      <SelectItem value="2525">2525 (Alternative)</SelectItem>
+                      <SelectItem value="25">{t('emailAdmin.portUnencrypted')}</SelectItem>
+                      <SelectItem value="587">{t('emailAdmin.portTlsRecommended')}</SelectItem>
+                      <SelectItem value="465">{t('emailAdmin.portSsl')}</SelectItem>
+                      <SelectItem value="2525">{t('emailAdmin.portAlternative')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -818,15 +820,15 @@ export function EmailAdministration() {
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div><Label htmlFor="requires-auth">Authentifizierung erforderlich</Label></div>
+                  <div><Label htmlFor="requires-auth">{t('emailAdmin.authRequired')}</Label></div>
                   <Switch id="requires-auth" checked={emailSettings.requiresAuthentication} onCheckedChange={(checked) => setEmailSettings((prev) => ({ ...prev, requiresAuthentication: checked }))} />
                 </div>
 
                 {emailSettings.requiresAuthentication && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label htmlFor="smtp-user">Benutzername/E-Mail</Label><Input id="smtp-user" placeholder="accounts@example.com" value={emailSettings.smtpUsername} onChange={(e) => setEmailSettings((prev) => ({ ...prev, smtpUsername: e.target.value }))} /></div>
+                    <div className="space-y-2"><Label htmlFor="smtp-user">{t('emailAdmin.usernameEmail')}</Label><Input id="smtp-user" placeholder="accounts@example.com" value={emailSettings.smtpUsername} onChange={(e) => setEmailSettings((prev) => ({ ...prev, smtpUsername: e.target.value }))} /></div>
                     <div className="space-y-2">
-                      <Label htmlFor="smtp-pass">Passwort</Label>
+                      <Label htmlFor="smtp-pass">{t('emailAdmin.password')}</Label>
                       <div className="relative">
                         <Input id="smtp-pass" type={showPasswordSettings ? "text" : "password"} placeholder="........" value={emailSettings.smtpPassword} onChange={(e) => setEmailSettings((prev) => ({ ...prev, smtpPassword: e.target.value }))} />
                         <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0" onClick={() => setShowPasswordSettings(!showPasswordSettings)}>
@@ -841,8 +843,8 @@ export function EmailAdministration() {
               <Separator />
 
               <div className="space-y-4">
-                <div className="flex items-center justify-between"><div><Label htmlFor="requires-tls">TLS/SSL erforderlich</Label></div><Switch id="requires-tls" checked={emailSettings.requiresTLS} onCheckedChange={(checked) => setEmailSettings((prev) => ({ ...prev, requiresTLS: checked }))} /></div>
-                <div className="flex items-center justify-between"><div><Label htmlFor="enable-notifications">Benachrichtigungen aktiviert</Label></div><Switch id="enable-notifications" checked={emailSettings.enableNotifications} onCheckedChange={(checked) => setEmailSettings((prev) => ({ ...prev, enableNotifications: checked }))} /></div>
+                <div className="flex items-center justify-between"><div><Label htmlFor="requires-tls">{t('emailAdmin.tlsRequired')}</Label></div><Switch id="requires-tls" checked={emailSettings.requiresTLS} onCheckedChange={(checked) => setEmailSettings((prev) => ({ ...prev, requiresTLS: checked }))} /></div>
+                <div className="flex items-center justify-between"><div><Label htmlFor="enable-notifications">{t('emailAdmin.notificationsEnabled')}</Label></div><Switch id="enable-notifications" checked={emailSettings.enableNotifications} onCheckedChange={(checked) => setEmailSettings((prev) => ({ ...prev, enableNotifications: checked }))} /></div>
               </div>
 
               <Separator />
@@ -851,11 +853,11 @@ export function EmailAdministration() {
                 <div className="flex items-start gap-3">
                   <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
                   <div className="flex-1">
-                    <h4 className="font-medium text-blue-900">SMTP-Verbindung testen</h4>
-                    <p className="text-sm text-blue-700 mt-1">Überprüfen Sie Ihre Konfiguration oder senden Sie eine echte Test-E-Mail</p>
+                    <h4 className="font-medium text-blue-900">{t('emailAdmin.testSmtpConnection')}</h4>
+                    <p className="text-sm text-blue-700 mt-1">{t('emailAdmin.testSmtpConnectionDesc')}</p>
                     <div className="flex flex-wrap gap-2 mt-3">
-                      <Button onClick={() => setTestEmailDialog(true)} variant="outline" disabled={!emailSettings.smtpHost}><TestTube className="h-4 w-4 mr-2" />Verbindung testen</Button>
-                      <Button onClick={() => { setComposeEmailFrom(emailSettings.smtpUsername); setComposeTestEmailDialog(true) }} variant="default" disabled={!emailSettings.smtpHost} className="bg-blue-600 hover:bg-blue-700 text-white"><Send className="h-4 w-4 mr-2" />Test-E-Mail senden</Button>
+                      <Button onClick={() => setTestEmailDialog(true)} variant="outline" disabled={!emailSettings.smtpHost}><TestTube className="h-4 w-4 mr-2" />{t('emailAdmin.testConnection')}</Button>
+                      <Button onClick={() => { setComposeEmailFrom(emailSettings.smtpUsername); setComposeTestEmailDialog(true) }} variant="default" disabled={!emailSettings.smtpHost} className="bg-blue-600 hover:bg-blue-700 text-white"><Send className="h-4 w-4 mr-2" />{t('emailAdmin.sendTestEmail')}</Button>
                     </div>
                   </div>
                 </div>
@@ -868,9 +870,9 @@ export function EmailAdministration() {
                   disabled={savingSettings || !emailSettings.smtpHost.trim() || !hasUnsavedChanges}
                 >
                   {savingSettings ? (
-                    <><div className="h-4 w-4 mr-2 border-2 border-current border-r-transparent rounded-full animate-spin" />Speichern...</>
+                    <><div className="h-4 w-4 mr-2 border-2 border-current border-r-transparent rounded-full animate-spin" />{t('emailAdmin.saving')}</>
                   ) : (
-                    <><Mail className="h-4 w-4 mr-2" />Einstellungen speichern</>
+                    <><Mail className="h-4 w-4 mr-2" />{t('emailAdmin.saveSettings')}</>
                   )}
                 </Button>
 
@@ -878,13 +880,13 @@ export function EmailAdministration() {
                   <Button
                     onClick={() => {
                       setEmailSettings(originalEmailSettings)
-                      toast({ title: "Zurueckgesetzt", description: "Aenderungen wurden verworfen" })
+                      toast({ title: t('emailAdmin.resetComplete'), description: t('emailAdmin.changesDiscarded') })
                     }}
                     variant="outline"
                     className="w-full md:w-auto"
                     disabled={savingSettings}
                   >
-                    Zuruecksetzen
+                    {t('common.reset')}
                   </Button>
                 )}
               </div>
@@ -896,19 +898,19 @@ export function EmailAdministration() {
       <Dialog open={composeTestEmailDialog} onOpenChange={setComposeTestEmailDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-blue-600" />Test-E-Mail senden</DialogTitle>
-            <DialogDescription>Verfassen und senden Sie eine echte Test-E-Mail über Ihren konfigurierten SMTP-Server</DialogDescription>
+            <DialogTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-blue-600" />{t('emailAdmin.sendTestEmail')}</DialogTitle>
+            <DialogDescription>{t('emailAdmin.composeTestEmailDesc')}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="bg-gray-50 border rounded-lg p-3 text-sm space-y-1">
-              <p><span className="font-medium">Server:</span> {emailSettings.smtpHost}:{emailSettings.smtpPort}</p>
-              <p><span className="font-medium">Benutzer:</span> {emailSettings.smtpUsername || "–"}</p>
-              <p><span className="font-medium">TLS:</span> {emailSettings.requiresTLS ? "Ja" : "Nein"} · <span className="font-medium">Auth:</span> {emailSettings.requiresAuthentication ? "Ja" : "Nein"}</p>
+              <p><span className="font-medium">{t('emailAdmin.serverLabel')}:</span> {emailSettings.smtpHost}:{emailSettings.smtpPort}</p>
+              <p><span className="font-medium">{t('emailAdmin.userLabel')}:</span> {emailSettings.smtpUsername || "–"}</p>
+              <p><span className="font-medium">TLS:</span> {emailSettings.requiresTLS ? t('common.yes') : t('common.no')} · <span className="font-medium">Auth:</span> {emailSettings.requiresAuthentication ? t('common.yes') : t('common.no')}</p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="compose-from">Absender (From)</Label>
+              <Label htmlFor="compose-from">{t('emailAdmin.senderFrom')}</Label>
               <Input
                 id="compose-from"
                 type="email"
@@ -920,7 +922,7 @@ export function EmailAdministration() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="compose-to">Empfänger (An) *</Label>
+              <Label htmlFor="compose-to">{t('emailAdmin.recipientTo')}</Label>
               <Input
                 id="compose-to"
                 type="email"
@@ -932,11 +934,11 @@ export function EmailAdministration() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="compose-subject">Betreff *</Label>
+              <Label htmlFor="compose-subject">{t('emailAdmin.subject')} *</Label>
               <Input
                 id="compose-subject"
                 type="text"
-                placeholder="Betreff"
+                placeholder={t('emailAdmin.subject')}
                 value={composeEmailSubject}
                 onChange={(e) => setComposeEmailSubject(e.target.value)}
                 disabled={sendingComposedEmail}
@@ -944,11 +946,11 @@ export function EmailAdministration() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="compose-body">Nachrichtentext</Label>
+              <Label htmlFor="compose-body">{t('emailAdmin.messageBody')}</Label>
               <Textarea
                 id="compose-body"
                 rows={5}
-                placeholder="Nachrichtentext..."
+                placeholder={t('emailAdmin.messageBody')}
                 value={composeEmailBody}
                 onChange={(e) => setComposeEmailBody(e.target.value)}
                 disabled={sendingComposedEmail}
@@ -957,12 +959,12 @@ export function EmailAdministration() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setComposeTestEmailDialog(false)} disabled={sendingComposedEmail}>Abbrechen</Button>
+            <Button variant="outline" onClick={() => setComposeTestEmailDialog(false)} disabled={sendingComposedEmail}>{t('common.cancel')}</Button>
             <Button onClick={handleSendComposedEmail} disabled={sendingComposedEmail || !composeEmailTo.trim() || !composeEmailSubject.trim()} className="bg-blue-600 hover:bg-blue-700 text-white">
               {sendingComposedEmail ? (
-                <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Wird gesendet...</>
+                <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />{t('emailAdmin.sending')}</>
               ) : (
-                <><Send className="h-4 w-4 mr-2" />E-Mail senden</>
+                <><Send className="h-4 w-4 mr-2" />{t('emailAdmin.sendEmail')}</>
               )}
             </Button>
           </DialogFooter>
@@ -972,29 +974,29 @@ export function EmailAdministration() {
       <Dialog open={testEmailDialog} onOpenChange={setTestEmailDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>SMTP-Verbindung testen</DialogTitle>
-            <DialogDescription>Ueberpruefen Sie Ihre Konfiguration mit den aktuellen Einstellungen</DialogDescription>
+            <DialogTitle>{t('emailAdmin.testSmtpConnection')}</DialogTitle>
+            <DialogDescription>{t('emailAdmin.testSmtpDesc')}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="test-email">Test-E-Mail-Adresse</Label>
+              <Label htmlFor="test-email">{t('emailAdmin.testEmailAddress')}</Label>
               <Input id="test-email" type="email" placeholder="test@example.com" value={testEmailTo} onChange={(e) => setTestEmailTo(e.target.value)} disabled={sendingTest} />
             </div>
             <div className="bg-gray-50 rounded-lg p-3 space-y-2 text-sm">
               <p><span className="font-medium">Server:</span> {emailSettings.smtpHost}:{emailSettings.smtpPort}</p>
-              <p><span className="font-medium">Auth:</span> {emailSettings.requiresAuthentication ? "Ja" : "Nein"}</p>
-              <p><span className="font-medium">TLS:</span> {emailSettings.requiresTLS ? "Ja" : "Nein"}</p>
+              <p><span className="font-medium">Auth:</span> {emailSettings.requiresAuthentication ? t('common.yes') : t('common.no')}</p>
+              <p><span className="font-medium">TLS:</span> {emailSettings.requiresTLS ? t('common.yes') : t('common.no')}</p>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTestEmailDialog(false)}>Abbrechen</Button>
+            <Button variant="outline" onClick={() => setTestEmailDialog(false)}>{t('common.cancel')}</Button>
             <Button onClick={handleTestEmail} disabled={sendingTest || !testEmailTo}>
               {sendingTest ? (
-                <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Wird getestet...</>
+                <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />{t('emailAdmin.testing')}</>
               ) : (
-                <><TestTube className="h-4 w-4 mr-2" />Verbindung testen</>
+                <><TestTube className="h-4 w-4 mr-2" />{t('emailAdmin.testConnection')}</>
               )}
             </Button>
           </DialogFooter>
@@ -1004,40 +1006,39 @@ export function EmailAdministration() {
       <Dialog open={Boolean(selectedDeliveryRecord)} onOpenChange={(open) => !open && setSelectedDeliveryRecord(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Versandprotokoll-Details</DialogTitle>
-            <DialogDescription>Detaillierte Informationen zum ausgewaehlten Versandereignis</DialogDescription>
+            <DialogTitle>{t('emailAdmin.deliveryLogDetails')}</DialogTitle>
+            <DialogDescription>{t('emailAdmin.deliveryLogDetailsDesc')}</DialogDescription>
           </DialogHeader>
 
           {selectedDeliveryRecord && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Empfaenger</p><p className="font-medium break-all">{selectedDeliveryRecord.to}</p></div>
-                <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Status</p><div className="mt-1">{getStatusBadge(selectedDeliveryRecord.status)}</div></div>
-                <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Vorlage</p><p className="font-medium">{selectedDeliveryRecord.templateName || 'N/A'}</p></div>
-                <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Zeitstempel</p><p className="font-medium">{formatDate(selectedDeliveryRecord.timestamp)}</p></div>
-                <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Versuche</p><p className="font-medium">{selectedDeliveryRecord.attempts}</p></div>
-                <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Dauer</p><p className="font-medium">{formatDuration(selectedDeliveryRecord.duration || 0)}</p></div>
+                <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('emailAdmin.recipient')}</p><p className="font-medium break-all">{selectedDeliveryRecord.to}</p></div>
+                <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('common.status')}</p><div className="mt-1">{getStatusBadge(selectedDeliveryRecord.status)}</div></div>
+                <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('emailAdmin.template')}</p><p className="font-medium">{selectedDeliveryRecord.templateName || 'N/A'}</p></div>
+                <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('emailAdmin.timestamp')}</p><p className="font-medium">{formatDate(selectedDeliveryRecord.timestamp)}</p></div>
+                <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('emailAdmin.attempts')}</p><p className="font-medium">{selectedDeliveryRecord.attempts}</p></div>
+                <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('emailAdmin.duration')}</p><p className="font-medium">{formatDuration(selectedDeliveryRecord.duration || 0)}</p></div>
               </div>
 
               <div className="rounded border p-3 text-sm">
-                <p className="text-xs text-muted-foreground mb-1">Betreff</p>
+                <p className="text-xs text-muted-foreground mb-1">{t('emailAdmin.subject')}</p>
                 <p className="font-medium break-words">{selectedDeliveryRecord.subject || 'N/A'}</p>
               </div>
 
               <div className="rounded border p-3 text-sm">
-                <p className="text-xs text-muted-foreground mb-1">Message ID</p>
+                <p className="text-xs text-muted-foreground mb-1">{t('emailAdmin.messageId')}</p>
                 <p className="font-medium break-all">{selectedDeliveryRecord.messageId || 'N/A'}</p>
               </div>
 
               {selectedDeliveryRecord.error && (
                 <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                  <p className="text-xs mb-1">Fehler</p>
-                  <p className="break-words">{selectedDeliveryRecord.error}</p>
+                  <p className="text-xs mb-1">{t('common.error')}</p>
                 </div>
               )}
 
               <div className="rounded border p-3 text-sm">
-                <p className="text-xs text-muted-foreground mb-1">Metadaten</p>
+                <p className="text-xs text-muted-foreground mb-1">{t('emailAdmin.metadata')}</p>
                 <pre className="whitespace-pre-wrap break-words text-xs bg-slate-50 p-2 rounded max-h-52 overflow-auto">
                   {JSON.stringify(selectedDeliveryRecord.metadata || {}, null, 2)}
                 </pre>
@@ -1046,7 +1047,7 @@ export function EmailAdministration() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedDeliveryRecord(null)}>Schliessen</Button>
+            <Button variant="outline" onClick={() => setSelectedDeliveryRecord(null)}>{t('common.close')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1054,24 +1055,24 @@ export function EmailAdministration() {
       <Dialog open={Boolean(selectedSmtpRecord)} onOpenChange={(open) => !open && setSelectedSmtpRecord(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>SMTP-Verbindungsdetails</DialogTitle>
-            <DialogDescription>Detaillierte Informationen zum ausgewaehlten SMTP-Ereignis</DialogDescription>
+            <DialogTitle>{t('emailAdmin.smtpConnectionDetails')}</DialogTitle>
+            <DialogDescription>{t('emailAdmin.smtpConnectionDetailsDesc')}</DialogDescription>
           </DialogHeader>
 
           {selectedSmtpRecord && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Zeitstempel</p><p className="font-medium">{formatDate(selectedSmtpRecord.timestamp)}</p></div>
-              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Status</p><div className="mt-1">{getStatusBadge(selectedSmtpRecord.status === 'verified' ? 'sent' : selectedSmtpRecord.status === 'failed' ? 'failed' : 'queued')}</div></div>
-              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Quelle</p><p className="font-medium">{selectedSmtpRecord.source}</p></div>
-              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Host/Port</p><p className="font-medium">{selectedSmtpRecord.host || 'unknown'}{selectedSmtpRecord.port ? `:${selectedSmtpRecord.port}` : ''}</p></div>
-              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">TLS erforderlich</p><p className="font-medium">{selectedSmtpRecord.requiresTLS ? 'Ja' : 'Nein'}</p></div>
-              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Secure / SSL</p><p className="font-medium">{selectedSmtpRecord.secure ? 'Ja' : 'Nein'}</p></div>
-              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Authentifizierung</p><p className="font-medium">{selectedSmtpRecord.hasAuth ? 'Ja' : 'Nein'}</p></div>
-              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Meldung</p><p className="font-medium break-words">{selectedSmtpRecord.message || 'N/A'}</p></div>
+              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('emailAdmin.timestamp')}</p><p className="font-medium">{formatDate(selectedSmtpRecord.timestamp)}</p></div>
+              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('common.status')}</p><div className="mt-1">{getStatusBadge(selectedSmtpRecord.status === 'verified' ? 'sent' : selectedSmtpRecord.status === 'failed' ? 'failed' : 'queued')}</div></div>
+              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('emailAdmin.source')}</p><p className="font-medium">{selectedSmtpRecord.source}</p></div>
+              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('emailAdmin.hostPort')}</p><p className="font-medium">{selectedSmtpRecord.host || 'unknown'}{selectedSmtpRecord.port ? `:${selectedSmtpRecord.port}` : ''}</p></div>
+              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('emailAdmin.tlsRequired')}</p><p className="font-medium">{selectedSmtpRecord.requiresTLS ? t('common.yes') : t('common.no')}</p></div>
+              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('emailAdmin.secureSSL')}</p><p className="font-medium">{selectedSmtpRecord.secure ? t('common.yes') : t('common.no')}</p></div>
+              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('emailAdmin.authentication')}</p><p className="font-medium">{selectedSmtpRecord.hasAuth ? t('common.yes') : t('common.no')}</p></div>
+              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('emailAdmin.message')}</p><p className="font-medium break-words">{selectedSmtpRecord.message || 'N/A'}</p></div>
 
               {selectedSmtpRecord.error && (
                 <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700 md:col-span-2">
-                  <p className="text-xs mb-1">Fehler</p>
+                  <p className="text-xs mb-1">{t('common.error')}</p>
                   <p className="break-words">{selectedSmtpRecord.error}</p>
                 </div>
               )}
@@ -1079,7 +1080,7 @@ export function EmailAdministration() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedSmtpRecord(null)}>Schliessen</Button>
+            <Button variant="outline" onClick={() => setSelectedSmtpRecord(null)}>{t('common.close')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

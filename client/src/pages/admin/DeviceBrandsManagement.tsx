@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,14 +9,10 @@ import { useToast } from "@/hooks/useToast"
 import {
   getBrands,
   getBrandById,
-  getModelsByBrand,
-  getModelById,
   createBrand,
   createModel,
   updateModel,
-  updateBrand,
   Brand,
-  Model
 } from "@/api/brands"
 import {
   getDeviceTypes,
@@ -56,19 +53,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+
 import { Textarea } from "@/components/ui/textarea"
 
 export function DeviceBrandsManagement() {
+  const { t } = useTranslation()
   const [brands, setBrands] = useState<Brand[]>([])
   const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([])
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([])
@@ -84,8 +73,7 @@ export function DeviceBrandsManagement() {
   const [showViewBrand, setShowViewBrand] = useState(false)
   const [showViewModel, setShowViewModel] = useState(false)
   const [showViewDeviceType, setShowViewDeviceType] = useState(false)
-  const [showDeleteBrand, setShowDeleteBrand] = useState(false)
-  const [showDeleteModel, setShowDeleteModel] = useState(false)
+
 
   // Edit mode states
   const [isEditMode, setIsEditMode] = useState(false)
@@ -134,8 +122,8 @@ export function DeviceBrandsManagement() {
       } catch (error) {
         console.error('DeviceBrandsManagement: Error loading data:', error)
         toast({
-          title: "Error",
-          description: "Failed to load device data",
+          title: t('common.error'),
+          description: t('deviceBrands.failedToLoadBrands'),
           variant: "destructive"
         })
       } finally {
@@ -191,8 +179,8 @@ export function DeviceBrandsManagement() {
     } catch (error) {
       console.error('DeviceBrandsManagement: Error viewing brand:', error)
       toast({
-        title: "Error",
-        description: "Failed to load brand details",
+        title: t('common.error'),
+        description: t('deviceBrands.failedToLoadBrands'),
         variant: "destructive"
       })
     }
@@ -207,8 +195,8 @@ export function DeviceBrandsManagement() {
     } catch (error) {
       console.error('DeviceBrandsManagement: Error viewing device type:', error)
       toast({
-        title: "Error",
-        description: "Failed to load device type details",
+        title: t('common.error'),
+        description: t('deviceBrands.failedToLoadBrands'),
         variant: "destructive"
       })
     }
@@ -222,8 +210,8 @@ export function DeviceBrandsManagement() {
     } catch (error) {
       console.error('DeviceBrandsManagement: Error viewing model:', error)
       toast({
-        title: "Error",
-        description: "Failed to load model details",
+        title: t('common.error'),
+        description: t('deviceBrands.failedToLoadBrands'),
         variant: "destructive"
       })
     }
@@ -274,8 +262,8 @@ export function DeviceBrandsManagement() {
     try {
       if (!brandForm.name) {
         toast({
-          title: "Error",
-          description: "Brand name is required",
+          title: t('common.error'),
+          description: t('deviceBrands.failedToCreateBrand'),
           variant: "destructive"
         })
         return
@@ -286,8 +274,8 @@ export function DeviceBrandsManagement() {
       console.log('DeviceBrandsManagement: Brand created, response:', response)
 
       toast({
-        title: "Success",
-        description: "Brand created successfully",
+        title: t('common.success'),
+        description: t('deviceBrands.brandCreatedSuccess'),
       })
 
       // Close dialog and reset form first
@@ -311,8 +299,8 @@ export function DeviceBrandsManagement() {
     } catch (error) {
       console.error('DeviceBrandsManagement: Error saving brand:', error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to save brand",
+        title: t('common.error'),
+        description: (error as Error).message || t('deviceBrands.failedToCreateBrand'),
         variant: "destructive"
       })
     }
@@ -322,8 +310,8 @@ export function DeviceBrandsManagement() {
     try {
       if (!modelForm.name || !modelForm.brandId || !modelForm.deviceType) {
         toast({
-          title: "Error",
-          description: "Model name, brand, and device type are required",
+          title: t('common.error'),
+          description: t('deviceBrands.failedToCreateBrand'),
           variant: "destructive"
         })
         return
@@ -335,15 +323,15 @@ export function DeviceBrandsManagement() {
         console.log('DeviceBrandsManagement: Updating model:', editingModelId, modelForm)
         await updateModel(editingModelId, modelForm)
         toast({
-          title: "Success",
-          description: "Model updated successfully",
+          title: t('common.success'),
+          description: t('deviceBrands.brandUpdated'),
         })
       } else {
         console.log('DeviceBrandsManagement: Creating model:', modelForm)
         await createModel(modelForm)
         toast({
-          title: "Success",
-          description: "Model created successfully",
+          title: t('common.success'),
+          description: t('deviceBrands.brandCreatedSuccess'),
         })
       }
 
@@ -366,8 +354,8 @@ export function DeviceBrandsManagement() {
     } catch (error) {
       console.error('DeviceBrandsManagement: Error saving model:', error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to save model",
+        title: t('common.error'),
+        description: (error as Error).message || t('deviceBrands.failedToCreateBrand'),
         variant: "destructive"
       })
     } finally {
@@ -405,10 +393,10 @@ export function DeviceBrandsManagement() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Smartphone className="h-8 w-8" />
-            Device Brands Management
+            {t('deviceBrands.title')}
           </h1>
           <p className="text-muted-foreground">
-            Manage device brands, models, and types
+            {t('deviceBrands.description')}
           </p>
         </div>
       </div>
@@ -417,7 +405,7 @@ export function DeviceBrandsManagement() {
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
-              Total Brands
+              {t('deviceBrands.brands')}
             </CardTitle>
             <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           </CardHeader>
@@ -431,7 +419,7 @@ export function DeviceBrandsManagement() {
         <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">
-              Device Types
+              {t('deviceBrands.deviceType')}
             </CardTitle>
             <Smartphone className="h-4 w-4 text-green-600 dark:text-green-400" />
           </CardHeader>
@@ -445,7 +433,7 @@ export function DeviceBrandsManagement() {
         <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">
-              Manufacturers
+              {t('deviceBrands.manufacturer')}
             </CardTitle>
             <Users className="h-4 w-4 text-purple-600 dark:text-purple-400" />
           </CardHeader>
@@ -459,7 +447,7 @@ export function DeviceBrandsManagement() {
         <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300">
-              Total Models
+              {t('deviceBrands.models')}
             </CardTitle>
             <Package className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           </CardHeader>
@@ -478,7 +466,7 @@ export function DeviceBrandsManagement() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search brands..."
+                  placeholder={t('deviceBrands.searchBrands')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -519,16 +507,16 @@ export function DeviceBrandsManagement() {
 
       <Tabs defaultValue="brands" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="brands">Device Brands</TabsTrigger>
-          <TabsTrigger value="types">Device Types</TabsTrigger>
-          <TabsTrigger value="models">Models</TabsTrigger>
+          <TabsTrigger value="brands">{t('deviceBrands.brands')}</TabsTrigger>
+          <TabsTrigger value="types">{t('deviceBrands.deviceType')}</TabsTrigger>
+          <TabsTrigger value="models">{t('deviceBrands.models')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="brands" className="space-y-4">
           <div className="flex justify-end">
             <Button onClick={handleCreateBrand}>
               <Plus className="h-4 w-4 mr-2" />
-              Add New Brand
+              {t('deviceBrands.createBrand')}
             </Button>
           </div>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -569,7 +557,7 @@ export function DeviceBrandsManagement() {
                         variant="ghost"
                         size="sm"
                         className="hover:bg-green-100 dark:hover:bg-green-900 rounded p-2"
-                        title="Edit brand"
+                        title={t('deviceBrands.editBrand')}
                       >
                         <Edit className="h-5 w-5 text-green-600 dark:text-green-400" />
                       </Button>
@@ -577,7 +565,7 @@ export function DeviceBrandsManagement() {
                         variant="ghost"
                         size="sm"
                         className="hover:bg-red-100 dark:hover:bg-red-900 rounded p-2"
-                        title="Delete brand"
+                        title={t('deviceBrands.deleteBrand')}
                       >
                         <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
                       </Button>
@@ -664,7 +652,7 @@ export function DeviceBrandsManagement() {
           <div className="flex justify-end">
             <Button onClick={handleCreateModel}>
               <Plus className="h-4 w-4 mr-2" />
-              Add New Model
+              {t('deviceBrands.createModel')}
             </Button>
           </div>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -706,7 +694,7 @@ export function DeviceBrandsManagement() {
                         size="sm"
                         onClick={() => handleEditModel(model)}
                         className="hover:bg-green-100 dark:hover:bg-green-900 rounded p-2"
-                        title="Edit model"
+                        title={t('deviceBrands.editModel')}
                       >
                         <Edit className="h-5 w-5 text-green-600 dark:text-green-400" />
                       </Button>
@@ -714,7 +702,7 @@ export function DeviceBrandsManagement() {
                         variant="ghost"
                         size="sm"
                         className="hover:bg-red-100 dark:hover:bg-red-900 rounded p-2"
-                        title="Delete model"
+                        title={t('deviceBrands.deleteModel')}
                       >
                         <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
                       </Button>
@@ -727,7 +715,7 @@ export function DeviceBrandsManagement() {
                       Model ID: {model._id}
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      Device Type: {model.deviceType}
+                      {t('deviceBrands.deviceType')}: {model.deviceType}
                     </div>
                     {model.specifications && Object.keys(model.specifications).length > 0 && (
                       <div className="flex flex-wrap gap-1">
@@ -755,14 +743,14 @@ export function DeviceBrandsManagement() {
       <Dialog open={showCreateBrand} onOpenChange={setShowCreateBrand}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Brand</DialogTitle>
+            <DialogTitle>{t('deviceBrands.createBrand')}</DialogTitle>
             <DialogDescription>
-              Create a new device brand
+              {t('deviceBrands.description')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="brandName">Brand Name</Label>
+              <Label htmlFor="brandName">{t('deviceBrands.brandName')}</Label>
               <Input
                 id="brandName"
                 value={brandForm.name}
@@ -782,10 +770,10 @@ export function DeviceBrandsManagement() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateBrand(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleSaveBrand}>
-              Save Brand
+              {t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -796,10 +784,10 @@ export function DeviceBrandsManagement() {
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl">
-              {isEditMode ? 'Edit Model' : 'Add New Model'}
+              {isEditMode ? t('deviceBrands.editModel') : t('deviceBrands.createModel')}
             </DialogTitle>
             <DialogDescription>
-              {isEditMode ? 'Update device model details' : 'Create a new device model'}
+              {isEditMode ? t('deviceBrands.editModel') : t('deviceBrands.createModel')}
             </DialogDescription>
           </DialogHeader>
 
@@ -816,7 +804,7 @@ export function DeviceBrandsManagement() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="modelName" className="text-sm font-medium">
-                      Model Name <span className="text-destructive">*</span>
+                      {t('deviceBrands.modelName')} <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       id="modelName"
@@ -854,7 +842,7 @@ export function DeviceBrandsManagement() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="modelDeviceType" className="text-sm font-medium">
-                      Device Type <span className="text-destructive">*</span>
+                      {t('deviceBrands.deviceType')} <span className="text-destructive">*</span>
                     </Label>
                     <Select
                       value={modelForm.deviceType}
@@ -901,7 +889,7 @@ export function DeviceBrandsManagement() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2 text-purple-700 dark:text-purple-300">
                   <Package className="h-5 w-5" />
-                  Technical Specifications
+                  {t('deviceBrands.specifications')}
                 </CardTitle>
                 <CardDescription className="text-sm">
                   Add key specifications as JSON format (e.g., {`{"screen": "6.1 inch", "storage": "256GB"}`})
@@ -910,7 +898,7 @@ export function DeviceBrandsManagement() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="modelSpecs" className="text-sm font-medium">
-                    Specifications (JSON)
+                    {t('deviceBrands.specifications')} (JSON)
                   </Label>
                   <Textarea
                     id="modelSpecs"
@@ -942,13 +930,13 @@ export function DeviceBrandsManagement() {
               }}
               disabled={isSubmitting}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleSaveModel}
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'Saving...' : (isEditMode ? 'Update Model' : 'Create Model')}
+              {isSubmitting ? t('common.loading') : (isEditMode ? t('common.update') : t('deviceBrands.createModel'))}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -958,7 +946,7 @@ export function DeviceBrandsManagement() {
       <Dialog open={showViewBrand} onOpenChange={setShowViewBrand}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Brand Details</DialogTitle>
+            <DialogTitle>{t('deviceBrands.brandName')}</DialogTitle>
           </DialogHeader>
           {selectedBrand && (
             <div className="space-y-4">
@@ -977,7 +965,7 @@ export function DeviceBrandsManagement() {
               </div>
               {selectedBrand.models && selectedBrand.models.length > 0 && (
                 <div>
-                  <h4 className="font-medium mb-2">Models ({selectedBrand.models.length})</h4>
+                  <h4 className="font-medium mb-2">{t('deviceBrands.models')} ({selectedBrand.models.length})</h4>
                   <div className="flex flex-wrap gap-2">
                     {selectedBrand.models.map((model, index) => (
                       <Badge key={index} variant="secondary">
@@ -991,7 +979,7 @@ export function DeviceBrandsManagement() {
           )}
           <DialogFooter>
             <Button onClick={() => setShowViewBrand(false)}>
-              Close
+              {t('common.close')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1001,9 +989,9 @@ export function DeviceBrandsManagement() {
       <Dialog open={showViewDeviceType} onOpenChange={setShowViewDeviceType}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Device Type Details</DialogTitle>
+            <DialogTitle>{t('deviceBrands.deviceType')}</DialogTitle>
             <DialogDescription>
-              View manufacturers and models for this device type
+              {t('deviceBrands.description')}
             </DialogDescription>
           </DialogHeader>
           {selectedDeviceTypeDetails && (
@@ -1017,7 +1005,7 @@ export function DeviceBrandsManagement() {
 
               {manufacturers.length > 0 && (
                 <div>
-                  <h4 className="font-medium mb-3">Manufacturers ({manufacturers.length})</h4>
+                  <h4 className="font-medium mb-3">{t('deviceBrands.manufacturer')} ({manufacturers.length})</h4>
                   <div className="grid gap-3 md:grid-cols-2">
                     {manufacturers.map((manufacturer) => (
                       <Card key={manufacturer._id} className="p-3">
@@ -1036,7 +1024,7 @@ export function DeviceBrandsManagement() {
                               setShowViewDeviceType(false)
                             }}
                           >
-                            View Models
+                            {t('deviceBrands.models')}
                           </Button>
                         </div>
                       </Card>
@@ -1048,7 +1036,7 @@ export function DeviceBrandsManagement() {
           )}
           <DialogFooter>
             <Button onClick={() => setShowViewDeviceType(false)}>
-              Close
+              {t('common.close')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1058,7 +1046,7 @@ export function DeviceBrandsManagement() {
       <Dialog open={showViewModel} onOpenChange={setShowViewModel}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Model Details</DialogTitle>
+            <DialogTitle>{t('deviceBrands.modelName')}</DialogTitle>
           </DialogHeader>
           {selectedModel && (
             <div className="space-y-4">
@@ -1073,13 +1061,13 @@ export function DeviceBrandsManagement() {
                 <div>
                   <h3 className="text-lg font-semibold">{selectedModel.name}</h3>
                   <p className="text-sm text-muted-foreground">Model ID: {selectedModel._id}</p>
-                  <p className="text-sm text-muted-foreground">Manufacturer: {selectedModel.manufacturer}</p>
-                  <p className="text-sm text-muted-foreground">Device Type: {selectedModel.deviceType}</p>
+                  <p className="text-sm text-muted-foreground">{t('deviceBrands.manufacturer')}: {selectedModel.manufacturer}</p>
+                  <p className="text-sm text-muted-foreground">{t('deviceBrands.deviceType')}: {selectedModel.deviceType}</p>
                 </div>
               </div>
               {selectedModel.specifications && Object.keys(selectedModel.specifications).length > 0 && (
                 <div>
-                  <h4 className="font-medium mb-2">Specifications</h4>
+                  <h4 className="font-medium mb-2">{t('deviceBrands.specifications')}</h4>
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(selectedModel.specifications).map(([key, value]) => (
                       <Badge key={key} variant="secondary">
@@ -1093,7 +1081,7 @@ export function DeviceBrandsManagement() {
           )}
           <DialogFooter>
             <Button onClick={() => setShowViewModel(false)}>
-              Close
+              {t('common.close')}
             </Button>
           </DialogFooter>
         </DialogContent>

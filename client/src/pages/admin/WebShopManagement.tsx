@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -61,6 +62,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
 export function WebShopManagement() {
+  const { t } = useTranslation()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -184,8 +186,8 @@ export function WebShopManagement() {
       } catch (error) {
         console.error("Error fetching data:", error)
         toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : "Failed to load data",
+          title: t('common.error'),
+          description: error instanceof Error ? error.message : t('webShopManagement.failedToLoadProducts'),
           variant: "destructive"
         })
       } finally {
@@ -247,7 +249,7 @@ export function WebShopManagement() {
       if (!newProduct.name || !newProduct.description || !newProduct.price ||
           !newProduct.category || !newProduct.brand || !newProduct.stockCount) {
         toast({
-          title: "Validation Error",
+          title: t('common.error'),
           description: "Please fill in all required fields",
           variant: "destructive"
         })
@@ -284,8 +286,8 @@ export function WebShopManagement() {
 
       if (response.success) {
         toast({
-          title: "Success",
-          description: response.message || "Product created successfully"
+          title: t('common.success'),
+          description: response.message || t('webShopManagement.productCreatedSuccess')
         })
 
         // Reset to first page to see the new product
@@ -298,8 +300,8 @@ export function WebShopManagement() {
     } catch (error) {
       console.error("Error creating product:", error)
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create product",
+        title: t('common.error'),
+        description: error instanceof Error ? error.message : t('webShopManagement.failedToCreateProduct'),
         variant: "destructive"
       })
     } finally {
@@ -318,7 +320,7 @@ export function WebShopManagement() {
       if (!editProduct.name || !editProduct.description || !editProduct.price ||
           !editProduct.category || !editProduct.brand || !editProduct.stockCount) {
         toast({
-          title: "Validation Error",
+          title: t('common.error'),
           description: "Please fill in all required fields",
           variant: "destructive"
         })
@@ -355,8 +357,8 @@ export function WebShopManagement() {
 
       if (response.success) {
         toast({
-          title: "Success",
-          description: response.message || "Product updated successfully"
+          title: t('common.success'),
+          description: response.message || t('webShopManagement.productUpdated')
         })
 
         // Refresh current page
@@ -370,8 +372,8 @@ export function WebShopManagement() {
     } catch (error) {
       console.error("Error updating product:", error)
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update product",
+        title: t('common.error'),
+        description: error instanceof Error ? error.message : t('webShopManagement.failedToUpdateProduct'),
         variant: "destructive"
       })
     } finally {
@@ -390,8 +392,8 @@ export function WebShopManagement() {
 
       if (response.success) {
         toast({
-          title: "Success",
-          description: response.message || "Product deleted successfully"
+          title: t('common.success'),
+          description: response.message || t('webShopManagement.productDeleted')
         })
 
         // Refresh current page (or go back to first page if current is now empty)
@@ -408,8 +410,8 @@ export function WebShopManagement() {
     } catch (error) {
       console.error("Error deleting product:", error)
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete product",
+        title: t('common.error'),
+        description: error instanceof Error ? error.message : t('webShopManagement.failedToDeleteProduct'),
         variant: "destructive"
       })
     } finally {
@@ -578,20 +580,20 @@ export function WebShopManagement() {
           <div>
             <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
               <ShoppingCart className="h-5 w-5 md:h-6 md:w-6" />
-              Web Shop Management
+              {t('webShopManagement.title')}
             </h1>
             <p className="text-xs md:text-sm text-white/85">
-              Manage products, inventory, and shop settings
+              {t('webShopManagement.description')}
             </p>
           </div>
           <div className="flex gap-2">
             <Button variant="secondary" size="sm" className="h-8 px-3 text-xs" onClick={() => setShowImportDialog(true)}>
               <Upload className="h-3.5 w-3.5 mr-1.5" />
-              Import CSV
+              {t('common.import')} CSV
             </Button>
             <Button size="sm" className="h-8 px-3 text-xs bg-white text-[#1a2a5e] hover:bg-white/90" onClick={() => setShowAddDialog(true)}>
               <Plus className="h-3.5 w-3.5 mr-1.5" />
-              Add Product
+              {t('common.add')} {t('webShopManagement.products')}
             </Button>
           </div>
         </div>
@@ -630,7 +632,7 @@ export function WebShopManagement() {
         <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300">
-              Low Stock
+              {t('webShopManagement.lowStock')}
             </CardTitle>
             <TrendingUp className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           </CardHeader>
@@ -644,7 +646,7 @@ export function WebShopManagement() {
         <Card className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950 dark:to-red-900 border-red-200 dark:border-red-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-red-700 dark:text-red-300">
-              Out of Stock
+              {t('webShopManagement.outOfStock')}
             </CardTitle>
             <Package className="h-4 w-4 text-red-600 dark:text-red-400" />
           </CardHeader>
@@ -664,7 +666,7 @@ export function WebShopManagement() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
-                  placeholder="Search products by name, brand, or description..."
+                  placeholder={t('webShopManagement.searchProducts')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9 h-8 text-sm"
@@ -675,10 +677,10 @@ export function WebShopManagement() {
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                 <SelectTrigger className="w-36 h-8 text-xs">
                   <Filter className="h-3.5 w-3.5 mr-1.5" />
-                  <SelectValue placeholder="All Categories" />
+                  <SelectValue placeholder={t('webShopManagement.allCategories')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="all">{t('webShopManagement.allCategories')}</SelectItem>
                   {categories.map(category => (
                     <SelectItem key={category} value={category}>
                       {category}
@@ -692,10 +694,10 @@ export function WebShopManagement() {
                   <SelectValue placeholder="All Stock" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Stock</SelectItem>
-                  <SelectItem value="in-stock">In Stock</SelectItem>
-                  <SelectItem value="low-stock">Low Stock</SelectItem>
-                  <SelectItem value="out-of-stock">Out of Stock</SelectItem>
+                  <SelectItem value="all">{t('common.all')}</SelectItem>
+                  <SelectItem value="in-stock">{t('webShopManagement.inStock')}</SelectItem>
+                  <SelectItem value="low-stock">{t('webShopManagement.lowStock')}</SelectItem>
+                  <SelectItem value="out-of-stock">{t('webShopManagement.outOfStock')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -706,7 +708,7 @@ export function WebShopManagement() {
       {/* Products Table */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Product Inventory</CardTitle>
+          <CardTitle className="text-base">{t('webShopManagement.products')}</CardTitle>
           <CardDescription className="text-xs">
             Manage your product catalog and inventory levels ({totalProducts} total products)
           </CardDescription>
@@ -715,13 +717,13 @@ export function WebShopManagement() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead><SortableColumnHeader label="Product" columnName="name" /></TableHead>
-                <TableHead><SortableColumnHeader label="Category" columnName="category" /></TableHead>
-                <TableHead><SortableColumnHeader label="Price" columnName="price" /></TableHead>
-                <TableHead><SortableColumnHeader label="Stock" columnName="stockCount" /></TableHead>
+                <TableHead><SortableColumnHeader label={t('webShopManagement.productName')} columnName="name" /></TableHead>
+                <TableHead><SortableColumnHeader label={t('webShopManagement.category')} columnName="category" /></TableHead>
+                <TableHead><SortableColumnHeader label={t('webShopManagement.price')} columnName="price" /></TableHead>
+                <TableHead><SortableColumnHeader label={t('webShopManagement.stock')} columnName="stockCount" /></TableHead>
                 <TableHead><SortableColumnHeader label="Rating" columnName="rating" /></TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t('webShopManagement.status')}</TableHead>
+                <TableHead className="text-right">{t('webShopManagement.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -729,7 +731,7 @@ export function WebShopManagement() {
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8">
                     <Package className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-50" />
-                    <p className="text-sm text-muted-foreground">No products found</p>
+                    <p className="text-sm text-muted-foreground">{t('webShopManagement.noProductsFound')}</p>
                   </TableCell>
                 </TableRow>
               ) : (
@@ -791,7 +793,7 @@ export function WebShopManagement() {
                     </TableCell>
                     <TableCell>
                       <Badge variant={product.inStock ? "default" : "destructive"}>
-                        {product.inStock ? "In Stock" : "Out of Stock"}
+                        {product.inStock ? t('webShopManagement.inStock') : t('webShopManagement.outOfStock')}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -800,7 +802,7 @@ export function WebShopManagement() {
                           variant="ghost" 
                           size="sm"
                           onClick={() => handleViewProduct(product)}
-                          title="View Product"
+                          title={t('common.view')}
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </Button>
@@ -808,7 +810,7 @@ export function WebShopManagement() {
                           variant="ghost" 
                           size="sm"
                           onClick={() => handleEditProduct(product)}
-                          title="Edit Product"
+                          title={t('common.edit')}
                         >
                           <Edit className="h-3.5 w-3.5" />
                         </Button>
@@ -816,7 +818,7 @@ export function WebShopManagement() {
                           variant="ghost" 
                           size="sm"
                           onClick={() => handleDeleteProduct(product)}
-                          title="Delete Product"
+                          title={t('common.delete')}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -860,7 +862,7 @@ export function WebShopManagement() {
                 disabled={currentPage === 1 || loading}
               >
                 <ChevronLeft className="h-4 w-4" />
-                Previous
+                {t('common.previous')}
               </Button>
               <Button
                 variant="outline"
@@ -868,7 +870,7 @@ export function WebShopManagement() {
                 onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages || loading}
               >
-                Next
+                {t('common.next')}
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
@@ -880,9 +882,9 @@ export function WebShopManagement() {
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto text-sm">
           <DialogHeader className={dialogHeaderClass}>
-            <DialogTitle className="text-base text-white">Add New Product</DialogTitle>
+            <DialogTitle className="text-base text-white">{t('webShopManagement.createNewProduct')}</DialogTitle>
             <DialogDescription className="text-xs text-white/80">
-              Create a new product for your web shop inventory
+              {t('webShopManagement.description')}
             </DialogDescription>
           </DialogHeader>
 
@@ -890,7 +892,7 @@ export function WebShopManagement() {
             {/* Basic Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="name">Product Name *</Label>
+                <Label htmlFor="name">{t('webShopManagement.productName')} *</Label>
                 <Input
                   id="name"
                   value={newProduct.name}
@@ -900,7 +902,7 @@ export function WebShopManagement() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="brand">Brand *</Label>
+                <Label htmlFor="brand">{t('webShopManagement.brand')} *</Label>
                 <Select
                   value={newProduct.brand}
                   onValueChange={(value) => setNewProduct(prev => ({ ...prev, brand: value }))}
@@ -924,7 +926,7 @@ export function WebShopManagement() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="category">Category *</Label>
+                <Label htmlFor="category">{t('webShopManagement.category')} *</Label>
                 <Select
                   value={newProduct.category}
                   onValueChange={(value) => setNewProduct(prev => ({ ...prev, category: value }))}
@@ -946,7 +948,7 @@ export function WebShopManagement() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="stockCount">Stock Count *</Label>
+                <Label htmlFor="stockCount">{t('webShopManagement.stock')} *</Label>
                 <Input
                   id="stockCount"
                   type="number"
@@ -958,7 +960,7 @@ export function WebShopManagement() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="price">Price *</Label>
+                <Label htmlFor="price">{t('webShopManagement.price')} *</Label>
                 <Input
                   id="price"
                   type="number"
@@ -986,7 +988,7 @@ export function WebShopManagement() {
 
             {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="description">Description *</Label>
+              <Label htmlFor="description">{t('webShopManagement.fieldDescription')} *</Label>
               <Textarea
                 id="description"
                 value={newProduct.description}
@@ -998,7 +1000,7 @@ export function WebShopManagement() {
 
             {/* Images */}
             <div className="space-y-2">
-              <Label>Product Images</Label>
+              <Label>{t('webShopManagement.images')}</Label>
               {newProduct.images.map((image, index) => (
                 <div key={index} className="flex gap-2">
                   <Input
@@ -1026,13 +1028,13 @@ export function WebShopManagement() {
                 onClick={() => addArrayField('images', false)}
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add Image
+                {t('common.add')} {t('webShopManagement.images')}
               </Button>
             </div>
 
             {/* Features */}
             <div className="space-y-2">
-              <Label>Features</Label>
+              <Label>{t('webShopManagement.features')}</Label>
               {newProduct.features.map((feature, index) => (
                 <div key={index} className="flex gap-2">
                   <Input
@@ -1060,7 +1062,7 @@ export function WebShopManagement() {
                 onClick={() => addArrayField('features', false)}
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add Feature
+                {t('common.add')} {t('webShopManagement.features')}
               </Button>
             </div>
 
@@ -1239,10 +1241,10 @@ export function WebShopManagement() {
                 setShowAddDialog(false)
               }}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button size="sm" onClick={handleAddProduct} disabled={isCreating}>
-              {isCreating ? "Creating..." : "Create Product"}
+              {isCreating ? t('common.loading') : t('webShopManagement.createNewProduct')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1252,7 +1254,7 @@ export function WebShopManagement() {
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto text-sm">
           <DialogHeader className={dialogHeaderClass}>
-            <DialogTitle className="text-base text-white">Edit Product</DialogTitle>
+            <DialogTitle className="text-base text-white">{t('webShopManagement.editProduct')}</DialogTitle>
             <DialogDescription className="text-xs text-white/80">
               Update the product information
             </DialogDescription>
@@ -1262,7 +1264,7 @@ export function WebShopManagement() {
             {/* Basic Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="edit-name">Product Name *</Label>
+                <Label htmlFor="edit-name">{t('webShopManagement.productName')} *</Label>
                 <Input
                   id="edit-name"
                   value={editProduct.name}
@@ -1272,7 +1274,7 @@ export function WebShopManagement() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="edit-brand">Brand *</Label>
+                <Label htmlFor="edit-brand">{t('webShopManagement.brand')} *</Label>
                 <Select
                   value={editProduct.brand}
                   onValueChange={(value) => setEditProduct(prev => ({ ...prev, brand: value }))}
@@ -1296,7 +1298,7 @@ export function WebShopManagement() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="edit-category">Category *</Label>
+                <Label htmlFor="edit-category">{t('webShopManagement.category')} *</Label>
                 <Select
                   value={editProduct.category}
                   onValueChange={(value) => setEditProduct(prev => ({ ...prev, category: value }))}
@@ -1318,7 +1320,7 @@ export function WebShopManagement() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="edit-stockCount">Stock Count *</Label>
+                <Label htmlFor="edit-stockCount">{t('webShopManagement.stock')} *</Label>
                 <Input
                   id="edit-stockCount"
                   type="number"
@@ -1330,7 +1332,7 @@ export function WebShopManagement() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="edit-price">Price *</Label>
+                <Label htmlFor="edit-price">{t('webShopManagement.price')} *</Label>
                 <Input
                   id="edit-price"
                   type="number"
@@ -1358,7 +1360,7 @@ export function WebShopManagement() {
 
             {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="edit-description">Description *</Label>
+              <Label htmlFor="edit-description">{t('webShopManagement.fieldDescription')} *</Label>
               <Textarea
                 id="edit-description"
                 value={editProduct.description}
@@ -1370,7 +1372,7 @@ export function WebShopManagement() {
 
             {/* Images */}
             <div className="space-y-2">
-              <Label>Product Images</Label>
+              <Label>{t('webShopManagement.images')}</Label>
               {editProduct.images.map((image, index) => (
                 <div key={index} className="flex gap-2">
                   <Input
@@ -1398,13 +1400,13 @@ export function WebShopManagement() {
                 onClick={() => addArrayField('images', true)}
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add Image
+                {t('common.add')} {t('webShopManagement.images')}
               </Button>
             </div>
 
             {/* Features */}
             <div className="space-y-2">
-              <Label>Features</Label>
+              <Label>{t('webShopManagement.features')}</Label>
               {editProduct.features.map((feature, index) => (
                 <div key={index} className="flex gap-2">
                   <Input
@@ -1432,7 +1434,7 @@ export function WebShopManagement() {
                 onClick={() => addArrayField('features', true)}
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add Feature
+                {t('common.add')} {t('webShopManagement.features')}
               </Button>
             </div>
 
@@ -1612,10 +1614,10 @@ export function WebShopManagement() {
                 resetEditForm()
               }}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button size="sm" onClick={handleUpdateProduct} disabled={isUpdating}>
-              {isUpdating ? "Updating..." : "Update Product"}
+              {isUpdating ? t('common.loading') : t('common.update')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1635,7 +1637,7 @@ export function WebShopManagement() {
             <div className="space-y-4 py-3 [&_label]:text-xs">
               {/* Product Images */}
               <div className="space-y-2">
-                <Label>Product Images</Label>
+                <Label>{t('webShopManagement.images')}</Label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                   {selectedProduct.images.map((image, index) => (
                     <img
@@ -1654,23 +1656,23 @@ export function WebShopManagement() {
               {/* Basic Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label>Product Name</Label>
+                  <Label>{t('webShopManagement.productName')}</Label>
                   <p className="text-sm font-medium">{selectedProduct.name}</p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Brand</Label>
+                  <Label>{t('webShopManagement.brand')}</Label>
                   <p className="text-sm">{selectedProduct.brand}</p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Category</Label>
+                  <Label>{t('webShopManagement.category')}</Label>
                   <Badge variant="outline">{selectedProduct.category}</Badge>
                 </div>
                 <div className="space-y-2">
-                  <Label>SKU</Label>
+                  <Label>{t('webShopManagement.sku')}</Label>
                   <p className="text-sm font-mono">{selectedProduct.sku}</p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Price</Label>
+                  <Label>{t('webShopManagement.price')}</Label>
                   <div>
                     <p className="text-sm font-medium">${selectedProduct.price.toFixed(2)}</p>
                     {selectedProduct.originalPrice && (
@@ -1681,7 +1683,7 @@ export function WebShopManagement() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Stock</Label>
+                  <Label>{t('webShopManagement.stock')}</Label>
                   <div className="flex items-center gap-2">
                     <span className={`text-sm font-medium ${
                       selectedProduct.stockCount <= 5 ? 'text-red-600' :
@@ -1691,7 +1693,7 @@ export function WebShopManagement() {
                       {selectedProduct.stockCount} units
                     </span>
                     <Badge variant={selectedProduct.inStock ? "default" : "destructive"}>
-                      {selectedProduct.inStock ? "In Stock" : "Out of Stock"}
+                      {selectedProduct.inStock ? t('webShopManagement.inStock') : t('webShopManagement.outOfStock')}
                     </Badge>
                   </div>
                 </div>
@@ -1699,14 +1701,14 @@ export function WebShopManagement() {
 
               {/* Description */}
               <div className="space-y-2">
-                <Label>Description</Label>
+                <Label>{t('webShopManagement.fieldDescription')}</Label>
                 <p className="text-sm">{selectedProduct.description}</p>
               </div>
 
               {/* Features */}
               {selectedProduct.features.length > 0 && (
                 <div className="space-y-2">
-                  <Label>Features</Label>
+                  <Label>{t('webShopManagement.features')}</Label>
                   <ul className="text-sm space-y-1">
                     {selectedProduct.features.map((feature, index) => (
                       <li key={index} className="flex items-center gap-2">
@@ -1806,7 +1808,7 @@ export function WebShopManagement() {
                 setSelectedProduct(null)
               }}
             >
-              Close
+              {t('common.close')}
             </Button>
             {selectedProduct && (
               <Button
@@ -1816,7 +1818,7 @@ export function WebShopManagement() {
                   handleEditProduct(selectedProduct)
                 }}
               >
-                Edit Product
+                {t('webShopManagement.editProduct')}
               </Button>
             )}
           </DialogFooter>
@@ -1827,9 +1829,9 @@ export function WebShopManagement() {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent className="text-sm">
           <AlertDialogHeader className="-mx-6 -mt-6 mb-2 rounded-t-lg bg-[#1a2a5e] px-6 py-3 text-left text-white">
-            <AlertDialogTitle className="text-base text-white">Delete Product</AlertDialogTitle>
+            <AlertDialogTitle className="text-base text-white">{t('webShopManagement.deleteProduct')}</AlertDialogTitle>
             <AlertDialogDescription className="text-xs text-white/80">
-              Are you sure you want to delete "{selectedProduct?.name}"? This action cannot be undone.
+              {t('webShopManagement.confirmDelete')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
@@ -1840,14 +1842,14 @@ export function WebShopManagement() {
                 setSelectedProduct(null)
               }}
             >
-              Cancel
+              {t('common.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDeleteProduct}
               disabled={isDeleting}
               className="h-8 text-xs bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? "Deleting..." : "Delete"}
+              {isDeleting ? t('common.loading') : t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

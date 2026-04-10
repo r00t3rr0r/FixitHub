@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from 'react-i18next'
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -89,32 +90,32 @@ const formatClock = (value?: string | Date | null) => {
 const getStatusMeta = (status?: CurrentStatus["status"]) => {
   switch (status) {
     case "working":
-      return { label: "In Arbeit", badge: "bg-emerald-100 text-emerald-800 border-emerald-200" }
+      return { labelKey: "timeTracking.inProgress", badge: "bg-emerald-100 text-emerald-800 border-emerald-200" }
     case "on_break":
-      return { label: "Pause", badge: "bg-amber-100 text-amber-800 border-amber-200" }
+      return { labelKey: "timeTracking.onBreak", badge: "bg-amber-100 text-amber-800 border-amber-200" }
     case "online":
-      return { label: "Eingestempelt", badge: "bg-sky-100 text-sky-800 border-sky-200" }
+      return { labelKey: "timeTracking.clockedIn", badge: "bg-sky-100 text-sky-800 border-sky-200" }
     case "pending":
-      return { label: "Ausstehend", badge: "bg-orange-100 text-orange-800 border-orange-200" }
+      return { labelKey: "timeTracking.statusPending", badge: "bg-orange-100 text-orange-800 border-orange-200" }
     default:
-      return { label: "Offline", badge: "bg-slate-100 text-slate-700 border-slate-200" }
+      return { labelKey: "timeTracking.notClockedIn", badge: "bg-slate-100 text-slate-700 border-slate-200" }
   }
 }
 
-const getEntryLabel = (entry: TimelineEntry) => {
+const getEntryLabel = (entry: TimelineEntry, t: (key: string) => string) => {
   switch (entry.type) {
     case "clock_in":
-      return "Eingestempelt"
+      return t('timeTracking.clockedIn')
     case "clock_out":
-      return "Ausgestempelt"
+      return t('timeTracking.clockedOut')
     case "break_start":
-      return "Pause gestartet"
+      return t('timeTracking.breakStarted')
     case "break_end":
-      return "Pause beendet"
+      return t('timeTracking.breakEnded')
     case "order_start":
-      return `Auftrag gestartet${entry.orderNumber ? ` #${entry.orderNumber}` : ""}`
+      return `${t('timeTracking.orderStarted')}${entry.orderNumber ? ` #${entry.orderNumber}` : ""}`
     case "order_end":
-      return `Auftrag beendet${entry.orderNumber ? ` #${entry.orderNumber}` : ""}`
+      return `${t('timeTracking.orderEnded')}${entry.orderNumber ? ` #${entry.orderNumber}` : ""}`
     default:
       return entry.type
   }
@@ -139,6 +140,7 @@ const getActiveSessionMinutes = (status: CurrentStatus | null) => {
 }
 
 export function TimeTracking() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const [selectedDate, setSelectedDate] = useState(() => toDateInputValue(new Date()))
   const [status, setStatus] = useState<CurrentStatus | null>(null)
@@ -176,8 +178,8 @@ export function TimeTracking() {
     } catch (error) {
       console.error("Error fetching time tracking data:", error)
       toast({
-        title: "Fehler",
-        description: "Zeiterfassungsdaten konnten nicht geladen werden.",
+        title: t('common.error'),
+        description: t('timeTracking.failedToLoadEntries'),
         variant: "destructive",
       })
     } finally {
@@ -225,8 +227,8 @@ export function TimeTracking() {
       toast({ title: successTitle, description: successDescription })
     } catch (error: any) {
       toast({
-        title: "Fehler",
-        description: error?.message || "Aktion konnte nicht ausgefuehrt werden.",
+        title: t('common.error'),
+        description: error?.message || t('timeTracking.actionFailed'),
         variant: "destructive",
       })
     } finally {
@@ -241,27 +243,27 @@ export function TimeTracking() {
     const orderHours = (selectedSummary?.ordersToday || []).reduce((sum, order) => sum + (order.durationHours || 0), 0)
     return [
       {
-        label: "Arbeitszeit Tag",
+        label: t('timeTracking.todayHours'),
         value: formatHours(selectedSummary?.hoursToday),
       },
       {
-        label: "Pausen Tag",
+        label: t('timeTracking.breakDuration'),
         value: formatHours(selectedSummary?.breakHoursToday),
       },
       {
-        label: "Workflowzeit Tag",
+        label: t('timeTracking.workflowHoursDay'),
         value: formatHours(selectedSummary?.workflowHoursToday),
       },
       {
-        label: "Auftragszeit Tag",
+        label: t('timeTracking.orderHoursDay'),
         value: formatHours(orderHours),
       },
       {
-        label: "Sitzung live",
+        label: t('timeTracking.sessionLive'),
         value: formatMinutes(activeMinutes),
       },
     ]
-  }, [activeMinutes, selectedSummary])
+  }, [t, activeMinutes, selectedSummary])
 
   if (loading) {
     return (
@@ -286,9 +288,9 @@ export function TimeTracking() {
                 <Clock className="h-5 w-5" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold leading-tight md:text-2xl">Zeiterfassung</h1>
+                <h1 className="text-xl font-semibold leading-tight md:text-2xl">{t('timeTracking.title')}</h1>
                 <p className="mt-0.5 text-sm text-blue-50/90">
-                  Kompakte Tagesansicht mit Status, Pausen und Auftragszeiten.
+                  {t('timeTracking.subtitle')}
                 </p>
               </div>
             </div>
@@ -296,7 +298,7 @@ export function TimeTracking() {
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Badge className={`border ${statusMeta.badge} justify-center px-2.5 py-1 text-xs font-semibold`}>
-              {statusMeta.label}
+              {t(statusMeta.labelKey)}
             </Badge>
             <div className="flex items-center gap-2 rounded-xl bg-white/12 px-3 py-2 backdrop-blur-sm">
               <CalendarDays className="h-4 w-4 text-blue-50" />
@@ -325,21 +327,21 @@ export function TimeTracking() {
       <div className="grid gap-3 xl:grid-cols-[1.05fr_0.95fr]">
         <Card className="border-slate-200 shadow-sm">
           <CardHeader className="px-4 py-3">
-            <CardTitle className="text-sm font-semibold text-slate-800">Aktuelle Schicht</CardTitle>
+            <CardTitle className="text-sm font-semibold text-slate-800">{t('timeTracking.currentShift')}</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 px-4 py-3 pt-0">
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Eingestempelt seit</p>
+                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">{t('timeTracking.clockInTime')}</p>
                 <div className="mt-1 text-sm font-semibold text-slate-900">{formatClock(status?.lastClockIn)}</div>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Letzte Aktivitaet</p>
+                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">{t('timeTracking.lastActivity')}</p>
                 <div className="mt-1 text-sm font-semibold text-slate-900">{formatTimestamp(status?.lastActivity)}</div>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Aktueller Auftrag</p>
-                <div className="mt-1 truncate text-sm font-semibold text-slate-900">{status?.currentOrder?.orderNumber ? `#${status.currentOrder.orderNumber}` : "Kein Auftrag"}</div>
+                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">{t('timeTracking.currentOrder')}</p>
+                <div className="mt-1 truncate text-sm font-semibold text-slate-900">{status?.currentOrder?.orderNumber ? `#${status.currentOrder.orderNumber}` : t('timeTracking.noOrder')}</div>
               </div>
             </div>
 
@@ -349,10 +351,10 @@ export function TimeTracking() {
                   size="sm"
                   className="h-8 bg-blue-700 px-3 text-xs hover:bg-blue-800"
                   disabled={actionLoading !== null}
-                  onClick={() => handleAction("clockIn", clockIn, "Eingestempelt", "Deine Arbeitszeit wurde gestartet.")}
+                  onClick={() => handleAction("clockIn", clockIn, t('timeTracking.clockedIn'), t('timeTracking.workTimeStarted'))}
                 >
                   {actionLoading === "clockIn" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <LogIn className="mr-1.5 h-3.5 w-3.5" />}
-                  Einstempeln
+                  {t('timeTracking.clockIn')}
                 </Button>
               )}
 
@@ -363,20 +365,20 @@ export function TimeTracking() {
                     variant="outline"
                     className="h-8 px-3 text-xs"
                     disabled={actionLoading !== null}
-                    onClick={() => handleAction("breakStart", startBreak, "Pause gestartet", "Die Pause wurde erfasst.")}
+                    onClick={() => handleAction("breakStart", startBreak, t('timeTracking.breakStarted'), t('timeTracking.breakRecorded'))}
                   >
                     {actionLoading === "breakStart" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Coffee className="mr-1.5 h-3.5 w-3.5" />}
-                    Pause starten
+                    {t('timeTracking.breakStart')}
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     className="h-8 px-3 text-xs"
                     disabled={actionLoading !== null}
-                    onClick={() => handleAction("clockOut", clockOut, "Ausgestempelt", "Die Arbeitszeit wurde beendet.")}
+                    onClick={() => handleAction("clockOut", clockOut, t('timeTracking.clockedOut'), t('timeTracking.workTimeEnded'))}
                   >
                     {actionLoading === "clockOut" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <LogOut className="mr-1.5 h-3.5 w-3.5" />}
-                    Ausstempeln
+                    {t('timeTracking.clockOut')}
                   </Button>
                 </>
               )}
@@ -387,27 +389,27 @@ export function TimeTracking() {
                     size="sm"
                     className="h-8 bg-blue-700 px-3 text-xs hover:bg-blue-800"
                     disabled={actionLoading !== null}
-                    onClick={() => handleAction("breakEnd", endBreak, "Pause beendet", "Die Arbeitszeit laeuft wieder.")}
+                    onClick={() => handleAction("breakEnd", endBreak, t('timeTracking.breakEnded'), t('timeTracking.workTimeResumed'))}
                   >
                     {actionLoading === "breakEnd" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Play className="mr-1.5 h-3.5 w-3.5" />}
-                    Pause beenden
+                    {t('timeTracking.breakEnd')}
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     className="h-8 px-3 text-xs"
                     disabled={actionLoading !== null}
-                    onClick={() => handleAction("clockOut", clockOut, "Ausgestempelt", "Die Arbeitszeit wurde beendet.")}
+                    onClick={() => handleAction("clockOut", clockOut, t('timeTracking.clockedOut'), t('timeTracking.workTimeEnded'))}
                   >
                     {actionLoading === "clockOut" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <LogOut className="mr-1.5 h-3.5 w-3.5" />}
-                    Ausstempeln
+                    {t('timeTracking.clockOut')}
                   </Button>
                 </>
               )}
 
               <Button size="sm" variant="ghost" className="ml-auto h-8 px-3 text-xs text-slate-600" disabled={refreshing} onClick={() => fetchData(true)}>
                 {refreshing ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Timer className="mr-1.5 h-3.5 w-3.5" />}
-                Aktualisieren
+                {t('common.refresh')}
               </Button>
             </div>
           </CardContent>
@@ -415,23 +417,23 @@ export function TimeTracking() {
 
         <Card className="border-slate-200 shadow-sm">
           <CardHeader className="px-4 py-3">
-            <CardTitle className="text-sm font-semibold text-slate-800">Zusammenfassung</CardTitle>
+            <CardTitle className="text-sm font-semibold text-slate-800">{t('timeTracking.summaryView')}</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2 px-4 py-3 pt-0">
             <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-              <span className="text-slate-600">Woche</span>
+              <span className="text-slate-600">{t('timeTracking.weeklyHours')}</span>
               <strong className="text-slate-900">{formatHours(selectedSummary?.hoursThisWeek)}</strong>
             </div>
             <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-              <span className="text-slate-600">Monat</span>
+              <span className="text-slate-600">{t('timeTracking.monthlyHours')}</span>
               <strong className="text-slate-900">{formatHours(selectedSummary?.hoursThisMonth)}</strong>
             </div>
             <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-              <span className="text-slate-600">Gesamt Arbeitszeit</span>
+              <span className="text-slate-600">{t('timeTracking.totalHours')}</span>
               <strong className="text-slate-900">{formatHours(selectedSummary?.totalHoursWorked)}</strong>
             </div>
             <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-              <span className="text-slate-600">Gesamt Pausenzeit</span>
+              <span className="text-slate-600">{t('timeTracking.totalBreakHours')}</span>
               <strong className="text-slate-900">{formatHours(selectedSummary?.totalBreakHours)}</strong>
             </div>
           </CardContent>
@@ -448,8 +450,8 @@ export function TimeTracking() {
 
       <Card className="border-slate-200 shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between px-4 py-3">
-          <CardTitle className="text-sm font-semibold text-slate-800">Zeitereignisse des Tages</CardTitle>
-          <Badge variant="outline" className="text-[11px] text-slate-600">{entries.length} Eintraege</Badge>
+          <CardTitle className="text-sm font-semibold text-slate-800">{t('timeTracking.dailyTimeEvents')}</CardTitle>
+          <Badge variant="outline" className="text-[11px] text-slate-600">{entries.length} {t('timeTracking.totalEntries')}</Badge>
         </CardHeader>
         <CardContent className="px-4 py-3 pt-0">
           {entries.length > 0 ? (
@@ -457,8 +459,8 @@ export function TimeTracking() {
               {entries.map((entry) => (
                 <div key={entry._id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-slate-800">{getEntryLabel(entry)}</p>
-                    <p className="text-[11px] text-slate-500">{entry.notes || "Automatisch erfasst"}</p>
+                    <p className="truncate text-sm font-medium text-slate-800">{getEntryLabel(entry, t)}</p>
+                    <p className="text-[11px] text-slate-500">{entry.notes || t('timeTracking.autoRecorded')}</p>
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-xs font-semibold text-slate-900">{formatTimestamp(entry.timestamp)}</p>
@@ -469,7 +471,7 @@ export function TimeTracking() {
             </div>
           ) : (
             <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-500">
-              Fuer das ausgewaehlte Datum liegen keine Zeiteintraege vor.
+              {t('timeTracking.noEntriesForDate')}
             </div>
           )}
         </CardContent>

@@ -1,16 +1,10 @@
-import { useEffect, useState, useRef } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
+import { useEffect, useState } from "react"
+import { useTranslation } from 'react-i18next'
 import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog"
 import {
   Select,
@@ -30,26 +24,19 @@ import {
   Tag,
   Filter,
   FileText,
-  Video,
-  Image,
   Trash2,
   X,
-  ChevronRight,
   Layers,
   Zap,
   HelpCircle,
   ListChecks,
   TrendingUp,
-  Users,
   AlertTriangle,
-  CheckCircle2,
   LayoutGrid,
   List,
   BookMarked,
-  Lightbulb,
   Pin,
   PinOff,
-  ArrowLeft,
 } from "lucide-react"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -108,34 +95,35 @@ const EMPTY_FORM: Omit<KnowledgeArticle, "_id" | "views" | "lastUpdated" | "auth
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const TYPE_META: Record<string, { label: string; color: string; bg: string; Icon: any }> = {
-  guide:          { label: "Anleitung",       color: "#1a2a5e", bg: "#e8ecf7", Icon: BookOpen },
-  troubleshooting:{ label: "Fehlersuche",     color: "#b45309", bg: "#fef3c7", Icon: Zap },
-  procedure:      { label: "Prozedur",        color: "#065f46", bg: "#d1fae5", Icon: ListChecks },
-  faq:            { label: "FAQ",             color: "#6b21a8", bg: "#f3e8ff", Icon: HelpCircle },
+  guide:          { label: "knowledgeBase.typeGuide",       color: "#1a2a5e", bg: "#e8ecf7", Icon: BookOpen },
+  troubleshooting:{ label: "knowledgeBase.typeTroubleshooting",     color: "#b45309", bg: "#fef3c7", Icon: Zap },
+  procedure:      { label: "knowledgeBase.typeProcedure",        color: "#065f46", bg: "#d1fae5", Icon: ListChecks },
+  faq:            { label: "knowledgeBase.typeFaq",             color: "#6b21a8", bg: "#f3e8ff", Icon: HelpCircle },
 }
 
 const DIFF_META: Record<string, { label: string; color: string; bg: string }> = {
-  beginner:     { label: "Einsteiger",     color: "#065f46", bg: "#d1fae5" },
-  intermediate: { label: "Fortgeschritten",color: "#92400e", bg: "#fef3c7" },
-  advanced:     { label: "Experte",        color: "#991b1b", bg: "#fee2e2" },
+  beginner:     { label: "knowledgeBase.diffBeginner",     color: "#065f46", bg: "#d1fae5" },
+  intermediate: { label: "knowledgeBase.diffIntermediate",color: "#92400e", bg: "#fef3c7" },
+  advanced:     { label: "knowledgeBase.diffAdvanced",        color: "#991b1b", bg: "#fee2e2" },
 }
 
 function initials(name: string) {
   return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
 }
 
-function timeAgo(iso: string) {
+function timeAgo(iso: string, t: (key: string, options?: any) => string) {
   const d = new Date(iso)
   const diff = Math.floor((Date.now() - d.getTime()) / 1000)
-  if (diff < 60) return "Gerade eben"
-  if (diff < 3600) return `vor ${Math.floor(diff / 60)} Min.`
-  if (diff < 86400) return `vor ${Math.floor(diff / 3600)} Std.`
-  return `vor ${Math.floor(diff / 86400)} Tagen`
+  if (diff < 60) return t('knowledgeBase.justNow')
+  if (diff < 3600) return t('knowledgeBase.minutesAgo', { count: Math.floor(diff / 60) })
+  if (diff < 86400) return t('knowledgeBase.hoursAgo', { count: Math.floor(diff / 3600) })
+  return t('knowledgeBase.daysAgo', { count: Math.floor(diff / 86400) })
 }
 
 // ─── Sub-Components ──────────────────────────────────────────────────────────
 
 function TypeBadge({ type }: { type: string }) {
+  const { t } = useTranslation()
   const m = TYPE_META[type] ?? { label: type, color: "#4a5568", bg: "#edf2f7", Icon: FileText }
   const { Icon } = m
   return (
@@ -144,12 +132,13 @@ function TypeBadge({ type }: { type: string }) {
       background: m.bg, color: m.color,
       fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 20,
     }}>
-      <Icon size={10} /> {m.label}
+      <Icon size={10} /> {t(m.label)}
     </span>
   )
 }
 
 function DiffBadge({ difficulty }: { difficulty: string }) {
+  const { t } = useTranslation()
   const m = DIFF_META[difficulty] ?? { label: difficulty, color: "#4a5568", bg: "#edf2f7" }
   return (
     <span style={{
@@ -157,7 +146,7 @@ function DiffBadge({ difficulty }: { difficulty: string }) {
       background: m.bg, color: m.color,
       fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 20,
     }}>
-      {m.label}
+      {t(m.label)}
     </span>
   )
 }
@@ -202,6 +191,7 @@ function StarRating({ value, onChange }: { value: number; onChange?: (v: number)
 // ─── Tag Input ────────────────────────────────────────────────────────────────
 
 function TagInput({ tags, onChange }: { tags: string[]; onChange: (t: string[]) => void }) {
+  const { t } = useTranslation()
   const [input, setInput] = useState("")
   const add = () => {
     const v = input.trim()
@@ -215,7 +205,7 @@ function TagInput({ tags, onChange }: { tags: string[]; onChange: (t: string[]) 
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); add() } }}
-          placeholder="Tag eingeben, Enter drücken..."
+          placeholder={t('knowledgeBase.tagInputPlaceholder')}
           style={{
             flex: 1, height: 36, border: "1px solid #d8dce6", borderRadius: 6,
             padding: "0 10px", fontSize: 13, fontFamily: "inherit",
@@ -235,15 +225,15 @@ function TagInput({ tags, onChange }: { tags: string[]; onChange: (t: string[]) 
         </button>
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        {tags.map(t => (
-          <span key={t} style={{
+        {tags.map(tag => (
+          <span key={tag} style={{
             background: "#e8ecf7", color: "#1a2a5e", fontSize: 12,
             fontWeight: 600, padding: "3px 10px", borderRadius: 20,
             display: "inline-flex", alignItems: "center", gap: 5,
           }}>
-            {t}
+            {tag}
             <X size={10} style={{ cursor: "pointer" }}
-              onClick={() => onChange(tags.filter(x => x !== t))} />
+              onClick={() => onChange(tags.filter(x => x !== tag))} />
           </span>
         ))}
       </div>
@@ -254,6 +244,7 @@ function TagInput({ tags, onChange }: { tags: string[]; onChange: (t: string[]) 
 // ─── Steps Editor ─────────────────────────────────────────────────────────────
 
 function StepsEditor({ steps, onChange }: { steps: ArticleStep[]; onChange: (s: ArticleStep[]) => void }) {
+  const { t } = useTranslation()
   const add = () => onChange([...steps, { order: steps.length + 1, title: "", description: "" }])
   const update = (i: number, field: keyof ArticleStep, val: string) => {
     const next = [...steps]
@@ -282,7 +273,7 @@ function StepsEditor({ steps, onChange }: { steps: ArticleStep[]; onChange: (s: 
             <input
               value={step.title}
               onChange={e => update(i, "title", e.target.value)}
-              placeholder={`Schritt ${i + 1} – Titel`}
+              placeholder={t('knowledgeBase.stepTitlePlaceholder', { step: i + 1 })}
               style={{
                 flex: 1, height: 32, border: "1px solid #d8dce6", borderRadius: 6,
                 padding: "0 8px", fontSize: 12, fontFamily: "inherit", outline: "none",
@@ -296,7 +287,7 @@ function StepsEditor({ steps, onChange }: { steps: ArticleStep[]; onChange: (s: 
           <textarea
             value={step.description}
             onChange={e => update(i, "description", e.target.value)}
-            placeholder="Beschreibung des Schritts..."
+            placeholder={t('knowledgeBase.stepDescriptionPlaceholder')}
             rows={2}
             style={{
               width: "100%", border: "1px solid #d8dce6", borderRadius: 6,
@@ -315,7 +306,7 @@ function StepsEditor({ steps, onChange }: { steps: ArticleStep[]; onChange: (s: 
           cursor: "pointer", fontFamily: "inherit",
         }}
       >
-        + Schritt hinzufügen
+        {t('knowledgeBase.addStep')}
       </button>
     </div>
   )
@@ -331,6 +322,7 @@ interface ArticleDialogProps {
 }
 
 function ArticleDialog({ open, initial, onClose, onSave }: ArticleDialogProps) {
+  const { t } = useTranslation()
   const [form, setForm] = useState({ ...EMPTY_FORM })
   const [activeTab, setActiveTab] = useState<"content" | "meta" | "steps">("content")
   const [customCategory, setCustomCategory] = useState("")
@@ -398,18 +390,18 @@ function ArticleDialog({ open, initial, onClose, onSave }: ArticleDialogProps) {
             </div>
             <div>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#fff" }}>
-                {initial ? "Artikel bearbeiten" : "Neuen Artikel erstellen"}
+                {initial ? t('knowledgeBase.editArticle') : t('knowledgeBase.createNewArticle')}
               </h2>
               <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 2 }}>
-                {initial ? "Änderungen werden sofort gespeichert" : "Wissensartikel für das Team anlegen"}
+                {initial ? t('knowledgeBase.changesSavedImmediately') : t('knowledgeBase.createArticleForTeam')}
               </p>
             </div>
           </div>
           {/* Tabs */}
           <div style={{ display: "flex", gap: 4, marginTop: 16 }}>
-            {(["content", "meta", "steps"] as const).map(t => (
-              <button key={t} style={tabStyle(t)} onClick={() => setActiveTab(t)}>
-                {t === "content" ? "Inhalt" : t === "meta" ? "Details" : "Schritte"}
+            {(["content", "meta", "steps"] as const).map(tab => (
+              <button key={tab} style={tabStyle(tab)} onClick={() => setActiveTab(tab)}>
+                {tab === "content" ? t('knowledgeBase.tabContent') : tab === "meta" ? t('knowledgeBase.tabDetails') : t('knowledgeBase.tabSteps')}
               </button>
             ))}
           </div>
@@ -423,12 +415,12 @@ function ArticleDialog({ open, initial, onClose, onSave }: ArticleDialogProps) {
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "#1a2a5e", display: "block", marginBottom: 6 }}>
-                  Titel *
+                  {t('knowledgeBase.titleRequired')}
                 </label>
                 <input
                   value={form.title}
                   onChange={e => set("title", e.target.value)}
-                  placeholder="z.B. iPhone 15 Display tauschen – vollständige Anleitung"
+                  placeholder={t('knowledgeBase.titlePlaceholder')}
                   style={{
                     width: "100%", height: 40, border: "1.5px solid #d8dce6",
                     borderRadius: 8, padding: "0 12px", fontSize: 14,
@@ -441,12 +433,12 @@ function ArticleDialog({ open, initial, onClose, onSave }: ArticleDialogProps) {
               </div>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "#1a2a5e", display: "block", marginBottom: 6 }}>
-                  Inhalt / Beschreibung *
+                  {t('knowledgeBase.contentRequired')}
                 </label>
                 <textarea
                   value={form.content}
                   onChange={e => set("content", e.target.value)}
-                  placeholder="Ausführliche Beschreibung, Hintergrundinformationen, Kontext..."
+                  placeholder={t('knowledgeBase.contentPlaceholder')}
                   rows={6}
                   style={{
                     width: "100%", border: "1.5px solid #d8dce6",
@@ -460,7 +452,7 @@ function ArticleDialog({ open, initial, onClose, onSave }: ArticleDialogProps) {
               </div>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "#1a2a5e", display: "block", marginBottom: 6 }}>
-                  Tags
+                  {t('knowledgeBase.tags')}
                 </label>
                 <TagInput tags={form.tags} onChange={t => set("tags", t)} />
               </div>
@@ -473,7 +465,7 @@ function ArticleDialog({ open, initial, onClose, onSave }: ArticleDialogProps) {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "#1a2a5e", display: "block", marginBottom: 6 }}>
-                    Kategorie *
+                    {t('knowledgeBase.categoryRequired')}
                   </label>
                   {!showCustom ? (
                     <Select value={form.category} onValueChange={v => {
@@ -481,11 +473,11 @@ function ArticleDialog({ open, initial, onClose, onSave }: ArticleDialogProps) {
                       else set("category", v)
                     }}>
                       <SelectTrigger style={{ height: 40, fontSize: 13, borderRadius: 8 }}>
-                        <SelectValue placeholder="Kategorie wählen..." />
+                        <SelectValue placeholder={t('knowledgeBase.selectCategory')} />
                       </SelectTrigger>
                       <SelectContent>
                         {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                        <SelectItem value="__custom__">+ Eigene Kategorie...</SelectItem>
+                        <SelectItem value="__custom__">{t('knowledgeBase.customCategory')}</SelectItem>
                       </SelectContent>
                     </Select>
                   ) : (
@@ -498,7 +490,7 @@ function ArticleDialog({ open, initial, onClose, onSave }: ArticleDialogProps) {
                           if (e.key === "Enter") { set("category", customCategory); setShowCustom(false) }
                           if (e.key === "Escape") { setShowCustom(false); setCustomCategory("") }
                         }}
-                        placeholder="Neue Kategorie..."
+                        placeholder={t('knowledgeBase.newCategoryPlaceholder')}
                         style={{
                           flex: 1, height: 40, border: "1.5px solid #1a2a5e", borderRadius: 8,
                           padding: "0 10px", fontSize: 13, fontFamily: "inherit", outline: "none",
@@ -519,38 +511,38 @@ function ArticleDialog({ open, initial, onClose, onSave }: ArticleDialogProps) {
                 </div>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "#1a2a5e", display: "block", marginBottom: 6 }}>
-                    Artikeltyp
+                    {t('knowledgeBase.articleType')}
                   </label>
                   <Select value={form.type} onValueChange={v => set("type", v)}>
                     <SelectTrigger style={{ height: 40, fontSize: 13, borderRadius: 8 }}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="guide">📘 Anleitung</SelectItem>
-                      <SelectItem value="troubleshooting">⚡ Fehlersuche</SelectItem>
-                      <SelectItem value="procedure">✅ Prozedur</SelectItem>
-                      <SelectItem value="faq">❓ FAQ</SelectItem>
+                      <SelectItem value="guide">{t('knowledgeBase.typeGuideOption')}</SelectItem>
+                      <SelectItem value="troubleshooting">{t('knowledgeBase.typeTroubleshootingOption')}</SelectItem>
+                      <SelectItem value="procedure">{t('knowledgeBase.typeProcedureOption')}</SelectItem>
+                      <SelectItem value="faq">{t('knowledgeBase.typeFaqOption')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "#1a2a5e", display: "block", marginBottom: 6 }}>
-                    Schwierigkeitsgrad
+                    {t('knowledgeBase.difficulty')}
                   </label>
                   <Select value={form.difficulty} onValueChange={v => set("difficulty", v as any)}>
                     <SelectTrigger style={{ height: 40, fontSize: 13, borderRadius: 8 }}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="beginner">🟢 Einsteiger</SelectItem>
-                      <SelectItem value="intermediate">🟡 Fortgeschritten</SelectItem>
-                      <SelectItem value="advanced">🔴 Experte</SelectItem>
+                      <SelectItem value="beginner">{t('knowledgeBase.diffBeginnerOption')}</SelectItem>
+                      <SelectItem value="intermediate">{t('knowledgeBase.diffIntermediateOption')}</SelectItem>
+                      <SelectItem value="advanced">{t('knowledgeBase.diffAdvancedOption')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "#1a2a5e", display: "block", marginBottom: 6 }}>
-                    Lesezeit (Minuten)
+                    {t('knowledgeBase.readTimeMinutes')}
                   </label>
                   <input
                     type="number"
@@ -570,11 +562,11 @@ function ArticleDialog({ open, initial, onClose, onSave }: ArticleDialogProps) {
               </div>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "#1a2a5e", display: "block", marginBottom: 8 }}>
-                  Bewertung
+                  {t('knowledgeBase.rating')}
                 </label>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <StarRating value={form.rating} onChange={v => set("rating", v)} />
-                  <span style={{ fontSize: 12, color: "#647087" }}>{form.rating > 0 ? `${form.rating}/5` : "Noch nicht bewertet"}</span>
+                  <span style={{ fontSize: 12, color: "#647087" }}>{form.rating > 0 ? `${form.rating}/5` : t('knowledgeBase.notYetRated')}</span>
                 </div>
               </div>
               <div>
@@ -596,10 +588,10 @@ function ArticleDialog({ open, initial, onClose, onSave }: ArticleDialogProps) {
                     }} />
                   </div>
                   <span style={{ fontSize: 13, fontWeight: 600, color: "#273246" }}>
-                    Artikel anheften
+                    {t('knowledgeBase.pinArticle')}
                   </span>
                   <span style={{ fontSize: 12, color: "#647087" }}>
-                    Angeheftete Artikel erscheinen oben in der Liste
+                    {t('knowledgeBase.pinnedArticlesAppearOnTop')}
                   </span>
                 </label>
               </div>
@@ -610,7 +602,7 @@ function ArticleDialog({ open, initial, onClose, onSave }: ArticleDialogProps) {
           {activeTab === "steps" && (
             <div>
               <p style={{ fontSize: 13, color: "#647087", marginBottom: 12, lineHeight: 1.5 }}>
-                Füge Schritt-für-Schritt-Anleitungen hinzu. Diese helfen dem Team, die Reparatur strukturiert durchzuführen.
+                {t('knowledgeBase.stepsDescription')}
               </p>
               <StepsEditor steps={form.steps} onChange={s => set("steps", s)} />
             </div>
@@ -624,7 +616,7 @@ function ArticleDialog({ open, initial, onClose, onSave }: ArticleDialogProps) {
           background: "#f8f9fc", borderRadius: "0 0 8px 8px",
         }}>
           <div style={{ display: "flex", gap: 6 }}>
-            {(["content", "meta", "steps"] as const).map((t, i) => (
+            {(["content", "meta", "steps"] as const).map((t) => (
               <div key={t} style={{
                 width: 8, height: 8, borderRadius: "50%",
                 background: activeTab === t ? "#1a2a5e" : "#d8dce6",
@@ -642,7 +634,7 @@ function ArticleDialog({ open, initial, onClose, onSave }: ArticleDialogProps) {
                 fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
               }}
             >
-              Abbrechen
+              {t('common.cancel')}
             </button>
             <button
               type="button"
@@ -661,7 +653,7 @@ function ArticleDialog({ open, initial, onClose, onSave }: ArticleDialogProps) {
                 transition: "all 0.15s", fontFamily: "inherit",
               }}
             >
-              {initial ? "Änderungen speichern" : "Artikel erstellen"}
+              {initial ? t('knowledgeBase.saveChanges') : t('knowledgeBase.createArticle')}
             </button>
           </div>
         </div>
@@ -681,8 +673,9 @@ function ArticleViewDialog({
   onClose: () => void
   onEdit: () => void
 }) {
+  const { t } = useTranslation()
   if (!article) return null
-  const { Icon } = TYPE_META[article.type] ?? { Icon: FileText }
+  const { Icon: _Icon } = TYPE_META[article.type] ?? { Icon: FileText }
 
   return (
     <Dialog open={!!article} onOpenChange={v => !v && onClose()}>
@@ -709,7 +702,7 @@ function ArticleViewDialog({
                     background: "rgba(245,184,0,0.15)", color: "#f5b800",
                     fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 20,
                   }}>
-                    <Pin size={10} /> Angeheftet
+                    <Pin size={10} /> {t('knowledgeBase.pinned')}
                   </span>
                 )}
               </div>
@@ -722,10 +715,10 @@ function ArticleViewDialog({
                   {article.author.name}
                 </span>
                 <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <Clock size={12} /> {article.estimatedReadTime} Min. Lesezeit
+                  <Clock size={12} /> {t('knowledgeBase.readTime', { minutes: article.estimatedReadTime })}
                 </span>
                 <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <Eye size={12} /> {article.views.toLocaleString()} Aufrufe
+                  <Eye size={12} /> {t('knowledgeBase.viewCount', { count: article.views })}
                 </span>
               </div>
             </div>
@@ -739,7 +732,7 @@ function ArticleViewDialog({
                 flexShrink: 0, marginLeft: 12,
               }}
             >
-              <Edit2 size={13} /> Bearbeiten
+              <Edit2 size={13} /> {t('common.edit')}
             </button>
           </div>
         </div>
@@ -760,7 +753,7 @@ function ArticleViewDialog({
           {article.steps.length > 0 && (
             <div style={{ marginBottom: 20 }}>
               <h3 style={{ fontSize: 14, fontWeight: 700, color: "#1a2a5e", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
-                <ListChecks size={16} /> Schritt-für-Schritt-Anleitung
+                <ListChecks size={16} /> {t('knowledgeBase.stepByStepGuide')}
               </h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {article.steps.map((step, i) => (
@@ -814,9 +807,9 @@ function ArticleViewDialog({
             background: "#f8f9fc", borderRadius: 10, border: "1px solid #eceef3",
           }}>
             {[
-              { label: "Bewertung", value: <div style={{ display: "flex", alignItems: "center", gap: 4 }}><Star size={14} fill="#f5b800" color="#f5b800" /><span style={{ fontWeight: 700 }}>{article.rating.toFixed(1)}</span></div> },
-              { label: "Kategorie", value: article.category },
-              { label: "Aktualisiert", value: timeAgo(article.lastUpdated) },
+              { label: t('knowledgeBase.rating'), value: <div style={{ display: "flex", alignItems: "center", gap: 4 }}><Star size={14} fill="#f5b800" color="#f5b800" /><span style={{ fontWeight: 700 }}>{article.rating.toFixed(1)}</span></div> },
+              { label: t('knowledgeBase.category'), value: article.category },
+              { label: t('knowledgeBase.updated'), value: timeAgo(article.lastUpdated, t) },
             ].map(s => (
               <div key={s.label} style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 11, color: "#647087", marginBottom: 2 }}>{s.label}</div>
@@ -837,6 +830,7 @@ function DeleteDialog({ article, onClose, onConfirm }: {
   onClose: () => void
   onConfirm: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <Dialog open={!!article} onOpenChange={v => !v && onClose()}>
       <DialogContent style={{
@@ -851,10 +845,10 @@ function DeleteDialog({ article, onClose, onConfirm }: {
             <AlertTriangle size={22} color="#e53e3e" />
           </div>
           <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#273246" }}>
-            Artikel löschen?
+            {t('knowledgeBase.deleteArticleTitle')}
           </h3>
           <p style={{ margin: 0, fontSize: 13, color: "#647087", lineHeight: 1.6 }}>
-            Der Artikel <strong style={{ color: "#273246" }}>„{article?.title}"</strong> wird unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.
+            {t('knowledgeBase.deleteConfirmationPrefix')} <strong style={{ color: "#273246" }}>„{article?.title}"</strong> {t('knowledgeBase.deleteConfirmationSuffix')}
           </p>
         </div>
         <div style={{
@@ -869,7 +863,7 @@ function DeleteDialog({ article, onClose, onConfirm }: {
               fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
             }}
           >
-            Abbrechen
+            {t('common.cancel')}
           </button>
           <button
             onClick={onConfirm}
@@ -880,7 +874,7 @@ function DeleteDialog({ article, onClose, onConfirm }: {
               cursor: "pointer", fontFamily: "inherit",
             }}
           >
-            Endgültig löschen
+            {t('knowledgeBase.deletePermanently')}
           </button>
         </div>
       </DialogContent>
@@ -903,8 +897,9 @@ function ArticleCard({
   onDelete: () => void
   onTogglePin: () => void
 }) {
+  const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
-  const { Icon } = TYPE_META[article.type] ?? { Icon: FileText }
+  const { Icon: _Icon } = TYPE_META[article.type] ?? { Icon: FileText }
 
   return (
     <div
@@ -930,7 +925,7 @@ function ArticleCard({
           display: "flex", alignItems: "center", gap: 3,
           fontSize: 10, fontWeight: 700, color: "#92400e",
         }}>
-          <Pin size={9} /> Angeheftet
+          <Pin size={9} /> {t('knowledgeBase.pinned')}
         </div>
       )}
 
@@ -974,11 +969,11 @@ function ArticleCard({
         {/* Tags */}
         {article.tags.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-            {article.tags.slice(0, 3).map(t => (
-              <span key={t} style={{
+            {article.tags.slice(0, 3).map(tag => (
+              <span key={tag} style={{
                 background: "#f0f2f8", color: "#4a5568",
                 fontSize: 11, padding: "2px 7px", borderRadius: 20,
-              }}>{t}</span>
+              }}>{tag}</span>
             ))}
             {article.tags.length > 3 && (
               <span style={{
@@ -1020,7 +1015,7 @@ function ArticleCard({
         transition: "background 0.15s",
       }}>
         <button onClick={onView} style={actionBtnStyle("#1a2a5e")}>
-          <Eye size={14} /> Lesen
+          <Eye size={14} /> {t('knowledgeBase.read')}
         </button>
         <button onClick={onEdit} style={actionBtnStyle("#647087")}>
           <Edit2 size={14} />
@@ -1036,7 +1031,7 @@ function ArticleCard({
   )
 }
 
-function actionBtnStyle(hoverColor: string): React.CSSProperties {
+function actionBtnStyle(_hoverColor: string): React.CSSProperties {
   return {
     flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
     padding: "9px 0", background: "none", border: "none", cursor: "pointer",
@@ -1057,6 +1052,7 @@ function ArticleRow({
   onDelete: () => void
   onTogglePin: () => void
 }) {
+  const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
   return (
     <div
@@ -1101,7 +1097,7 @@ function ArticleRow({
           <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
             <Clock size={10} /> {article.estimatedReadTime}min
           </span>
-          <span>{timeAgo(article.lastUpdated)}</span>
+          <span>{timeAgo(article.lastUpdated, t)}</span>
         </div>
       </div>
       <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
@@ -1124,6 +1120,7 @@ const iconBtnStyle: React.CSSProperties = {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function KnowledgeBase() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const { toast } = useToast()
 
@@ -1259,11 +1256,10 @@ export function KnowledgeBase() {
   // Stats
   const totalViews = articles.reduce((s, a) => s + a.views, 0)
   const avgRating = articles.length ? (articles.reduce((s, a) => s + a.rating, 0) / articles.length).toFixed(1) : "–"
-  const topRated = [...articles].sort((a, b) => b.rating - a.rating)[0]
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
   const handleCreate = (data: Omit<KnowledgeArticle, "_id" | "views" | "lastUpdated" | "author">) => {
-    const authorName = user?.name || user?.email || "Unbekannt"
+    const authorName = (user as any)?.name || user?.email || t('knowledgeBase.unknown')
     const newArticle: KnowledgeArticle = {
       ...data,
       _id: Date.now().toString(),
@@ -1273,7 +1269,7 @@ export function KnowledgeBase() {
     }
     setArticles(prev => [newArticle, ...prev])
     setShowCreate(false)
-    toast({ title: "Artikel erstellt", description: `„${newArticle.title}" wurde erfolgreich angelegt.` })
+    toast({ title: t('knowledgeBase.articleCreated'), description: t('knowledgeBase.articleCreatedDesc', { title: newArticle.title }) })
   }
 
   const handleEdit = (data: Omit<KnowledgeArticle, "_id" | "views" | "lastUpdated" | "author">) => {
@@ -1283,21 +1279,21 @@ export function KnowledgeBase() {
       : a
     ))
     setEditArticle(null)
-    toast({ title: "Artikel aktualisiert", description: `„${data.title}" wurde gespeichert.` })
+    toast({ title: t('knowledgeBase.articleUpdated'), description: t('knowledgeBase.articleSavedDesc', { title: data.title }) })
   }
 
   const handleDelete = () => {
     if (!deleteArticle) return
     setArticles(prev => prev.filter(a => a._id !== deleteArticle._id))
     setDeleteArticle(null)
-    toast({ title: "Artikel gelöscht", description: "Der Artikel wurde entfernt." })
+    toast({ title: t('knowledgeBase.articleDeleted'), description: t('knowledgeBase.articleDeletedDesc') })
   }
 
   const handleTogglePin = (article: KnowledgeArticle) => {
     setArticles(prev => prev.map(a => a._id === article._id ? { ...a, pinned: !a.pinned } : a))
     toast({
-      title: article.pinned ? "Artikel abgeheftet" : "Artikel angeheftet",
-      description: article.pinned ? "Artikel nicht mehr oben." : "Artikel erscheint jetzt oben.",
+      title: article.pinned ? t('knowledgeBase.articleUnpinned') : t('knowledgeBase.articlePinned'),
+      description: article.pinned ? t('knowledgeBase.unpinnedDesc') : t('knowledgeBase.pinnedDesc'),
     })
   }
 
@@ -1344,10 +1340,10 @@ export function KnowledgeBase() {
           </div>
           <div>
             <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: "-0.3px" }}>
-              Knowledge Base
+              {t('knowledgeBase.title')}
             </h1>
             <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 2 }}>
-              Reparaturwissen, Anleitungen & Prozeduren für dein Team
+              {t('knowledgeBase.subtitle')}
             </p>
           </div>
         </div>
@@ -1363,18 +1359,18 @@ export function KnowledgeBase() {
           onMouseEnter={e => (e.currentTarget.style.background = "#e5ab00")}
           onMouseLeave={e => (e.currentTarget.style.background = "#f5b800")}
         >
-          <Plus size={16} /> Artikel erstellen
+          <Plus size={16} /> {t('knowledgeBase.createArticle')}
         </button>
       </div>
 
       {/* ── Stats Row ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "0.5rem" }}>
         {[
-          { label: "Artikel gesamt", value: articles.length, Icon: BookOpen, accent: false },
-          { label: "Kategorien", value: categories.length, Icon: Layers, accent: false },
-          { label: "Gesamt-Aufrufe", value: totalViews.toLocaleString(), Icon: TrendingUp, accent: false },
-          { label: "Ø Bewertung", value: avgRating, Icon: Star, accent: true },
-          { label: "Angeheftet", value: articles.filter(a => a.pinned).length, Icon: Pin, accent: false },
+          { label: t('knowledgeBase.totalArticles'), value: articles.length, Icon: BookOpen, accent: false },
+          { label: t('knowledgeBase.categoriesLabel'), value: categories.length, Icon: Layers, accent: false },
+          { label: t('knowledgeBase.totalViews'), value: totalViews.toLocaleString(), Icon: TrendingUp, accent: false },
+          { label: t('knowledgeBase.avgRating'), value: avgRating, Icon: Star, accent: true },
+          { label: t('knowledgeBase.pinnedLabel'), value: articles.filter(a => a.pinned).length, Icon: Pin, accent: false },
         ].map(s => (
           <div key={s.label} style={{
             background: "#fff", border: "1px solid #d8dce6", borderRadius: 10,
@@ -1402,7 +1398,7 @@ export function KnowledgeBase() {
           <input
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Artikel, Tags oder Inhalte suchen..."
+            placeholder={t('knowledgeBase.searchPlaceholder')}
             style={{
               width: "100%", height: 38, border: "1px solid #d8dce6", borderRadius: 8,
               paddingLeft: 34, paddingRight: 12, fontSize: 13, fontFamily: "inherit",
@@ -1421,10 +1417,10 @@ export function KnowledgeBase() {
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger style={{ width: 160, height: 38, fontSize: 13, borderRadius: 8, border: "1px solid #d8dce6" }}>
             <Filter size={13} style={{ marginRight: 6, color: "#8892a8" }} />
-            <SelectValue placeholder="Kategorie" />
+            <SelectValue placeholder={t('knowledgeBase.category')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Alle Kategorien</SelectItem>
+            <SelectItem value="all">{t('knowledgeBase.allCategories')}</SelectItem>
             {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
@@ -1432,14 +1428,14 @@ export function KnowledgeBase() {
         {/* Type filter */}
         <Select value={typeFilter} onValueChange={setTypeFilter}>
           <SelectTrigger style={{ width: 150, height: 38, fontSize: 13, borderRadius: 8, border: "1px solid #d8dce6" }}>
-            <SelectValue placeholder="Typ" />
+            <SelectValue placeholder={t('knowledgeBase.type')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Alle Typen</SelectItem>
-            <SelectItem value="guide">📘 Anleitungen</SelectItem>
-            <SelectItem value="troubleshooting">⚡ Fehlersuche</SelectItem>
-            <SelectItem value="procedure">✅ Prozeduren</SelectItem>
-            <SelectItem value="faq">❓ FAQ</SelectItem>
+            <SelectItem value="all">{t('knowledgeBase.allTypes')}</SelectItem>
+            <SelectItem value="guide">{t('knowledgeBase.typeGuidesOption')}</SelectItem>
+            <SelectItem value="troubleshooting">{t('knowledgeBase.typeTroubleshootingOption')}</SelectItem>
+            <SelectItem value="procedure">{t('knowledgeBase.typeProceduresOption')}</SelectItem>
+            <SelectItem value="faq">{t('knowledgeBase.typeFaqOption')}</SelectItem>
           </SelectContent>
         </Select>
 
@@ -1479,7 +1475,7 @@ export function KnowledgeBase() {
               cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
             }}
           >
-            {c === "all" ? "Alle" : c}
+            {c === "all" ? t('common.all') : c}
             {c !== "all" && (
               <span style={{
                 marginLeft: 5, background: categoryFilter === c ? "rgba(255,255,255,0.2)" : "#f0f2f8",
@@ -1496,9 +1492,9 @@ export function KnowledgeBase() {
       {/* ── Results info ── */}
       <div style={{ fontSize: 12, color: "#647087", paddingLeft: 2 }}>
         {filtered.length === articles.length
-          ? `${articles.length} Artikel`
-          : `${filtered.length} von ${articles.length} Artikeln`}
-        {searchTerm && ` · Suche: „${searchTerm}"`}
+          ? t('knowledgeBase.articleCount', { count: articles.length })
+          : t('knowledgeBase.filteredArticleCount', { filtered: filtered.length, total: articles.length })}
+        {searchTerm && ` · ${t('knowledgeBase.searchLabel')}: „${searchTerm}"`}
       </div>
 
       {/* ── Articles (Grid) ── */}
@@ -1548,10 +1544,10 @@ export function KnowledgeBase() {
             <BookOpen size={26} color="#1a2a5e" style={{ opacity: 0.5 }} />
           </div>
           <h3 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700, color: "#273246" }}>
-            Keine Artikel gefunden
+            {t('knowledgeBase.noArticlesFound')}
           </h3>
           <p style={{ margin: "0 0 20px", fontSize: 13, color: "#647087" }}>
-            {searchTerm ? `Keine Ergebnisse für „${searchTerm}".` : "Noch keine Artikel in dieser Kategorie."}
+            {searchTerm ? t('knowledgeBase.noResultsFor', { term: searchTerm }) : t('knowledgeBase.noArticlesInCategory')}
           </p>
           <button
             onClick={() => setShowCreate(true)}
@@ -1562,7 +1558,7 @@ export function KnowledgeBase() {
               fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
             }}
           >
-            <Plus size={15} /> Ersten Artikel erstellen
+            <Plus size={15} /> {t('knowledgeBase.createFirstArticle')}
           </button>
         </div>
       )}

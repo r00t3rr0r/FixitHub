@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +31,7 @@ import {
 } from '@/api/database';
 
 export function DatabaseManagement() {
+  const { t } = useTranslation()
   const [stats, setStats] = useState<DatabaseStats | null>(null);
   const [operations, setOperations] = useState<DatabaseOperation[]>([]);
   const [backups, setBackups] = useState<DatabaseBackup[]>([]);
@@ -67,7 +69,7 @@ export function DatabaseManagement() {
     } catch (error) {
       console.error('Error fetching database data:', error);
       toast({
-        title: "Error",
+        title: t('common.error'),
         description: error.message,
         variant: "destructive",
       });
@@ -82,7 +84,7 @@ export function DatabaseManagement() {
       const response = await createDatabaseBackup();
       
       toast({
-        title: "Success",
+        title: t('common.success'),
         description: response.data.message,
       });
       
@@ -90,7 +92,7 @@ export function DatabaseManagement() {
     } catch (error) {
       console.error('Error creating backup:', error);
       toast({
-        title: "Error",
+        title: t('common.error'),
         description: error.message,
         variant: "destructive",
       });
@@ -105,7 +107,7 @@ export function DatabaseManagement() {
       const response = await optimizeDatabase();
       
       toast({
-        title: "Success",
+        title: t('common.success'),
         description: response.data.message,
       });
       
@@ -113,7 +115,7 @@ export function DatabaseManagement() {
     } catch (error) {
       console.error('Error optimizing database:', error);
       toast({
-        title: "Error",
+        title: t('common.error'),
         description: error.message,
         variant: "destructive",
       });
@@ -131,7 +133,7 @@ export function DatabaseManagement() {
       });
 
       toast({
-        title: "Success",
+        title: t('common.success'),
         description: response.data.message,
       });
 
@@ -139,7 +141,7 @@ export function DatabaseManagement() {
     } catch (error) {
       console.error('Error cleaning up data:', error);
       toast({
-        title: "Error",
+        title: t('common.error'),
         description: error.message,
         variant: "destructive",
       });
@@ -154,7 +156,7 @@ export function DatabaseManagement() {
       const response = await deleteAllBookingsAndOrders();
 
       toast({
-        title: "Success",
+        title: t('common.success'),
         description: `Deleted ${response.data.results.orders.deleted} orders and ${response.data.results.bookings.deleted} bookings`,
       });
 
@@ -162,7 +164,7 @@ export function DatabaseManagement() {
     } catch (error) {
       console.error('Error deleting bookings and orders:', error);
       toast({
-        title: "Error",
+        title: t('common.error'),
         description: error.message,
         variant: "destructive",
       });
@@ -177,7 +179,7 @@ export function DatabaseManagement() {
       const response = await deleteAllInvoices();
 
       toast({
-        title: "Success",
+        title: t('common.success'),
         description: `Deleted ${response.data.results.deleted} invoices`,
       });
 
@@ -185,7 +187,7 @@ export function DatabaseManagement() {
     } catch (error) {
       console.error('Error deleting invoices:', error);
       toast({
-        title: "Error",
+        title: t('common.error'),
         description: error.message,
         variant: "destructive",
       });
@@ -200,7 +202,7 @@ export function DatabaseManagement() {
       const response = await deleteAllComplaints();
 
       toast({
-        title: "Success",
+        title: t('common.success'),
         description: `Deleted ${response.data.results.deleted} complaints`,
       });
 
@@ -208,7 +210,7 @@ export function DatabaseManagement() {
     } catch (error) {
       console.error('Error deleting complaints:', error);
       toast({
-        title: "Error",
+        title: t('common.error'),
         description: error.message,
         variant: "destructive",
       });
@@ -223,7 +225,7 @@ export function DatabaseManagement() {
       const response = await deleteAllRepairRequests();
 
       toast({
-        title: "Success",
+        title: t('common.success'),
         description: `Deleted ${response.data.results.deleted} repair requests`,
       });
 
@@ -231,7 +233,7 @@ export function DatabaseManagement() {
     } catch (error) {
       console.error('Error deleting repair requests:', error);
       toast({
-        title: "Error",
+        title: t('common.error'),
         description: error.message,
         variant: "destructive",
       });
@@ -250,7 +252,7 @@ export function DatabaseManagement() {
 
   const getHealthStatus = (status: string) => {
     switch (status) {
-      case 'healthy': return { color: 'bg-green-500', text: 'Healthy' };
+      case 'healthy': return { color: 'bg-green-500', text: t('databaseManagement.healthy') };
       case 'unhealthy': return { color: 'bg-red-500', text: 'Unhealthy' };
       default: return { color: 'bg-yellow-500', text: 'Unknown' };
     }
@@ -267,9 +269,9 @@ export function DatabaseManagement() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Database Management</h1>
+        <h1 className="text-3xl font-bold">{t('databaseManagement.title')}</h1>
         <p className="text-muted-foreground">
-          Monitor database performance, manage backups, and optimize storage
+          {t('databaseManagement.description')}
         </p>
       </div>
 
@@ -279,13 +281,13 @@ export function DatabaseManagement() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
-              Database Health
+              {t('databaseManagement.health')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
-                <p className="text-sm font-medium">Status</p>
+                <p className="text-sm font-medium">{t('databaseManagement.status')}</p>
                 <div className="flex items-center gap-2">
                   <div className={`w-3 h-3 rounded-full ${getHealthStatus(health.status).color}`} />
                   <span>{getHealthStatus(health.status).text}</span>
@@ -312,7 +314,7 @@ export function DatabaseManagement() {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="collections">Collections</TabsTrigger>
+          <TabsTrigger value="collections">{t('databaseManagement.collections')}</TabsTrigger>
           <TabsTrigger value="operations">Operations</TabsTrigger>
           <TabsTrigger value="backups">Backups</TabsTrigger>
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
@@ -336,7 +338,7 @@ export function DatabaseManagement() {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Collections</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('databaseManagement.collections')}</CardTitle>
                   <HardDrive className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -376,8 +378,8 @@ export function DatabaseManagement() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Collection</TableHead>
-                    <TableHead>Documents</TableHead>
-                    <TableHead>Size</TableHead>
+                    <TableHead>{t('databaseManagement.documents')}</TableHead>
+                    <TableHead>{t('databaseManagement.size')}</TableHead>
                     <TableHead>Avg Doc Size</TableHead>
                     <TableHead>Storage Size</TableHead>
                     <TableHead>Indexes</TableHead>
@@ -405,7 +407,7 @@ export function DatabaseManagement() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Activity className="h-5 w-5" />
-                Recent Operations
+                {t('databaseManagement.operations')}
               </CardTitle>
               <CardDescription>
                 Monitor recent database operations and their performance
@@ -418,7 +420,7 @@ export function DatabaseManagement() {
                     <TableHead>Operation</TableHead>
                     <TableHead>Collection</TableHead>
                     <TableHead>Duration</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>{t('common.status')}</TableHead>
                     <TableHead>Timestamp</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -456,16 +458,16 @@ export function DatabaseManagement() {
             <CardContent className="space-y-4">
               <Button onClick={handleCreateBackup} disabled={backupLoading}>
                 {backupLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
-                Create Backup
+                {t('databaseManagement.createBackup')}
               </Button>
 
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Backup ID</TableHead>
-                    <TableHead>Size</TableHead>
+                    <TableHead>{t('databaseManagement.size')}</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>{t('common.status')}</TableHead>
                     <TableHead>Created</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -510,18 +512,18 @@ export function DatabaseManagement() {
                   <AlertDialogTrigger asChild>
                     <Button disabled={optimizeLoading}>
                       {optimizeLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Zap className="h-4 w-4 mr-2" />}
-                      Optimize Database
+                      {t('databaseManagement.optimize')}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Optimize Database</AlertDialogTitle>
+                      <AlertDialogTitle>{t('databaseManagement.optimize')}</AlertDialogTitle>
                       <AlertDialogDescription>
                         This will rebuild all indexes and may take some time. The database will remain accessible during optimization.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                       <AlertDialogAction onClick={handleOptimizeDatabase}>
                         Optimize
                       </AlertDialogAction>
@@ -589,7 +591,7 @@ export function DatabaseManagement() {
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                       <AlertDialogAction onClick={handleCleanupData} className="bg-red-600 hover:bg-red-700">
                         Delete Data
                       </AlertDialogAction>
@@ -630,7 +632,7 @@ export function DatabaseManagement() {
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                       <AlertDialogAction onClick={handleDeleteBookingsAndOrders} className="bg-red-600 hover:bg-red-700">
                         Delete All
                       </AlertDialogAction>
@@ -671,7 +673,7 @@ export function DatabaseManagement() {
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                       <AlertDialogAction onClick={handleDeleteInvoices} className="bg-red-600 hover:bg-red-700">
                         Delete All
                       </AlertDialogAction>
@@ -712,7 +714,7 @@ export function DatabaseManagement() {
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                       <AlertDialogAction onClick={handleDeleteComplaints} className="bg-red-600 hover:bg-red-700">
                         Delete All
                       </AlertDialogAction>
@@ -753,7 +755,7 @@ export function DatabaseManagement() {
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                       <AlertDialogAction onClick={handleDeleteRepairRequests} className="bg-red-600 hover:bg-red-700">
                         Delete All
                       </AlertDialogAction>

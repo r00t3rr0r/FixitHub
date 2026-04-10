@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -109,6 +110,7 @@ const capitalize = (value?: string) => {
 export function AdminDashboard() {
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { t } = useTranslation()
 
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -158,15 +160,15 @@ export function AdminDashboard() {
 
       if (showToast) {
         toast({
-          title: "Dashboard aktualisiert",
-          description: `${processedData.bookings.length} Buchungen, ${processedData.repairRequests.length} Repair Requests, ${processedData.notificationMeta.unreadCount} ungelesene Hinweise`,
+          title: t('adminDashboard.updated'),
+          description: `${processedData.bookings.length} ${t('adminDashboard.bookingsLabel')}, ${processedData.repairRequests.length} ${t('adminDashboard.repairRequests')}, ${processedData.notificationMeta.unreadCount} ${t('adminDashboard.unreadNotices')}`,
         })
       }
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Dashboard konnte nicht geladen werden",
-        description: error?.message || "Unbekannter Fehler",
+        title: t('adminDashboard.loadError'),
+        description: error?.message || t('adminDashboard.unknownError'),
       })
     } finally {
       setLoading(false)
@@ -242,7 +244,7 @@ export function AdminDashboard() {
     return (
       <div className="admin-dashboard-loading-screen">
         <RefreshCw className="h-6 w-6 animate-spin text-[#1a2a5e]" />
-        <p>Dashboard wird geladen...</p>
+        <p>{t('adminDashboard.loading')}</p>
       </div>
     )
   }
@@ -251,16 +253,16 @@ export function AdminDashboard() {
     <div className="admin-dashboard-container compact-dashboard">
       <div className="admin-dashboard-header compact-header">
         <div className="compact-header-main">
-          <h1>Admin Dashboard</h1>
-          <p>Platzsparende Live-Uebersicht fuer Betrieb, Team und offene Vorgaenge</p>
+          <h1>{t('adminDashboard.title')}</h1>
+          <p>{t('adminDashboard.description')}</p>
         </div>
 
         <div className="compact-header-meta">
           <Badge variant="outline" className="compact-badge-muted">
-            Letztes Update: {lastUpdatedAt ? lastUpdatedAt.toLocaleTimeString("de-CH") : "-"}
+            {t('adminDashboard.lastUpdate')}: {lastUpdatedAt ? lastUpdatedAt.toLocaleTimeString() : "-"}
           </Badge>
           <Badge variant="outline" className="compact-badge-muted">
-            Auto Refresh: 15s
+            {t('adminDashboard.autoRefresh')}
           </Badge>
         </div>
 
@@ -275,12 +277,12 @@ export function AdminDashboard() {
             link.click()
           }} className="compact-btn-light">
             <Download className="h-3.5 w-3.5" />
-            Export
+            {t('common.export')}
           </Button>
 
           <Button size="sm" variant="outline" onClick={() => fetchDashboardData(true)} disabled={refreshing} className="compact-btn-light">
             <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-            Aktualisieren
+            {t('common.refresh')}
           </Button>
         </div>
       </div>
@@ -289,9 +291,9 @@ export function AdminDashboard() {
         <Card className="compact-stat-card">
           <CardContent className="compact-stat-content">
             <div>
-              <p>Auftraege gesamt</p>
+              <p>{t('adminDashboard.totalOrders')}</p>
               <h3>{counts.totalOrders || 0}</h3>
-              <small>{counts.activeOrders || 0} aktiv</small>
+              <small>{counts.activeOrders || 0} {t('adminDashboard.active')}</small>
             </div>
             <Package className="h-4 w-4" />
           </CardContent>
@@ -300,9 +302,9 @@ export function AdminDashboard() {
         <Card className="compact-stat-card">
           <CardContent className="compact-stat-content">
             <div>
-              <p>Kunden</p>
+              <p>{t('adminDashboard.customers')}</p>
               <h3>{counts.totalUsers || 0}</h3>
-              <small>{counts.activeStaff || 0} Team aktiv</small>
+              <small>{counts.activeStaff || 0} {t('adminDashboard.teamActive')}</small>
             </div>
             <Users className="h-4 w-4" />
           </CardContent>
@@ -311,9 +313,9 @@ export function AdminDashboard() {
         <Card className="compact-stat-card">
           <CardContent className="compact-stat-content">
             <div>
-              <p>Nachrichten</p>
+              <p>{t('adminDashboard.messagesLabel')}</p>
               <h3>{totalUnreadMessages}</h3>
-              <small>ungelesen von Kunden</small>
+              <small>{t('adminDashboard.unreadFromCustomers')}</small>
             </div>
             <MessageCircle className="h-4 w-4" />
           </CardContent>
@@ -322,9 +324,9 @@ export function AdminDashboard() {
         <Card className="compact-stat-card">
           <CardContent className="compact-stat-content">
             <div>
-              <p>Ungelesen</p>
+              <p>{t('adminDashboard.unread')}</p>
               <h3>{dashboardData.notificationMeta.unreadCount}</h3>
-              <small>{dashboardData.notificationMeta.urgentCount} dringend</small>
+              <small>{dashboardData.notificationMeta.urgentCount} {t('adminDashboard.urgent')}</small>
             </div>
             <Bell className="h-4 w-4" />
           </CardContent>
@@ -333,7 +335,7 @@ export function AdminDashboard() {
         <Card className="compact-stat-card">
           <CardContent className="compact-stat-content">
             <div>
-              <p>System</p>
+              <p>{t('adminDashboard.system')}</p>
               <h3>{capitalize(String(health.status || "healthy"))}</h3>
               <small>DB: {capitalize(String(health.dbConnection || "connected"))}</small>
             </div>
@@ -343,12 +345,12 @@ export function AdminDashboard() {
       </div>
 
       <div className="compact-alert-bar">
-        <button type="button" onClick={() => navigate("/notifications")}>Dringende Hinweise: <strong>{dashboardData.notificationMeta.urgentCount}</strong></button>
-        <button type="button" onClick={() => navigate("/admin/orders")}>Prioritaet Auftraege: <strong>{derived.urgentOrders}</strong></button>
-        <button type="button" onClick={() => navigate("/admin/staff")}>Team Auslastung {">"} 85%: <strong>{derived.overloadedStaff}</strong></button>
-        <button type="button" onClick={() => navigate("/admin/bookings")}>Buchungen offen: <strong>{derived.pendingBookings}</strong></button>
+        <button type="button" onClick={() => navigate("/notifications")}>{t('adminDashboard.urgentNotices')}: <strong>{dashboardData.notificationMeta.urgentCount}</strong></button>
+        <button type="button" onClick={() => navigate("/admin/orders")}>{t('adminDashboard.priorityOrders')}: <strong>{derived.urgentOrders}</strong></button>
+        <button type="button" onClick={() => navigate("/admin/staff")}>{t('adminDashboard.teamOverload')}: <strong>{derived.overloadedStaff}</strong></button>
+        <button type="button" onClick={() => navigate("/admin/bookings")}>{t('adminDashboard.openBookings')}: <strong>{derived.pendingBookings}</strong></button>
         {totalUnreadMessages > 0 && (
-          <button type="button" className="compact-alert-messages" onClick={() => navigate("/admin/orders")}>Neue Kundennachrichten: <strong>{totalUnreadMessages}</strong></button>
+          <button type="button" className="compact-alert-messages" onClick={() => navigate("/admin/orders")}>{t('adminDashboard.newCustomerMessages')}: <strong>{totalUnreadMessages}</strong></button>
         )}
       </div>
 
@@ -357,14 +359,14 @@ export function AdminDashboard() {
           <CardHeader className="compact-panel-header">
             <CardTitle>
               <Calendar className="h-4 w-4" />
-              Neue Buchungen
+              {t('adminDashboard.newBookings')}
             </CardTitle>
-            <CardDescription>{dashboardData.sectionCounts.bookings || dashboardData.bookings.length} Eintraege</CardDescription>
+            <CardDescription>{dashboardData.sectionCounts.bookings || dashboardData.bookings.length} {t('adminDashboard.entries')}</CardDescription>
           </CardHeader>
           <CardContent className="compact-panel-content">
             <ScrollArea className="compact-scroll-area">
               <div className="compact-list">
-                {dashboardData.bookings.length === 0 && <p className="compact-empty">Keine aktuellen Buchungen</p>}
+                {dashboardData.bookings.length === 0 && <p className="compact-empty">{t('adminDashboard.noBookings')}</p>}
                 {dashboardData.bookings.slice(0, 6).map((booking: any) => {
                   const customerName = toName(booking.customer)
                   const amount = Number(booking.totalCost ?? booking.totalAmount ?? 0)
@@ -387,7 +389,7 @@ export function AdminDashboard() {
             </ScrollArea>
             <Separator />
             <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/admin/bookings")}>
-              Buchungen verwalten
+              {t('adminDashboard.manageBookings')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </CardContent>
@@ -397,14 +399,14 @@ export function AdminDashboard() {
           <CardHeader className="compact-panel-header">
             <CardTitle>
               <Wrench className="h-4 w-4" />
-              Repair Requests
+              {t('adminDashboard.repairRequests')}
             </CardTitle>
-            <CardDescription>{derived.openRepairs} offen</CardDescription>
+            <CardDescription>{derived.openRepairs} {t('adminDashboard.open')}</CardDescription>
           </CardHeader>
           <CardContent className="compact-panel-content">
             <ScrollArea className="compact-scroll-area">
               <div className="compact-list">
-                {dashboardData.repairRequests.length === 0 && <p className="compact-empty">Keine offenen Repair Requests</p>}
+                {dashboardData.repairRequests.length === 0 && <p className="compact-empty">{t('adminDashboard.noRepairRequests')}</p>}
                 {dashboardData.repairRequests.slice(0, 6).map((request: any) => {
                   const customerName = toName(request.customer)
                   const device = request.device
@@ -428,7 +430,7 @@ export function AdminDashboard() {
             </ScrollArea>
             <Separator />
             <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/admin/repair-requests")}>
-              Requests ansehen
+              {t('adminDashboard.viewRequests')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </CardContent>
@@ -438,25 +440,25 @@ export function AdminDashboard() {
           <CardHeader className="compact-panel-header">
             <CardTitle>
               <Bell className="h-4 w-4" />
-              Hinweise
+              {t('adminDashboard.notices')}
             </CardTitle>
-            <CardDescription>{dashboardData.notificationMeta.totalCount || dashboardData.notifications.length} Eintraege</CardDescription>
+            <CardDescription>{dashboardData.notificationMeta.totalCount || dashboardData.notifications.length} {t('adminDashboard.entries')}</CardDescription>
           </CardHeader>
           <CardContent className="compact-panel-content">
             <ScrollArea className="compact-scroll-area">
               <div className="compact-list">
-                {dashboardData.notifications.length === 0 && <p className="compact-empty">Keine neuen Hinweise</p>}
+                {dashboardData.notifications.length === 0 && <p className="compact-empty">{t('adminDashboard.noNotices')}</p>}
                 {dashboardData.notifications.slice(0, 8).map((notification: any) => (
                   <div key={notification._id} className="compact-list-item">
                     <div>
                       <p className="compact-title">
                         {notification?.isUrgent ? <AlertCircle className="h-3.5 w-3.5 text-[#c53030]" /> : null}
-                        {notification?.title || "Hinweis"}
+                        {notification?.title || t('adminDashboard.notice')}
                       </p>
                       <p className="compact-sub line-clamp-2">{notification?.message || "-"}</p>
                     </div>
                     <div className="compact-list-side">
-                      {!notification?.isRead && <Badge className="compact-badge-unread">neu</Badge>}
+                      {!notification?.isRead && <Badge className="compact-badge-unread">{t('common.new')}</Badge>}
                       <small>{timeAgo(notification?.createdAt)}</small>
                     </div>
                   </div>
@@ -465,7 +467,7 @@ export function AdminDashboard() {
             </ScrollArea>
             <Separator />
             <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/notifications")}>
-              Alle Hinweise
+              {t('adminDashboard.allNotices')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </CardContent>
@@ -477,24 +479,24 @@ export function AdminDashboard() {
           <CardHeader className="compact-panel-header">
             <CardTitle>
               <MessageCircle className="h-4 w-4 compact-messages-icon" />
-              Neue Kundennachrichten
+              {t('adminDashboard.newCustomerMessages')}
             </CardTitle>
             <CardDescription>
               {totalUnreadMessages > 0
-                ? <span className="compact-messages-count-label">{totalUnreadMessages} ungelesen</span>
-                : "Keine neuen Nachrichten"}
+                ? <span className="compact-messages-count-label">{totalUnreadMessages} {t('adminDashboard.unreadLabel')}</span>
+                : t('adminDashboard.noNewMessages')}
             </CardDescription>
           </CardHeader>
           <CardContent className="compact-panel-content">
             <ScrollArea className="compact-scroll-area">
               <div className="compact-list">
                 {customerMessages.length === 0 && (
-                  <p className="compact-empty">Keine ungelesenen Kundennachrichten</p>
+                  <p className="compact-empty">{t('adminDashboard.noUnreadMessages')}</p>
                 )}
                 {customerMessages.slice(0, 8).map((msg) => {
                   const label = msg.source === "inspection"
-                    ? msg.orderNumber ? `Auftrag #${msg.orderNumber}` : "Auftrag"
-                    : msg.requestNumber ? `Anfrage #${msg.requestNumber}` : (msg.deviceType || "Repair Request")
+                    ? msg.orderNumber ? `${t('adminDashboard.orderLabel')} #${msg.orderNumber}` : t('adminDashboard.orderLabel')
+                    : msg.requestNumber ? `${t('adminDashboard.requestLabel')} #${msg.requestNumber}` : (msg.deviceType || t('adminDashboard.repairRequests'))
                   const preview = msg.content.length > 60
                     ? `${msg.content.slice(0, 60)}…`
                     : msg.content
@@ -514,7 +516,7 @@ export function AdminDashboard() {
                         <p className="compact-sub compact-msg-preview">{preview}</p>
                       </div>
                       <div className="compact-list-side">
-                        <Badge className="compact-badge-unread">neu</Badge>
+                        <Badge className="compact-badge-unread">{t('common.new')}</Badge>
                         <small>{timeAgo(msg.createdAt)}</small>
                       </div>
                     </button>
@@ -524,7 +526,7 @@ export function AdminDashboard() {
             </ScrollArea>
             <Separator />
             <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/admin/orders")}>
-              Alle Auftraege
+              {t('adminDashboard.allOrders')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </CardContent>
@@ -533,24 +535,24 @@ export function AdminDashboard() {
           <CardHeader className="compact-panel-header">
             <CardTitle>
               <UserCheck className="h-4 w-4" />
-              Team Status
+              {t('adminDashboard.teamStatus')}
             </CardTitle>
-            <CardDescription>{dashboardData.staffStatus.length} aktive Teammitglieder</CardDescription>
+            <CardDescription>{dashboardData.staffStatus.length} {t('adminDashboard.activeTeamMembers')}</CardDescription>
           </CardHeader>
           <CardContent className="compact-panel-content">
             <ScrollArea className="compact-scroll-area">
               <div className="compact-list">
-                {dashboardData.staffStatus.length === 0 && <p className="compact-empty">Keine Teamdaten</p>}
+                {dashboardData.staffStatus.length === 0 && <p className="compact-empty">{t('adminDashboard.noTeamData')}</p>}
                 {dashboardData.staffStatus.slice(0, 10).map((staff: any) => (
                   <div key={staff._id || staff.email} className="compact-list-item">
                     <div>
                       <p className="compact-title">{toName(staff)}</p>
-                      <p className="compact-sub">{staff.currentOrder ? `Aktueller Auftrag: ${staff.currentOrder}` : "Kein aktueller Auftrag"}</p>
+                      <p className="compact-sub">{staff.currentOrder ? `${t('adminDashboard.currentOrder')}: ${staff.currentOrder}` : t('adminDashboard.noCurrentOrder')}</p>
                     </div>
                     <div className="compact-list-side">
                       <Badge variant="outline" className="compact-badge">{String(staff.availability || "offline")}</Badge>
                       <span>{Number(staff.utilizationRate || 0)}%</span>
-                      <small>{staff.assignedOrders || 0} Auftraege</small>
+                      <small>{staff.assignedOrders || 0} {t('adminDashboard.ordersLabel')}</small>
                     </div>
                   </div>
                 ))}
@@ -558,7 +560,7 @@ export function AdminDashboard() {
             </ScrollArea>
             <Separator />
             <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/admin/staff")}>
-              Team verwalten
+              {t('adminDashboard.manageTeam')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </CardContent>
@@ -568,18 +570,18 @@ export function AdminDashboard() {
           <CardHeader className="compact-panel-header">
             <CardTitle>
               <Timer className="h-4 w-4" />
-              Zugewiesene Auftraege
+              {t('adminDashboard.assignedOrders')}
             </CardTitle>
-            <CardDescription>{dashboardData.sectionCounts.assignedOrders || dashboardData.assignedOrders.length} aktive Faelle</CardDescription>
+            <CardDescription>{dashboardData.sectionCounts.assignedOrders || dashboardData.assignedOrders.length} {t('adminDashboard.activeCases')}</CardDescription>
           </CardHeader>
           <CardContent className="compact-panel-content">
             <ScrollArea className="compact-scroll-area">
               <div className="compact-list">
-                {dashboardData.assignedOrders.length === 0 && <p className="compact-empty">Keine aktiven Auftraege</p>}
+                {dashboardData.assignedOrders.length === 0 && <p className="compact-empty">{t('adminDashboard.noActiveOrders')}</p>}
                 {dashboardData.assignedOrders.slice(0, 10).map((order: any) => {
                   const assignee = Array.isArray(order.assignedStaff) && order.assignedStaff.length > 0
                     ? order.assignedStaff[0]?.staffName
-                    : "Nicht zugewiesen"
+                    : t('adminDashboard.notAssigned')
 
                   return (
                     <div key={order._id || order.orderNumber} className="compact-list-item">
@@ -599,7 +601,7 @@ export function AdminDashboard() {
             </ScrollArea>
             <Separator />
             <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/admin/orders")}>
-              Auftraege oeffnen
+              {t('adminDashboard.openOrders')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </CardContent>
@@ -611,24 +613,24 @@ export function AdminDashboard() {
           <CardHeader className="compact-panel-header">
             <CardTitle>
               <TrendingUp className="h-4 w-4" />
-              Tages- und Wochenkennzahlen
+              {t('adminDashboard.dailyWeeklyKpis')}
             </CardTitle>
           </CardHeader>
           <CardContent className="compact-kpi-grid">
             <div>
-              <p>Heute Auftraege</p>
+              <p>{t('adminDashboard.todayOrders')}</p>
               <h4>{today.orders || 0}</h4>
             </div>
             <div>
-              <p>Heute Buchungen</p>
+              <p>{t('adminDashboard.todayBookings')}</p>
               <h4>{today.bookings || 0}</h4>
             </div>
             <div>
-              <p>Diese Woche Auftraege</p>
+              <p>{t('adminDashboard.weekOrders')}</p>
               <h4>{thisWeek.orders || 0}</h4>
             </div>
             <div>
-              <p>Wochenumsatz</p>
+              <p>{t('adminDashboard.weekRevenue')}</p>
               <h4>{toCurrency(Number(thisWeek.revenue || 0))}</h4>
             </div>
           </CardContent>
@@ -638,7 +640,7 @@ export function AdminDashboard() {
           <CardHeader className="compact-panel-header">
             <CardTitle>
               <HardDrive className="h-4 w-4" />
-              System & Leistung
+              {t('adminDashboard.systemPerformance')}
             </CardTitle>
           </CardHeader>
           <CardContent className="compact-kpi-grid">
@@ -665,16 +667,16 @@ export function AdminDashboard() {
           <CardHeader className="compact-panel-header">
             <CardTitle>
               <Settings className="h-4 w-4" />
-              Schnellaktionen
+              {t('adminDashboard.quickActions')}
             </CardTitle>
           </CardHeader>
           <CardContent className="compact-action-grid">
-            <Button size="sm" variant="outline" onClick={() => navigate("/admin/bookings")}><Calendar className="h-3.5 w-3.5" /> Buchungen</Button>
-            <Button size="sm" variant="outline" onClick={() => navigate("/admin/orders")}><Package className="h-3.5 w-3.5" /> Auftraege</Button>
-            <Button size="sm" variant="outline" onClick={() => navigate("/admin/users")}><Users className="h-3.5 w-3.5" /> Benutzer</Button>
-            <Button size="sm" variant="outline" onClick={() => navigate("/admin/analytics")}><BarChart3 className="h-3.5 w-3.5" /> Analytics</Button>
-            <Button size="sm" variant="outline" onClick={() => navigate("/admin/staff")}><FileText className="h-3.5 w-3.5" /> Team</Button>
-            <Button size="sm" variant="outline" onClick={() => navigate("/notifications")}><CheckCircle2 className="h-3.5 w-3.5" /> Hinweise</Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/admin/bookings")}><Calendar className="h-3.5 w-3.5" /> {t('navigation.bookings')}</Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/admin/orders")}><Package className="h-3.5 w-3.5" /> {t('navigation.orders')}</Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/admin/users")}><Users className="h-3.5 w-3.5" /> {t('adminDashboard.users')}</Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/admin/analytics")}><BarChart3 className="h-3.5 w-3.5" /> {t('analyticsPage.title')}</Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/admin/staff")}><FileText className="h-3.5 w-3.5" /> {t('adminDashboard.team')}</Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/notifications")}><CheckCircle2 className="h-3.5 w-3.5" /> {t('adminDashboard.notices')}</Button>
           </CardContent>
         </Card>
       </div>

@@ -3,11 +3,96 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FixitHub</title>
+    <title>FixitHub - Reparaturservice fuer Smartphone, Tablet und Notebook</title>
+    <meta
+      name="description"
+      content="FixitHub ist Ihre Plattform fuer schnelle Geraetereparaturen: Smartphone-, Tablet- und Notebook-Reparatur, transparente Preise, Online-Buchung, Auftragsverfolgung und Support."
+    />
+    <meta
+      name="keywords"
+      content="Reparatur, Smartphone Reparatur, Tablet Reparatur, Notebook Reparatur, Displaytausch, Akkuwechsel, FixitHub, Auftragsverfolgung"
+    />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://www.fixithub.com/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="FixitHub" />
+    <meta property="og:locale" content="de_DE" />
+    <meta property="og:url" content="https://www.fixithub.com/" />
+    <meta
+      property="og:title"
+      content="FixitHub - Reparaturservice fuer Smartphone, Tablet und Notebook"
+    />
+    <meta
+      property="og:description"
+      content="Online Reparatur buchen, Status verfolgen und Ihr Geraet schnell wieder nutzen. FixitHub bietet transparente Preise, Qualitaetsservice und digitale Auftragsverwaltung."
+    />
+    <meta
+      property="og:image"
+      content="https://www.mcrepair.de/bilder/intern/shoplogo/logo180.png"
+    />
+    <meta
+      property="og:image:alt"
+      content="McRepair Firmenlogo"
+    />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://www.fixithub.com/" />
+    <meta
+      name="twitter:title"
+      content="FixitHub - Reparaturservice fuer Smartphone, Tablet und Notebook"
+    />
+    <meta
+      name="twitter:description"
+      content="Reparatur online buchen, Status live verfolgen und Ihr Geraet schnell zurueckbekommen - mit FixitHub."
+    />
+    <meta
+      name="twitter:image"
+      content="https://www.mcrepair.de/bilder/intern/shoplogo/logo180.png"
+    />
+    <meta
+      name="twitter:image:alt"
+      content="McRepair Firmenlogo"
+    />
+
+    <script>
+      (function () {
+        var configuredSiteUrl = "%VITE_SITE_URL%";
+        var hasConfiguredSiteUrl = configuredSiteUrl && configuredSiteUrl.indexOf("VITE_SITE_URL") === -1;
+        var baseUrl = hasConfiguredSiteUrl ? configuredSiteUrl : window.location.origin;
+        baseUrl = String(baseUrl || "").replace(/\/$/, "");
+        if (!baseUrl) return;
+        var pageUrl = baseUrl + "/";
+
+        var canonical = document.querySelector('link[rel="canonical"]');
+        if (canonical) canonical.setAttribute("href", pageUrl);
+
+        var ogUrl = document.querySelector('meta[property="og:url"]');
+        if (ogUrl) ogUrl.setAttribute("content", pageUrl);
+
+        var twitterUrl = document.querySelector('meta[name="twitter:url"]');
+        if (twitterUrl) twitterUrl.setAttribute("content", pageUrl);
+      })();
+    </script>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "LocalBusiness",
+        "name": "FixitHub",
+        "url": "https://www.fixithub.com/",
+        "description": "Digitaler Reparaturservice fuer Smartphones, Tablets und Notebooks mit Online-Buchung und Auftragsverfolgung.",
+        "serviceType": [
+          "Smartphone Reparatur",
+          "Tablet Reparatur",
+          "Notebook Reparatur"
+        ]
+      }
+    </script>
     <script src="https://s3.us-east-1.amazonaws.com/assets.pythagora.ai/scripts/utils.js"></script>
     <link rel="icon" type="image/x-icon" href="https://s3.us-east-1.amazonaws.com/assets.pythagora.ai/logos/favicon.ico" />
-    <script type="module" crossorigin src="/assets/index-BLlZy3Z-.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CB5fIjyv.css">
+    <script type="module" crossorigin src="/assets/index-Dd4wUJE4.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-Z_XE9e7b.css">
   </head>
   <body>
     <div id="root"></div>
