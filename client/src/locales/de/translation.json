@@ -2763,6 +2763,52 @@
     "symbolHg": "Hg = Batterie enthält mehr als 0,0005 Masseprozent Quecksilber.",
     "finalNote": "Bitte beachten Sie die vorstehenden Hinweise."
   },
+  "withdrawalPage": {
+    "title": "Widerrufsrecht Reparatur",
+    "consumer": {
+      "title": "Widerrufsrecht für Verbraucher",
+      "definition": "(Verbraucher ist jede natürliche Person, die ein Rechtsgeschäft zu Zwecken abschließt, die überwiegend weder ihrer gewerblichen noch ihrer selbstständigen beruflichen Tätigkeit zugerechnet werden kann.)"
+    },
+    "instruction": {
+      "title": "Widerrufsbelehrung",
+      "rightTitle": "Widerrufsrecht",
+      "paragraphs": {
+        "p1": "Sie haben das Recht, binnen vierzehn Tagen ohne Angabe von Gründen diesen Vertrag zu widerrufen.",
+        "p2": "Die Widerrufsfrist beträgt vierzehn Tage ab dem Tag des Vertragsabschlusses.",
+        "p3": "Um Ihr Widerrufsrecht auszuüben, müssen Sie uns (Online Point GmbH, Kurfürstenstr. 106, 10787 Berlin, Telefonnummer: 030 403 688 951, E-Mail-Adresse: kontakt@mcrepair.de) mittels einer eindeutigen Erklärung (z.B. ein mit der Post versandter Brief, Telefax oder E-Mail) über Ihren Entschluss, diesen Vertrag zu widerrufen, informieren. Sie können dafür das beigefügte Muster-Widerrufsformular verwenden, das jedoch nicht vorgeschrieben ist.",
+        "p4": "Sie können das Muster-Widerrufsformular oder eine andere eindeutige Erklärung auch auf unserer Webseite (www.mcrepair.de) elektronisch ausfüllen und übermitteln. Machen Sie von dieser Möglichkeit Gebrauch, so werden wir Ihnen unverzüglich (z.B. per E-Mail) eine Bestätigung über den Eingang eines solchen Widerrufs übermitteln.",
+        "p5": "Zur Wahrung der Widerrufsfrist reicht es aus, dass Sie die Mitteilung über die Ausübung des Widerrufsrechts vor Ablauf der Widerrufsfrist absenden."
+      }
+    },
+    "consequences": {
+      "title": "Folgen des Widerrufs",
+      "paragraphs": {
+        "p1": "Wenn Sie diesen Vertrag widerrufen, haben wir Ihnen alle Zahlungen, die wir von Ihnen erhalten haben, einschließlich der Lieferkosten (mit Ausnahme der zusätzlichen Kosten, die sich daraus ergeben, dass Sie eine andere Art der Lieferung als die von uns angebotene, günstigste Standardlieferung gewählt haben), unverzüglich und spätestens binnen vierzehn Tagen ab dem Tag zurückzuzahlen, an dem die Mitteilung über Ihren Widerruf dieses Vertrags bei uns eingegangen ist. Für diese Rückzahlung verwenden wir dasselbe Zahlungsmittel, das Sie bei der ursprünglichen Transaktion eingesetzt haben, es sei denn, mit Ihnen wurde ausdrücklich etwas anderes vereinbart; in keinem Fall werden Ihnen wegen dieser Rückzahlung Entgelte berechnet.",
+        "p2": "Haben Sie verlangt, dass die Dienstleistungen während der Widerrufsfrist beginnen soll, so haben Sie uns einen angemessenen Betrag zu zahlen, der dem Anteil der bis zu dem Zeitpunkt, zu dem Sie uns von der Ausübung des Widerrufsrechts hinsichtlich dieses Vertrags unterrichten, bereits erbrachten Dienstleistungen im Vergleich zum Gesamtumfang der im Vertrag vorgesehenen Dienstleistungen entspricht."
+      }
+    },
+    "exclusions": {
+      "title": "Ausschluss- bzw. Erlöschensgründe",
+      "paragraphs": {
+        "p1": "Das Widerrufsrecht besteht nicht bei Verträgen zur Erbringung von Dienstleistungen im Zusammenhang mit Freizeitbetätigungen, wenn der Vertrag für die Erbringung einen spezifischen Termin oder Zeitraum vorsieht.",
+        "p2": "Das Widerrufsrecht erlischt bei einem Vertrag zur Erbringung von Dienstleistungen, wenn der Unternehmer die Dienstleistung vollständig erbracht hat und mit der Ausführung der Dienstleistung erst begonnen hat, nachdem der Verbraucher dazu seine ausdrückliche Zustimmung gegeben hat und gleichzeitig seine Kenntnis davon bestätigt hat, dass er sein Widerrufsrecht bei vollständiger Vertragserfüllung durch den Unternehmer verliert."
+      }
+    },
+    "form": {
+      "title": "Muster-Widerrufsformular",
+      "intro": "(Wenn Sie den Vertrag widerrufen wollen, dann füllen Sie bitte dieses Formular aus und senden Sie es zurück.)",
+      "addressLine": "- An Online Point GmbH, Kurfürstenstr. 106, 10787 Berlin, E-Mail-Adresse: kontakt@mcrepair.de:",
+      "declarationLine": "- Hiermit widerrufe(n) ich/ wir (*) den von mir/ uns (*) abgeschlossenen Vertrag über den Kauf der folgenden Waren (*) / die Erbringung der folgenden Dienstleistung (*)",
+      "fields": {
+        "orderedOnReceivedOn": "- Bestellt am (*) / erhalten am (*)",
+        "consumerName": "- Name des/ der Verbraucher(s)",
+        "consumerAddress": "- Anschrift des/ der Verbraucher(s)",
+        "consumerSignature": "- Unterschrift des/ der Verbraucher(s) (nur bei Mitteilung auf Papier)",
+        "date": "- Datum"
+      },
+      "footer": "(*) Unzutreffendes streichen."
+    }
+  },
   "vorabdiagnose": {
     "title": "Vorabdiagnose",
     "badge": "Schnell & Einfach",

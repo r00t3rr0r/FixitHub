@@ -1788,7 +1788,7 @@
       "expressRepair": "Express repair",
       "sitemap": "Sitemap",
       "serviceTitle": "Informationen",
-      "locations": "Widerrufsrecht",
+      "locations": "Right of withdrawal",
       "shippingRepair": "Privacy Policy",
       "deviceFinder": "Device finder",
       "repairStatus": "Terms and customer information",
@@ -2755,6 +2755,52 @@
     "symbolCd": "Cd = Battery contains more than 0.002 percent cadmium by mass",
     "symbolHg": "Hg = Battery contains more than 0.0005 percent mercury by mass.",
     "finalNote": "Please observe the above information."
+  },
+  "withdrawalPage": {
+    "title": "Repair right of withdrawal",
+    "consumer": {
+      "title": "Right of withdrawal for consumers",
+      "definition": "(A consumer is any natural person who enters into a legal transaction for purposes that are predominantly outside their trade, business, or self-employed professional activity.)"
+    },
+    "instruction": {
+      "title": "Withdrawal policy",
+      "rightTitle": "Right of withdrawal",
+      "paragraphs": {
+        "p1": "You have the right to withdraw from this contract within fourteen days without giving any reason.",
+        "p2": "The withdrawal period is fourteen days from the date the contract is concluded.",
+        "p3": "To exercise your right of withdrawal, you must inform us (Online Point GmbH, Kurfuerstenstr. 106, 10787 Berlin, phone: 030 403 688 951, email: kontakt@mcrepair.de) of your decision to withdraw from this contract by means of a clear statement (e.g. a letter sent by post, fax or email). You may use the attached model withdrawal form for this purpose, but it is not mandatory.",
+        "p4": "You may also complete and submit the model withdrawal form or another clear statement electronically on our website (www.mcrepair.de). If you make use of this option, we will send you confirmation of receipt of such withdrawal without delay (e.g. by email).",
+        "p5": "To meet the withdrawal deadline, it is sufficient for you to send your communication concerning your exercise of the right of withdrawal before the withdrawal period has expired."
+      }
+    },
+    "consequences": {
+      "title": "Effects of withdrawal",
+      "paragraphs": {
+        "p1": "If you withdraw from this contract, we shall reimburse all payments received from you, including delivery costs (except for any additional costs arising from your choice of a delivery method other than the least expensive standard delivery offered by us), without undue delay and no later than fourteen days from the day on which we receive notice of your withdrawal. For this reimbursement, we will use the same means of payment that you used for the original transaction, unless expressly agreed otherwise with you; in any event, you will not be charged any fees for this reimbursement.",
+        "p2": "If you requested that the services begin during the withdrawal period, you must pay us an amount that is proportionate to what has been provided until the time you notified us of the exercise of the right of withdrawal with respect to this contract, in comparison with the full scope of the services provided for in the contract."
+      }
+    },
+    "exclusions": {
+      "title": "Grounds for exclusion or expiry",
+      "paragraphs": {
+        "p1": "The right of withdrawal does not apply to contracts for the provision of services related to leisure activities if the contract provides for a specific date or period of performance.",
+        "p2": "The right of withdrawal expires in the case of a contract for services once the trader has fully performed the service and began performance only after the consumer gave explicit consent and at the same time acknowledged that they lose their right of withdrawal upon full performance by the trader."
+      }
+    },
+    "form": {
+      "title": "Model withdrawal form",
+      "intro": "(If you wish to withdraw from the contract, please complete this form and return it.)",
+      "addressLine": "- To Online Point GmbH, Kurfuerstenstr. 106, 10787 Berlin, email: kontakt@mcrepair.de:",
+      "declarationLine": "- I/We (*) hereby withdraw from the contract concluded by me/us (*) for the purchase of the following goods (*) / provision of the following service (*)",
+      "fields": {
+        "orderedOnReceivedOn": "- Ordered on (*) / received on (*)",
+        "consumerName": "- Name of consumer(s)",
+        "consumerAddress": "- Address of consumer(s)",
+        "consumerSignature": "- Signature of consumer(s) (only if this form is notified on paper)",
+        "date": "- Date"
+      },
+      "footer": "(*) Delete as appropriate."
+    }
   },
   "vorabdiagnose": {
     "title": "Pre-Diagnosis",
