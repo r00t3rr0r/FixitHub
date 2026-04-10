@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import {
   Dialog,
   DialogContent,
@@ -29,7 +30,6 @@ import {
   Trash2,
   CalendarDays,
   AlertCircle,
-  Repeat2,
   UserCheck,
   ArrowRight,
   RefreshCw,
@@ -39,16 +39,8 @@ import "../styles/notifications.css"
 
 type FilterType = "all" | "unread" | "order_update" | "payment" | "message" | "system" | "assignment" | "reminder"
 
-const TYPE_LABELS: Record<string, string> = {
-  order_update: "Auftrag",
-  payment: "Zahlung",
-  message: "Nachricht",
-  system: "System",
-  assignment: "Zuweisung",
-  reminder: "Erinnerung",
-}
-
 export function Notifications() {
+  const { t } = useTranslation()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<FilterType>("all")
@@ -68,7 +60,7 @@ export function Notifications() {
       const response = await getNotifications({ limit: 100 }) as any
       setNotifications(response.notifications || [])
     } catch (error: any) {
-      toast({ title: "Fehler", description: error.message || "Benachrichtigungen konnten nicht geladen werden", variant: "destructive" })
+      toast({ title: t('common.error'), description: error.message || t('notificationsPage.loadError'), variant: "destructive" })
     } finally {
       setLoading(false)
     }
@@ -82,7 +74,7 @@ export function Notifications() {
         prev.map(n => n._id === notificationId ? { ...n, isRead: true } : n)
       )
     } catch (error: any) {
-      toast({ title: "Fehler", description: error.message, variant: "destructive" })
+      toast({ title: t('common.error'), description: error.message, variant: "destructive" })
     }
   }
 
@@ -90,9 +82,9 @@ export function Notifications() {
     try {
       await markAllNotificationsAsRead()
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
-      toast({ title: "Erledigt", description: "Alle als gelesen markiert" })
+      toast({ title: t('common.success'), description: t('notificationsPage.allMarkedRead') })
     } catch (error: any) {
-      toast({ title: "Fehler", description: error.message, variant: "destructive" })
+      toast({ title: t('common.error'), description: error.message, variant: "destructive" })
     }
   }
 
@@ -102,7 +94,7 @@ export function Notifications() {
       await deleteNotification(notificationId)
       setNotifications(prev => prev.filter(n => n._id !== notificationId))
     } catch (error: any) {
-      toast({ title: "Fehler", description: error.message, variant: "destructive" })
+      toast({ title: t('common.error'), description: error.message, variant: "destructive" })
     }
   }
 
@@ -111,9 +103,9 @@ export function Notifications() {
       await deleteAllNotifications()
       setNotifications([])
       setShowDeleteAllConfirm(false)
-      toast({ title: "Erledigt", description: "Alle Benachrichtigungen gelöscht" })
+      toast({ title: t('common.success'), description: t('notificationsPage.allDeleted') })
     } catch (error: any) {
-      toast({ title: "Fehler", description: error.message, variant: "destructive" })
+      toast({ title: t('common.error'), description: error.message, variant: "destructive" })
     }
   }
 
@@ -169,22 +161,22 @@ export function Notifications() {
     const d = new Date(dateStr)
     const now = new Date()
     const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000)
-    if (diffDays === 0) return "Heute"
-    if (diffDays === 1) return "Gestern"
-    if (diffDays < 7) return "Diese Woche"
-    if (diffDays < 30) return "Dieser Monat"
-    return "Älter"
+    if (diffDays === 0) return t('notificationsPage.today')
+    if (diffDays === 1) return t('notificationsPage.yesterday')
+    if (diffDays < 7) return t('notificationsPage.thisWeek')
+    if (diffDays < 30) return t('notificationsPage.thisMonth')
+    return t('notificationsPage.older')
   }
 
   function formatTime(dateStr: string): string {
     const d = new Date(dateStr)
     const now = new Date()
     const diff = Math.floor((now.getTime() - d.getTime()) / 60000)
-    if (diff < 1) return "Gerade eben"
-    if (diff < 60) return `vor ${diff} Min`
-    if (diff < 1440) return `vor ${Math.floor(diff / 60)} Std`
-    if (diff < 10080) return `vor ${Math.floor(diff / 1440)} Tag${Math.floor(diff / 1440) > 1 ? "en" : ""}`
-    return d.toLocaleDateString("de-DE", { day: "2-digit", month: "short" })
+    if (diff < 1) return t('notificationsPage.justNow')
+    if (diff < 60) return t('notificationsPage.minutesAgo', { count: diff })
+    if (diff < 1440) return t('notificationsPage.hoursAgo', { count: Math.floor(diff / 60) })
+    if (diff < 10080) return t('notificationsPage.daysAgo', { count: Math.floor(diff / 1440) })
+    return d.toLocaleDateString(undefined, { day: "2-digit", month: "short" })
   }
 
   function getIcon(type: string) {
@@ -201,14 +193,14 @@ export function Notifications() {
 
   // Tab definitions
   const tabs: { key: FilterType; label: string; shortLabel: string; icon?: React.ReactNode }[] = [
-    { key: "all",          label: "Alle",         shortLabel: "Alle" },
-    { key: "unread",       label: "Ungelesen",    shortLabel: "Neu" },
-    { key: "order_update", label: "Aufträge",     shortLabel: "Jobs", icon: <Package className="h-3.5 w-3.5" /> },
-    { key: "payment",      label: "Zahlungen",    shortLabel: "Zahl.", icon: <CreditCard className="h-3.5 w-3.5" /> },
-    { key: "message",      label: "Nachrichten",  shortLabel: "Msg", icon: <MessageSquare className="h-3.5 w-3.5" /> },
-    { key: "assignment",   label: "Zuweisungen",  shortLabel: "Zuweis.", icon: <UserCheck className="h-3.5 w-3.5" /> },
-    { key: "reminder",     label: "Erinnerungen", shortLabel: "Erinn.", icon: <AlertCircle className="h-3.5 w-3.5" /> },
-    { key: "system",       label: "System",       shortLabel: "System", icon: <Settings className="h-3.5 w-3.5" /> },
+    { key: "all",          label: t('notificationsPage.filterAll'),         shortLabel: t('notificationsPage.filterAll') },
+    { key: "unread",       label: t('notificationsPage.filterUnread'),    shortLabel: t('notificationsPage.filterNew') },
+    { key: "order_update", label: t('notificationsPage.filterOrders'),     shortLabel: t('notificationsPage.filterOrdersShort'), icon: <Package className="h-3.5 w-3.5" /> },
+    { key: "payment",      label: t('notificationsPage.filterPayments'),   shortLabel: t('notificationsPage.filterPaymentsShort'), icon: <CreditCard className="h-3.5 w-3.5" /> },
+    { key: "message",      label: t('notificationsPage.filterMessages'),  shortLabel: t('notificationsPage.filterMessagesShort'), icon: <MessageSquare className="h-3.5 w-3.5" /> },
+    { key: "assignment",   label: t('notificationsPage.filterAssignments'),  shortLabel: t('notificationsPage.filterAssignmentsShort'), icon: <UserCheck className="h-3.5 w-3.5" /> },
+    { key: "reminder",     label: t('notificationsPage.filterReminders'), shortLabel: t('notificationsPage.filterRemindersShort'), icon: <AlertCircle className="h-3.5 w-3.5" /> },
+    { key: "system",       label: t('notificationsPage.filterSystem'),       shortLabel: t('notificationsPage.filterSystem'), icon: <Settings className="h-3.5 w-3.5" /> },
   ]
 
   return (
@@ -220,25 +212,25 @@ export function Notifications() {
             <div className="notifications-header-title">
               <Bell className="notifications-icon-lg" />
               <div>
-                <h1>Benachrichtigungen</h1>
-                <p>Bleib über deine Reparaturaufträge und Systemmeldungen auf dem Laufenden</p>
+                <h1>{t('notifications.title')}</h1>
+                <p>{t('notificationsPage.subtitle')}</p>
               </div>
             </div>
             <div className="notifications-header-actions">
               {unreadCount > 0 && (
                 <button className="notifications-btn-primary" onClick={handleMarkAllAsRead}>
                   <CheckCheck className="h-4 w-4" />
-                  <span>Alle gelesen</span>
+                  <span>{t('notificationsPage.allRead')}</span>
                 </button>
               )}
               <button className="notifications-btn-ghost" onClick={fetchNotifications}>
                 <RefreshCw className="h-4 w-4" />
-                <span>Aktualisieren</span>
+                <span>{t('common.refresh')}</span>
               </button>
               {notifications.length > 0 && (
                 <button className="notifications-btn-ghost" onClick={() => setShowDeleteAllConfirm(true)}>
                   <Trash2 className="h-4 w-4" />
-                  <span>Alle löschen</span>
+                  <span>{t('notificationsPage.deleteAll')}</span>
                 </button>
               )}
             </div>
@@ -248,24 +240,24 @@ export function Notifications() {
           <div className="notifications-stats">
             <div className="notifications-stat">
               <div className="notifications-stat-value">{counts.all || 0}</div>
-              <div className="notifications-stat-label">Gesamt</div>
+              <div className="notifications-stat-label">{t('notificationsPage.total')}</div>
             </div>
             {unreadCount > 0 && (
               <div className="notifications-stat">
                 <div className="notifications-stat-value" style={{ color: "#fbbf24" }}>{unreadCount}</div>
-                <div className="notifications-stat-label">Ungelesen</div>
+                <div className="notifications-stat-label">{t('notificationsPage.filterUnread')}</div>
               </div>
             )}
             {(counts.order_update || 0) > 0 && (
               <div className="notifications-stat">
                 <div className="notifications-stat-value">{counts.order_update}</div>
-                <div className="notifications-stat-label">Aufträge</div>
+                <div className="notifications-stat-label">{t('notificationsPage.filterOrders')}</div>
               </div>
             )}
             {(counts.message || 0) > 0 && (
               <div className="notifications-stat">
                 <div className="notifications-stat-value">{counts.message}</div>
-                <div className="notifications-stat-label">Nachrichten</div>
+                <div className="notifications-stat-label">{t('notificationsPage.filterMessages')}</div>
               </div>
             )}
           </div>
@@ -279,7 +271,7 @@ export function Notifications() {
           <input
             className="notifications-search-input"
             type="text"
-            placeholder="Benachrichtigungen suchen…"
+            placeholder={t('notificationsPage.searchPlaceholder')}
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />
@@ -287,9 +279,9 @@ export function Notifications() {
       </div>
 
       {/* ── MOBILE FILTER ── */}
-      <div className="notifications-filter-mobile" aria-label="Benachrichtigungsfilter">
+      <div className="notifications-filter-mobile" aria-label={t('notificationsPage.filterLabel')}>
         <label className="notifications-filter-mobile-label" htmlFor="notifications-filter-select">
-          Kategorie
+          {t('notificationsPage.category')}
         </label>
         <div className="notifications-filter-mobile-row">
           <select
@@ -313,17 +305,17 @@ export function Notifications() {
               className="notifications-filter-mobile-reset"
               onClick={() => setFilter("all")}
             >
-              Zurücksetzen
+              {t('common.reset')}
             </button>
           )}
         </div>
-        <div className="notifications-filter-mobile-quick" role="group" aria-label="Schnellfilter">
+        <div className="notifications-filter-mobile-quick" role="group" aria-label={t('notificationsPage.quickFilter')}>
           <button
             type="button"
             className={`notifications-filter-mobile-chip${filter === "all" ? " active" : ""}`}
             onClick={() => setFilter("all")}
           >
-            Alle
+            {t('notificationsPage.filterAll')}
             <span className="notifications-filter-mobile-chip-count">{notifications.length}</span>
           </button>
           <button
@@ -331,7 +323,7 @@ export function Notifications() {
             className={`notifications-filter-mobile-chip${filter === "unread" ? " active" : ""}`}
             onClick={() => setFilter("unread")}
           >
-            Ungelesen
+            {t('notificationsPage.filterUnread')}
             <span className="notifications-filter-mobile-chip-count">{unreadCount}</span>
           </button>
         </div>
@@ -396,7 +388,7 @@ export function Notifications() {
                             {formatTime(notification.createdAt)}
                           </span>
                           {!notification.isRead && (
-                            <span className="notification-unread-dot" title="Ungelesen" />
+                            <span className="notification-unread-dot" title={t('notificationsPage.filterUnread')} />
                           )}
                         </div>
                       </div>
@@ -407,7 +399,7 @@ export function Notifications() {
                         <div className="notification-footer-main">
                           <span className={`notification-type-badge ${notification.type}`}>
                             {getIcon(notification.type)}
-                            {TYPE_LABELS[notification.type] || notification.type}
+                          {t(`notifications.types.${notification.type}`) || notification.type}
                           </span>
                           {notification.actionUrl && (
                             <Link
@@ -429,7 +421,7 @@ export function Notifications() {
                                 setShowCommunicationPanel(true)
                               }}
                             >
-                              Nachricht öffnen <ArrowRight className="h-3 w-3" />
+                              {t('notificationsPage.openMessage')} <ArrowRight className="h-3 w-3" />
                             </button>
                           )}
                         </div>
@@ -438,7 +430,7 @@ export function Notifications() {
                           {!notification.isRead && (
                             <button
                               className="notification-action-btn"
-                              title="Als gelesen markieren"
+                            title={t('notifications.markAsRead')}
                               onClick={e => handleMarkAsRead(notification._id, e)}
                             >
                               <Check className="h-3.5 w-3.5" />
@@ -446,7 +438,7 @@ export function Notifications() {
                           )}
                           <button
                             className="notification-action-btn delete"
-                            title="Löschen"
+                            title={t('common.delete')}
                             onClick={e => handleDelete(notification._id, e)}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -466,14 +458,13 @@ export function Notifications() {
       {showDeleteAllConfirm && (
         <div className="notifications-confirm-overlay" onClick={() => setShowDeleteAllConfirm(false)}>
           <div className="notifications-confirm-dialog" onClick={e => e.stopPropagation()}>
-            <h3>Alle Benachrichtigungen löschen?</h3>
+            <h3>{t('notificationsPage.deleteAllConfirmTitle')}</h3>
             <p>
-              Dieser Vorgang löscht alle {notifications.length} Benachrichtigungen unwiderruflich.
-              Du kannst dies nicht rückgängig machen.
+              {t('notificationsPage.deleteAllConfirmDesc', { count: notifications.length })}
             </p>
             <div className="notifications-confirm-btns">
               <button className="notif-btn-sm outline" onClick={() => setShowDeleteAllConfirm(false)}>
-                Abbrechen
+                {t('common.cancel')}
               </button>
               <button
                 className="notif-btn-sm danger"
@@ -481,7 +472,7 @@ export function Notifications() {
                 onClick={handleDeleteAll}
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                Alle löschen
+                {t('notificationsPage.deleteAll')}
               </button>
             </div>
           </div>
@@ -498,10 +489,10 @@ export function Notifications() {
             <DialogHeader className="pb-2">
               <DialogTitle className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5" />
-                Auftragskommunikation
+                {t('notificationsPage.orderCommunication')}
               </DialogTitle>
               <DialogDescription>
-                Kommuniziere mit unserem Support-Team über deinen Reparaturauftrag
+                {t('notificationsPage.communicationDesc')}
               </DialogDescription>
             </DialogHeader>
             <CommunicationPanel orderId={selectedOrderForCommunication} />
@@ -534,22 +525,24 @@ function LoadingSkeleton() {
 }
 
 function EmptyState({ filter, searchTerm }: { filter: string; searchTerm: string }) {
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const { t } = useTranslation()
   return (
     <div className="notifications-empty">
       <Bell style={{ width: 64, height: 64 }} />
       <h3>
         {searchTerm
-          ? "Keine Ergebnisse"
+          ? t('notificationsPage.noResults')
           : filter === "unread"
-          ? "Keine ungelesenen Benachrichtigungen"
-          : "Keine Benachrichtigungen"}
+          ? t('notificationsPage.noUnread')
+          : t('notifications.noNotifications')}
       </h3>
       <p>
         {searchTerm
-          ? `Für „${searchTerm}" wurden keine Benachrichtigungen gefunden.`
+          ? t('notificationsPage.noResultsFor', { term: searchTerm })
           : filter === "unread"
-          ? "Du bist auf dem neuesten Stand – alle Benachrichtigungen wurden gelesen."
-          : "Neue Benachrichtigungen erscheinen hier, sobald etwas passiert."}
+          ? t('notificationsPage.allCaughtUp')
+          : t('notificationsPage.newNotificationsWillAppear')}
       </p>
     </div>
   )

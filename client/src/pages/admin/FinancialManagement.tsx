@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -344,6 +345,7 @@ const createCreditFormState = (settings: FinancialSettingsState) => ({
 });
 
 export function FinancialManagement() {
+  const { t } = useTranslation()
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -863,8 +865,8 @@ export function FinancialManagement() {
       setSystemConfig(systemConfigRes?.config || null);
     } catch (error: any) {
       toast({
-        title: 'Fehler',
-        description: error.message || 'Finanzdaten konnten nicht geladen werden.',
+        title: t('common.error'),
+        description: error.message || t('financialManagement.failedToLoadPayments'),
         variant: 'destructive'
       });
     } finally {
@@ -927,9 +929,9 @@ export function FinancialManagement() {
     try {
       const response = await updateSystemConfig(systemConfig);
       setSystemConfig(response.config || systemConfig);
-      toast({ title: 'Erfolg', description: 'Finanzparameter gespeichert.' });
+      toast({ title: t('common.success'), description: t('financialManagement.paymentUpdatedSuccess') });
     } catch (error: any) {
-      toast({ title: 'Fehler', description: error.message || 'Finanzparameter konnten nicht gespeichert werden.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('financialManagement.failedToUpdatePayment'), variant: 'destructive' });
     } finally {
       setSavingFinancialSettings(false);
     }
@@ -959,7 +961,7 @@ export function FinancialManagement() {
       const res = await getInvoices(params);
       setInvoices(res?.invoices || []);
     } catch (error: any) {
-      toast({ title: 'Fehler', description: error.message || 'Rechnungsfilter fehlgeschlagen.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('financialManagement.failedToLoadPayments'), variant: 'destructive' });
     }
   };
 
@@ -973,7 +975,7 @@ export function FinancialManagement() {
       const res = await getPayments(params);
       setPayments(res?.payments || []);
     } catch (error: any) {
-      toast({ title: 'Fehler', description: error.message || 'Payment-Filter fehlgeschlagen.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('financialManagement.failedToLoadPayments'), variant: 'destructive' });
     }
   };
 
@@ -1016,7 +1018,7 @@ export function FinancialManagement() {
       }));
 
     if (!invoiceForm.customerId || items.length === 0) {
-      toast({ title: 'Fehler', description: 'Bitte Kunde waehlen und Positionen erfassen.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('financialManagement.failedToCreateInvoice'), variant: 'destructive' });
       return;
     }
 
@@ -1043,12 +1045,12 @@ export function FinancialManagement() {
         template: 'default'
       });
 
-      toast({ title: 'Erfolg', description: 'Rechnung erstellt.' });
+      toast({ title: t('common.success'), description: t('financialManagement.invoiceCreatedSuccess') });
       setInvoiceDialogOpen(false);
       setInvoiceForm(createInvoiceFormState(financialSettings));
       fetchFinancialData();
     } catch (error: any) {
-      toast({ title: 'Fehler', description: error.message || 'Rechnungserstellung fehlgeschlagen.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('financialManagement.failedToCreateInvoice'), variant: 'destructive' });
     }
   };
 
@@ -1056,7 +1058,7 @@ export function FinancialManagement() {
         setFromRepairForm(createFromRepairFormState(financialSettings));
     const repairOrderIds = fromRepairForm.repairOrderIds.split(',').map((id) => id.trim()).filter(Boolean);
     if (repairOrderIds.length === 0) {
-      toast({ title: 'Fehler', description: 'Bitte mindestens eine RepairOrder-ID angeben.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('financialManagement.failedToCreateInvoice'), variant: 'destructive' });
       return;
     }
 
@@ -1070,11 +1072,11 @@ export function FinancialManagement() {
         numberPrefix: fromRepairForm.numberPrefix
       });
 
-      toast({ title: 'Erfolg', description: 'Rechnung aus RepairOrders erstellt.' });
+      toast({ title: t('common.success'), description: t('financialManagement.invoiceCreatedSuccess') });
       setFromRepairDialogOpen(false);
       fetchFinancialData();
     } catch (error: any) {
-      toast({ title: 'Fehler', description: error.message || 'Generierung aus RepairOrders fehlgeschlagen.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('financialManagement.failedToCreateInvoice'), variant: 'destructive' });
     }
   };
 
@@ -1145,17 +1147,17 @@ export function FinancialManagement() {
   const onSendInvoice = async (invoiceId: string, email?: string, message?: string) => {
     try {
       await sendInvoice(invoiceId, email, message);
-      toast({ title: 'Erfolg', description: 'Rechnung versendet.' });
+      toast({ title: t('common.success'), description: t('financialManagement.paymentUpdatedSuccess') });
       fetchFinancialData();
     } catch (error: any) {
-      toast({ title: 'Fehler', description: error.message || 'Versand fehlgeschlagen.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('financialManagement.failedToUpdatePayment'), variant: 'destructive' });
     }
   };
 
   const onSubmitSendComposer = async () => {
     if (!selectedInvoice) return;
     if (!sendComposerForm.recipientEmail.trim()) {
-      toast({ title: 'Fehler', description: 'Bitte Empfaenger-E-Mail eintragen.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('financialManagement.failedToUpdatePayment'), variant: 'destructive' });
       return;
     }
 
@@ -1183,12 +1185,12 @@ export function FinancialManagement() {
 
     try {
       await changeInvoiceStatus(selectedInvoice._id, statusForm.status, statusForm.notes);
-      toast({ title: 'Erfolg', description: 'Status aktualisiert.' });
+      toast({ title: t('common.success'), description: t('financialManagement.paymentUpdatedSuccess') });
       setStatusDialogOpen(false);
       setSelectedInvoice(null);
       fetchFinancialData();
     } catch (error: any) {
-      toast({ title: 'Fehler', description: error.message || 'Statuswechsel fehlgeschlagen.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('financialManagement.failedToUpdatePayment'), variant: 'destructive' });
     }
   };
 
@@ -1200,13 +1202,13 @@ export function FinancialManagement() {
         : remaining <= 0
           ? 'Diese Rechnung ist bereits vollständig bezahlt.'
           : `Für Rechnungsstatus "${invoice.status}" kann keine Zahlung erfasst werden.`;
-      toast({ title: 'Nicht möglich', description: reason, variant: 'destructive' });
+      toast({ title: t('common.error'), description: reason, variant: 'destructive' });
       return;
     }
 
     const remaining = Math.max(0, toAmountNumber(invoice.total) - toAmountNumber(invoice.paidAmount));
     if (remaining <= 0) {
-      toast({ title: 'Nicht möglich', description: 'Diese Rechnung ist bereits vollständig bezahlt.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('financialManagement.failedToUpdatePayment'), variant: 'destructive' });
       return;
     }
 
@@ -1228,13 +1230,13 @@ export function FinancialManagement() {
 
     const amount = Number(paymentForm.amount || 0);
     if (amount <= 0) {
-      toast({ title: 'Fehler', description: 'Bitte gueltigen Betrag eingeben.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('financialManagement.failedToUpdatePayment'), variant: 'destructive' });
       return;
     }
 
     const remaining = Math.max(0, Number(selectedInvoice.total || 0) - Number(selectedInvoice.paidAmount || 0));
     if (amount > remaining + 0.01) {
-      toast({ title: 'Fehler', description: `Betrag ueberschreitet den offenen Betrag (${formatCurrency(remaining)}).`, variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('financialManagement.failedToUpdatePayment'), variant: 'destructive' });
       return;
     }
 
@@ -1264,13 +1266,13 @@ export function FinancialManagement() {
         metadata,
       });
 
-      toast({ title: 'Erfolg', description: paymentForm.scope === 'full' ? 'Zahlung vollständig verbucht.' : 'Teilzahlung verbucht.' });
+      toast({ title: t('common.success'), description: t('financialManagement.paymentUpdatedSuccess') });
       setPaymentDialogOpen(false);
       setSelectedInvoice(null);
       setPaymentForm(createPaymentFormState(financialSettings));
       fetchFinancialData();
     } catch (error: any) {
-      toast({ title: 'Fehler', description: error.message || 'Teilzahlung fehlgeschlagen.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('financialManagement.failedToUpdatePayment'), variant: 'destructive' });
     }
   };
 
@@ -1388,7 +1390,7 @@ export function FinancialManagement() {
     const preview = creditPreview;
     if (!preview) return;
     if (creditForm.scope === 'partial' && preview.items.length === 0) {
-      toast({ title: 'Fehler', description: 'Bitte mindestens eine Position auswählen.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('financialManagement.failedToCreateInvoice'), variant: 'destructive' });
       return;
     }
 
@@ -1410,14 +1412,14 @@ export function FinancialManagement() {
           : undefined,
       });
 
-      toast({ title: 'Erfolg', description: 'Gutschrift erstellt.' });
+      toast({ title: t('common.success'), description: t('financialManagement.invoiceCreatedSuccess') });
       setCreditDialogOpen(false);
       setSelectedInvoice(null);
       setCreditForm(createCreditFormState(financialSettings));
       setCreditItemOverrides([]);
       fetchFinancialData();
     } catch (error: any) {
-      toast({ title: 'Fehler', description: error.message || 'Gutschrift fehlgeschlagen.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('financialManagement.failedToCreateInvoice'), variant: 'destructive' });
     }
   };
 
@@ -1426,16 +1428,16 @@ export function FinancialManagement() {
 
     const amount = Number(refundForm.amount || 0);
     if (amount <= 0) {
-      toast({ title: 'Fehler', description: 'Bitte einen gültigen Betrag angeben.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('financialManagement.failedToIssueRefund'), variant: 'destructive' });
       return;
     }
     if (!refundForm.reason.trim() && !refundForm.reasonCategory) {
-      toast({ title: 'Fehler', description: 'Bitte Grund oder Kategorie angeben.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('financialManagement.failedToIssueRefund'), variant: 'destructive' });
       return;
     }
 
     if (refundForm.mode === 'gateway' && !refundForm.gatewayProvider) {
-      toast({ title: 'Fehler', description: 'Bitte ein Gateway für die Rückerstattung auswählen.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('financialManagement.failedToIssueRefund'), variant: 'destructive' });
       return;
     }
 
@@ -1451,23 +1453,23 @@ export function FinancialManagement() {
         gatewayProvider: refundForm.mode === 'gateway' ? (refundForm.gatewayProvider as PaymentGateway['provider']) : undefined,
         gatewayReference: refundForm.gatewayReference.trim() || undefined
       });
-      toast({ title: 'Erfolg', description: 'Erstattung verbucht.' });
+      toast({ title: t('common.success'), description: t('financialManagement.refundIssuedSuccess') });
       setRefundDialogOpen(false);
       setSelectedPayment(null);
       setRefundForm({ amount: '', reason: '', reasonCategory: '', internalNote: '', mode: 'gateway', gatewayProvider: '', gatewayReference: '', notifyCustomer: false });
       fetchFinancialData();
     } catch (error: any) {
-      toast({ title: 'Fehler', description: error.message || 'Erstattung fehlgeschlagen.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('financialManagement.failedToIssueRefund'), variant: 'destructive' });
     }
   };
 
   const onRunDunning = async () => {
     try {
       const res = await runDunningJob();
-      toast({ title: 'Erfolg', description: `${res?.actions?.length || 0} Mahnfaelle verarbeitet.` });
+      toast({ title: t('common.success'), description: t('financialManagement.paymentUpdatedSuccess') });
       fetchFinancialData();
     } catch (error: any) {
-      toast({ title: 'Fehler', description: error.message || 'Mahnlauf fehlgeschlagen.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('financialManagement.failedToUpdatePayment'), variant: 'destructive' });
     }
   };
 
@@ -1504,7 +1506,7 @@ export function FinancialManagement() {
       hydrateQueueFromRun(run);
       setDunningRuns((prev) => [run, ...prev.filter((entry) => entry._id !== run._id)]);
     } catch (error: any) {
-      toast({ title: 'Fehler', description: error.message || 'Mahnlauf konnte nicht geladen werden.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('financialManagement.failedToLoadPayments'), variant: 'destructive' });
     }
   };
 
@@ -1563,7 +1565,7 @@ export function FinancialManagement() {
 
   const onCreateManualDunningRun = async () => {
     if (dunningSelection.length === 0) {
-      toast({ title: 'Hinweis', description: 'Bitte mindestens eine ueberfaellige Rechnung auswaehlen.' });
+      toast({ title: t('common.error'), description: t('financialManagement.failedToUpdatePayment') });
       return;
     }
 
@@ -1579,7 +1581,7 @@ export function FinancialManagement() {
       }));
 
     if (queue.length === 0) {
-      toast({ title: 'Hinweis', description: 'Die Auswahl enthaelt keine verarbeitbaren Mahnfaelle.' });
+      toast({ title: t('common.error'), description: t('financialManagement.failedToUpdatePayment') });
       return;
     }
 
@@ -1597,9 +1599,9 @@ export function FinancialManagement() {
       setDunningPaused(false);
       hydrateQueueFromRun(run);
       setDunningRuns((prev) => [run, ...prev.filter((item) => item._id !== run._id)]);
-      toast({ title: 'Mahnlauf erstellt', description: `${queue.length} Mahnfaelle in "${dunningRunName}" gespeichert.` });
+      toast({ title: t('common.success'), description: t('financialManagement.paymentUpdatedSuccess') });
     } catch (error: any) {
-      toast({ title: 'Fehler', description: error.message || 'Mahnlauf konnte nicht gespeichert werden.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('financialManagement.failedToUpdatePayment'), variant: 'destructive' });
     }
   };
 
@@ -1610,7 +1612,7 @@ export function FinancialManagement() {
   const onDunningSendReminder = async (invoiceId: string) => {
     const invoice = getInvoiceById(invoiceId);
     if (!invoice) {
-      toast({ title: 'Fehler', description: 'Rechnung fuer Mahnung nicht gefunden.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('financialManagement.failedToLoadPayments'), variant: 'destructive' });
       return;
     }
 
@@ -1624,10 +1626,10 @@ export function FinancialManagement() {
     try {
       setDunningQueueItem(invoiceId, { status: 'sent', note: 'Erinnerung versendet' });
       syncDunningItemUpdate(invoiceId, { status: 'sent', note: 'Erinnerung versendet', logMessage: 'Mahnung versendet' });
-      toast({ title: 'Erfolg', description: 'Mahnung wurde in den Versand gegeben.' });
+      toast({ title: t('common.success'), description: t('financialManagement.paymentUpdatedSuccess') });
     } catch (error: any) {
       setDunningQueueItem(invoiceId, { status: 'failed', note: error.message || 'Versand fehlgeschlagen' });
-      toast({ title: 'Fehler', description: error.message || 'Mahnung konnte nicht aktualisiert werden.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('financialManagement.failedToUpdatePayment'), variant: 'destructive' });
     }
   };
 
@@ -1646,11 +1648,11 @@ export function FinancialManagement() {
         note: `Status auf ${nextStatus} gesetzt`,
         logMessage: `Fall eskaliert auf ${nextStatus}`
       });
-      toast({ title: 'Erfolg', description: `Rechnung ${invoice.invoiceNumber} wurde aktualisiert.` });
+      toast({ title: t('common.success'), description: t('financialManagement.paymentUpdatedSuccess') });
       fetchFinancialData();
     } catch (error: any) {
       setDunningQueueItem(invoiceId, { status: 'failed', note: error.message || 'Eskalation fehlgeschlagen' });
-      toast({ title: 'Fehler', description: error.message || 'Eskalation fehlgeschlagen.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('financialManagement.failedToUpdatePayment'), variant: 'destructive' });
     }
   };
 
@@ -1689,17 +1691,17 @@ export function FinancialManagement() {
       hydrateQueueFromRun(run);
       setDunningRuns((prev) => [run, ...prev.filter((entry) => entry._id !== run._id)]);
     } catch (error: any) {
-      toast({ title: 'Fehler', description: error.message || 'Fall konnte nicht zum Mahnlauf hinzugefuegt werden.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('financialManagement.failedToUpdatePayment'), variant: 'destructive' });
     }
   };
 
   const onExecuteDunningQueue = async () => {
     if (dunningQueue.length === 0) {
-      toast({ title: 'Hinweis', description: 'Bitte zuerst einen manuellen Mahnlauf erstellen.' });
+      toast({ title: t('common.error'), description: t('financialManagement.failedToUpdatePayment') });
       return;
     }
     if (dunningPaused) {
-      toast({ title: 'Mahnlauf pausiert', description: 'Bitte fortsetzen, bevor die automatische Verarbeitung gestartet wird.' });
+      toast({ title: t('common.error'), description: t('financialManagement.failedToUpdatePayment') });
       return;
     }
 
@@ -1722,7 +1724,7 @@ export function FinancialManagement() {
         setDunningRuns((prev) => [run, ...prev.filter((entry) => entry._id !== run._id)]);
       }
 
-      toast({ title: 'Mahnlauf abgeschlossen', description: 'Alle offenen Mahnfaelle wurden verarbeitet.' });
+      toast({ title: t('common.success'), description: t('financialManagement.paymentUpdatedSuccess') });
     } finally {
       setDunningExecuting(false);
     }
@@ -1742,7 +1744,7 @@ export function FinancialManagement() {
       const run = res?.run as DunningRun;
       setDunningRuns((prev) => prev.map((entry) => (entry._id === run._id ? run : entry)));
     } catch (error: any) {
-      toast({ title: 'Fehler', description: error.message || 'Status des Mahnlaufs konnte nicht aktualisiert werden.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('financialManagement.failedToUpdatePayment'), variant: 'destructive' });
     }
   };
 
@@ -1828,7 +1830,7 @@ export function FinancialManagement() {
     const validation = validateGatewayConfiguration();
     if (!validation.valid) {
       toast({
-        title: 'Validierungsfehler',
+        title: t('common.error'),
         description: validation.errors.join('; '),
         variant: 'destructive'
       });
@@ -1837,12 +1839,12 @@ export function FinancialManagement() {
 
     try {
       await updatePaymentGateway(selectedGateway._id, selectedGateway);
-      toast({ title: 'Erfolg', description: 'Gateway aktualisiert.' });
+      toast({ title: t('common.success'), description: t('financialManagement.paymentUpdatedSuccess') });
       setGatewayDialogOpen(false);
       setSelectedGateway(null);
       fetchFinancialData();
     } catch (error: any) {
-      toast({ title: 'Fehler', description: error.message || 'Gateway-Update fehlgeschlagen.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('financialManagement.failedToUpdatePayment'), variant: 'destructive' });
     }
   };
 
@@ -1901,9 +1903,9 @@ export function FinancialManagement() {
         URL.revokeObjectURL(url);
       }
 
-      toast({ title: 'Erfolg', description: `${type.toUpperCase()} als ${format.toUpperCase()} exportiert.` });
+      toast({ title: t('common.success'), description: t('financialManagement.paymentUpdatedSuccess') });
     } catch (error: any) {
-      toast({ title: 'Fehler', description: error.message || 'Export fehlgeschlagen.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: error.message || t('financialManagement.failedToUpdatePayment'), variant: 'destructive' });
     }
   };
 
@@ -1911,7 +1913,7 @@ export function FinancialManagement() {
     return (
       <div className="flex min-h-[340px] items-center justify-center">
         <div className="flex items-center gap-2 rounded-md border border-[#d8dce6] bg-white px-4 py-3 text-[#1a2a5e]">
-          <RefreshCw className="h-4 w-4 animate-spin" /> Finanzdaten werden geladen...
+          <RefreshCw className="h-4 w-4 animate-spin" /> {t('common.loading')}
         </div>
       </div>
     );
@@ -1922,12 +1924,12 @@ export function FinancialManagement() {
       <section className="rounded-xl border border-[#0f1d45] bg-gradient-to-r from-[#1a2a5e] via-[#1a2a5e] to-[#2a3f7e] px-5 py-5 text-white shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Finance Control Center</h1>
-            <p className="text-sm text-[#d8dce6]">Nutzerfreundliches Management von Rechnungen, Zahlungen, Mahnlogik und Drittanbieter-Gateways.</p>
+            <h1 className="text-2xl font-semibold">{t('financialManagement.title')}</h1>
+            <p className="text-sm text-[#d8dce6]">{t('financialManagement.description')}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" className="border-white/50 bg-white text-[#1a2a5e] hover:bg-[#f8f9fc]" onClick={fetchFinancialData}>
-              <RefreshCw className="mr-2 h-4 w-4" /> Aktualisieren
+              <RefreshCw className="mr-2 h-4 w-4" /> {t('common.refresh')}
             </Button>
             <Button variant="outline" className="border-white/50 bg-white text-[#1a2a5e] hover:bg-[#f8f9fc]" onClick={onRunDunning}>
               <Mail className="mr-2 h-4 w-4" /> Mahnlauf
@@ -1937,21 +1939,21 @@ export function FinancialManagement() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-[#d8dce6]"><CardHeader className="pb-2"><CardDescription>Erfolgreiche Payments</CardDescription><CardTitle className="text-[#1a2a5e]">{formatCurrency(totals.paidAmount)}</CardTitle></CardHeader><CardContent className="pt-0 text-xs text-muted-foreground"><Wallet className="mr-1 inline h-3.5 w-3.5 text-[#2a3f7e]" />Completed Payments</CardContent></Card>
-        <Card className="border-[#d8dce6]"><CardHeader className="pb-2"><CardDescription>Offene Rechnungen</CardDescription><CardTitle className="text-[#1a2a5e]">{totals.openCount}</CardTitle></CardHeader><CardContent className="pt-0 text-xs text-muted-foreground">{formatCurrency(totals.openAmount)}</CardContent></Card>
-        <Card className="border-[#d8dce6]"><CardHeader className="pb-2"><CardDescription>Ueberfaellige Rechnungen</CardDescription><CardTitle className="text-[#1a2a5e]">{totals.overdueCount}</CardTitle></CardHeader><CardContent className="pt-0 text-xs text-muted-foreground">{formatCurrency(totals.overdueAmount)}</CardContent></Card>
-        <Card className="border-[#d8dce6]"><CardHeader className="pb-2"><CardDescription>Nettoprofit</CardDescription><CardTitle className="text-[#1a2a5e]">{formatCurrency(report?.netProfit || 0)}</CardTitle></CardHeader><CardContent className="pt-0 text-xs text-muted-foreground"><TrendingUp className="mr-1 inline h-3.5 w-3.5 text-[#2a3f7e]" />Marge: {Number(report?.grossMargin || 0).toFixed(1)}%</CardContent></Card>
+        <Card className="border-[#d8dce6]"><CardHeader className="pb-2"><CardDescription>{t('financialManagement.payments')}</CardDescription><CardTitle className="text-[#1a2a5e]">{formatCurrency(totals.paidAmount)}</CardTitle></CardHeader><CardContent className="pt-0 text-xs text-muted-foreground"><Wallet className="mr-1 inline h-3.5 w-3.5 text-[#2a3f7e]" />{t('financialManagement.completed')}</CardContent></Card>
+        <Card className="border-[#d8dce6]"><CardHeader className="pb-2"><CardDescription>{t('financialManagement.invoices')}</CardDescription><CardTitle className="text-[#1a2a5e]">{totals.openCount}</CardTitle></CardHeader><CardContent className="pt-0 text-xs text-muted-foreground">{formatCurrency(totals.openAmount)}</CardContent></Card>
+        <Card className="border-[#d8dce6]"><CardHeader className="pb-2"><CardDescription>{t('financialManagement.invoices')}</CardDescription><CardTitle className="text-[#1a2a5e]">{totals.overdueCount}</CardTitle></CardHeader><CardContent className="pt-0 text-xs text-muted-foreground">{formatCurrency(totals.overdueAmount)}</CardContent></Card>
+        <Card className="border-[#d8dce6]"><CardHeader className="pb-2"><CardDescription>{t('financialManagement.profit')}</CardDescription><CardTitle className="text-[#1a2a5e]">{formatCurrency(report?.netProfit || 0)}</CardTitle></CardHeader><CardContent className="pt-0 text-xs text-muted-foreground"><TrendingUp className="mr-1 inline h-3.5 w-3.5 text-[#2a3f7e]" />Marge: {Number(report?.grossMargin || 0).toFixed(1)}%</CardContent></Card>
       </section>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-7 border border-[#d8dce6] bg-[#f8f9fc]">
           <TabsTrigger value="overview">Uebersicht</TabsTrigger>
           <TabsTrigger value="dunning">Mahnlaeufe</TabsTrigger>
-          <TabsTrigger value="invoices">Rechnungen</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="invoices">{t('financialManagement.invoices')}</TabsTrigger>
+          <TabsTrigger value="payments">{t('financialManagement.payments')}</TabsTrigger>
           <TabsTrigger value="providers">Provider</TabsTrigger>
           <TabsTrigger value="settings">Konfiguration</TabsTrigger>
-          <TabsTrigger value="exports">Export</TabsTrigger>
+          <TabsTrigger value="exports">{t('financialManagement.reports')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -2243,12 +2245,12 @@ export function FinancialManagement() {
           <Card className="border-[#d8dce6]">
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <CardTitle className="text-[#1a2a5e]">Rechnungsmanagement</CardTitle>
+                <CardTitle className="text-[#1a2a5e]">{t('financialManagement.invoices')}</CardTitle>
                 <div className="flex gap-2">
                   <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
-                    <DialogTrigger asChild><Button className="bg-[#1a2a5e] hover:bg-[#2a3f7e]"><Plus className="mr-2 h-4 w-4" />Neue Rechnung</Button></DialogTrigger>
+                    <DialogTrigger asChild><Button className="bg-[#1a2a5e] hover:bg-[#2a3f7e]"><Plus className="mr-2 h-4 w-4" />{t('financialManagement.createInvoice')}</Button></DialogTrigger>
                     <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-                      <DialogHeader><DialogTitle>Neue Rechnung</DialogTitle><DialogDescription>Kunde waehlen, Positionen anlegen, Rechnung erstellen.</DialogDescription></DialogHeader>
+                      <DialogHeader><DialogTitle>{t('financialManagement.createInvoice')}</DialogTitle><DialogDescription>{t('financialManagement.description')}</DialogDescription></DialogHeader>
 
                       <div className="space-y-3">
                         <div className="space-y-2">
@@ -2322,8 +2324,8 @@ export function FinancialManagement() {
                       </div>
 
                       <DialogFooter>
-                        <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)}>Abbrechen</Button>
-                        <Button className="bg-[#1a2a5e] hover:bg-[#2a3f7e]" onClick={onCreateInvoice}>Rechnung erstellen</Button>
+                        <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)}>{t('common.cancel')}</Button>
+                        <Button className="bg-[#1a2a5e] hover:bg-[#2a3f7e]" onClick={onCreateInvoice}>{t('financialManagement.createInvoice')}</Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
@@ -2343,7 +2345,7 @@ export function FinancialManagement() {
                           <div><Label>Prefix</Label><Input value={fromRepairForm.numberPrefix} onChange={(e) => setFromRepairForm((p) => ({ ...p, numberPrefix: e.target.value }))} /></div>
                         </div>
                       </div>
-                      <DialogFooter><Button variant="outline" onClick={() => setFromRepairDialogOpen(false)}>Abbrechen</Button><Button onClick={onCreateInvoiceFromRepairs}>Generieren</Button></DialogFooter>
+                      <DialogFooter><Button variant="outline" onClick={() => setFromRepairDialogOpen(false)}>{t('common.cancel')}</Button><Button onClick={onCreateInvoiceFromRepairs}>Generieren</Button></DialogFooter>
                     </DialogContent>
                   </Dialog>
                 </div>
@@ -2368,12 +2370,12 @@ export function FinancialManagement() {
                 </Select>
                 <Input type="date" value={invoiceFilters.dateFrom} onChange={(e) => setInvoiceFilters((p) => ({ ...p, dateFrom: e.target.value }))} />
                 <Input type="date" value={invoiceFilters.dateTo} onChange={(e) => setInvoiceFilters((p) => ({ ...p, dateTo: e.target.value }))} />
-                <Button variant="outline" onClick={onApplyInvoiceFilters}><Search className="mr-2 h-4 w-4" />Filtern</Button>
+                <Button variant="outline" onClick={onApplyInvoiceFilters}><Search className="mr-2 h-4 w-4" />{t('common.filter')}</Button>
               </div>
 
               <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
                 <Table>
-                  <TableHeader><TableRow><TableHead>Rechnung</TableHead><TableHead>Kunde</TableHead><TableHead>Status</TableHead><TableHead>Faelligkeit</TableHead><TableHead>Betrag</TableHead><TableHead>Bezahlt</TableHead><TableHead className="text-right">Aktionen</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead>{t('financialManagement.invoiceNumber')}</TableHead><TableHead>{t('financialManagement.customer')}</TableHead><TableHead>{t('financialManagement.status')}</TableHead><TableHead>{t('financialManagement.dueDate')}</TableHead><TableHead>{t('financialManagement.amount')}</TableHead><TableHead>{t('financialManagement.totalAmount')}</TableHead><TableHead className="text-right">{t('financialManagement.actions')}</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {invoices.map((invoice) => (
                       <TableRow
@@ -2451,7 +2453,7 @@ export function FinancialManagement() {
                 </Select>
                 <Input type="date" value={paymentFilters.dateFrom} onChange={(e) => setPaymentFilters((p) => ({ ...p, dateFrom: e.target.value }))} />
                 <Input type="date" value={paymentFilters.dateTo} onChange={(e) => setPaymentFilters((p) => ({ ...p, dateTo: e.target.value }))} />
-                <Button variant="outline" onClick={onApplyPaymentFilters}><Search className="mr-2 h-4 w-4" />Filtern</Button>
+                <Button variant="outline" onClick={onApplyPaymentFilters}><Search className="mr-2 h-4 w-4" />{t('common.filter')}</Button>
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -2459,7 +2461,7 @@ export function FinancialManagement() {
                     getPayments({}).then((res) => setPayments(res.payments || []));
                   }}
                 >
-                  Zurücksetzen
+                  {t('common.reset')}
                 </Button>
               </div>
 
@@ -2467,15 +2469,15 @@ export function FinancialManagement() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Zahlung</TableHead>
-                      <TableHead>Kunde</TableHead>
-                      <TableHead>Vorgang</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Methode</TableHead>
-                      <TableHead>Betrag</TableHead>
-                      <TableHead>Zeitpunkt</TableHead>
-                      <TableHead>Referenz</TableHead>
-                      <TableHead className="text-right">Aktion</TableHead>
+                      <TableHead>{t('financialManagement.payments')}</TableHead>
+                      <TableHead>{t('financialManagement.customer')}</TableHead>
+                      <TableHead>{t('financialManagement.transactionId')}</TableHead>
+                      <TableHead>{t('financialManagement.status')}</TableHead>
+                      <TableHead>{t('financialManagement.paymentMethod')}</TableHead>
+                      <TableHead>{t('financialManagement.amount')}</TableHead>
+                      <TableHead>{t('financialManagement.date')}</TableHead>
+                      <TableHead>{t('financialManagement.transactionId')}</TableHead>
+                      <TableHead className="text-right">{t('financialManagement.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -2573,7 +2575,7 @@ export function FinancialManagement() {
 
         <TabsContent value="providers" className="space-y-4">
           <Card className="border-[#d8dce6]">
-            <CardHeader><CardTitle className="text-[#1a2a5e]">Drittanbieter Zahlungsanbieter</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-[#1a2a5e]">{t('financialManagement.paymentGateways')}</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               {gateways.map((gateway) => (
                 <div key={gateway._id} className="rounded-md border border-[#d8dce6] p-3">
@@ -2615,7 +2617,7 @@ export function FinancialManagement() {
                 <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                   <span>Letzte Aenderung: {systemConfig?.updatedAt ? formatDateTime(systemConfig.updatedAt) : '-'}</span>
                   <Button className="bg-[#1a2a5e] hover:bg-[#2a3f7e]" onClick={onSaveFinancialSettings} disabled={savingFinancialSettings || !systemConfig}>
-                    <RefreshCw className={`mr-2 h-4 w-4 ${savingFinancialSettings ? 'animate-spin' : ''}`} />Speichern
+                    <RefreshCw className={`mr-2 h-4 w-4 ${savingFinancialSettings ? 'animate-spin' : ''}`} />{t('common.save')}
                   </Button>
                 </div>
               </div>
@@ -2806,9 +2808,9 @@ export function FinancialManagement() {
 
         <TabsContent value="exports" className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-3">
-            <Card className="border-[#d8dce6]"><CardHeader><CardTitle className="text-[#1a2a5e]">Invoices Export</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'csv')}><Download className="mr-2 h-4 w-4" />CSV</Button><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'json')}><Download className="mr-2 h-4 w-4" />JSON</Button></CardContent></Card>
-            <Card className="border-[#d8dce6]"><CardHeader><CardTitle className="text-[#1a2a5e]">Payments Export</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full" onClick={() => onExport('payments', 'csv')}><Download className="mr-2 h-4 w-4" />CSV</Button><Button variant="outline" className="w-full" onClick={() => onExport('payments', 'json')}><Download className="mr-2 h-4 w-4" />JSON</Button></CardContent></Card>
-            <Card className="border-[#d8dce6]"><CardHeader><CardTitle className="text-[#1a2a5e]">Finanzreport</CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Umsatz: {formatCurrency(report?.totalRevenue || 0)}</div><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Refunds: {formatCurrency(report?.refundAmount || 0)}</div><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Disputes: {formatCurrency(report?.disputeAmount || 0)}</div></CardContent></Card>
+            <Card className="border-[#d8dce6]"><CardHeader><CardTitle className="text-[#1a2a5e]">{t('financialManagement.invoices')} {t('common.export')}</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'csv')}><Download className="mr-2 h-4 w-4" />CSV</Button><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'json')}><Download className="mr-2 h-4 w-4" />JSON</Button></CardContent></Card>
+            <Card className="border-[#d8dce6]"><CardHeader><CardTitle className="text-[#1a2a5e]">{t('financialManagement.payments')} {t('common.export')}</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full" onClick={() => onExport('payments', 'csv')}><Download className="mr-2 h-4 w-4" />CSV</Button><Button variant="outline" className="w-full" onClick={() => onExport('payments', 'json')}><Download className="mr-2 h-4 w-4" />JSON</Button></CardContent></Card>
+            <Card className="border-[#d8dce6]"><CardHeader><CardTitle className="text-[#1a2a5e]">{t('financialManagement.reports')}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">{t('financialManagement.revenue')}: {formatCurrency(report?.totalRevenue || 0)}</div><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Refunds: {formatCurrency(report?.refundAmount || 0)}</div><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Disputes: {formatCurrency(report?.disputeAmount || 0)}</div></CardContent></Card>
           </div>
         </TabsContent>
       </Tabs>
@@ -2994,7 +2996,7 @@ export function FinancialManagement() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSendComposerOpen(false)}>Abbrechen</Button>
+            <Button variant="outline" onClick={() => setSendComposerOpen(false)}>{t('common.cancel')}</Button>
             <Button className="bg-[#1a2a5e] hover:bg-[#2a3f7e]" onClick={onSubmitSendComposer}>Jetzt senden</Button>
           </DialogFooter>
         </DialogContent>
@@ -3118,7 +3120,7 @@ export function FinancialManagement() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDunningRunDetailsOpen(false)}>Schliessen</Button>
+            <Button variant="outline" onClick={() => setDunningRunDetailsOpen(false)}>{t('common.close')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -3278,7 +3280,7 @@ export function FinancialManagement() {
               setDunningCaseDialogOpen(false);
               setSelectedInvoice(null);
             }}>
-              Schliessen
+              {t('common.close')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -3658,7 +3660,7 @@ export function FinancialManagement() {
           )}
 
           <DialogFooter className="mt-2 flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setInvoiceDetailsDialogOpen(false)}>Schliessen</Button>
+            <Button variant="outline" onClick={() => setInvoiceDetailsDialogOpen(false)}>{t('common.close')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -3666,7 +3668,7 @@ export function FinancialManagement() {
       <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Erstattung buchen</DialogTitle>
+            <DialogTitle>{t('financialManagement.issueRefund')}</DialogTitle>
             <DialogDescription>Rückerstattung mit Gateway-Integration und vollständiger Nachvollziehbarkeit erfassen.</DialogDescription>
           </DialogHeader>
 
@@ -3855,7 +3857,7 @@ export function FinancialManagement() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRefundDialogOpen(false)}>Abbrechen</Button>
+            <Button variant="outline" onClick={() => setRefundDialogOpen(false)}>{t('common.cancel')}</Button>
             <Button
               onClick={onRefund}
               disabled={!refundForm.amount || Number(refundForm.amount) <= 0 || (!refundForm.reason.trim() && !refundForm.reasonCategory)}
@@ -3866,12 +3868,12 @@ export function FinancialManagement() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}><DialogContent><DialogHeader><DialogTitle>Statuswechsel</DialogTitle></DialogHeader><Label>Status</Label><Select value={statusForm.status} onValueChange={(v) => setStatusForm((p) => ({ ...p, status: v as InvoiceStatus }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="pending_approval">Pending Approval</SelectItem><SelectItem value="sent">Sent</SelectItem><SelectItem value="partially_paid">Partially Paid</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="overdue">Overdue</SelectItem><SelectItem value="cancelled">Canceled</SelectItem><SelectItem value="credited">Credited</SelectItem></SelectContent></Select><Label>Notiz</Label><Textarea value={statusForm.notes} onChange={(e) => setStatusForm((p) => ({ ...p, notes: e.target.value }))} /><DialogFooter><Button variant="outline" onClick={() => setStatusDialogOpen(false)}>Abbrechen</Button><Button onClick={onChangeStatus}>Speichern</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}><DialogContent><DialogHeader><DialogTitle>{t('financialManagement.status')}</DialogTitle></DialogHeader><Label>{t('financialManagement.status')}</Label><Select value={statusForm.status} onValueChange={(v) => setStatusForm((p) => ({ ...p, status: v as InvoiceStatus }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="pending_approval">Pending Approval</SelectItem><SelectItem value="sent">Sent</SelectItem><SelectItem value="partially_paid">Partially Paid</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="overdue">Overdue</SelectItem><SelectItem value="cancelled">Canceled</SelectItem><SelectItem value="credited">Credited</SelectItem></SelectContent></Select><Label>Notiz</Label><Textarea value={statusForm.notes} onChange={(e) => setStatusForm((p) => ({ ...p, notes: e.target.value }))} /><DialogFooter><Button variant="outline" onClick={() => setStatusDialogOpen(false)}>{t('common.cancel')}</Button><Button onClick={onChangeStatus}>{t('common.save')}</Button></DialogFooter></DialogContent></Dialog>
 
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Zahlung erfassen</DialogTitle>
+            <DialogTitle>{t('financialManagement.markAsPaid')}</DialogTitle>
             <DialogDescription>Teilzahlungen und Vollzahlungen strukturiert erfassen, prüfen und dokumentieren.</DialogDescription>
           </DialogHeader>
 
@@ -4054,7 +4056,7 @@ export function FinancialManagement() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>Abbrechen</Button>
+            <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>{t('common.cancel')}</Button>
             <Button
               onClick={onAddPayment}
               disabled={!paymentForm.amount || Number(paymentForm.amount) <= 0 || Number(paymentForm.amount) > selectedInvoiceOpenAmount + 0.01}
@@ -4068,7 +4070,7 @@ export function FinancialManagement() {
       <Dialog open={creditDialogOpen} onOpenChange={setCreditDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Gutschrift erstellen</DialogTitle>
+            <DialogTitle>{t('financialManagement.createInvoice')}</DialogTitle>
             <DialogDescription>Erstellt eine negative Gegenrechnung zur ausgewählten Ursprungsrechnung.</DialogDescription>
           </DialogHeader>
 
@@ -4281,7 +4283,7 @@ export function FinancialManagement() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreditDialogOpen(false)}>Abbrechen</Button>
+            <Button variant="outline" onClick={() => setCreditDialogOpen(false)}>{t('common.cancel')}</Button>
             <Button
               onClick={onCreateCredit}
               disabled={
@@ -4298,7 +4300,7 @@ export function FinancialManagement() {
       <Dialog open={gatewayDialogOpen} onOpenChange={setGatewayDialogOpen}>
         <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Gateway konfigurieren</DialogTitle>
+            <DialogTitle>{t('financialManagement.paymentGateways')}</DialogTitle>
             <DialogDescription>
               Einstellungen fuer Zahlungsanbieter bearbeiten und speichern.
             </DialogDescription>
@@ -5636,7 +5638,7 @@ export function FinancialManagement() {
           })()}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setGatewayDialogOpen(false)}>Abbrechen</Button>
+            <Button variant="outline" onClick={() => setGatewayDialogOpen(false)}>{t('common.cancel')}</Button>
             <Button
               onClick={onUpdateGateway}
               disabled={(() => {
@@ -5644,7 +5646,7 @@ export function FinancialManagement() {
                 return !validation.valid;
               })()}
             >
-              Speichern
+              {t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>

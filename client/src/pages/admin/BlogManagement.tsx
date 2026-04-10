@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { useTranslation } from 'react-i18next'
 import { Link } from "react-router-dom"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -51,6 +52,7 @@ import {
 } from "@/api/blog"
 
 export function BlogManagement() {
+  const { t } = useTranslation()
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [categories, setCategories] = useState<BlogCategory[]>([])
   const [_authors, setAuthors] = useState<BlogAuthor[]>([])
@@ -99,8 +101,8 @@ export function BlogManagement() {
     } catch (error) {
       console.error("Error fetching blog data:", error)
       toast({
-        title: "Error",
-        description: "Failed to load blog data",
+        title: t('common.error'),
+        description: t('blogManagement.failedToLoadPosts'),
         variant: "destructive"
       })
     } finally {
@@ -117,12 +119,12 @@ export function BlogManagement() {
       const response = await createCategory({ name, slug })
       if (response.category) {
         setCategories(prev => [...prev, response.category])
-        toast({ title: "Success", description: `Category "${response.category.name}" created` })
+        toast({ title: t('common.success'), description: `Category "${response.category.name}" created` })
         setNewCategoryName('')
         setIsCategoryDialogOpen(false)
       }
     } catch (error: any) {
-      toast({ title: "Error", description: error.message || "Failed to create category", variant: "destructive" })
+      toast({ title: t('common.error'), description: error.message || "Failed to create category", variant: "destructive" })
     } finally {
       setIsCreatingCategory(false)
     }
@@ -132,7 +134,7 @@ export function BlogManagement() {
     try {
       if (!newPost.title || !newPost.content || !newPost.category) {
         toast({
-          title: "Validation Error",
+          title: t('common.error'),
           description: "Please fill in all required fields (Title, Content, Category)",
           variant: "destructive"
         })
@@ -151,8 +153,8 @@ export function BlogManagement() {
 
       if (response.success) {
         toast({
-          title: "Success",
-          description: "Blog post created successfully",
+          title: t('common.success'),
+          description: t('blogManagement.postCreatedSuccess'),
         })
 
         setIsCreateDialogOpen(false)
@@ -175,8 +177,8 @@ export function BlogManagement() {
     } catch (error: any) {
       console.error("Error creating blog post:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to create blog post",
+        title: t('common.error'),
+        description: error.message || t('blogManagement.failedToCreatePost'),
         variant: "destructive"
       })
     } finally {
@@ -200,7 +202,7 @@ export function BlogManagement() {
     try {
       if (!editingPost || !editingPost.title || !editingPost.content || !editingPost.category) {
         toast({
-          title: "Validation Error",
+          title: t('common.error'),
           description: "Please fill in all required fields (Title, Content, Category)",
           variant: "destructive"
         })
@@ -226,8 +228,8 @@ export function BlogManagement() {
 
       if (response.success) {
         toast({
-          title: "Success",
-          description: "Blog post updated successfully",
+          title: t('common.success'),
+          description: t('blogManagement.postUpdated'),
         })
 
         setIsEditDialogOpen(false)
@@ -239,8 +241,8 @@ export function BlogManagement() {
     } catch (error: any) {
       console.error("Error updating blog post:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to update blog post",
+        title: t('common.error'),
+        description: error.message || t('blogManagement.failedToUpdatePost'),
         variant: "destructive"
       })
     } finally {
@@ -249,15 +251,15 @@ export function BlogManagement() {
   }
 
   const handleDeletePost = async (postId: string) => {
-    if (!window.confirm('Are you sure you want to delete this post?')) return
+    if (!window.confirm(t('blogManagement.confirmDelete'))) return
     try {
       const response = await deleteBlogPost(postId)
       if (response.success) {
-        toast({ title: "Success", description: "Blog post deleted successfully" })
+        toast({ title: t('common.success'), description: t('blogManagement.postDeleted') })
         setPosts(prev => prev.filter(p => p._id !== postId))
       }
     } catch (error: any) {
-      toast({ title: "Error", description: error.message || "Failed to delete blog post", variant: "destructive" })
+      toast({ title: t('common.error'), description: error.message || t('blogManagement.failedToDeletePost'), variant: "destructive" })
     }
   }
 
@@ -283,10 +285,10 @@ export function BlogManagement() {
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-semibold flex items-center gap-2">
             <FileText className="h-6 w-6" />
-            Blog Management
+            {t('blogManagement.title')}
           </h1>
           <p className="text-xs sm:text-sm text-blue-100 mt-0.5">
-            Create and manage blog content
+            {t('blogManagement.description')}
           </p>
         </div>
 
@@ -294,12 +296,12 @@ export function BlogManagement() {
           <DialogTrigger asChild>
             <Button className="h-9 px-3 text-sm bg-white text-[#1a2a5e] hover:bg-blue-50">
               <Plus className="h-4 w-4 mr-1.5" />
-              New Article
+              {t('blogManagement.createNewPost')}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0">
             <DialogHeader className="bg-[#1a2a5e] px-5 py-3 border-b border-blue-900/40 space-y-1">
-              <DialogTitle className="text-white text-base">Create New Blog Post</DialogTitle>
+              <DialogTitle className="text-white text-base">{t('blogManagement.createNewPost')}</DialogTitle>
               <DialogDescription className="text-blue-100 text-xs sm:text-sm">
                 Fill in the details below to create a new blog post.
               </DialogDescription>
@@ -308,7 +310,7 @@ export function BlogManagement() {
             <div className="grid gap-3 p-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="title" className="text-xs">Title *</Label>
+                  <Label htmlFor="title" className="text-xs">{t('blogManagement.fieldTitle')} *</Label>
                   <Input
                     id="title"
                     value={newPost.title}
@@ -318,7 +320,7 @@ export function BlogManagement() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="category" className="text-xs">Category *</Label>
+                  <Label htmlFor="category" className="text-xs">{t('blogManagement.category')} *</Label>
                   <div className="flex gap-2">
                     <Select
                       value={newPost.category}
@@ -343,7 +345,7 @@ export function BlogManagement() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="excerpt" className="text-xs">Excerpt</Label>
+                <Label htmlFor="excerpt" className="text-xs">{t('blogManagement.excerpt')}</Label>
                 <Textarea
                   id="excerpt"
                   value={newPost.excerpt}
@@ -355,7 +357,7 @@ export function BlogManagement() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="content" className="text-xs">Content *</Label>
+                <Label htmlFor="content" className="text-xs">{t('blogManagement.content')} *</Label>
                 <Textarea
                   id="content"
                   value={newPost.content}
@@ -368,7 +370,7 @@ export function BlogManagement() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="tags" className="text-xs">Tags</Label>
+                  <Label htmlFor="tags" className="text-xs">{t('blogManagement.tags')}</Label>
                   <Input
                     id="tags"
                     value={newPost.tags}
@@ -378,7 +380,7 @@ export function BlogManagement() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="featuredImage" className="text-xs">Featured Image URL</Label>
+                  <Label htmlFor="featuredImage" className="text-xs">{t('blogManagement.featuredImage')}</Label>
                   <Input
                     id="featuredImage"
                     value={newPost.featuredImage}
@@ -390,7 +392,7 @@ export function BlogManagement() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="status" className="text-xs">Status</Label>
+                <Label htmlFor="status" className="text-xs">{t('blogManagement.status')}</Label>
                 <Select
                   value={newPost.status}
                   onValueChange={(value) => setNewPost({ ...newPost, status: value })}
@@ -399,9 +401,9 @@ export function BlogManagement() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="draft">{t('blogManagement.draft')}</SelectItem>
                     <SelectItem value="pending_review">Pending Review</SelectItem>
-                    <SelectItem value="published">Published</SelectItem>
+                    <SelectItem value="published">{t('blogManagement.published')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -410,7 +412,7 @@ export function BlogManagement() {
               <div className="space-y-3 border-t pt-3">
                 <h4 className="font-semibold text-sm">SEO Settings</h4>
                 <div className="space-y-1.5">
-                  <Label htmlFor="seoTitle" className="text-xs">SEO Title</Label>
+                  <Label htmlFor="seoTitle" className="text-xs">{t('blogManagement.seoTitle')}</Label>
                   <Input
                     id="seoTitle"
                     value={newPost.seoTitle}
@@ -420,7 +422,7 @@ export function BlogManagement() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="seoDescription" className="text-xs">SEO Description</Label>
+                  <Label htmlFor="seoDescription" className="text-xs">{t('blogManagement.seoDescription')}</Label>
                   <Textarea
                     id="seoDescription"
                     value={newPost.seoDescription}
@@ -450,7 +452,7 @@ export function BlogManagement() {
                 disabled={isCreating}
                 className="h-9 px-3 text-sm"
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={handleCreatePost}
@@ -463,7 +465,7 @@ export function BlogManagement() {
                     Creating...
                   </>
                 ) : (
-                  'Create Post'
+                  t('blogManagement.createNewPost')
                 )}
               </Button>
             </DialogFooter>
@@ -475,7 +477,7 @@ export function BlogManagement() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0">
           <DialogHeader className="bg-[#1a2a5e] px-5 py-3 border-b border-blue-900/40 space-y-1">
-            <DialogTitle className="text-white text-base">Edit Blog Post</DialogTitle>
+            <DialogTitle className="text-white text-base">{t('blogManagement.editPost')}</DialogTitle>
             <DialogDescription className="text-blue-100 text-xs sm:text-sm">
               Update the details of your blog post.
             </DialogDescription>
@@ -485,7 +487,7 @@ export function BlogManagement() {
             <div className="grid gap-3 p-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="edit-title" className="text-xs">Title *</Label>
+                  <Label htmlFor="edit-title" className="text-xs">{t('blogManagement.fieldTitle')} *</Label>
                   <Input
                     id="edit-title"
                     value={editingPost.title}
@@ -495,7 +497,7 @@ export function BlogManagement() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="edit-category" className="text-xs">Category *</Label>
+                  <Label htmlFor="edit-category" className="text-xs">{t('blogManagement.category')} *</Label>
                   <div className="flex gap-2">
                     <Select
                       value={typeof editingPost.category === 'string' ? editingPost.category : editingPost.category._id}
@@ -520,7 +522,7 @@ export function BlogManagement() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="edit-excerpt" className="text-xs">Excerpt</Label>
+                <Label htmlFor="edit-excerpt" className="text-xs">{t('blogManagement.excerpt')}</Label>
                 <Textarea
                   id="edit-excerpt"
                   value={editingPost.excerpt}
@@ -532,7 +534,7 @@ export function BlogManagement() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="edit-content" className="text-xs">Content *</Label>
+                <Label htmlFor="edit-content" className="text-xs">{t('blogManagement.content')} *</Label>
                 <Textarea
                   id="edit-content"
                   value={editingPost.content}
@@ -545,7 +547,7 @@ export function BlogManagement() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="edit-tags" className="text-xs">Tags (read-only)</Label>
+                  <Label htmlFor="edit-tags" className="text-xs">{t('blogManagement.tags')} (read-only)</Label>
                   <Input
                     id="edit-tags"
                     value={
@@ -559,7 +561,7 @@ export function BlogManagement() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="edit-featuredImage" className="text-xs">Featured Image URL</Label>
+                  <Label htmlFor="edit-featuredImage" className="text-xs">{t('blogManagement.featuredImage')}</Label>
                   <Input
                     id="edit-featuredImage"
                     value={editingPost.featuredImage}
@@ -571,7 +573,7 @@ export function BlogManagement() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="edit-status" className="text-xs">Status</Label>
+                <Label htmlFor="edit-status" className="text-xs">{t('blogManagement.status')}</Label>
                 <Select
                   value={editingPost.status}
                   onValueChange={(value) => setEditingPost({ ...editingPost, status: value as any })}
@@ -580,9 +582,9 @@ export function BlogManagement() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="draft">{t('blogManagement.draft')}</SelectItem>
                     <SelectItem value="pending_review">Pending Review</SelectItem>
-                    <SelectItem value="published">Published</SelectItem>
+                    <SelectItem value="published">{t('blogManagement.published')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -591,7 +593,7 @@ export function BlogManagement() {
               <div className="space-y-3 border-t pt-3">
                 <h4 className="font-semibold text-sm">SEO Settings</h4>
                 <div className="space-y-1.5">
-                  <Label htmlFor="edit-seoTitle" className="text-xs">SEO Title</Label>
+                  <Label htmlFor="edit-seoTitle" className="text-xs">{t('blogManagement.seoTitle')}</Label>
                   <Input
                     id="edit-seoTitle"
                     value={editingPost.seoTitle || ''}
@@ -601,7 +603,7 @@ export function BlogManagement() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="edit-seoDescription" className="text-xs">SEO Description</Label>
+                  <Label htmlFor="edit-seoDescription" className="text-xs">{t('blogManagement.seoDescription')}</Label>
                   <Textarea
                     id="edit-seoDescription"
                     value={editingPost.seoDescription || ''}
@@ -639,7 +641,7 @@ export function BlogManagement() {
               disabled={isUpdating}
               className="h-9 px-3 text-sm"
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleUpdatePost}
@@ -652,7 +654,7 @@ export function BlogManagement() {
                   Updating...
                 </>
               ) : (
-                'Update Post'
+                t('common.update')
               )}
             </Button>
           </DialogFooter>
@@ -663,7 +665,7 @@ export function BlogManagement() {
       <div className="grid gap-3 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 pt-4">
-            <CardTitle className="text-xs font-medium">Total Articles</CardTitle>
+            <CardTitle className="text-xs font-medium">{t('blogManagement.totalPosts')}</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="pt-0 pb-4">
@@ -672,7 +674,7 @@ export function BlogManagement() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 pt-4">
-            <CardTitle className="text-xs font-medium">Published</CardTitle>
+            <CardTitle className="text-xs font-medium">{t('blogManagement.publishedPosts')}</CardTitle>
             <Eye className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent className="pt-0 pb-4">
@@ -683,7 +685,7 @@ export function BlogManagement() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 pt-4">
-            <CardTitle className="text-xs font-medium">Drafts</CardTitle>
+            <CardTitle className="text-xs font-medium">{t('blogManagement.draftPosts')}</CardTitle>
             <Edit className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent className="pt-0 pb-4">
@@ -694,7 +696,7 @@ export function BlogManagement() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 pt-4">
-            <CardTitle className="text-xs font-medium">Total Views</CardTitle>
+            <CardTitle className="text-xs font-medium">{t('blogManagement.views')}</CardTitle>
             <Eye className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent className="pt-0 pb-4">
@@ -711,7 +713,7 @@ export function BlogManagement() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search articles..."
+              placeholder={t('blogManagement.searchPosts')}
               className="pl-10 h-9 text-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -723,14 +725,14 @@ export function BlogManagement() {
       {/* Articles List */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Articles</CardTitle>
-          <CardDescription className="text-sm">Manage your blog posts and articles</CardDescription>
+          <CardTitle className="text-base">{t('blogManagement.posts')}</CardTitle>
+          <CardDescription className="text-sm">{t('blogManagement.description')}</CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
           <div className="space-y-3">
             {filteredPosts.length === 0 ? (
               <div className="text-center py-6 text-sm text-muted-foreground">
-                No blog posts found. Create your first article!
+                {t('blogManagement.noBlogPostsFound')}
               </div>
             ) : (
               filteredPosts.map((post) => (
@@ -814,11 +816,11 @@ export function BlogManagement() {
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setIsCategoryDialogOpen(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button size="sm" onClick={handleCreateCategory} disabled={isCreatingCategory || !newCategoryName.trim()}>
               {isCreatingCategory ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
-              Create
+              {t('common.create')}
             </Button>
           </DialogFooter>
         </DialogContent>

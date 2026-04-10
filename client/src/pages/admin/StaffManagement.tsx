@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -98,6 +99,7 @@ import { StaffDetailsDialog } from "@/components/admin/StaffDetailsDialog"
 import StaffStatusManagement from "@/components/admin/StaffStatusManagement"
 
 export function StaffManagement() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState("staff")
   const [staff, setStaff] = useState<StaffMember[]>([])
   const [teams, setTeams] = useState<Team[]>([])
@@ -170,8 +172,8 @@ export function StaffManagement() {
     } catch (error) {
       console.error("Error fetching staff management data:", error)
       toast({
-        title: "Error",
-        description: "Failed to load staff management data",
+        title: t('common.error'),
+        description: t('staffManagement.failedToLoadStaff'),
         variant: "destructive"
       })
     } finally {
@@ -189,7 +191,7 @@ export function StaffManagement() {
       })
 
       toast({
-        title: "Success!",
+        title: t('common.success'),
         description: "Task created successfully"
       })
 
@@ -209,7 +211,7 @@ export function StaffManagement() {
     } catch (error: any) {
       console.error("Error creating task:", error)
       toast({
-        title: "Error",
+        title: t('common.error'),
         description: error.message || "Failed to create task",
         variant: "destructive"
       })
@@ -259,7 +261,7 @@ export function StaffManagement() {
       await updateTeam(editingTeam._id, teamForm)
 
       toast({
-        title: "Success!",
+        title: t('common.success'),
         description: "Team updated successfully"
       })
 
@@ -269,7 +271,7 @@ export function StaffManagement() {
     } catch (error: any) {
       console.error("Error updating team:", error)
       toast({
-        title: "Error",
+        title: t('common.error'),
         description: error.message || "Failed to update team",
         variant: "destructive"
       })
@@ -280,14 +282,14 @@ export function StaffManagement() {
     try {
       await deleteTeam(teamId)
       toast({
-        title: "Success!",
+        title: t('common.success'),
         description: "Team deleted successfully"
       })
       fetchStaffManagementData()
     } catch (error: any) {
       console.error("Error deleting team:", error)
       toast({
-        title: "Error",
+        title: t('common.error'),
         description: error.message || "Failed to delete team",
         variant: "destructive"
       })
@@ -298,15 +300,15 @@ export function StaffManagement() {
     try {
       await deleteStaffMember(staffId)
       toast({
-        title: "Success!",
-        description: "Staff member deleted successfully"
+        title: t('common.success'),
+        description: t('staffManagement.staffDeleted')
       })
       fetchStaffManagementData()
     } catch (error: any) {
       console.error("Error deleting staff member:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to delete staff member",
+        title: t('common.error'),
+        description: error.message || t('staffManagement.failedToDeleteStaff'),
         variant: "destructive"
       })
     }
@@ -374,10 +376,10 @@ export function StaffManagement() {
       <div className="staff-management-header">
         <h1>
           <Users className="h-8 w-8" />
-          Staff Management
+          {t('staffManagement.title')}
         </h1>
         <p>
-          Manage staff members, teams, workload distribution, and performance metrics
+          {t('staffManagement.description')}
         </p>
       </div>
 
@@ -418,11 +420,11 @@ export function StaffManagement() {
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
-          <TabsTrigger value="status">Staff Status</TabsTrigger>
-          <TabsTrigger value="staff">Staff Members</TabsTrigger>
-          <TabsTrigger value="teams">Teams</TabsTrigger>
-          <TabsTrigger value="workload">Workload</TabsTrigger>
-          <TabsTrigger value="performance">Performance</TabsTrigger>
+          <TabsTrigger value="status">{t('staffManagement.status')}</TabsTrigger>
+          <TabsTrigger value="staff">{t('staffManagement.staff')}</TabsTrigger>
+          <TabsTrigger value="teams">{t('staffManagement.teams')}</TabsTrigger>
+          <TabsTrigger value="workload">{t('staffManagement.workload')}</TabsTrigger>
+          <TabsTrigger value="performance">{t('staffManagement.performance')}</TabsTrigger>
         </TabsList>
 
         {/* Staff Status Tab - Real-time time tracking */}
@@ -437,7 +439,7 @@ export function StaffManagement() {
               <Search className="staff-search-icon h-4 w-4" />
               <input
                 className="staff-search-input"
-                placeholder="Search staff members..."
+                placeholder={t('staffManagement.searchStaff')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -456,7 +458,7 @@ export function StaffManagement() {
               </Select>
               <button className="staff-button-primary" onClick={() => setShowCreateStaff(true)}>
                 <UserPlus className="h-4 w-4" />
-                Add Staff Member
+                {t('staffManagement.createNewStaff')}
               </button>
             </div>
           </div>
@@ -465,13 +467,13 @@ export function StaffManagement() {
             <table className="staff-table">
               <thead>
                 <tr>
-                  <th>Staff Member</th>
-                  <th>Role</th>
-                  <th>Department</th>
-                  <th>Specializations</th>
-                  <th>Status</th>
-                  <th>Workload</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  <th>{t('staffManagement.staffName')}</th>
+                  <th>{t('staffManagement.role')}</th>
+                  <th>{t('staffManagement.department')}</th>
+                  <th>{t('staffManagement.specializations')}</th>
+                  <th>{t('staffManagement.status')}</th>
+                  <th>{t('staffManagement.workload')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -537,10 +539,10 @@ export function StaffManagement() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuLabel>{t('common.actions')}</DropdownMenuLabel>
                             <DropdownMenuItem>
                               <Edit className="mr-2 h-4 w-4" />
-                              Edit
+                              {t('common.edit')}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <AlertDialog>
@@ -550,23 +552,23 @@ export function StaffManagement() {
                                   onSelect={(e) => e.preventDefault()}
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete
+                                  {t('common.delete')}
                                 </DropdownMenuItem>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                  <AlertDialogTitle>{t('common.confirm')}</AlertDialogTitle>
                                   <AlertDialogDescription>
                                     This will permanently delete {member.name} from the system.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={() => handleDeleteStaff(member._id)}
                                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                   >
-                                    Delete
+                                    {t('common.delete')}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
@@ -587,7 +589,7 @@ export function StaffManagement() {
             <h3 className="text-lg font-semibold">Team Management</h3>
             <Button onClick={() => setShowCreateTeam(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Create Team
+              {t('staffManagement.createTeam')}
             </Button>
           </div>
 
@@ -609,7 +611,7 @@ export function StaffManagement() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => handleEditTeam(team)}>
                           <Edit className="mr-2 h-4 w-4" />
-                          Edit
+                          {t('common.edit')}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <AlertDialog>
@@ -619,23 +621,23 @@ export function StaffManagement() {
                               onSelect={(e) => e.preventDefault()}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
+                              {t('common.delete')}
                             </DropdownMenuItem>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogTitle>{t('common.confirm')}</AlertDialogTitle>
                               <AlertDialogDescription>
                                 This will permanently delete the team "{team.name}".
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                               <AlertDialogAction
                                 onClick={() => handleDeleteTeam(team._id)}
                                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                               >
-                                Delete
+                                {t('common.delete')}
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
@@ -647,11 +649,11 @@ export function StaffManagement() {
                 <CardContent>
                   <div className="space-y-3">
                     <div>
-                      <p className="text-sm font-medium">Team Leader</p>
+                      <p className="text-sm font-medium">{t('staffManagement.teamLeader')}</p>
                       <p className="text-sm text-muted-foreground">{team.leaderName}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium">Members ({team.members.length})</p>
+                      <p className="text-sm font-medium">{t('staffManagement.teamMembers')} ({team.members.length})</p>
                       <div className="flex -space-x-2 mt-1">
                         {team.members.slice(0, 5).map((member) => (
                           <Avatar key={member.userId._id} className="w-6 h-6 border-2 border-background">
@@ -669,7 +671,7 @@ export function StaffManagement() {
                       </div>
                     </div>
                     <div>
-                      <p className="text-sm font-medium">Performance</p>
+                      <p className="text-sm font-medium">{t('staffManagement.performance')}</p>
                       <div className="flex justify-between text-sm text-muted-foreground">
                         <span>Orders: {team.performance.totalOrders}</span>
                         <span>Rating: {team.performance.customerSatisfaction.toFixed(1)}</span>
@@ -685,14 +687,14 @@ export function StaffManagement() {
           <Dialog open={showEditTeam} onOpenChange={setShowEditTeam}>
             <DialogContent className="sm:max-w-md bg-background">
               <DialogHeader>
-                <DialogTitle>Edit Team</DialogTitle>
+                <DialogTitle>{t('common.edit')} {t('staffManagement.teams')}</DialogTitle>
                 <DialogDescription>
-                  Update team information and manage members
+                  {t('staffManagement.description')}
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleUpdateTeam} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="teamName">Team Name</Label>
+                  <Label htmlFor="teamName">{t('staffManagement.teamName')}</Label>
                   <Input
                     id="teamName"
                     value={teamForm.name}
@@ -709,7 +711,7 @@ export function StaffManagement() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="teamLeader">Team Leader</Label>
+                  <Label htmlFor="teamLeader">{t('staffManagement.teamLeader')}</Label>
                   <Select
                     value={teamForm.leaderId}
                     onValueChange={(value) => setTeamForm({ ...teamForm, leaderId: value })}
@@ -727,7 +729,7 @@ export function StaffManagement() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Team Members</Label>
+                  <Label>{t('staffManagement.teamMembers')}</Label>
                   <div className="space-y-2">
                     {teamForm.members.map((member, index) => (
                       <div key={index} className="flex gap-2">
@@ -764,7 +766,7 @@ export function StaffManagement() {
                           <SelectContent>
                             <SelectItem value="member">Member</SelectItem>
                             <SelectItem value="lead">Lead</SelectItem>
-                            <SelectItem value="supervisor">Supervisor</SelectItem>
+                            <SelectItem value="supervisor">{t('staffManagement.supervisor')}</SelectItem>
                           </SelectContent>
                         </Select>
                         <Button
@@ -798,9 +800,9 @@ export function StaffManagement() {
                 </div>
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setShowEditTeam(false)}>
-                    Cancel
+                    {t('common.cancel')}
                   </Button>
-                  <Button type="submit">Update Team</Button>
+                  <Button type="submit">{t('common.update')}</Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -909,9 +911,9 @@ export function StaffManagement() {
                   </div>
                   <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => setShowCreateTask(false)}>
-                      Cancel
+                      {t('common.cancel')}
                     </Button>
-                    <Button type="submit">Create Task</Button>
+                    <Button type="submit">{t('common.create')}</Button>
                   </DialogFooter>
                 </form>
               </DialogContent>
@@ -995,7 +997,7 @@ export function StaffManagement() {
 
         {/* Performance Tab */}
         <TabsContent value="performance" className="space-y-4">
-          <h3 className="text-lg font-semibold">Performance Metrics</h3>
+          <h3 className="text-lg font-semibold">{t('staffManagement.performance')}</h3>
           
           {metrics && (
             <div className="grid gap-4">
@@ -1078,13 +1080,13 @@ export function StaffManagement() {
                                     try {
                                       await updateTask(task._id, { status: newStatus })
                                       toast({
-                                        title: "Success",
+                                        title: t('common.success'),
                                         description: "Task status updated successfully"
                                       })
                                       fetchStaffManagementData()
                                     } catch (error: any) {
                                       toast({
-                                        title: "Error",
+                                        title: t('common.error'),
                                         description: error.message,
                                         variant: "destructive"
                                       })

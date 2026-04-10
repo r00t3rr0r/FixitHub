@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -32,7 +33,6 @@ import {
   Shield,
   Package,
   Percent,
-  Eye,
   Info,
   Calendar,
   Tag,
@@ -86,6 +86,7 @@ import {
 } from "@/components/ui/tabs"
 
 export function AddOnServiceManagement() {
+  const { t } = useTranslation()
   const [addOnServices, setAddOnServices] = useState<AddOnService[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -148,7 +149,7 @@ export function AddOnServiceManagement() {
     } catch (error: any) {
       console.error("Error fetching categories:", error)
       toast({
-        title: "Error",
+        title: t('common.error'),
         description: error.message || "Failed to load categories",
         variant: "destructive"
       })
@@ -186,8 +187,8 @@ export function AddOnServiceManagement() {
     } catch (error: any) {
       console.error("Error fetching add-on services:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to load add-on services",
+        title: t('common.error'),
+        description: error.message || t('addOnServices.failedToLoadServices'),
         variant: "destructive"
       })
     } finally {
@@ -205,7 +206,7 @@ export function AddOnServiceManagement() {
     } catch (error: any) {
       console.error("Error fetching add-on service detail:", error)
       toast({
-        title: "Error",
+        title: t('common.error'),
         description: error.message || "Failed to load add-on service details",
         variant: "destructive"
       })
@@ -227,8 +228,8 @@ export function AddOnServiceManagement() {
       const response = await createAddOnService(formData)
 
       toast({
-        title: "Success!",
-        description: response.message || "Add-on service created successfully"
+        title: t('common.success'),
+        description: response.message || t('addOnServices.serviceCreatedSuccess')
       })
 
       await fetchAddOnServices()
@@ -237,8 +238,8 @@ export function AddOnServiceManagement() {
     } catch (error: any) {
       console.error("Error creating add-on service:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to create add-on service",
+        title: t('common.error'),
+        description: error.message || t('addOnServices.failedToCreateService'),
         variant: "destructive"
       })
     } finally {
@@ -256,8 +257,8 @@ export function AddOnServiceManagement() {
       const response = await updateAddOnService(selectedService._id, formData)
 
       toast({
-        title: "Success!",
-        description: response.message || "Add-on service updated successfully"
+        title: t('common.success'),
+        description: response.message || t('addOnServices.serviceUpdated')
       })
 
       await fetchAddOnServices()
@@ -267,8 +268,8 @@ export function AddOnServiceManagement() {
     } catch (error: any) {
       console.error("Error updating add-on service:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to update add-on service",
+        title: t('common.error'),
+        description: error.message || t('addOnServices.failedToUpdateService'),
         variant: "destructive"
       })
     } finally {
@@ -286,8 +287,8 @@ export function AddOnServiceManagement() {
       const response = await deleteAddOnService(selectedService._id)
 
       toast({
-        title: "Success!",
-        description: response.message || "Add-on service deleted successfully"
+        title: t('common.success'),
+        description: response.message || t('addOnServices.serviceDeleted')
       })
 
       await fetchAddOnServices()
@@ -296,8 +297,8 @@ export function AddOnServiceManagement() {
     } catch (error: any) {
       console.error("Error deleting add-on service:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to delete add-on service",
+        title: t('common.error'),
+        description: error.message || t('addOnServices.failedToDeleteService'),
         variant: "destructive"
       })
     } finally {
@@ -455,10 +456,10 @@ export function AddOnServiceManagement() {
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-2xl font-bold leading-none">
             <Plus className="h-6 w-6" />
-            Add-On Service Management
+            {t('addOnServices.title')}
           </h1>
           <p className="text-sm text-white/80">
-            Manage add-on services and compatibility settings
+            {t('addOnServices.description')}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -477,7 +478,7 @@ export function AddOnServiceManagement() {
             onClick={openCreateDialog}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Add New Service
+            {t('addOnServices.createNewService')}
           </Button>
         </div>
       </div>
@@ -549,7 +550,7 @@ export function AddOnServiceManagement() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search add-on services by name, description, or category..."
+                  placeholder={t('addOnServices.searchServices')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="h-9 pl-10 text-sm"
@@ -560,10 +561,10 @@ export function AddOnServiceManagement() {
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                 <SelectTrigger className="h-9 w-40 text-sm">
                   <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="All Categories" />
+                  <SelectValue placeholder={t('addOnServices.allCategories')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="all">{t('addOnServices.allCategories')}</SelectItem>
                   {categories.map(category => (
                     <SelectItem key={category._id} value={category.name}>
                       {category.name}
@@ -579,9 +580,9 @@ export function AddOnServiceManagement() {
       {/* Add-On Services Table */}
       <Card>
         <CardHeader className="px-4 py-4">
-          <CardTitle className="text-lg">Add-On Services</CardTitle>
+          <CardTitle className="text-lg">{t('addOnServices.services')}</CardTitle>
           <CardDescription className="text-xs sm:text-sm">
-            Manage your add-on service catalog and compatibility settings. Click on a row to view detailed information.
+            {t('addOnServices.description')}
           </CardDescription>
         </CardHeader>
         <CardContent className="px-4 pb-4 pt-0">
@@ -593,7 +594,7 @@ export function AddOnServiceManagement() {
                   onClick={() => handleSort("name")}
                 >
                   <div className="flex items-center">
-                    Service
+                    {t('addOnServices.service')}
                     {renderSortIcon("name")}
                   </div>
                 </TableHead>
@@ -602,7 +603,7 @@ export function AddOnServiceManagement() {
                   onClick={() => handleSort("category")}
                 >
                   <div className="flex items-center">
-                    Category
+                    {t('addOnServices.category')}
                     {renderSortIcon("category")}
                   </div>
                 </TableHead>
@@ -611,7 +612,7 @@ export function AddOnServiceManagement() {
                   onClick={() => handleSort("price")}
                 >
                   <div className="flex items-center">
-                    Price
+                    {t('addOnServices.price')}
                     {renderSortIcon("price")}
                   </div>
                 </TableHead>
@@ -621,7 +622,7 @@ export function AddOnServiceManagement() {
                   onClick={() => handleSort("bundleDiscount")}
                 >
                   <div className="flex items-center">
-                    Bundle Discount
+                    {t('addOnServices.bundleDiscount')}
                     {renderSortIcon("bundleDiscount")}
                   </div>
                 </TableHead>
@@ -635,7 +636,7 @@ export function AddOnServiceManagement() {
                     {renderSortIcon("popularity")}
                   </div>
                 </TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-right">{t('common.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -643,7 +644,7 @@ export function AddOnServiceManagement() {
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8">
                     <Plus className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                    <p className="text-muted-foreground">No add-on services found</p>
+                    <p className="text-muted-foreground">{t('addOnServices.noServicesFound')}</p>
                   </TableCell>
                 </TableRow>
               ) : (
@@ -768,7 +769,7 @@ export function AddOnServiceManagement() {
                   disabled={currentPage === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Previous
+                  {t('common.previous')}
                 </Button>
 
                 <div className="flex items-center gap-1">
@@ -784,7 +785,7 @@ export function AddOnServiceManagement() {
                   onClick={handleNextPage}
                   disabled={currentPage === totalPages}
                 >
-                  Next
+                  {t('common.next')}
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -826,14 +827,14 @@ export function AddOnServiceManagement() {
                 <CardContent className="space-y-3 px-4 pb-4 pt-0">
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
                     <div className="space-y-1">
-                      <Label className={compactLabelClassName}>Category</Label>
+                      <Label className={compactLabelClassName}>{t('addOnServices.category')}</Label>
                       <Badge variant="outline" className="w-fit text-[11px]">
                         <Tag className="h-3 w-3 mr-1" />
                         {detailService.category}
                       </Badge>
                     </div>
                     <div className="space-y-1">
-                      <Label className={compactLabelClassName}>Price</Label>
+                      <Label className={compactLabelClassName}>{t('addOnServices.price')}</Label>
                       <div className="flex items-center gap-1 text-base font-semibold">
                         <DollarSign className="h-4 w-4 text-green-600" />
                         {detailService.price}
@@ -847,7 +848,7 @@ export function AddOnServiceManagement() {
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <Label className={compactLabelClassName}>Bundle Discount</Label>
+                      <Label className={compactLabelClassName}>{t('addOnServices.bundleDiscount')}</Label>
                       <div className="flex items-center gap-1 text-sm">
                         <Percent className="h-3.5 w-3.5 text-orange-600" />
                         <span>{detailService.bundleDiscount || 0}%</span>
@@ -856,7 +857,7 @@ export function AddOnServiceManagement() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label className={compactLabelClassName}>Description</Label>
+                    <Label className={compactLabelClassName}>{t('addOnServices.fieldDescription')}</Label>
                     <p className="rounded-lg bg-muted/50 p-2.5 text-sm leading-snug">
                       {detailService.description}
                     </p>
@@ -884,9 +885,9 @@ export function AddOnServiceManagement() {
                     <div className="rounded-lg bg-gradient-to-br from-green-50 to-green-100 p-3 text-center dark:from-green-950 dark:to-green-900">
                       <Shield className="mx-auto mb-1.5 h-6 w-6 text-green-600" />
                       <div className="text-xl font-bold text-green-900 dark:text-green-100">
-                        {detailService.isActive ? 'Active' : 'Inactive'}
+                        {detailService.isActive ? t('addOnServices.active') : t('addOnServices.inactive')}
                       </div>
-                      <p className="text-xs text-green-700 dark:text-green-300">Status</p>
+                      <p className="text-xs text-green-700 dark:text-green-300">{t('addOnServices.status')}</p>
                     </div>
                     <div className="rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 p-3 text-center dark:from-blue-950 dark:to-blue-900">
                       <Smartphone className="mx-auto mb-1.5 h-6 w-6 text-blue-600" />
@@ -905,7 +906,7 @@ export function AddOnServiceManagement() {
                   <CardHeader className="px-4 py-3">
                     <CardTitle className="flex items-center gap-2 text-base">
                       <Smartphone className="h-4 w-4" />
-                      Device Compatibility
+                      {t('addOnServices.deviceCompatibility')}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="px-4 pb-4 pt-0">
@@ -970,7 +971,7 @@ export function AddOnServiceManagement() {
 
           <DialogFooter className="border-t px-4 py-3 sm:justify-between">
             <Button variant="outline" size="sm" onClick={() => setIsDetailDialogOpen(false)}>
-              Close
+              {t('common.close')}
             </Button>
             {detailService && (
               <Button size="sm" onClick={() => {
@@ -978,7 +979,7 @@ export function AddOnServiceManagement() {
                 openEditDialog(detailService)
               }}>
                 <Edit className="h-4 w-4 mr-2" />
-                Edit Service
+                {t('addOnServices.editService')}
               </Button>
             )}
           </DialogFooter>
@@ -997,7 +998,7 @@ export function AddOnServiceManagement() {
         <DialogContent className="max-h-[88vh] max-w-3xl overflow-hidden p-0">
           <DialogHeader className="gap-1 border-b border-[#0f1d45] bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] px-4 py-3 text-left text-white">
             <DialogTitle className="text-base font-semibold">
-              {isCreateDialogOpen ? "Create New Add-On Service" : "Edit Add-On Service"}
+              {isCreateDialogOpen ? t('addOnServices.createNewService') : t('addOnServices.editService')}
             </DialogTitle>
             <DialogDescription className="text-xs text-white/80 sm:text-sm">
               {isCreateDialogOpen
@@ -1016,7 +1017,7 @@ export function AddOnServiceManagement() {
             <TabsContent value="basic" className="space-y-3 pt-3">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="name" className={compactLabelClassName}>Service Name</Label>
+                  <Label htmlFor="name" className={compactLabelClassName}>{t('addOnServices.serviceName')}</Label>
                   <Input
                     id="name"
                     value={formData.name}
@@ -1026,7 +1027,7 @@ export function AddOnServiceManagement() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="category" className={compactLabelClassName}>Category</Label>
+                  <Label htmlFor="category" className={compactLabelClassName}>{t('addOnServices.category')}</Label>
                   <Select
                     value={formData.category}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
@@ -1052,7 +1053,7 @@ export function AddOnServiceManagement() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="description" className={compactLabelClassName}>Description</Label>
+                <Label htmlFor="description" className={compactLabelClassName}>{t('addOnServices.fieldDescription')}</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
@@ -1065,7 +1066,7 @@ export function AddOnServiceManagement() {
 
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="price" className={compactLabelClassName}>Price ($)</Label>
+                  <Label htmlFor="price" className={compactLabelClassName}>{t('addOnServices.price')} ($)</Label>
                   <Input
                     id="price"
                     type="number"
@@ -1088,7 +1089,7 @@ export function AddOnServiceManagement() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="bundleDiscount" className={compactLabelClassName}>Bundle Discount (%)</Label>
+                  <Label htmlFor="bundleDiscount" className={compactLabelClassName}>{t('addOnServices.bundleDiscount')} (%)</Label>
                   <Input
                     id="bundleDiscount"
                     type="number"
@@ -1119,7 +1120,7 @@ export function AddOnServiceManagement() {
             <TabsContent value="compatibility" className="space-y-3 pt-3">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className={compactLabelClassName}>Device Compatibility</Label>
+                  <Label className={compactLabelClassName}>{t('addOnServices.deviceCompatibility')}</Label>
                   <Button
                     type="button"
                     variant="outline"
@@ -1213,7 +1214,7 @@ export function AddOnServiceManagement() {
                 resetForm()
               }}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               size="sm"
@@ -1228,7 +1229,7 @@ export function AddOnServiceManagement() {
               ) : (
                 <>
                   <Save className="h-4 w-4 mr-2" />
-                  {isCreateDialogOpen ? "Create Service" : "Update Service"}
+                  {isCreateDialogOpen ? t('addOnServices.createNewService') : t('common.update')}
                 </>
               )}
             </Button>
@@ -1240,14 +1241,14 @@ export function AddOnServiceManagement() {
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>{t('addOnServices.confirmDelete')}</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the add-on service
               "{selectedService?.name}" from your catalog.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteService}
               disabled={submitting}
@@ -1259,7 +1260,7 @@ export function AddOnServiceManagement() {
                   Deleting...
                 </>
               ) : (
-                "Delete Service"
+                t('addOnServices.deleteService')
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

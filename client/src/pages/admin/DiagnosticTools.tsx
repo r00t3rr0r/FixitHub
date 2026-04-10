@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -46,6 +47,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 
 export function DiagnosticTools() {
+  const { t } = useTranslation()
   const [tests, setTests] = useState<DiagnosticTest[]>([])
   const [forms, setForms] = useState<DiagnosticForm[]>([])
   const [loading, setLoading] = useState(true)
@@ -111,8 +113,8 @@ export function DiagnosticTools() {
       } catch (error) {
         console.error("Error fetching diagnostic data:", error)
         toast({
-          title: "Error",
-          description: "Failed to load diagnostic data",
+          title: t('common.error'),
+          description: t('diagnosticTools.failedToLoadTests'),
           variant: "destructive"
         })
       } finally {
@@ -126,7 +128,7 @@ export function DiagnosticTools() {
   const handleCreateTest = async () => {
     if (!newTest.name || !newTest.description || !newTest.category || newTest.deviceTypes.length === 0 || newTest.estimatedTime <= 0) {
       toast({
-        title: "Error",
+        title: t('common.error'),
         description: "Please fill in all required fields",
         variant: "destructive"
       })
@@ -138,8 +140,8 @@ export function DiagnosticTools() {
       const response = await createDiagnosticTest(newTest)
       if (response.success) {
         toast({
-          title: "Success",
-          description: "Diagnostic test created successfully"
+          title: t('common.success'),
+          description: t('diagnosticTools.testCreatedSuccess')
         })
         setTests(prev => [response.test, ...prev])
         setShowCreateTestDialog(false)
@@ -157,8 +159,8 @@ export function DiagnosticTools() {
       }
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.message || "Failed to create diagnostic test",
+        title: t('common.error'),
+        description: error.message || t('diagnosticTools.failedToCreateTest'),
         variant: "destructive"
       })
     } finally {
@@ -169,7 +171,7 @@ export function DiagnosticTools() {
   const handleCreateForm = async () => {
     if (!newForm.name || !newForm.description || newForm.deviceTypes.length === 0) {
       toast({
-        title: "Error",
+        title: t('common.error'),
         description: "Please fill in all required fields",
         variant: "destructive"
       })
@@ -181,7 +183,7 @@ export function DiagnosticTools() {
       const response = await createDiagnosticForm(newForm)
       if (response.success) {
         toast({
-          title: "Success",
+          title: t('common.success'),
           description: "Diagnostic form created successfully"
         })
         setForms(prev => [response.form, ...prev])
@@ -195,7 +197,7 @@ export function DiagnosticTools() {
       }
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: t('common.error'),
         description: error.message || "Failed to create diagnostic form",
         variant: "destructive"
       })
@@ -296,21 +298,21 @@ export function DiagnosticTools() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Stethoscope className="h-8 w-8" />
-            Diagnostic Tools
+            {t('diagnosticTools.title')}
           </h1>
           <p className="text-muted-foreground">
-            Digital forms, checklists, and troubleshooting guides
+            {t('diagnosticTools.description')}
           </p>
         </div>
         {activeTab === "tests" ? (
           <Button onClick={() => setShowCreateTestDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Create Test
+            {t('diagnosticTools.createNewTest')}
           </Button>
         ) : (
           <Button onClick={() => setShowCreateFormDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Create Form
+            {t('diagnosticTools.createNewForm')}
           </Button>
         )}
       </div>
@@ -382,7 +384,7 @@ export function DiagnosticTools() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search diagnostic tests..."
+                  placeholder={t('diagnosticTools.searchTests')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -392,10 +394,10 @@ export function DiagnosticTools() {
             <div className="w-48">
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="All Categories" />
+                  <SelectValue placeholder={t('diagnosticTools.allCategories')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="all">{t('diagnosticTools.allCategories')}</SelectItem>
                   <SelectItem value="hardware">Hardware</SelectItem>
                   <SelectItem value="software">Software</SelectItem>
                   <SelectItem value="performance">Performance</SelectItem>
@@ -411,7 +413,7 @@ export function DiagnosticTools() {
       <Dialog open={showCreateTestDialog} onOpenChange={setShowCreateTestDialog}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create New Diagnostic Test</DialogTitle>
+            <DialogTitle>{t('diagnosticTools.createNewTest')}</DialogTitle>
             <DialogDescription>
               Create a new diagnostic test for device troubleshooting
             </DialogDescription>
@@ -431,7 +433,7 @@ export function DiagnosticTools() {
             </div>
             <div className="grid grid-cols-4 items-start gap-4">
               <Label htmlFor="description" className="text-right pt-2">
-                Description *
+                {t('diagnosticTools.fieldDescription')} *
               </Label>
               <Textarea
                 id="description"
@@ -444,7 +446,7 @@ export function DiagnosticTools() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="category" className="text-right">
-                Category *
+                {t('diagnosticTools.category')} *
               </Label>
               <Select value={newTest.category} onValueChange={(value) => setNewTest(prev => ({ ...prev, category: value }))}>
                 <SelectTrigger className="col-span-3">
@@ -493,10 +495,10 @@ export function DiagnosticTools() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateTestDialog(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleCreateTest} disabled={createTestLoading}>
-              {createTestLoading ? "Creating..." : "Create Test"}
+              {createTestLoading ? "Creating..." : t('diagnosticTools.createNewTest')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -506,7 +508,7 @@ export function DiagnosticTools() {
       <Dialog open={showCreateFormDialog} onOpenChange={setShowCreateFormDialog}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create New Diagnostic Form</DialogTitle>
+            <DialogTitle>{t('diagnosticTools.createNewForm')}</DialogTitle>
             <DialogDescription>
               Create a new diagnostic form for device assessment
             </DialogDescription>
@@ -526,7 +528,7 @@ export function DiagnosticTools() {
             </div>
             <div className="grid grid-cols-4 items-start gap-4">
               <Label htmlFor="form-description" className="text-right pt-2">
-                Description *
+                {t('diagnosticTools.fieldDescription')} *
               </Label>
               <Textarea
                 id="form-description"
@@ -557,10 +559,10 @@ export function DiagnosticTools() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateFormDialog(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleCreateForm} disabled={createFormLoading}>
-              {createFormLoading ? "Creating..." : "Create Form"}
+              {createFormLoading ? "Creating..." : t('diagnosticTools.createNewForm')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -569,8 +571,8 @@ export function DiagnosticTools() {
       {/* Tabs */}
       <Tabs defaultValue="tests" className="space-y-4" onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="tests">Diagnostic Tests</TabsTrigger>
-          <TabsTrigger value="forms">Assessment Forms</TabsTrigger>
+          <TabsTrigger value="tests">{t('diagnosticTools.tests')}</TabsTrigger>
+          <TabsTrigger value="forms">{t('diagnosticTools.forms')}</TabsTrigger>
           <TabsTrigger value="vorabdiagnose">Vorabdiagnose</TabsTrigger>
         </TabsList>
 
@@ -611,7 +613,7 @@ export function DiagnosticTools() {
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
-                      <p className="text-sm font-medium mb-2">Test Steps ({test.steps.length})</p>
+                      <p className="text-sm font-medium mb-2">{t('diagnosticTools.steps')} ({test.steps.length})</p>
                       <div className="space-y-2">
                         {test.steps.slice(0, 3).map((step, index) => (
                           <div key={step._id} className="flex items-start gap-2 text-sm">
@@ -633,7 +635,7 @@ export function DiagnosticTools() {
                     </div>
 
                     <div>
-                      <p className="text-sm font-medium mb-2">Tools Required</p>
+                      <p className="text-sm font-medium mb-2">{t('diagnosticTools.tools')}</p>
                       <div className="space-y-1">
                         {test.tools.map((tool, index) => (
                           <div key={index} className="flex items-center gap-2 text-sm">
@@ -653,7 +655,7 @@ export function DiagnosticTools() {
                   </div>
 
                   <div className="bg-muted/50 p-3 rounded-lg">
-                    <p className="text-sm font-medium mb-2">Pass/Fail Criteria</p>
+                    <p className="text-sm font-medium mb-2">{t('diagnosticTools.criteria')}</p>
                     <div className="space-y-1">
                       {test.passFailCriteria.map((criteria, index) => (
                         <div key={index} className="flex items-center gap-2 text-sm">

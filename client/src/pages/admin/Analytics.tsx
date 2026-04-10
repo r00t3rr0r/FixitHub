@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react"
+import { useTranslation } from 'react-i18next'
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -1039,6 +1040,7 @@ const sanitizeSettingsDraft = (input: ProfitabilitySettings): ProfitabilitySetti
 }
 
 export function Analytics() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -1104,14 +1106,14 @@ export function Analytics() {
 
       if (showToast) {
         toast({
-          title: "Rentabilitaet aktualisiert",
+          title: t('common.success'),
           description: `${nextRows.length} Buchungen mit Backend-Kalkulation geladen`,
         })
       }
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Rentabilitaet konnte nicht geladen werden",
+        title: t('common.error'),
         description: error?.message || "Unbekannter Fehler",
       })
     } finally {
@@ -1466,13 +1468,13 @@ export function Analytics() {
       await loadReport(false)
       setSettingsOpen(false)
       toast({
-        title: "Einstellungen gespeichert",
+        title: t('common.success'),
         description: "Die Rentabilitaetsparameter wurden im Backend aktualisiert.",
       })
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Einstellungen konnten nicht gespeichert werden",
+        title: t('common.error'),
         description: error?.message || "Unbekannter Fehler",
       })
     } finally {
@@ -1484,7 +1486,7 @@ export function Analytics() {
     return (
       <div className="analytics-loading-screen">
         <RefreshCw className="h-6 w-6 animate-spin text-[#1a2a5e]" />
-        <p>Backend-Rentabilitaetsdaten werden geladen...</p>
+        <p>{t('common.loading')}</p>
       </div>
     )
   }
@@ -1494,7 +1496,7 @@ export function Analytics() {
       <div className={`analytics-page${denseView ? " analytics-dense-view" : ""}`}>
         <section className="analytics-hero">
           <div>
-            <div className="analytics-hero-kicker">Admin Analytics</div>
+            <div className="analytics-hero-kicker">{t('analyticsPage.title')}</div>
             <h1>
               <BarChart3 className="h-8 w-8" />
               Rentabilitaet pro Buchung und Auftrag
@@ -1507,7 +1509,7 @@ export function Analytics() {
           <div className="analytics-hero-actions">
             <Button variant="outline" className="analytics-hero-button" onClick={() => loadReport(true)}>
               <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-              Aktualisieren
+              {t('common.refresh')}
             </Button>
             <Button variant="outline" className="analytics-hero-button" onClick={() => setSettingsOpen(true)}>
               <Settings2 className="h-4 w-4" />
@@ -1515,7 +1517,7 @@ export function Analytics() {
             </Button>
             <Button className="analytics-hero-button analytics-hero-button-primary" onClick={exportCsv}>
               <Download className="h-4 w-4" />
-              CSV Export
+              {t('common.export')}
             </Button>
           </div>
         </section>
@@ -1525,7 +1527,7 @@ export function Analytics() {
             <CardHeader>
               <CardTitle>
                 <Wallet className="h-4 w-4" />
-                Nettoerloese
+                {t('analyticsPage.revenue')}
               </CardTitle>
               <CardDescription>Gefilterte Backend-Auswertung</CardDescription>
             </CardHeader>
@@ -1591,7 +1593,7 @@ export function Analytics() {
               </CardHeader>
               <CardContent>
                 <div className="analytics-period-metric">
-                  <span>Umsatz</span>
+                  <span>{t('analyticsPage.revenue')}</span>
                   <strong>{formatCurrency(card.netRevenue)}</strong>
                 </div>
                 <div className="analytics-period-metric">
@@ -1680,14 +1682,14 @@ export function Analytics() {
                 <input
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Buchung, Kunde oder Position suchen"
+                  placeholder={t('common.search')}
                 />
               </label>
 
               <label className="analytics-select-field">
                 <Filter className="h-4 w-4" />
                 <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                  <option value="all">Alle Status</option>
+                  <option value="all">{t('common.selectStatus')}</option>
                   {statusOptions.map((option) => (
                     <option key={option} value={option}>
                         {getStatusMeta(option).label}
@@ -1777,11 +1779,11 @@ export function Analytics() {
                                   <div className="analytics-detail-panel">
                                     <div className="analytics-detail-summary">
                                       <div>
-                                        <span>Status</span>
+                                        <span>{t('common.status')}</span>
                                         <strong>{getStatusMeta(row.status).label}</strong>
                                       </div>
                                       <div>
-                                        <span>Nettoerloes</span>
+                                        <span>{t('analyticsPage.revenue')}</span>
                                         <strong>{formatCurrency(row.netRevenue)}</strong>
                                       </div>
                                       <div>
@@ -1825,7 +1827,7 @@ export function Analytics() {
 
                         <div className="analytics-mobile-card-metrics">
                           <div>
-                            <span>Nettoerloes</span>
+                            <span>{t('analyticsPage.revenue')}</span>
                             <strong>{formatCurrency(row.netRevenue)}</strong>
                           </div>
                           <div>
@@ -1924,7 +1926,7 @@ export function Analytics() {
 
           <DialogFooter className="analytics-columns-footer">
             <Button type="button" variant="outline" onClick={resetColumnPreferences}>
-              Standard wiederherstellen
+              {t('common.reset')}
             </Button>
             <Button type="button" className="analytics-settings-save" onClick={applyColumnPreferences}>
               Anwenden
@@ -1994,7 +1996,7 @@ export function Analytics() {
 
           <DialogFooter className="analytics-columns-footer">
             <Button type="button" variant="outline" onClick={resetOrderDetailPreferences}>
-              Standard wiederherstellen
+              {t('common.reset')}
             </Button>
             <Button type="button" className="analytics-settings-save" onClick={applyOrderDetailPreferences}>
               Anwenden
@@ -2408,11 +2410,11 @@ export function Analytics() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setSettingsDraft(settings)}>
-              Zuruecksetzen
+              {t('common.reset')}
             </Button>
             <Button className="analytics-settings-save" onClick={saveSettings} disabled={savingSettings}>
               <Save className="h-4 w-4" />
-              {savingSettings ? "Speichert..." : "Speichern"}
+              {savingSettings ? t('common.loading') : t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
