@@ -64,7 +64,7 @@ export function ShippingAndPayment() {
               </div>
 
               <p className="info-text">
-                {t('shippingPayment.howToSend.moreInfo')} <a href="/faq">FAQs</a>.
+                {t('shippingPayment.howToSend.moreInfo')} <a href="/faq">{t('shippingPayment.howToSend.faqLabel')}</a>.
               </p>
             </section>
 
@@ -109,7 +109,6 @@ export function ShippingAndPayment() {
 
               <div className="info-box">
                 <h3>{t('shippingPayment.paymentMethods.boxTitle')}</h3>
-                <p>{t('shippingPayment.paymentMethods.details')}</p>
                 <ul className="payment-list">
                   <li>
                     <strong>{t('shippingPayment.paymentMethods.invoice')}:</strong> {t('shippingPayment.paymentMethods.invoiceDesc')}

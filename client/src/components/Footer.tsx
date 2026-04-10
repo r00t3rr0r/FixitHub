@@ -93,7 +93,22 @@ export function Footer() {
               </li>
               <li>
                 <Link to="/terms">
-                  {t('home.footer.repairStatus', 'AGB')}
+                  {t('home.footer.repairStatus', 'AGB und Kundeninformationen')}
+                </Link>
+              </li>
+              <li>
+                <Link to="/zahlung-und-versand">
+                  {t('home.footer.paymentAndShipping', 'Zahlung und Versand')}
+                </Link>
+              </li>
+              <li>
+                <Link to="/impressum">
+                  {t('home.footer.imprint', 'Impressum')}
+                </Link>
+              </li>
+              <li>
+                <Link to="/hinweise-zur-batterieentsorgung">
+                  {t('home.footer.batteryDisposalNotice', 'Hinweise zur Batterieentsorgung')}
                 </Link>
               </li>
             </ul>
