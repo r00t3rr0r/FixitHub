@@ -2809,6 +2809,209 @@
       "footer": "(*) Unzutreffendes streichen."
     }
   },
+  "privacyPage": {
+    "title": "Datenschutzerklaerung",
+    "intro": "Soweit nachstehend keine anderen Angaben gemacht werden, ist die Bereitstellung Ihrer personenbezogenen Daten weder gesetzlich noch vertraglich vorgeschrieben und fuer einen Vertragsabschluss nicht erforderlich. Sie sind zur Bereitstellung der Daten nicht verpflichtet. Eine Nichtbereitstellung hat keine Folgen, soweit bei den nachfolgenden Verarbeitungsvorgaengen nichts anderes angegeben ist.",
+    "definition": "\"Personenbezogene Daten\" sind alle Informationen, die sich auf eine identifizierte oder identifizierbare natuerliche Person beziehen.",
+    "labels": {
+      "legalBasis": "Rechtsgrundlage:",
+      "dataTransfer": "Datenuebermittlung:",
+      "privacyInfo": "Datenschutz:",
+      "website": "Website:",
+      "and": "und"
+    },
+    "controller": {
+      "title": "Verantwortlicher",
+      "country": "Deutschland",
+      "phoneLabel": "Telefon:",
+      "emailLabel": "E-Mail:"
+    },
+    "serverLogs": {
+      "title": "Server-Logfiles",
+      "text": "Sie koennen unsere Website besuchen, ohne Angaben zu Ihrer Person zu machen. Bei jedem Zugriff werden Nutzungsdaten durch Ihren Browser uebermittelt und in Protokolldaten gespeichert. Dazu gehoeren z. B. Seitenname, Datum und Uhrzeit, uebertragene Datenmenge und anfragender Provider. Diese Daten dienen ausschliesslich der Gewaehrleistung eines stoerungsfreien Betriebs und der Verbesserung unseres Angebots.",
+      "legalBasis": "Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)"
+    },
+    "contactForm": {
+      "title": "Erhebung und Verarbeitung bei Nutzung des Kontaktformulars",
+      "text1": "Bei Nutzung des Kontaktformulars erheben wir Ihre personenbezogenen Daten (Name, E-Mail-Adresse, Nachricht) nur in dem von Ihnen bereitgestellten Umfang. Die Verarbeitung dient der Kontaktaufnahme.",
+      "text2": "Sie koennen Ihre Einwilligung jederzeit mit Wirkung fuer die Zukunft widerrufen. Ihre E-Mail-Adresse wird nur zur Bearbeitung Ihrer Anfrage genutzt und anschliessend geloescht, sofern keine weitergehende Einwilligung vorliegt.",
+      "legalBasis": "Art. 6 Abs. 1 lit. a DSGVO (Einwilligung)"
+    },
+    "recaptcha": {
+      "title": "Verwendung von Google reCAPTCHA",
+      "text1": "Wir verwenden reCAPTCHA von Google, um zu unterscheiden, ob Eingaben durch einen Menschen oder automatisiert erfolgen.",
+      "text2": "Dabei koennen Ihre IP-Adresse und weitere fuer den Dienst erforderliche technische Daten an Google uebermittelt werden.",
+      "legalBasis": "Art. 6 Abs. 1 lit. a DSGVO (Einwilligung)",
+      "transfer": "USA (Angemessenheitsbeschluss der EU-Kommission)",
+      "moreInfo": "Weitere Informationen finden Sie unter:"
+    },
+    "account": {
+      "title": "Kundenkonto",
+      "text1": "Bei der Eroeffnung eines Kundenkontos verarbeiten wir personenbezogene Daten, um Ihr Einkaufserlebnis zu verbessern und die Bestellabwicklung zu vereinfachen.",
+      "text2": "Sie koennen Ihre Einwilligung jederzeit widerrufen. Ihr Kundenkonto wird anschliessend geloescht.",
+      "legalBasis": "Art. 6 Abs. 1 lit. a DSGVO (Einwilligung)"
+    },
+    "orders": {
+      "title": "Erhebung, Verarbeitung und Nutzung bei Bestellungen",
+      "text1": "Bei Bestellungen verarbeiten wir personenbezogene Daten nur, soweit dies zur Vertragserfuellung und Bearbeitung Ihrer Anfragen erforderlich ist. Die Bereitstellung der Daten ist fuer den Vertragsschluss erforderlich.",
+      "text2": "Eine Weitergabe erfolgt nur an Dienstleistungspartner, die wir fuer die Vertragsabwicklung benoetigen, oder an Auftragsverarbeiter.",
+      "text3": "In allen Faellen beachten wir die gesetzlichen Vorgaben und beschraenken die Datenuebermittlung auf das notwendige Minimum.",
+      "legalBasis": "Art. 6 Abs. 1 lit. b DSGVO (Vertragserfuellung)",
+      "recipients": {
+        "shipping": "Versanddienstleister",
+        "payment": "Zahlungsdienstleister",
+        "erp": "Warenwirtschaftsdienstleister",
+        "orderProcessing": "Diensteanbieter fuer die Bestellabwicklung",
+        "hosting": "Webhoster",
+        "it": "IT-Dienstleister",
+        "dropshipping": "Dropshipping-Partner"
+      }
+    },
+    "reviews": {
+      "title": "Kundenbewertungen",
+      "text1": "Wir verwenden ein Kundenbewertungssystem der Haendlerbund Management AG fuer verifizierte Bewertungen nach einer Bestellung.",
+      "text2": "Zu diesem Zweck kontaktieren wir Sie ggf. per E-Mail und nutzen das technische System des Anbieters im Rahmen einer Auftragsverarbeitung.",
+      "text3": "Ein Widerspruch ist jederzeit ueber die Kontaktdaten im Impressum oder ueber den Link in der Bewertungsanfrage moeglich.",
+      "text4": "In diesem Zusammenhang gespeicherte Daten werden nach drei Monaten geloescht.",
+      "legalBasis": "Art. 6 Abs. 1 lit. a DSGVO (Einwilligung) oder Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an verifizierten Bewertungen)"
+    },
+    "newsletter": {
+      "title": "Verwendung der E-Mail-Adresse fuer Newsletter",
+      "text1": "Wir nutzen Ihre E-Mail-Adresse fuer eigene Newsletter-Werbung nur, wenn Sie ausdruecklich eingewilligt haben.",
+      "text2": "Sie koennen die Einwilligung jederzeit ueber den Abmeldelink oder durch Nachricht an uns widerrufen.",
+      "legalBasis": "Art. 6 Abs. 1 lit. a DSGVO (Einwilligung)"
+    },
+    "shippingStatus": {
+      "title": "Weitergabe der E-Mail-Adresse an Versandunternehmen",
+      "text1": "Wenn Sie im Bestellprozess einwilligen, geben wir Ihre E-Mail-Adresse an das Versandunternehmen weiter, damit Sie Versandstatus-Informationen erhalten.",
+      "text2": "Sie koennen diese Einwilligung jederzeit gegenueber uns oder dem Versandunternehmen widerrufen.",
+      "legalBasis": "Art. 6 Abs. 1 lit. a DSGVO (Einwilligung)"
+    },
+    "erp": {
+      "title": "Externes Warenwirtschaftssystem",
+      "text": "Zur Vertragsabwicklung nutzen wir ein externes Warenwirtschaftssystem und uebermitteln relevante Bestelldaten im Rahmen einer Auftragsverarbeitung an JTL-Software-GmbH, Rheinstr. 7, 41836 Hueckelhoven, Deutschland."
+    },
+    "paypal": {
+      "title": "Verwendung von PayPal",
+      "text": "Alle PayPal-Transaktionen unterliegen der PayPal-Datenschutzerklaerung:"
+    },
+    "cookies": {
+      "title": "Cookies",
+      "text1": "Unsere Website verwendet Cookies. Cookies sind kleine Textdateien, die im Browser gespeichert werden und grundlegende Funktionen ermoeglichen.",
+      "text2": "Wir setzen Cookies ein, um unser Angebot nutzerfreundlicher, effektiver und sicherer zu machen.",
+      "text3": "Darueber hinaus nutzen wir Cookies fuer Analysezwecke und ggf. interessenbezogene Werbung.",
+      "text4": "Die erhobenen Daten koennen pseudonymisiert sein und lassen sich nicht immer einer Person zuordnen.",
+      "text5": "Sie haben das Recht, aus Gruenden Ihrer besonderen Situation der Verarbeitung gemaess Art. 6 Abs. 1 lit. f DSGVO zu widersprechen.",
+      "text6": "Sie koennen in Ihrem Browser Cookies blockieren oder loeschen. Beachten Sie, dass dann ggf. nicht alle Funktionen der Website verfuegbar sind.",
+      "legalBasis": "§ 15 Abs. 3 TMG sowie Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)",
+      "browserTitle": "Cookie-Verwaltung in Browsern:",
+      "browserChrome": "Chrome Browser",
+      "browserIe": "Internet Explorer",
+      "browserFirefox": "Mozilla Firefox",
+      "browserSafari": "Safari"
+    },
+    "analytics": {
+      "title": "Nutzung von Google Analytics",
+      "text1": "Wir verwenden Google Analytics zur Analyse der Website-Nutzung und zur Verbesserung unseres Angebots.",
+      "text2": "Google Analytics verwendet Cookies und kann Informationen an Server in den USA uebermitteln. Die IP-Anonymisierung ist auf dieser Website aktiviert.",
+      "legalBasis": "Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)",
+      "transfer": "USA (Angemessenheitsbeschluss der EU-Kommission)",
+      "optOut": "Sie koennen die Datenerfassung durch Google Analytics ueber ein Browser-Add-on verhindern:",
+      "optOutLinkLabel": "Google Analytics deaktivieren",
+      "moreInfo": "Weitere Informationen finden Sie unter"
+    },
+    "remarketing": {
+      "title": "Google Remarketing / Aehnliche Zielgruppen",
+      "text1": "Wir nutzen Remarketing-Funktionen von Google, um interessenbezogene Werbung anzuzeigen.",
+      "legalBasis": "Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)",
+      "transfer": "USA (Angemessenheitsbeschluss der EU-Kommission)",
+      "optOut": "Sie koennen Google-Cookies dauerhaft deaktivieren unter:",
+      "optOutLinkLabel": "Google Ads deaktivieren",
+      "networkOptOut": "Alternativ koennen Sie Drittanbieter-Cookies ueber die Network Advertising Initiative deaktivieren unter",
+      "moreInfo": "Weitere Informationen finden Sie unter:"
+    },
+    "conversionTracking": {
+      "title": "Google AdWords Conversion-Tracking",
+      "text1": "Wir verwenden Google Ads Conversion-Tracking zur Messung der Wirksamkeit von Werbekampagnen.",
+      "text2": "Beim Klick auf eine Google-Anzeige wird ein Conversion-Cookie gesetzt. Diese Cookies dienen nicht der direkten Identifizierung.",
+      "legalBasis": "Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)",
+      "moreInfo": "Weiterfuehrende Informationen finden Sie unter:"
+    },
+    "facebook": {
+      "title": "Facebook Remarketing",
+      "text": "Wir nutzen Facebook Custom Audiences, um Website-Besucher mit interessenbezogener Werbung anzusprechen.",
+      "legalBasis": "Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)",
+      "moreInfo": "Weitere Informationen zum Datenschutz bei Facebook finden Sie unter"
+    },
+    "adsense": {
+      "title": "Google AdSense",
+      "text": "Wir nutzen Google AdSense, um zielgerichtete Werbeanzeigen auf unserer Website bereitzustellen.",
+      "legalBasis": "Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)",
+      "optOut": "Sie koennen Google-Cookies dauerhaft deaktivieren unter:",
+      "optOutLinkLabel": "Google Ads deaktivieren",
+      "moreInfo": "Weitere Informationen finden Sie unter:"
+    },
+    "bingAds": {
+      "title": "Bing Ads",
+      "text": "Wir verwenden Bing Ads von Microsoft. Beim Klick auf eine Bing-Anzeige kann ein Conversion-Cookie gesetzt werden.",
+      "legalBasis": "Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)",
+      "privacyInfo": "Microsoft hat Datenschutzinformationen zu Bing Ads und verbundenen Diensten veroeffentlicht.",
+      "moreInfo": "Weitere Informationen finden Sie unter:"
+    },
+    "social": {
+      "title": "Social Plug-ins mit Shariff",
+      "text1": "Wir verwenden Social-Plugins und datenschutzfreundliche Shariff-Schaltflaechen.",
+      "text2": "Ohne Ihre aktive Interaktion wird keine direkte Verbindung zu Servern sozialer Netzwerke hergestellt.",
+      "text3": "Erst beim Anklicken einer Schaltflaeche koennen Daten an den jeweiligen Anbieter uebermittelt werden.",
+      "networksTitle": "Eingebundene soziale Netzwerke:",
+      "privacyLabel": "Datenschutz"
+    },
+    "youtube": {
+      "title": "YouTube",
+      "text1": "Wir binden YouTube-Videos im erweiterten Datenschutzmodus ein.",
+      "text2": "Erst beim Start eines Videos koennen Informationen an YouTube uebermittelt werden.",
+      "moreInfo": "Weitere Informationen finden Sie unter:"
+    },
+    "maps": {
+      "title": "Google Maps",
+      "text": "Wir nutzen Google Maps zur Darstellung geografischer Informationen und interaktiver Karten.",
+      "legalBasis": "Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)",
+      "transfer": "USA (Angemessenheitsbeschluss der EU-Kommission)",
+      "moreInfo": "Weitere Informationen finden Sie unter"
+    },
+    "retention": {
+      "title": "Dauer der Speicherung",
+      "text": "Nach vollstaendiger Vertragsabwicklung werden Daten fuer Gewaehrleistungsfristen und gesetzliche Aufbewahrungsfristen gespeichert und anschliessend geloescht, sofern keine weitergehende Verarbeitung vereinbart wurde.",
+      "boxTitle": "Gesetzliche Aufbewahrungsfristen:",
+      "commercialLabel": "Handelsrechtlich:",
+      "commercialValue": "6-10 Jahre (§ 257 HGB)",
+      "taxLabel": "Steuerrechtlich:",
+      "taxValue": "10 Jahre (§ 147 AO)"
+    },
+    "rights": {
+      "title": "Rechte der betroffenen Person",
+      "intro": "Bei Vorliegen der gesetzlichen Voraussetzungen haben Sie folgende Rechte nach Art. 15 bis 20 DSGVO:",
+      "items": {
+        "access": "Recht auf Auskunft",
+        "rectification": "Recht auf Berichtigung",
+        "erasure": "Recht auf Loeschung",
+        "restriction": "Recht auf Einschraenkung der Verarbeitung",
+        "portability": "Recht auf Datenuebertragbarkeit"
+      },
+      "objection": "Ausserdem steht Ihnen nach Art. 21 Abs. 1 DSGVO ein Widerspruchsrecht gegen Verarbeitungen auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO sowie gegen Direktwerbung zu.",
+      "contactStrong": "Kontaktieren Sie uns auf Wunsch.",
+      "contactText": "Die Kontaktdaten finden Sie in unserem Impressum."
+    },
+    "complaint": {
+      "title": "Beschwerderecht bei der Aufsichtsbehoerde",
+      "text": "Sie haben gemaess Art. 77 DSGVO das Recht, sich bei einer Aufsichtsbehoerde zu beschweren, wenn Sie der Ansicht sind, dass die Verarbeitung Ihrer personenbezogenen Daten nicht rechtmaessig erfolgt.",
+      "authorityTitle": "Zustaendige Aufsichtsbehoerde fuer Berlin:",
+      "authorityName": "Berliner Beauftragte fuer Datenschutz und Informationsfreiheit"
+    },
+    "updatedLabel": "Stand dieser Datenschutzerklaerung:",
+    "updatedValue": "Maerz 2026",
+    "finalNote": "Wir behalten uns vor, diese Datenschutzerklaerung anzupassen, damit sie stets den aktuellen rechtlichen Anforderungen entspricht oder um Aenderungen unserer Leistungen abzubilden. Fuer Ihren erneuten Besuch gilt dann die neue Datenschutzerklaerung."
+  },
   "vorabdiagnose": {
     "title": "Vorabdiagnose",
     "badge": "Schnell & Einfach",

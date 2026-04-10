@@ -2802,6 +2802,209 @@
       "footer": "(*) Delete as appropriate."
     }
   },
+  "privacyPage": {
+    "title": "Privacy Policy",
+    "intro": "Unless stated otherwise below, the provision of your personal data is not legally or contractually required and is not necessary to conclude a contract. You are not obliged to provide this data. Not providing data has no consequences unless otherwise stated in specific processing operations below.",
+    "definition": "\"Personal data\" means any information relating to an identified or identifiable natural person.",
+    "labels": {
+      "legalBasis": "Legal basis:",
+      "dataTransfer": "Data transfer:",
+      "privacyInfo": "Privacy information:",
+      "website": "Website:",
+      "and": "and"
+    },
+    "controller": {
+      "title": "Controller",
+      "country": "Germany",
+      "phoneLabel": "Phone:",
+      "emailLabel": "Email:"
+    },
+    "serverLogs": {
+      "title": "Server log files",
+      "text": "You can visit our website without providing personal information. With every access, usage data is transmitted by your browser and stored in protocol data (server log files), including page name, date/time, transferred data volume, and requesting provider. This data is used solely to ensure stable operation and improve our offer. It is not possible to assign this data to a specific person.",
+      "legalBasis": "Art. 6 para. 1 lit. f GDPR (legitimate interest)"
+    },
+    "contactForm": {
+      "title": "Collection and processing via contact form",
+      "text1": "When using the contact form, we collect your personal data (name, email address, message text) only within the scope provided by you. The processing serves the purpose of contacting you.",
+      "text2": "You can revoke your consent at any time with effect for the future. Your email address is used only for handling your request and deleted afterward unless you agreed to further processing.",
+      "legalBasis": "Art. 6 para. 1 lit. a GDPR (consent)"
+    },
+    "recaptcha": {
+      "title": "Use of Google reCAPTCHA",
+      "text1": "We use the reCAPTCHA service by Google to distinguish whether input is made by a human or by automated processing.",
+      "text2": "For this purpose, your IP address and additional technical data required by reCAPTCHA may be transmitted to Google.",
+      "legalBasis": "Art. 6 para. 1 lit. a GDPR (consent)",
+      "transfer": "USA (EU Commission adequacy decision)",
+      "moreInfo": "Further information is available at:"
+    },
+    "account": {
+      "title": "Customer account",
+      "text1": "When opening a customer account, we process personal data to improve your shopping experience and simplify order handling.",
+      "text2": "You can revoke your consent at any time. Your account will then be deleted.",
+      "legalBasis": "Art. 6 para. 1 lit. a GDPR (consent)"
+    },
+    "orders": {
+      "title": "Collection, processing and use for orders",
+      "text1": "For orders, we process personal data only to fulfill and execute your order and process related inquiries. Providing data is required to conclude the contract.",
+      "text2": "Your data is only shared with service partners required for contract fulfillment or processors acting on our behalf.",
+      "text3": "In all cases we comply with legal requirements and limit transfer to the minimum necessary.",
+      "legalBasis": "Art. 6 para. 1 lit. b GDPR (performance of contract)",
+      "recipients": {
+        "shipping": "Shipping service providers",
+        "payment": "Payment service providers",
+        "erp": "ERP/merchandise management providers",
+        "orderProcessing": "Order processing service providers",
+        "hosting": "Web hosting providers",
+        "it": "IT service providers",
+        "dropshipping": "Dropshipping partners"
+      }
+    },
+    "reviews": {
+      "title": "Customer reviews",
+      "text1": "We use a customer review system by Haendlerbund Management AG to collect verified purchase ratings after an order.",
+      "text2": "For this purpose, we may contact you by email and use the provider's technical system as processor.",
+      "text3": "You can object at any time via the contact details in the imprint or via the link in the review request.",
+      "text4": "Data stored in this context is deleted after three months.",
+      "legalBasis": "Art. 6 para. 1 lit. a GDPR (consent) or Art. 6 para. 1 lit. f GDPR (legitimate interest in verified reviews)"
+    },
+    "newsletter": {
+      "title": "Use of email for newsletters",
+      "text1": "We use your email address for our own newsletter advertising only if you expressly consented.",
+      "text2": "You can revoke your consent at any time via the unsubscribe link or by contacting us.",
+      "legalBasis": "Art. 6 para. 1 lit. a GDPR (consent)"
+    },
+    "shippingStatus": {
+      "title": "Email transfer to shipping providers",
+      "text1": "If you consent during checkout, we transfer your email address to the shipping provider to inform you about shipment status.",
+      "text2": "You can revoke this consent at any time by contacting us or the shipping provider.",
+      "legalBasis": "Art. 6 para. 1 lit. a GDPR (consent)"
+    },
+    "erp": {
+      "title": "External merchandise management system",
+      "text": "To process contracts, we use an external merchandise management system and transfer relevant order data to JTL-Software-GmbH, Rheinstr. 7, 41836 Hueckelhoven, Germany, under a data processing agreement."
+    },
+    "paypal": {
+      "title": "Use of PayPal",
+      "text": "All PayPal transactions are subject to PayPal's privacy policy:"
+    },
+    "cookies": {
+      "title": "Cookies",
+      "text1": "Our website uses cookies. Cookies are small text files stored in your browser to enable recognition and core functionality.",
+      "text2": "We use cookies to make our offer more user-friendly, effective and secure.",
+      "text3": "We also use cookies for analytics and, where applicable, interest-based advertising.",
+      "text4": "Collected data may be pseudonymized and cannot always be assigned to a specific person.",
+      "text5": "You have the right to object to processing based on Art. 6 para. 1 lit. f GDPR for reasons arising from your particular situation.",
+      "text6": "You can configure your browser to block or delete cookies. Please note that some website functions may then be limited.",
+      "legalBasis": "Section 15 para. 3 TMG and Art. 6 para. 1 lit. f GDPR (legitimate interest)",
+      "browserTitle": "Cookie management in browsers:",
+      "browserChrome": "Chrome Browser",
+      "browserIe": "Internet Explorer",
+      "browserFirefox": "Mozilla Firefox",
+      "browserSafari": "Safari"
+    },
+    "analytics": {
+      "title": "Use of Google Analytics",
+      "text1": "We use Google Analytics to analyze website usage and improve our website.",
+      "text2": "Google Analytics uses cookies and may transfer information to servers in the USA. IP anonymization is enabled on this website.",
+      "legalBasis": "Art. 6 para. 1 lit. f GDPR (legitimate interest)",
+      "transfer": "USA (EU Commission adequacy decision)",
+      "optOut": "You can prevent data collection by Google Analytics using the browser add-on:",
+      "optOutLinkLabel": "Disable Google Analytics",
+      "moreInfo": "More information can be found at"
+    },
+    "remarketing": {
+      "title": "Google Remarketing / Similar Audiences",
+      "text1": "We use Google's remarketing features to display interest-based advertising.",
+      "legalBasis": "Art. 6 para. 1 lit. f GDPR (legitimate interest)",
+      "transfer": "USA (EU Commission adequacy decision)",
+      "optOut": "You can disable Google cookies permanently via:",
+      "optOutLinkLabel": "Disable Google Ads",
+      "networkOptOut": "You can also disable third-party cookies via the Network Advertising Initiative at",
+      "moreInfo": "More information is available at:"
+    },
+    "conversionTracking": {
+      "title": "Google Ads conversion tracking",
+      "text1": "We use Google Ads conversion tracking to measure campaign effectiveness.",
+      "text2": "If you click a Google ad, a conversion cookie is set. These cookies do not directly identify you.",
+      "legalBasis": "Art. 6 para. 1 lit. f GDPR (legitimate interest)",
+      "moreInfo": "Further information is available at:"
+    },
+    "facebook": {
+      "title": "Facebook remarketing",
+      "text": "We use Facebook Custom Audiences to address website visitors with interest-based ads.",
+      "legalBasis": "Art. 6 para. 1 lit. f GDPR (legitimate interest)",
+      "moreInfo": "More information about Facebook privacy is available at"
+    },
+    "adsense": {
+      "title": "Google AdSense",
+      "text": "We use Google AdSense to display targeted advertisements on our website.",
+      "legalBasis": "Art. 6 para. 1 lit. f GDPR (legitimate interest)",
+      "optOut": "You can disable Google cookies permanently via:",
+      "optOutLinkLabel": "Disable Google Ads",
+      "moreInfo": "Further information is available at:"
+    },
+    "bingAds": {
+      "title": "Bing Ads",
+      "text": "We use Bing Ads by Microsoft. Clicking a Bing ad may set a conversion cookie on your device.",
+      "legalBasis": "Art. 6 para. 1 lit. f GDPR (legitimate interest)",
+      "privacyInfo": "Microsoft has published privacy information for Bing Ads and related services.",
+      "moreInfo": "Further information is available at:"
+    },
+    "social": {
+      "title": "Social plug-ins using Shariff",
+      "text1": "We use social network plug-ins and privacy-friendly Shariff buttons.",
+      "text2": "Without your explicit interaction, no direct connection to social network servers is established.",
+      "text3": "Only when you click a button are data potentially transmitted to the respective provider.",
+      "networksTitle": "Integrated social networks:",
+      "privacyLabel": "Privacy"
+    },
+    "youtube": {
+      "title": "YouTube",
+      "text1": "We embed YouTube videos in enhanced privacy mode.",
+      "text2": "Only when you start a video may information be transmitted to YouTube.",
+      "moreInfo": "More information is available at:"
+    },
+    "maps": {
+      "title": "Google Maps",
+      "text": "We use Google Maps to display geographic information and interactive maps.",
+      "legalBasis": "Art. 6 para. 1 lit. f GDPR (legitimate interest)",
+      "transfer": "USA (EU Commission adequacy decision)",
+      "moreInfo": "More information is available at"
+    },
+    "retention": {
+      "title": "Storage duration",
+      "text": "After complete contract execution, data is stored for warranty periods and statutory retention obligations, then deleted unless further processing was agreed.",
+      "boxTitle": "Statutory retention periods:",
+      "commercialLabel": "Commercial law:",
+      "commercialValue": "6-10 years (Section 257 HGB)",
+      "taxLabel": "Tax law:",
+      "taxValue": "10 years (Section 147 AO)"
+    },
+    "rights": {
+      "title": "Data subject rights",
+      "intro": "If legal requirements are met, you have the following rights under Art. 15 to 20 GDPR:",
+      "items": {
+        "access": "Right of access",
+        "rectification": "Right to rectification",
+        "erasure": "Right to erasure",
+        "restriction": "Right to restriction of processing",
+        "portability": "Right to data portability"
+      },
+      "objection": "You also have a right to object under Art. 21 para. 1 GDPR to processing based on Art. 6 para. 1 lit. f GDPR and to direct marketing.",
+      "contactStrong": "Contact us if you wish.",
+      "contactText": "You can find our contact details in the imprint."
+    },
+    "complaint": {
+      "title": "Right to lodge a complaint",
+      "text": "Under Art. 77 GDPR, you have the right to lodge a complaint with a supervisory authority if you believe processing of your personal data is unlawful.",
+      "authorityTitle": "Competent authority for Berlin:",
+      "authorityName": "Berlin Commissioner for Data Protection and Freedom of Information"
+    },
+    "updatedLabel": "Version of this privacy policy:",
+    "updatedValue": "March 2026",
+    "finalNote": "We reserve the right to adapt this privacy policy so it always complies with current legal requirements or to reflect changes in our services. The new privacy policy will apply to your next visit."
+  },
   "vorabdiagnose": {
     "title": "Pre-Diagnosis",
     "badge": "Quick & Easy",
