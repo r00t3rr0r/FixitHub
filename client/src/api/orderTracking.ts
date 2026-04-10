@@ -61,7 +61,7 @@ export const trackOrder = async (data: TrackingData): Promise<TrackingResponse> 
     });
     return response.data;
   } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+    throw new Error(error?.response?.data?.error || error?.data?.error || error.message);
   }
 };
 
@@ -85,7 +85,7 @@ export const trackBooking = async (data: TrackingData): Promise<BookingTrackingR
     });
     return response.data;
   } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+    throw new Error(error?.response?.data?.error || error?.data?.error || error.message);
   }
 };
 
@@ -145,7 +145,7 @@ export const trackBookingByNumber = async (data: BookingNumberTrackingData): Pro
     });
     return response.data;
   } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+    throw new Error(error?.response?.data?.error || error?.data?.error || error.message);
   }
 };
 
