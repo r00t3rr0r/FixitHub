@@ -3396,5 +3396,359 @@
     "unknown": "Unknown",
     "unknownError": "Unknown Error",
     "you": "You"
+  },
+  "withdrawalPage": {
+    "title": "Repair right of withdrawal",
+    "consumer": {
+      "title": "Right of withdrawal for consumers",
+      "definition": "(A consumer is any natural person who enters into a legal transaction for purposes that are predominantly outside their trade, business, or self-employed professional activity.)"
+    },
+    "instruction": {
+      "title": "Withdrawal policy",
+      "rightTitle": "Right of withdrawal",
+      "paragraphs": {
+        "p1": "You have the right to withdraw from this contract within fourteen days without giving any reason.",
+        "p2": "The withdrawal period is fourteen days from the date the contract is concluded.",
+        "p3": "To exercise your right of withdrawal, you must inform us (Online Point GmbH, Kurfuerstenstr. 106, 10787 Berlin, phone: 030 403 688 951, email: kontakt@mcrepair.de) of your decision to withdraw from this contract by means of a clear statement (e.g. a letter sent by post, fax or email). You may use the attached model withdrawal form for this purpose, but it is not mandatory.",
+        "p4": "You may also complete and submit the model withdrawal form or another clear statement electronically on our website (www.mcrepair.de). If you make use of this option, we will send you confirmation of receipt of such withdrawal without delay (e.g. by email).",
+        "p5": "To meet the withdrawal deadline, it is sufficient for you to send your communication concerning your exercise of the right of withdrawal before the withdrawal period has expired."
+      }
+    },
+    "consequences": {
+      "title": "Effects of withdrawal",
+      "paragraphs": {
+        "p1": "If you withdraw from this contract, we shall reimburse all payments received from you, including delivery costs (except for any additional costs arising from your choice of a delivery method other than the least expensive standard delivery offered by us), without undue delay and no later than fourteen days from the day on which we receive notice of your withdrawal. For this reimbursement, we will use the same means of payment that you used for the original transaction, unless expressly agreed otherwise with you; in any event, you will not be charged any fees for this reimbursement.",
+        "p2": "If you requested that the services begin during the withdrawal period, you must pay us an amount that is proportionate to what has been provided until the time you notified us of the exercise of the right of withdrawal with respect to this contract, in comparison with the full scope of the services provided for in the contract."
+      }
+    },
+    "exclusions": {
+      "title": "Grounds for exclusion or expiry",
+      "paragraphs": {
+        "p1": "The right of withdrawal does not apply to contracts for the provision of services related to leisure activities if the contract provides for a specific date or period of performance.",
+        "p2": "The right of withdrawal expires in the case of a contract for services once the trader has fully performed the service and began performance only after the consumer gave explicit consent and at the same time acknowledged that they lose their right of withdrawal upon full performance by the trader."
+      }
+    },
+    "form": {
+      "title": "Model withdrawal form",
+      "intro": "(If you wish to withdraw from the contract, please complete this form and return it.)",
+      "addressLine": "- To Online Point GmbH, Kurfuerstenstr. 106, 10787 Berlin, email: kontakt@mcrepair.de:",
+      "declarationLine": "- I/We (*) hereby withdraw from the contract concluded by me/us (*) for the purchase of the following goods (*) / provision of the following service (*)",
+      "fields": {
+        "orderedOnReceivedOn": "- Ordered on (*) / received on (*)",
+        "consumerName": "- Name of consumer(s)",
+        "consumerAddress": "- Address of consumer(s)",
+        "consumerSignature": "- Signature of consumer(s) (only if this form is notified on paper)",
+        "date": "- Date"
+      },
+      "footer": "(*) Delete as appropriate."
+    }
+  },
+  "privacyPage": {
+    "title": "Privacy Policy",
+    "intro": "Unless stated otherwise below, the provision of your personal data is not legally or contractually required and is not necessary to conclude a contract. You are not obliged to provide this data. Not providing data has no consequences unless otherwise stated in specific processing operations below.",
+    "definition": "\"Personal data\" means any information relating to an identified or identifiable natural person.",
+    "labels": {
+      "legalBasis": "Legal basis:",
+      "dataTransfer": "Data transfer:",
+      "privacyInfo": "Privacy information:",
+      "website": "Website:",
+      "and": "and"
+    },
+    "controller": {
+      "title": "Controller",
+      "country": "Germany",
+      "phoneLabel": "Phone:",
+      "emailLabel": "Email:"
+    },
+    "serverLogs": {
+      "title": "Server log files",
+      "text": "You can visit our website without providing personal information. With every access, usage data is transmitted by your browser and stored in protocol data (server log files), including page name, date/time, transferred data volume, and requesting provider. This data is used solely to ensure stable operation and improve our offer. It is not possible to assign this data to a specific person.",
+      "legalBasis": "Art. 6 para. 1 lit. f GDPR (legitimate interest)"
+    },
+    "contactForm": {
+      "title": "Collection and processing via contact form",
+      "text1": "When using the contact form, we collect your personal data (name, email address, message text) only within the scope provided by you. The processing serves the purpose of contacting you.",
+      "text2": "You can revoke your consent at any time with effect for the future. Your email address is used only for handling your request and deleted afterward unless you agreed to further processing.",
+      "legalBasis": "Art. 6 para. 1 lit. a GDPR (consent)"
+    },
+    "recaptcha": {
+      "title": "Use of Google reCAPTCHA",
+      "text1": "We use the reCAPTCHA service by Google to distinguish whether input is made by a human or by automated processing.",
+      "text2": "For this purpose, your IP address and additional technical data required by reCAPTCHA may be transmitted to Google.",
+      "legalBasis": "Art. 6 para. 1 lit. a GDPR (consent)",
+      "transfer": "USA (EU Commission adequacy decision)",
+      "moreInfo": "Further information is available at:"
+    },
+    "account": {
+      "title": "Customer account",
+      "text1": "When opening a customer account, we process personal data to improve your shopping experience and simplify order handling.",
+      "text2": "You can revoke your consent at any time. Your account will then be deleted.",
+      "legalBasis": "Art. 6 para. 1 lit. a GDPR (consent)"
+    },
+    "orders": {
+      "title": "Collection, processing and use for orders",
+      "text1": "For orders, we process personal data only to fulfill and execute your order and process related inquiries. Providing data is required to conclude the contract.",
+      "text2": "Your data is only shared with service partners required for contract fulfillment or processors acting on our behalf.",
+      "text3": "In all cases we comply with legal requirements and limit transfer to the minimum necessary.",
+      "legalBasis": "Art. 6 para. 1 lit. b GDPR (performance of contract)",
+      "recipients": {
+        "shipping": "Shipping service providers",
+        "payment": "Payment service providers",
+        "erp": "ERP/merchandise management providers",
+        "orderProcessing": "Order processing service providers",
+        "hosting": "Web hosting providers",
+        "it": "IT service providers",
+        "dropshipping": "Dropshipping partners"
+      }
+    },
+    "reviews": {
+      "title": "Customer reviews",
+      "text1": "We use a customer review system by Haendlerbund Management AG to collect verified purchase ratings after an order.",
+      "text2": "For this purpose, we may contact you by email and use the provider's technical system as processor.",
+      "text3": "You can object at any time via the contact details in the imprint or via the link in the review request.",
+      "text4": "Data stored in this context is deleted after three months.",
+      "legalBasis": "Art. 6 para. 1 lit. a GDPR (consent) or Art. 6 para. 1 lit. f GDPR (legitimate interest in verified reviews)"
+    },
+    "newsletter": {
+      "title": "Use of email for newsletters",
+      "text1": "We use your email address for our own newsletter advertising only if you expressly consented.",
+      "text2": "You can revoke your consent at any time via the unsubscribe link or by contacting us.",
+      "legalBasis": "Art. 6 para. 1 lit. a GDPR (consent)"
+    },
+    "shippingStatus": {
+      "title": "Email transfer to shipping providers",
+      "text1": "If you consent during checkout, we transfer your email address to the shipping provider to inform you about shipment status.",
+      "text2": "You can revoke this consent at any time by contacting us or the shipping provider.",
+      "legalBasis": "Art. 6 para. 1 lit. a GDPR (consent)"
+    },
+    "erp": {
+      "title": "External merchandise management system",
+      "text": "To process contracts, we use an external merchandise management system and transfer relevant order data to JTL-Software-GmbH, Rheinstr. 7, 41836 Hueckelhoven, Germany, under a data processing agreement."
+    },
+    "paypal": {
+      "title": "Use of PayPal",
+      "text": "All PayPal transactions are subject to PayPal's privacy policy:"
+    },
+    "cookies": {
+      "title": "Cookies",
+      "text1": "Our website uses cookies. Cookies are small text files stored in your browser to enable recognition and core functionality.",
+      "text2": "We use cookies to make our offer more user-friendly, effective and secure.",
+      "text3": "We also use cookies for analytics and, where applicable, interest-based advertising.",
+      "text4": "Collected data may be pseudonymized and cannot always be assigned to a specific person.",
+      "text5": "You have the right to object to processing based on Art. 6 para. 1 lit. f GDPR for reasons arising from your particular situation.",
+      "text6": "You can configure your browser to block or delete cookies. Please note that some website functions may then be limited.",
+      "legalBasis": "Section 15 para. 3 TMG and Art. 6 para. 1 lit. f GDPR (legitimate interest)",
+      "browserTitle": "Cookie management in browsers:",
+      "browserChrome": "Chrome Browser",
+      "browserIe": "Internet Explorer",
+      "browserFirefox": "Mozilla Firefox",
+      "browserSafari": "Safari"
+    },
+    "analytics": {
+      "title": "Use of Google Analytics",
+      "text1": "We use Google Analytics to analyze website usage and improve our website.",
+      "text2": "Google Analytics uses cookies and may transfer information to servers in the USA. IP anonymization is enabled on this website.",
+      "legalBasis": "Art. 6 para. 1 lit. f GDPR (legitimate interest)",
+      "transfer": "USA (EU Commission adequacy decision)",
+      "optOut": "You can prevent data collection by Google Analytics using the browser add-on:",
+      "optOutLinkLabel": "Disable Google Analytics",
+      "moreInfo": "More information can be found at"
+    },
+    "remarketing": {
+      "title": "Google Remarketing / Similar Audiences",
+      "text1": "We use Google's remarketing features to display interest-based advertising.",
+      "legalBasis": "Art. 6 para. 1 lit. f GDPR (legitimate interest)",
+      "transfer": "USA (EU Commission adequacy decision)",
+      "optOut": "You can disable Google cookies permanently via:",
+      "optOutLinkLabel": "Disable Google Ads",
+      "networkOptOut": "You can also disable third-party cookies via the Network Advertising Initiative at",
+      "moreInfo": "More information is available at:"
+    },
+    "conversionTracking": {
+      "title": "Google Ads conversion tracking",
+      "text1": "We use Google Ads conversion tracking to measure campaign effectiveness.",
+      "text2": "If you click a Google ad, a conversion cookie is set. These cookies do not directly identify you.",
+      "legalBasis": "Art. 6 para. 1 lit. f GDPR (legitimate interest)",
+      "moreInfo": "Further information is available at:"
+    },
+    "facebook": {
+      "title": "Facebook remarketing",
+      "text": "We use Facebook Custom Audiences to address website visitors with interest-based ads.",
+      "legalBasis": "Art. 6 para. 1 lit. f GDPR (legitimate interest)",
+      "moreInfo": "More information about Facebook privacy is available at"
+    },
+    "adsense": {
+      "title": "Google AdSense",
+      "text": "We use Google AdSense to display targeted advertisements on our website.",
+      "legalBasis": "Art. 6 para. 1 lit. f GDPR (legitimate interest)",
+      "optOut": "You can disable Google cookies permanently via:",
+      "optOutLinkLabel": "Disable Google Ads",
+      "moreInfo": "Further information is available at:"
+    },
+    "bingAds": {
+      "title": "Bing Ads",
+      "text": "We use Bing Ads by Microsoft. Clicking a Bing ad may set a conversion cookie on your device.",
+      "legalBasis": "Art. 6 para. 1 lit. f GDPR (legitimate interest)",
+      "privacyInfo": "Microsoft has published privacy information for Bing Ads and related services.",
+      "moreInfo": "Further information is available at:"
+    },
+    "social": {
+      "title": "Social plug-ins using Shariff",
+      "text1": "We use social network plug-ins and privacy-friendly Shariff buttons.",
+      "text2": "Without your explicit interaction, no direct connection to social network servers is established.",
+      "text3": "Only when you click a button are data potentially transmitted to the respective provider.",
+      "networksTitle": "Integrated social networks:",
+      "privacyLabel": "Privacy"
+    },
+    "youtube": {
+      "title": "YouTube",
+      "text1": "We embed YouTube videos in enhanced privacy mode.",
+      "text2": "Only when you start a video may information be transmitted to YouTube.",
+      "moreInfo": "More information is available at:"
+    },
+    "maps": {
+      "title": "Google Maps",
+      "text": "We use Google Maps to display geographic information and interactive maps.",
+      "legalBasis": "Art. 6 para. 1 lit. f GDPR (legitimate interest)",
+      "transfer": "USA (EU Commission adequacy decision)",
+      "moreInfo": "More information is available at"
+    },
+    "retention": {
+      "title": "Storage duration",
+      "text": "After complete contract execution, data is stored for warranty periods and statutory retention obligations, then deleted unless further processing was agreed.",
+      "boxTitle": "Statutory retention periods:",
+      "commercialLabel": "Commercial law:",
+      "commercialValue": "6-10 years (Section 257 HGB)",
+      "taxLabel": "Tax law:",
+      "taxValue": "10 years (Section 147 AO)"
+    },
+    "rights": {
+      "title": "Data subject rights",
+      "intro": "If legal requirements are met, you have the following rights under Art. 15 to 20 GDPR:",
+      "items": {
+        "access": "Right of access",
+        "rectification": "Right to rectification",
+        "erasure": "Right to erasure",
+        "restriction": "Right to restriction of processing",
+        "portability": "Right to data portability"
+      },
+      "objection": "You also have a right to object under Art. 21 para. 1 GDPR to processing based on Art. 6 para. 1 lit. f GDPR and to direct marketing.",
+      "contactStrong": "Contact us if you wish.",
+      "contactText": "You can find our contact details in the imprint."
+    },
+    "complaint": {
+      "title": "Right to lodge a complaint",
+      "text": "Under Art. 77 GDPR, you have the right to lodge a complaint with a supervisory authority if you believe processing of your personal data is unlawful.",
+      "authorityTitle": "Competent authority for Berlin:",
+      "authorityName": "Berlin Commissioner for Data Protection and Freedom of Information"
+    },
+    "updatedLabel": "Version of this privacy policy:",
+    "updatedValue": "March 2026",
+    "finalNote": "We reserve the right to adapt this privacy policy so it always complies with current legal requirements or to reflect changes in our services. The new privacy policy will apply to your next visit."
+  },
+  "aboutPage": {
+    "header": {
+      "title": "About McRepair.de",
+      "intro": "McRepair is one of the leading service providers for the professional repair of smartphones, tablets and notebooks. Our central workshop based in Berlin works with over 350 drop-off locations nationwide and helps you restore your broken device with absolutely reliable and professional specialists."
+    },
+    "steps": {
+      "title": "How It Works",
+      "step1Title": "Select Device & Repair",
+      "step1Desc": "Choose your device and the required repair from our extensive range",
+      "step2Title": "Send or Drop Off Your Device",
+      "step2Desc": "Use our free shipping service or one of our 350 drop-off locations",
+      "step3Title": "We repair it quickly and reliably",
+      "step3Desc": "Our experienced technicians repair your device in just 1-3 business days",
+      "step4Title": "You receive your repaired device back",
+      "step4Desc": "Your device will be safely returned to you or can be picked up"
+    },
+    "whatWeDo": {
+      "title": "What does McRepair do?",
+      "subtitle": "Simply put: We repair your smartphone, tablet or notebook",
+      "text": "If your smartphone is defective or your tablet is damaged, it is in the best hands with our highly qualified technicians. We are one of the largest repair workshops for smartphones, tablets and notebooks in Germany and can draw on many years of experience. We handle diagnostics and repair - naturally with data preservation. Regardless of whether your Apple iPhone has been dropped or your Samsung Galaxy has charging issues - in many cases it is only minor faults or damage that our specialists can fix quickly and cost-effectively."
+    },
+    "whyUs": {
+      "title": "What sets us apart",
+      "highlightTitle": "Over 350 drop-off locations nationwide and a central main workshop with long-experienced technicians.",
+      "highlightText": "For short response times, we always keep high-quality spare parts for all major manufacturers such as Apple or Samsung in large quantities. Thanks to over 350 drop-off locations nationwide, you can also use our convenient and secure service near you. We are constantly expanding our network. If you cannot find a partner in your region, we are always happy to receive new recommendations. The outward and return shipping of your mobile device with our partner DHL is of course free of charge."
+    },
+    "gallery": {
+      "title": "Gallery",
+      "altWorkshop": "McRepair Workshop",
+      "altLaptop": "McRepair Laptop Repair",
+      "altLaptop2": "McRepair Laptop Repair 2",
+      "altPhone3": "McRepair Smartphone Repair 3",
+      "altPhone2": "McRepair Smartphone Repair 2",
+      "altPhone": "McRepair Smartphone Repair",
+      "altBattery": "McRepair Battery Replacement",
+      "altBattery2": "McRepair Battery Replacement 2"
+    },
+    "locations": {
+      "title": "Our Drop-off Locations",
+      "subtitle": "Drop-off locations across Germany",
+      "text1": "Use one of our 350 drop-off locations across Germany to hand over your device conveniently.",
+      "text2": "Thanks to short turnaround times of just one to three business days, you do not have to go without your smartphone or tablet any longer than absolutely necessary. Put our consistent quality awareness to the test - we will exceed your expectations and quickly make you fully reachable again in your private and professional environment.",
+      "text3Bold": "Where is the nearest drop-off location?",
+      "text3Rest": " Simply check our location search.",
+      "mapAlt": "Germany Drop-off Locations Map"
+    },
+    "manufacturers": {
+      "title": "Manufacturers",
+      "intro": "We carry out repairs for all well-known manufacturers of smartphones, tablets and notebooks. If you have not found your desired manufacturer with us, you are welcome to request an individual price quote for the repair of your device via Contact.",
+      "sonyRepair": "Sony Repair",
+      "googleRepair": "Google Repair",
+      "appleRepair": "Apple Repair",
+      "asusRepair": "Asus Repair",
+      "lgRepair": "LG Repair",
+      "oneplusRepair": "OnePlus Repair",
+      "motorolaRepair": "Motorola Repair",
+      "htcRepair": "HTC Repair"
+    }
+  },
+  "imprint": {
+    "title": "Imprint",
+    "legalProvider": {
+      "heading": "Legal Provider Information",
+      "companyName": "Online Point GmbH",
+      "representative": "represented by Managing Director Julian Szymansky",
+      "address": "Kurfürstenstr. 106",
+      "city": "10787 Berlin",
+      "country": "Germany"
+    },
+    "contact": {
+      "heading": "Contact",
+      "phoneService": "Phone Service",
+      "phoneAdmin": "Phone Administration",
+      "email": "E-Mail",
+      "vatId": "VAT ID"
+    },
+    "companyReg": {
+      "heading": "Company Registration",
+      "intro": "Registered in the Commercial Register of the District Court of Charlottenburg",
+      "regNumber": "Commercial Register Number",
+      "regNumberValue": "HRB 136735 B",
+      "companySeat": "Registered Office",
+      "companySeatValue": "Berlin",
+      "lucidNumber": "LUCID Registration Number",
+      "lucidNumberValue": "DE1709904514391"
+    },
+    "design": {
+      "heading": "Conception, Design & Development"
+    },
+    "disputeResolution": {
+      "heading": "Alternative Dispute Resolution",
+      "text1before": "Alternative dispute resolution pursuant to Art. 14 para. 1 ODR-VO and § 36 VSBG: The European Commission provides a platform for online dispute resolution (ODR) which you can find at ",
+      "text1after": ".",
+      "text2": "We are neither obligated nor willing to participate in dispute resolution proceedings before a consumer arbitration board."
+    },
+    "trademarks": {
+      "heading": "Trademark Notices",
+      "iphone": "The brands iPhone and iPad are registered trademarks of Apple Inc., Cupertino, Calif., US.",
+      "htc": "The brand HTC is a registered trademark of High Tech Computer Corporation, Taoyuan, TW.",
+      "lg": "The brand LG is a registered trademark of LG Corp., Seoul, KR.",
+      "nokia": "The brand Nokia is a registered trademark of Nokia Corporation, Helsinki, FI.",
+      "samsung": "The brand Samsung is a registered trademark of Samsung Electronics Co., Ltd., Suwon Kyonggi, KR.",
+      "sonyEricsson": "The brand Sony Ericsson is a registered trademark of Sony Ericsson Mobile Communications AB, London, UK."
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
@@ -119,6 +119,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   const { t } = useTranslation();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const configuratorHeaderRef = useRef<HTMLDivElement | null>(null);
+  const previousStepRef = useRef(1);
 
   // Configurator state
   const [currentStep, setCurrentStep] = useState(1);
@@ -177,6 +179,28 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   const [modelSearchQuery, setModelSearchQuery] = useState('');
   const [filteredModels, setFilteredModels] = useState<DeviceModel[]>([]);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
+
+  useEffect(() => {
+    if (previousStepRef.current === currentStep) {
+      return;
+    }
+
+    previousStepRef.current = currentStep;
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const isVerySmallViewport = window.matchMedia('(max-height: 720px), (max-width: 380px)').matches;
+    if (!isVerySmallViewport) {
+      return;
+    }
+
+    configuratorHeaderRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  }, [currentStep]);
 
   // Fetch device types on mount
   useEffect(() => {
@@ -918,7 +942,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     <div className="configurator-container" id="repair-order-configurator">
       <div className="configurator">
         {/* Configurator Header */}
-        <div className="configurator-header">
+        <div ref={configuratorHeaderRef} className="configurator-header">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
           </svg>
