@@ -106,6 +106,11 @@ export function Footer() {
                   {t('home.footer.imprint', 'Impressum')}
                 </Link>
               </li>
+              <li>
+                <Link to="/hinweise-zur-batterieentsorgung">
+                  {t('home.footer.batteryDisposalNotice', 'Hinweise zur Batterieentsorgung')}
+                </Link>
+              </li>
             </ul>
           </div>
 

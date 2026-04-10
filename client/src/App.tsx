@@ -80,6 +80,7 @@ import { PartnerWerden } from "./pages/PartnerWerden"
 import Newsletter from "./pages/Newsletter"
 import { Sitemap } from "./pages/Sitemap"
 import { ShippingAndPayment } from "./pages/ShippingAndPayment"
+import { BatteryDisposal } from "./pages/BatteryDisposal"
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -149,6 +150,8 @@ function App() {
             <Route path="/datenschutz" element={<Privacy />} />
             <Route path="/imprint" element={<Imprint />} />
             <Route path="/impressum" element={<Imprint />} />
+            <Route path="/hinweise-zur-batterieentsorgung" element={<BatteryDisposal />} />
+            <Route path="/battery-disposal-notice" element={<BatteryDisposal />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/agb" element={<Terms />} />
             <Route path="/zahlung-und-versand" element={<ShippingAndPayment />} />

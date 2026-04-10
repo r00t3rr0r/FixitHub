@@ -1802,6 +1802,7 @@
       "contact": "Contact",
       "allRightsReserved": "All rights reserved.",
       "imprint": "Imprint",
+      "batteryDisposalNotice": "Battery disposal notice",
       "privacyPolicy": "Privacy",
       "termsOfService": "Terms",
       "rightOfWithdrawal": "Right of withdrawal"
@@ -2742,6 +2743,18 @@
       "description": "With the optional McRepair express repair, we guarantee that your phone will be repaired and shipped back on the same day it arrives at our workshop. (No express shipping included)"
     },
     "shippingCostNote": "Shipping cost calculation is only available when you have items in your shopping cart."
+  },
+  "batteryDisposal": {
+    "title": "Battery Disposal Notice",
+    "intro": "In connection with the sale of batteries or the delivery of devices that contain batteries, we are obliged to inform you of the following:",
+    "returnInfo": "As an end user, you are legally required to return used batteries. You can return used batteries that we carry or have carried as new batteries in our product range free of charge to our shipping warehouse (shipping address).",
+    "symbolsTitle": "Battery Symbols and Their Meaning",
+    "symbolsIntro": "The symbols shown on batteries have the following meaning:",
+    "symbolBin": "The crossed-out wheeled bin symbol means that the battery must not be disposed of in household waste.",
+    "symbolPb": "Pb = Battery contains more than 0.004 percent lead by mass",
+    "symbolCd": "Cd = Battery contains more than 0.002 percent cadmium by mass",
+    "symbolHg": "Hg = Battery contains more than 0.0005 percent mercury by mass.",
+    "finalNote": "Please observe the above information."
   },
   "vorabdiagnose": {
     "title": "Pre-Diagnosis",
