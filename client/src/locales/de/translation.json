@@ -1793,9 +1793,10 @@
       "sitemap": "Sitemap",
       "serviceTitle": "Informationen",
       "locations": "Widerrufsrecht",
-      "shippingRepair": "Versand-Reparatur",
+      "shippingRepair": "Datenschutzerklärung",
       "deviceFinder": "Geräte-Finder",
-      "repairStatus": "Reparatur-Status",
+      "repairStatus": "AGB und Kundeninformationen",
+      "paymentAndShipping": "Zahlung und Versand",
       "faq": "FAQ",
       "companyTitle": "Unternehmen",
       "aboutUs": "Über uns",
@@ -2691,6 +2692,63 @@
     "loading": "Lädt...",
     "models": "Modelle",
     "confirmDevice": "Gerät übernehmen"
+  },
+  "shippingPayment": {
+    "title": "Zahlung und Versand",
+    "subtitle": "Alle Informationen zu Einsendung, Lieferung und Zahlungsarten auf einen Blick",
+    "howToSend": {
+      "title": "Wie schicke ich mein Gerät ein?",
+      "step1Title": "Schritt 1",
+      "step1Desc": "Reparatur buchen und kostenlose DHL-Paketmarke in der E-Mail Bestellbestätigung erhalten.",
+      "step2Title": "Schritt 2",
+      "step2Desc": "Gerät sicher verpacken und im DHL Paketshop abgeben.",
+      "step3Title": "Schritt 3",
+      "step3Desc": "Wir reparieren es schnell und zuverlässig in 1-3 Werktagen (24h bei Expressreparatur*).",
+      "step4Title": "Schritt 4",
+      "step4Desc": "Sie erhalten Ihr Gerät repariert an die gewünschte Versandadresse zurück (1 Jahr Qualitätsgarantie).",
+      "moreInfo": "Weitere Informationen zum Versand und wie verpacke ich mein Gerät richtig finden Sie in unseren",
+      "faqLabel": "FAQs"
+    },
+    "shippingTerms": {
+      "title": "Es gelten folgende Versandbedingungen:",
+      "germany": "Deutschland",
+      "germanyDesc": "Lieferungen innerhalb Deutschlands sind kostenlos, es werden keine Versandkosten berechnet.",
+      "eu": "EU-Ausland",
+      "euDesc": "Für Lieferungen ins EU-Ausland können Sie Ihren bevorzugten Lieferdienst in Anspruch nehmen; unfreie Sendungen können nicht bearbeitet werden. Die Kosten für den Versand zu uns werden nicht übernommen oder erstattet. Ihr repariertes Gerät wird als DHL WeltPaket für 13,99 € an Sie zurück versandt. Die Anlieferung durch DHL oder die Österreichische Post AG erfolgt von Montag bis Samstag innerhalb von 2 Werktagen.",
+      "nonEu": "Außerhalb der EU",
+      "nonEuDesc": "Außerhalb der EU können wir nicht liefern.",
+      "tracking": "Sendungsverfolgung und Versicherung",
+      "trackingDesc": "Sie erhalten nach der abgeschlossenen Reparatur eine E-Mail mit Ihrer DHL-Sendungsnummer, um jederzeit verfolgen zu können, wo sich Ihr Paket befindet. Ihr Paket ist bei Beschädigung oder Verlust bis zu 500,00 € transportversichert."
+    },
+    "deliveryTimes": {
+      "title": "Lieferfristen:",
+      "info1": "Soweit im jeweiligen Angebot keine andere Frist angegeben ist, erfolgt die Lieferung der Ware gemäß Angabe von DHL im Inland (Deutschland) innerhalb von 1-3 Werktagen, bei Auslandslieferungen innerhalb von 2-5 Werktagen nach Vertragsschluss (bei vereinbarter Vorauszahlung nach dem Zeitpunkt Ihrer Zahlungsanweisung). An Sonn- und Feiertagen erfolgt keine Zustellung. Bitte beachten Sie, dass wir keinerlei Einfluss auf die Lieferzeiten haben, und sich die Zustellung je nach Paketaufkommen bei der DHL verzögern kann.",
+      "info2": "Haben Sie Artikel mit unterschiedlichen Lieferzeiten bestellt, versenden wir die Ware in einer gemeinsamen Sendung, sofern wir keine abweichenden Vereinbarungen mit Ihnen getroffen haben. Die Lieferzeit bestimmt sich in diesem Fall nach dem Artikel mit der längsten Lieferzeit den Sie bestellt haben.",
+      "info3": "Bei Selbstabholung informieren wir Sie per E-Mail oder telefonisch über die Bereitstellung der Ware und die Abholmöglichkeiten."
+    },
+    "paymentMethods": {
+      "title": "Welche Zahlungsmöglichkeiten habe ich?",
+      "boxTitle": "Weitere Einzelheiten zur Zahlung:",
+      "details": "",
+      "invoice": "Rechnung",
+      "invoiceDesc": "Die Zahlung per Rechnung ist nur für Behörden und Unternehmen möglich. Der Rechnungsbetrag ist bei Zahlung auf Rechnung innerhalb von 7 Tagen auszugleichen.",
+      "sepa": "SEPA-Basislastschrift / SEPA-Firmenlastschrift",
+      "sepaDesc": "Bei Zahlung per SEPA-Basislastschrift oder per SEPA-Firmenlastschrift ermächtigen Sie uns durch Erteilung eines entsprechenden SEPA-Mandats, den Rechnungsbetrag vom angegebenen Konto einzuziehen. Sie erhalten eine Vorabankündigung (Pre-Notification) mindestens 5 Tage vor dem Datum des Lastschrifteinzugs. Beachten Sie bitte, dass Sie verpflichtet sind für die ausreichende Deckung des Kontos zum angekündigten Datum zu sorgen.",
+      "creditCard": "Kreditkarte",
+      "creditCardDesc": "Bei Zahlung per Kreditkarte erfolgt die Belastung Ihres Kreditkartenkontos mit Versendung der Ware."
+    },
+    "contact": {
+      "title": "Bei weiteren Fragen",
+      "description": "Bei weiteren Fragen wenden Sie sich bitte an unser Service Team.",
+      "hotline": "Service Hotline",
+      "hours": "Erreichbarkeit",
+      "hoursText": "Mo.- Fr. 10.00 - 12:00 Uhr und 14:00 - 16:00 Uhr"
+    },
+    "expressNote": {
+      "title": "*24h Express",
+      "description": "Bei der hinzubuchbaren McRepair Express-Reparatur garantieren wir, dass Ihr Handy 100% am gleichen Tag (Geräte-Eingang) noch repariert und wieder verschickt wird! (Kein Express Versand)"
+    },
+    "shippingCostNote": "Die Versandkostenermittlung steht Ihnen nur zur Verfügung, wenn Sie etwas im Warenkorb haben."
   },
   "vorabdiagnose": {
     "title": "Vorabdiagnose",

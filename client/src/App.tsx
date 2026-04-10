@@ -79,6 +79,7 @@ import { Contact } from "./pages/Contact"
 import { PartnerWerden } from "./pages/PartnerWerden"
 import Newsletter from "./pages/Newsletter"
 import { Sitemap } from "./pages/Sitemap"
+import { ShippingAndPayment } from "./pages/ShippingAndPayment"
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -150,6 +151,8 @@ function App() {
             <Route path="/impressum" element={<Imprint />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/agb" element={<Terms />} />
+            <Route path="/zahlung-und-versand" element={<ShippingAndPayment />} />
+            <Route path="/shipping-and-payment" element={<ShippingAndPayment />} />
             <Route path="/about" element={<About />} />
             <Route path="/ueber-uns" element={<About />} />
 

@@ -1791,7 +1791,8 @@
       "locations": "Widerrufsrecht",
       "shippingRepair": "Mail-in repair",
       "deviceFinder": "Device finder",
-      "repairStatus": "Repair status",
+      "repairStatus": "Terms and customer information",
+      "paymentAndShipping": "Payment and shipping",
       "faq": "FAQ",
       "companyTitle": "Company",
       "aboutUs": "About us",
@@ -2684,6 +2685,63 @@
     "loading": "Loading...",
     "models": "models",
     "confirmDevice": "Confirm Device"
+  },
+  "shippingPayment": {
+    "title": "Payment and Shipping",
+    "subtitle": "All information about sending your device, delivery and payment methods at a glance",
+    "howToSend": {
+      "title": "How do I send in my device?",
+      "step1Title": "Step 1",
+      "step1Desc": "Book a repair and receive a free DHL shipping label in the order confirmation email.",
+      "step2Title": "Step 2",
+      "step2Desc": "Pack your device securely and drop it off at a DHL parcel shop.",
+      "step3Title": "Step 3",
+      "step3Desc": "We repair it quickly and reliably within 1-3 business days (24h with express repair*).",
+      "step4Title": "Step 4",
+      "step4Desc": "You receive your repaired device back at your preferred shipping address (1 year quality guarantee).",
+      "moreInfo": "Further information about shipping and how to pack your device correctly can be found in our",
+      "faqLabel": "FAQs"
+    },
+    "shippingTerms": {
+      "title": "The following shipping conditions apply:",
+      "germany": "Germany",
+      "germanyDesc": "Deliveries within Germany are free of charge; no shipping costs are charged.",
+      "eu": "EU countries",
+      "euDesc": "For deliveries to EU countries, you may use your preferred delivery service; unpaid shipments cannot be processed. Shipping costs to us are not covered or reimbursed. Your repaired device will be shipped back to you as a DHL WeltPaket for EUR 13.99. Delivery by DHL or Austrian Post takes place Monday to Saturday within 2 business days.",
+      "nonEu": "Outside the EU",
+      "nonEuDesc": "We cannot deliver outside the EU.",
+      "tracking": "Tracking and insurance",
+      "trackingDesc": "After your repair is completed, you will receive an email with your DHL tracking number so you can track your parcel at any time. Your parcel is transport-insured up to EUR 500.00 against damage or loss."
+    },
+    "deliveryTimes": {
+      "title": "Delivery times:",
+      "info1": "Unless another deadline is specified in the respective offer, delivery takes place according to DHL information within Germany in 1-3 business days, and for international deliveries in 2-5 business days after conclusion of contract (for advance payment, after your payment instruction). No deliveries are made on Sundays and public holidays. Please note that we have no influence over delivery times and delivery may be delayed by DHL depending on parcel volume.",
+      "info2": "If you ordered items with different delivery times, we ship the goods in one combined shipment unless we have made different arrangements with you. In this case, the delivery time is determined by the item with the longest delivery time in your order.",
+      "info3": "For self-collection, we will inform you by email or phone about the availability of the goods and collection options."
+    },
+    "paymentMethods": {
+      "title": "Which payment methods are available?",
+      "boxTitle": "Further details on payment:",
+      "details": "",
+      "invoice": "Invoice",
+      "invoiceDesc": "Payment by invoice is only available for public authorities and companies. The invoice amount must be paid within 7 days.",
+      "sepa": "SEPA core direct debit / SEPA business direct debit",
+      "sepaDesc": "When paying by SEPA core direct debit or SEPA business direct debit, you authorize us by issuing a corresponding SEPA mandate to collect the invoice amount from the specified account. You will receive a pre-notification at least 5 days before the direct debit date. Please ensure sufficient account funds are available on the announced date.",
+      "creditCard": "Credit card",
+      "creditCardDesc": "When paying by credit card, your credit card account is charged when the goods are shipped."
+    },
+    "contact": {
+      "title": "Further questions",
+      "description": "If you have any further questions, please contact our service team.",
+      "hotline": "Service hotline",
+      "hours": "Availability",
+      "hoursText": "Mon.- Fri. 10:00 - 12:00 and 14:00 - 16:00"
+    },
+    "expressNote": {
+      "title": "*24h Express",
+      "description": "With the optional McRepair express repair, we guarantee that your phone will be repaired and shipped back on the same day it arrives at our workshop. (No express shipping included)"
+    },
+    "shippingCostNote": "Shipping cost calculation is only available when you have items in your shopping cart."
   },
   "vorabdiagnose": {
     "title": "Pre-Diagnosis",
