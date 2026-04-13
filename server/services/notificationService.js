@@ -1,5 +1,6 @@
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const Order = require('../models/Order');
 const EmailService = require('./emailService');
 const NotificationTemplateService = require('./notificationTemplateService');
 
@@ -44,7 +45,7 @@ class NotificationService {
     }
   }
 
-  static buildNotificationTypeSummaryHtml(notificationType) {
+  static buildNotificationTypeSummaryHtml(notificationType, extraRows = '') {
     const tdLabelStyle = 'padding:10px 0;border-bottom:1px solid #d8dce6;font-size:13px;font-weight:700;color:#1a2a5e;width:170px;vertical-align:top;';
     const tdValueStyle = 'padding:10px 0;border-bottom:1px solid #d8dce6;font-size:14px;color:#2d3748;vertical-align:top;';
 
@@ -62,7 +63,7 @@ class NotificationService {
     return `<tr>
       <td style="${tdLabelStyle}">${category.label}</td>
       <td style="${tdValueStyle}">${category.value}</td>
-    </tr>`;
+    </tr>${extraRows || ''}`;
   }
 
   static async sendCustomerNotificationEmail(savedNotification) {
@@ -91,10 +92,42 @@ class NotificationService {
 
       const notificationType = String(savedNotification.type || 'system').toLowerCase();
       const notificationCategoryLabel = this.getNotificationCategoryLabel(notificationType);
-      const notificationTypeSummary = this.buildNotificationTypeSummaryHtml(notificationType);
+      let orderContext = null;
+      if (savedNotification.orderId) {
+        try {
+          orderContext = await Order.findById(savedNotification.orderId)
+            .select('orderNumber deviceBrand deviceModel')
+            .lean();
+        } catch (orderLoadError) {
+          console.error('NotificationService: Failed to load order context for email:', orderLoadError.message);
+        }
+      }
+
+      const orderNumberForEmail = orderContext?.orderNumber || (savedNotification.orderId ? String(savedNotification.orderId) : '');
+      const orderDeviceVisual = EmailService.buildDeviceModelVisualHtml({
+        deviceBrand: orderContext?.deviceBrand || '',
+        deviceModel: orderContext?.deviceModel || '',
+        imageUrl: await EmailService.resolveDeviceModelImageUrl({
+          deviceBrand: orderContext?.deviceBrand || '',
+          deviceModel: orderContext?.deviceModel || '',
+        })
+      });
+
+      const extraRows = orderContext
+        ? `<tr>
+      <td style="padding:10px 0;border-bottom:1px solid #d8dce6;font-size:13px;font-weight:700;color:#1a2a5e;width:170px;vertical-align:top;">Auftrag</td>
+      <td style="padding:10px 0;border-bottom:1px solid #d8dce6;font-size:14px;color:#2d3748;vertical-align:top;">${EmailService.escapeHtml(orderNumberForEmail)}</td>
+    </tr>
+    <tr>
+      <td style="padding:10px 0;border-bottom:1px solid #d8dce6;font-size:13px;font-weight:700;color:#1a2a5e;width:170px;vertical-align:top;">Geraet</td>
+      <td style="padding:10px 0;border-bottom:1px solid #d8dce6;font-size:14px;color:#2d3748;vertical-align:top;">${orderDeviceVisual}</td>
+    </tr>`
+        : '';
+
+      const notificationTypeSummary = this.buildNotificationTypeSummaryHtml(notificationType, extraRows);
       const notificationCreatedAt = new Date(savedNotification.createdAt || Date.now()).toLocaleString('de-DE');
       const notificationReference = savedNotification.orderId
-        ? `Auftrag ${String(savedNotification.orderId)}`
+        ? `Auftrag ${orderNumberForEmail}`
         : 'Konto-Benachrichtigung';
       const notificationActionLabel = savedNotification.actionUrl
         ? 'Bitte oeffnen Sie den verlinkten Bereich im Kundenkonto.'
@@ -119,6 +152,10 @@ class NotificationService {
         notificationsUrl,
         notificationActionUrl,
         notificationTypeSummary,
+        orderNumber: orderNumberForEmail,
+        deviceBrand: orderContext?.deviceBrand || '',
+        deviceModel: orderContext?.deviceModel || '',
+        orderDeviceVisual,
         supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
         supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789',
       });
