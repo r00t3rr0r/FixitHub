@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,15 +9,13 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Shield, Users, Activity, AlertTriangle, Lock, UserX, Ban, Download, RefreshCw, Eye } from 'lucide-react';
+import { Shield, Users, Activity, AlertTriangle, UserX, Ban, RefreshCw, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import {
   getSecuritySettings,
   updateSecuritySettings,
-  getLoginAttempts,
-  getActiveSessions,
   forceLogoutUser,
   blockIpAddress,
   getSecurityAuditLog,
@@ -28,6 +27,7 @@ import {
 } from '@/api/security';
 
 export function SecuritySettings() {
+  const { t } = useTranslation()
   const [settings, setSettings] = useState<SecuritySettingsType | null>(null);
   const [loginAttempts, setLoginAttempts] = useState<LoginAttempt[]>([]);
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
@@ -66,8 +66,8 @@ export function SecuritySettings() {
     } catch (error) {
       console.error('Error fetching security data:', error);
       toast({
-        title: "Error",
-        description: error.message,
+        title: t('common.error'),
+        description: (error as Error).message,
         variant: "destructive",
       });
     } finally {
@@ -83,14 +83,14 @@ export function SecuritySettings() {
       await updateSecuritySettings(settings);
 
       toast({
-        title: "Success",
+        title: t('common.success'),
         description: "Security settings updated successfully",
       });
     } catch (error) {
       console.error('Error updating security settings:', error);
       toast({
-        title: "Error",
-        description: error.message,
+        title: t('common.error'),
+        description: (error as Error).message,
         variant: "destructive",
       });
     } finally {
@@ -102,15 +102,15 @@ export function SecuritySettings() {
     try {
       await forceLogoutUser(userId);
       toast({
-        title: "Success",
-        description: "User logged out successfully",
+        title: t('common.success'),
+        description: t('securitySettings.forceLogoutSuccess'),
       });
       fetchSecurityData();
     } catch (error) {
       console.error('Error forcing logout:', error);
       toast({
-        title: "Error",
-        description: error.message,
+        title: t('common.error'),
+        description: (error as Error).message,
         variant: "destructive",
       });
     }
@@ -122,8 +122,8 @@ export function SecuritySettings() {
     try {
       await blockIpAddress(selectedIp, blockReason);
       toast({
-        title: "Success",
-        description: `IP address ${selectedIp} blocked successfully`,
+        title: t('common.success'),
+        description: t('securitySettings.ipBlockedSuccess'),
       });
       setBlockIpDialog(false);
       setSelectedIp('');
@@ -132,8 +132,8 @@ export function SecuritySettings() {
     } catch (error) {
       console.error('Error blocking IP:', error);
       toast({
-        title: "Error",
-        description: error.message,
+        title: t('common.error'),
+        description: (error as Error).message,
         variant: "destructive",
       });
     }
@@ -168,9 +168,9 @@ export function SecuritySettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Security Settings</h1>
+        <h1 className="text-3xl font-bold">{t('securitySettings.title')}</h1>
         <p className="text-muted-foreground">
-          Manage security policies, monitor access, and review security events
+          {t('securitySettings.description')}
         </p>
       </div>
 
@@ -179,7 +179,7 @@ export function SecuritySettings() {
           <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
           <TabsTrigger value="events">Security Events</TabsTrigger>
-          <TabsTrigger value="audit">Audit Log</TabsTrigger>
+          <TabsTrigger value="audit">{t('securitySettings.auditLog')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings" className="space-y-4">
@@ -187,7 +187,7 @@ export function SecuritySettings() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5" />
-                Password Policy
+                {t('securitySettings.passwordPolicy')}
               </CardTitle>
               <CardDescription>
                 Configure password requirements for user accounts
@@ -211,7 +211,7 @@ export function SecuritySettings() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="sessionTimeout">Session Timeout (seconds)</Label>
+                  <Label htmlFor="sessionTimeout">{t('securitySettings.sessionTimeout')}</Label>
                   <Input
                     id="sessionTimeout"
                     type="number"
@@ -282,7 +282,7 @@ export function SecuritySettings() {
                   />
                 </div>
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="enableTwoFactor">Enable Two-Factor Authentication</Label>
+                  <Label htmlFor="enableTwoFactor">{t('securitySettings.twoFactorAuth')}</Label>
                   <Switch
                     id="enableTwoFactor"
                     checked={settings?.enableTwoFactor || false}
@@ -323,7 +323,7 @@ export function SecuritySettings() {
 
               <Button onClick={handleSaveSettings} disabled={saving}>
                 {saving ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : null}
-                Save Settings
+                {t('common.save')}
               </Button>
             </CardContent>
           </Card>
@@ -335,7 +335,7 @@ export function SecuritySettings() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
-                  Active Sessions ({activeSessions.length})
+                  {t('securitySettings.activeSessions')} ({activeSessions.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -346,7 +346,7 @@ export function SecuritySettings() {
                         <p className="font-medium">{session.email}</p>
                         <p className="text-sm text-muted-foreground">{session.ipAddress}</p>
                         <p className="text-xs text-muted-foreground">
-                          Last activity: {new Date(session.lastActivity).toLocaleString()}
+                          {t('securitySettings.lastActivity')}: {new Date(session.lastActivity).toLocaleString()}
                         </p>
                       </div>
                       <AlertDialog>
@@ -357,15 +357,15 @@ export function SecuritySettings() {
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Force Logout</AlertDialogTitle>
+                            <AlertDialogTitle>{t('securitySettings.forceLogout')}</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Are you sure you want to force logout {session.email}?
+                              {t('securitySettings.confirmForceLogout')}
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                             <AlertDialogAction onClick={() => handleForceLogout(session._id)}>
-                              Logout
+                              {t('securitySettings.forceLogout')}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
@@ -380,7 +380,7 @@ export function SecuritySettings() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Activity className="h-5 w-5" />
-                  Recent Login Attempts
+                  {t('securitySettings.loginAttempts')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -433,9 +433,9 @@ export function SecuritySettings() {
                   <TableRow>
                     <TableHead>Type</TableHead>
                     <TableHead>Description</TableHead>
-                    <TableHead>IP Address</TableHead>
+                    <TableHead>{t('securitySettings.ipAddress')}</TableHead>
                     <TableHead>Severity</TableHead>
-                    <TableHead>Timestamp</TableHead>
+                    <TableHead>{t('securitySettings.timestamp')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -463,7 +463,7 @@ export function SecuritySettings() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Eye className="h-5 w-5" />
-                Security Audit Log
+                {t('securitySettings.auditLog')}
               </CardTitle>
               <CardDescription>
                 Track all security-related actions and changes
@@ -473,12 +473,12 @@ export function SecuritySettings() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Action</TableHead>
+                    <TableHead>{t('securitySettings.action')}</TableHead>
                     <TableHead>Performed By</TableHead>
                     <TableHead>Target</TableHead>
-                    <TableHead>IP Address</TableHead>
+                    <TableHead>{t('securitySettings.ipAddress')}</TableHead>
                     <TableHead>Details</TableHead>
-                    <TableHead>Timestamp</TableHead>
+                    <TableHead>{t('securitySettings.timestamp')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -503,9 +503,9 @@ export function SecuritySettings() {
       <Dialog open={blockIpDialog} onOpenChange={setBlockIpDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Block IP Address</DialogTitle>
+            <DialogTitle>{t('securitySettings.blockIP')}</DialogTitle>
             <DialogDescription>
-              Block IP address: {selectedIp}
+              {t('securitySettings.confirmBlockIP')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -521,10 +521,10 @@ export function SecuritySettings() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBlockIpDialog(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleBlockIp} variant="destructive">
-              Block IP
+              {t('securitySettings.blockIP')}
             </Button>
           </DialogFooter>
         </DialogContent>

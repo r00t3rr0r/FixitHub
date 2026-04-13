@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -1512,6 +1513,7 @@ const PreviewDeviceModal = ({
 }
 
 export function HomepageManagement() {
+  const { t } = useTranslation()
   const [sections, setSections] = useState<HomepageSection[]>([])
   const [contentBlocks, setContentBlocks] = useState<ContentBlock[]>([])
   const [loading, setLoading] = useState(true)
@@ -1519,7 +1521,7 @@ export function HomepageManagement() {
   const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [previewSections, setPreviewSections] = useState<HomepageSection[]>([])
-  const [previewTitle, setPreviewTitle] = useState('Homepage Live Preview')
+  const [previewTitle, setPreviewTitle] = useState('')
   const [previewSectionId, setPreviewSectionId] = useState<string | null>(null)
   const [previewBlockId, setPreviewBlockId] = useState<string | null>(null)
   const [expandedSection, setExpandedSection] = useState<string | null>(null)
@@ -1730,15 +1732,15 @@ export function HomepageManagement() {
       // Also update localStorage for preview
       localStorage.setItem('hp_sections', JSON.stringify(cleanedSections))
       toast({
-        title: "Success",
-        description: "Homepage saved successfully! 🎉"
+        title: t('common.success'),
+        description: t('homepageManagement.sectionUpdated')
       })
       await fetchData()
     } catch (error) {
       console.error('Error saving:', error)
       toast({
-        title: "Error",
-        description: "Failed to save homepage",
+        title: t('common.error'),
+        description: t('homepageManagement.failedToUpdateSection'),
         variant: "destructive"
       })
     }
@@ -1760,8 +1762,8 @@ export function HomepageManagement() {
     }
     setSections([...sections, newSection])
     toast({
-      title: "Section Added",
-      description: `${newSection.name} created successfully`
+      title: t('homepageManagement.sectionCreatedSuccess'),
+      description: newSection.name
     })
   }
 
@@ -1779,8 +1781,8 @@ export function HomepageManagement() {
       return section
     }))
     toast({
-      title: "Block Added",
-      description: `${template.title} added to section`
+      title: t('common.success'),
+      description: template.title
     })
   }
 
@@ -1923,7 +1925,7 @@ export function HomepageManagement() {
 
   const openFullPreview = () => {
     setPreviewSections(sections)
-    setPreviewTitle('Homepage Live Preview')
+    setPreviewTitle(t('homepageManagement.livePreview'))
     setPreviewSectionId(null)
     setPreviewBlockId(null)
     setIsPreviewOpen(true)
@@ -1931,7 +1933,7 @@ export function HomepageManagement() {
 
   const openSectionPreview = (section: HomepageSection) => {
     setPreviewSections([section])
-    setPreviewTitle(`Sektion Livevorschau: ${section.name}`)
+    setPreviewTitle(`${t('homepageManagement.livePreview')}: ${section.name}`)
     setPreviewSectionId(section._id)
     setPreviewBlockId(null)
     setIsPreviewOpen(true)
@@ -1951,7 +1953,7 @@ export function HomepageManagement() {
     }
 
     setPreviewSections([previewSection])
-    setPreviewTitle(`Block Livevorschau: ${block.title}`)
+    setPreviewTitle(`${t('homepageManagement.livePreview')}: ${block.title}`)
     setPreviewSectionId(section._id)
     setPreviewBlockId(block._id)
     setIsPreviewOpen(true)
@@ -2030,7 +2032,7 @@ export function HomepageManagement() {
       <div className="hp-loading-container">
         <div className="hp-loading">
           <div className="hp-spinner"></div>
-          <p>Loading Homepage Manager...</p>
+          <p>{t('common.loading')}</p>
         </div>
       </div>
     )
@@ -2041,9 +2043,9 @@ export function HomepageManagement() {
       {/* Header */}
       <div className="hp-header">
         <div>
-          <h1 className="hp-title">Homepage Management</h1>
+          <h1 className="hp-title">{t('homepageManagement.title')}</h1>
           <p className="hp-subtitle">
-            Manage your homepage design, layout, and content sections
+            {t('homepageManagement.description')}
           </p>
         </div>
         <div className="hp-header-actions">
@@ -2053,14 +2055,14 @@ export function HomepageManagement() {
             className="hp-btn-preview"
           >
             <Eye className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Preview</span>
+            <span className="hidden sm:inline">{t('homepageManagement.preview')}</span>
           </Button>
           <Button
             onClick={handleSaveChanges}
             className="hp-btn-save"
           >
             <Save className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Save</span>
+            <span className="hidden sm:inline">{t('common.save')}</span>
           </Button>
         </div>
       </div>
@@ -2071,7 +2073,7 @@ export function HomepageManagement() {
           <div className="hp-sidebar-card">
             <div className="hp-sidebar-header">
               <Layers className="h-5 w-5" />
-              <h2>Content Blocks</h2>
+              <h2>{t('homepageManagement.contentBlocks')}</h2>
             </div>
             <p className="hp-sidebar-subtitle">
               Click to add blocks to sections
@@ -2243,13 +2245,13 @@ export function HomepageManagement() {
           </Card>
 
           <div className="hp-sections-header">
-            <h2 className="hp-section-title">Sections</h2>
+            <h2 className="hp-section-title">{t('homepageManagement.sections')}</h2>
             <Button
               onClick={addSection}
               className="hp-btn-add-section"
             >
               <Plus className="h-4 w-4 mr-2" />
-              New Section
+              {t('homepageManagement.createNewSection')}
             </Button>
           </div>
 
@@ -2257,11 +2259,11 @@ export function HomepageManagement() {
             <Card className="hp-empty-state">
               <CardContent className="hp-empty-state-content">
                 <Layers className="hp-empty-icon" />
-                <h3>No Sections Yet</h3>
-                <p>Create your first section to start managing your homepage</p>
+                <h3>{t('homepageManagement.noSectionsFound')}</h3>
+                <p>{t('homepageManagement.description')}</p>
                 <Button onClick={addSection} className="mt-4">
                   <Plus className="h-4 w-4 mr-2" />
-                  Create Section
+                  {t('homepageManagement.createNewSection')}
                 </Button>
               </CardContent>
             </Card>
@@ -2288,7 +2290,7 @@ export function HomepageManagement() {
                       </div>
                       <div className="hp-section-badges">
                         <Badge variant={section.isActive ? "default" : "secondary"}>
-                          {section.isActive ? "Active" : "Inactive"}
+                          {section.isActive ? t('common.activate') : t('common.deactivate')}
                         </Badge>
                       </div>
                     </div>
@@ -2298,7 +2300,7 @@ export function HomepageManagement() {
                         <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 mb-4">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                              <Label>Section Name</Label>
+                              <Label>{t('homepageManagement.sectionTitle')}</Label>
                               <Input
                                 value={section.name}
                                 onChange={(e) => updateSection(section._id, { name: e.target.value })}
@@ -2467,7 +2469,7 @@ export function HomepageManagement() {
                             onClick={() => openSectionPreview(section)}
                           >
                             <Eye className="h-4 w-4 mr-2" />
-                            Livevorschau
+                            {t('homepageManagement.livePreview')}
                           </Button>
                           <Button
                             variant="outline"
@@ -2484,7 +2486,7 @@ export function HomepageManagement() {
                             className="text-red-600 hover:text-red-700"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
+                            {t('common.delete')}
                           </Button>
                         </div>
                       </CardContent>

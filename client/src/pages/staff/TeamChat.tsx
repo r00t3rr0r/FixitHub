@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react"
+import { useTranslation } from 'react-i18next'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -61,29 +62,29 @@ interface LocalMessage {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<OrderStatus['status'], { label: string; color: string; icon: typeof Clock }> = {
-  assigned:      { label: 'Zugewiesen',      color: 'bg-blue-100 text-blue-700 border-blue-200',       icon: Ticket },
-  in_progress:   { label: 'In Bearbeitung',  color: 'bg-amber-100 text-amber-700 border-amber-200',    icon: Wrench },
-  waiting_parts: { label: 'Warte auf Teile', color: 'bg-purple-100 text-purple-700 border-purple-200', icon: Clock },
-  completed:     { label: 'Abgeschlossen',   color: 'bg-green-100 text-green-700 border-green-200',    icon: CheckCircle2 },
-  on_hold:       { label: 'Pausiert',        color: 'bg-gray-100 text-gray-700 border-gray-200',       icon: AlertCircle },
+  assigned:      { label: 'teamChat.statusAssigned',     color: 'bg-blue-100 text-blue-700 border-blue-200',       icon: Ticket },
+  in_progress:   { label: 'teamChat.statusInProgress',   color: 'bg-amber-100 text-amber-700 border-amber-200',    icon: Wrench },
+  waiting_parts: { label: 'teamChat.statusWaitingParts',  color: 'bg-purple-100 text-purple-700 border-purple-200', icon: Clock },
+  completed:     { label: 'teamChat.statusCompleted',    color: 'bg-green-100 text-green-700 border-green-200',    icon: CheckCircle2 },
+  on_hold:       { label: 'teamChat.statusOnHold',       color: 'bg-gray-100 text-gray-700 border-gray-200',       icon: AlertCircle },
 }
 
 const ROOM_SECTION_LABELS: Record<string, string> = {
-  general: "ALLGEMEIN",
-  team: "TEAMS",
-  project: "WERKSTATT-KANÄLE",
-  private: "DIREKTNACHRICHTEN",
+  general: "teamChat.sectionGeneral",
+  team: "teamChat.sectionTeams",
+  project: "teamChat.sectionWorkshop",
+  private: "teamChat.sectionDirectMessages",
 }
 
 const POLL_INTERVAL_MS = 5000
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, t: (key: string) => string): string {
   const diff = Date.now() - new Date(iso).getTime()
-  if (diff < 60000) return "Jetzt"
-  if (diff < 3600000) return `${Math.floor(diff / 60000)} Min`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)} Std`
+  if (diff < 60000) return t("teamChat.timeNow")
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} ${t("teamChat.timeMinutes")}`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} ${t("teamChat.timeHours")}`
   return new Date(iso).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })
 }
 
@@ -91,8 +92,8 @@ function initials(name: string): string {
   return name.trim().split(/\s+/).map(n => n[0] ?? "").join("").toUpperCase().slice(0, 2) || "?"
 }
 
-function staffMemberName(m: StaffMember): string {
-  return m.name || `${m.firstName ?? ""} ${m.lastName ?? ""}`.trim() || "Unbekannt"
+function staffMemberName(m: StaffMember, unknownLabel = "?"): string {
+  return m.name || `${m.firstName ?? ""} ${m.lastName ?? ""}`.trim() || unknownLabel
 }
 
 function roomMemberName(m: RoomMember): string {
@@ -146,6 +147,7 @@ function OnlineDot({ isOnline }: { isOnline: boolean }) {
 }
 
 function OrderCard({ order }: { order: OrderStatus }) {
+  const { t } = useTranslation()
   const cfg = STATUS_CONFIG[order.status]
   const Icon = cfg.icon
   return (
@@ -156,7 +158,7 @@ function OrderCard({ order }: { order: OrderStatus }) {
           #{order.orderNumber} <span className="font-normal opacity-70">– {order.device}</span>
         </div>
         <div className="opacity-80 mt-0.5">
-          Status: <strong>{cfg.label}</strong> · Zugewiesen: {order.assignedTo}
+          {t('teamChat.status')}: <strong>{t(cfg.label)}</strong> · {t('teamChat.assignedTo')}: {order.assignedTo}
         </div>
       </div>
     </div>
@@ -197,6 +199,7 @@ function NewRoomModal({ onClose, onCreated }: {
   onCreated: (room: ChatRoom) => void
 }) {
   const { toast } = useToast()
+  const { t } = useTranslation()
   const [name, setName] = useState("")
   const [type, setType] = useState<RoomType>("team")
   const [selected, setSelected] = useState<string[]>([])
@@ -220,15 +223,15 @@ function NewRoomModal({ onClose, onCreated }: {
     try {
       const res = await createChatRoom({
         name: name.trim(),
-        description: type === "private" ? "Privater Chat" : `${name.trim()}-Kanal`,
+        description: type === "private" ? t('teamChat.privateChat') : t('teamChat.channelDescription', { name: name.trim() }),
         type,
         members: selected.map(id => ({ userId: id })),
       })
       onCreated(res.room as unknown as ChatRoom)
       onClose()
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Unbekannter Fehler"
-      toast({ title: "Fehler", description: message, variant: "destructive" })
+      const message = err instanceof Error ? err.message : t('teamChat.unknownError')
+      toast({ title: t('common.error'), description: message, variant: "destructive" })
     } finally {
       setSaving(false)
     }
@@ -238,30 +241,30 @@ function NewRoomModal({ onClose, onCreated }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-4" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-sm">Neuer Kanal / Chat</h3>
+          <h3 className="font-semibold text-sm">{t('teamChat.newChannelChat')}</h3>
           <button onClick={onClose}><X className="h-4 w-4 text-muted-foreground" /></button>
         </div>
         <div className="space-y-2">
           <Input
-            placeholder="Kanalname..."
+            placeholder={t('teamChat.channelNamePlaceholder')}
             value={name}
             onChange={e => setName(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleCreate()}
             className="h-7 text-xs"
           />
           <div className="flex gap-1.5">
-            {(["team", "general", "project", "private"] as RoomType[]).map(t => (
-              <button key={t} onClick={() => setType(t)}
+            {(["team", "general", "project", "private"] as RoomType[]).map(rt => (
+              <button key={rt} onClick={() => setType(rt)}
                 className={`flex-1 text-[10px] py-1 rounded border transition-colors ${
-                  type === t ? "bg-[#1a2a5e] text-white border-[#1a2a5e]" : "border-gray-200 hover:bg-gray-50"
+                  type === rt ? "bg-[#1a2a5e] text-white border-[#1a2a5e]" : "border-gray-200 hover:bg-gray-50"
                 }`}>
-                {t === "team" ? "Team" : t === "general" ? "Allg." : t === "project" ? "Werkstatt" : "Direkt"}
+                {rt === "team" ? t('teamChat.typeTeam') : rt === "general" ? t('teamChat.typeGeneral') : rt === "project" ? t('teamChat.typeWorkshop') : t('teamChat.typeDirect')}
               </button>
             ))}
           </div>
           <div>
             <p className="text-[10px] text-muted-foreground mb-1">
-              Mitglieder {staffLoading && "(wird geladen…)"}
+              {t('teamChat.members')} {staffLoading && `(${t('common.loading')})`}
             </p>
             <div className="space-y-0.5 max-h-36 overflow-y-auto">
               {staffList.map(m => (
@@ -272,7 +275,7 @@ function NewRoomModal({ onClose, onCreated }: {
                     onChange={() => toggleMember(m._id)}
                     className="accent-[#1a2a5e]"
                   />
-                  <span className="text-xs">{staffMemberName(m)}</span>
+                  <span className="text-xs">{staffMemberName(m, t('teamChat.unknown'))}</span>
                   <span className="text-[10px] text-muted-foreground ml-auto capitalize">{m.role}</span>
                 </label>
               ))}
@@ -281,11 +284,11 @@ function NewRoomModal({ onClose, onCreated }: {
         </div>
         <div className="mt-3 flex justify-end gap-2">
           <Button variant="outline" size="sm" onClick={onClose} className="h-7 text-xs" disabled={saving}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button size="sm" onClick={handleCreate} disabled={!name.trim() || saving}
             className="h-7 text-xs bg-[#1a2a5e] hover:bg-[#0f1d45]">
-            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Erstellen"}
+            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : t('common.create')}
           </Button>
         </div>
       </div>
@@ -296,10 +299,11 @@ function NewRoomModal({ onClose, onCreated }: {
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export function TeamChat() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const { toast } = useToast()
   const myId = user?._id ?? ""
-  const myName = `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || "Du"
+  const myName = `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || t('teamChat.you')
 
   const [rooms, setRooms] = useState<ChatRoom[]>([])
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null)
@@ -334,8 +338,8 @@ export function TeamChat() {
       })
     } catch (err: unknown) {
       if (!silent) {
-        const message = err instanceof Error ? err.message : "Kanäle konnten nicht geladen werden."
-        toast({ title: "Fehler", description: message, variant: "destructive" })
+        const message = err instanceof Error ? err.message : t('teamChat.roomsLoadError')
+        toast({ title: t('common.error'), description: message, variant: "destructive" })
       }
     } finally {
       if (!silent) setRoomsLoading(false)
@@ -438,8 +442,8 @@ export function TeamChat() {
     if (mentions.length > 0) {
       setNotifications(prev => [{
         id: `n-${Date.now()}`,
-        text: `${mentions.map(m => `@${m}`).join(", ")} erwähnt`,
-        time: "Jetzt",
+        text: `${mentions.map(m => `@${m}`).join(", ")} ${t('teamChat.mentioned')}`,
+        time: t('teamChat.timeNow'),
       }, ...prev.slice(0, 3)])
     }
 
@@ -451,8 +455,8 @@ export function TeamChat() {
         : r
       ))
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Fehler beim Senden"
-      toast({ title: "Fehler beim Senden", description: message, variant: "destructive" })
+      const message = err instanceof Error ? err.message : t('teamChat.sendError')
+      toast({ title: t('teamChat.sendError'), description: message, variant: "destructive" })
       setMessages(prev => prev.filter(m => m._id !== tmpId))
       setNewMessage(content)
     } finally {
@@ -472,10 +476,10 @@ export function TeamChat() {
     const order: OrderStatus = {
       orderNumber: `R-${new Date().getFullYear()}-${String(Math.floor(10 + Math.random() * 89)).padStart(3, "0")}`,
       status,
-      device: "Gerät – Status-Update",
+      device: t('teamChat.deviceStatusUpdate'),
       assignedTo: myName,
     }
-    const text = `📋 Auftrag #${order.orderNumber} | ${order.device} | Status: ${STATUS_CONFIG[status].label} | Zugewiesen: ${order.assignedTo}`
+    const text = `📋 ${t('teamChat.order')} #${order.orderNumber} | ${order.device} | ${t('teamChat.status')}: ${t(STATUS_CONFIG[status].label)} | ${t('teamChat.assignedTo')}: ${order.assignedTo}`
     const tmpId = `pending-order-${Date.now()}`
     const optimistic: LocalMessage = {
       _id: tmpId, content: text, senderName: myName, senderId: myId,
@@ -486,10 +490,10 @@ export function TeamChat() {
     try {
       await sendChatMessage(selectedRoom._id, text)
       setMessages(prev => prev.map(m => m._id === tmpId ? { ...m, isPending: false } : m))
-      toast({ title: "Status geteilt", description: `${order.orderNumber} – ${STATUS_CONFIG[status].label}` })
+      toast({ title: t('teamChat.statusShared'), description: `${order.orderNumber} – ${t(STATUS_CONFIG[status].label)}` })
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Fehler beim Senden"
-      toast({ title: "Fehler", description: message, variant: "destructive" })
+      const message = err instanceof Error ? err.message : t('teamChat.sendError')
+      toast({ title: t('common.error'), description: message, variant: "destructive" })
       setMessages(prev => prev.filter(m => m._id !== tmpId))
     }
   }
@@ -520,25 +524,25 @@ export function TeamChat() {
       >
         <div className="flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-white/80" />
-          <h1 className="text-sm font-semibold text-white tracking-wide">Team Chat</h1>
+          <h1 className="text-sm font-semibold text-white tracking-wide">{t('teamChat.title')}</h1>
           {totalUnread > 0 && (
             <Badge className="h-4 min-w-[16px] text-[10px] px-1 bg-red-500 text-white border-0">{totalUnread}</Badge>
           )}
         </div>
         <div className="flex items-center gap-1">
           <button
-            title="Benachrichtigungen"
+            title={t('teamChat.notifications')}
             className="p-1 rounded hover:bg-white/10 relative transition-colors"
-            onClick={() => notifications.length && toast({ title: "Erwähnungen", description: notifications[0]?.text })}
+            onClick={() => notifications.length && toast({ title: t('teamChat.mentions'), description: notifications[0]?.text })}
           >
             <Bell className="h-3.5 w-3.5 text-white/80" />
             {notifications.length > 0 && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full" />}
           </button>
-          <button title="Neuer Kanal" className="p-1 rounded hover:bg-white/10 transition-colors"
+          <button title={t('teamChat.newChannel')} className="p-1 rounded hover:bg-white/10 transition-colors"
             onClick={() => setShowNewRoom(true)}>
             <Plus className="h-3.5 w-3.5 text-white/80" />
           </button>
-          <button title="Aktualisieren" className="p-1 rounded hover:bg-white/10 transition-colors"
+          <button title={t('common.refresh')} className="p-1 rounded hover:bg-white/10 transition-colors"
             onClick={() => fetchRooms()}>
             <RefreshCw className={`h-3.5 w-3.5 text-white/80 ${roomsLoading ? "animate-spin" : ""}`} />
           </button>
@@ -568,7 +572,7 @@ export function TeamChat() {
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
               <Input
-                placeholder="Suchen..."
+                placeholder={`${t('common.search')}...`}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="pl-6 h-6 text-[11px] bg-white"
@@ -584,12 +588,12 @@ export function TeamChat() {
               </div>
             ) : rooms.length === 0 ? (
               <div className="p-3 text-center">
-                <p className="text-[11px] text-muted-foreground">Keine Kanäle gefunden.</p>
+                <p className="text-[11px] text-muted-foreground">{t('teamChat.noChannelsFound')}</p>
                 <button
                   onClick={() => setShowNewRoom(true)}
                   className="mt-2 text-[11px] text-[#1a2a5e] font-medium hover:underline"
                 >
-                  + Ersten Kanal erstellen
+                  {t('teamChat.createFirstChannel')}
                 </button>
               </div>
             ) : (
@@ -601,12 +605,12 @@ export function TeamChat() {
                     <div key={section}>
                       <div className="flex items-center justify-between px-1.5 mb-0.5">
                         <span className="text-[9px] font-bold text-muted-foreground tracking-wider">
-                          {ROOM_SECTION_LABELS[section]}
+                          {t(ROOM_SECTION_LABELS[section])}
                         </span>
                         {section !== "private" && (
                           <button
                             onClick={() => setShowNewRoom(true)}
-                            title="Kanal hinzufügen"
+                            title={t('teamChat.addChannel')}
                             className="text-muted-foreground hover:text-foreground"
                           >
                             <Plus className="h-2.5 w-2.5" />
@@ -667,7 +671,7 @@ export function TeamChat() {
           {/* Room members panel */}
           {roomMembers.length > 0 && (
             <div className="border-t p-2 shrink-0">
-              <p className="text-[9px] font-bold text-muted-foreground tracking-wider mb-1">MITGLIEDER</p>
+              <p className="text-[9px] font-bold text-muted-foreground tracking-wider mb-1">{t('teamChat.membersSection')}</p>
               <div className="space-y-1 max-h-24 overflow-y-auto">
                 {roomMembers.slice(0, 8).map((m, i) => {
                   const name = roomMemberName(m)
@@ -684,7 +688,7 @@ export function TeamChat() {
                   )
                 })}
                 {roomMembers.length > 8 && (
-                  <p className="text-[9px] text-muted-foreground">+{roomMembers.length - 8} weitere</p>
+                  <p className="text-[9px] text-muted-foreground">+{roomMembers.length - 8} {t('teamChat.more')}</p>
                 )}
               </div>
             </div>
@@ -700,12 +704,12 @@ export function TeamChat() {
               ) : (
                 <div>
                   <MessageSquare className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Kanal auswählen oder erstellen</p>
+                  <p className="text-sm text-muted-foreground">{t('teamChat.selectOrCreateChannel')}</p>
                   <button
                     onClick={() => setShowNewRoom(true)}
                     className="mt-2 text-xs text-[#1a2a5e] font-medium hover:underline"
                   >
-                    + Neuen Kanal erstellen
+                    {t('teamChat.createNewChannel')}
                   </button>
                 </div>
               )}
@@ -735,9 +739,9 @@ export function TeamChat() {
                     <span>{roomMembers.length}</span>
                   </div>
                   <button
-                    title="Mitglied hinzufügen"
+                    title={t('teamChat.addMember')}
                     className="p-1 rounded hover:bg-gray-100"
-                    onClick={() => toast({ title: "Mitglied hinzufügen", description: "Erstelle einen neuen Kanal und wähle Mitglieder aus." })}
+                    onClick={() => toast({ title: t('teamChat.addMember'), description: t('teamChat.addMemberDescription') })}
                   >
                     <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
@@ -754,7 +758,7 @@ export function TeamChat() {
                   <div className="flex items-center justify-center py-8 text-center">
                     <div>
                       <MessageSquare className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                      <p className="text-xs text-muted-foreground">Noch keine Nachrichten. Starte die Unterhaltung!</p>
+                      <p className="text-xs text-muted-foreground">{t('teamChat.noMessages')}</p>
                     </div>
                   </div>
                 ) : (
@@ -768,8 +772,8 @@ export function TeamChat() {
                           <div key={msg._id} className="flex justify-center">
                             <div className="max-w-xs w-full">
                               <div className="text-[10px] text-center text-muted-foreground mb-0.5">
-                                Status-Update von {msg.senderName} · {timeAgo(msg.createdAt)}
-                                {msg.isPending && <span className="ml-1 opacity-50">(wird gesendet…)</span>}
+                                {t('teamChat.statusUpdateBy')} {msg.senderName} · {timeAgo(msg.createdAt, t)}
+                                {msg.isPending && <span className="ml-1 opacity-50">({t('teamChat.sending')})</span>}
                               </div>
                               <OrderCard order={msg.orderCard} />
                             </div>
@@ -806,13 +810,13 @@ export function TeamChat() {
                             }`}>
                               {hasMention && !msg.isOwn && (
                                 <span className="flex items-center gap-0.5 text-[9px] font-semibold text-amber-600 mb-0.5">
-                                  <AtSign className="h-2.5 w-2.5" /> Erwähnung
+                                  <AtSign className="h-2.5 w-2.5" /> {t('teamChat.mention')}
                                 </span>
                               )}
                               <p className="break-words">{highlightMentions(msg.content)}</p>
                             </div>
                             <span className="text-[9px] text-muted-foreground mt-0.5">
-                              {timeAgo(msg.createdAt)}{msg.isPending && " · Wird gesendet…"}
+                              {timeAgo(msg.createdAt, t)}{msg.isPending && ` · ${t('teamChat.sending')}…`}
                             </span>
                           </div>
                         </div>
@@ -832,7 +836,7 @@ export function TeamChat() {
                   {/* Order status dropdown */}
                   <div className="relative shrink-0">
                     <button
-                      title="Auftragsstatus teilen"
+                      title={t('teamChat.shareOrderStatus')}
                       onClick={() => setShowOrderDrop(v => !v)}
                       className="flex items-center gap-1 px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 text-[10px] text-muted-foreground transition-colors"
                     >
@@ -842,7 +846,7 @@ export function TeamChat() {
                     {showOrderDrop && (
                       <div className="absolute bottom-full mb-1 left-0 z-50 bg-white border rounded-lg shadow-lg py-1 min-w-[160px]">
                         <p className="text-[9px] text-muted-foreground px-2 py-0.5 font-semibold border-b mb-1">
-                          Status teilen
+                          {t('teamChat.shareStatus')}
                         </p>
                         {(Object.keys(STATUS_CONFIG) as OrderStatus['status'][]).map(s => {
                           const cfg = STATUS_CONFIG[s]
@@ -850,7 +854,7 @@ export function TeamChat() {
                           return (
                             <button key={s} onMouseDown={() => shareOrderUpdate(s)}
                               className="w-full text-left px-2 py-1 text-[10px] hover:bg-gray-50 flex items-center gap-2">
-                              <Icon className="h-3 w-3" />{cfg.label}
+                              <Icon className="h-3 w-3" />{t(cfg.label)}
                             </button>
                           )
                         })}
@@ -858,7 +862,7 @@ export function TeamChat() {
                           onMouseDown={() => setShowOrderDrop(false)}
                           className="w-full text-left px-2 py-1 text-[10px] text-muted-foreground hover:bg-gray-50 border-t mt-1"
                         >
-                          Abbrechen
+                          {t('common.cancel')}
                         </button>
                       </div>
                     )}
@@ -871,7 +875,7 @@ export function TeamChat() {
 
                   <Input
                     ref={inputRef}
-                    placeholder={`Nachricht an #${selectedRoom.name} … @ für Erwähnung`}
+                    placeholder={t('teamChat.messagePlaceholder', { room: selectedRoom.name })}
                     value={newMessage}
                     onChange={e => handleInputChange(e.target.value)}
                     onKeyDown={handleKeyDown}
@@ -888,7 +892,7 @@ export function TeamChat() {
                   </Button>
                 </div>
                 <p className="text-[9px] text-muted-foreground mt-0.5">
-                  Enter = Senden · @ = Erwähnung · Ticket-Icon = Status teilen
+                  {t('teamChat.inputHelp')}
                 </p>
               </div>
             </>

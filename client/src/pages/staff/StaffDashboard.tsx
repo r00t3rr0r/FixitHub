@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from "react-router-dom"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -112,10 +113,10 @@ const capitalize = (v?: string) => {
 
 const timeStatusInfo = (s?: string) => {
   switch (s) {
-    case "online":   return { label: "Online",     cls: "online" }
-    case "working":  return { label: "In Arbeit",  cls: "working" }
-    case "on_break": return { label: "Pause",      cls: "break" }
-    default:         return { label: "Offline",    cls: "offline" }
+    case "online":   return { label: "staffDashboard.timeStatusOnline",   cls: "online" }
+    case "working":  return { label: "staffDashboard.timeStatusWorking",  cls: "working" }
+    case "on_break": return { label: "staffDashboard.timeStatusBreak",    cls: "break" }
+    default:         return { label: "staffDashboard.timeStatusOffline",  cls: "offline" }
   }
 }
 
@@ -132,7 +133,7 @@ const toDateInputValue = (value?: string | Date | null) => {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
 }
 
-const timeAgo = (date?: string | Date) => {
+const timeAgo = (t: any, date?: string | Date) => {
   if (!date) return "–"
   const then = new Date(date).getTime()
   if (!Number.isFinite(then)) return "–"
@@ -140,10 +141,10 @@ const timeAgo = (date?: string | Date) => {
   const min = Math.floor(diff / 60000)
   const hours = Math.floor(diff / 3600000)
   const days = Math.floor(diff / 86400000)
-  if (min < 1) return "gerade eben"
-  if (min < 60) return `vor ${min} Min.`
-  if (hours < 24) return `vor ${hours} Std.`
-  return `vor ${days} T.`
+  if (min < 1) return t('staffDashboard.justNow')
+  if (min < 60) return t('staffDashboard.minutesAgo', { count: min })
+  if (hours < 24) return t('staffDashboard.hoursAgo', { count: hours })
+  return t('staffDashboard.daysAgo', { count: days })
 }
 
 const toTimestamp = (value?: string | Date | null) => {
@@ -216,13 +217,13 @@ const getWorkflowMode = (workflow: any): "start" | "resume" | "execute" | "view"
 const getWorkflowStatusLabel = (status?: string) => {
   switch (normalizeWorkflowStatus(status)) {
     case "in-progress":
-      return "In Arbeit"
+      return "staffDashboard.workflowInProgress"
     case "on-hold":
-      return "Pausiert"
+      return "staffDashboard.workflowPaused"
     case "completed":
-      return "Abgeschlossen"
+      return "staffDashboard.workflowCompleted"
     default:
-      return "Pending"
+      return "staffDashboard.workflowPending"
   }
 }
 
@@ -338,6 +339,7 @@ const FALLBACK: StaffData = {
 }
 
 export function StaffDashboard() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { toast } = useToast()
   const { user } = useAuth()
@@ -418,15 +420,15 @@ export function StaffDashboard() {
 
       if (showToast) {
         toast({
-          title: "Dashboard aktualisiert",
-          description: `${orders.length} Aufträge, ${repairRequests.length} Repair Requests, ${unassignedOrders.length} unzugewiesene Orders`,
+          title: t('staffDashboard.dashboardUpdated'),
+          description: t('staffDashboard.dashboardUpdatedDesc', { orders: orders.length, repairs: repairRequests.length, unassigned: unassignedOrders.length }),
         })
       }
     } catch (err: any) {
       toast({
         variant: "destructive",
-        title: "Fehler beim Laden",
-        description: err?.message || "Unbekannter Fehler",
+        title: t('staffDashboard.loadError'),
+        description: err?.message || t('staffDashboard.unknownError'),
       })
     } finally {
       setLoading(false)
@@ -450,9 +452,9 @@ export function StaffDashboard() {
     try {
       await clockIn()
       await fetchTimeData()
-      toast({ title: "Eingestempelt ✓", description: "Deine Arbeitszeit hat begonnen." })
+      toast({ title: t('staffDashboard.clockedIn'), description: t('staffDashboard.workStarted') })
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Fehler", description: err?.message || "Einstempeln fehlgeschlagen." })
+      toast({ variant: "destructive", title: t('common.error'), description: err?.message || t('staffDashboard.clockInFailed') })
     } finally { setTimeActionLoading(false) }
   }
 
@@ -461,9 +463,9 @@ export function StaffDashboard() {
     try {
       await clockOut()
       await fetchTimeData()
-      toast({ title: "Ausgestempelt ✓", description: "Schönen Feierabend!" })
+      toast({ title: t('staffDashboard.clockedOut'), description: t('staffDashboard.goodEvening') })
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Fehler", description: err?.message || "Ausstempeln fehlgeschlagen." })
+      toast({ variant: "destructive", title: t('common.error'), description: err?.message || t('staffDashboard.clockOutFailed') })
     } finally { setTimeActionLoading(false) }
   }
 
@@ -472,9 +474,9 @@ export function StaffDashboard() {
     try {
       await startBreak()
       await fetchTimeData()
-      toast({ title: "Pause gestartet", description: "Erhol dich gut!" })
+      toast({ title: t('staffDashboard.breakStarted'), description: t('staffDashboard.restWell') })
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Fehler", description: err?.message || "Pause nicht möglich." })
+      toast({ variant: "destructive", title: t('common.error'), description: err?.message || t('staffDashboard.breakNotPossible') })
     } finally { setTimeActionLoading(false) }
   }
 
@@ -483,9 +485,9 @@ export function StaffDashboard() {
     try {
       await endBreak()
       await fetchTimeData()
-      toast({ title: "Pause beendet", description: "Weiter geht's!" })
+      toast({ title: t('staffDashboard.breakEnded'), description: t('staffDashboard.letsGo') })
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Fehler", description: err?.message || "Pause-Ende fehlgeschlagen." })
+      toast({ variant: "destructive", title: t('common.error'), description: err?.message || t('staffDashboard.breakEndFailed') })
     } finally { setTimeActionLoading(false) }
   }
 
@@ -569,8 +571,8 @@ export function StaffDashboard() {
       if (!orderId) return []
 
       const deviceLabel = order.device
-        ? `${order.device.brand || ""} ${order.device.model || ""}`.trim() || order.device.type || "Gerät"
-        : `${order.deviceBrand || ""} ${order.deviceModel || ""}`.trim() || order.deviceType || "Gerät"
+        ? `${order.device.brand || ""} ${order.device.model || ""}`.trim() || order.device.type || t('staffDashboard.device')
+        : `${order.deviceBrand || ""} ${order.deviceModel || ""}`.trim() || order.deviceType || t('staffDashboard.device')
 
       return safeArray(order?.workflows).map((workflow: any) => {
         const workflowStatus = normalizeWorkflowStatus(workflow?.status)
@@ -588,7 +590,7 @@ export function StaffDashboard() {
           workflowMode: getWorkflowMode(workflow),
           customerName: toName(order.customer || order.customerId),
           deviceLabel,
-          activeStepLabel: currentStep?.stepName || currentStep?.name || "Kein Schritt definiert",
+          activeStepLabel: currentStep?.stepName || currentStep?.name || t('staffDashboard.noStepDefined'),
           createdAt: workflow?.startedAt || order?.updatedAt || order?.createdAt,
           updatedAt: workflow?.pausedAt || workflow?.completedAt || order?.updatedAt || order?.createdAt,
           orderPriority: String(order?.priority || ""),
@@ -670,11 +672,11 @@ export function StaffDashboard() {
     if (assignmentCount > 0) {
       dashboardHints.push({
         id: "assignments",
-        title: "Neue Zuweisungen",
-        description: `${assignmentCount} neuer Reparaturauftrag oder Anfrage: ${listPreview(
+        title: t('staffDashboard.newAssignments'),
+        description: `${assignmentCount} ${t('staffDashboard.newAssignmentDesc')}: ${listPreview(
           [...recentAssignedOrders, ...recentAssignedRequests].map((item: any) => item.label)
         )}`,
-        badge: `${assignmentCount} neu`,
+        badge: t('staffDashboard.newBadge', { count: assignmentCount }),
         path: recentAssignedRequests.length >= recentAssignedOrders.length ? "/staff/repair-requests" : "/staff/orders",
         isNew: true,
       })
@@ -683,13 +685,13 @@ export function StaffDashboard() {
     const communicationCount = unreadNotificationMessages.length + unreadTeamChatMessages
     if (communicationCount > 0) {
       const roomPreview = unreadTeamChatRooms.length > 0
-        ? `${unreadTeamChatMessages} ungelesene Team-Chat-Nachrichten in ${unreadTeamChatRooms.length} Raum/Räumen`
-        : `${unreadNotificationMessages.length} neue Kommunikations-Hinweise`
+        ? t('staffDashboard.unreadTeamChat', { count: unreadTeamChatMessages, rooms: unreadTeamChatRooms.length })
+        : t('staffDashboard.newCommHints', { count: unreadNotificationMessages.length })
       dashboardHints.push({
         id: "messages",
-        title: "Neue Nachrichten oder interne Kommunikation",
+        title: t('staffDashboard.newMessages'),
         description: roomPreview,
-        badge: `${communicationCount} offen`,
+        badge: t('staffDashboard.openBadge', { count: communicationCount }),
         path: "/notifications",
         isNew: true,
       })
@@ -700,15 +702,15 @@ export function StaffDashboard() {
     if (overdueEntries.length > 0 || soonEntries.length > 0) {
       const activeEntries = overdueEntries.length > 0 ? overdueEntries : soonEntries
       const deadlineLabel = overdueEntries.length > 0
-        ? `${overdueEntries.length} überfällig`
-        : `${soonEntries.length} bald fällig`
+        ? t('staffDashboard.overdueBadge', { count: overdueEntries.length })
+        : t('staffDashboard.dueSoonBadge', { count: soonEntries.length })
       const deadlineDescription = activeEntries
         .slice(0, 2)
         .map((entry: any) => `${entry.label} (${formatDateLabel(entry.dueAt)})`)
         .join(", ")
       dashboardHints.push({
         id: "deadlines",
-        title: overdueEntries.length > 0 ? "Überfällige oder kritische Fristen" : "Offene Fristen",
+        title: overdueEntries.length > 0 ? t('staffDashboard.overdueDeadlines') : t('staffDashboard.openDeadlines'),
         description: deadlineDescription,
         badge: deadlineLabel,
         path: overdueEntries.some((entry: any) => String(entry.label).startsWith("RR #")) ? "/staff/repair-requests" : "/staff/orders",
@@ -719,11 +721,11 @@ export function StaffDashboard() {
     if (statusUpdates.length > 0) {
       dashboardHints.push({
         id: "status-updates",
-        title: "Statusänderungen bei laufenden Aufträgen",
+        title: t('staffDashboard.statusChanges'),
         description: listPreview(
-          statusUpdates.map((notification: any) => notification?.title || notification?.message || "Status aktualisiert")
+          statusUpdates.map((notification: any) => notification?.title || notification?.message || t('staffDashboard.statusUpdated'))
         ),
-        badge: `${statusUpdates.length} geändert`,
+        badge: t('staffDashboard.changedBadge', { count: statusUpdates.length }),
         path: "/notifications",
       })
     }
@@ -731,11 +733,11 @@ export function StaffDashboard() {
     if (unavailableTeamMembers.length > 0) {
       dashboardHints.push({
         id: "team-updates",
-        title: "Team-Updates",
-        description: `${unavailableTeamMembers.length} Teammitglied(er) nicht verfügbar: ${listPreview(
+        title: t('staffDashboard.teamUpdates'),
+        description: `${unavailableTeamMembers.length} ${t('staffDashboard.teamMembersUnavailable')}: ${listPreview(
           unavailableTeamMembers.map((member: any) => toName(member))
         )}`,
-        badge: `${unavailableTeamMembers.length} abwesend`,
+        badge: t('staffDashboard.absentBadge', { count: unavailableTeamMembers.length }),
       })
     }
 
@@ -772,7 +774,7 @@ export function StaffDashboard() {
     return (
       <div className="staff-dashboard-loading">
         <RefreshCw className="h-6 w-6 animate-spin" style={{ color: "#1a2a5e", margin: "0 auto" }} />
-        <p>Dashboard wird geladen…</p>
+        <p>{t('staffDashboard.loading')}</p>
       </div>
     )
   }
@@ -783,16 +785,16 @@ export function StaffDashboard() {
       {/* ── Header ───────────────────────────────────────────── */}
       <div className="staff-dash-header">
         <div className="staff-dash-header-main">
-          <h1>Staff Dashboard</h1>
-          <p>Meine Aufträge, Repair Requests und Team-Übersicht auf einen Blick</p>
+          <h1>{t('staffDashboard.title')}</h1>
+          <p>{t('staffDashboard.description')}</p>
         </div>
 
         <div className="staff-dash-header-meta">
           <Badge variant="outline" className="staff-dash-badge-muted">
-            Zuletzt: {lastUpdated ? lastUpdated.toLocaleTimeString("de-CH") : "–"}
+            {t('staffDashboard.lastUpdated')}: {lastUpdated ? lastUpdated.toLocaleTimeString("de-CH") : "–"}
           </Badge>
           <Badge variant="outline" className="staff-dash-badge-muted">
-            Auto-Refresh: 30s
+            {t('staffDashboard.autoRefresh')}
           </Badge>
         </div>
 
@@ -805,7 +807,7 @@ export function StaffDashboard() {
             className="staff-dash-btn-light"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-            Aktualisieren
+            {t('staffDashboard.refresh')}
           </Button>
         </div>
       </div>
@@ -815,9 +817,9 @@ export function StaffDashboard() {
         <Card className="staff-dash-stat-card">
           <CardContent className="staff-dash-stat-content">
             <div>
-              <p>Meine Aufträge</p>
+              <p>{t('staffDashboard.myOrders')}</p>
               <h3>{derived.myTasksCount}</h3>
-              <small>{derived.inProgress} aktiv</small>
+              <small>{derived.inProgress} {t('staffDashboard.active')}</small>
             </div>
             <Package className="h-4 w-4 staff-dash-stat-icon" />
           </CardContent>
@@ -826,9 +828,9 @@ export function StaffDashboard() {
         <Card className="staff-dash-stat-card">
           <CardContent className="staff-dash-stat-content">
             <div>
-              <p>In Bearbeitung</p>
+              <p>{t('staffDashboard.inProgress')}</p>
               <h3>{derived.inProgress}</h3>
-              <small>aktive Reparaturen</small>
+              <small>{t('staffDashboard.activeRepairs')}</small>
             </div>
             <Wrench className="h-4 w-4 staff-dash-stat-icon" />
           </CardContent>
@@ -837,9 +839,9 @@ export function StaffDashboard() {
         <Card className="staff-dash-stat-card">
           <CardContent className="staff-dash-stat-content">
             <div>
-              <p>Abgeschlossen</p>
+              <p>{t('staffDashboard.completedLabel')}</p>
               <h3>{derived.completed}</h3>
-              <small>abgeschlossene Aufträge</small>
+              <small>{t('staffDashboard.completedOrders')}</small>
             </div>
             <CheckCircle2 className="h-4 w-4 staff-dash-stat-icon" />
           </CardContent>
@@ -848,9 +850,9 @@ export function StaffDashboard() {
         <Card className="staff-dash-stat-card staff-dash-stat-card--urgent">
           <CardContent className="staff-dash-stat-content">
             <div>
-              <p>Dringend</p>
+              <p>{t('staffDashboard.urgent')}</p>
               <h3>{derived.urgent}</h3>
-              <small>hohe Priorität</small>
+              <small>{t('staffDashboard.highPriority')}</small>
             </div>
             <AlertCircle className="h-4 w-4 staff-dash-stat-icon" />
           </CardContent>
@@ -859,9 +861,9 @@ export function StaffDashboard() {
         <Card className="staff-dash-stat-card">
           <CardContent className="staff-dash-stat-content">
             <div>
-              <p>Repair Requests</p>
+              <p>{t('staffDashboard.repairRequests')}</p>
               <h3>{derived.pendingRepairs}</h3>
-              <small>offen</small>
+              <small>{t('staffDashboard.open')}</small>
             </div>
             <Timer className="h-4 w-4 staff-dash-stat-icon" />
           </CardContent>
@@ -871,24 +873,24 @@ export function StaffDashboard() {
       {/* ── Alert Bar ────────────────────────────────────────── */}
       <div className="staff-dash-alert-bar">
         <button type="button" onClick={() => navigate("/staff/orders")}>
-          Meine Aufträge: <strong>{derived.myTasksCount}</strong>
+          {t('staffDashboard.myOrdersAlert')}: <strong>{derived.myTasksCount}</strong>
         </button>
         <button
           type="button"
           className={derived.urgent > 0 ? "alert-urgent" : ""}
           onClick={() => navigate("/staff/orders")}
         >
-          Dringende Aufträge: <strong>{derived.urgent}</strong>
+          {t('staffDashboard.urgentOrdersAlert')}: <strong>{derived.urgent}</strong>
         </button>
         <button type="button" onClick={() => navigate("/staff/repair-requests")}>
-          Offene Repair Requests: <strong>{derived.pendingRepairs}</strong>
+          {t('staffDashboard.openRepairRequestsAlert')}: <strong>{derived.pendingRepairs}</strong>
         </button>
         <button
           type="button"
           className={data.unreadCount > 0 ? "alert-urgent" : ""}
           onClick={() => navigate("/notifications")}
         >
-          Ungelesene Hinweise: <strong>{data.unreadCount}</strong>
+          {t('staffDashboard.unreadNoticesAlert')}: <strong>{data.unreadCount}</strong>
         </button>
       </div>
 
@@ -897,19 +899,19 @@ export function StaffDashboard() {
           <CardHeader className="staff-dash-panel-header">
             <CardTitle>
               <Clock className="h-4 w-4 staff-dash-messages-icon" />
-              Pending Workflows
+              {t('staffDashboard.pendingWorkflows')}
             </CardTitle>
             <CardDescription>
               {derived.pendingWorkflows.length > 0 ? (
-                <span className="staff-dash-messages-label">{derived.pendingWorkflows.length} wartend</span>
-              ) : "Keine offenen Workflow-Starts"}
+                <span className="staff-dash-messages-label">{derived.pendingWorkflows.length} {t('staffDashboard.waiting')}</span>
+              ) : t('staffDashboard.noOpenWorkflowStarts')}
             </CardDescription>
           </CardHeader>
           <CardContent className="staff-dash-panel-content">
             <ScrollArea className="staff-dash-scroll-area">
               <div className="staff-dash-list">
                 {derived.pendingWorkflows.length === 0 && (
-                  <p className="staff-dash-empty">Keine pending Workflows in deinen zugewiesenen Orders</p>
+                  <p className="staff-dash-empty">{t('staffDashboard.noPendingWorkflows')}</p>
                 )}
                 {derived.pendingWorkflows.slice(0, 8).map((workflow: DashboardWorkflowItem) => {
                   const isUrgent = ["urgent", "high"].includes(String(workflow.orderPriority || "").toLowerCase())
@@ -925,17 +927,17 @@ export function StaffDashboard() {
                         <p className="staff-dash-title">{workflow.workflowName}</p>
                         <p className="staff-dash-sub">Order #{workflow.orderNumber} · {workflow.customerName}</p>
                         <p className="staff-dash-sub">{workflow.deviceLabel}</p>
-                        <p className="staff-dash-sub">Erster Schritt: {workflow.activeStepLabel}</p>
+                        <p className="staff-dash-sub">{t('staffDashboard.firstStep')}: {workflow.activeStepLabel}</p>
                         <div className="staff-dash-progress">
                           <div className="staff-dash-progress-fill" style={{ width: `${workflow.progressPercentage}%` }} />
                         </div>
                       </div>
                       <div className="staff-dash-list-side">
                         <Badge variant="outline" className={getWorkflowStatusTone(workflow.workflowStatus)}>
-                          {workflow.workflowStatusLabel}
+                          {t(workflow.workflowStatusLabel)}
                         </Badge>
-                        <small>{workflow.completedSteps}/{workflow.totalSteps || 0} Schritte</small>
-                        <small>{timeAgo(workflow.createdAt)}</small>
+                        <small>{workflow.completedSteps}/{workflow.totalSteps || 0} {t('staffDashboard.steps')}</small>
+                        <small>{timeAgo(t, workflow.createdAt)}</small>
                       </div>
                     </button>
                   )
@@ -944,7 +946,7 @@ export function StaffDashboard() {
             </ScrollArea>
             <Separator className="staff-dash-sep" />
             <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/staff/orders")}>
-              Zugewiesene Orders öffnen
+              {t('staffDashboard.openAssignedOrders')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </CardContent>
@@ -954,19 +956,19 @@ export function StaffDashboard() {
           <CardHeader className="staff-dash-panel-header">
             <CardTitle>
               <Play className="h-4 w-4" />
-              Workflows abzuarbeiten
+              {t('staffDashboard.workflowsToProcess')}
             </CardTitle>
             <CardDescription>
               {derived.actionableWorkflows.length > 0 ? (
-                <span className="staff-dash-messages-label">{derived.actionableWorkflows.length} aktiv oder pausiert</span>
-              ) : "Keine aktiven Workflows"}
+                <span className="staff-dash-messages-label">{derived.actionableWorkflows.length} {t('staffDashboard.activeOrPaused')}</span>
+              ) : t('staffDashboard.noActiveWorkflows')}
             </CardDescription>
           </CardHeader>
           <CardContent className="staff-dash-panel-content">
             <ScrollArea className="staff-dash-scroll-area">
               <div className="staff-dash-list">
                 {derived.actionableWorkflows.length === 0 && (
-                  <p className="staff-dash-empty">Keine Workflows, die du aktuell weiterbearbeiten musst</p>
+                  <p className="staff-dash-empty">{t('staffDashboard.noWorkflowsToProcess')}</p>
                 )}
                 {derived.actionableWorkflows.slice(0, 8).map((workflow: DashboardWorkflowItem) => {
                   const isUrgent = ["urgent", "high"].includes(String(workflow.orderPriority || "").toLowerCase())
@@ -984,18 +986,18 @@ export function StaffDashboard() {
                       <div style={{ display: "grid", gap: "0.2rem", minWidth: 0 }}>
                         <p className="staff-dash-title">{workflow.workflowName}</p>
                         <p className="staff-dash-sub">Order #{workflow.orderNumber} · {workflow.customerName}</p>
-                        <p className="staff-dash-sub">Aktiver Schritt: {workflow.activeStepLabel}</p>
-                        <p className="staff-dash-sub">Order-Status: {capitalize(workflow.orderStatus)}</p>
+                        <p className="staff-dash-sub">{t('staffDashboard.activeStep')}: {workflow.activeStepLabel}</p>
+                        <p className="staff-dash-sub">{t('staffDashboard.orderStatus')}: {capitalize(workflow.orderStatus)}</p>
                         <div className="staff-dash-progress">
                           <div className={progressClass} style={{ width: `${workflow.progressPercentage}%` }} />
                         </div>
                       </div>
                       <div className="staff-dash-list-side">
                         <Badge variant="outline" className={getWorkflowStatusTone(workflow.workflowStatus)}>
-                          {workflow.workflowStatusLabel}
+                          {t(workflow.workflowStatusLabel)}
                         </Badge>
-                        <small>{workflow.completedSteps}/{workflow.totalSteps || 0} Schritte</small>
-                        <small>{timeAgo(workflow.updatedAt || workflow.createdAt)}</small>
+                        <small>{workflow.completedSteps}/{workflow.totalSteps || 0} {t('staffDashboard.steps')}</small>
+                        <small>{timeAgo(t, workflow.updatedAt || workflow.createdAt)}</small>
                       </div>
                     </button>
                   )
@@ -1004,7 +1006,7 @@ export function StaffDashboard() {
             </ScrollArea>
             <Separator className="staff-dash-sep" />
             <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/staff/orders")}>
-              Alle Workflow-Aufträge anzeigen
+              {t('staffDashboard.viewAllWorkflowOrders')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </CardContent>
@@ -1019,25 +1021,25 @@ export function StaffDashboard() {
           <CardHeader className="staff-dash-panel-header">
             <CardTitle>
               <Package className="h-4 w-4" />
-              Meine Aufträge
+              {t('staffDashboard.myOrders')}
             </CardTitle>
             <CardDescription>
-              {derived.myTasksCount} zugewiesen ({data.orders.length} Orders, {derived.assignedRepairRequests.length} Repair Requests)
+              {derived.myTasksCount} {t('staffDashboard.assigned')} ({data.orders.length} Orders, {derived.assignedRepairRequests.length} Repair Requests)
             </CardDescription>
           </CardHeader>
           <CardContent className="staff-dash-panel-content">
             <ScrollArea className="staff-dash-scroll-area">
               <div className="staff-dash-list">
                 {derived.myTasksCount === 0 && (
-                  <p className="staff-dash-empty">Keine Aufträge zugewiesen</p>
+                  <p className="staff-dash-empty">{t('staffDashboard.noOrdersAssigned')}</p>
                 )}
                 {derived.myTasks.slice(0, 8).map((task: any) => {
                   if (task.type === "repair") {
                     const req = task.item
                     const customer = toName(req.customer || req.customerId)
                     const device = req.device
-                      ? `${req.device.brand || ""} ${req.device.model || ""}`.trim() || req.device.type || "Gerät"
-                      : `${req.deviceBrand || ""} ${req.deviceModel || ""}`.trim() || req.deviceType || "Gerät"
+                      ? `${req.device.brand || ""} ${req.device.model || ""}`.trim() || req.device.type || t('staffDashboard.device')
+                      : `${req.deviceBrand || ""} ${req.deviceModel || ""}`.trim() || req.deviceType || t('staffDashboard.device')
                     const isUrgent = ["urgent", "high"].includes(String(req.priority || req.urgency || "").toLowerCase())
                     return (
                       <button
@@ -1058,9 +1060,9 @@ export function StaffDashboard() {
                             {capitalize(req.status)}
                           </Badge>
                           {isUrgent && (
-                            <Badge className="staff-dash-badge-urgent">dringend</Badge>
+                            <Badge className="staff-dash-badge-urgent">{t('staffDashboard.urgentBadge')}</Badge>
                           )}
-                          <small>{timeAgo(req.createdAt)}</small>
+                          <small>{timeAgo(t, req.createdAt)}</small>
                         </div>
                       </button>
                     )
@@ -1069,8 +1071,8 @@ export function StaffDashboard() {
                   const order = task.item
                   const customer = toName(order.customer)
                   const device = order.device
-                    ? `${order.device.brand || ""} ${order.device.model || ""}`.trim() || order.device.type || "Gerät"
-                    : order.deviceType || "Gerät"
+                    ? `${order.device.brand || ""} ${order.device.model || ""}`.trim() || order.device.type || t('staffDashboard.device')
+                    : order.deviceType || t('staffDashboard.device')
                   const isUrgent = ["urgent", "high"].includes(String(order.priority || "").toLowerCase())
                   return (
                     <button
@@ -1091,9 +1093,9 @@ export function StaffDashboard() {
                           {capitalize(order.status)}
                         </Badge>
                         {isUrgent && (
-                          <Badge className="staff-dash-badge-urgent">dringend</Badge>
+                          <Badge className="staff-dash-badge-urgent">{t('staffDashboard.urgentBadge')}</Badge>
                         )}
-                        <small>{timeAgo(order.createdAt)}</small>
+                        <small>{timeAgo(t, order.createdAt)}</small>
                       </div>
                     </button>
                   )
@@ -1102,7 +1104,7 @@ export function StaffDashboard() {
             </ScrollArea>
             <Separator className="staff-dash-sep" />
             <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/staff/orders")}>
-              Alle Aufträge anzeigen
+              {t('staffDashboard.viewAllOrders')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </CardContent>
@@ -1113,21 +1115,21 @@ export function StaffDashboard() {
           <CardHeader className="staff-dash-panel-header">
             <CardTitle>
               <Wrench className="h-4 w-4" />
-              Repair Requests
+              {t('staffDashboard.repairRequests')}
             </CardTitle>
-            <CardDescription>{derived.pendingRepairs} offen</CardDescription>
+            <CardDescription>{derived.pendingRepairs} {t('staffDashboard.open')}</CardDescription>
           </CardHeader>
           <CardContent className="staff-dash-panel-content">
             <ScrollArea className="staff-dash-scroll-area">
               <div className="staff-dash-list">
                 {derived.unassignedRepairRequests.length === 0 && (
-                  <p className="staff-dash-empty">Keine offenen Repair Requests</p>
+                  <p className="staff-dash-empty">{t('staffDashboard.noOpenRepairRequests')}</p>
                 )}
                 {derived.unassignedRepairRequests.map((req: any) => {
                   const customer = toName(req.customer || req.customerId)
                   const device = req.device
-                    ? `${req.device.brand || ""} ${req.device.model || ""}`.trim() || req.device.type || "Gerät"
-                    : `${req.deviceBrand || ""} ${req.deviceModel || ""}`.trim() || req.deviceType || "Gerät"
+                    ? `${req.device.brand || ""} ${req.device.model || ""}`.trim() || req.device.type || t('staffDashboard.device')
+                    : `${req.deviceBrand || ""} ${req.deviceModel || ""}`.trim() || req.deviceType || t('staffDashboard.device')
                   return (
                     <button
                       key={req._id || req.requestNumber}
@@ -1143,7 +1145,7 @@ export function StaffDashboard() {
                         <Badge variant="outline" className="staff-dash-badge">
                           {capitalize(req.status)}
                         </Badge>
-                        <small>{timeAgo(req.createdAt)}</small>
+                        <small>{timeAgo(t, req.createdAt)}</small>
                       </div>
                     </button>
                   )
@@ -1152,7 +1154,7 @@ export function StaffDashboard() {
             </ScrollArea>
             <Separator className="staff-dash-sep" />
             <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/staff/repair-requests")}>
-              Alle Requests anzeigen
+              {t('staffDashboard.viewAllRequests')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </CardContent>
@@ -1163,19 +1165,19 @@ export function StaffDashboard() {
           <CardHeader className="staff-dash-panel-header">
             <CardTitle>
               <Bell className="h-4 w-4" />
-              Hinweise
+              {t('staffDashboard.notices')}
             </CardTitle>
             <CardDescription>
               {derived.dashboardHints.length > 0 ? (
-                <span className="staff-dash-messages-label">{derived.dashboardHints.length} relevant</span>
-              ) : "Keine neuen Hinweise"}
+                <span className="staff-dash-messages-label">{derived.dashboardHints.length} {t('staffDashboard.relevant')}</span>
+              ) : t('staffDashboard.noNewNotices')}
             </CardDescription>
           </CardHeader>
           <CardContent className="staff-dash-panel-content">
             <ScrollArea className="staff-dash-scroll-area">
               <div className="staff-dash-list">
                 {derived.dashboardHints.length === 0 && (
-                  <p className="staff-dash-empty">Keine Hinweise vorhanden</p>
+                  <p className="staff-dash-empty">{t('staffDashboard.noNoticesAvailable')}</p>
                 )}
                 {derived.dashboardHints.slice(0, 8).map((hint: DashboardHint) => {
                   const content = (
@@ -1196,10 +1198,10 @@ export function StaffDashboard() {
                           {hint.badge}
                         </Badge>
                         {hint.isNew && (
-                          <Badge className="staff-dash-badge-new">neu</Badge>
+                          <Badge className="staff-dash-badge-new">{t('staffDashboard.newBadgeLabel')}</Badge>
                         )}
                         {hint.isUrgent && (
-                          <Badge className="staff-dash-badge-urgent">dringend</Badge>
+                          <Badge className="staff-dash-badge-urgent">{t('staffDashboard.urgentBadge')}</Badge>
                         )}
                       </div>
                     </>
@@ -1228,7 +1230,7 @@ export function StaffDashboard() {
             </ScrollArea>
             <Separator className="staff-dash-sep" />
             <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/notifications")}>
-              Alle Hinweise anzeigen
+              {t('staffDashboard.viewAllNotices')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </CardContent>
@@ -1247,22 +1249,22 @@ export function StaffDashboard() {
             </CardTitle>
             <CardDescription>
               {derived.unassignedOrders.length > 0 ? (
-                <span className="staff-dash-messages-label">{derived.unassignedOrders.length} unzugewiesen</span>
-              ) : "Keine offenen Orders"}
+                <span className="staff-dash-messages-label">{derived.unassignedOrders.length} {t('staffDashboard.unassigned')}</span>
+              ) : t('staffDashboard.noOpenOrders')}
             </CardDescription>
           </CardHeader>
           <CardContent className="staff-dash-panel-content">
             <ScrollArea className="staff-dash-scroll-area">
               <div className="staff-dash-list">
                 {derived.unassignedOrders.length === 0 && (
-                  <p className="staff-dash-empty">Keine unzugewiesenen Orders vorhanden</p>
+                  <p className="staff-dash-empty">{t('staffDashboard.noUnassignedOrders')}</p>
                 )}
                 {derived.unassignedOrders.map((order: any) => {
                   const customer = toName(order.customer || order.customerId)
                   const orderNumber = order.orderNumber || order._id?.slice(-6) || "–"
                   const device = order.device
-                    ? `${order.device.brand || ""} ${order.device.model || ""}`.trim() || order.device.type || "Gerät"
-                    : `${order.deviceBrand || ""} ${order.deviceModel || ""}`.trim() || order.deviceType || "Gerät"
+                    ? `${order.device.brand || ""} ${order.device.model || ""}`.trim() || order.device.type || t('staffDashboard.device')
+                    : `${order.deviceBrand || ""} ${order.deviceModel || ""}`.trim() || order.deviceType || t('staffDashboard.device')
                   return (
                     <button
                       key={order._id || orderNumber}
@@ -1284,7 +1286,7 @@ export function StaffDashboard() {
                         <Badge variant="outline" className="staff-dash-badge">
                           {capitalize(order.status)}
                         </Badge>
-                        <small>{timeAgo(order.createdAt)}</small>
+                        <small>{timeAgo(t, order.createdAt)}</small>
                       </div>
                     </button>
                   )
@@ -1293,7 +1295,7 @@ export function StaffDashboard() {
             </ScrollArea>
             <Separator className="staff-dash-sep" />
             <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/staff/orders")}>
-              Alle Orders
+              {t('staffDashboard.allOrders')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </CardContent>
@@ -1304,24 +1306,24 @@ export function StaffDashboard() {
           <CardHeader className="staff-dash-panel-header">
             <CardTitle>
               <TrendingUp className="h-4 w-4" />
-              Meine Leistung
+              {t('staffDashboard.myPerformance')}
             </CardTitle>
           </CardHeader>
           <CardContent className="staff-dash-kpi-grid">
             <div>
-              <p>Gesamt Aufträge</p>
+              <p>{t('staffDashboard.totalOrders')}</p>
               <h4>{data.orders.length}</h4>
             </div>
             <div>
-              <p>Abgeschlossen</p>
+              <p>{t('staffDashboard.completedLabel')}</p>
               <h4>{derived.completed}</h4>
             </div>
             <div>
-              <p>In Bearbeitung</p>
+              <p>{t('staffDashboard.inProgress')}</p>
               <h4>{derived.inProgress}</h4>
             </div>
             <div>
-              <p>Dringende Fälle</p>
+              <p>{t('staffDashboard.urgentCases')}</p>
               <h4 style={{ color: derived.urgent > 0 ? "#c53030" : undefined }}>{derived.urgent}</h4>
             </div>
           </CardContent>
@@ -1332,33 +1334,33 @@ export function StaffDashboard() {
           <CardHeader className="staff-dash-panel-header">
             <CardTitle>
               <Settings className="h-4 w-4" />
-              Schnellaktionen
+              {t('staffDashboard.quickActions')}
             </CardTitle>
           </CardHeader>
           <CardContent className="staff-dash-action-grid">
             <Button size="sm" variant="outline" onClick={() => navigate("/staff/orders")}>
-              <Package className="h-3.5 w-3.5" /> Aufträge
+              <Package className="h-3.5 w-3.5" /> {t('staffDashboard.orders')}
             </Button>
             <Button size="sm" variant="outline" onClick={() => navigate("/staff/bookings")}>
-              <Calendar className="h-3.5 w-3.5" /> Buchungen
+              <Calendar className="h-3.5 w-3.5" /> {t('staffDashboard.bookings')}
             </Button>
             <Button size="sm" variant="outline" onClick={() => navigate("/staff/repair-requests")}>
-              <Wrench className="h-3.5 w-3.5" /> Repair Req.
+              <Wrench className="h-3.5 w-3.5" /> {t('staffDashboard.repairReq')}
             </Button>
             <Button size="sm" variant="outline" onClick={() => navigate("/staff/schedule")}>
-              <Clock className="h-3.5 w-3.5" /> Zeitplan
+              <Clock className="h-3.5 w-3.5" /> {t('staffDashboard.schedule')}
             </Button>
             <Button size="sm" variant="outline" onClick={() => navigate("/staff/time-tracking")}>
-              <Timer className="h-3.5 w-3.5" /> Zeiterfassung
+              <Timer className="h-3.5 w-3.5" /> {t('staffDashboard.timeTracking')}
             </Button>
             <Button size="sm" variant="outline" onClick={() => navigate("/staff/performance")}>
-              <BarChart3 className="h-3.5 w-3.5" /> Leistung
+              <BarChart3 className="h-3.5 w-3.5" /> {t('staffDashboard.performance')}
             </Button>
             <Button size="sm" variant="outline" onClick={() => navigate("/staff/chat")}>
-              <Users className="h-3.5 w-3.5" /> Team Chat
+              <Users className="h-3.5 w-3.5" /> {t('staffDashboard.teamChat')}
             </Button>
             <Button size="sm" variant="outline" onClick={() => navigate("/staff/knowledge-base")}>
-              <BookOpen className="h-3.5 w-3.5" /> Wissensbasis
+              <BookOpen className="h-3.5 w-3.5" /> {t('staffDashboard.knowledgeBase')}
             </Button>
           </CardContent>
         </Card>
@@ -1372,14 +1374,14 @@ export function StaffDashboard() {
           <CardHeader className="staff-dash-panel-header">
             <CardTitle>
               <Timer className="h-4 w-4" />
-              Zeiterfassung
+              {t('staffDashboard.timeTracking')}
             </CardTitle>
             <CardDescription>
               {(() => {
                 const s = timeStatusInfo(timeStatus?.status)
                 return (
                   <span className={`staff-dash-time-status-badge staff-dash-time-status-badge--${s.cls}`}>
-                    {s.label}
+                    {t(s.label)}
                   </span>
                 )
               })()}
@@ -1388,7 +1390,7 @@ export function StaffDashboard() {
           <CardContent className="staff-dash-panel-content" style={{ paddingTop: "0.15rem" }}>
 
             <div className="staff-dash-time-filter-row">
-              <label htmlFor="staff-dash-time-date">Datum</label>
+              <label htmlFor="staff-dash-time-date">{t('staffDashboard.date')}</label>
               <Input
                 id="staff-dash-time-date"
                 type="date"
@@ -1403,7 +1405,7 @@ export function StaffDashboard() {
               <span className="staff-dash-clock-digits">{liveTime || "––:––:––"}</span>
               {timeStatus?.lastClockIn && timeStatus.status !== "offline" && (
                 <span className="staff-dash-clock-since">
-                  seit {new Date(timeStatus.lastClockIn).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })} Uhr
+                  {t('staffDashboard.since')} {new Date(timeStatus.lastClockIn).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })} {t('staffDashboard.oclock')}
                 </span>
               )}
             </div>
@@ -1411,30 +1413,30 @@ export function StaffDashboard() {
             {/* Hours summary */}
             <div className="staff-dash-time-hours">
               <div>
-                <p>Heute</p>
+                <p>{t('staffDashboard.today')}</p>
                 <h5>{fmtHours(timeSummary?.summary?.hoursToday)}</h5>
               </div>
               <div>
-                <p>Diese Woche</p>
+                <p>{t('staffDashboard.thisWeek')}</p>
                 <h5>{fmtHours(timeSummary?.summary?.hoursThisWeek)}</h5>
               </div>
               <div>
-                <p>Dieser Monat</p>
+                <p>{t('staffDashboard.thisMonth')}</p>
                 <h5>{fmtHours(timeSummary?.summary?.hoursThisMonth)}</h5>
               </div>
             </div>
 
             <div className="staff-dash-time-metrics-grid">
               <div className="staff-dash-time-metric-card">
-                <p>Gearbeitet gesamt</p>
+                <p>{t('staffDashboard.totalWorked')}</p>
                 <h5>{fmtHours(timeInsights.totalHoursWorked)}</h5>
               </div>
               <div className="staff-dash-time-metric-card">
-                <p>Pause gesamt</p>
+                <p>{t('staffDashboard.totalBreak')}</p>
                 <h5>{fmtHours(timeInsights.totalBreakHours)}</h5>
               </div>
               <div className="staff-dash-time-metric-card">
-                <p>Pause am Tag</p>
+                <p>{t('staffDashboard.breakToday')}</p>
                 <h5>{fmtHours(timeInsights.breakHoursToday)}</h5>
               </div>
             </div>
@@ -1445,9 +1447,9 @@ export function StaffDashboard() {
               className="staff-dash-time-breakdown-toggle"
               onClick={() => setTimeBreakdownExpanded((current) => !current)}
             >
-              <span>Tagesaufschluesselung</span>
+              <span>{t('staffDashboard.dailyBreakdown')}</span>
               <span className="staff-dash-time-breakdown-toggle-meta">
-                {timeBreakdownExpanded ? "ausblenden" : "einblenden"}
+                {timeBreakdownExpanded ? t('staffDashboard.hide') : t('staffDashboard.show')}
                 {timeBreakdownExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
               </span>
             </Button>
@@ -1474,7 +1476,7 @@ export function StaffDashboard() {
                   {timeActionLoading
                     ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     : <LogIn className="h-3.5 w-3.5" />}
-                  Einstempeln
+                  {t('timeTracking.clockIn')}
                 </Button>
               )}
               {(timeStatus?.status === "online" || timeStatus?.status === "working") && (
@@ -1488,7 +1490,7 @@ export function StaffDashboard() {
                     {timeActionLoading
                       ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       : <Coffee className="h-3.5 w-3.5" />}
-                    Pause starten
+                    {t('timeTracking.breakStart')}
                   </Button>
                   <Button
                     className="staff-dash-time-btn staff-dash-time-btn--out"
@@ -1499,7 +1501,7 @@ export function StaffDashboard() {
                     {timeActionLoading
                       ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       : <LogOut className="h-3.5 w-3.5" />}
-                    Ausstempeln
+                    {t('timeTracking.clockOut')}
                   </Button>
                 </>
               )}
@@ -1513,7 +1515,7 @@ export function StaffDashboard() {
                     {timeActionLoading
                       ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       : <Play className="h-3.5 w-3.5" />}
-                    Pause beenden
+                    {t('timeTracking.breakEnd')}
                   </Button>
                   <Button
                     className="staff-dash-time-btn staff-dash-time-btn--out"
@@ -1524,7 +1526,7 @@ export function StaffDashboard() {
                     {timeActionLoading
                       ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       : <LogOut className="h-3.5 w-3.5" />}
-                    Ausstempeln
+                    {t('timeTracking.clockOut')}
                   </Button>
                 </>
               )}
@@ -1532,7 +1534,7 @@ export function StaffDashboard() {
 
             <Separator className="staff-dash-sep" />
             <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/staff/time-tracking")}>
-              Vollständige Zeiterfassung
+              {t('staffDashboard.fullTimeTracking')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </CardContent>
@@ -1543,16 +1545,16 @@ export function StaffDashboard() {
           <CardHeader className="staff-dash-panel-header">
             <CardTitle>
               <TrendingUp className="h-4 w-4" />
-              Meine Leistung
+              {t('staffDashboard.myPerformance')}
             </CardTitle>
-            <CardDescription>Auftrags-Kennzahlen</CardDescription>
+            <CardDescription>{t('staffDashboard.orderMetrics')}</CardDescription>
           </CardHeader>
           <CardContent className="staff-dash-perf-content">
 
             {/* Abgeschlossen */}
             <div className="staff-dash-perf-row">
               <div className="staff-dash-perf-row-head">
-                <span>Abgeschlossen</span>
+                <span>{t('staffDashboard.completedLabel')}</span>
                 <strong>
                   {data.orders.length > 0
                     ? `${Math.round((derived.completed / data.orders.length) * 100)}%`
@@ -1570,13 +1572,13 @@ export function StaffDashboard() {
                   }}
                 />
               </div>
-              <small>{derived.completed} von {data.orders.length} Aufträgen</small>
+              <small>{derived.completed} {t('staffDashboard.ofOrders', { total: data.orders.length })}</small>
             </div>
 
             {/* In Bearbeitung */}
             <div className="staff-dash-perf-row">
               <div className="staff-dash-perf-row-head">
-                <span>In Bearbeitung</span>
+                <span>{t('staffDashboard.inProgress')}</span>
                 <strong>
                   {data.orders.length > 0
                     ? `${Math.round((derived.inProgress / data.orders.length) * 100)}%`
@@ -1594,13 +1596,13 @@ export function StaffDashboard() {
                   }}
                 />
               </div>
-              <small>{derived.inProgress} aktive Reparaturen</small>
+              <small>{derived.inProgress} {t('staffDashboard.activeRepairs')}</small>
             </div>
 
             {/* Dringende Fälle */}
             <div className="staff-dash-perf-row">
               <div className="staff-dash-perf-row-head">
-                <span>Dringende Fälle</span>
+                <span>{t('staffDashboard.urgentCases')}</span>
                 <strong style={{ color: derived.urgent > 0 ? "#c53030" : undefined }}>
                   {derived.urgent}
                 </strong>
@@ -1616,13 +1618,13 @@ export function StaffDashboard() {
                   }}
                 />
               </div>
-              <small>hohe Priorität</small>
+              <small>{t('staffDashboard.highPriority')}</small>
             </div>
 
             {/* Repair Requests */}
             <div className="staff-dash-perf-row">
               <div className="staff-dash-perf-row-head">
-                <span>Repair Requests</span>
+                <span>{t('staffDashboard.repairRequests')}</span>
                 <strong>{data.repairRequests.length}</strong>
               </div>
               <div className="staff-dash-progress">
@@ -1631,12 +1633,12 @@ export function StaffDashboard() {
                   style={{ width: `${Math.min(data.repairRequests.length * 8, 100)}%`, height: "100%" }}
                 />
               </div>
-              <small>{derived.pendingRepairs} offen</small>
+              <small>{derived.pendingRepairs} {t('staffDashboard.open')}</small>
             </div>
 
             <Separator className="staff-dash-sep" />
             <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/staff/performance")}>
-              Leistungsübersicht
+              {t('staffDashboard.performanceOverview')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </CardContent>

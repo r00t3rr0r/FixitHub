@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,6 +17,7 @@ import {
 } from "lucide-react"
 
 export function SEOManagement() {
+  const { t } = useTranslation()
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -23,15 +25,15 @@ export function SEOManagement() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Search className="h-8 w-8" />
-            SEO Management
+            {t('seoManagement.title')}
           </h1>
           <p className="text-muted-foreground">
-            Optimize your website for search engines
+            {t('seoManagement.description')}
           </p>
         </div>
         <Button>
           <Save className="h-4 w-4 mr-2" />
-          Save Changes
+          {t('common.save')}
         </Button>
       </div>
 
@@ -39,7 +41,7 @@ export function SEOManagement() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">SEO Score</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('seoManagement.seoScore')}</CardTitle>
             <BarChart3 className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
@@ -49,7 +51,7 @@ export function SEOManagement() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Organic Traffic</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('seoManagement.organicTraffic')}</CardTitle>
             <TrendingUp className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
@@ -59,7 +61,7 @@ export function SEOManagement() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Keywords Ranking</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('seoManagement.keywordRankings')}</CardTitle>
             <Search className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
@@ -69,7 +71,7 @@ export function SEOManagement() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Page Views</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('seoManagement.pageViews')}</CardTitle>
             <Eye className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
@@ -84,13 +86,13 @@ export function SEOManagement() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Globe className="h-5 w-5" />
-            Global SEO Settings
+            {t('seoManagement.seoSettings')}
           </CardTitle>
-          <CardDescription>Site-wide SEO configuration</CardDescription>
+          <CardDescription>{t('seoManagement.description')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="site-title">Site Title</Label>
+            <Label htmlFor="site-title">{t('seoManagement.pageTitle')}</Label>
             <Input
               id="site-title"
               defaultValue="FixitHub - Professional Device Repair Services"
@@ -98,7 +100,7 @@ export function SEOManagement() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="site-description">Meta Description</Label>
+            <Label htmlFor="site-description">{t('seoManagement.metaDescription')}</Label>
             <Textarea
               id="site-description"
               defaultValue="Professional device repair services for smartphones, tablets, and laptops. Fast, reliable, and affordable repairs with warranty."
@@ -107,7 +109,7 @@ export function SEOManagement() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="site-keywords">Keywords</Label>
+            <Label htmlFor="site-keywords">{t('seoManagement.keywords')}</Label>
             <Input
               id="site-keywords"
               defaultValue="device repair, phone repair, screen replacement, battery replacement"
@@ -120,8 +122,8 @@ export function SEOManagement() {
       {/* Page-Level SEO */}
       <Card>
         <CardHeader>
-          <CardTitle>Page-Level SEO</CardTitle>
-          <CardDescription>Manage SEO for individual pages</CardDescription>
+          <CardTitle>{t('seoManagement.pages')}</CardTitle>
+          <CardDescription>{t('seoManagement.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -155,14 +157,14 @@ export function SEOManagement() {
       {/* Keywords Tracking */}
       <Card>
         <CardHeader>
-          <CardTitle>Keywords Tracking</CardTitle>
-          <CardDescription>Monitor your keyword rankings</CardDescription>
+          <CardTitle>{t('seoManagement.keywordRankings')}</CardTitle>
+          <CardDescription>{t('seoManagement.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <Button variant="outline" size="sm">
               <Plus className="h-4 w-4 mr-2" />
-              Add Keyword
+              {t('common.add')} {t('seoManagement.keywords')}
             </Button>
             <div className="space-y-2">
               {[

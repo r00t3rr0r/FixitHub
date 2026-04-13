@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +44,7 @@ interface PerformanceData {
 }
 
 export function Performance() {
+  const { t } = useTranslation()
   const [performance, setPerformance] = useState<PerformanceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [goalsDialogOpen, setGoalsDialogOpen] = useState(false);
@@ -107,8 +109,8 @@ export function Performance() {
     } catch (error) {
       console.error('Error fetching performance data:', error);
       toast({
-        title: "Error",
-        description: "Failed to load performance data",
+        title: t('common.error'),
+        description: t('staffPerformance.failedToLoad'),
         variant: "destructive",
       });
     } finally {
@@ -129,16 +131,16 @@ export function Performance() {
       }
 
       toast({
-        title: "Success",
-        description: "Performance goals updated successfully",
+        title: t('common.success'),
+        description: t('staffPerformance.goalsUpdated'),
       });
       
       setGoalsDialogOpen(false);
     } catch (error) {
       console.error('Error updating goals:', error);
       toast({
-        title: "Error",
-        description: "Failed to update goals",
+        title: t('common.error'),
+        description: t('staffPerformance.failedToUpdateGoals'),
         variant: "destructive",
       });
     }
@@ -169,7 +171,7 @@ export function Performance() {
   if (!performance) {
     return (
       <div className="text-center py-12">
-        <p className="text-muted-foreground">No performance data available</p>
+        <p className="text-muted-foreground">{t('staffPerformance.noData')}</p>
       </div>
     );
   }
@@ -178,28 +180,28 @@ export function Performance() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Performance Dashboard</h1>
+          <h1 className="text-3xl font-bold">{t('staffPerformance.title')}</h1>
           <p className="text-muted-foreground">
-            Track your performance metrics and achievements
+            {t('staffPerformance.subtitle')}
           </p>
         </div>
         <Dialog open={goalsDialogOpen} onOpenChange={setGoalsDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <Target className="h-4 w-4 mr-2" />
-              Update Goals
+              {t('staffPerformance.updateGoals')}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Update Performance Goals</DialogTitle>
+              <DialogTitle>{t('staffPerformance.updatePerformanceGoals')}</DialogTitle>
               <DialogDescription>
-                Set your targets for the current period
+                {t('staffPerformance.setTargets')}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="ordersTarget">Orders Target</Label>
+                <Label htmlFor="ordersTarget">{t('staffPerformance.ordersTarget')}</Label>
                 <Input
                   id="ordersTarget"
                   type="number"
@@ -211,7 +213,7 @@ export function Performance() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="revenueTarget">Revenue Target ($)</Label>
+                <Label htmlFor="revenueTarget">{t('staffPerformance.revenueTarget')}</Label>
                 <Input
                   id="revenueTarget"
                   type="number"
@@ -223,7 +225,7 @@ export function Performance() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="satisfactionTarget">Satisfaction Target</Label>
+                <Label htmlFor="satisfactionTarget">{t('staffPerformance.satisfactionTarget')}</Label>
                 <Input
                   id="satisfactionTarget"
                   type="number"
@@ -240,10 +242,10 @@ export function Performance() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setGoalsDialogOpen(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button onClick={handleUpdateGoals}>
-                Update Goals
+                {t('staffPerformance.updateGoals')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -252,9 +254,9 @@ export function Performance() {
 
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="metrics">Detailed Metrics</TabsTrigger>
-          <TabsTrigger value="achievements">Achievements</TabsTrigger>
+          <TabsTrigger value="overview">{t('staffPerformance.overview')}</TabsTrigger>
+          <TabsTrigger value="metrics">{t('staffPerformance.detailedMetrics')}</TabsTrigger>
+          <TabsTrigger value="achievements">{t('staffPerformance.achievements')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -262,7 +264,7 @@ export function Performance() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Orders Completed</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('staffPerformance.ordersCompleted')}</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -281,7 +283,7 @@ export function Performance() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Revenue Generated</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('staffPerformance.revenueGenerated')}</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -300,7 +302,7 @@ export function Performance() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Customer Satisfaction</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('staffPerformance.customerSatisfaction')}</CardTitle>
                 <Star className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -317,7 +319,7 @@ export function Performance() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Efficiency Score</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('staffPerformance.efficiencyScore')}</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -336,20 +338,20 @@ export function Performance() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Clock className="h-5 w-5" />
-                  Time Metrics
+                  {t('staffPerformance.timeMetrics')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Average Completion Time</span>
+                  <span className="text-sm font-medium">{t('staffPerformance.avgCompletionTime')}</span>
                   <span className="text-2xl font-bold">{performance.metrics.averageCompletionTime}h</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Hours Worked</span>
+                  <span className="text-sm font-medium">{t('staffPerformance.hoursWorked')}</span>
                   <span className="text-2xl font-bold">{performance.metrics.hoursWorked}h</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Productivity Rate</span>
+                  <span className="text-sm font-medium">{t('staffPerformance.productivityRate')}</span>
                   <span className="text-2xl font-bold">
                     {(performance.metrics.ordersCompleted / performance.metrics.hoursWorked * 8).toFixed(1)}/day
                   </span>
@@ -361,28 +363,28 @@ export function Performance() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Award className="h-5 w-5" />
-                  Quality Metrics
+                  {t('staffPerformance.qualityMetrics')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Quality Score</span>
+                  <span className="text-sm font-medium">{t('staffPerformance.qualityScore')}</span>
                   <div className="flex items-center gap-2">
                     <span className="text-2xl font-bold">{performance.metrics.qualityScore}%</span>
                     <Badge variant={performance.metrics.qualityScore >= 95 ? 'default' : 'secondary'}>
-                      {performance.metrics.qualityScore >= 95 ? 'Excellent' : 'Good'}
+                      {performance.metrics.qualityScore >= 95 ? t('staffPerformance.excellent') : t('staffPerformance.good')}
                     </Badge>
                   </div>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Customer Rating</span>
+                  <span className="text-sm font-medium">{t('staffPerformance.customerRating')}</span>
                   <div className="flex items-center gap-1">
                     <span className="text-2xl font-bold">{performance.metrics.customerSatisfaction.toFixed(1)}</span>
                     <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                   </div>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Revenue per Order</span>
+                  <span className="text-sm font-medium">{t('staffPerformance.revenuePerOrder')}</span>
                   <span className="text-2xl font-bold">
                     {formatCurrency(performance.metrics.revenue / performance.metrics.ordersCompleted)}
                   </span>
@@ -396,13 +398,13 @@ export function Performance() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Goal Progress</CardTitle>
-                <CardDescription>Your progress towards monthly goals</CardDescription>
+                <CardTitle>{t('staffPerformance.goalProgress')}</CardTitle>
+                <CardDescription>{t('staffPerformance.goalProgressDesc')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>Orders Completed</span>
+                    <span>{t('staffPerformance.ordersCompleted')}</span>
                     <span>{performance.metrics.ordersCompleted} / {performance.goals.ordersTarget}</span>
                   </div>
                   <Progress 
@@ -413,7 +415,7 @@ export function Performance() {
 
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>Revenue Target</span>
+                    <span>{t('staffPerformance.revenueTarget')}</span>
                     <span>{formatCurrency(performance.metrics.revenue)} / {formatCurrency(performance.goals.revenueTarget)}</span>
                   </div>
                   <Progress 
@@ -424,7 +426,7 @@ export function Performance() {
 
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>Customer Satisfaction</span>
+                    <span>{t('staffPerformance.customerSatisfaction')}</span>
                     <span>{performance.metrics.customerSatisfaction.toFixed(1)} / {performance.goals.satisfactionTarget}</span>
                   </div>
                   <Progress 
@@ -437,26 +439,26 @@ export function Performance() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Performance Breakdown</CardTitle>
-                <CardDescription>Detailed performance metrics</CardDescription>
+                <CardTitle>{t('staffPerformance.performanceBreakdown')}</CardTitle>
+                <CardDescription>{t('staffPerformance.detailedPerformanceMetrics')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div className="space-y-1">
                     <p className="text-2xl font-bold text-blue-600">{performance.metrics.efficiency}%</p>
-                    <p className="text-sm text-muted-foreground">Efficiency</p>
+                    <p className="text-sm text-muted-foreground">{t('staffPerformance.efficiency')}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-2xl font-bold text-green-600">{performance.metrics.qualityScore}%</p>
-                    <p className="text-sm text-muted-foreground">Quality</p>
+                    <p className="text-sm text-muted-foreground">{t('staffPerformance.quality')}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-2xl font-bold text-purple-600">{performance.metrics.averageCompletionTime}h</p>
-                    <p className="text-sm text-muted-foreground">Avg Time</p>
+                    <p className="text-sm text-muted-foreground">{t('staffPerformance.avgTime')}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-2xl font-bold text-orange-600">{performance.metrics.hoursWorked}h</p>
-                    <p className="text-sm text-muted-foreground">Hours Worked</p>
+                    <p className="text-sm text-muted-foreground">{t('staffPerformance.hoursWorked')}</p>
                   </div>
                 </div>
               </CardContent>
@@ -469,10 +471,10 @@ export function Performance() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Award className="h-5 w-5" />
-                Recent Achievements
+                {t('staffPerformance.recentAchievements')}
               </CardTitle>
               <CardDescription>
-                Your latest accomplishments and milestones
+                {t('staffPerformance.achievementsDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -484,7 +486,7 @@ export function Performance() {
                       <h3 className="font-semibold">{achievement.title}</h3>
                       <p className="text-sm text-muted-foreground">{achievement.description}</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Earned on {new Date(achievement.earnedAt).toLocaleDateString()}
+                        {t('staffPerformance.earnedOn')} {new Date(achievement.earnedAt).toLocaleDateString()}
                       </p>
                     </div>
                     <Badge variant="secondary">

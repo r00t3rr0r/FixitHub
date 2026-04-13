@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -44,6 +45,7 @@ import {
 } from "@/api/faq"
 
 export function FAQManagement() {
+  const { t } = useTranslation()
   const [faqs, setFaqs] = useState<FAQ[]>([])
   const [groupedFAQs, setGroupedFAQs] = useState<Record<string, FAQ[]>>({})
   const [categories, setCategories] = useState<FAQCategory[]>([])
@@ -117,8 +119,8 @@ export function FAQManagement() {
     } catch (error) {
       console.error("Error fetching FAQ data:", error)
       toast({
-        title: "Error",
-        description: "Failed to load FAQ data",
+        title: t('common.error'),
+        description: t('faqManagement.failedToLoadFAQs'),
         variant: "destructive"
       })
     } finally {
@@ -130,7 +132,7 @@ export function FAQManagement() {
     try {
       if (!faqForm.question || !faqForm.answer) {
         toast({
-          title: "Validation Error",
+          title: t('common.error'),
           description: "Please fill in both question and answer fields",
           variant: "destructive"
         })
@@ -148,8 +150,8 @@ export function FAQManagement() {
 
       if (response.success) {
         toast({
-          title: "Success",
-          description: "FAQ created successfully",
+          title: t('common.success'),
+          description: t('faqManagement.faqCreatedSuccess'),
         })
 
         setIsCreateDialogOpen(false)
@@ -159,8 +161,8 @@ export function FAQManagement() {
     } catch (error: any) {
       console.error("Error creating FAQ:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to create FAQ",
+        title: t('common.error'),
+        description: error.message || t('faqManagement.failedToCreateFAQ'),
         variant: "destructive"
       })
     } finally {
@@ -172,7 +174,7 @@ export function FAQManagement() {
     try {
       if (!editingFAQ || !faqForm.question || !faqForm.answer) {
         toast({
-          title: "Validation Error",
+          title: t('common.error'),
           description: "Please fill in both question and answer fields",
           variant: "destructive"
         })
@@ -190,8 +192,8 @@ export function FAQManagement() {
 
       if (response.success) {
         toast({
-          title: "Success",
-          description: "FAQ updated successfully",
+          title: t('common.success'),
+          description: t('faqManagement.faqUpdated'),
         })
 
         setIsEditDialogOpen(false)
@@ -202,8 +204,8 @@ export function FAQManagement() {
     } catch (error: any) {
       console.error("Error updating FAQ:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to update FAQ",
+        title: t('common.error'),
+        description: error.message || t('faqManagement.failedToUpdateFAQ'),
         variant: "destructive"
       })
     } finally {
@@ -217,16 +219,16 @@ export function FAQManagement() {
 
       if (response.success) {
         toast({
-          title: "Success",
-          description: "FAQ deleted successfully",
+          title: t('common.success'),
+          description: t('faqManagement.faqDeleted'),
         })
         fetchData()
       }
     } catch (error: any) {
       console.error("Error deleting FAQ:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to delete FAQ",
+        title: t('common.error'),
+        description: error.message || t('faqManagement.failedToDeleteFAQ'),
         variant: "destructive"
       })
     }
@@ -273,10 +275,10 @@ export function FAQManagement() {
         <div className="min-w-0 space-y-1">
           <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight sm:text-2xl">
             <HelpCircle className="h-6 w-6" />
-            FAQ Management
+            {t('faqManagement.title')}
           </h1>
           <p className="text-xs text-blue-100 sm:text-sm">
-            Manage frequently asked questions and categories
+            {t('faqManagement.description')}
           </p>
         </div>
 
@@ -284,12 +286,12 @@ export function FAQManagement() {
           <DialogTrigger asChild>
             <Button className="h-9 bg-white px-3 text-sm font-medium text-[#1a2a5e] hover:bg-[#f7f9ff]">
               <Plus className="mr-1.5 h-4 w-4" />
-              New FAQ
+              {t('faqManagement.createNewFAQ')}
             </Button>
           </DialogTrigger>
           <DialogContent className={compactDialogContentClass}>
             <DialogHeader className={compactDialogHeaderClass}>
-              <DialogTitle className={compactDialogTitleClass}>Create New FAQ</DialogTitle>
+              <DialogTitle className={compactDialogTitleClass}>{t('faqManagement.createNewFAQ')}</DialogTitle>
               <DialogDescription className={compactDialogDescriptionClass}>
                 Fill in the details below to create a new FAQ.
               </DialogDescription>
@@ -297,7 +299,7 @@ export function FAQManagement() {
 
             <div className={compactDialogBodyClass}>
               <div className="space-y-1.5">
-                <Label htmlFor="question" className={compactLabelClass}>Question *</Label>
+                <Label htmlFor="question" className={compactLabelClass}>{t('faqManagement.question')} *</Label>
                 <Input
                   id="question"
                   value={faqForm.question}
@@ -308,7 +310,7 @@ export function FAQManagement() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="answer" className={compactLabelClass}>Answer *</Label>
+                <Label htmlFor="answer" className={compactLabelClass}>{t('faqManagement.answer')} *</Label>
                 <Textarea
                   id="answer"
                   value={faqForm.answer}
@@ -321,7 +323,7 @@ export function FAQManagement() {
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="category" className={compactLabelClass}>Category</Label>
+                  <Label htmlFor="category" className={compactLabelClass}>{t('faqManagement.category')}</Label>
                   <Select
                     value={faqForm.category}
                     onValueChange={(value) => setFaqForm({ ...faqForm, category: value })}
@@ -374,7 +376,7 @@ export function FAQManagement() {
                 disabled={isCreating}
                 className={compactButtonClass}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={handleCreateFAQ}
@@ -387,7 +389,7 @@ export function FAQManagement() {
                     Creating...
                   </>
                 ) : (
-                  'Create FAQ'
+                  t('faqManagement.createNewFAQ')
                 )}
               </Button>
             </DialogFooter>
@@ -399,7 +401,7 @@ export function FAQManagement() {
       <div className="grid gap-3 md:grid-cols-4">
         <Card className={compactCardClass}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3 pb-1.5">
-            <CardTitle className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Total FAQs</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{t('faqManagement.totalFAQs')}</CardTitle>
             <HelpCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="px-4 pb-4 pt-0">
@@ -417,7 +419,7 @@ export function FAQManagement() {
         </Card>
         <Card className={compactCardClass}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3 pb-1.5">
-            <CardTitle className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Total Views</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{t('faqManagement.viewCount')}</CardTitle>
             <Eye className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent className="px-4 pb-4 pt-0">
@@ -442,7 +444,7 @@ export function FAQManagement() {
       {/* Filters */}
       <Card className={compactCardClass}>
         <CardHeader className={compactCardHeaderClass}>
-          <CardTitle className={compactCardTitleClass}>Filters</CardTitle>
+          <CardTitle className={compactCardTitleClass}>{t('common.filter')}</CardTitle>
           <CardDescription className={compactCardDescriptionClass}>Search and narrow down categories quickly.</CardDescription>
         </CardHeader>
         <CardContent className="px-4 pb-4 pt-0">
@@ -450,7 +452,7 @@ export function FAQManagement() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search FAQs..."
+                placeholder={t('faqManagement.searchFAQs')}
                 className="h-8 pl-9 text-xs"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -458,10 +460,10 @@ export function FAQManagement() {
             </div>
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger className="h-8 w-full text-xs sm:w-[190px]">
-                <SelectValue placeholder="All Categories" />
+                <SelectValue placeholder={t('faqManagement.allCategories')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="all">{t('faqManagement.allCategories')}</SelectItem>
                 {faqCategories.map((category) => (
                   <SelectItem key={category} value={category}>
                     {category}
@@ -476,14 +478,14 @@ export function FAQManagement() {
       {/* FAQs List */}
       <Card className={compactCardClass}>
         <CardHeader className={compactCardHeaderClass}>
-          <CardTitle className={compactCardTitleClass}>FAQs</CardTitle>
+          <CardTitle className={compactCardTitleClass}>{t('faqManagement.faqs')}</CardTitle>
           <CardDescription className={compactCardDescriptionClass}>Compact overview of questions, answers and engagement.</CardDescription>
         </CardHeader>
         <CardContent className="px-4 pb-4 pt-0">
           <div className="space-y-4">
             {Object.keys(groupedFAQs).length === 0 ? (
               <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 py-8 text-center text-sm text-muted-foreground">
-                No FAQs found. Create your first FAQ!
+                {t('faqManagement.noFAQsFound')}
               </div>
             ) : (
               Object.entries(groupedFAQs).map(([category, categoryFAQs]) => (
@@ -508,7 +510,7 @@ export function FAQManagement() {
                           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground sm:text-xs">
                             <span className="flex items-center gap-1">
                               <Eye className="h-3 w-3" />
-                              {faq.views || 0} views
+                              {faq.views || 0} {t('faqManagement.views')}
                             </span>
                             <span className="flex items-center gap-1">
                               <ThumbsUp className="h-3 w-3" />
@@ -550,7 +552,7 @@ export function FAQManagement() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className={compactDialogContentClass}>
           <DialogHeader className={compactDialogHeaderClass}>
-            <DialogTitle className={compactDialogTitleClass}>Edit FAQ</DialogTitle>
+            <DialogTitle className={compactDialogTitleClass}>{t('faqManagement.editFAQ')}</DialogTitle>
             <DialogDescription className={compactDialogDescriptionClass}>
               Update the FAQ details below.
             </DialogDescription>
@@ -558,7 +560,7 @@ export function FAQManagement() {
 
           <div className={compactDialogBodyClass}>
             <div className="space-y-1.5">
-              <Label htmlFor="edit-question" className={compactLabelClass}>Question *</Label>
+              <Label htmlFor="edit-question" className={compactLabelClass}>{t('faqManagement.question')} *</Label>
               <Input
                 id="edit-question"
                 value={faqForm.question}
@@ -569,7 +571,7 @@ export function FAQManagement() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="edit-answer" className={compactLabelClass}>Answer *</Label>
+              <Label htmlFor="edit-answer" className={compactLabelClass}>{t('faqManagement.answer')} *</Label>
               <Textarea
                 id="edit-answer"
                 value={faqForm.answer}
@@ -582,7 +584,7 @@ export function FAQManagement() {
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="edit-category" className={compactLabelClass}>Category</Label>
+                  <Label htmlFor="edit-category" className={compactLabelClass}>{t('faqManagement.category')}</Label>
                 <Select
                   value={faqForm.category}
                   onValueChange={(value) => setFaqForm({ ...faqForm, category: value })}
@@ -636,7 +638,7 @@ export function FAQManagement() {
               disabled={isUpdating}
               className={compactButtonClass}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleEditFAQ}
@@ -649,7 +651,7 @@ export function FAQManagement() {
                   Updating...
                 </>
               ) : (
-                'Update FAQ'
+                t('common.update')
               )}
             </Button>
           </DialogFooter>

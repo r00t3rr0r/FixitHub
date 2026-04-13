@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -27,6 +28,7 @@ interface ScheduleEvent {
 }
 
 export function Schedule() {
+  const { t } = useTranslation()
   const [events, setEvents] = useState<ScheduleEvent[]>([])
   const [currentDate, setCurrentDate] = useState(new Date())
   const [loading, setLoading] = useState(true)
@@ -71,8 +73,8 @@ export function Schedule() {
       } catch (error) {
         console.error("Error fetching schedule:", error)
         toast({
-          title: "Error",
-          description: "Failed to load schedule",
+          title: t('common.error'),
+          description: t('staffSchedule.failedToLoad'),
           variant: "destructive"
         })
       } finally {
@@ -151,15 +153,15 @@ export function Schedule() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Calendar className="h-8 w-8" />
-            Schedule
+            {t('staffSchedule.title')}
           </h1>
           <p className="text-muted-foreground">
-            View your appointments and manage your daily schedule
+            {t('staffSchedule.subtitle')}
           </p>
         </div>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
-          Add Event
+          {t('staffSchedule.addEvent')}
         </Button>
       </div>
 
@@ -184,7 +186,7 @@ export function Schedule() {
                 })}
               </h2>
               <p className="text-muted-foreground">
-                {todayEvents.length} events scheduled
+                {todayEvents.length} {t('staffSchedule.eventsScheduled')}
               </p>
             </div>
             <Button
@@ -201,18 +203,18 @@ export function Schedule() {
       {/* Schedule Timeline */}
       <Card>
         <CardHeader>
-          <CardTitle>Today's Schedule</CardTitle>
+          <CardTitle>{t('staffSchedule.todaysSchedule')}</CardTitle>
           <CardDescription>
-            Your appointments and tasks for the selected day
+            {t('staffSchedule.appointmentsDesc')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {todayEvents.length === 0 ? (
             <div className="text-center py-12">
               <Calendar className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <h3 className="text-lg font-semibold mb-2">No events scheduled</h3>
+              <h3 className="text-lg font-semibold mb-2">{t('staffSchedule.noEvents')}</h3>
               <p className="text-muted-foreground">
-                You have a free day! Enjoy your time or add new events.
+                {t('staffSchedule.freeDay')}
               </p>
             </div>
           ) : (
@@ -239,7 +241,7 @@ export function Schedule() {
                       </Badge>
                       {event.priority === 'urgent' && (
                         <Badge variant="destructive" className="text-xs">
-                          Urgent
+                          {t('staffSchedule.urgent')}
                         </Badge>
                       )}
                     </div>
@@ -259,7 +261,7 @@ export function Schedule() {
                       )}
                       {event.orderNumber && (
                         <div className="flex items-center gap-1">
-                          <span>Order: {event.orderNumber}</span>
+                          <span>{t('staffSchedule.order')}: {event.orderNumber}</span>
                         </div>
                       )}
                       {event.location && (
@@ -279,7 +281,7 @@ export function Schedule() {
                   
                   <div className="flex-shrink-0">
                     <Button variant="ghost" size="sm">
-                      View
+                      {t('common.view')}
                     </Button>
                   </div>
                 </div>
@@ -297,7 +299,7 @@ export function Schedule() {
               <div className="text-2xl font-bold text-blue-600">
                 {todayEvents.filter(e => e.type === 'repair').length}
               </div>
-              <p className="text-sm text-muted-foreground">Repair Tasks</p>
+              <p className="text-sm text-muted-foreground">{t('staffSchedule.repairTasks')}</p>
             </div>
           </CardContent>
         </Card>
@@ -308,7 +310,7 @@ export function Schedule() {
               <div className="text-2xl font-bold text-purple-600">
                 {todayEvents.filter(e => e.type === 'meeting').length}
               </div>
-              <p className="text-sm text-muted-foreground">Meetings</p>
+              <p className="text-sm text-muted-foreground">{t('staffSchedule.meetings')}</p>
             </div>
           </CardContent>
         </Card>
@@ -321,7 +323,7 @@ export function Schedule() {
                   return total + (new Date(event.endTime).getTime() - new Date(event.startTime).getTime())
                 }, 0) / (1000 * 60 * 60))}h
               </div>
-              <p className="text-sm text-muted-foreground">Total Hours</p>
+              <p className="text-sm text-muted-foreground">{t('staffSchedule.totalHours')}</p>
             </div>
           </CardContent>
         </Card>
