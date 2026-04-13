@@ -179,6 +179,21 @@ interface Booking {
   returnShipmentStatus?: 'pending' | 'label-created' | 'in-transit' | 'delivered' | 'failed' | ''
   returnCreatedAt?: string
   returnReceivedAt?: string
+  liveShippingTracking?: {
+    status?: string
+    statusCodeRaw?: string
+    description?: string
+    estimatedDelivery?: string
+    service?: string
+    shipmentId?: string
+    events?: Array<{
+      timestamp?: string
+      location?: string
+      status?: string
+      statusCode?: string
+      description?: string
+    }>
+  }
 }
 
 interface ExpandedBooking extends Booking {
@@ -2495,6 +2510,45 @@ function BookingDetailDialog({
                       <div className="border-b pb-3" style={{ borderColor: 'var(--gray-200, #d8dce6)' }}>
                         <p className="text-sm mb-1" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600' }}>Statusdetails</p>
                         <p className="text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>{booking.shippingStatusDescription}</p>
+                        {booking.liveShippingTracking?.statusCodeRaw && (
+                          <p className="text-xs mt-2" style={{ color: 'var(--gray-500, #636e85)' }}>
+                            DHL Live-Statuscode: {booking.liveShippingTracking.statusCodeRaw}
+                          </p>
+                        )}
+                        {booking.liveShippingTracking?.service && (
+                          <p className="text-xs mt-1" style={{ color: 'var(--gray-500, #636e85)' }}>
+                            Service: {booking.liveShippingTracking.service}
+                          </p>
+                        )}
+                        {booking.liveShippingTracking?.shipmentId && (
+                          <p className="text-xs mt-1" style={{ color: 'var(--gray-500, #636e85)' }}>
+                            Shipment-ID: {booking.liveShippingTracking.shipmentId}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {booking.liveShippingTracking?.events && booking.liveShippingTracking.events.length > 0 && (
+                      <div className="border-b pb-3" style={{ borderColor: 'var(--gray-200, #d8dce6)' }}>
+                        <p className="text-sm mb-2" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600' }}>DHL Live-Tracking Events</p>
+                        <div className="space-y-2 max-h-52 overflow-auto">
+                          {booking.liveShippingTracking.events.slice(0, 10).map((event, idx) => (
+                            <div
+                              key={`${event.timestamp || 'no-time'}-${idx}`}
+                              className="rounded-md p-2"
+                              style={{ background: 'var(--gray-50, #f5f6f8)', border: '1px solid var(--gray-200, #d8dce6)' }}
+                            >
+                              <p className="text-xs" style={{ color: 'var(--gray-700, #2d3748)', fontWeight: '600' }}>
+                                {event.description || event.status || 'Statusupdate'}
+                              </p>
+                              <p className="text-xs" style={{ color: 'var(--gray-500, #636e85)' }}>
+                                {event.timestamp ? formatDateTime(event.timestamp) : 'Zeit unbekannt'}
+                                {event.location ? ` • ${event.location}` : ''}
+                                {event.statusCode ? ` • ${event.statusCode}` : ''}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
 
