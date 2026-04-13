@@ -34,9 +34,10 @@ async function testDHLSandbox() {
 
     // Find existing DHL Shipping integration
     console.log('🔎 Suche nach bestehender DHL Shipping Integration...');
-    let dhlIntegration = config.integrations.find(i => 
-      i.provider?.toUpperCase() === 'DHL' || 
-      i.name?.includes('DHL')
+    let dhlIntegration = config.integrations.find(i =>
+      i.provider?.toUpperCase() === 'DHL' &&
+      i.type === 'shipping' &&
+      !String(i.name || '').toLowerCase().includes('returns')
     );
 
     // Get API credentials from environment
@@ -49,7 +50,7 @@ async function testDHLSandbox() {
 
     // Prepare DHL integration data
     const dhlData = {
-      name: 'DHL Parcel DE Shipping',
+      name: dhlIntegration?.name || 'DHL Shipping',
       type: 'shipping',
       provider: 'DHL',
       isActive: true,
@@ -73,6 +74,7 @@ async function testDHLSandbox() {
         product: 'V01PAK'
       },
       settings: {
+        bookingLabelMode: dhlIntegration?.settings?.bookingLabelMode || process.env.BOOKING_DHL_LABEL_MODE || 'dummy',
         dhlApis: {
           parcelDeShipping: true,
           parcelDeTracking: false,
@@ -95,8 +97,10 @@ async function testDHLSandbox() {
       console.log('✅ Bestehende DHL Integration gefunden: ' + dhlIntegration.name);
       console.log('🔄 Aktualisiere Integration mit Sandbox-Konfiguration...\n');
       
-      // Update fields
-      Object.assign(dhlIntegration, dhlData);
+      // Update fields but keep an existing, valid integration identity.
+      Object.assign(dhlIntegration, dhlData, {
+        name: dhlIntegration.name || dhlData.name,
+      });
     } else {
       // Create new integration if it doesn't exist
       console.log('⚠️  Keine bestehende DHL Integration gefunden');

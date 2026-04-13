@@ -2191,5 +2191,57 @@
         "supportPhone"
       ]
     }
+  },
+  {
+    "id": "1776079503293-pjwda14g3",
+    "timestamp": "2026-04-13T11:25:03.293Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0014 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<a0de2969-4811-6736-ea31-7559ba36d73f@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1758,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
+  },
+  {
+    "id": "1776081534427-slxwnnqfi",
+    "timestamp": "2026-04-13T11:58:54.427Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0015 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<c1e5f9d0-cda4-de34-1741-623f67eec49b@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1455,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone"
+      ]
+    }
   }
 ]

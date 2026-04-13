@@ -463,31 +463,86 @@ class SystemConfigService {
       if (integration.provider === 'DHL') {
         console.log('SystemConfigService: Testing DHL integration');
 
-        if (!integration.apiSecret) {
-          return {
-            success: false,
-            message: 'DHL API Secret (client_secret) is required for OAuth token retrieval'
-          };
-        }
-
-        if (!integration.metadata?.username || !integration.metadata?.password) {
-          return {
-            success: false,
-            message: 'DHL Business Customer username/password are required in integration settings'
-          };
-        }
-
         // Import DHL service for testing
         const DHLService = require('./dhlService');
+        const normalizedConfig = DHLService.getParcelDEConfig(integration);
+
+        const endpoint =
+          normalizedConfig.baseUrl ||
+          integration.endpoint ||
+          process.env.DHL_API_URL ||
+          'https://api-sandbox.dhl.com';
+
+        const isSandbox = String(endpoint).includes('sandbox');
+
+        const clientId =
+          integration.apiKey ||
+          normalizedConfig.clientId ||
+          process.env.DHL_CLIENT_ID ||
+          process.env.DHL_API_KEY ||
+          '';
+
+        const clientSecret =
+          integration.apiSecret ||
+          normalizedConfig.clientSecret ||
+          process.env.DHL_CLIENT_SECRET ||
+          process.env.DHL_API_SECRET ||
+          '';
+
+        const username =
+          normalizedConfig.username ||
+          process.env.DHL_BC_USERNAME ||
+          process.env.DHL_BUSINESS_CUSTOMER_USERNAME ||
+          (isSandbox ? 'user-valid' : '');
+
+        const password =
+          normalizedConfig.password ||
+          process.env.DHL_BC_PASSWORD ||
+          process.env.DHL_BUSINESS_CUSTOMER_PASSWORD ||
+          (isSandbox ? 'SandboxPasswort2023!' : '');
+
+        const missingFields = [
+          ['client_id', clientId],
+          ['client_secret', clientSecret],
+          ['username', username],
+          ['password', password]
+        ].filter(([, value]) => !value).map(([field]) => field);
+
+        if (missingFields.length > 0) {
+          return {
+            success: false,
+            message: `DHL OAuth configuration incomplete. Missing: ${missingFields.join(', ')}`
+          };
+        }
+
+        // Persist resolved test data so future tests use the same, known-good values.
+        integration.apiKey = clientId;
+        integration.apiSecret = clientSecret;
+        integration.endpoint = endpoint;
+        integration.metadata = {
+          ...(integration.metadata || {}),
+          environment: isSandbox ? 'sandbox' : 'production',
+          clientId,
+          clientSecret,
+          username,
+          password
+        };
+
+        integration.credentials = {
+          ...(integration.credentials || {}),
+          apiKey: clientId,
+          apiSecret: clientSecret,
+          apiEndpoint: endpoint
+        };
 
         // Test DHL connection
         const testResult = await DHLService.testConnection(
-          integration.apiKey,
-          integration.apiSecret || '',
-          integration.endpoint || 'https://api-sandbox.dhl.com',
+          clientId,
+          clientSecret,
+          endpoint,
           {
-            username: integration.metadata?.username,
-            password: integration.metadata?.password
+            username,
+            password
           }
         );
 

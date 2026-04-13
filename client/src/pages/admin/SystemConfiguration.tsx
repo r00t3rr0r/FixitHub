@@ -1200,7 +1200,7 @@ export function SystemConfiguration() {
                               {integration.endpoint || 'Default endpoint'}
                             </p>
                           </div>
-                          {integration.type === 'shipping' && integration.provider === 'DHL' && integration.name === 'DHL Shipping' && (
+                          {integration.type === 'shipping' && integration.provider === 'DHL' && (
                             <div className="space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3">
                               <div>
                                 <p className="text-sm font-medium">Booking Label Mode</p>

@@ -78,12 +78,14 @@ class DHLService {
         credentials.username ||
         settings.username ||
         process.env.DHL_BC_USERNAME ||
+        process.env.DHL_BUSINESS_CUSTOMER_USERNAME ||
         '',
       password:
         metadata.password ||
         credentials.password ||
         settings.password ||
         process.env.DHL_BC_PASSWORD ||
+        process.env.DHL_BUSINESS_CUSTOMER_PASSWORD ||
         '',
       profile: settings.profile || metadata.profile || 'STANDARD_GRUPPENPROFIL',
       product: settings.product || metadata.product || 'V01PAK',
@@ -237,17 +239,16 @@ class DHLService {
         throw new Error('System configuration not found');
       }
 
-      // Prefer the outbound shipping integration over DHL Returns.
+      // Prefer active DHL outbound shipping integrations and avoid returns profiles.
       const dhlIntegration = config.integrations.find(
         integration => integration.provider === 'DHL' &&
                       integration.type === 'shipping' &&
                       integration.isActive &&
-                      integration.name === 'DHL Shipping'
+                      !String(integration.name || '').toLowerCase().includes('returns')
       ) || config.integrations.find(
         integration => integration.provider === 'DHL' &&
                       integration.type === 'shipping' &&
-                      integration.isActive &&
-                      integration.settings?.accountNumber
+                      integration.isActive
       );
 
       if (!dhlIntegration) {
@@ -638,17 +639,17 @@ class DHLService {
       const isSandbox = String(endpoint).includes('sandbox');
       const usernameSource = auth.username
         ? 'integration-metadata'
-        : (process.env.DHL_BC_USERNAME ? 'environment-variable' : (isSandbox ? 'sandbox-default' : 'missing'));
+        : ((process.env.DHL_BC_USERNAME || process.env.DHL_BUSINESS_CUSTOMER_USERNAME) ? 'environment-variable' : (isSandbox ? 'sandbox-default' : 'missing'));
       const passwordSource = auth.password
         ? 'integration-metadata'
-        : (process.env.DHL_BC_PASSWORD ? 'environment-variable' : (isSandbox ? 'sandbox-default' : 'missing'));
+        : ((process.env.DHL_BC_PASSWORD || process.env.DHL_BUSINESS_CUSTOMER_PASSWORD) ? 'environment-variable' : (isSandbox ? 'sandbox-default' : 'missing'));
 
       const tokenConfig = {
         baseUrl: endpoint,
         clientId: apiKey,
         clientSecret: apiSecret,
-        username: auth.username || process.env.DHL_BC_USERNAME || (isSandbox ? 'user-valid' : ''),
-        password: auth.password || process.env.DHL_BC_PASSWORD || (isSandbox ? 'SandboxPasswort2023!' : '')
+        username: auth.username || process.env.DHL_BC_USERNAME || process.env.DHL_BUSINESS_CUSTOMER_USERNAME || (isSandbox ? 'user-valid' : ''),
+        password: auth.password || process.env.DHL_BC_PASSWORD || process.env.DHL_BUSINESS_CUSTOMER_PASSWORD || (isSandbox ? 'SandboxPasswort2023!' : '')
       };
 
       const debug = {
@@ -696,7 +697,7 @@ class DHLService {
       const oauthError = error?.response?.data?.error || '';
       const oauthErrorDescription = error?.response?.data?.error_description || '';
       const isSandbox = String(endpoint).includes('sandbox');
-      const username = auth.username || process.env.DHL_BC_USERNAME || (isSandbox ? 'user-valid' : '');
+      const username = auth.username || process.env.DHL_BC_USERNAME || process.env.DHL_BUSINESS_CUSTOMER_USERNAME || (isSandbox ? 'user-valid' : '');
 
       const debug = {
         environment: isSandbox ? 'sandbox' : 'production',
@@ -707,7 +708,7 @@ class DHLService {
         hasClientId: Boolean(apiKey),
         hasClientSecret: Boolean(apiSecret),
         hasUsername: Boolean(username),
-        hasPassword: Boolean(auth.password || process.env.DHL_BC_PASSWORD || (isSandbox ? 'SandboxPasswort2023!' : '')),
+        hasPassword: Boolean(auth.password || process.env.DHL_BC_PASSWORD || process.env.DHL_BUSINESS_CUSTOMER_PASSWORD || (isSandbox ? 'SandboxPasswort2023!' : '')),
         clientIdMasked: this.maskValue(apiKey),
         usernameMasked: this.maskValue(username),
         oauthError,

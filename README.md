@@ -198,6 +198,12 @@ cd server
 node scripts/setup-env.js
 ```
 
+### DHL Integration Setup
+
+- DHL shipping integrations are no longer auto-created or updated by seed scripts.
+- Configure DHL Shipping and DHL Returns manually in Admin > System Configuration > Integrations.
+- Changes like Booking Label Mode are now persisted without being overwritten by seeding.
+
 ## Test Accounts
 
 After seeding the database, you can use these test accounts:

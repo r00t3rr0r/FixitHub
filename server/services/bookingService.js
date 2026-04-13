@@ -121,7 +121,8 @@ class BookingService {
       const dhlIntegration = systemConfig?.integrations?.find(
         (integration) => integration.provider === 'DHL' &&
           integration.type === 'shipping' &&
-          integration.name === 'DHL Shipping'
+          integration.isActive !== false &&
+          !String(integration.name || '').toLowerCase().includes('returns')
       );
 
       const configuredMode = String(dhlIntegration?.settings?.bookingLabelMode || '').trim().toLowerCase();
