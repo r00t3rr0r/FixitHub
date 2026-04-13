@@ -242,6 +242,29 @@ class BookingService {
     };
   }
 
+  static mapTrackingStatusToBookingStatus(trackingStatus = '') {
+    const normalizedTrackingStatus = String(trackingStatus || '').trim().toLowerCase();
+
+    const statusMapping = {
+      'pre-transit': 'label-created',
+      'pre_transit': 'label-created',
+      'label-created': 'label-created',
+      'label_created': 'label-created',
+      'transit': 'in-transit',
+      'in-transit': 'in-transit',
+      'in_transit': 'in-transit',
+      'out-for-delivery': 'out-for-delivery',
+      'out_for_delivery': 'out-for-delivery',
+      'outfordelivery': 'out-for-delivery',
+      'delivered': 'delivered',
+      'failure': 'failed',
+      'failed': 'failed',
+      'exception': 'failed',
+    };
+
+    return statusMapping[normalizedTrackingStatus] || '';
+  }
+
   // Create a new booking from orders (consolidated from cart checkout)
   static async create(bookingData) {
     console.log('BookingService: Creating new booking with data:', bookingData);
@@ -467,17 +490,138 @@ class BookingService {
       return booking;
     }
 
-    const labelMode = await this.getBookingShippingLabelMode();
+    return this.createLiveShippingLabelForBooking(booking, options);
+  }
 
-    if (labelMode === 'live') {
-      try {
-        return await this.createLiveShippingLabelForBooking(booking, options);
-      } catch (error) {
-        console.error('BookingService: Live DHL booking label creation failed, falling back to dummy label:', error.message);
-      }
+  static splitStreetAndHouse(rawStreet = '') {
+    const value = String(rawStreet || '').trim();
+    if (!value) {
+      return { street: '', house: '' };
     }
 
-    return this.createDummyShippingLabelForBooking(booking);
+    const match = value.match(/^(.*?)(\s+(\d+[\w\-\/]*)?)$/);
+    if (match && match[1]) {
+      return {
+        street: String(match[1]).trim(),
+        house: String(match[3] || '').trim(),
+      };
+    }
+
+    return { street: value, house: '' };
+  }
+
+  static resolveBookingReceiverAddress(order, booking) {
+    const orderShipping = order?.shippingAddress || {};
+    const orderGuestShipping = order?.guestInfo?.shippingAddress || {};
+    const bookingGuestShipping = booking?.guestInfo?.shippingAddress || {};
+    const bookingGuestBilling = booking?.guestInfo?.billingAddress || {};
+    const customerInvoice = order?.customerId?.invoiceAddress || {};
+
+    const streetCandidate =
+      orderShipping.street ||
+      orderGuestShipping.street ||
+      bookingGuestShipping.street ||
+      bookingGuestBilling.street ||
+      customerInvoice.street ||
+      '';
+
+    const houseCandidate = orderShipping.number || orderGuestShipping.number || bookingGuestShipping.number || '';
+    const streetInfo = this.splitStreetAndHouse(streetCandidate);
+
+    return {
+      street: streetInfo.street || streetCandidate,
+      house: houseCandidate || streetInfo.house || '1',
+      city:
+        orderShipping.city ||
+        orderGuestShipping.city ||
+        bookingGuestShipping.city ||
+        bookingGuestBilling.city ||
+        customerInvoice.city ||
+        '',
+      postalCode:
+        orderShipping.zipCode ||
+        orderGuestShipping.zipCode ||
+        bookingGuestShipping.zipCode ||
+        bookingGuestBilling.zipCode ||
+        customerInvoice.zipCode ||
+        '',
+      country:
+        orderShipping.country ||
+        orderGuestShipping.country ||
+        bookingGuestShipping.country ||
+        bookingGuestBilling.country ||
+        customerInvoice.country ||
+        'DE',
+    };
+  }
+
+  static buildBookingShipmentData(order, booking, dhlConfig) {
+    const parcelDeConfig = DHLService.getParcelDEConfig(dhlConfig);
+    const receiverAddress = this.resolveBookingReceiverAddress(order, booking);
+    const shipper = dhlConfig?.settings?.shipper || {};
+
+    const receiverName =
+      `${order?.customerId?.firstName || ''} ${order?.customerId?.lastName || ''}`.trim() ||
+      order?.customerId?.name ||
+      `${order?.guestInfo?.firstName || ''} ${order?.guestInfo?.lastName || ''}`.trim() ||
+      `${booking?.guestInfo?.firstName || ''} ${booking?.guestInfo?.lastName || ''}`.trim() ||
+      'Customer';
+
+    const receiverEmail =
+      order?.customerId?.email ||
+      order?.guestInfo?.email ||
+      booking?.guestInfo?.email ||
+      '';
+
+    const receiverPhone =
+      order?.customerId?.phone ||
+      order?.guestInfo?.phone ||
+      booking?.guestInfo?.phone ||
+      '';
+
+    const accountNumber =
+      dhlConfig?.settings?.accountId ||
+      dhlConfig?.settings?.accountNumber ||
+      dhlConfig?.metadata?.accountNumber ||
+      dhlConfig?.credentials?.accountNumber ||
+      dhlConfig?.credentials?.accountId ||
+      parcelDeConfig.accountNumber ||
+      '';
+
+    const weight = Number(order?.weight || 1);
+
+    return {
+      receiverName,
+      receiverAddress: receiverAddress.street,
+      receiverNumber: receiverAddress.house,
+      receiverCity: receiverAddress.city,
+      receiverPostalCode: receiverAddress.postalCode,
+      receiverCountry: receiverAddress.country,
+      receiverEmail,
+      receiverPhone,
+      shipperName: dhlConfig?.settings?.shipperCompany || shipper.company || 'FixitHub GmbH',
+      shipperStreet: dhlConfig?.settings?.shipperStreet || shipper.street || 'Company Street',
+      shipperNumber: dhlConfig?.settings?.shipperNumber || shipper.number || '1',
+      shipperCity: dhlConfig?.settings?.shipperCity || shipper.city || 'Berlin',
+      shipperPostalCode: dhlConfig?.settings?.shipperPostalCode || shipper.postalCode || '10115',
+      shipperCountry: dhlConfig?.settings?.shipperCountry || shipper.country || 'DE',
+      shipperEmail: dhlConfig?.settings?.shipperEmail || shipper.email || process.env.SUPPORT_EMAIL || 'info@fixithub.com',
+      shipperPhone: dhlConfig?.settings?.shipperPhone || shipper.phone || '+49301234567',
+      profile: dhlConfig?.settings?.profile || dhlConfig?.metadata?.profile || parcelDeConfig.profile,
+      product: dhlConfig?.settings?.product || dhlConfig?.metadata?.product || parcelDeConfig.product,
+      accountNumber,
+      shipmentDate: new Date().toISOString().slice(0, 10),
+      weight: Number.isFinite(weight) && weight > 0 ? weight : 1,
+      shippingCost: Number(booking?.shippingCost || 0),
+    };
+  }
+
+  static normalizeEntityId(value) {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (value._id) return String(value._id);
+    if (typeof value.toString === 'function') return String(value.toString());
+    return '';
   }
 
   static async createDummyShippingLabelForBooking(booking) {
@@ -516,11 +660,11 @@ class BookingService {
       throw new Error('DHL shipping integration is inactive');
     }
 
-    const preferredOrderId = options.preferredOrderId ? String(options.preferredOrderId) : '';
+    const preferredOrderId = this.normalizeEntityId(options.preferredOrderId);
     const candidateOrderIds = [
       preferredOrderId,
-      ...(Array.isArray(booking.repairOrderIds) ? booking.repairOrderIds.map((id) => String(id)) : []),
-      ...(Array.isArray(booking.orderIds) ? booking.orderIds.map((id) => String(id)) : []),
+      ...(Array.isArray(booking.repairOrderIds) ? booking.repairOrderIds.map((id) => this.normalizeEntityId(id)) : []),
+      ...(Array.isArray(booking.orderIds) ? booking.orderIds.map((id) => this.normalizeEntityId(id)) : []),
     ].filter(Boolean).filter((value, index, array) => array.indexOf(value) === index);
 
     if (candidateOrderIds.length === 0) {
@@ -531,7 +675,38 @@ class BookingService {
 
     for (const orderId of candidateOrderIds) {
       try {
-        const shipmentResult = await DHLService.createShipment(orderId, {});
+        const sourceOrder = await Order.findById(orderId)
+          .setOptions({ skipAutoPopulate: true })
+          .populate('customerId', 'name firstName lastName email phone invoiceAddress');
+
+        if (!sourceOrder) {
+          throw new Error(`Order not found for booking label generation: ${orderId}`);
+        }
+
+        const shipmentData = this.buildBookingShipmentData(sourceOrder, booking, dhlConfig);
+
+        const missingReceiverFields = [
+          ['receiverAddress', shipmentData.receiverAddress],
+          ['receiverCity', shipmentData.receiverCity],
+          ['receiverPostalCode', shipmentData.receiverPostalCode],
+        ].filter(([, value]) => !String(value || '').trim());
+
+        if (missingReceiverFields.length > 0) {
+          throw new Error(`Missing required receiver fields for DHL booking label: ${missingReceiverFields.map(([field]) => field).join(', ')}`);
+        }
+
+        const missingShipperFields = [
+          ['shipperStreet', shipmentData.shipperStreet],
+          ['shipperCity', shipmentData.shipperCity],
+          ['shipperPostalCode', shipmentData.shipperPostalCode],
+          ['accountNumber', shipmentData.accountNumber],
+        ].filter(([, value]) => !String(value || '').trim());
+
+        if (missingShipperFields.length > 0) {
+          throw new Error(`Missing required shipper fields for DHL booking label: ${missingShipperFields.map(([field]) => field).join(', ')}`);
+        }
+
+        const shipmentResult = await DHLService.createShipment(orderId, shipmentData);
         const refreshedBooking = await Booking.findById(booking._id);
 
         if (!refreshedBooking) {
@@ -599,15 +774,10 @@ class BookingService {
 
     const trackingInfo = await DHLService.getTrackingInfo(booking.trackingNumber)
 
-    const statusMapping = {
-      'pre-transit': 'label-created',
-      'transit': 'in-transit',
-      'delivered': 'delivered',
-      'failure': 'failed',
-      'out-for-delivery': 'out-for-delivery',
-    }
-
-    const newStatus = statusMapping[trackingInfo.status] || booking.shippingStatus
+    const mappedStatus = this.mapTrackingStatusToBookingStatus(
+      trackingInfo.status || trackingInfo.statusCodeRaw || ''
+    )
+    const newStatus = mappedStatus || booking.shippingStatus
     const statusChanged = newStatus !== booking.shippingStatus
 
     booking.shippingStatus = newStatus
@@ -732,6 +902,19 @@ class BookingService {
             const bookingPlain = booking.toObject({ virtuals: true });
 
             if (allOrders.length === 0) {
+              if (bookingPlain.trackingNumber && !this.isDummyBookingTrackingNumber(bookingPlain.trackingNumber)) {
+                try {
+                  const trackingInfo = await DHLService.getTrackingInfo(bookingPlain.trackingNumber);
+                  const mappedStatus = this.mapTrackingStatusToBookingStatus(trackingInfo.status || trackingInfo.statusCodeRaw);
+
+                  if (mappedStatus) bookingPlain.shippingStatus = mappedStatus;
+                  if (trackingInfo.description) bookingPlain.shippingStatusDescription = trackingInfo.description;
+                  if (trackingInfo.estimatedDelivery) bookingPlain.estimatedDelivery = trackingInfo.estimatedDelivery;
+                } catch (trackingError) {
+                  console.error('BookingService: Failed to refresh shipping status in getAllBookings for booking:', booking._id, trackingError.message);
+                }
+              }
+
               return bookingPlain;
             }
 
@@ -749,6 +932,19 @@ class BookingService {
               parentOrderId: { $in: directOrderIds }
             });
             bookingPlain.hasComplaintOrders = complaintOrderCount > 0;
+
+            if (bookingPlain.trackingNumber && !this.isDummyBookingTrackingNumber(bookingPlain.trackingNumber)) {
+              try {
+                const trackingInfo = await DHLService.getTrackingInfo(bookingPlain.trackingNumber);
+                const mappedStatus = this.mapTrackingStatusToBookingStatus(trackingInfo.status || trackingInfo.statusCodeRaw);
+
+                if (mappedStatus) bookingPlain.shippingStatus = mappedStatus;
+                if (trackingInfo.description) bookingPlain.shippingStatusDescription = trackingInfo.description;
+                if (trackingInfo.estimatedDelivery) bookingPlain.estimatedDelivery = trackingInfo.estimatedDelivery;
+              } catch (trackingError) {
+                console.error('BookingService: Failed to refresh shipping status in getAllBookings for booking:', booking._id, trackingError.message);
+              }
+            }
 
             return bookingPlain;
           } catch (error) {
@@ -795,6 +991,19 @@ class BookingService {
             const bookingPlain = booking.toObject({ virtuals: true });
 
             if (allOrders.length === 0) {
+              if (bookingPlain.trackingNumber && !this.isDummyBookingTrackingNumber(bookingPlain.trackingNumber)) {
+                try {
+                  const trackingInfo = await DHLService.getTrackingInfo(bookingPlain.trackingNumber);
+                  const mappedStatus = this.mapTrackingStatusToBookingStatus(trackingInfo.status || trackingInfo.statusCodeRaw);
+
+                  if (mappedStatus) bookingPlain.shippingStatus = mappedStatus;
+                  if (trackingInfo.description) bookingPlain.shippingStatusDescription = trackingInfo.description;
+                  if (trackingInfo.estimatedDelivery) bookingPlain.estimatedDelivery = trackingInfo.estimatedDelivery;
+                } catch (trackingError) {
+                  console.error('BookingService: Failed to refresh shipping status in getByCustomer for booking:', booking._id, trackingError.message);
+                }
+              }
+
               return bookingPlain;
             }
 
@@ -804,6 +1013,20 @@ class BookingService {
             });
 
             bookingPlain.overallProgress = Math.round(totalProgress / allOrders.length);
+
+            if (bookingPlain.trackingNumber && !this.isDummyBookingTrackingNumber(bookingPlain.trackingNumber)) {
+              try {
+                const trackingInfo = await DHLService.getTrackingInfo(bookingPlain.trackingNumber);
+                const mappedStatus = this.mapTrackingStatusToBookingStatus(trackingInfo.status || trackingInfo.statusCodeRaw);
+
+                if (mappedStatus) bookingPlain.shippingStatus = mappedStatus;
+                if (trackingInfo.description) bookingPlain.shippingStatusDescription = trackingInfo.description;
+                if (trackingInfo.estimatedDelivery) bookingPlain.estimatedDelivery = trackingInfo.estimatedDelivery;
+              } catch (trackingError) {
+                console.error('BookingService: Failed to refresh shipping status in getByCustomer for booking:', booking._id, trackingError.message);
+              }
+            }
+
             return bookingPlain;
           } catch (error) {
             console.error('BookingService: Error calculating customer booking progress for booking:', booking._id, error);

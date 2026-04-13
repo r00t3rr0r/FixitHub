@@ -17,7 +17,7 @@ const API_BASE_URL = process.env.API_URL || 'http://localhost:3000/api';
 
 // Test data
 const testCustomer = {
-  email: 'booking-test@example.com',
+  email: `booking-test-${Date.now()}@example.com`,
   password: 'TestPassword123!',
   firstName: 'Booking',
   lastName: 'Tester',
@@ -89,6 +89,43 @@ async function testRegistration() {
   }
 }
 
+  // Test 1b: Ensure invoice address is persisted for checkout validation
+  async function testEnsureProfileAddresses() {
+    console.log('Test 1b: Ensure Profile Addresses');
+    try {
+      const result = await apiRequest(
+        'PUT',
+        '/users/me',
+        {
+          invoiceAddress: {
+            street: '123 Main St',
+            city: 'Test City',
+            state: 'TS',
+            zipCode: '12345',
+            country: 'DE',
+          },
+          paymentAddress: {
+            street: '456 Oak Ave',
+            city: 'Ship City',
+            state: 'SC',
+            zipCode: '54321',
+            country: 'DE',
+            sameAsInvoice: false,
+          },
+        },
+        accessToken
+      );
+
+      console.log('✓ Profile addresses updated');
+      console.log('  Invoice street:', result.user?.invoiceAddress?.street || 'N/A');
+      console.log('  Invoice city:', result.user?.invoiceAddress?.city || 'N/A');
+      console.log('  Invoice zip:', result.user?.invoiceAddress?.zipCode || 'N/A', '\n');
+    } catch (error) {
+      console.error('✗ Failed to update profile addresses\n');
+      throw error;
+    }
+  }
+
 // Test 2: Add items to cart (repair orders)
 async function testAddRepairOrderToCart() {
   console.log('Test 2: Add Repair Order to Cart');
@@ -105,7 +142,7 @@ async function testAddRepairOrderToCart() {
     // Add repair order to cart
     const cartResult = await apiRequest(
       'POST',
-      '/cart/repair-order',
+      '/cart/add-repair-order',
       {
         deviceType: 'Smartphone',
         deviceBrand: 'Apple',
@@ -143,7 +180,7 @@ async function testAddProductToCart() {
     // Add product to cart
     const cartResult = await apiRequest(
       'POST',
-      '/cart/items',
+      '/cart/add',
       {
         productId: productId,
         quantity: 2,
@@ -298,6 +335,7 @@ async function testGetBookingSummary() {
 async function runTests() {
   try {
     await testRegistration();
+      await testEnsureProfileAddresses();
     await testAddRepairOrderToCart();
     await testAddProductToCart();
     await testCheckoutInitialize();

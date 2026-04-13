@@ -34,7 +34,24 @@ export const getBookings = async (filters?: {
 export const getBooking = async (bookingId: string) => {
   try {
     const response = await api.get(`/api/bookings/${bookingId}`);
-    return response.data;
+    const payload = response.data || {};
+    const booking = payload.booking || {};
+    const liveTracking = payload.liveShippingTracking || null;
+
+    const mergedBooking = {
+      ...booking,
+      liveShippingTracking: liveTracking,
+      trackingNumber: booking.trackingNumber || liveTracking?.trackingNumber || '',
+      shippingStatus: booking.shippingStatus || liveTracking?.status || '',
+      shippingStatusDescription: booking.shippingStatusDescription || liveTracking?.description || '',
+      estimatedDelivery: booking.estimatedDelivery || liveTracking?.estimatedDelivery || null,
+      carrier: booking.carrier || liveTracking?.carrier || 'DHL',
+    };
+
+    return {
+      ...payload,
+      booking: mergedBooking,
+    };
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);
   }

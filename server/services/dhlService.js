@@ -146,6 +146,27 @@ class DHLService {
       };
     }
 
+    if (status === 400) {
+      const validationMessages = Array.isArray(data?.items)
+        ? data.items
+            .flatMap((item) => (Array.isArray(item?.validationMessages) ? item.validationMessages : []))
+            .map((entry) => {
+              if (typeof entry === 'string') return entry;
+              return entry?.validationMessage || entry?.message || entry?.property || '';
+            })
+            .filter(Boolean)
+        : [];
+
+      const validationText = validationMessages.length > 0
+        ? ` Validation details: ${validationMessages.join(' | ')}`
+        : '';
+
+      return {
+        message: `${detail || title || 'DHL request validation failed (400).'}${validationText}`.trim(),
+        code: 'DHL_400_BAD_REQUEST'
+      };
+    }
+
     if (`${title} ${detail}`.includes('RF-UndefinedResource')) {
       return {
         message:
@@ -519,23 +540,45 @@ class DHLService {
         throw new Error('No tracking information found');
       }
 
-      // Parse tracking events
+      const rawStatus =
+        shipmentData.status?.statusCode ||
+        shipmentData.status?.status ||
+        shipmentData.status ||
+        '';
+
+      const normalizedStatus = String(rawStatus || '').trim().toLowerCase();
+
+      // Parse tracking events and keep raw payload fields for richer UI display
       const trackingEvents = shipmentData.events?.map(event => ({
-        timestamp: new Date(event.timestamp),
-        location: `${event.location?.address?.addressLocality || ''}, ${event.location?.address?.countryCode || ''}`.trim(),
-        status: event.statusCode,
-        description: event.description || ''
+        timestamp: event.timestamp ? new Date(event.timestamp) : null,
+        location: [
+          event.location?.address?.addressLocality,
+          event.location?.address?.countryCode,
+        ].filter(Boolean).join(', '),
+        status: String(event.statusCode || event.status || '').toLowerCase(),
+        statusCode: event.statusCode || event.status || '',
+        description: event.description || event.remarks || '',
+        raw: event,
       })) || [];
 
       return {
         success: true,
         trackingNumber,
-        status: shipmentData.status?.statusCode || 'unknown',
+        status: normalizedStatus || 'unknown',
+        statusCodeRaw: rawStatus || 'unknown',
         description: shipmentData.status?.description || 'No status available',
         estimatedDelivery: shipmentData.estimatedTimeOfDelivery,
         events: trackingEvents,
         origin: shipmentData.origin?.address,
-        destination: shipmentData.destination?.address
+        destination: shipmentData.destination?.address,
+        carrier: 'DHL',
+        service: shipmentData.details?.product?.productName || shipmentData.details?.product?.productCode || '',
+        shipmentId: shipmentData.id || shipmentData.shipmentNo || shipmentData.shipmentNumber || '',
+        liveApi: {
+          provider: 'DHL',
+          source: 'track/shipments',
+          raw: response.data,
+        },
       };
 
     } catch (error) {

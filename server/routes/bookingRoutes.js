@@ -91,11 +91,25 @@ router.get('/:id', requireUser, async (req, res) => {
       });
     }
 
+    let liveShippingTracking = null;
+    if (booking.trackingNumber) {
+      try {
+        if (BookingService.isDummyBookingTrackingNumber(booking.trackingNumber)) {
+          liveShippingTracking = BookingService.buildDummyBookingTrackingInfo(booking);
+        } else {
+          liveShippingTracking = await require('../services/dhlService').getTrackingInfo(booking.trackingNumber);
+        }
+      } catch (trackingError) {
+        console.error('BookingRoutes: Failed to fetch live shipping tracking for booking detail:', trackingError.message);
+      }
+    }
+
     console.log('BookingRoutes: Booking retrieved successfully');
 
     res.json({
       success: true,
       booking: booking,
+      liveShippingTracking,
     });
   } catch (error) {
     console.error('BookingRoutes: Error getting booking:', error);
@@ -464,10 +478,15 @@ router.get('/:id/shipping-tracking', requireUser, async (req, res) => {
     res.json({
       ...trackingInfo,
       booking: {
+        bookingId: booking._id,
         bookingNumber: booking.bookingNumber,
+        trackingNumber: booking.trackingNumber,
+        shippingLabelUrl: booking.shippingLabelUrl,
+        carrier: booking.carrier,
         shippingStatus: booking.shippingStatus,
         shippingStatusDescription: booking.shippingStatusDescription,
         shippingCreatedAt: booking.shippingCreatedAt,
+        estimatedDelivery: booking.estimatedDelivery,
         actualDelivery: booking.actualDelivery,
       },
     })

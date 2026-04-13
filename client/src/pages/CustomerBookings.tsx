@@ -126,6 +126,21 @@ interface Booking {
     staffName?: string;
     staffId?: string;
   }>;
+  liveShippingTracking?: {
+    status?: string;
+    statusCodeRaw?: string;
+    description?: string;
+    estimatedDelivery?: string;
+    service?: string;
+    shipmentId?: string;
+    events?: Array<{
+      timestamp?: string;
+      location?: string;
+      status?: string;
+      statusCode?: string;
+      description?: string;
+    }>;
+  };
 }
 
 export function CustomerBookings() {
@@ -1601,6 +1616,24 @@ function BookingDetailDialog({
                           {booking.shippingStatusDescription}
                         </p>
                       )}
+                      {booking.liveShippingTracking?.statusCodeRaw && (
+                        <p className="text-xs sm:text-sm text-[var(--gray-700,#2d3748)] break-words">
+                          <span className="font-semibold text-[var(--gray-600,#4a5568)]">DHL Live-Statuscode: </span>
+                          {booking.liveShippingTracking.statusCodeRaw}
+                        </p>
+                      )}
+                      {booking.liveShippingTracking?.service && (
+                        <p className="text-xs sm:text-sm text-[var(--gray-700,#2d3748)] break-words">
+                          <span className="font-semibold text-[var(--gray-600,#4a5568)]">Service: </span>
+                          {booking.liveShippingTracking.service}
+                        </p>
+                      )}
+                      {booking.liveShippingTracking?.shipmentId && (
+                        <p className="text-xs sm:text-sm text-[var(--gray-700,#2d3748)] break-words">
+                          <span className="font-semibold text-[var(--gray-600,#4a5568)]">Shipment-ID: </span>
+                          {booking.liveShippingTracking.shipmentId}
+                        </p>
+                      )}
                       {booking.shippingCreatedAt && (
                         <p className="text-xs sm:text-sm text-[var(--gray-700,#2d3748)] break-words">
                           <span className="font-semibold text-[var(--gray-600,#4a5568)]">Label erstellt: </span>
@@ -1619,6 +1652,26 @@ function BookingDetailDialog({
                           {formatDateTime(booking.actualDelivery)}
                         </p>
                       )}
+                    </div>
+                  )}
+
+                  {booking.liveShippingTracking?.events && booking.liveShippingTracking.events.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-[var(--gray-200,#d8dce6)]">
+                      <p className="text-xs sm:text-sm font-semibold text-[var(--gray-600,#4a5568)] mb-2 uppercase">DHL Live-Tracking Events</p>
+                      <div className="space-y-2 max-h-56 overflow-auto">
+                        {booking.liveShippingTracking.events.slice(0, 10).map((event, idx) => (
+                          <div key={`${event.timestamp || 'no-time'}-${idx}`} className="rounded-lg p-2 sm:p-3 bg-[var(--gray-50,#f5f6f8)] border border-[var(--gray-200,#d8dce6)]">
+                            <p className="text-xs sm:text-sm font-semibold text-[var(--gray-800,#1a202c)]">
+                              {event.description || event.status || 'Statusupdate'}
+                            </p>
+                            <p className="text-[11px] sm:text-xs text-[var(--gray-600,#4a5568)] mt-1 break-words">
+                              {event.timestamp ? formatDateTime(event.timestamp) : 'Zeit unbekannt'}
+                              {event.location ? ` • ${event.location}` : ''}
+                              {event.statusCode ? ` • ${event.statusCode}` : ''}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
