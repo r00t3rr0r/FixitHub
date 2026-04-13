@@ -91,6 +91,33 @@ class SystemConfigService {
       // Added automatically via missingTemplates push above.
     }
 
+    if (previousVersion < 12) {
+      // Version 12: show device model image (with placeholder fallback) in order-related and booking pickup templates.
+      const managedTemplateNames = [
+        'Auftragsbestaetigung Reparatur',
+        'Statusupdate Auftrag oder Buchung',
+        'Geraet eingegangen',
+        'Diagnose abgeschlossen',
+        'Kostenvoranschlag zur Freigabe',
+        'Reparatur abgeschlossen und Rueckversand',
+        'Buchung bereit zur Abholung'
+      ];
+
+      for (const templateName of managedTemplateNames) {
+        const key = normalizeTemplateKey({ type: 'email', name: templateName });
+        const defaultTemplate = defaultTemplates.find((template) => normalizeTemplateKey(template) === key);
+        const existingTemplate = (config.notificationTemplates || []).find((template) => normalizeTemplateKey(template) === key);
+
+        if (defaultTemplate && existingTemplate) {
+          existingTemplate.subject = defaultTemplate.subject;
+          existingTemplate.content = defaultTemplate.content;
+          existingTemplate.variables = defaultTemplate.variables;
+        }
+      }
+
+      config.markModified('notificationTemplates');
+    }
+
     config.notificationTemplateDefaultsVersion = DEFAULT_NOTIFICATION_TEMPLATE_VERSION;
     await config.save();
 

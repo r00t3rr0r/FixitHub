@@ -3,6 +3,8 @@ const SystemConfigService = require('./systemConfigService');
 const NotificationTemplateService = require('./notificationTemplateService');
 const Logger = require('../utils/logger');
 const WebsiteSettings = require('../models/WebsiteSettings');
+const Order = require('../models/Order');
+const { DeviceModel, DeviceBrand } = require('../models/Device');
 const { EmailRetryHandler, EmailDeliveryTracker } = require('../utils/emailLogger');
 
 /**
@@ -166,6 +168,170 @@ class EmailService {
     }
 
     return normalizedVariables;
+  }
+
+  static escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  static normalizeModelText(value = '') {
+    return String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  }
+
+  static normalizeModelTextCompact(value = '') {
+    return this.normalizeModelText(value).replace(/[^a-z0-9]/g, '');
+  }
+
+  static async resolveOrderDeviceContext(variables = {}) {
+    const deviceBrand = String(variables.deviceBrand || '').trim();
+    const deviceModel = String(variables.deviceModel || '').trim();
+    const orderId = String(variables.orderId || '').trim();
+    const orderNumber = String(variables.orderNumber || '').trim();
+
+    if (deviceBrand || deviceModel) {
+      return { deviceBrand, deviceModel };
+    }
+
+    let order = null;
+    try {
+      if (orderId) {
+        order = await Order.findById(orderId).select('deviceBrand deviceModel').lean();
+      } else if (orderNumber) {
+        order = await Order.findOne({ orderNumber }).select('deviceBrand deviceModel').lean();
+      }
+    } catch (error) {
+      this.logger.warn('Failed to resolve order context for email image rendering', {
+        orderId,
+        orderNumber,
+        error: error.message
+      });
+    }
+
+    return {
+      deviceBrand: String(order?.deviceBrand || '').trim(),
+      deviceModel: String(order?.deviceModel || '').trim(),
+    };
+  }
+
+  static async resolveDeviceModelImageUrl({ deviceBrand = '', deviceModel = '', fallbackUrl = '' } = {}) {
+    const trimmedFallback = String(fallbackUrl || '').trim();
+    if (trimmedFallback) {
+      return trimmedFallback;
+    }
+
+    const normalizedBrand = this.normalizeModelText(deviceBrand);
+    const normalizedModel = this.normalizeModelText(deviceModel);
+    const compactModel = this.normalizeModelTextCompact(deviceModel);
+    if (!normalizedModel) {
+      return '';
+    }
+
+    try {
+      const brand = normalizedBrand
+        ? await DeviceBrand.findOne({ name: new RegExp(`^${String(deviceBrand).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') })
+            .select('_id name')
+            .lean()
+        : null;
+
+      let modelCandidates = [];
+      if (brand?._id) {
+        modelCandidates = await DeviceModel.find({ brandId: brand._id })
+          .select('name image images')
+          .lean();
+      }
+
+      if (!modelCandidates.length) {
+        modelCandidates = await DeviceModel.find({ name: new RegExp(String(deviceModel).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') })
+          .select('name image images')
+          .limit(15)
+          .lean();
+      }
+
+      const pickImage = (candidate) => {
+        if (!candidate) return '';
+        return String(
+          candidate.image ||
+          candidate.images?.[0]?.url ||
+          candidate.images?.[0]?.base64 ||
+          ''
+        ).trim();
+      };
+
+      const exact = modelCandidates.find((candidate) => {
+        const name = this.normalizeModelText(candidate.name);
+        const compactName = this.normalizeModelTextCompact(candidate.name);
+        return pickImage(candidate) && (name === normalizedModel || (compactModel && compactName === compactModel));
+      });
+
+      const fuzzy = modelCandidates.find((candidate) => {
+        const name = this.normalizeModelText(candidate.name);
+        const compactName = this.normalizeModelTextCompact(candidate.name);
+        return pickImage(candidate) && (
+          name.includes(normalizedModel) ||
+          normalizedModel.includes(name) ||
+          (compactModel ? compactName.includes(compactModel) || compactModel.includes(compactName) : false)
+        );
+      });
+
+      const match = exact || fuzzy || modelCandidates.find((candidate) => pickImage(candidate));
+      return pickImage(match);
+    } catch (error) {
+      this.logger.warn('Failed to resolve device model image for email', {
+        deviceBrand,
+        deviceModel,
+        error: error.message
+      });
+      return '';
+    }
+  }
+
+  static buildDeviceModelVisualHtml({ deviceBrand = '', deviceModel = '', imageUrl = '' } = {}) {
+    const deviceLabel = this.escapeHtml([deviceBrand, deviceModel].filter(Boolean).join(' ').trim() || 'Geraet');
+    const safeImageUrl = String(imageUrl || '').trim();
+
+    if (safeImageUrl) {
+      return `
+<div style="display:flex;align-items:center;gap:10px;">
+  <img src="${this.escapeHtml(safeImageUrl)}" alt="${deviceLabel}" style="display:block;width:56px;height:56px;object-fit:cover;border-radius:12px;border:1px solid #d8dce6;background:#ffffff;" />
+  <div style="font-size:14px;line-height:1.5;color:#2d3748;font-weight:600;">${deviceLabel}</div>
+</div>`.trim();
+    }
+
+    return `
+<div style="display:flex;align-items:center;gap:10px;">
+  <div style="display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:12px;border:1px solid #d8dce6;background:#eef3ff;color:#1a2a5e;font-size:24px;line-height:1;">📱</div>
+  <div style="font-size:14px;line-height:1.5;color:#2d3748;font-weight:600;">${deviceLabel}</div>
+</div>`.trim();
+  }
+
+  static async addDeviceVisualVariables(variables = {}) {
+    const normalized = { ...variables };
+    const context = await this.resolveOrderDeviceContext(normalized);
+    const deviceBrand = context.deviceBrand || String(normalized.deviceBrand || '').trim();
+    const deviceModel = context.deviceModel || String(normalized.deviceModel || '').trim();
+
+    normalized.deviceBrand = deviceBrand || normalized.deviceBrand || '';
+    normalized.deviceModel = deviceModel || normalized.deviceModel || '';
+
+    const modelImageUrl = await this.resolveDeviceModelImageUrl({
+      deviceBrand,
+      deviceModel,
+      fallbackUrl: normalized.deviceModelImageUrl,
+    });
+
+    normalized.deviceModelImageUrl = modelImageUrl;
+    normalized.orderDeviceVisual = this.buildDeviceModelVisualHtml({
+      deviceBrand,
+      deviceModel,
+      imageUrl: modelImageUrl,
+    });
+
+    return normalized;
   }
 
   /**
@@ -541,7 +707,8 @@ This is an automated email. Please do not reply to this message.
     };
 
     try {
-      const normalizedVariables = await this.normalizeTemplateVariables(variables);
+      const normalizedBaseVariables = await this.normalizeTemplateVariables(variables);
+      const normalizedVariables = await this.addDeviceVisualVariables(normalizedBaseVariables);
 
       this.logger.info('Attempting to send template email', {
         templateName,

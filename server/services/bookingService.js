@@ -24,13 +24,30 @@ class BookingService {
     return `EUR ${numericValue.toFixed(2)}`;
   }
 
-  static buildBookingOrdersSummary(items = []) {
+  static parseDeviceLabel(deviceLabel = '') {
+    const normalized = String(deviceLabel || '').replace(/\s+/g, ' ').trim();
+    if (!normalized) {
+      return { deviceBrand: '', deviceModel: '' };
+    }
+
+    const parts = normalized.split(' ');
+    if (parts.length < 2) {
+      return { deviceBrand: normalized, deviceModel: '' };
+    }
+
+    return {
+      deviceBrand: parts[0],
+      deviceModel: parts.slice(1).join(' '),
+    };
+  }
+
+  static async buildBookingOrdersSummary(items = []) {
     if (!Array.isArray(items) || items.length === 0) {
       return 'Keine Auftraege enthalten';
     }
 
     const orderLabel = items.length === 1 ? 'Auftrag' : 'Auftraege';
-    const lines = items.map((item, index) => {
+    const lines = await Promise.all(items.map(async (item, index) => {
       const amount = this.formatCurrencyEUR(item?.cost);
 
       if (item?.type === 'product') {
@@ -55,7 +72,18 @@ class BookingService {
         ].join('<br />');
       }
 
-      const deviceName = this.escapeHtml(item?.device || 'Geraet wird noch zugeordnet');
+      const deviceLabel = item?.device || 'Geraet wird noch zugeordnet';
+      const { deviceBrand, deviceModel } = this.parseDeviceLabel(deviceLabel);
+      const modelImageUrl = await EmailService.resolveDeviceModelImageUrl({
+        deviceBrand,
+        deviceModel,
+      });
+      const deviceVisual = EmailService.buildDeviceModelVisualHtml({
+        deviceBrand,
+        deviceModel,
+        imageUrl: modelImageUrl,
+      });
+
       const serviceNames = Array.isArray(item?.services)
         ? item.services
             .map((service) => service?.name)
@@ -67,13 +95,19 @@ class BookingService {
         ? serviceNames.join(', ')
         : 'Leistungen werden fuer Sie vorbereitet';
 
-      return [
-        `<strong>Position ${index + 1}: Reparatur</strong>`,
-        `Geraet: ${deviceName}`,
-        `Gebuchte Leistungen: ${servicesDisplay}`,
-        `Betrag: ${amount}`,
-      ].join('<br />');
-    });
+      return `
+        <div style="border:1px solid #d8dce6;border-radius:14px;padding:12px 14px;background:#ffffff;">
+          <div style="font-size:14px;font-weight:700;color:#1a2a5e;margin-bottom:10px;">Position ${index + 1}: Reparatur</div>
+          <div style="display:flex;align-items:flex-start;gap:12px;">
+            <div style="flex:0 0 auto;">${deviceVisual}</div>
+            <div style="flex:1 1 auto;font-size:13px;line-height:1.6;color:#2d3748;">
+              <div><strong>Gebuchte Leistungen:</strong> ${servicesDisplay}</div>
+              <div><strong>Betrag:</strong> ${amount}</div>
+            </div>
+          </div>
+        </div>
+      `.trim();
+    }));
 
     return `${items.length} ${orderLabel}<br /><br />${lines.join('<br /><br />')}`;
   }
@@ -453,8 +487,11 @@ class BookingService {
             return;
           }
 
-          const itemSummary = this.buildBookingOrdersSummary(savedBooking.items);
+          const itemSummary = await this.buildBookingOrdersSummary(savedBooking.items);
           const shippingLabelUrl = savedBooking.shippingLabelUrl || bookingToReturn?.shippingLabelUrl || '';
+
+          const firstRepairItem = (savedBooking.items || []).find((item) => item?.type !== 'product');
+          const primaryDevice = this.parseDeviceLabel(firstRepairItem?.device || '');
 
           await EmailService.sendTriggerEmail('booking_created', customerEmail, {
             companyName: process.env.COMPANY_NAME || 'McRepair.de',
@@ -464,6 +501,8 @@ class BookingService {
             itemSummary,
             totalAmount: this.formatCurrencyEUR(savedBooking.totalCost || 0),
             bookingStatus: savedBooking.status,
+            deviceBrand: primaryDevice.deviceBrand,
+            deviceModel: primaryDevice.deviceModel,
             bookingUrl: await EmailService.buildSystemUrl('/bookings'),
             shippingLabelUrl,
             supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
@@ -1116,15 +1155,22 @@ class BookingService {
 
           const trigger = newStatus === 'completed' ? 'booking_ready_for_pickup' : 'booking_status_updated';
 
+          const itemSummary = await this.buildBookingOrdersSummary(populatedBooking.items || []);
+
+          const firstRepairItem = (populatedBooking.items || []).find((item) => item?.type !== 'product');
+          const primaryDevice = this.parseDeviceLabel(firstRepairItem?.device || '');
+
           await EmailService.sendTriggerEmail(trigger, customerEmail, {
             companyName: process.env.COMPANY_NAME || 'McRepair.de',
             customerName,
             bookingNumber: populatedBooking.bookingNumber,
             bookingStatus: newStatus,
             statusNote: description || `Statuswechsel von ${previousStatus} auf ${newStatus}`,
-            itemSummary: `${populatedBooking.items?.length || 0} Position(en)`,
+            itemSummary,
             progressPercent: populatedBooking.overallProgress || 0,
             updatedAt: new Date().toLocaleDateString('de-DE'),
+            deviceBrand: primaryDevice.deviceBrand,
+            deviceModel: primaryDevice.deviceModel,
             bookingUrl: await EmailService.buildSystemUrl(`/bookings/${populatedBooking._id}`),
             pickupHours: process.env.PICKUP_HOURS || 'Mo-Fr 09:00-18:00',
             workshopAddress: process.env.WORKSHOP_ADDRESS || 'Service Center',

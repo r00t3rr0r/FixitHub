@@ -260,7 +260,10 @@ router.post('/:orderId/complaint', requireUser, async (req, res) => {
           await EmailService.sendTemplateEmail('Statusupdate Auftrag oder Buchung', admin.email, {
             companyName: 'McRepair.de',
             customerName: 'Admin Team',
+            orderId: order._id,
             orderNumber: order.orderNumber,
+            deviceBrand: order.deviceBrand || '',
+            deviceModel: order.deviceModel || '',
             orderStatus: 'Neue Reklamation',
             statusMessage: `${customerName} hat eine Reklamation gemeldet: ${reason}`,
             statusUpdatedAt: new Date().toLocaleDateString('de-DE'),

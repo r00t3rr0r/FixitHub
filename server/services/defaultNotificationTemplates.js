@@ -1,4 +1,4 @@
-const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 11;
+const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 12;
 
 const brand = {
   companyName: 'Mc<span style="color:#f5b800;font-weight:800;">Repair</span>.de',
@@ -270,7 +270,7 @@ function getDefaultNotificationTemplates() {
         ],
         detailRows: [
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
-          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
           { label: 'Leistung', value: '{{serviceName}}' },
           { label: 'Voraussichtliche Fertigstellung', value: '{{estimatedCompletion}}' }
         ],
@@ -286,6 +286,7 @@ function getDefaultNotificationTemplates() {
         createVariable('orderNumber', 'Auftragsnummer', true),
         createVariable('deviceBrand', 'Geraetemarke', true),
         createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
         createVariable('serviceName', 'Gebuchte Reparaturleistung', true),
         createVariable('estimatedCompletion', 'Geschaetztes Fertigstellungsdatum'),
         createVariable('trackingUrl', 'Link zur Auftragsverfolgung', true),
@@ -309,6 +310,7 @@ function getDefaultNotificationTemplates() {
         ],
         detailRows: [
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
+          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
           { label: 'Buchungsstatus', value: '{{bookingStatus}}' },
           { label: 'Reparaturstatus', value: '{{orderStatus}}' },
           { label: 'Aktualisiert am', value: '{{statusUpdatedAt}}' }
@@ -324,6 +326,9 @@ function getDefaultNotificationTemplates() {
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('orderNumber', 'Auftragsnummer', true),
         createVariable('bookingStatus', 'Status der Buchung'),
+        createVariable('deviceBrand', 'Geraetemarke'),
+        createVariable('deviceModel', 'Geraetemodell'),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
         createVariable('orderStatus', 'Status des Reparaturauftrags', true),
         createVariable('statusMessage', 'Zusaetzlicher Hinweis zum Status'),
         createVariable('statusUpdatedAt', 'Zeitpunkt der Statusaenderung'),
@@ -348,7 +353,7 @@ function getDefaultNotificationTemplates() {
         ],
         detailRows: [
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
-          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
           { label: 'Eingangsdatum', value: '{{receivedAt}}' }
         ],
         body: '<p style="margin:0 0 16px 0;">Nach der Erstpruefung informieren wir Sie, sobald die Reparatur startet oder wenn Rueckfragen zum Geraet bestehen.</p><p style="margin:0;">Bitte bewahren Sie Ihre Auftragsnummer fuer eventuelle Rueckfragen auf.</p>',
@@ -363,6 +368,7 @@ function getDefaultNotificationTemplates() {
         createVariable('orderNumber', 'Auftragsnummer', true),
         createVariable('deviceBrand', 'Geraetemarke', true),
         createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
         createVariable('receivedAt', 'Datum des Wareneingangs'),
         createVariable('trackingUrl', 'Link zur Auftragsverfolgung', true),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
@@ -385,6 +391,7 @@ function getDefaultNotificationTemplates() {
         ],
         detailRows: [
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
+          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
           { label: 'Diagnose abgeschlossen am', value: '{{diagnosisCompletedAt}}' },
           { label: 'Zustand', value: '{{deviceCondition}}' },
           { label: 'Empfohlene Massnahme', value: '{{recommendedAction}}' }
@@ -401,6 +408,7 @@ function getDefaultNotificationTemplates() {
         createVariable('orderNumber', 'Auftragsnummer', true),
         createVariable('deviceBrand', 'Geraetemarke', true),
         createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
         createVariable('diagnosisResult', 'Kernaussage des Diagnoseergebnisses (z.B. Reparierbar / Nicht reparierbar)', true),
         createVariable('diagnosisCompletedAt', 'Datum und Uhrzeit des Diagnoseabschlusses', true),
         createVariable('deviceCondition', 'Zustand des Geraetes nach Diagnose'),
@@ -426,7 +434,7 @@ function getDefaultNotificationTemplates() {
         ],
         detailRows: [
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
-          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
           { label: 'Empfohlene Leistung', value: '{{serviceName}}' },
           { label: 'Freigabe bis', value: '{{approvalDeadline}}' }
         ],
@@ -442,6 +450,7 @@ function getDefaultNotificationTemplates() {
         createVariable('orderNumber', 'Auftragsnummer', true),
         createVariable('deviceBrand', 'Geraetemarke', true),
         createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
         createVariable('serviceName', 'Empfohlene Reparaturleistung'),
         createVariable('quoteAmount', 'Betrag des Kostenvoranschlags', true),
         createVariable('approvalDeadline', 'Frist fuer die Freigabe'),
@@ -466,7 +475,7 @@ function getDefaultNotificationTemplates() {
         ],
         detailRows: [
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
-          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
           { label: 'Ruecksendungsnummer', value: '{{returnTrackingNumber}}' }
         ],
         body: '<p style="margin:0 0 16px 0;">Falls Ihr Geraet versendet wurde, koennen Sie den Versandstatus online verfolgen. Sollte eine Abholung vorgesehen sein, teilen wir Ihnen die relevanten Informationen direkt mit.</p><p style="margin:0;">Bitte pruefen Sie nach Erhalt kurz die Funktion und melden Sie sich bei Unklarheiten jederzeit bei uns.</p>',
@@ -481,6 +490,7 @@ function getDefaultNotificationTemplates() {
         createVariable('orderNumber', 'Auftragsnummer', true),
         createVariable('deviceBrand', 'Geraetemarke', true),
         createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
         createVariable('returnShipmentStatus', 'Status des Rueckversands'),
         createVariable('returnTrackingNumber', 'Sendungsnummer fuer den Rueckversand'),
         createVariable('trackingUrl', 'Link zur Sendungsverfolgung', true),
@@ -709,7 +719,7 @@ function getDefaultNotificationTemplates() {
         ],
         detailRows: [
           { label: 'Buchungsnummer', value: '{{bookingNumber}}' },
-          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
           { label: 'Abholbereit seit', value: '{{readySince}}' },
           { label: 'Aufbewahrung bis', value: '{{holdUntil}}' }
         ],
@@ -725,6 +735,7 @@ function getDefaultNotificationTemplates() {
         createVariable('bookingNumber', 'Buchungsnummer', true),
         createVariable('deviceBrand', 'Geraetemarke'),
         createVariable('deviceModel', 'Geraetemodell'),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
         createVariable('pickupHours', 'Oeffnungszeiten fuer die Abholung'),
         createVariable('workshopAddress', 'Adresse der Werkstatt / Filiale'),
         createVariable('readySince', 'Zeitpunkt der Fertigstellung'),
