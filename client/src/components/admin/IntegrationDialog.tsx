@@ -3,12 +3,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/useToast"
 import { Integration } from "@/api/systemConfig"
-import { Save, TestTube } from "lucide-react"
+import { Save } from "lucide-react"
 
 interface IntegrationDialogProps {
   open: boolean
@@ -27,6 +26,27 @@ export function IntegrationDialog({
 }: IntegrationDialogProps) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const dhlSandboxEndpoint = 'https://api-sandbox.dhl.com'
+  const dhlProductionEndpoint = 'https://api.dhl.com'
+  const defaultDhlSettings = {
+    bookingLabelMode: 'dummy' as const,
+    accountNumber: '',
+    profile: 'STANDARD_GRUPPENPROFIL',
+    product: 'V01PAK',
+    shipperCompany: 'FixitHub GmbH',
+    shipperStreet: '',
+    shipperNumber: '',
+    shipperPostalCode: '',
+    shipperCity: '',
+    shipperCountry: 'DE',
+    shipperEmail: '',
+    shipperPhone: '',
+    dhlApis: {
+      parcelDeShipping: true,
+      parcelDeTracking: true,
+      parcelDeReturns: false
+    }
+  }
 
   const [formData, setFormData] = useState<Omit<Integration, '_id'>>({
     name: '',
@@ -59,6 +79,7 @@ export function IntegrationDialog({
   }
 
   const showsBookingLabelMode = formData.type === 'shipping' && formData.provider === 'DHL'
+  const showsDhlBusinessCustomerFields = formData.type === 'shipping' && formData.provider === 'DHL'
 
   useEffect(() => {
     if (integration && mode === 'edit') {
@@ -69,9 +90,29 @@ export function IntegrationDialog({
         apiKey: integration.apiKey,
         apiSecret: integration.apiSecret || '',
         endpoint: integration.endpoint || '',
+        credentials: {
+          apiKey: integration.credentials?.apiKey || integration.apiKey,
+          apiSecret: integration.credentials?.apiSecret || integration.apiSecret || '',
+          apiEndpoint: integration.credentials?.apiEndpoint || integration.endpoint || '',
+          clientId: integration.credentials?.clientId || integration.apiKey,
+          clientSecret: integration.credentials?.clientSecret || integration.apiSecret || '',
+          username: integration.credentials?.username || '',
+          password: integration.credentials?.password || '',
+          accountId: integration.credentials?.accountId || ''
+        },
+        metadata: {
+          ...(integration.metadata || {}),
+          environment: integration.metadata?.environment || 'sandbox',
+          clientId: integration.metadata?.clientId || integration.apiKey,
+          clientSecret: integration.metadata?.clientSecret || integration.apiSecret || '',
+          username: integration.metadata?.username || '',
+          password: integration.metadata?.password || ''
+        },
         settings: {
+          ...defaultDhlSettings,
           ...(integration.settings || {}),
-          bookingLabelMode: integration.settings?.bookingLabelMode || 'dummy'
+          bookingLabelMode: integration.settings?.bookingLabelMode || 'dummy',
+          accountNumber: integration.settings?.accountNumber || ''
         },
         isActive: integration.isActive,
         testStatus: integration.testStatus
@@ -84,7 +125,24 @@ export function IntegrationDialog({
         apiKey: '',
         apiSecret: '',
         endpoint: '',
-        settings: { bookingLabelMode: 'dummy' },
+        credentials: {
+          apiKey: '',
+          apiSecret: '',
+          apiEndpoint: '',
+          clientId: '',
+          clientSecret: '',
+          username: '',
+          password: '',
+          accountId: ''
+        },
+        metadata: {
+          environment: 'sandbox',
+          clientId: '',
+          clientSecret: '',
+          username: '',
+          password: ''
+        },
+        settings: { ...defaultDhlSettings },
         isActive: true,
         testStatus: 'pending'
       })
@@ -101,9 +159,55 @@ export function IntegrationDialog({
       return
     }
 
+    if (showsDhlBusinessCustomerFields && (!formData.apiSecret || !formData.metadata?.username || !formData.metadata?.password)) {
+      toast({
+        title: "Error",
+        description: "For DHL Shipping, API secret plus Business Customer username/password are required",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (showsDhlBusinessCustomerFields && !formData.settings?.accountNumber) {
+      toast({
+        title: "Error",
+        description: "For DHL Shipping, Account/Billing Number is required",
+        variant: "destructive"
+      })
+      return
+    }
+
     setLoading(true)
     try {
-      await onSave(formData)
+      // Synchronize credentials with current values for DHL integration
+      const dataToSave = {
+        ...formData,
+        credentials: {
+          ...(formData.credentials || {}),
+          apiKey: formData.apiKey,
+          apiSecret: formData.apiSecret || '',
+          apiEndpoint: formData.endpoint || '',
+          clientId: formData.apiKey,
+          clientSecret: formData.apiSecret || '',
+          username: formData.metadata?.username || '',
+          password: formData.metadata?.password || '',
+          accountId: formData.settings?.accountNumber || ''
+        }
+      }
+
+      // Also synchronize metadata with current values for DHL
+      if (formData.provider === 'DHL' && formData.type === 'shipping') {
+        dataToSave.metadata = {
+          ...(formData.metadata || {}),
+          clientId: formData.apiKey,
+          clientSecret: formData.apiSecret || '',
+          environment: formData.metadata?.environment || 'sandbox',
+          username: formData.metadata?.username || '',
+          password: formData.metadata?.password || ''
+        }
+      }
+
+      await onSave(dataToSave)
       onOpenChange(false)
       toast({
         title: "Success",
@@ -122,7 +226,7 @@ export function IntegrationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl p-0">
+      <DialogContent className="w-[96vw] max-w-4xl h-[92vh] max-h-[92vh] p-0 flex flex-col overflow-hidden">
         <DialogHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white p-6 rounded-t-lg">
           <DialogTitle className="text-xl">
             {mode === 'create' ? 'Add Integration' : 'Edit Integration'}
@@ -132,7 +236,8 @@ export function IntegrationDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-3 py-4 px-6">
+        <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4">
+          <div className="grid gap-3">
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="name" className="text-sm">Integration Name *</Label>
@@ -172,9 +277,24 @@ export function IntegrationDialog({
                 onValueChange={(value) => setFormData(prev => ({
                   ...prev,
                   provider: value,
+                  endpoint: value === 'DHL' && prev.type === 'shipping'
+                    ? (prev.endpoint || dhlSandboxEndpoint)
+                    : prev.endpoint,
                   settings: value === 'DHL' && prev.type === 'shipping'
-                    ? { ...prev.settings, bookingLabelMode: prev.settings?.bookingLabelMode || 'dummy' }
-                    : prev.settings
+                    ? {
+                        ...defaultDhlSettings,
+                        ...prev.settings,
+                        bookingLabelMode: prev.settings?.bookingLabelMode || 'dummy'
+                      }
+                    : prev.settings,
+                  metadata: value === 'DHL' && prev.type === 'shipping'
+                    ? {
+                        ...(prev.metadata || {}),
+                        environment: prev.metadata?.environment || 'sandbox',
+                        username: prev.metadata?.username || '',
+                        password: prev.metadata?.password || ''
+                      }
+                    : prev.metadata
                 }))}
               >
                 <SelectTrigger className="h-9 text-sm">
@@ -190,40 +310,388 @@ export function IntegrationDialog({
               </Select>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="endpoint" className="text-sm">Endpoint URL</Label>
+              <Label htmlFor="endpoint" className="text-sm">{showsDhlBusinessCustomerFields ? 'Endpoint URL (Base)' : 'Endpoint URL'}</Label>
               <Input
                 id="endpoint"
                 value={formData.endpoint}
                 onChange={(e) => setFormData(prev => ({ ...prev, endpoint: e.target.value }))}
-                placeholder="https://api.example.com"
+                placeholder={showsDhlBusinessCustomerFields ? dhlSandboxEndpoint : 'https://api.example.com'}
                 className="h-9 text-sm"
               />
+              {showsDhlBusinessCustomerFields && (
+                <p className="text-xs text-muted-foreground">
+                  Base URL only. Shipping endpoint is built automatically as /parcel/de/shipping/v2/orders.
+                </p>
+              )}
             </div>
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="apiKey" className="text-sm">API Key *</Label>
+            <Label htmlFor="apiKey" className="text-sm">{showsDhlBusinessCustomerFields ? 'API Key (client_id) *' : 'API Key *'}</Label>
             <Input
               id="apiKey"
               type="password"
               value={formData.apiKey}
               onChange={(e) => setFormData(prev => ({ ...prev, apiKey: e.target.value }))}
-              placeholder="Enter API key"
+              placeholder={showsDhlBusinessCustomerFields ? 'DHL App client_id' : 'Enter API key'}
               className="h-9 text-sm"
             />
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="apiSecret" className="text-sm">API Secret</Label>
+            <Label htmlFor="apiSecret" className="text-sm">{showsDhlBusinessCustomerFields ? 'API Secret (client_secret) *' : 'API Secret'}</Label>
             <Input
               id="apiSecret"
               type="password"
               value={formData.apiSecret}
               onChange={(e) => setFormData(prev => ({ ...prev, apiSecret: e.target.value }))}
-              placeholder="Enter API secret (if required)"
+              placeholder={showsDhlBusinessCustomerFields ? 'DHL App client_secret' : 'Enter API secret (if required)'}
               className="h-9 text-sm"
             />
           </div>
+
+          {showsDhlBusinessCustomerFields && (
+            <>
+              <div className="rounded-md border p-3 space-y-3 bg-slate-50/60">
+                <p className="text-sm font-medium">DHL Parcel DE Shipping Essentials</p>
+
+                <div className="rounded-md border bg-white p-3 space-y-2">
+                  <p className="text-sm font-medium">Aktive DHL APIs</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm">Parcel DE Shipping</p>
+                      <p className="text-xs text-muted-foreground">Versandauftraege und Labelerstellung</p>
+                    </div>
+                    <Switch
+                      checked={Boolean(formData.settings?.dhlApis?.parcelDeShipping ?? true)}
+                      onCheckedChange={(checked) => setFormData(prev => ({
+                        ...prev,
+                        settings: {
+                          ...(prev.settings || {}),
+                          dhlApis: {
+                            parcelDeShipping: checked,
+                            parcelDeTracking: Boolean(prev.settings?.dhlApis?.parcelDeTracking ?? true),
+                            parcelDeReturns: Boolean(prev.settings?.dhlApis?.parcelDeReturns ?? false)
+                          }
+                        }
+                      }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm">Parcel DE Tracking</p>
+                      <p className="text-xs text-muted-foreground">Tracking-Status und Events abrufen</p>
+                    </div>
+                    <Switch
+                      checked={Boolean(formData.settings?.dhlApis?.parcelDeTracking ?? true)}
+                      onCheckedChange={(checked) => setFormData(prev => ({
+                        ...prev,
+                        settings: {
+                          ...(prev.settings || {}),
+                          dhlApis: {
+                            parcelDeShipping: Boolean(prev.settings?.dhlApis?.parcelDeShipping ?? true),
+                            parcelDeTracking: checked,
+                            parcelDeReturns: Boolean(prev.settings?.dhlApis?.parcelDeReturns ?? false)
+                          }
+                        }
+                      }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm">Parcel DE Returns</p>
+                      <p className="text-xs text-muted-foreground">Ruecksendelabel via Returns API</p>
+                    </div>
+                    <Switch
+                      checked={Boolean(formData.settings?.dhlApis?.parcelDeReturns ?? false)}
+                      onCheckedChange={(checked) => setFormData(prev => ({
+                        ...prev,
+                        settings: {
+                          ...(prev.settings || {}),
+                          dhlApis: {
+                            parcelDeShipping: Boolean(prev.settings?.dhlApis?.parcelDeShipping ?? true),
+                            parcelDeTracking: Boolean(prev.settings?.dhlApis?.parcelDeTracking ?? true),
+                            parcelDeReturns: checked
+                          }
+                        }
+                      }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="dhlEnvironment" className="text-sm">Environment *</Label>
+                    <Select
+                      value={String(formData.metadata?.environment || 'sandbox')}
+                      onValueChange={(value: 'sandbox' | 'production') => setFormData(prev => ({
+                        ...prev,
+                        endpoint: value === 'production' ? dhlProductionEndpoint : dhlSandboxEndpoint,
+                        metadata: {
+                          ...(prev.metadata || {}),
+                          environment: value
+                        }
+                      }))}
+                    >
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sandbox">Sandbox (Integration Testing)</SelectItem>
+                        <SelectItem value="production">Production (Live)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="dhlAccountNumber" className="text-sm">Account/Billing Number *</Label>
+                    <Input
+                      id="dhlAccountNumber"
+                      value={String(formData.settings?.accountNumber || '')}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        settings: {
+                          ...(prev.settings || {}),
+                          accountNumber: e.target.value
+                        }
+                      }))}
+                      placeholder="z.B. 33333333330101"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="dhlProfile" className="text-sm">Profile</Label>
+                    <Input
+                      id="dhlProfile"
+                      value={String(formData.settings?.profile || 'STANDARD_GRUPPENPROFIL')}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        settings: {
+                          ...(prev.settings || {}),
+                          profile: e.target.value
+                        }
+                      }))}
+                      placeholder="STANDARD_GRUPPENPROFIL"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="dhlProduct" className="text-sm">Product</Label>
+                    <Input
+                      id="dhlProduct"
+                      value={String(formData.settings?.product || 'V01PAK')}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        settings: {
+                          ...(prev.settings || {}),
+                          product: e.target.value
+                        }
+                      }))}
+                      placeholder="V01PAK"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  API Key = client_id, API Secret = client_secret. Username/Password sind Business-Customer-Zugangsdaten.
+                </p>
+              </div>
+
+              <div className="rounded-md border p-3 space-y-3 bg-slate-50/60">
+                <p className="text-sm font-medium">DHL Shipper Default Address (Fallback)</p>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="shipperCompany" className="text-sm">Company</Label>
+                    <Input
+                      id="shipperCompany"
+                      value={String(formData.settings?.shipperCompany || '')}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        settings: {
+                          ...(prev.settings || {}),
+                          shipperCompany: e.target.value
+                        }
+                      }))}
+                      placeholder="FixitHub GmbH"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="shipperCountry" className="text-sm">Country (ISO2)</Label>
+                    <Input
+                      id="shipperCountry"
+                      value={String(formData.settings?.shipperCountry || 'DE')}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        settings: {
+                          ...(prev.settings || {}),
+                          shipperCountry: e.target.value.toUpperCase()
+                        }
+                      }))}
+                      placeholder="DE"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="space-y-1 md:col-span-2">
+                    <Label htmlFor="shipperStreet" className="text-sm">Street</Label>
+                    <Input
+                      id="shipperStreet"
+                      value={String(formData.settings?.shipperStreet || '')}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        settings: {
+                          ...(prev.settings || {}),
+                          shipperStreet: e.target.value
+                        }
+                      }))}
+                      placeholder="Musterstrasse"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="shipperNumber" className="text-sm">No.</Label>
+                    <Input
+                      id="shipperNumber"
+                      value={String(formData.settings?.shipperNumber || '')}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        settings: {
+                          ...(prev.settings || {}),
+                          shipperNumber: e.target.value
+                        }
+                      }))}
+                      placeholder="1"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="shipperPostalCode" className="text-sm">Postal Code</Label>
+                    <Input
+                      id="shipperPostalCode"
+                      value={String(formData.settings?.shipperPostalCode || '')}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        settings: {
+                          ...(prev.settings || {}),
+                          shipperPostalCode: e.target.value
+                        }
+                      }))}
+                      placeholder="10115"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="shipperCity" className="text-sm">City</Label>
+                    <Input
+                      id="shipperCity"
+                      value={String(formData.settings?.shipperCity || '')}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        settings: {
+                          ...(prev.settings || {}),
+                          shipperCity: e.target.value
+                        }
+                      }))}
+                      placeholder="Berlin"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="shipperEmail" className="text-sm">Shipper Email</Label>
+                    <Input
+                      id="shipperEmail"
+                      value={String(formData.settings?.shipperEmail || '')}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        settings: {
+                          ...(prev.settings || {}),
+                          shipperEmail: e.target.value
+                        }
+                      }))}
+                      placeholder="logistics@fixithub.com"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="shipperPhone" className="text-sm">Shipper Phone</Label>
+                    <Input
+                      id="shipperPhone"
+                      value={String(formData.settings?.shipperPhone || '')}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        settings: {
+                          ...(prev.settings || {}),
+                          shipperPhone: e.target.value
+                        }
+                      }))}
+                      placeholder="+49301234567"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {showsDhlBusinessCustomerFields && (
+            <>
+              <div className="space-y-1">
+                <Label htmlFor="dhlUsername" className="text-sm">DHL Business Customer Username *</Label>
+                <Input
+                  id="dhlUsername"
+                  value={formData.metadata?.username || ''}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    metadata: {
+                      ...(prev.metadata || {}),
+                      username: e.target.value
+                    }
+                  }))}
+                  placeholder="z.B. user-valid (Sandbox)"
+                  className="h-9 text-sm"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="dhlPassword" className="text-sm">DHL Business Customer Password *</Label>
+                <Input
+                  id="dhlPassword"
+                  type="password"
+                  value={formData.metadata?.password || ''}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    metadata: {
+                      ...(prev.metadata || {}),
+                      password: e.target.value
+                    }
+                  }))}
+                  placeholder="Business Customer Passwort"
+                  className="h-9 text-sm"
+                />
+              </div>
+            </>
+          )}
 
           {showsBookingLabelMode && (
             <div className="space-y-1">
@@ -259,9 +727,10 @@ export function IntegrationDialog({
             />
             <Label className="text-sm">Active Integration</Label>
           </div>
+          </div>
         </div>
 
-        <DialogFooter className="bg-gray-50 px-6 py-4 rounded-b-lg">
+        <DialogFooter className="bg-gray-50 px-4 md:px-6 py-4 rounded-b-lg border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)} size="sm">
             Cancel
           </Button>

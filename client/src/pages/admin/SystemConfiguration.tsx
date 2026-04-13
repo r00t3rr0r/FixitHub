@@ -132,6 +132,8 @@ export function SystemConfiguration() {
   const [runningSecurityScan, setRunningSecurityScan] = useState(false)
   const [testingIntegration, setTestingIntegration] = useState<string | null>(null)
   const [testingEmailSettings, setTestingEmailSettings] = useState(false)
+  const [testResultModal, setTestResultModal] = useState<any>(null)
+  const [showTestResultModal, setShowTestResultModal] = useState(false)
 
   // Template test dialog
   const [testingTemplate, setTestingTemplate] = useState<NotificationTemplate | null>(null)
@@ -163,6 +165,8 @@ export function SystemConfiguration() {
     apiKey: integration.apiKey,
     apiSecret: integration.apiSecret || '',
     endpoint: integration.endpoint || '',
+    credentials: integration.credentials || {},
+    metadata: integration.metadata || {},
     settings: integration.settings || {},
     isActive: integration.isActive,
     lastTested: integration.lastTested,
@@ -394,18 +398,9 @@ export function SystemConfiguration() {
       console.log("SystemConfiguration: Testing integration:", integrationId)
       const response = await testIntegration(integrationId)
 
-      if (response.result.success) {
-        toast({
-          title: "Success",
-          description: response.result.message
-        })
-      } else {
-        toast({
-          title: "Test Failed",
-          description: response.result.message,
-          variant: "destructive"
-        })
-      }
+      // Store full test result including debug info
+      setTestResultModal(response.result)
+      setShowTestResultModal(true)
 
       // Update integration test status
       setIntegrations(prev => prev.map(i =>
@@ -413,6 +408,20 @@ export function SystemConfiguration() {
           ? { ...i, testStatus: response.result.success ? 'success' : 'failed' }
           : i
       ))
+
+      // Also show toast notification
+      if (response.result.success) {
+        toast({
+          title: "✅ Test erfolgreich",
+          description: response.result.message
+        })
+      } else {
+        toast({
+          title: "❌ Test fehlgeschlagen",
+          description: response.result.message,
+          variant: "destructive"
+        })
+      }
     } catch (error: any) {
       console.error("SystemConfiguration: Error testing integration:", error)
       toast({
@@ -2277,6 +2286,171 @@ export function SystemConfiguration() {
         onSave={handleSaveIntegration}
         mode={integrationDialogMode}
       />
+
+      {/* Integration Test Result Modal */}
+      <AlertDialog open={showTestResultModal} onOpenChange={setShowTestResultModal}>
+        <AlertDialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              {testResultModal?.success ? (
+                <>
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  Verbindung erfolgreich
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="h-5 w-5 text-red-500" />
+                  Verbindung fehlgeschlagen
+                </>
+              )}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base font-medium text-foreground mt-2">
+              {testResultModal?.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {/* Debug Information Section */}
+          {testResultModal?.debug && (
+            <div className="space-y-4 py-4 border-y">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+                <h4 className="font-semibold text-sm text-[#1a2a5e] mb-3">🔍 Debug-Informationen</h4>
+                
+                {/* Authentication Section */}
+                <div className="space-y-2 mb-4">
+                  <h5 className="text-xs font-semibold text-[#1a2a5e] uppercase tracking-wide">🔐 Authentifizierung</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div className="text-xs bg-white p-2 rounded border">
+                      <span className="text-muted-foreground">Umgebung:</span>
+                      <span className="ml-2 font-mono font-semibold">{testResultModal.debug.environment}</span>
+                    </div>
+                    <div className="text-xs bg-white p-2 rounded border">
+                      <span className="text-muted-foreground">Auth-Flow:</span>
+                      <span className="ml-2 font-mono font-semibold">{testResultModal.debug.authFlow}</span>
+                    </div>
+                    <div className="text-xs bg-white p-2 rounded border col-span-full">
+                      <span className="text-muted-foreground">Token-Endpoint:</span>
+                      <span className="ml-2 font-mono font-semibold break-all text-[11px]">{testResultModal.debug.tokenEndpoint}</span>
+                    </div>
+                    <div className="text-xs bg-white p-2 rounded border col-span-full">
+                      <span className="text-muted-foreground">Test-Endpoint:</span>
+                      <span className="ml-2 font-mono font-semibold break-all text-[11px]">{testResultModal.debug.probeEndpoint}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Credentials Status */}
+                <div className="space-y-2 mb-4">
+                  <h5 className="text-xs font-semibold text-[#1a2a5e] uppercase tracking-wide">📝 Anmeldedaten-Status</h5>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div className={`text-xs p-2 rounded border ${testResultModal.debug.hasClientId ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                      <span className={testResultModal.debug.hasClientId ? 'text-green-700 font-semibold' : 'text-red-700 font-semibold'}>
+                        {testResultModal.debug.hasClientId ? '✅' : '❌'} Client ID
+                      </span>
+                    </div>
+                    <div className={`text-xs p-2 rounded border ${testResultModal.debug.hasClientSecret ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                      <span className={testResultModal.debug.hasClientSecret ? 'text-green-700 font-semibold' : 'text-red-700 font-semibold'}>
+                        {testResultModal.debug.hasClientSecret ? '✅' : '❌'} Client Secret
+                      </span>
+                    </div>
+                    <div className={`text-xs p-2 rounded border ${testResultModal.debug.hasUsername ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                      <span className={testResultModal.debug.hasUsername ? 'text-green-700 font-semibold' : 'text-red-700 font-semibold'}>
+                        {testResultModal.debug.hasUsername ? '✅' : '❌'} Username
+                      </span>
+                    </div>
+                    <div className={`text-xs p-2 rounded border ${testResultModal.debug.hasPassword ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                      <span className={testResultModal.debug.hasPassword ? 'text-green-700 font-semibold' : 'text-red-700 font-semibold'}>
+                        {testResultModal.debug.hasPassword ? '✅' : '❌'} Password
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Credentials Sources */}
+                <div className="space-y-2 mb-4">
+                  <h5 className="text-xs font-semibold text-[#1a2a5e] uppercase tracking-wide">📍 Anmeldedaten-Quellen</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div className="text-xs bg-white p-2 rounded border">
+                      <span className="text-muted-foreground">Username-Quelle:</span>
+                      <span className="ml-2 font-mono text-[11px]">{testResultModal.debug.usernameSource || 'nicht vorhanden'}</span>
+                    </div>
+                    <div className="text-xs bg-white p-2 rounded border">
+                      <span className="text-muted-foreground">Password-Quelle:</span>
+                      <span className="ml-2 font-mono text-[11px]">{testResultModal.debug.passwordSource || 'nicht vorhanden'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Masked Credentials */}
+                {testResultModal.debug.clientIdMasked && (
+                  <div className="space-y-2 mb-4">
+                    <h5 className="text-xs font-semibold text-[#1a2a5e] uppercase tracking-wide">🔒 Maskierte Zugangsdaten (Audit-Trail)</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <div className="text-xs bg-white p-2 rounded border">
+                        <span className="text-muted-foreground">Client ID:</span>
+                        <span className="ml-2 font-mono">{testResultModal.debug.clientIdMasked}</span>
+                      </div>
+                      <div className="text-xs bg-white p-2 rounded border">
+                        <span className="text-muted-foreground">Username:</span>
+                        <span className="ml-2 font-mono">{testResultModal.debug.usernameMasked}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* OAuth Error Details */}
+                {testResultModal.debug.oauthError && (
+                  <div className="space-y-2 bg-red-50 border border-red-200 rounded p-3">
+                    <h5 className="text-xs font-semibold text-red-700 uppercase tracking-wide">⚠️ OAuth-Fehler</h5>
+                    <div className="text-xs space-y-1">
+                      <div>
+                        <span className="text-red-600 font-semibold">Fehlertyp:</span>
+                        <span className="ml-2 font-mono">{testResultModal.debug.oauthError}</span>
+                      </div>
+                      <div>
+                        <span className="text-red-600 font-semibold">Beschreibung:</span>
+                        <span className="ml-2 font-mono">{testResultModal.debug.oauthErrorDescription || 'Keine Beschreibung'}</span>
+                      </div>
+                    </div>
+
+                    {/* Troubleshooting Suggestions */}
+                    <div className="mt-3 bg-white p-2 rounded border border-red-200 text-xs">
+                      <p className="font-semibold text-[#1a2a5e] mb-2">🔧 Lösungsschritte:</p>
+                      {testResultModal.debug.oauthError === 'invalid_client' && (
+                        <ul className="space-y-1 list-disc list-inside text-muted-foreground">
+                          <li>Client ID und Secret sind falsch ODER</li>
+                          <li>Sandbox-Anmeldedaten auf Production-Endpoint (oder umgekehrt)</li>
+                          <li>Überprüfen Sie App-Anmeldedaten im DHL Developer Portal</li>
+                          <li>Stellen Sie sicher, dass Umgebung mit Endpoint-URL übereinstimmt</li>
+                        </ul>
+                      )}
+                      {testResultModal.debug.oauthError === 'invalid_grant' && (
+                        <ul className="space-y-1 list-disc list-inside text-muted-foreground">
+                          <li>Business Customer Username oder Password sind falsch</li>
+                          <li>Überprüfen Sie Anmeldedaten im DHL Partner Portal</li>
+                          <li>Verwenden Sie die gleichen Daten wie zum Einloggen im Portal</li>
+                        </ul>
+                      )}
+                      {testResultModal.debug.oauthError === 'unauthorized_client' && (
+                        <ul className="space-y-1 list-disc list-inside text-muted-foreground">
+                          <li>App existiert, ist aber nicht autorisiert für Parcel DE Shipping</li>
+                          <li>Im DHL Developer Portal: API Permissions überprüfen</li>
+                          <li>Aktivieren Sie "Parcel DE Shipping" für diese App</li>
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowTestResultModal(false)}>
+              Schließen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

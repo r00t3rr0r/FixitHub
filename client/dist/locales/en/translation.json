@@ -1,5 +1,22 @@
-{
-  "common": {
+  "newsletter": {
+    "subscribeTitle": "Subscribe to Newsletter",
+    "subscribeDesc": "To subscribe to our newsletter, please enter your email address below and click",
+    "subscribeBtn": "Subscribe",
+    "subscribing": "Subscribing...",
+    "unsubscribeAnytime": "Unsubscribe at any time",
+    "email": "Email",
+    "emailPlaceholder": "name@example.com",
+    "emailRequired": "Email required",
+    "emailRequiredDesc": "Please enter your email address.",
+    "success": "Success",
+    "subscribeSuccess": "You have successfully subscribed to the newsletter.",
+    "unsubscribeTitle": "Unsubscribe from Newsletter",
+    "unsubscribeDesc": "To unsubscribe from the newsletter, please enter your email address below and click",
+    "unsubscribeBtn": "Unsubscribe",
+    "unsubscribing": "Unsubscribing...",
+    "unsubscribeSuccess": "Unsubscribed successfully",
+    "unsubscribeSuccessDesc": "You have been unsubscribed from the newsletter."
+  ,
     "welcome": "Welcome",
     "loading": "Loading",
     "error": "Error",
@@ -1988,5 +2005,166 @@
     "error": "Error",
     "workedToday": "Worked today",
     "hours": "hours"
+  },
+  "shippingPayment": {
+    "title": "Shipping and Payment",
+    "subtitle": "Information about payment options, shipping and delivery terms",
+    "howToSend": {
+      "title": "How do I send my device?",
+      "step1Title": "Book a Repair",
+      "step1Desc": "Book a repair and receive a free DHL shipping label in your order confirmation email",
+      "step2Title": "Pack Your Device",
+      "step2Desc": "Pack your device securely and drop it off at a DHL parcel shop",
+      "step3Title": "Perform Repair",
+      "step3Desc": "We repair it quickly and reliably in 1-3 business days (24h for express repair*)",
+      "step4Title": "Receive Your Device",
+      "step4Desc": "You receive your repaired device back to your desired shipping address (1 year quality guarantee)",
+      "moreInfo": "For more information on shipping and proper device packaging, please see our"
+    },
+    "shippingTerms": {
+      "title": "Shipping Terms",
+      "germany": "Germany",
+      "germanyDesc": "Deliveries within Germany are free of charge, no shipping costs will be charged.",
+      "eu": "EU Abroad",
+      "euDesc": "For deliveries to EU countries, you can use your preferred delivery service; unpaid shipments cannot be processed. The costs for shipping to us will not be covered or refunded. Your repaired device will be shipped back as DHL World Packet for €13.99. Delivery via DHL or Austrian Post AG takes place Monday to Saturday within 2 business days.",
+      "nonEu": "Outside the EU",
+      "nonEuDesc": "We cannot deliver outside the EU.",
+      "tracking": "Shipment Tracking",
+      "trackingDesc": "After your repair is completed, you will receive an email with your DHL tracking number so you can track your package at any time. Your package is insured for up to €500 in case of damage or loss during transport."
+    },
+    "deliveryTimes": {
+      "title": "Delivery Times",
+      "info1": "Unless otherwise specified in the respective offer, delivery of goods takes place according to DHL's information within 1-3 business days within Germany, and 2-5 business days for international deliveries after conclusion of the contract (for advance payment after the time of your payment instruction). No delivery takes place on Sundays and public holidays. Please note that we have no control over delivery times, and delivery may be delayed depending on parcel volume at DHL.",
+      "info2": "If you have ordered items with different delivery times, we will ship the goods in one shipment unless we have made different arrangements with you. The delivery time is determined by the item with the longest delivery time you ordered.",
+      "info3": "For pick-up, we will inform you by email or phone about the availability of the goods and pick-up options."
+    },
+    "paymentMethods": {
+      "title": "What payment options do I have?",
+      "boxTitle": "Payment Options",
+      "details": "Further details regarding payment:",
+      "invoice": "Payment by Invoice",
+      "invoiceDesc": "Payment by invoice is only possible for authorities and businesses. The invoice amount must be paid within 7 days of invoice payment.",
+      "sepa": "SEPA Direct Debit",
+      "sepaDesc": "For payment by SEPA direct debit or SEPA corporate direct debit, you authorize us by issuing a corresponding SEPA mandate to collect the invoice amount from the specified account. You will receive a pre-notification (Pre-Notification) at least 5 days before the date of the direct debit. Please note that you are obligated to ensure sufficient coverage of the account on the announced date.",
+      "creditCard": "Credit Card",
+      "creditCardDesc": "For payment by credit card, your credit card account will be charged upon shipment of the goods."
+    },
+    "contact": {
+      "title": "Questions?",
+      "description": "If you have any further questions, please contact our support team.",
+      "hotline": "Service Hotline",
+      "hours": "Opening Hours",
+      "hoursText": "Mon - Fri 10:00 - 12:00 and 14:00 - 16:00"
+    },
+    "expressNote": {
+      "title": "*24h Express Repair",
+      "description": "With our bookable McRepair Express repair, we guarantee that your phone will be 100% repaired and returned on the same day (upon device receipt)! (No express shipping)"
+    },
+    "shippingCostNote": "Shipping cost calculation is only available if you have items in your shopping cart."
+  },
+  "aboutPage": {
+    "header": {
+      "title": "About McRepair.de",
+      "intro": "McRepair is one of the leading service providers for the professional repair of smartphones, tablets and notebooks. Our central workshop based in Berlin works with over 350 drop-off locations nationwide and helps you restore your broken device with absolutely reliable and professional specialists."
+    },
+    "steps": {
+      "title": "How It Works",
+      "step1Title": "Select Device & Repair",
+      "step1Desc": "Choose your device and the required repair from our extensive range",
+      "step2Title": "Send or Drop Off Your Device",
+      "step2Desc": "Use our free shipping service or one of our 350 drop-off locations",
+      "step3Title": "We repair it quickly and reliably",
+      "step3Desc": "Our experienced technicians repair your device in just 1–3 business days",
+      "step4Title": "You receive your repaired device back",
+      "step4Desc": "Your device will be safely returned to you or can be picked up"
+    },
+    "whatWeDo": {
+      "title": "What does McRepair do?",
+      "subtitle": "Simply put: We repair your smartphone, tablet or notebook",
+      "text": "If your smartphone is defective or your tablet is damaged, it is in the best hands with our highly qualified technicians. We are one of the largest repair workshops for smartphones, tablets and notebooks in Germany and can draw on many years of experience. We handle diagnostics and repair – naturally with data preservation. Regardless of whether your Apple iPhone has been dropped or your Samsung Galaxy has charging issues – in many cases it is only minor faults or damage that our specialists can fix quickly and cost-effectively."
+    },
+    "whyUs": {
+      "title": "What sets us apart",
+      "highlightTitle": "Over 350 drop-off locations nationwide and a central main workshop with long-experienced technicians.",
+      "highlightText": "For short response times, we always keep high-quality spare parts for all major manufacturers such as Apple or Samsung in large quantities. Thanks to over 350 drop-off locations nationwide, you can also use our convenient and secure service near you. We are constantly expanding our network. If you cannot find a partner in your region, we are always happy to receive new recommendations. The outward and return shipping of your mobile device with our partner DHL is of course free of charge."
+    },
+    "gallery": {
+      "title": "Gallery",
+      "altWorkshop": "McRepair Workshop",
+      "altLaptop": "McRepair Laptop Repair",
+      "altLaptop2": "McRepair Laptop Repair 2",
+      "altPhone3": "McRepair Smartphone Repair 3",
+      "altPhone2": "McRepair Smartphone Repair 2",
+      "altPhone": "McRepair Smartphone Repair",
+      "altBattery": "McRepair Battery Replacement",
+      "altBattery2": "McRepair Battery Replacement 2"
+    },
+    "locations": {
+      "title": "Our Drop-off Locations",
+      "subtitle": "Drop-off locations across Germany",
+      "text1": "Use one of our 350 drop-off locations across Germany to hand over your device conveniently.",
+      "text2": "Thanks to short turnaround times of just one to three business days, you don't have to go without your smartphone or tablet any longer than absolutely necessary. Put our consistent quality awareness to the test – we will exceed your expectations and quickly make you fully reachable again in your private and professional environment.",
+      "text3Bold": "Where is the nearest drop-off location?",
+      "text3Rest": " Simply check our location search.",
+      "mapAlt": "Germany Drop-off Locations Map"
+    },
+    "manufacturers": {
+      "title": "Manufacturers",
+      "intro": "We carry out repairs for all well-known manufacturers of smartphones, tablets and notebooks. If you have not found your desired manufacturer with us, you are welcome to request an individual price quote for the repair of your device via Contact.",
+      "sonyRepair": "Sony Repair",
+      "googleRepair": "Google Repair",
+      "appleRepair": "Apple Repair",
+      "asusRepair": "Asus Repair",
+      "lgRepair": "LG Repair",
+      "oneplusRepair": "OnePlus Repair",
+      "motorolaRepair": "Motorola Repair",
+      "htcRepair": "HTC Repair"
+    }
+  },
+  "imprint": {
+    "title": "Imprint",
+    "legalProvider": {
+      "heading": "Legal Provider Information",
+      "companyName": "Online Point GmbH",
+      "representative": "represented by Managing Director Julian Szymansky",
+      "address": "Kurfürstenstr. 106",
+      "city": "10787 Berlin",
+      "country": "Germany"
+    },
+    "contact": {
+      "heading": "Contact",
+      "phoneService": "Phone Service",
+      "phoneAdmin": "Phone Administration",
+      "email": "E-Mail",
+      "vatId": "VAT ID"
+    },
+    "companyReg": {
+      "heading": "Company Registration",
+      "intro": "Registered in the Commercial Register of the District Court of Charlottenburg",
+      "regNumber": "Commercial Register Number",
+      "regNumberValue": "HRB 136735 B",
+      "companySeat": "Registered Office",
+      "companySeatValue": "Berlin",
+      "lucidNumber": "LUCID Registration Number",
+      "lucidNumberValue": "DE1709904514391"
+    },
+    "design": {
+      "heading": "Conception, Design & Development"
+    },
+    "disputeResolution": {
+      "heading": "Alternative Dispute Resolution",
+      "text1before": "Alternative dispute resolution pursuant to Art. 14 para. 1 ODR-VO and § 36 VSBG: The European Commission provides a platform for online dispute resolution (ODR) which you can find at ",
+      "text1after": ".",
+      "text2": "We are neither obligated nor willing to participate in dispute resolution proceedings before a consumer arbitration board."
+    },
+    "trademarks": {
+      "heading": "Trademark Notices",
+      "iphone": "The brands iPhone and iPad are registered trademarks of Apple Inc., Cupertino, Calif., US.",
+      "htc": "The brand HTC is a registered trademark of High Tech Computer Corporation, Taoyuan, TW.",
+      "lg": "The brand LG is a registered trademark of LG Corp., Seoul, KR.",
+      "nokia": "The brand Nokia is a registered trademark of Nokia Corporation, Helsinki, FI.",
+      "samsung": "The brand Samsung is a registered trademark of Samsung Electronics Co., Ltd., Suwon Kyonggi, KR.",
+      "sonyEricsson": "The brand Sony Ericsson is a registered trademark of Sony Ericsson Mobile Communications AB, London, UK."
+    }
   }
 }

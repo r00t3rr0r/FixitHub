@@ -26,6 +26,24 @@ export interface Integration {
   apiKey: string;
   apiSecret?: string;
   endpoint?: string;
+  credentials?: {
+    apiKey?: string;
+    apiSecret?: string;
+    apiEndpoint?: string;
+    accountId?: string;
+    clientId?: string;
+    clientSecret?: string;
+    username?: string;
+    password?: string;
+  };
+  metadata?: {
+    environment?: 'sandbox' | 'production' | string;
+    clientId?: string;
+    clientSecret?: string;
+    username?: string;
+    password?: string;
+    [key: string]: any;
+  };
   settings: {
     bookingLabelMode?: 'dummy' | 'live';
     [key: string]: any;

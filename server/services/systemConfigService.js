@@ -463,6 +463,20 @@ class SystemConfigService {
       if (integration.provider === 'DHL') {
         console.log('SystemConfigService: Testing DHL integration');
 
+        if (!integration.apiSecret) {
+          return {
+            success: false,
+            message: 'DHL API Secret (client_secret) is required for OAuth token retrieval'
+          };
+        }
+
+        if (!integration.metadata?.username || !integration.metadata?.password) {
+          return {
+            success: false,
+            message: 'DHL Business Customer username/password are required in integration settings'
+          };
+        }
+
         // Import DHL service for testing
         const DHLService = require('./dhlService');
 
@@ -470,7 +484,11 @@ class SystemConfigService {
         const testResult = await DHLService.testConnection(
           integration.apiKey,
           integration.apiSecret || '',
-          integration.endpoint || 'https://express.api.dhl.com'
+          integration.endpoint || 'https://api-sandbox.dhl.com',
+          {
+            username: integration.metadata?.username,
+            password: integration.metadata?.password
+          }
         );
 
         console.log('SystemConfigService: DHL test result:', testResult);
