@@ -1624,6 +1624,7 @@ export function OrderDetails() {
     }
 
     const normalize = (value: string = '') => value.toLowerCase().replace(/\s+/g, ' ').trim()
+    const normalizeCompact = (value: string = '') => normalize(value).replace(/[^a-z0-9]/g, '')
 
     const resolveDeviceImage = async () => {
       if (!order) {
@@ -1655,6 +1656,7 @@ export function OrderDetails() {
 
       const brand = normalize(order.deviceBrand)
       const model = normalize(order.deviceModel)
+      const compactModel = normalizeCompact(order.deviceModel)
       if (!model) {
         if (!isCancelled) {
           setResolvedDeviceImage(null)
@@ -1663,25 +1665,48 @@ export function OrderDetails() {
       }
 
       try {
-        const query = `${order.deviceBrand || ''} ${order.deviceModel || ''}`.trim() || order.deviceModel
-        const response = await searchDevices(query)
-        const devices: SearchResult[] = ((response as any)?.devices || []) as SearchResult[]
+        const queryCandidates = [
+          `${order.deviceBrand || ''} ${order.deviceModel || ''}`.trim(),
+          order.deviceModel || '',
+          (order.deviceModel || '').replace(/([a-zA-Z])([0-9])/g, '$1 $2').trim(),
+          (order.deviceModel || '').replace(/\s+/g, '').trim(),
+        ]
+          .map((candidate) => candidate.trim())
+          .filter((candidate, index, all) => candidate.length > 0 && all.indexOf(candidate) === index)
+
+        let devices: SearchResult[] = []
+        for (const query of queryCandidates) {
+          const response = await searchDevices(query)
+          const foundDevices: SearchResult[] = ((response as any)?.devices || []) as SearchResult[]
+          if (foundDevices.length > 0) {
+            devices = foundDevices
+            break
+          }
+        }
 
         const exactBrandAndModel = devices.find((device) => {
           const name = normalize(device.name)
+          const compactName = normalizeCompact(device.name)
           const manufacturer = normalize(device.manufacturer)
-          return Boolean(device.image) && name === model && (!brand || manufacturer === brand)
+          return Boolean(device.image) && (name === model || (compactModel && compactName === compactModel)) && (!brand || manufacturer === brand)
         })
 
         const sameModel = devices.find((device) => {
           const name = normalize(device.name)
-          return Boolean(device.image) && name === model
+          const compactName = normalizeCompact(device.name)
+          return Boolean(device.image) && (name === model || (compactModel && compactName === compactModel))
         })
 
         const fuzzyMatch = devices.find((device) => {
           const name = normalize(device.name)
           const displayName = normalize(device.displayName)
-          return Boolean(device.image) && (displayName.includes(model) || model.includes(name))
+          const compactName = normalizeCompact(device.name)
+          const compactDisplayName = normalizeCompact(device.displayName)
+          return Boolean(device.image) && (
+            displayName.includes(model) ||
+            model.includes(name) ||
+            (compactModel ? compactDisplayName.includes(compactModel) || compactModel.includes(compactName) : false)
+          )
         })
 
         const bestMatch = exactBrandAndModel || sameModel || fuzzyMatch || devices.find((device) => Boolean(device.image))
@@ -1712,6 +1737,8 @@ export function OrderDetails() {
       orderAny.deviceModelImage,
       orderAny.device?.image,
       orderAny.deviceModel?.image,
+      orderAny.deviceModel?.images?.[0]?.url,
+      orderAny.deviceModel?.images?.[0]?.base64,
       orderAny.deviceModelId?.image,
       orderAny.deviceModelId?.images?.[0]?.url,
       orderAny.deviceModelId?.images?.[0]?.base64,
@@ -1731,6 +1758,8 @@ export function OrderDetails() {
     const orderAny = order as any
     const modelImageCandidates: unknown[] = [
       resolvedDeviceImage,
+      orderAny.deviceModelImage,
+      orderAny.deviceImage,
       orderAny.deviceModelId?.image,
       orderAny.deviceModelId?.images?.[0]?.url,
       orderAny.deviceModelId?.images?.[0]?.base64,
@@ -4183,9 +4212,9 @@ export function OrderDetails() {
               </>
             ) : (
               <div className="customer-dashboard-device-head">
-                {getDeviceImage(order) ? (
+                {getDeviceModelPreviewImage(order) ? (
                   <img
-                    src={getDeviceImage(order)}
+                    src={getDeviceModelPreviewImage(order) as string}
                     alt={`${order.deviceBrand} ${order.deviceModel}`}
                     className="customer-dashboard-device-image"
                     onError={(e) => {
@@ -4195,7 +4224,7 @@ export function OrderDetails() {
                     }}
                   />
                 ) : null}
-                <div className="customer-dashboard-device-placeholder" style={{ display: getDeviceImage(order) ? 'none' : 'flex' }}>
+                <div className="customer-dashboard-device-placeholder" style={{ display: getDeviceModelPreviewImage(order) ? 'none' : 'flex' }}>
                   <Smartphone className="h-6 w-6" />
                 </div>
                 <div className="customer-dashboard-device-copy">
