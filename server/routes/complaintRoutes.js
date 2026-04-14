@@ -76,7 +76,10 @@ async function notifyAdminsAboutComplaint(complaint, customer, order) {
         await EmailService.sendTemplateEmail('Statusupdate Auftrag oder Buchung', admin.email, {
           companyName: 'McRepair.de',
           customerName: 'Admin Team',
+          orderId: order._id,
           orderNumber: order.orderNumber,
+          deviceBrand: order.deviceBrand || '',
+          deviceModel: order.deviceModel || '',
           orderStatus: 'Reklamation eingegangen',
           statusMessage: notificationText,
           statusUpdatedAt: new Date().toLocaleDateString('de-DE'),

@@ -623,6 +623,39 @@
   margin-bottom: 0.45rem;
 }
 
+.booking-detail-order-main {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.booking-detail-repair-device-media {
+  flex: 0 0 auto;
+}
+
+.booking-detail-repair-device-image,
+.booking-detail-repair-device-placeholder {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid #d8dce6;
+}
+
+.booking-detail-repair-device-image {
+  object-fit: cover;
+  display: block;
+  background: #ffffff;
+}
+
+.booking-detail-repair-device-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef3ff;
+  color: #1a2a5e;
+}
+
 .booking-detail-order-number {
   font-size: 0.64rem;
   font-weight: 700;
@@ -912,6 +945,10 @@
     align-items: flex-start;
   }
 
+  .booking-detail-order-main {
+    width: 100%;
+  }
+
   .booking-detail-order-meta {
     grid-template-columns: 1fr;
   }
@@ -1013,6 +1050,13 @@
 
   .booking-detail-order-number {
     font-size: 0.56rem;
+  }
+
+  .booking-detail-repair-device-image,
+  .booking-detail-repair-device-placeholder {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
   }
 
   .booking-detail-product-row {

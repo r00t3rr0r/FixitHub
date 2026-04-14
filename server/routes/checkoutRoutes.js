@@ -723,11 +723,31 @@ router.post('/guest-complete', async (req, res) => {
         ? `/track-order/booking?token=${encodeURIComponent(bookingToken)}&email=${encodeURIComponent(guestInfo.email)}`
         : '/track-order/booking';
 
-      const itemSummary = createdOrders
-        .map((order) => `${order.orderNumber} (${order.status || 'pending'})`)
-        .join(', ');
+      const itemSummaryParts = await Promise.all(createdOrders.map(async (order, index) => {
+        if (order.deviceType === 'Shop Products') {
+          return `<strong>Position ${index + 1}: Produktbestellung</strong><br />Auftrag: ${order.orderNumber} (${order.status || 'pending'})`;
+        }
+
+        const deviceBrand = String(order.deviceBrand || '').trim();
+        const deviceModel = String(order.deviceModel || '').trim();
+        const modelImageUrl = await EmailService.resolveDeviceModelImageUrl({ deviceBrand, deviceModel });
+        const deviceVisual = EmailService.buildDeviceModelVisualHtml({ deviceBrand, deviceModel, imageUrl: modelImageUrl });
+
+        return `
+          <div style="border:1px solid #d8dce6;border-radius:14px;padding:12px 14px;background:#ffffff;">
+            <div style="font-size:14px;font-weight:700;color:#1a2a5e;margin-bottom:10px;">Position ${index + 1}: Reparatur</div>
+            <div style="margin-bottom:10px;">${deviceVisual}</div>
+            <div style="font-size:13px;line-height:1.6;color:#2d3748;word-break:break-word;overflow-wrap:anywhere;">
+              <div><strong>Auftrag:</strong> ${order.orderNumber} (${order.status || 'pending'})</div>
+            </div>
+          </div>
+        `.trim();
+      }));
+
+      const itemSummary = `${createdOrders.length} Position(en)<br /><br />${itemSummaryParts.join('<br /><br />')}`;
 
       console.log('CheckoutRoutes: Sending guest booking tracking email');
+      const firstRepairOrder = createdOrders.find((order) => order.deviceType !== 'Shop Products');
       let emailResult = await EmailService.sendTriggerEmail('guest_booking_created', guestInfo.email, {
         companyName: process.env.COMPANY_NAME || 'McRepair.de',
         customerName: `${guestInfo.firstName} ${guestInfo.lastName}`,
@@ -736,6 +756,8 @@ router.post('/guest-complete', async (req, res) => {
         itemSummary,
         totalAmount: `€${Number(totalAmount || 0).toFixed(2)}`,
         bookingStatus: booking?.status || 'pending',
+        deviceBrand: firstRepairOrder?.deviceBrand || '',
+        deviceModel: firstRepairOrder?.deviceModel || '',
         bookingUrl: bookingTrackingPath,
         shippingLabelUrl: booking?.shippingLabelUrl || bookingTrackingPath,
         supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',

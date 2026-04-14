@@ -1,4 +1,5 @@
 const EmailService = require('./emailService');
+const ContactMessageService = require('./contactMessageService');
 
 const SUBJECT_LABELS = {
   repair: 'Reparaturanfrage',
@@ -17,6 +18,10 @@ const escapeHtml = (value = '') => String(value)
 
 class ContactService {
   static async submitInquiry(data) {
+    // Save to database asynchronously (don't block)
+    ContactMessageService.saveContactMessage(data).catch(err => {
+      console.error('ContactService: Failed to save message to database:', err);
+    });
     const transporter = await EmailService.getTransporter();
     const subjectLabel = SUBJECT_LABELS[data.subject] || SUBJECT_LABELS.other;
     const supportEmail = process.env.SUPPORT_EMAIL || process.env.SMTP_FROM || 'support@fixithub.com';

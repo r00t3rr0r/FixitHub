@@ -99,12 +99,22 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
+import { ContactMessagesPanel } from "@/components/admin/ContactMessagesPanel"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
 
 export function RepairRequestsManagement() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { toast } = useToast()
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState("repair-requests")
 
   const [requests, setRequests] = useState<RepairRequest[]>([])
   const [filteredRequests, setFilteredRequests] = useState<RepairRequest[]>([])
@@ -607,6 +617,23 @@ export function RepairRequestsManagement() {
 
   return (
     <div className="repair-requests-management">
+      {/* Tab Navigation */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="repair-requests" className="flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            <span className="hidden sm:inline">Reparaturanfragen</span>
+            <span className="sm:hidden">Anfragen</span>
+          </TabsTrigger>
+          <TabsTrigger value="contact-messages" className="flex items-center gap-2">
+            <Mail className="w-4 h-4" />
+            <span className="hidden sm:inline">Kontaktanfragen</span>
+            <span className="sm:hidden">Kontakt</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Repair Requests Tab */}
+        <TabsContent value="repair-requests" className="space-y-4 mt-4">
       {/* Header */}
       <div className="repair-requests-header">
         <h1>
@@ -1513,6 +1540,13 @@ export function RepairRequestsManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+        </TabsContent>
+
+        {/* Contact Messages Tab */}
+        <TabsContent value="contact-messages" className="space-y-4 mt-4">
+          <ContactMessagesPanel />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

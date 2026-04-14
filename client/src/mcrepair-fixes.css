@@ -90,3 +90,50 @@ section.section {
   box-sizing: border-box;
   overflow-x: hidden;
 }
+
+/* iOS Safari: prevent smart-zoom/text-rescale in step 5 additional info accordion */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 480px) {
+    .config-step-content[data-step="5"],
+    .config-step-content[data-step="5"] * {
+      -webkit-text-size-adjust: 100% !important;
+      text-size-adjust: 100% !important;
+    }
+
+    .config-step5-additional-toggle,
+    .config-step5-additional-panel,
+    .config-step5-additional-panel input,
+    .config-step5-additional-panel textarea,
+    .config-step5-additional-panel select,
+    .config-step-content[data-step="5"] input,
+    .config-step-content[data-step="5"] textarea,
+    .config-step-content[data-step="5"] select {
+      font-size: 16px !important;
+      touch-action: manipulation;
+    }
+
+    .config-step5-additional-toggle h4 {
+      font-size: 16px !important;
+      line-height: 1.3;
+    }
+
+    .config-step5-additional-toggle p {
+      font-size: 14px !important;
+      line-height: 1.35;
+    }
+
+    .config-step5-additional-panel {
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow-x: hidden !important;
+      box-sizing: border-box !important;
+      padding: 14px !important;
+    }
+  }
+
+  @media (max-width: 360px) {
+    .config-step5-additional-panel [style*="grid-template-columns: repeat(3, minmax(0, 1fr))"] {
+      grid-template-columns: 1fr !important;
+    }
+  }
+}

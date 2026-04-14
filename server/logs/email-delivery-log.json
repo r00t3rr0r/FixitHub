@@ -2451,5 +2451,93 @@
         "supportPhone"
       ]
     }
+  },
+  {
+    "id": "1776112305676-ja72fk2hm",
+    "timestamp": "2026-04-13T20:31:45.676Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0024 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<9480570b-23e3-6ea4-51f3-e7bd5d84aa4c@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1588,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1776158504408-j95d8huya",
+    "timestamp": "2026-04-14T09:21:44.408Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0025 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<45f678fd-ba94-c7d4-e9b5-2ff7e590d814@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1477,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1776166222072-vi1z5yiyk",
+    "timestamp": "2026-04-14T11:30:22.072Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Kontaktformular Bestaetigung an Absender",
+    "subject": "Wir haben Ihre Anfrage erhalten - McRepair.de",
+    "messageId": "<e74a36cb-d956-3143-4d16-853e6e54faa5@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1199,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "contactSubject",
+        "submittedAt",
+        "messagePreview",
+        "supportEmail",
+        "supportPhone",
+        "contactUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

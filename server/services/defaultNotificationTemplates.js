@@ -1,4 +1,4 @@
-const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 11;
+const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 12;
 
 const brand = {
   companyName: 'Mc<span style="color:#f5b800;font-weight:800;">Repair</span>.de',
@@ -165,27 +165,62 @@ function renderEmailTemplate({
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${title}</title>
+  <style>
+    @media only screen and (max-width: 520px) {
+      .email-shell {
+        padding: 14px 6px !important;
+      }
+
+      .email-panel {
+        border-radius: 16px !important;
+      }
+
+      .email-header {
+        padding: 22px 18px !important;
+      }
+
+      .email-body,
+      .email-footer {
+        padding: 20px 18px !important;
+      }
+
+      .email-title {
+        font-size: 24px !important;
+        line-height: 1.25 !important;
+      }
+
+      .email-intro {
+        font-size: 15px !important;
+        line-height: 1.6 !important;
+      }
+
+      .email-body {
+        word-break: break-word !important;
+        overflow-wrap: anywhere !important;
+      }
+    }
+  </style>
 </head>
 <body style="margin:0;padding:0;background:${brand.background};font-family:'Segoe UI',Arial,sans-serif;color:${brand.text};">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${preheader}</div>
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${brand.background};padding:24px 12px;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="email-shell" style="background:${brand.background};padding:24px 12px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:${brand.surface};border-radius:24px;overflow:hidden;box-shadow:0 12px 32px rgba(15,29,69,0.12);">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="email-panel" style="max-width:680px;background:${brand.surface};border-radius:24px;overflow:hidden;box-shadow:0 12px 32px rgba(15,29,69,0.12);">
           <tr>
             <td style="height:8px;background:${brand.accent};font-size:0;line-height:0;">&nbsp;</td>
           </tr>
           <tr>
-            <td style="padding:32px 36px;background:${brand.primary};">
+            <td class="email-header" style="padding:32px 36px;background:${brand.primary};">
               <div style="font-size:12px;line-height:1;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:rgba(255,255,255,0.72);margin-bottom:14px;">${eyebrow}</div>
               <div style="font-size:30px;line-height:1.2;font-weight:800;color:#ffffff;letter-spacing:-0.03em;">${brand.companyName}</div>
               <div style="width:72px;height:4px;border-radius:999px;background:${brand.accent};margin:22px 0 0 0;"></div>
             </td>
           </tr>
           <tr>
-            <td style="padding:36px;">
-              <h1 style="margin:0 0 14px 0;font-size:30px;line-height:1.2;font-weight:800;color:${brand.primaryDark};letter-spacing:-0.03em;">${title}</h1>
-              <p style="margin:0 0 24px 0;font-size:16px;line-height:1.7;color:${brand.muted};">${intro}</p>
+            <td class="email-body" style="padding:36px;">
+              <h1 class="email-title" style="margin:0 0 14px 0;font-size:30px;line-height:1.2;font-weight:800;color:${brand.primaryDark};letter-spacing:-0.03em;">${title}</h1>
+              <p class="email-intro" style="margin:0 0 24px 0;font-size:16px;line-height:1.7;color:${brand.muted};">${intro}</p>
               ${renderHighlights(highlights)}
               ${(detailRows && detailRows.length) || extraTableRows ? `
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 24px 0;border-collapse:collapse;">
@@ -207,7 +242,7 @@ function renderEmailTemplate({
             </td>
           </tr>
           <tr>
-            <td style="padding:24px 36px 32px 36px;background:#f8f9fc;border-top:1px solid ${brand.border};font-size:12px;line-height:1.7;color:${brand.muted};">
+            <td class="email-footer" style="padding:24px 36px 32px 36px;background:#f8f9fc;border-top:1px solid ${brand.border};font-size:12px;line-height:1.7;color:${brand.muted};">
               ${footerNote}<br />
               Bei Fragen erreichen Sie uns unter <a href="mailto:{{supportEmail}}" style="color:${brand.primary};font-weight:700;text-decoration:none;">{{supportEmail}}</a> oder telefonisch unter {{supportPhone}}.
             </td>
@@ -270,7 +305,7 @@ function getDefaultNotificationTemplates() {
         ],
         detailRows: [
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
-          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
           { label: 'Leistung', value: '{{serviceName}}' },
           { label: 'Voraussichtliche Fertigstellung', value: '{{estimatedCompletion}}' }
         ],
@@ -286,6 +321,7 @@ function getDefaultNotificationTemplates() {
         createVariable('orderNumber', 'Auftragsnummer', true),
         createVariable('deviceBrand', 'Geraetemarke', true),
         createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
         createVariable('serviceName', 'Gebuchte Reparaturleistung', true),
         createVariable('estimatedCompletion', 'Geschaetztes Fertigstellungsdatum'),
         createVariable('trackingUrl', 'Link zur Auftragsverfolgung', true),
@@ -309,6 +345,7 @@ function getDefaultNotificationTemplates() {
         ],
         detailRows: [
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
+          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
           { label: 'Buchungsstatus', value: '{{bookingStatus}}' },
           { label: 'Reparaturstatus', value: '{{orderStatus}}' },
           { label: 'Aktualisiert am', value: '{{statusUpdatedAt}}' }
@@ -324,6 +361,9 @@ function getDefaultNotificationTemplates() {
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('orderNumber', 'Auftragsnummer', true),
         createVariable('bookingStatus', 'Status der Buchung'),
+        createVariable('deviceBrand', 'Geraetemarke'),
+        createVariable('deviceModel', 'Geraetemodell'),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
         createVariable('orderStatus', 'Status des Reparaturauftrags', true),
         createVariable('statusMessage', 'Zusaetzlicher Hinweis zum Status'),
         createVariable('statusUpdatedAt', 'Zeitpunkt der Statusaenderung'),
@@ -348,7 +388,7 @@ function getDefaultNotificationTemplates() {
         ],
         detailRows: [
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
-          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
           { label: 'Eingangsdatum', value: '{{receivedAt}}' }
         ],
         body: '<p style="margin:0 0 16px 0;">Nach der Erstpruefung informieren wir Sie, sobald die Reparatur startet oder wenn Rueckfragen zum Geraet bestehen.</p><p style="margin:0;">Bitte bewahren Sie Ihre Auftragsnummer fuer eventuelle Rueckfragen auf.</p>',
@@ -363,6 +403,7 @@ function getDefaultNotificationTemplates() {
         createVariable('orderNumber', 'Auftragsnummer', true),
         createVariable('deviceBrand', 'Geraetemarke', true),
         createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
         createVariable('receivedAt', 'Datum des Wareneingangs'),
         createVariable('trackingUrl', 'Link zur Auftragsverfolgung', true),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
@@ -385,6 +426,7 @@ function getDefaultNotificationTemplates() {
         ],
         detailRows: [
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
+          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
           { label: 'Diagnose abgeschlossen am', value: '{{diagnosisCompletedAt}}' },
           { label: 'Zustand', value: '{{deviceCondition}}' },
           { label: 'Empfohlene Massnahme', value: '{{recommendedAction}}' }
@@ -401,6 +443,7 @@ function getDefaultNotificationTemplates() {
         createVariable('orderNumber', 'Auftragsnummer', true),
         createVariable('deviceBrand', 'Geraetemarke', true),
         createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
         createVariable('diagnosisResult', 'Kernaussage des Diagnoseergebnisses (z.B. Reparierbar / Nicht reparierbar)', true),
         createVariable('diagnosisCompletedAt', 'Datum und Uhrzeit des Diagnoseabschlusses', true),
         createVariable('deviceCondition', 'Zustand des Geraetes nach Diagnose'),
@@ -426,7 +469,7 @@ function getDefaultNotificationTemplates() {
         ],
         detailRows: [
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
-          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
           { label: 'Empfohlene Leistung', value: '{{serviceName}}' },
           { label: 'Freigabe bis', value: '{{approvalDeadline}}' }
         ],
@@ -442,6 +485,7 @@ function getDefaultNotificationTemplates() {
         createVariable('orderNumber', 'Auftragsnummer', true),
         createVariable('deviceBrand', 'Geraetemarke', true),
         createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
         createVariable('serviceName', 'Empfohlene Reparaturleistung'),
         createVariable('quoteAmount', 'Betrag des Kostenvoranschlags', true),
         createVariable('approvalDeadline', 'Frist fuer die Freigabe'),
@@ -466,7 +510,7 @@ function getDefaultNotificationTemplates() {
         ],
         detailRows: [
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
-          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
           { label: 'Ruecksendungsnummer', value: '{{returnTrackingNumber}}' }
         ],
         body: '<p style="margin:0 0 16px 0;">Falls Ihr Geraet versendet wurde, koennen Sie den Versandstatus online verfolgen. Sollte eine Abholung vorgesehen sein, teilen wir Ihnen die relevanten Informationen direkt mit.</p><p style="margin:0;">Bitte pruefen Sie nach Erhalt kurz die Funktion und melden Sie sich bei Unklarheiten jederzeit bei uns.</p>',
@@ -481,6 +525,7 @@ function getDefaultNotificationTemplates() {
         createVariable('orderNumber', 'Auftragsnummer', true),
         createVariable('deviceBrand', 'Geraetemarke', true),
         createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
         createVariable('returnShipmentStatus', 'Status des Rueckversands'),
         createVariable('returnTrackingNumber', 'Sendungsnummer fuer den Rueckversand'),
         createVariable('trackingUrl', 'Link zur Sendungsverfolgung', true),
@@ -709,7 +754,7 @@ function getDefaultNotificationTemplates() {
         ],
         detailRows: [
           { label: 'Buchungsnummer', value: '{{bookingNumber}}' },
-          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
           { label: 'Abholbereit seit', value: '{{readySince}}' },
           { label: 'Aufbewahrung bis', value: '{{holdUntil}}' }
         ],
@@ -725,6 +770,7 @@ function getDefaultNotificationTemplates() {
         createVariable('bookingNumber', 'Buchungsnummer', true),
         createVariable('deviceBrand', 'Geraetemarke'),
         createVariable('deviceModel', 'Geraetemodell'),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
         createVariable('pickupHours', 'Oeffnungszeiten fuer die Abholung'),
         createVariable('workshopAddress', 'Adresse der Werkstatt / Filiale'),
         createVariable('readySince', 'Zeitpunkt der Fertigstellung'),
