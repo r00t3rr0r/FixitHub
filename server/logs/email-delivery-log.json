@@ -2511,5 +2511,33 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1776166222072-vi1z5yiyk",
+    "timestamp": "2026-04-14T11:30:22.072Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Kontaktformular Bestaetigung an Absender",
+    "subject": "Wir haben Ihre Anfrage erhalten - McRepair.de",
+    "messageId": "<e74a36cb-d956-3143-4d16-853e6e54faa5@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1199,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "contactSubject",
+        "submittedAt",
+        "messagePreview",
+        "supportEmail",
+        "supportPhone",
+        "contactUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]
