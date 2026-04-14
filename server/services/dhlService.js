@@ -362,8 +362,10 @@ class DHLService {
 
       // Use receiver name from shipmentData if provided, otherwise use customer name
       const receiverName = shipmentData.receiverName || customer?.name || 'Customer';
-      const shipmentPayload = shipmentData?.parcelDeOrderPayload || {
-        profile: shipmentData.profile || parcelDeConfig.profile,
+      const singleShipment = shipmentData?.parcelDeOrderPayload || {
+        product: shipmentData.product || parcelDeConfig.product,
+        billingNumber: accountId,
+        shipDate: shipmentData.shipmentDate || new Date().toISOString().slice(0, 10),
         shipper: {
           name1: shipmentData.shipperName || dhlConfig.settings?.shipperCompany || 'FixitHub GmbH',
           addressStreet: shipmentData.shipperStreet || dhlConfig.settings?.shipperStreet || 'Company Street',
@@ -372,28 +374,30 @@ class DHLService {
           city: shipmentData.shipperCity || dhlConfig.settings?.shipperCity || 'Berlin',
           country: this.countryCodeToIso3(shipmentData.shipperCountry || dhlConfig.settings?.shipperCountry || 'DE'),
           email: shipmentData.shipperEmail || dhlConfig.settings?.shipperEmail || 'info@fixithub.com',
-          phone: shipmentData.shipperPhone || dhlConfig.settings?.shipperPhone || '+49301234567'
+          phone: (shipmentData.shipperPhone || dhlConfig.settings?.shipperPhone || '+49301234567').substring(0, 20)
         },
-        receiver: {
+        consignee: {
           name1: receiverName,
           addressStreet: receiverStreet,
           addressHouse: order.shippingAddress?.number || shipmentData.receiverNumber || '1',
           postalCode: receiverPostalCode,
           city: receiverCity,
           country: this.countryCodeToIso3(receiverCountry),
-          email: shipmentData.receiverEmail || customer?.email,
-          phone: shipmentData.receiverPhone || customer?.phone
+          email: shipmentData.receiverEmail || customer?.email || '',
+          phone: (shipmentData.receiverPhone || customer?.phone || '+49301234567').substring(0, 20) // DHL requires 1-20 chars
         },
-        shipmentDetails: {
-          product: shipmentData.product || parcelDeConfig.product,
-          accountNumber: accountId,
-          shipmentDate: shipmentData.shipmentDate || new Date().toISOString().slice(0, 10)
-        },
-        parcels: [
-          {
-            weight: Number(shipmentData.weight || 1)
+        details: {
+          weight: {
+            uom: 'kg',
+            value: Number(shipmentData.weight || 1)
           }
-        ]
+        }
+      };
+
+      // Wrap in shipments array as required by DHL Parcel DE Shipping v2 API
+      const shipmentPayload = {
+        profile: shipmentData.profile || parcelDeConfig.profile,
+        shipments: [singleShipment]
       };
 
       console.log('DHLService: Sending shipment request to DHL Parcel DE Shipping API');

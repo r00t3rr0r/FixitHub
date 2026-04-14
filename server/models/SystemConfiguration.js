@@ -63,18 +63,8 @@ const integrationSchema = new mongoose.Schema({
   },
   // Flexible credentials object to support different integration requirements
   credentials: {
-    apiKey: {
-      type: String
-    },
-    apiSecret: {
-      type: String
-    },
-    apiEndpoint: {
-      type: String
-    },
-    accountId: {
-      type: String
-    }
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
   },
   // Flexible metadata object for additional configuration
   metadata: {
