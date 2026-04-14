@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import "./CustomerBookings.css";
 import {
   Package,
+  Smartphone,
   Calendar,
   Clock,
   ChevronDown,
@@ -61,6 +62,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getBookings, getBookingOrders, getBooking } from "@/api/bookings";
+import { searchDevices, SearchResult } from "@/api/devices";
 import { getUnreadMessageCounts } from "@/api/inspectionCommunication";
 import { useToast } from "@/hooks/useToast";
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel";
@@ -1276,6 +1278,123 @@ function BookingDetailDialog({
 }: BookingDetailDialogProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("overview");
+  const [repairModelImages, setRepairModelImages] = useState<Record<string, string>>({});
+  const [repairImageLoadErrors, setRepairImageLoadErrors] = useState<Record<string, boolean>>({});
+
+  const repairItems = (booking.items || []).filter((item) => item.type === 'repair');
+
+  const getRepairImageKey = (item: Booking['items'][number], index: number) => {
+    return String(item.orderId || item._id || `${item.device || 'repair'}-${index}`);
+  };
+
+  const normalizeDeviceText = (value: string = '') => value.toLowerCase().replace(/\s+/g, ' ').trim();
+  const normalizeDeviceTextCompact = (value: string = '') => normalizeDeviceText(value).replace(/[^a-z0-9]/g, '');
+
+  const parseDeviceLabel = (label: string = '') => {
+    const normalized = label.replace(/\s+/g, ' ').trim();
+    if (!normalized) {
+      return { brand: '', model: '' };
+    }
+
+    const parts = normalized.split(' ');
+    if (parts.length < 2) {
+      return { brand: normalized, model: '' };
+    }
+
+    return {
+      brand: parts[0],
+      model: parts.slice(1).join(' '),
+    };
+  };
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const resolveRepairModelImages = async () => {
+      if (!open || !repairItems.length) {
+        setRepairModelImages({});
+        setRepairImageLoadErrors({});
+        return;
+      }
+
+      const nextImages: Record<string, string> = {};
+
+      for (let index = 0; index < repairItems.length; index += 1) {
+        const item = repairItems[index];
+        const imageKey = getRepairImageKey(item, index);
+        const { brand, model } = parseDeviceLabel(item.device || '');
+
+        const queryCandidates = [
+          `${brand} ${model}`.trim(),
+          model,
+          model.replace(/([a-zA-Z])([0-9])/g, '$1 $2').trim(),
+          model.replace(/\s+/g, '').trim(),
+          item.device || '',
+        ]
+          .map((candidate) => candidate.trim())
+          .filter((candidate, candidateIndex, all) => candidate.length > 0 && all.indexOf(candidate) === candidateIndex);
+
+        let devices: SearchResult[] = [];
+        for (const query of queryCandidates) {
+          try {
+            const response = await searchDevices(query);
+            const foundDevices: SearchResult[] = ((response as any)?.devices || []) as SearchResult[];
+            if (foundDevices.length > 0) {
+              devices = foundDevices;
+              break;
+            }
+          } catch (searchError) {
+            console.error('CustomerBookings: Failed to resolve device image from search query:', query, searchError);
+          }
+        }
+
+        const normalizedBrand = normalizeDeviceText(brand);
+        const normalizedModel = normalizeDeviceText(model);
+        const compactModel = normalizeDeviceTextCompact(model);
+
+        const exactBrandAndModel = devices.find((device) => {
+          const name = normalizeDeviceText(device.name);
+          const compactName = normalizeDeviceTextCompact(device.name);
+          const manufacturer = normalizeDeviceText(device.manufacturer);
+          return Boolean(device.image) && (name === normalizedModel || (compactModel && compactName === compactModel)) && (!normalizedBrand || manufacturer === normalizedBrand);
+        });
+
+        const sameModel = devices.find((device) => {
+          const name = normalizeDeviceText(device.name);
+          const compactName = normalizeDeviceTextCompact(device.name);
+          return Boolean(device.image) && (name === normalizedModel || (compactModel && compactName === compactModel));
+        });
+
+        const fuzzyMatch = devices.find((device) => {
+          const name = normalizeDeviceText(device.name);
+          const displayName = normalizeDeviceText(device.displayName);
+          const compactName = normalizeDeviceTextCompact(device.name);
+          const compactDisplayName = normalizeDeviceTextCompact(device.displayName);
+          return Boolean(device.image) && (
+            displayName.includes(normalizedModel) ||
+            normalizedModel.includes(name) ||
+            (compactModel ? compactDisplayName.includes(compactModel) || compactModel.includes(compactName) : false)
+          );
+        });
+
+        const bestMatch = exactBrandAndModel || sameModel || fuzzyMatch || devices.find((device) => Boolean(device.image));
+        if (bestMatch?.image) {
+          nextImages[imageKey] = bestMatch.image;
+        }
+      }
+
+      if (!isCancelled) {
+        setRepairModelImages(nextImages);
+        setRepairImageLoadErrors({});
+      }
+    };
+
+    resolveRepairModelImages();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [open, booking._id, repairItems.length]);
   const hasOutboundShipping = Boolean(
     booking.trackingNumber ||
     booking.shippingLabelUrl ||
@@ -1456,18 +1575,41 @@ function BookingDetailDialog({
           </TabsContent>
 
           <TabsContent value="repairs" className="space-y-3 mt-3 sm:mt-5">
-            {booking.items && booking.items.filter(item => item.type === 'repair').length > 0 ? (
+            {repairItems.length > 0 ? (
               <div className="space-y-3">
-                {booking.items.filter(item => item.type === 'repair').map((item) => (
+                {repairItems.map((item, index) => {
+                  const imageKey = getRepairImageKey(item, index);
+                  const modelImage = repairModelImages[imageKey];
+                  const showModelImage = Boolean(modelImage) && !repairImageLoadErrors[imageKey];
+
+                  return (
                   <div
                     key={item._id || item.orderId}
                     className="booking-detail-order-card bg-white border-2 border-[var(--gray-200,#d8dce6)] rounded-lg p-3 sm:p-4 hover:border-[var(--accent-yellow,#f5b800)] hover:shadow-lg cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
                     onClick={() => item.orderId && handleViewOrder(item.orderId)}
                   >
                     <div className="booking-detail-order-head">
-                      <div className="min-w-0">
-                        <p className="booking-detail-order-number">{item.orderId ? `Auftrag ${item.orderId.slice(-8).toUpperCase()}` : 'Auftrag'}</p>
-                        <h4 className="font-bold text-sm sm:text-base text-[var(--gray-800,#1a202c)] truncate">{item.device || 'Gerät Reparatur'}</h4>
+                      <div className="booking-detail-order-main min-w-0">
+                        <div className="booking-detail-repair-device-media">
+                          {showModelImage ? (
+                            <img
+                              src={modelImage}
+                              alt={item.device || 'Gerät Reparatur'}
+                              className="booking-detail-repair-device-image"
+                              onError={() => {
+                                setRepairImageLoadErrors((previous) => ({ ...previous, [imageKey]: true }));
+                              }}
+                            />
+                          ) : (
+                            <div className="booking-detail-repair-device-placeholder" aria-hidden="true">
+                              <Smartphone className="h-5 w-5" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="booking-detail-order-number">{item.orderId ? `Auftrag ${item.orderId.slice(-8).toUpperCase()}` : 'Auftrag'}</p>
+                          <h4 className="font-bold text-sm sm:text-base text-[var(--gray-800,#1a202c)] truncate">{item.device || 'Gerät Reparatur'}</h4>
+                        </div>
                       </div>
                       <Badge className={`${getStatusColor(item.status || 'pending')} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>
                         {item.status || 'pending'}
@@ -1507,7 +1649,7 @@ function BookingDetailDialog({
                       </div>
                     )}
                   </div>
-                ))}
+                )})}
               </div>
             ) : (
               <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-[var(--gray-300,#b0b8c9)]">

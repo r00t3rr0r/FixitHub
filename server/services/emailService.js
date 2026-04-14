@@ -296,16 +296,16 @@ class EmailService {
 
     if (safeImageUrl) {
       return `
-<div style="display:flex;align-items:center;gap:10px;">
-  <img src="${this.escapeHtml(safeImageUrl)}" alt="${deviceLabel}" style="display:block;width:56px;height:56px;object-fit:cover;border-radius:12px;border:1px solid #d8dce6;background:#ffffff;" />
-  <div style="font-size:14px;line-height:1.5;color:#2d3748;font-weight:600;">${deviceLabel}</div>
+<div style="display:block;max-width:220px;">
+  <img src="${this.escapeHtml(safeImageUrl)}" alt="${deviceLabel}" style="display:block;width:56px;height:56px;object-fit:cover;border-radius:12px;border:1px solid #d8dce6;background:#ffffff;margin:0 0 8px 0;" />
+  <div style="font-size:14px;line-height:1.5;color:#2d3748;font-weight:600;word-break:break-word;overflow-wrap:anywhere;">${deviceLabel}</div>
 </div>`.trim();
     }
 
     return `
-<div style="display:flex;align-items:center;gap:10px;">
-  <div style="display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:12px;border:1px solid #d8dce6;background:#eef3ff;color:#1a2a5e;font-size:24px;line-height:1;">📱</div>
-  <div style="font-size:14px;line-height:1.5;color:#2d3748;font-weight:600;">${deviceLabel}</div>
+<div style="display:block;max-width:220px;">
+  <div style="display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:12px;border:1px solid #d8dce6;background:#eef3ff;color:#1a2a5e;font-size:24px;line-height:1;margin:0 0 8px 0;">📱</div>
+  <div style="font-size:14px;line-height:1.5;color:#2d3748;font-weight:600;word-break:break-word;overflow-wrap:anywhere;">${deviceLabel}</div>
 </div>`.trim();
   }
 

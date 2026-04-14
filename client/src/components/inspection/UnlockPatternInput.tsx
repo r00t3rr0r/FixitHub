@@ -135,7 +135,7 @@ export function UnlockPatternInput({
 
       {/* Pattern Input Grid */}
       {unlockMethod === "pattern" && (
-        <Card className="p-3 bg-gray-50 border-gray-200">
+        <Card className="p-2.5 sm:p-3 bg-gray-50 border-gray-200">
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Lock className="h-4 w-4" style={{ color: '#1a2a5e' }} />
@@ -143,38 +143,45 @@ export function UnlockPatternInput({
             </div>
 
             {/* 3x3 Pattern Grid */}
-            <div className="grid grid-cols-3 gap-2 max-w-[220px] mx-auto">
-              {patternDots.flat().map((dot) => (
-                <button
-                  key={dot}
-                  type="button"
-                  onClick={() => handleDotClick(dot)}
-                  disabled={noLock}
-                  className={`
-                    w-14 h-14 rounded-full border-2 font-semibold text-sm transition-all
-                    ${
-                      selectedPattern.includes(dot.toString())
-                        ? "shadow-md scale-95"
-                        : "bg-white hover:shadow-sm"
-                    }
-                    ${noLock ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
-                  `}
-                  style={{
-                    borderColor: selectedPattern.includes(dot.toString()) ? '#1a2a5e' : '#d8dce6',
-                    backgroundColor: selectedPattern.includes(dot.toString()) ? '#1a2a5e' : '#ffffff',
-                    color: selectedPattern.includes(dot.toString()) ? '#ffffff' : '#1a2a5e'
-                  }}
-                >
-                  {dot}
-                </button>
-              ))}
+            <div className="w-full max-w-[220px] mx-auto">
+              <div
+                className="grid gap-1.5 sm:gap-2 w-fit mx-auto"
+                style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}
+              >
+                {patternDots.flat().map((dot) => (
+                  <button
+                    key={dot}
+                    type="button"
+                    onClick={() => handleDotClick(dot)}
+                    disabled={noLock}
+                    className={`
+                      rounded-full border-2 font-semibold text-sm transition-all
+                      ${
+                        selectedPattern.includes(dot.toString())
+                          ? "shadow-md scale-95"
+                          : "bg-white hover:shadow-sm"
+                      }
+                      ${noLock ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
+                    `}
+                    style={{
+                      width: "clamp(2.4rem, 14vw, 3.5rem)",
+                      height: "clamp(2.4rem, 14vw, 3.5rem)",
+                      borderColor: selectedPattern.includes(dot.toString()) ? '#1a2a5e' : '#d8dce6',
+                      backgroundColor: selectedPattern.includes(dot.toString()) ? '#1a2a5e' : '#ffffff',
+                      color: selectedPattern.includes(dot.toString()) ? '#ffffff' : '#1a2a5e'
+                    }}
+                  >
+                    {dot}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Pattern Sequence Display */}
             {selectedPattern.length > 0 && (
               <div className="p-2 rounded-md bg-blue-50 text-center">
                 <p className="text-xs text-gray-600 mb-0.5">Entsperrcode:</p>
-                <p className="text-sm font-mono font-semibold" style={{ color: '#1a2a5e' }}>
+                <p className="text-sm font-mono font-semibold break-words" style={{ color: '#1a2a5e' }}>
                   {selectedPattern.join(" → ")}
                 </p>
               </div>
@@ -198,7 +205,7 @@ export function UnlockPatternInput({
 
       {/* Unlock Code Input */}
       {unlockMethod === "code" && (
-        <Card className="p-3 bg-gray-50 border-gray-200">
+        <Card className="p-2.5 sm:p-3 bg-gray-50 border-gray-200">
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Lock className="h-4 w-4" style={{ color: '#1a2a5e' }} />
@@ -214,7 +221,7 @@ export function UnlockPatternInput({
                 value={unlockCode}
                 onChange={(e) => onUnlockCodeChange(e.target.value)}
                 disabled={noLock}
-                className="font-mono text-center tracking-widest text-sm h-9"
+                className="font-mono text-center tracking-[0.15em] sm:tracking-widest text-base h-10 sm:h-9"
               />
               <p className="text-xs text-gray-500">
                 Der Code wird vertraulich behandelt und nur von unseren Technikern verwendet

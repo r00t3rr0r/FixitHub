@@ -1,0 +1,1 @@
+{"timestamp":"2026-04-14T09:21:44.407Z","service":"EmailRetry","level":"INFO","message":"sendTemplateEmail(Buchung angelegt) succeeded","context":{"retryHandler":true},"data":{"attempt":1,"duration":"1477ms","messageId":"<45f678fd-ba94-c7d4-e9b5-2ff7e590d814@fixithub.com>","to":"dieter.senf@protonmail.com"},"pid":8031}

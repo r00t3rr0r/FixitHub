@@ -98,12 +98,10 @@ class BookingService {
       return `
         <div style="border:1px solid #d8dce6;border-radius:14px;padding:12px 14px;background:#ffffff;">
           <div style="font-size:14px;font-weight:700;color:#1a2a5e;margin-bottom:10px;">Position ${index + 1}: Reparatur</div>
-          <div style="display:flex;align-items:flex-start;gap:12px;">
-            <div style="flex:0 0 auto;">${deviceVisual}</div>
-            <div style="flex:1 1 auto;font-size:13px;line-height:1.6;color:#2d3748;">
-              <div><strong>Gebuchte Leistungen:</strong> ${servicesDisplay}</div>
-              <div><strong>Betrag:</strong> ${amount}</div>
-            </div>
+          <div style="margin-bottom:10px;">${deviceVisual}</div>
+          <div style="font-size:13px;line-height:1.6;color:#2d3748;word-break:break-word;overflow-wrap:anywhere;">
+            <div><strong>Gebuchte Leistungen:</strong> ${servicesDisplay}</div>
+            <div><strong>Betrag:</strong> ${amount}</div>
           </div>
         </div>
       `.trim();

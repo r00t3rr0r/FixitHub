@@ -1243,7 +1243,11 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
           {/* STEP 5: Unlock Code/Pattern & Additional Info (Combined with old Step 6) */}
           {currentStep === 5 && (
-            <div className="config-step-content active" data-step="5">
+            <div
+              className="config-step-content active"
+              data-step="5"
+              style={{ WebkitTextSizeAdjust: '100%' }}
+            >
               <div className="space-y-4">
                 {/* Collapsible Unlock Section */}
                 <div 
@@ -1298,6 +1302,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
                 {/* Additional Information Button */}
                 <button
+                  className="config-step5-additional-toggle"
                   type="button"
                   onClick={() => {
                     setShowAdditionalInfo(!showAdditionalInfo);
@@ -1312,7 +1317,9 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                     border: showAdditionalInfo ? '2px solid #f5b800' : '2px solid #d0e4ff',
                     borderRadius: '8px',
                     cursor: 'pointer',
-                    transition: 'all 0.3s ease'
+                    transition: 'all 0.3s ease',
+                    touchAction: 'manipulation',
+                    WebkitTapHighlightColor: 'transparent'
                   }}
                   onMouseEnter={(e) => {
                     if (!showAdditionalInfo) {
@@ -1343,7 +1350,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
                 {/* Additional Information Content (Previously Step 6) */}
                 {showAdditionalInfo && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '20px', background: '#fafbfc', borderRadius: '8px', border: '1px solid #e8eaf0' }}>
+                  <div className="config-step5-additional-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '20px', background: '#fafbfc', borderRadius: '8px', border: '1px solid #e8eaf0', WebkitTextSizeAdjust: '100%', width: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}>
                     {/* Error Description */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <label 
@@ -1371,10 +1378,11 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                           padding: '12px 16px',
                           border: '2px solid #d8dce6',
                           borderRadius: '6px',
-                          fontSize: '0.9rem',
+                          fontSize: '16px',
                           fontFamily: 'var(--font-main, Inter, sans-serif)',
                           color: '#2d3748',
                           resize: 'none',
+                          boxSizing: 'border-box',
                           transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
                         }}
                         onFocus={(e) => {
@@ -1404,7 +1412,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         <Droplets className="w-4 h-4" style={{ color: '#1a2a5e' }} />
                         {t('home.configurator.waterDamage')}
                       </label>
-                      <div style={{ display: 'flex', gap: '10px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', width: '100%' }}>
                         {['no', 'yes', 'unsure'].map((option) => (
                           <button
                             key={option}
@@ -1421,7 +1429,9 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                               color: '#2d3748',
                               cursor: 'pointer',
                               transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                              textAlign: 'center'
+                              textAlign: 'center',
+                              minWidth: 0,
+                              overflowWrap: 'anywhere'
                             }}
                             onMouseEnter={(e) => {
                               if (waterDamage !== option) {
@@ -1457,7 +1467,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         <Wrench className="w-4 h-4" style={{ color: '#1a2a5e' }} />
                         {t('home.configurator.previousRepairAttempts')}
                       </label>
-                      <div style={{ display: 'flex', gap: '10px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', width: '100%' }}>
                         {['no', 'yes', 'unsure'].map((option) => (
                           <button
                             key={option}
@@ -1474,7 +1484,9 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                               color: '#2d3748',
                               cursor: 'pointer',
                               transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                              textAlign: 'center'
+                              textAlign: 'center',
+                              minWidth: 0,
+                              overflowWrap: 'anywhere'
                             }}
                             onMouseEnter={(e) => {
                               if (previousRepairAttempts !== option) {
@@ -1505,11 +1517,12 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                             padding: '12px 16px',
                             border: '2px solid #d8dce6',
                             borderRadius: '6px',
-                            fontSize: '0.9rem',
+                            fontSize: '16px',
                             fontFamily: 'var(--font-main, Inter, sans-serif)',
                             color: '#2d3748',
                             resize: 'none',
                             marginTop: '8px',
+                            boxSizing: 'border-box',
                             transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
                           }}
                           onFocus={(e) => {
@@ -1540,7 +1553,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         <Package className="w-4 h-4" style={{ color: '#1a2a5e' }} />
                         {t('home.configurator.itemCondition')}
                       </label>
-                      <div style={{ display: 'flex', gap: '10px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', width: '100%' }}>
                         {['original', 'refurbished', 'unsure'].map((option) => (
                           <button
                             key={option}
@@ -1557,7 +1570,9 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                               color: '#2d3748',
                               cursor: 'pointer',
                               transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                              textAlign: 'center'
+                              textAlign: 'center',
+                              minWidth: 0,
+                              overflowWrap: 'anywhere'
                             }}
                             onMouseEnter={(e) => {
                               if (itemCondition !== option) {
@@ -1602,11 +1617,13 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         onChange={handlePhotoUpload}
                         disabled={photos.length >= 5}
                         style={{
+                          width: '100%',
                           padding: '12px 16px',
                           border: '2px solid #d8dce6',
                           borderRadius: '6px',
-                          fontSize: '0.9rem',
-                          cursor: 'pointer'
+                          fontSize: '16px',
+                          cursor: 'pointer',
+                          boxSizing: 'border-box'
                         }}
                       />
                       <p style={{ fontSize: '0.75rem', color: '#8892a8' }}>
