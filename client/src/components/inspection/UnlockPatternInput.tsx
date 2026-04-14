@@ -221,7 +221,7 @@ export function UnlockPatternInput({
                 value={unlockCode}
                 onChange={(e) => onUnlockCodeChange(e.target.value)}
                 disabled={noLock}
-                className="font-mono text-center tracking-[0.15em] sm:tracking-widest text-sm h-9"
+                className="font-mono text-center tracking-[0.15em] sm:tracking-widest text-base h-10 sm:h-9"
               />
               <p className="text-xs text-gray-500">
                 Der Code wird vertraulich behandelt und nur von unseren Technikern verwendet
