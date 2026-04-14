@@ -756,7 +756,7 @@ orderSchema.pre(/^find/, function(next) {
     return next();
   }
 
-  this.populate('customerId', 'name email phone avatar address paymentMethods isActive role createdAt')
+  this.populate('customerId', 'name email phone avatar address invoiceAddress paymentMethods isActive role createdAt')
       .populate('assignedStaff.staffId', 'name avatar')
       .populate('services.serviceId', 'name description price estimatedTime category')
       .populate('eParts.partId')
