@@ -18,9 +18,16 @@ const getGatewayFromRequest = async (gatewayId, gatewayProvider) => {
   return gateway;
 };
 
-const assertInvoiceOwner = (invoice, userId) => {
+const assertInvoiceOwner = (invoice, user) => {
   if (!invoice) throw new Error('Invoice not found');
-  if (invoice.customerId.toString() !== userId.toString()) {
+
+  const isPrivilegedUser = user?.role === 'admin' || user?.role === 'staff';
+  if (isPrivilegedUser) return;
+
+  const invoiceCustomerId = invoice.customerId?._id || invoice.customerId;
+  const requesterId = user?._id || user;
+
+  if (!invoiceCustomerId || !requesterId || String(invoiceCustomerId) !== String(requesterId)) {
     throw new Error('You do not have permission to access this invoice');
   }
 };
@@ -118,6 +125,55 @@ router.get('/', requireUser, async (req, res) => {
   }
 });
 
+// Description: Get PayPal JS SDK config for invoice payment (public client-id only)
+// Endpoint: GET /api/invoices/paypal/config
+// Request: { gatewayId?: string }
+// Response: { success: boolean, clientId, currency, intent, locale, gatewayId, environment, button }
+router.get('/paypal/config', requireUser, async (req, res) => {
+  try {
+    const { gatewayId } = req.query;
+    const gateways = await FinancialService.getPaymentGateways();
+
+    let gateway;
+    if (gatewayId) {
+      gateway = gateways.find((g) => String(g._id) === String(gatewayId) && g.provider === 'paypal' && g.isActive);
+    }
+    if (!gateway) {
+      gateway = gateways.find((g) => g.provider === 'paypal' && g.isActive);
+    }
+    if (!gateway) {
+      return res.status(404).json({ success: false, error: 'Kein aktives PayPal-Gateway gefunden.' });
+    }
+
+    const config = gateway.configuration || {};
+    const useLive = config.environment === 'live';
+    const clientId = useLive ? config.live_client_id : config.sandbox_client_id;
+
+    if (!clientId) {
+      return res.status(400).json({ success: false, error: 'PayPal Client-ID ist nicht konfiguriert.' });
+    }
+
+    return res.json({
+      success: true,
+      clientId,
+      currency: (config.default_currency || config.currency || 'EUR').toUpperCase(),
+      intent: (config.payment_intent || 'CAPTURE').toUpperCase(),
+      locale: config.locale || 'de-DE',
+      gatewayId: String(gateway._id),
+      environment: config.environment || 'sandbox',
+      button: {
+        layout: config.button_layout || 'vertical',
+        color: config.button_color || 'gold',
+        shape: config.button_shape || 'rect',
+        label: config.button_label || 'paypal'
+      }
+    });
+  } catch (error) {
+    console.error('InvoiceRoutes: Error loading PayPal SDK config:', error);
+    return res.status(400).json({ success: false, error: error.message || 'PayPal-Konfiguration konnte nicht geladen werden.' });
+  }
+});
+
 // Description: Get active payment gateways available for customer invoice payment
 // Endpoint: GET /api/invoices/payment-gateways
 // Request: {}
@@ -179,7 +235,7 @@ router.post('/:id/payments/initialize', requireUser, async (req, res) => {
     }
 
     const invoice = await Invoice.findById(req.params.id);
-    assertInvoiceOwner(invoice, req.user._id);
+    assertInvoiceOwner(invoice, req.user);
     const { numericAmount } = validatePaymentAmount(invoice, amount);
 
     const gateway = await getGatewayFromRequest(gatewayId, gatewayProvider);
@@ -313,7 +369,7 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
     }
 
     const invoice = await Invoice.findById(req.params.id);
-    assertInvoiceOwner(invoice, req.user._id);
+    assertInvoiceOwner(invoice, req.user);
 
     const existingPayment = await Payment.findOne({
       invoiceId: invoice._id,

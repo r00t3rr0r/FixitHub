@@ -4431,6 +4431,46 @@ export function FinancialManagement() {
                   <Separator />
 
                   <div className="space-y-2">
+                    <h4 className="font-semibold text-[#1a2a5e]">Sandbox-Testkonto</h4>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label>sandbox_portal_url</Label>
+                        <Input
+                          value={getConfigString('sandbox_portal_url', 'https://sandbox.paypal.com')}
+                          onChange={(e) => updateGatewayConfiguration('sandbox_portal_url', e.target.value)}
+                          placeholder="https://sandbox.paypal.com"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>sandbox_region</Label>
+                        <Input
+                          value={getConfigString('sandbox_region', 'DE')}
+                          onChange={(e) => updateGatewayConfiguration('sandbox_region', e.target.value.toUpperCase())}
+                          placeholder="DE"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>sandbox_account_email</Label>
+                        <Input
+                          value={getConfigString('sandbox_account_email')}
+                          onChange={(e) => updateGatewayConfiguration('sandbox_account_email', e.target.value)}
+                          placeholder="sb-xxx@business.example.com"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>sandbox_account_password</Label>
+                        <Input
+                          type="password"
+                          value={getConfigString('sandbox_account_password')}
+                          onChange={(e) => updateGatewayConfiguration('sandbox_account_password', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-2">
                     <h4 className="font-semibold text-[#1a2a5e]">Checkout & Betragslogik</h4>
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="space-y-1">

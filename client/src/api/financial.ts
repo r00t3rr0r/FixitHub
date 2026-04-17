@@ -156,6 +156,10 @@ export interface PaymentGateway {
     merchant_id?: string;
     api_base_url_sandbox?: string;
     api_base_url_live?: string;
+    sandbox_portal_url?: string;
+    sandbox_region?: string;
+    sandbox_account_email?: string;
+    sandbox_account_password?: string;
     default_currency?: string;
     allowed_currencies?: string[];
     payment_intent?: 'CAPTURE' | 'AUTHORIZE';

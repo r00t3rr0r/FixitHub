@@ -15,12 +15,23 @@ const paymentSchema = new mongoose.Schema({
   },
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    ref: 'User'
   },
   customerName: {
     type: String,
-    required: true
+    default: ''
+  },
+  isGuest: {
+    type: Boolean,
+    default: false
+  },
+  guestEmail: {
+    type: String,
+    default: ''
+  },
+  guestName: {
+    type: String,
+    default: ''
   },
   amount: {
     type: Number,
@@ -113,15 +124,15 @@ paymentSchema.pre('save', function(next) {
   next();
 });
 
-// Populate customer and order info
+// Populate customer and order info (only when customerId is present)
 paymentSchema.pre(/^find/, function(next) {
-  this.populate('customerId', 'name email')
-      .populate('orderId', 'orderNumber deviceBrand deviceModel');
+  this.populate('orderId', 'orderNumber deviceBrand deviceModel');
   next();
 });
 
 // Index for efficient queries
 paymentSchema.index({ customerId: 1, createdAt: -1 });
+paymentSchema.index({ guestEmail: 1, createdAt: -1 });
 paymentSchema.index({ status: 1 });
 // transactionId already has unique: true index, no need for duplicate
 paymentSchema.index({ orderNumber: 1 });

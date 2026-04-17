@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -9,7 +9,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/contexts/AuthContext"
-import { registerDuringCheckout, completeGuestCheckout, initializeCheckout, completeCheckout, type CheckoutApiError } from "@/api/checkout"
+import {
+  registerDuringCheckout,
+  completeGuestCheckout,
+  initializeCheckout,
+  completeCheckout,
+  getCheckoutPaypalConfig,
+  createCheckoutPaypalOrder,
+  captureCheckoutPaypalOrder,
+  getGuestCheckoutPaypalConfig,
+  createGuestCheckoutPaypalOrder,
+  captureGuestCheckoutPaypalOrder,
+  type CheckoutApiError,
+  type CheckoutPaypalConfig,
+} from "@/api/checkout"
 import { updateUserProfile } from "@/api/user"
 import { useToast } from "@/hooks/useToast"
 import { useTranslation } from "react-i18next"
@@ -66,6 +79,21 @@ type GuestInfoState = {
     state: string
     zipCode: string
     country: string
+  }
+}
+
+type PaypalButtonsInstance = {
+  isEligible?: () => boolean
+  render: (container: HTMLElement) => Promise<void> | void
+}
+
+type PaypalNamespace = {
+  Buttons: (options: unknown) => PaypalButtonsInstance
+}
+
+declare global {
+  interface Window {
+    paypal?: PaypalNamespace
   }
 }
 
@@ -155,6 +183,11 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
   const [cardExpiry, setCardExpiry] = useState("")
   const [cardCvc, setCardCvc] = useState("")
   const [paypalEmail, setPaypalEmail] = useState("")
+  const paypalButtonRef = useRef<HTMLDivElement | null>(null)
+  const [paypalConfig, setPaypalConfig] = useState<CheckoutPaypalConfig | null>(null)
+  const [paypalSdkReady, setPaypalSdkReady] = useState(false)
+  const [paypalLoading, setPaypalLoading] = useState(false)
+  const [paypalError, setPaypalError] = useState("")
 
   const getProductImage = (product: any) => {
     if (Array.isArray(product?.images) && product.images.length > 0) {
@@ -224,6 +257,10 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
     setCardExpiry("")
     setCardCvc("")
     setPaypalEmail("")
+    setPaypalConfig(null)
+    setPaypalSdkReady(false)
+    setPaypalLoading(false)
+    setPaypalError("")
     setBillingAddressEditorOpen(false)
     setBillingAddressNeedsAttention(false)
     setSavingBillingAddress(false)
@@ -410,6 +447,20 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
             />
             <p className="text-[10px] text-[#5f6d86]">{t("checkout.paypalEmailDesc")}</p>
           </div>
+
+          {paypalLoading && (
+            <p className="flex items-center gap-1.5 text-[11px] text-[#5f6d86]">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> PayPal wird geladen...
+            </p>
+          )}
+
+          {paypalError && (
+            <p className="rounded-md border border-[#fecaca] bg-[#fff1f2] px-2.5 py-2 text-[11px] text-[#b91c1c]">
+              {paypalError}
+            </p>
+          )}
+
+          {!paypalError && <div ref={paypalButtonRef} className="min-h-10" />}
         </div>
       )
     }
@@ -489,6 +540,252 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
       setReviewCart(cart)
     }
   }, [open, isAuthenticated])
+
+  useEffect(() => {
+    if (!open || step !== "review" || paymentMethod !== "paypal" || (mode !== "authenticated" && mode !== "guest")) {
+      return
+    }
+
+    let cancelled = false
+
+    const loadConfigAndSdk = async () => {
+      try {
+        setPaypalLoading(true)
+        setPaypalError("")
+
+        const config = mode === "guest"
+          ? await getGuestCheckoutPaypalConfig()
+          : await getCheckoutPaypalConfig()
+        if (cancelled) return
+
+        setPaypalConfig(config)
+
+        const scriptId = "paypal-js-sdk"
+        const existingScript = document.getElementById(scriptId) as HTMLScriptElement | null
+        // PayPal SDK requires underscore locale format (e.g. de_DE), not hyphen (de-DE)
+        const paypalLocale = (config.locale || 'de_DE').replace('-', '_')
+        const sdkSrc = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(config.clientId)}&currency=${encodeURIComponent(config.currency)}&intent=${encodeURIComponent(config.intent.toLowerCase())}&locale=${encodeURIComponent(paypalLocale)}&components=buttons`
+
+        if (window.paypal?.Buttons) {
+          setPaypalSdkReady(true)
+          setPaypalLoading(false)
+          return
+        }
+
+        if (existingScript) {
+          // If the script loaded correctly, window.paypal would already be set above.
+          // Getting here means the existing script failed or used a wrong client-id — remove it and reload.
+          if (existingScript.src !== sdkSrc || !window.paypal?.Buttons) {
+            existingScript.remove()
+            // fall through to create a new script element
+          } else {
+            const onLoad = () => {
+              if (cancelled) return
+              setPaypalSdkReady(true)
+              setPaypalLoading(false)
+            }
+            const onError = () => {
+              if (cancelled) return
+              setPaypalError("PayPal SDK konnte nicht geladen werden.")
+              setPaypalLoading(false)
+            }
+            existingScript.addEventListener("load", onLoad)
+            existingScript.addEventListener("error", onError)
+            return
+          }
+        }
+
+        const script = document.createElement("script")
+        script.id = scriptId
+        script.src = sdkSrc
+        script.async = true
+        script.onload = () => {
+          if (cancelled) return
+          setPaypalSdkReady(true)
+          setPaypalLoading(false)
+        }
+        script.onerror = () => {
+          if (cancelled) return
+          setPaypalError("PayPal SDK konnte nicht geladen werden.")
+          setPaypalLoading(false)
+        }
+        document.body.appendChild(script)
+      } catch (error: any) {
+        if (cancelled) return
+        setPaypalError(error.message || "PayPal-Konfiguration konnte nicht geladen werden.")
+        setPaypalLoading(false)
+      }
+    }
+
+    loadConfigAndSdk()
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, step, mode, paymentMethod])
+
+  useEffect(() => {
+    if (!open || step !== "review" || paymentMethod !== "paypal" || (mode !== "authenticated" && mode !== "guest")) {
+      return
+    }
+    if (!paypalSdkReady || !paypalConfig || !paypalButtonRef.current || !window.paypal?.Buttons) {
+      return
+    }
+
+    paypalButtonRef.current.innerHTML = ""
+
+    const paypalButtons = window.paypal.Buttons({
+      style: {
+        layout: paypalConfig.button.layout || "vertical",
+        color: paypalConfig.button.color || "gold",
+        shape: paypalConfig.button.shape || "rect",
+        label: paypalConfig.button.label || "paypal",
+      },
+      createOrder: async () => {
+        if (!acceptTerms) {
+          toast({
+            title: t("common.error"),
+            description: t("checkout.acceptTermsRequired"),
+            variant: "destructive",
+          })
+          throw new Error("Terms not accepted")
+        }
+
+        if (mode === "guest") {
+          if (!guestInfo) {
+            throw new Error(t("checkout.guestCheckoutFailed"))
+          }
+
+          const localGuestCart = getGuestCart()
+          const result = await createGuestCheckoutPaypalOrder({
+            guestInfo,
+            cartData: {
+              items: localGuestCart.items,
+              repairOrders: localGuestCart.repairOrders,
+            },
+            returnPath: window.location.pathname,
+          })
+
+          return result.orderId
+        }
+
+        const result = await createCheckoutPaypalOrder({
+          returnPath: window.location.pathname,
+        })
+
+        return result.orderId
+      },
+      onApprove: async (data: { orderID: string }) => {
+        try {
+          setProcessingCheckout(true)
+
+          if (mode === "guest") {
+            if (!guestInfo) {
+              throw new Error(t("checkout.guestCheckoutFailed"))
+            }
+
+            const localGuestCart = getGuestCart()
+            const capture = await captureGuestCheckoutPaypalOrder({
+              orderId: data.orderID,
+              guestInfo,
+            })
+
+            const response = await completeGuestCheckout(
+              guestInfo,
+              { items: localGuestCart.items, repairOrders: localGuestCart.repairOrders },
+              "paypal",
+              {
+                paypalOrderId: capture.orderId,
+                paypalCaptureId: capture.captureId,
+                paypalReceiptId: capture.receipt?.transactionId,
+                paypalEmail,
+              }
+            )
+
+            clearGuestCart()
+
+            setGuestCheckoutResult({
+              success: true,
+              bookingNumber: response.booking?.bookingNumber,
+              orderNumbers: response.orders?.map((o: any) => o.orderNumber) || [],
+              totalAmount: Number(response.orders?.reduce((sum: number, o: any) => sum + Number(o.totalCost || 0), 0) || 0),
+              guestEmail: response.guestEmail,
+              orderTrackingToken: response.trackingToken,
+              bookingTrackingToken: response.bookingTrackingToken,
+              orderCount: response.orderIds?.length || 0,
+            })
+
+            toast({
+              title: t("common.success"),
+              description: t("checkout.guestCheckoutSuccessful"),
+            })
+
+            await onSuccess()
+            return
+          }
+
+          const capture = await captureCheckoutPaypalOrder(data.orderID)
+          const checkoutResult = await completeCheckout("paypal", {
+            paypalOrderId: capture.orderId,
+            paypalCaptureId: capture.captureId,
+            paypalReceiptId: capture.receipt?.paymentId,
+            paypalEmail,
+          })
+
+          setCheckoutSuccessResult(checkoutResult)
+
+          toast({
+            title: t("common.success"),
+            description: checkoutResult.message || t("checkout.checkoutDone"),
+          })
+
+          await onSuccess()
+        } catch (error: any) {
+          toast({
+            title: t("common.error"),
+            description: error.message || "PayPal-Zahlung konnte nicht abgeschlossen werden.",
+            variant: "destructive",
+          })
+        } finally {
+          setProcessingCheckout(false)
+        }
+      },
+      onCancel: () => {
+        toast({
+          title: t("common.error"),
+          description: "PayPal-Zahlung wurde abgebrochen.",
+          variant: "destructive",
+        })
+      },
+      onError: () => {
+        toast({
+          title: t("common.error"),
+          description: "PayPal-Dialog konnte nicht gestartet werden.",
+          variant: "destructive",
+        })
+      },
+    })
+
+    if (!paypalButtons?.isEligible || !paypalButtons.isEligible()) {
+      setPaypalError("PayPal ist in dieser Umgebung nicht verfügbar.")
+      return
+    }
+
+    paypalButtons.render(paypalButtonRef.current)
+  }, [
+    open,
+    step,
+    mode,
+    paymentMethod,
+    paypalSdkReady,
+    paypalConfig,
+    acceptTerms,
+    paypalEmail,
+    guestInfo,
+    onSuccess,
+    t,
+    toast,
+  ])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -1290,11 +1587,13 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                           type="button"
                           className="h-11 w-full bg-[#f5b800] text-sm font-bold text-[#1a2a5e] hover:bg-[#e5ab00]"
                           onClick={handlePayNow}
-                          disabled={processingCheckout}
+                          disabled={processingCheckout || paymentMethod === "paypal"}
                         >
                           {processingCheckout
                             ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("common.loading")}</>
-                            : <><CreditCard className="mr-2 h-4 w-4" />{t("checkout.payNow")} — {totals.total.toFixed(2)} €</>
+                            : paymentMethod === "paypal"
+                              ? <><Wallet className="mr-2 h-4 w-4" />Bitte den PayPal-Button oben verwenden</>
+                              : <><CreditCard className="mr-2 h-4 w-4" />{t("checkout.payNow")} — {totals.total.toFixed(2)} €</>
                           }
                         </Button>
 
