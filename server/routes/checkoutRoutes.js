@@ -683,6 +683,36 @@ router.post('/paypal/guest/create-order', async (req, res) => {
       }
     );
 
+    const guestNameFull = [
+      String(guestInfo.firstName || '').trim(),
+      String(guestInfo.lastName || '').trim()
+    ].filter(Boolean).join(' ') || guestPayload.payerEmail;
+
+    await Payment.create({
+      isGuest: true,
+      guestEmail: guestPayload.payerEmail,
+      guestName: guestNameFull,
+      orderNumber: '',
+      amount: guestPayload.total,
+      currency: currencyCode,
+      paymentMethod: 'paypal',
+      status: 'processing',
+      transactionId: paypalOrderResponse.data.id,
+      gatewayResponse: `PayPal guest order ${paypalOrderResponse.data.id} created`,
+      metadata: {
+        gatewayProvider: 'paypal',
+        gatewayId: String(gateway._id || ''),
+        paypalOrderId: paypalOrderResponse.data.id,
+        guestBillingAddress: guestInfo.billingAddress || {},
+        cartSnapshot: {
+          items: Array.isArray(cartData?.items) ? cartData.items.length : 0,
+          repairOrders: Array.isArray(cartData?.repairOrders) ? cartData.repairOrders.length : 0,
+          total: guestPayload.total
+        },
+        createdAt: new Date().toISOString()
+      }
+    });
+
     return res.status(201).json({
       success: true,
       orderId: paypalOrderResponse.data.id,
@@ -858,6 +888,54 @@ router.post('/paypal/guest/capture-order', async (req, res) => {
     const capture = paypalOrder.purchase_units?.[0]?.payments?.captures?.[0] || {};
     const capturedAmount = sanitizeMoney(capture?.amount?.value || 0);
     const capturedCurrency = String(capture?.amount?.currency_code || gateway.configuration?.default_currency || 'EUR').toUpperCase();
+    const guestEmail = normalizeEmailAddress(guestInfo.email);
+
+    let payment = await Payment.findOne({
+      isGuest: true,
+      transactionId: orderId,
+      paymentMethod: 'paypal'
+    });
+
+    if (!payment) {
+      const guestNameFull = [
+        String(guestInfo.firstName || '').trim(),
+        String(guestInfo.lastName || '').trim()
+      ].filter(Boolean).join(' ') || guestEmail;
+
+      payment = await Payment.create({
+        isGuest: true,
+        guestEmail,
+        guestName: guestNameFull,
+        orderNumber: '',
+        amount: capturedAmount,
+        currency: capturedCurrency,
+        paymentMethod: 'paypal',
+        status: 'processing',
+        transactionId: orderId,
+        gatewayResponse: `PayPal guest order ${orderId} captured (late create)`,
+        metadata: {}
+      });
+    }
+
+    payment.status = 'completed';
+    payment.processedAt = new Date();
+    payment.gatewayResponse = `PayPal guest order ${orderId} captured successfully`;
+    payment.amount = capturedAmount;
+    payment.currency = capturedCurrency;
+    payment.metadata = {
+      ...(payment.metadata || {}),
+      gatewayProvider: 'paypal',
+      paypalOrderId: orderId,
+      providerReference: capture?.id || orderId,
+      providerDetails: {
+        paypalOrderStatus: paypalOrder.status,
+        captureId: capture?.id || '',
+        payerId: paypalOrder?.payer?.payer_id || '',
+        payerEmail: paypalOrder?.payer?.email_address || guestEmail
+      },
+      capturedAt: new Date().toISOString()
+    };
+    await payment.save();
 
     return res.json({
       success: true,
@@ -866,8 +944,8 @@ router.post('/paypal/guest/capture-order', async (req, res) => {
       amount: capturedAmount,
       currency: capturedCurrency,
       receipt: {
-        paymentId: '',
-        transactionId: capture?.id || orderId
+        paymentId: payment._id,
+        transactionId: payment.transactionId
       }
     });
   } catch (error) {
@@ -889,15 +967,45 @@ router.post('/paypal/guest/capture-order', async (req, res) => {
         const order = orderResponse.data || {};
         const capture = order.purchase_units?.[0]?.payments?.captures?.[0] || {};
         if (order.status === 'COMPLETED' && capture?.id) {
+          const alreadyCapturedAmount = sanitizeMoney(capture?.amount?.value || 0);
+          const alreadyCapturedCurrency = String(capture?.amount?.currency_code || gateway.configuration?.default_currency || 'EUR').toUpperCase();
+          const guestEmailFallback = normalizeEmailAddress(req.body?.guestInfo?.email || '');
+
+          const existingPayment = await Payment.findOne({
+            isGuest: true,
+            transactionId: orderId,
+            paymentMethod: 'paypal'
+          });
+
+          if (existingPayment && existingPayment.status !== 'completed') {
+            existingPayment.status = 'completed';
+            existingPayment.processedAt = existingPayment.processedAt || new Date();
+            existingPayment.amount = alreadyCapturedAmount;
+            existingPayment.currency = alreadyCapturedCurrency;
+            existingPayment.metadata = {
+              ...(existingPayment.metadata || {}),
+              gatewayProvider: 'paypal',
+              paypalOrderId: orderId,
+              providerReference: capture.id,
+              providerDetails: {
+                paypalOrderStatus: order.status,
+                captureId: capture.id,
+                recoveredViaFallback: true
+              },
+              capturedAt: new Date().toISOString()
+            };
+            await existingPayment.save();
+          }
+
           return res.json({
             success: true,
             alreadyCaptured: true,
             orderId,
             captureId: capture.id,
-            amount: sanitizeMoney(capture?.amount?.value || 0),
-            currency: String(capture?.amount?.currency_code || gateway.configuration?.default_currency || 'EUR').toUpperCase(),
+            amount: alreadyCapturedAmount,
+            currency: alreadyCapturedCurrency,
             receipt: {
-              paymentId: '',
+              paymentId: existingPayment?._id || '',
               transactionId: capture.id
             }
           });
