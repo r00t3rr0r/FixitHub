@@ -67,8 +67,43 @@ export interface GuestCheckoutData {
 }
 
 export interface GuestCartData {
-  items: any[];
-  repairOrders: any[];
+  items: unknown[];
+  repairOrders: unknown[];
+}
+
+export interface CheckoutPaypalConfig {
+  clientId: string;
+  currency: string;
+  intent: 'CAPTURE' | 'AUTHORIZE';
+  locale: string;
+  environment: 'sandbox' | 'live';
+  button: {
+    enabled: boolean;
+    layout: 'vertical' | 'horizontal';
+    color: 'gold' | 'blue' | 'silver';
+    shape: 'rect' | 'pill';
+    label: 'paypal' | 'pay' | 'checkout';
+  };
+}
+
+export interface CheckoutPaypalCreateOrderResponse {
+  success: boolean;
+  orderId: string;
+  amount: number;
+  currency: string;
+}
+
+export interface CheckoutPaypalCaptureOrderResponse {
+  success: boolean;
+  alreadyCaptured?: boolean;
+  orderId: string;
+  captureId: string;
+  amount: number;
+  currency: string;
+  receipt: {
+    paymentId: string;
+    transactionId: string;
+  };
 }
 
 // Description: Initialize checkout - validates user authentication and returns cart with user info
@@ -133,5 +168,68 @@ export const completeGuestCheckout = async (
     return response.data;
   } catch (error: any) {
     throw toCheckoutError(error, 'Guest checkout failed');
+  }
+};
+
+export const getCheckoutPaypalConfig = async (): Promise<CheckoutPaypalConfig> => {
+  try {
+    const response = await api.get('/api/checkout/paypal/config');
+    return response.data;
+  } catch (error: any) {
+    throw toCheckoutError(error, 'Failed to load PayPal configuration');
+  }
+};
+
+export const createCheckoutPaypalOrder = async (payload?: {
+  returnPath?: string;
+}): Promise<CheckoutPaypalCreateOrderResponse> => {
+  try {
+    const response = await api.post('/api/checkout/paypal/create-order', payload || {});
+    return response.data;
+  } catch (error: any) {
+    throw toCheckoutError(error, 'Failed to create PayPal order');
+  }
+};
+
+export const captureCheckoutPaypalOrder = async (orderId: string): Promise<CheckoutPaypalCaptureOrderResponse> => {
+  try {
+    const response = await api.post('/api/checkout/paypal/capture-order', { orderId });
+    return response.data;
+  } catch (error: any) {
+    throw toCheckoutError(error, 'Failed to capture PayPal order');
+  }
+};
+
+export const getGuestCheckoutPaypalConfig = async (): Promise<CheckoutPaypalConfig> => {
+  try {
+    const response = await api.get('/api/checkout/paypal/guest/config');
+    return response.data;
+  } catch (error: any) {
+    throw toCheckoutError(error, 'Failed to load guest PayPal configuration');
+  }
+};
+
+export const createGuestCheckoutPaypalOrder = async (payload: {
+  guestInfo: GuestCheckoutData;
+  cartData: GuestCartData;
+  returnPath?: string;
+}): Promise<CheckoutPaypalCreateOrderResponse> => {
+  try {
+    const response = await api.post('/api/checkout/paypal/guest/create-order', payload);
+    return response.data;
+  } catch (error: any) {
+    throw toCheckoutError(error, 'Failed to create guest PayPal order');
+  }
+};
+
+export const captureGuestCheckoutPaypalOrder = async (payload: {
+  orderId: string;
+  guestInfo: GuestCheckoutData;
+}): Promise<CheckoutPaypalCaptureOrderResponse> => {
+  try {
+    const response = await api.post('/api/checkout/paypal/guest/capture-order', payload);
+    return response.data;
+  } catch (error: any) {
+    throw toCheckoutError(error, 'Failed to capture guest PayPal order');
   }
 };

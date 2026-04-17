@@ -1,13 +1,1017 @@
 const express = require('express');
 const router = express.Router();
+const axios = require('axios');
 const { requireUser } = require('./middleware/auth');
 const CartService = require('../services/cartService');
 const UserService = require('../services/userService');
 const OrderService = require('../services/orderService');
 const BookingService = require('../services/bookingService');
 const EmailService = require('../services/emailService');
+const FinancialService = require('../services/financialService');
 const Service = require('../models/Service');
+const Payment = require('../models/Payment');
 const normalizeEmailAddress = (email) => String(email || '').trim().toLowerCase();
+
+const sanitizeMoney = (value) => {
+  const numeric = Number(value || 0);
+  if (!Number.isFinite(numeric) || numeric < 0) return 0;
+  return Number(numeric.toFixed(2));
+};
+
+const formatMoney = (value) => sanitizeMoney(value).toFixed(2);
+
+const getFrontendBaseUrl = () => process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173';
+
+const getActivePaypalGateway = async () => {
+  const gateways = await FinancialService.getPaymentGateways();
+  const gateway = gateways.find((item) => item.provider === 'paypal' && item.isActive);
+  if (!gateway) {
+    throw new Error('PayPal gateway is not configured or inactive.');
+  }
+  return gateway;
+};
+
+const getPaypalAccessToken = async (gateway) => {
+  const config = gateway.configuration || {};
+  const useLive = config.environment === 'live';
+  const clientId = useLive ? config.live_client_id : config.sandbox_client_id;
+  const clientSecret = useLive ? config.live_client_secret : config.sandbox_client_secret;
+  const baseUrl = useLive
+    ? (config.api_base_url_live || 'https://api-m.paypal.com')
+    : (config.api_base_url_sandbox || 'https://api-m.sandbox.paypal.com');
+
+  if (!clientId || !clientSecret) {
+    throw new Error('PayPal credentials are not configured.');
+  }
+
+  const tokenResponse = await axios.post(
+    `${baseUrl}/v1/oauth2/token`,
+    'grant_type=client_credentials',
+    {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      auth: {
+        username: clientId,
+        password: clientSecret
+      },
+      timeout: 15000
+    }
+  );
+
+  return {
+    accessToken: tokenResponse.data.access_token,
+    baseUrl,
+    clientId,
+    environment: useLive ? 'live' : 'sandbox'
+  };
+};
+
+const verifyPaypalWebhookSignature = async ({ gateway, webhookEvent, headers }) => {
+  const config = gateway.configuration || {};
+  if (!config.webhook_id) {
+    throw new Error('PayPal webhook_id is not configured.');
+  }
+
+  const transmissionId = headers['paypal-transmission-id'];
+  const transmissionTime = headers['paypal-transmission-time'];
+  const transmissionSig = headers['paypal-transmission-sig'];
+  const certUrl = headers['paypal-cert-url'];
+  const authAlgo = headers['paypal-auth-algo'];
+
+  if (!transmissionId || !transmissionTime || !transmissionSig || !certUrl || !authAlgo) {
+    throw new Error('Missing PayPal webhook signature headers.');
+  }
+
+  const { accessToken, baseUrl } = await getPaypalAccessToken(gateway);
+  const verificationResponse = await axios.post(
+    `${baseUrl}/v1/notifications/verify-webhook-signature`,
+    {
+      transmission_id: transmissionId,
+      transmission_time: transmissionTime,
+      cert_url: certUrl,
+      auth_algo: authAlgo,
+      transmission_sig: transmissionSig,
+      webhook_id: config.webhook_id,
+      webhook_event: webhookEvent
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      timeout: 15000
+    }
+  );
+
+  return verificationResponse.data?.verification_status === 'SUCCESS';
+};
+
+const findPaymentByPaypalResource = async ({ orderId, captureId }) => {
+  const orConditions = [];
+
+  if (captureId) {
+    orConditions.push({ 'metadata.providerDetails.captureId': captureId });
+    orConditions.push({ 'metadata.providerReference': captureId });
+    orConditions.push({ transactionId: captureId });
+  }
+
+  if (orderId) {
+    orConditions.push({ transactionId: orderId });
+    orConditions.push({ 'metadata.paypalOrderId': orderId });
+  }
+
+  if (!orConditions.length) return null;
+
+  return Payment.findOne({ $or: orConditions }).sort({ createdAt: -1 });
+};
+
+const applyPaypalWebhookUpdate = async ({ payment, eventType, resource, orderId, captureId }) => {
+  if (!payment) return null;
+
+  const resourceAmount = resource?.amount || {};
+  const amountValue = Number(resourceAmount.value || 0);
+  const safeAmount = Number.isFinite(amountValue) && amountValue > 0 ? amountValue : payment.amount;
+
+  const providerDetails = {
+    ...(payment.metadata?.providerDetails || {}),
+    webhookEventType: eventType,
+    webhookResourceStatus: resource?.status || '',
+    webhookCaptureId: captureId || '',
+    webhookOrderId: orderId || '',
+    webhookUpdatedAt: new Date().toISOString()
+  };
+
+  if (eventType === 'PAYMENT.CAPTURE.COMPLETED') {
+    payment.status = 'completed';
+    payment.processedAt = payment.processedAt || new Date();
+    payment.amount = safeAmount;
+    payment.gatewayResponse = `PayPal webhook completed capture ${captureId || orderId || payment.transactionId}`;
+  }
+
+  if (eventType === 'PAYMENT.CAPTURE.PENDING') {
+    payment.status = 'processing';
+    payment.gatewayResponse = `PayPal webhook pending capture ${captureId || orderId || payment.transactionId}`;
+  }
+
+  if (eventType === 'PAYMENT.CAPTURE.DENIED' || eventType === 'PAYMENT.CAPTURE.DECLINED') {
+    payment.status = 'failed';
+    payment.gatewayResponse = `PayPal webhook denied capture ${captureId || orderId || payment.transactionId}`;
+  }
+
+  if (eventType === 'PAYMENT.CAPTURE.REFUNDED' || eventType === 'PAYMENT.CAPTURE.REVERSED') {
+    payment.status = 'refunded';
+    payment.refundAmount = safeAmount;
+    payment.refundedAt = payment.refundedAt || new Date();
+    payment.refundReason = resource?.status_details?.reason || `paypal_${eventType.toLowerCase()}`;
+    payment.refundMode = 'gateway';
+    payment.refundGatewayProvider = 'paypal';
+    payment.refundGatewayReference = captureId || orderId || '';
+    payment.gatewayResponse = `PayPal webhook refund/reversal ${captureId || orderId || payment.transactionId}`;
+  }
+
+  payment.metadata = {
+    ...(payment.metadata || {}),
+    gatewayProvider: 'paypal',
+    paypalOrderId: orderId || payment.metadata?.paypalOrderId || '',
+    providerReference: captureId || payment.metadata?.providerReference || payment.transactionId,
+    providerDetails
+  };
+
+  await payment.save();
+  return payment;
+};
+
+const buildPaypalLineItems = (cart, currencyCode) => {
+  const lineItems = [];
+
+  for (const item of (cart?.items || [])) {
+    const product = item?.productId || item?.product || {};
+    const label = String(product?.name || 'Produkt').trim().slice(0, 127);
+    const quantity = Math.max(1, Number(item?.quantity || 1));
+    const unitAmount = sanitizeMoney(product?.price ?? item?.price ?? 0);
+
+    if (unitAmount <= 0) continue;
+
+    lineItems.push({
+      name: label || 'Produkt',
+      quantity: String(quantity),
+      unit_amount: {
+        currency_code: currencyCode,
+        value: formatMoney(unitAmount)
+      }
+    });
+  }
+
+  for (const repairOrder of (cart?.repairOrders || [])) {
+    const label = [repairOrder?.deviceBrand, repairOrder?.deviceModel]
+      .filter(Boolean)
+      .join(' ')
+      .trim()
+      .slice(0, 127);
+    const unitAmount = sanitizeMoney(repairOrder?.totalCost || 0);
+
+    if (unitAmount <= 0) continue;
+
+    lineItems.push({
+      name: label || 'Reparaturauftrag',
+      quantity: '1',
+      unit_amount: {
+        currency_code: currencyCode,
+        value: formatMoney(unitAmount)
+      }
+    });
+  }
+
+  if (lineItems.length === 0) {
+    const fallbackAmount = sanitizeMoney(cart?.total || 0);
+    lineItems.push({
+      name: 'FixitHub Bestellung',
+      quantity: '1',
+      unit_amount: {
+        currency_code: currencyCode,
+        value: formatMoney(fallbackAmount)
+      }
+    });
+  }
+
+  return lineItems;
+};
+
+const buildPaypalAmount = (cart, lineItems, currencyCode, sendBreakdown = true) => {
+  const total = sanitizeMoney(cart?.total || 0);
+  if (!sendBreakdown) {
+    return {
+      currency_code: currencyCode,
+      value: formatMoney(total)
+    };
+  }
+
+  const itemTotal = sanitizeMoney(
+    lineItems.reduce((sum, item) => sum + Number(item.unit_amount?.value || 0) * Number(item.quantity || 1), 0)
+  );
+  const taxTotal = sanitizeMoney(cart?.tax || 0);
+  const discount = sanitizeMoney(cart?.discount || 0);
+  let shipping = sanitizeMoney(total - itemTotal - taxTotal + discount);
+  if (shipping < 0) shipping = 0;
+
+  return {
+    currency_code: currencyCode,
+    value: formatMoney(total),
+    breakdown: {
+      item_total: {
+        currency_code: currencyCode,
+        value: formatMoney(itemTotal)
+      },
+      tax_total: {
+        currency_code: currencyCode,
+        value: formatMoney(taxTotal)
+      },
+      shipping: {
+        currency_code: currencyCode,
+        value: formatMoney(shipping)
+      },
+      discount: {
+        currency_code: currencyCode,
+        value: formatMoney(discount)
+      }
+    }
+  };
+};
+
+const validateGuestCheckoutPayload = ({ guestInfo, cartData }) => {
+  if (!guestInfo || !guestInfo.email || !guestInfo.firstName || !guestInfo.lastName) {
+    throw new Error('Guest information (email, firstName, lastName) is required');
+  }
+
+  const billingAddress = guestInfo.billingAddress || {};
+  if (!billingAddress.street || !billingAddress.city || !billingAddress.zipCode) {
+    const error = new Error('Complete billing address (street, city, postal code) is required');
+    error.missingFields = {
+      street: !billingAddress.street,
+      city: !billingAddress.city,
+      zipCode: !billingAddress.zipCode
+    };
+    throw error;
+  }
+
+  const hasRepairOrders = Array.isArray(cartData?.repairOrders) && cartData.repairOrders.length > 0;
+  const hasShopProducts = Array.isArray(cartData?.items) && cartData.items.length > 0;
+  if (!hasRepairOrders && !hasShopProducts) {
+    throw new Error('Cart is empty. Please add items before checkout.');
+  }
+};
+
+const buildGuestPaypalPayload = async ({ cartData, guestInfo, currencyCode, sendBreakdown = true }) => {
+  const Product = require('../models/Product');
+
+  const lineItems = [];
+  let total = 0;
+  let tax = 0;
+  const discount = 0;
+  const shipping = 0;
+
+  if (Array.isArray(cartData?.items)) {
+    for (const item of cartData.items) {
+      const quantity = Math.max(1, Number(item?.quantity || 1));
+      const productId = item?.product?._id || item?.productId;
+      if (!productId) continue;
+
+      const product = await Product.findById(productId).lean();
+      if (!product) continue;
+
+      const unitAmount = sanitizeMoney(product.price || 0);
+      if (unitAmount <= 0) continue;
+
+      total += unitAmount * quantity;
+      lineItems.push({
+        name: String(product.name || 'Produkt').trim().slice(0, 127) || 'Produkt',
+        quantity: String(quantity),
+        unit_amount: {
+          currency_code: currencyCode,
+          value: formatMoney(unitAmount)
+        }
+      });
+    }
+  }
+
+  if (Array.isArray(cartData?.repairOrders)) {
+    for (const repairOrder of cartData.repairOrders) {
+      const serviceIds = Array.isArray(repairOrder?.services)
+        ? repairOrder.services.map((service) => service?._id || service).filter(Boolean)
+        : [];
+
+      const services = serviceIds.length
+        ? await Service.find({ _id: { $in: serviceIds } }).lean()
+        : [];
+
+      let repairAmount = services.reduce((sum, service) => sum + sanitizeMoney(service.price || 0), 0);
+      if (Array.isArray(repairOrder?.addOns)) {
+        repairAmount += repairOrder.addOns.reduce((sum, addOn) => sum + sanitizeMoney(addOn?.price || 0), 0);
+      }
+
+      repairAmount = sanitizeMoney(repairAmount);
+      if (repairAmount <= 0) continue;
+
+      total += repairAmount;
+
+      const label = [repairOrder?.deviceBrand, repairOrder?.deviceModel]
+        .filter(Boolean)
+        .join(' ')
+        .trim()
+        .slice(0, 127);
+
+      lineItems.push({
+        name: label || 'Reparaturauftrag',
+        quantity: '1',
+        unit_amount: {
+          currency_code: currencyCode,
+          value: formatMoney(repairAmount)
+        }
+      });
+    }
+  }
+
+  if (lineItems.length === 0) {
+    throw new Error('Cart is empty. Please add items before checkout.');
+  }
+
+  const amount = sendBreakdown
+    ? {
+        currency_code: currencyCode,
+        value: formatMoney(total),
+        breakdown: {
+          item_total: {
+            currency_code: currencyCode,
+            value: formatMoney(total)
+          },
+          tax_total: {
+            currency_code: currencyCode,
+            value: formatMoney(tax)
+          },
+          shipping: {
+            currency_code: currencyCode,
+            value: formatMoney(shipping)
+          },
+          discount: {
+            currency_code: currencyCode,
+            value: formatMoney(discount)
+          }
+        }
+      }
+    : {
+        currency_code: currencyCode,
+        value: formatMoney(total)
+      };
+
+  return {
+    lineItems,
+    amount,
+    total: sanitizeMoney(total),
+    payerEmail: normalizeEmailAddress(guestInfo.email)
+  };
+};
+
+const validateCheckoutAddress = (user) => {
+  const invoiceAddress = user?.invoiceAddress || {};
+  if (!invoiceAddress.street || !invoiceAddress.city || !invoiceAddress.zipCode) {
+    const error = new Error('Please complete your invoice address in your profile before checkout. Street, city, and postal code are required for return label generation.');
+    error.missingFields = {
+      street: !invoiceAddress.street,
+      city: !invoiceAddress.city,
+      zipCode: !invoiceAddress.zipCode
+    };
+    throw error;
+  }
+};
+
+// Description: Get PayPal public SDK configuration for checkout
+// Endpoint: GET /api/checkout/paypal/config
+// Response: { success: boolean, clientId, currency, intent, locale, button }
+router.get('/paypal/config', requireUser, async (req, res) => {
+  try {
+    const gateway = await getActivePaypalGateway();
+    const config = gateway.configuration || {};
+    const useLive = config.environment === 'live';
+    const clientId = useLive ? config.live_client_id : config.sandbox_client_id;
+
+    if (!clientId) {
+      return res.status(400).json({
+        success: false,
+        error: 'PayPal client ID is not configured.'
+      });
+    }
+
+    return res.json({
+      success: true,
+      clientId,
+      currency: (config.default_currency || config.currency || 'EUR').toUpperCase(),
+      intent: (config.payment_intent || 'CAPTURE').toUpperCase(),
+      locale: config.locale || 'de-DE',
+      environment: config.environment || 'sandbox',
+      button: {
+        enabled: config.button_enabled !== false,
+        layout: config.button_layout || 'vertical',
+        color: config.button_color || 'gold',
+        shape: config.button_shape || 'rect',
+        label: config.button_label || 'paypal'
+      }
+    });
+  } catch (error) {
+    console.error('CheckoutRoutes: Error loading PayPal config:', error);
+    return res.status(400).json({
+      success: false,
+      error: error.message || 'Failed to load PayPal config.'
+    });
+  }
+});
+
+// Description: Get PayPal public SDK configuration for guest checkout
+// Endpoint: GET /api/checkout/paypal/guest/config
+// Response: { success: boolean, clientId, currency, intent, locale, button }
+router.get('/paypal/guest/config', async (req, res) => {
+  try {
+    const gateway = await getActivePaypalGateway();
+    const config = gateway.configuration || {};
+    const useLive = config.environment === 'live';
+    const clientId = useLive ? config.live_client_id : config.sandbox_client_id;
+
+    if (!clientId) {
+      return res.status(400).json({
+        success: false,
+        error: 'PayPal client ID is not configured.'
+      });
+    }
+
+    return res.json({
+      success: true,
+      clientId,
+      currency: (config.default_currency || config.currency || 'EUR').toUpperCase(),
+      intent: (config.payment_intent || 'CAPTURE').toUpperCase(),
+      locale: config.locale || 'de-DE',
+      environment: config.environment || 'sandbox',
+      button: {
+        enabled: config.button_enabled !== false,
+        layout: config.button_layout || 'vertical',
+        color: config.button_color || 'gold',
+        shape: config.button_shape || 'rect',
+        label: config.button_label || 'paypal'
+      }
+    });
+  } catch (error) {
+    console.error('CheckoutRoutes: Error loading guest PayPal config:', error);
+    return res.status(400).json({
+      success: false,
+      error: error.message || 'Failed to load PayPal config.'
+    });
+  }
+});
+
+// Description: Create PayPal order for checkout cart
+// Endpoint: POST /api/checkout/paypal/create-order
+// Request: { returnPath?: string }
+// Response: { success: boolean, orderId, amount, currency }
+router.post('/paypal/create-order', requireUser, async (req, res) => {
+  try {
+    const user = await UserService.get(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    validateCheckoutAddress(user);
+
+    const cart = await CartService.getCart(req.user._id);
+    const hasRepairOrders = cart && Array.isArray(cart.repairOrders) && cart.repairOrders.length > 0;
+    const hasShopProducts = cart && Array.isArray(cart.items) && cart.items.length > 0;
+
+    if (!cart || (!hasRepairOrders && !hasShopProducts)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cart is empty. Please add items before checkout.'
+      });
+    }
+
+    const gateway = await getActivePaypalGateway();
+    const config = gateway.configuration || {};
+    const currencyCode = (config.default_currency || config.currency || 'EUR').toUpperCase();
+    const lineItems = buildPaypalLineItems(cart, currencyCode);
+    const amount = buildPaypalAmount(cart, lineItems, currencyCode, config.send_breakdown !== false);
+
+    const { accessToken, baseUrl } = await getPaypalAccessToken(gateway);
+    const frontendBase = getFrontendBaseUrl();
+    const returnPath = String(req.body?.returnPath || '/checkout').trim();
+    const safeReturnPath = returnPath.startsWith('/') ? returnPath : '/checkout';
+
+    const paypalOrderResponse = await axios.post(
+      `${baseUrl}/v2/checkout/orders`,
+      {
+        intent: (config.payment_intent || 'CAPTURE').toUpperCase(),
+        purchase_units: [
+          {
+            reference_id: `checkout-${req.user._id}`,
+            description: (config.description_template || 'FixitHub Bestellung').replace('{{orderId}}', String(cart._id || 'cart')),
+            amount,
+            items: lineItems,
+            custom_id: String(req.user._id)
+          }
+        ],
+        payer: {
+          email_address: user.email
+        },
+        application_context: {
+          brand_name: 'FixitHub',
+          locale: config.locale || 'de-DE',
+          user_action: 'PAY_NOW',
+          shipping_preference: 'NO_SHIPPING',
+          return_url: `${frontendBase}${safeReturnPath}`,
+          cancel_url: `${frontendBase}${safeReturnPath}`
+        }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 15000
+      }
+    );
+
+    const customerName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email;
+
+    await Payment.create({
+      customerId: req.user._id,
+      customerName,
+      orderNumber: '',
+      amount: sanitizeMoney(cart.total),
+      currency: currencyCode,
+      paymentMethod: 'paypal',
+      status: 'processing',
+      transactionId: paypalOrderResponse.data.id,
+      gatewayResponse: `PayPal order ${paypalOrderResponse.data.id} created`,
+      metadata: {
+        gatewayProvider: 'paypal',
+        gatewayId: gateway._id,
+        paypalOrderId: paypalOrderResponse.data.id,
+        cartId: String(cart._id || ''),
+        cartTotals: {
+          subtotal: sanitizeMoney(cart.subtotal),
+          tax: sanitizeMoney(cart.tax),
+          discount: sanitizeMoney(cart.discount),
+          total: sanitizeMoney(cart.total)
+        },
+        createdAt: new Date().toISOString()
+      }
+    });
+
+    return res.status(201).json({
+      success: true,
+      orderId: paypalOrderResponse.data.id,
+      amount: sanitizeMoney(cart.total),
+      currency: currencyCode
+    });
+  } catch (error) {
+    console.error('CheckoutRoutes: Error creating PayPal order:', error?.response?.data || error);
+    const missingFields = error?.missingFields;
+    return res.status(400).json({
+      success: false,
+      error: error.message || 'Failed to create PayPal order.',
+      missingFields: missingFields || undefined
+    });
+  }
+});
+
+// Description: Create PayPal order for guest checkout cart
+// Endpoint: POST /api/checkout/paypal/guest/create-order
+// Request: { guestInfo, cartData, returnPath?: string }
+// Response: { success: boolean, orderId, amount, currency }
+router.post('/paypal/guest/create-order', async (req, res) => {
+  try {
+    const { guestInfo, cartData, returnPath } = req.body || {};
+    validateGuestCheckoutPayload({ guestInfo, cartData });
+
+    const gateway = await getActivePaypalGateway();
+    const config = gateway.configuration || {};
+    const currencyCode = (config.default_currency || config.currency || 'EUR').toUpperCase();
+    const guestPayload = await buildGuestPaypalPayload({
+      cartData,
+      guestInfo,
+      currencyCode,
+      sendBreakdown: config.send_breakdown !== false
+    });
+
+    const { accessToken, baseUrl } = await getPaypalAccessToken(gateway);
+    const frontendBase = getFrontendBaseUrl();
+    const safeReturnPath = String(returnPath || '/checkout').trim().startsWith('/')
+      ? String(returnPath || '/checkout').trim()
+      : '/checkout';
+
+    const paypalOrderResponse = await axios.post(
+      `${baseUrl}/v2/checkout/orders`,
+      {
+        intent: (config.payment_intent || 'CAPTURE').toUpperCase(),
+        purchase_units: [
+          {
+            reference_id: `guest-checkout-${Date.now()}`,
+            description: 'FixitHub Gastbestellung',
+            amount: guestPayload.amount,
+            items: guestPayload.lineItems,
+            custom_id: normalizeEmailAddress(guestInfo.email)
+          }
+        ],
+        payer: {
+          email_address: guestPayload.payerEmail,
+          name: {
+            given_name: String(guestInfo.firstName || '').trim(),
+            surname: String(guestInfo.lastName || '').trim()
+          }
+        },
+        application_context: {
+          brand_name: 'FixitHub',
+          locale: config.locale || 'de-DE',
+          user_action: 'PAY_NOW',
+          shipping_preference: 'NO_SHIPPING',
+          return_url: `${frontendBase}${safeReturnPath}`,
+          cancel_url: `${frontendBase}${safeReturnPath}`
+        }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 15000
+      }
+    );
+
+    return res.status(201).json({
+      success: true,
+      orderId: paypalOrderResponse.data.id,
+      amount: guestPayload.total,
+      currency: currencyCode
+    });
+  } catch (error) {
+    console.error('CheckoutRoutes: Error creating guest PayPal order:', error?.response?.data || error);
+    return res.status(400).json({
+      success: false,
+      error: error.message || 'Failed to create guest PayPal order.',
+      missingFields: error?.missingFields || undefined
+    });
+  }
+});
+
+// Description: Capture PayPal order after buyer approval
+// Endpoint: POST /api/checkout/paypal/capture-order
+// Request: { orderId }
+// Response: { success: boolean, captureId, orderId, amount, currency, receipt }
+router.post('/paypal/capture-order', requireUser, async (req, res) => {
+  try {
+    const { orderId } = req.body || {};
+    if (!orderId) {
+      return res.status(400).json({ success: false, error: 'orderId is required.' });
+    }
+
+    const gateway = await getActivePaypalGateway();
+    const { accessToken, baseUrl } = await getPaypalAccessToken(gateway);
+
+    const pendingPayment = await Payment.findOne({
+      customerId: req.user._id,
+      transactionId: orderId,
+      paymentMethod: 'paypal'
+    });
+
+    if (pendingPayment?.status === 'completed') {
+      const details = pendingPayment.metadata?.providerDetails || {};
+      return res.json({
+        success: true,
+        alreadyCaptured: true,
+        orderId,
+        captureId: details.captureId || '',
+        amount: pendingPayment.amount,
+        currency: pendingPayment.currency,
+        receipt: {
+          paymentId: pendingPayment._id,
+          transactionId: pendingPayment.transactionId
+        }
+      });
+    }
+
+    const captureResponse = await axios.post(
+      `${baseUrl}/v2/checkout/orders/${orderId}/capture`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 15000
+      }
+    );
+
+    const paypalOrder = captureResponse.data;
+    if (paypalOrder.status !== 'COMPLETED') {
+      return res.status(400).json({
+        success: false,
+        error: 'PayPal payment is not completed.'
+      });
+    }
+
+    const capture = paypalOrder.purchase_units?.[0]?.payments?.captures?.[0] || {};
+    const capturedAmount = sanitizeMoney(capture?.amount?.value || 0);
+    const capturedCurrency = String(capture?.amount?.currency_code || gateway.configuration?.default_currency || 'EUR').toUpperCase();
+
+    let payment = pendingPayment;
+    if (!payment) {
+      const user = await UserService.get(req.user._id);
+      const customerName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || user?.email || 'Customer';
+      payment = await Payment.create({
+        customerId: req.user._id,
+        customerName,
+        orderNumber: '',
+        amount: capturedAmount,
+        currency: capturedCurrency,
+        paymentMethod: 'paypal',
+        status: 'processing',
+        transactionId: orderId,
+        gatewayResponse: `PayPal order ${orderId} captured`,
+        metadata: {}
+      });
+    }
+
+    payment.status = 'completed';
+    payment.processedAt = new Date();
+    payment.gatewayResponse = `PayPal order ${orderId} captured successfully`;
+    payment.amount = capturedAmount;
+    payment.currency = capturedCurrency;
+    payment.metadata = {
+      ...(payment.metadata || {}),
+      gatewayProvider: 'paypal',
+      paypalOrderId: orderId,
+      providerReference: capture?.id || orderId,
+      providerDetails: {
+        paypalOrderStatus: paypalOrder.status,
+        captureId: capture?.id || '',
+        payerId: paypalOrder?.payer?.payer_id || '',
+        payerEmail: paypalOrder?.payer?.email_address || ''
+      },
+      capturedAt: new Date().toISOString()
+    };
+    await payment.save();
+
+    return res.json({
+      success: true,
+      orderId,
+      captureId: capture?.id || '',
+      amount: capturedAmount,
+      currency: capturedCurrency,
+      receipt: {
+        paymentId: payment._id,
+        transactionId: payment.transactionId
+      }
+    });
+  } catch (error) {
+    console.error('CheckoutRoutes: Error capturing PayPal order:', error?.response?.data || error);
+    return res.status(400).json({
+      success: false,
+      error: error.message || 'Failed to capture PayPal order.'
+    });
+  }
+});
+
+// Description: Capture guest PayPal order after buyer approval
+// Endpoint: POST /api/checkout/paypal/guest/capture-order
+// Request: { orderId, guestInfo }
+// Response: { success: boolean, captureId, orderId, amount, currency, receipt }
+router.post('/paypal/guest/capture-order', async (req, res) => {
+  try {
+    const { orderId, guestInfo } = req.body || {};
+    if (!orderId) {
+      return res.status(400).json({ success: false, error: 'orderId is required.' });
+    }
+
+    if (!guestInfo || !guestInfo.email) {
+      return res.status(400).json({ success: false, error: 'guestInfo.email is required.' });
+    }
+
+    const gateway = await getActivePaypalGateway();
+    const { accessToken, baseUrl } = await getPaypalAccessToken(gateway);
+
+    const captureResponse = await axios.post(
+      `${baseUrl}/v2/checkout/orders/${orderId}/capture`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 15000
+      }
+    );
+
+    const paypalOrder = captureResponse.data;
+    if (paypalOrder.status !== 'COMPLETED') {
+      return res.status(400).json({
+        success: false,
+        error: 'PayPal payment is not completed.'
+      });
+    }
+
+    const capture = paypalOrder.purchase_units?.[0]?.payments?.captures?.[0] || {};
+    const capturedAmount = sanitizeMoney(capture?.amount?.value || 0);
+    const capturedCurrency = String(capture?.amount?.currency_code || gateway.configuration?.default_currency || 'EUR').toUpperCase();
+
+    return res.json({
+      success: true,
+      orderId,
+      captureId: capture?.id || '',
+      amount: capturedAmount,
+      currency: capturedCurrency,
+      receipt: {
+        paymentId: '',
+        transactionId: capture?.id || orderId
+      }
+    });
+  } catch (error) {
+    const paypalErrorName = error?.response?.data?.name;
+    if (paypalErrorName === 'UNPROCESSABLE_ENTITY') {
+      try {
+        const gateway = await getActivePaypalGateway();
+        const { accessToken, baseUrl } = await getPaypalAccessToken(gateway);
+        const orderId = req.body?.orderId;
+
+        const orderResponse = await axios.get(`${baseUrl}/v2/checkout/orders/${orderId}`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 15000
+        });
+
+        const order = orderResponse.data || {};
+        const capture = order.purchase_units?.[0]?.payments?.captures?.[0] || {};
+        if (order.status === 'COMPLETED' && capture?.id) {
+          return res.json({
+            success: true,
+            alreadyCaptured: true,
+            orderId,
+            captureId: capture.id,
+            amount: sanitizeMoney(capture?.amount?.value || 0),
+            currency: String(capture?.amount?.currency_code || gateway.configuration?.default_currency || 'EUR').toUpperCase(),
+            receipt: {
+              paymentId: '',
+              transactionId: capture.id
+            }
+          });
+        }
+      } catch (fallbackError) {
+        console.error('CheckoutRoutes: Guest PayPal fallback capture check failed:', fallbackError?.response?.data || fallbackError);
+      }
+    }
+
+    console.error('CheckoutRoutes: Error capturing guest PayPal order:', error?.response?.data || error);
+    return res.status(400).json({
+      success: false,
+      error: error.message || 'Failed to capture guest PayPal order.'
+    });
+  }
+});
+
+// Description: Handle PayPal webhook events for async status updates
+// Endpoint: POST /api/checkout/paypal/webhook
+// Request: PayPal webhook payload
+// Response: { success: boolean }
+router.post('/paypal/webhook', async (req, res) => {
+  try {
+    const gateway = await getActivePaypalGateway();
+    const config = gateway.configuration || {};
+    const webhookEvent = req.body || {};
+    const eventType = webhookEvent.event_type || '';
+
+    if (config.webhooks_enabled === false) {
+      return res.status(202).json({ success: true, ignored: true, reason: 'webhooks_disabled' });
+    }
+
+    if (!eventType) {
+      return res.status(400).json({ success: false, error: 'Missing webhook event_type.' });
+    }
+
+    const configuredEvents = Array.isArray(config.webhook_events)
+      ? config.webhook_events.map((value) => String(value).trim()).filter(Boolean)
+      : [];
+
+    if (configuredEvents.length > 0 && !configuredEvents.includes(eventType)) {
+      return res.status(202).json({ success: true, ignored: true, reason: 'event_not_configured' });
+    }
+
+    const verified = await verifyPaypalWebhookSignature({
+      gateway,
+      webhookEvent,
+      headers: req.headers
+    });
+
+    if (!verified) {
+      return res.status(401).json({ success: false, error: 'Webhook signature verification failed.' });
+    }
+
+    const supportedEvents = new Set([
+      'CHECKOUT.ORDER.APPROVED',
+      'PAYMENT.CAPTURE.PENDING',
+      'PAYMENT.CAPTURE.COMPLETED',
+      'PAYMENT.CAPTURE.DENIED',
+      'PAYMENT.CAPTURE.DECLINED',
+      'PAYMENT.CAPTURE.REFUNDED',
+      'PAYMENT.CAPTURE.REVERSED'
+    ]);
+
+    if (!supportedEvents.has(eventType)) {
+      return res.status(202).json({ success: true, ignored: true, reason: 'unsupported_event' });
+    }
+
+    const resource = webhookEvent.resource || {};
+    const orderId = resource.supplementary_data?.related_ids?.order_id
+      || resource.id
+      || webhookEvent.resource?.id
+      || '';
+    const captureId = resource.id && eventType.startsWith('PAYMENT.CAPTURE') ? resource.id : '';
+
+    const payment = await findPaymentByPaypalResource({ orderId, captureId });
+
+    if (eventType === 'CHECKOUT.ORDER.APPROVED') {
+      if (payment) {
+        payment.status = payment.status === 'completed' ? 'completed' : 'processing';
+        payment.gatewayResponse = `PayPal webhook approved order ${orderId || payment.transactionId}`;
+        payment.metadata = {
+          ...(payment.metadata || {}),
+          gatewayProvider: 'paypal',
+          paypalOrderId: orderId || payment.metadata?.paypalOrderId || payment.transactionId,
+          providerDetails: {
+            ...(payment.metadata?.providerDetails || {}),
+            webhookEventType: eventType,
+            webhookOrderStatus: resource.status || 'APPROVED',
+            webhookUpdatedAt: new Date().toISOString()
+          }
+        };
+        await payment.save();
+      }
+
+      return res.status(200).json({ success: true, acknowledged: true, eventType });
+    }
+
+    await applyPaypalWebhookUpdate({ payment, eventType, resource, orderId, captureId });
+
+    return res.status(200).json({
+      success: true,
+      acknowledged: true,
+      eventType,
+      paymentUpdated: Boolean(payment)
+    });
+  } catch (error) {
+    console.error('CheckoutRoutes: Error handling PayPal webhook:', error?.response?.data || error);
+    return res.status(400).json({
+      success: false,
+      error: error.message || 'Failed to process PayPal webhook.'
+    });
+  }
+});
 
 // Description: Initialize checkout - validates user authentication and returns cart with user info
 // Endpoint: POST /api/checkout/initialize
@@ -189,6 +1193,9 @@ router.post('/complete', requireUser, async (req, res) => {
     console.log('CheckoutRoutes: Completing checkout for user:', req.user._id);
 
     const { paymentMethod, paymentData } = req.body;
+    const isCapturedPaypalPayment = paymentMethod === 'paypal' && !!paymentData?.paypalCaptureId;
+    const resolvedPaymentStatus = isCapturedPaypalPayment ? 'paid' : 'pending';
+    const resolvedBillingStatus = isCapturedPaypalPayment ? 'paid' : 'unpaid';
 
     // Get user information to validate invoice address
     const user = await UserService.get(req.user._id);
@@ -306,7 +1313,7 @@ router.post('/complete', requireUser, async (req, res) => {
             status: 'pending',
             priority: 'normal',
             progress: 0,
-            paymentStatus: 'pending',
+            paymentStatus: resolvedPaymentStatus,
             estimatedCompletion: null,
             // Device unlock information from cart
             unlockPattern: repairOrder.unlockPattern || [],
@@ -374,7 +1381,7 @@ router.post('/complete', requireUser, async (req, res) => {
           status: 'pending',
           priority: 'normal',
           progress: 0,
-          paymentStatus: 'pending',
+          paymentStatus: resolvedPaymentStatus,
           estimatedCompletion: null
         };
 
@@ -411,8 +1418,8 @@ router.post('/complete', requireUser, async (req, res) => {
         discount: cart.discount || 0,
         appliedPromoCode: cart.promoCode || '',
         status: 'pending',
-        billingStatus: 'unpaid',
-        paymentStatus: 'pending',
+        billingStatus: resolvedBillingStatus,
+        paymentStatus: resolvedPaymentStatus,
         paymentMethod: paymentMethod || '',
       });
       console.log('CheckoutRoutes: Booking created successfully:', booking._id);
@@ -475,6 +1482,9 @@ router.post('/guest-complete', async (req, res) => {
     console.log('CheckoutRoutes: Processing guest checkout');
 
     const { guestInfo, cartData, paymentMethod, paymentData } = req.body;
+    const isCapturedPaypalPayment = paymentMethod === 'paypal' && !!paymentData?.paypalCaptureId;
+    const resolvedPaymentStatus = isCapturedPaypalPayment ? 'paid' : 'pending';
+    const resolvedBillingStatus = isCapturedPaypalPayment ? 'paid' : 'unpaid';
 
     // Validate guest information
     if (!guestInfo || !guestInfo.email || !guestInfo.firstName || !guestInfo.lastName) {
@@ -597,7 +1607,7 @@ router.post('/guest-complete', async (req, res) => {
             status: 'pending',
             priority: 'normal',
             progress: 0,
-            paymentStatus: 'pending',
+            paymentStatus: resolvedPaymentStatus,
             estimatedCompletion: null,
             unlockPattern: repairOrder.unlockPattern || [],
             unlockCode: repairOrder.unlockCode || '',
@@ -663,7 +1673,7 @@ router.post('/guest-complete', async (req, res) => {
           status: 'pending',
           priority: 'normal',
           progress: 0,
-          paymentStatus: 'pending',
+          paymentStatus: resolvedPaymentStatus,
           estimatedCompletion: null
         };
 
@@ -699,8 +1709,8 @@ router.post('/guest-complete', async (req, res) => {
         discount: 0,
         appliedPromoCode: '',
         status: 'pending',
-        billingStatus: 'unpaid',
-        paymentStatus: 'pending',
+        billingStatus: resolvedBillingStatus,
+        paymentStatus: resolvedPaymentStatus,
         paymentMethod: paymentMethod || '',
       });
       console.log('CheckoutRoutes: Guest booking created successfully:', booking._id);
