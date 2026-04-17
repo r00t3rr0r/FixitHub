@@ -174,6 +174,9 @@ export const completeGuestCheckout = async (
 export const getCheckoutPaypalConfig = async (): Promise<CheckoutPaypalConfig> => {
   try {
     const response = await api.get('/api/checkout/paypal/config');
+    if (response.status !== 200 || !response.data?.success) {
+      throw new Error(response.data?.error || 'Failed to load PayPal configuration');
+    }
     return response.data;
   } catch (error: any) {
     throw toCheckoutError(error, 'Failed to load PayPal configuration');
@@ -203,6 +206,9 @@ export const captureCheckoutPaypalOrder = async (orderId: string): Promise<Check
 export const getGuestCheckoutPaypalConfig = async (): Promise<CheckoutPaypalConfig> => {
   try {
     const response = await api.get('/api/checkout/paypal/guest/config');
+    if (response.status !== 200 || !response.data?.success) {
+      throw new Error(response.data?.error || 'Failed to load PayPal configuration');
+    }
     return response.data;
   } catch (error: any) {
     throw toCheckoutError(error, 'Failed to load guest PayPal configuration');

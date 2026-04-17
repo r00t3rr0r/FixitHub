@@ -1,0 +1,75 @@
+{
+  "_id": "gateway2",
+  "name": "PayPal",
+  "provider": "paypal",
+  "isActive": true,
+  "configuration": {
+    "publicKey": "paypal_client_id",
+    "secretKey": "paypal_client_secret",
+    "environment": "sandbox",
+    "sandbox_client_id": "AfgzRtiYeDf4krEV8xGKKwSQEwjIKVvo2OvQhFlhRN6PvjlbyJcUxTfsQQVxTKoh7PXEiZpAIlLlS41I",
+    "sandbox_client_secret": "EJO0H4MT-50Rki0ilqlcM9iGJDhEbs8A3FilgSC0NJK5aZvVpz8KexUgxjzxH_aUDFinoI1i4rTsL4gM",
+    "live_client_id": "",
+    "live_client_secret": "",
+    "merchant_id": "ABCDEF1234567",
+    "api_base_url_sandbox": "https://api-m.sandbox.paypal.com",
+    "api_base_url_live": "https://api-m.paypal.com",
+    "default_currency": "EUR",
+    "allowed_currencies": [
+      "EUR",
+      "USD"
+    ],
+    "payment_intent": "CAPTURE",
+    "amount_source": "system",
+    "send_breakdown": true,
+    "description_template": "Bestellung {{orderId}}",
+    "invoice_id_source": "orderId",
+    "return_url": "https://shop.de/paypal/success",
+    "cancel_url": "https://shop.de/paypal/cancel",
+    "button_enabled": true,
+    "button_layout": "vertical",
+    "button_color": "gold",
+    "button_shape": "rect",
+    "button_label": "paypal",
+    "locale": "de-DE",
+    "funding_sources_allowed": [
+      "paypal"
+    ],
+    "webhooks_enabled": true,
+    "webhook_url": "https://api.de/paypal/webhook",
+    "webhook_events": [
+      "CHECKOUT.ORDER.APPROVED",
+      "PAYMENT.CAPTURE.COMPLETED"
+    ],
+    "webhook_id": "WH-1234...",
+    "http_timeout_ms": 10000,
+    "http_max_retries": 2,
+    "idempotency_enabled": true,
+    "idempotency_key_source": "orderId",
+    "logging_level": "error",
+    "log_request_bodies": false,
+    "log_response_bodies": false,
+    "list_page_size_default": 50,
+    "list_max_page_size": 100,
+    "currency": "EUR",
+    "processingFee": 3.5,
+    "fraudProtection": true,
+    "sandbox_account_email": "sb-tbxpi49047208@business.example.com",
+    "sandbox_account_password": "6dP./hON",
+    "sandbox_region": "DE"
+  },
+  "supportedMethods": [
+    "paypal",
+    "paypal_credit"
+  ],
+  "countries": [
+    "US",
+    "CA",
+    "GB",
+    "AU",
+    "DE",
+    "FR"
+  ],
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2026-04-17T09:35:48.113Z"
+}

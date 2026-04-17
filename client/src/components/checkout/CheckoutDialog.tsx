@@ -562,7 +562,9 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
 
         const scriptId = "paypal-js-sdk"
         const existingScript = document.getElementById(scriptId) as HTMLScriptElement | null
-        const sdkSrc = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(config.clientId)}&currency=${encodeURIComponent(config.currency)}&intent=${encodeURIComponent(config.intent.toLowerCase())}&locale=${encodeURIComponent(config.locale)}&components=buttons`
+        // PayPal SDK requires underscore locale format (e.g. de_DE), not hyphen (de-DE)
+        const paypalLocale = (config.locale || 'de_DE').replace('-', '_')
+        const sdkSrc = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(config.clientId)}&currency=${encodeURIComponent(config.currency)}&intent=${encodeURIComponent(config.intent.toLowerCase())}&locale=${encodeURIComponent(paypalLocale)}&components=buttons`
 
         if (window.paypal?.Buttons) {
           setPaypalSdkReady(true)
@@ -571,27 +573,26 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
         }
 
         if (existingScript) {
-          const onLoad = () => {
-            if (cancelled) return
-            setPaypalSdkReady(true)
-            setPaypalLoading(false)
+          // If the script loaded correctly, window.paypal would already be set above.
+          // Getting here means the existing script failed or used a wrong client-id — remove it and reload.
+          if (existingScript.src !== sdkSrc || !window.paypal?.Buttons) {
+            existingScript.remove()
+            // fall through to create a new script element
+          } else {
+            const onLoad = () => {
+              if (cancelled) return
+              setPaypalSdkReady(true)
+              setPaypalLoading(false)
+            }
+            const onError = () => {
+              if (cancelled) return
+              setPaypalError("PayPal SDK konnte nicht geladen werden.")
+              setPaypalLoading(false)
+            }
+            existingScript.addEventListener("load", onLoad)
+            existingScript.addEventListener("error", onError)
+            return
           }
-
-          const onError = () => {
-            if (cancelled) return
-            setPaypalError("PayPal SDK konnte nicht geladen werden.")
-            setPaypalLoading(false)
-          }
-
-          existingScript.addEventListener("load", onLoad)
-          existingScript.addEventListener("error", onError)
-
-          if (window.paypal?.Buttons) {
-            setPaypalSdkReady(true)
-            setPaypalLoading(false)
-          }
-
-          return
         }
 
         const script = document.createElement("script")
