@@ -229,3 +229,34 @@ export const confirmInvoicePayment = async (
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+export interface InvoicePaypalSdkConfig {
+  clientId: string;
+  currency: string;
+  intent: string;
+  locale: string;
+  gatewayId: string;
+  environment: string;
+  button: {
+    layout: string;
+    color: string;
+    shape: string;
+    label: string;
+  };
+}
+
+// Description: Get PayPal JS SDK public config for invoice payment
+// Endpoint: GET /api/invoices/paypal/config
+// Request: { gatewayId?: string }
+// Response: { success: boolean } & InvoicePaypalSdkConfig
+export const getInvoicePaypalConfig = async (gatewayId?: string): Promise<InvoicePaypalSdkConfig> => {
+  try {
+    const url = gatewayId
+      ? `/api/invoices/paypal/config?gatewayId=${encodeURIComponent(gatewayId)}`
+      : '/api/invoices/paypal/config';
+    const response = await api.get(url);
+    return response.data as InvoicePaypalSdkConfig;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};

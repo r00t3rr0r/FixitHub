@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import {
@@ -34,11 +34,13 @@ import {
   confirmInvoicePayment,
   getCustomerInvoices,
   getInvoicePaymentGateways,
+  getInvoicePaypalConfig,
   initializeInvoicePayment,
   markInvoiceAsViewed,
   payInvoice,
   Invoice,
   InvoicePaymentGateway,
+  InvoicePaypalSdkConfig,
 } from "@/api/invoices";
 import { useToast } from "@/hooks/useToast";
 
@@ -71,6 +73,230 @@ export function CustomerInvoices() {
   const [billingCity, setBillingCity] = useState("");
   const [billingZipCode, setBillingZipCode] = useState("");
   const [billingCountry, setBillingCountry] = useState("DE");
+
+  // --- PayPal JS SDK state for invoice payment ---
+  const [paypalInvoiceSdkReady, setPaypalInvoiceSdkReady] = useState(false);
+  const [paypalInvoiceSdkLoading, setPaypalInvoiceSdkLoading] = useState(false);
+  const [paypalInvoiceError, setPaypalInvoiceError] = useState("");
+  const [paypalInvoiceConfig, setPaypalInvoiceConfig] = useState<InvoicePaypalSdkConfig | null>(null);
+  const paypalInvoiceButtonRef = useRef<HTMLDivElement | null>(null);
+
+  // Mutable ref so PayPal callbacks always read the latest state values
+  const invoicePaypalValuesRef = useRef({
+    selectedInvoice: null as Invoice | null,
+    selectedGateway: null as InvoicePaymentGateway | null,
+    amount: "",
+    acceptedTerms: false,
+    payerName: "",
+    payerEmail: "",
+  });
+
+  // Keep the ref in sync on every render
+  const _selectedGatewayForRef = paymentGateways.find((g) => g._id === selectedGatewayId) ?? null;
+  invoicePaypalValuesRef.current = {
+    selectedInvoice,
+    selectedGateway: _selectedGatewayForRef,
+    amount: paymentAmount,
+    acceptedTerms,
+    payerName,
+    payerEmail,
+  };
+
+  // Load PayPal JS SDK when a PayPal gateway is selected
+  useEffect(() => {
+    const gateway = paymentGateways.find((g) => g._id === selectedGatewayId);
+    if (!showInvoiceDialog || gateway?.provider !== 'paypal') {
+      setPaypalInvoiceSdkReady(false);
+      setPaypalInvoiceError("");
+      setPaypalInvoiceConfig(null);
+      return;
+    }
+
+    let cancelled = false;
+    const loadSdk = async () => {
+      setPaypalInvoiceSdkLoading(true);
+      setPaypalInvoiceError("");
+      try {
+        const config = await getInvoicePaypalConfig(selectedGatewayId);
+        if (cancelled) return;
+        setPaypalInvoiceConfig(config);
+
+        const scriptId = "paypal-js-sdk";
+        const paypalLocale = (config.locale || 'de_DE').replace('-', '_');
+        const sdkSrc = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(config.clientId)}&currency=${encodeURIComponent(config.currency)}&intent=${encodeURIComponent(config.intent.toLowerCase())}&locale=${encodeURIComponent(paypalLocale)}&components=buttons`;
+
+        if ((window as any).paypal?.Buttons) {
+          setPaypalInvoiceSdkReady(true);
+          setPaypalInvoiceSdkLoading(false);
+          return;
+        }
+
+        const existingScript = document.getElementById(scriptId) as HTMLScriptElement | null;
+        if (existingScript && existingScript.src !== sdkSrc) {
+          existingScript.remove();
+        } else if (existingScript) {
+          existingScript.addEventListener('load', () => {
+            if (cancelled) return;
+            setPaypalInvoiceSdkReady(true);
+            setPaypalInvoiceSdkLoading(false);
+          });
+          existingScript.addEventListener('error', () => {
+            if (cancelled) return;
+            setPaypalInvoiceError('PayPal SDK konnte nicht geladen werden.');
+            setPaypalInvoiceSdkLoading(false);
+          });
+          return;
+        }
+
+        const script = document.createElement('script');
+        script.id = scriptId;
+        script.src = sdkSrc;
+        script.async = true;
+        script.onload = () => {
+          if (cancelled) return;
+          setPaypalInvoiceSdkReady(true);
+          setPaypalInvoiceSdkLoading(false);
+        };
+        script.onerror = () => {
+          if (cancelled) return;
+          setPaypalInvoiceError('PayPal SDK konnte nicht geladen werden.');
+          setPaypalInvoiceSdkLoading(false);
+        };
+        document.body.appendChild(script);
+      } catch (err: any) {
+        if (cancelled) return;
+        setPaypalInvoiceError(err.message || 'PayPal-Konfiguration konnte nicht geladen werden.');
+        setPaypalInvoiceSdkLoading(false);
+      }
+    };
+
+    loadSdk();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showInvoiceDialog, selectedGatewayId]);
+
+  // Render PayPal buttons when SDK is ready
+  useEffect(() => {
+    if (
+      !showInvoiceDialog ||
+      !paypalInvoiceSdkReady ||
+      !paypalInvoiceConfig ||
+      !paypalInvoiceButtonRef.current ||
+      !(window as any).paypal?.Buttons
+    ) {
+      return;
+    }
+
+    paypalInvoiceButtonRef.current.innerHTML = '';
+
+    const paypalNs = (window as any).paypal;
+    const buttons = paypalNs.Buttons({
+      style: {
+        layout: paypalInvoiceConfig.button.layout || 'vertical',
+        color: paypalInvoiceConfig.button.color || 'gold',
+        shape: paypalInvoiceConfig.button.shape || 'rect',
+        label: paypalInvoiceConfig.button.label || 'paypal',
+      },
+      onClick: (_data: any, actions: any) => {
+        const vals = invoicePaypalValuesRef.current;
+        const amount = Number(vals.amount);
+
+        if (!vals.acceptedTerms) {
+          toast({ title: t('common.error'), description: 'Bitte bestätigen Sie die Zahlungsbedingungen.', variant: 'destructive' });
+          return actions.reject();
+        }
+
+        if (!vals.payerName?.trim() || !vals.payerEmail?.trim()) {
+          toast({ title: t('common.error'), description: 'Name und E-Mail des Zahlers sind erforderlich.', variant: 'destructive' });
+          return actions.reject();
+        }
+
+        if (!amount || amount <= 0) {
+          toast({ title: t('common.error'), description: 'Bitte geben Sie einen gültigen Zahlungsbetrag ein.', variant: 'destructive' });
+          return actions.reject();
+        }
+
+        if (!vals.selectedInvoice || !vals.selectedGateway) {
+          toast({ title: t('common.error'), description: 'Rechnung oder Gateway konnte nicht geladen werden.', variant: 'destructive' });
+          return actions.reject();
+        }
+
+        return actions.resolve();
+      },
+      createOrder: async () => {
+        const vals = invoicePaypalValuesRef.current;
+        if (!vals.selectedInvoice || !vals.selectedGateway) {
+          throw new Error('Rechnung oder Gateway nicht gefunden.');
+        }
+        const amount = Number(vals.amount);
+        if (!amount || amount <= 0) throw new Error('Invalid amount');
+        const initResp = await initializeInvoicePayment(vals.selectedInvoice._id, {
+          amount,
+          gatewayId: vals.selectedGateway._id,
+          gatewayProvider: 'paypal',
+          paymentData: {
+            payerName: vals.payerName,
+            payerEmail: vals.payerEmail,
+            paypalEmail: vals.payerEmail,
+            acceptedTerms: vals.acceptedTerms,
+          },
+        });
+        return initResp.providerReference;
+      },
+      onApprove: async (data: { orderID: string }) => {
+        try {
+          setProcessingPayment(true);
+          const vals = invoicePaypalValuesRef.current;
+          if (!vals.selectedInvoice || !vals.selectedGateway) {
+            throw new Error('Rechnung nicht gefunden.');
+          }
+          const response = await confirmInvoicePayment(vals.selectedInvoice._id, {
+            gatewayProvider: 'paypal',
+            gatewayId: vals.selectedGateway._id,
+            providerReference: data.orderID,
+          });
+
+          const updatedInvoice = {
+            ...vals.selectedInvoice,
+            ...response.invoice,
+            amountPaid: response.invoice?.paidAmount ?? response.invoice?.amountPaid,
+            paymentMethod: 'paypal',
+            paymentHistory: [
+              {
+                _id: response.payment?._id,
+                date: response.payment?.processedAt || new Date().toISOString(),
+                amount: Number(vals.amount),
+                method: vals.selectedGateway.name,
+                note: response.payment?.transactionId || 'PayPal',
+              },
+              ...(vals.selectedInvoice.paymentHistory || []),
+            ],
+          };
+          setSelectedInvoice(updatedInvoice);
+          setInvoices((prev) => prev.map((inv) => (inv._id === updatedInvoice._id ? updatedInvoice : inv)));
+          setPaymentAmount(Math.max(0, Number(response.remainingAmount || 0)).toFixed(2));
+
+          toast({ title: t('common.success'), description: 'PayPal-Zahlung erfolgreich abgeschlossen.' });
+        } catch (err: any) {
+          toast({ title: t('common.error'), description: err.message || 'PayPal-Zahlung konnte nicht abgeschlossen werden.', variant: 'destructive' });
+        } finally {
+          setProcessingPayment(false);
+        }
+      },
+      onCancel: () => {
+        toast({ title: t('common.error'), description: 'PayPal-Zahlung wurde abgebrochen.', variant: 'destructive' });
+      },
+      onError: () => {
+        toast({ title: t('common.error'), description: 'PayPal-Dialog konnte nicht gestartet werden.', variant: 'destructive' });
+      },
+    });
+
+    if (!buttons?.isEligible || !buttons.isEligible()) {
+      setPaypalInvoiceError('PayPal ist in dieser Umgebung nicht verfügbar.');
+      return;
+    }
+    buttons.render(paypalInvoiceButtonRef.current);
+  }, [showInvoiceDialog, paypalInvoiceSdkReady, paypalInvoiceConfig]);
 
   useEffect(() => {
     fetchInvoices();
@@ -870,16 +1096,20 @@ export function CustomerInvoices() {
                         )}
 
                         {selectedGateway?.provider === 'paypal' && (
-                          <div className="rounded-md border border-blue-200 bg-white p-2 space-y-1.5">
-                            <p className="text-[10px] font-bold text-[#1a2a5e] uppercase tracking-wider">PayPal Angaben</p>
-                            <Input
-                              type="email"
-                              value={paypalEmail}
-                              onChange={(e) => setPaypalEmail(e.target.value)}
-                              className="h-8 text-xs"
-                              placeholder="PayPal E-Mail"
-                            />
-                            <p className="text-[10px] text-slate-500">Sie werden nach der Erfassung zur finalen Freigabe an PayPal weitergeleitet (je nach Gateway-Konfiguration).</p>
+                          <div className="rounded-md border border-[#f5b800]/60 bg-white p-2 space-y-2">
+                            <p className="text-[10px] font-bold text-[#1a2a5e] uppercase tracking-wider">PayPal</p>
+                            {paypalInvoiceSdkLoading && (
+                              <div className="flex items-center gap-2 py-2">
+                                <div className="animate-spin h-4 w-4 border-2 border-[#1a2a5e] border-t-transparent rounded-full" />
+                                <span className="text-[10px] text-slate-500">PayPal wird geladen…</span>
+                              </div>
+                            )}
+                            {paypalInvoiceError && (
+                              <p className="text-[10px] text-red-600">{paypalInvoiceError}</p>
+                            )}
+                            {paypalInvoiceSdkReady && !paypalInvoiceError && (
+                              <div ref={paypalInvoiceButtonRef} className="min-h-[40px]" />
+                            )}
                           </div>
                         )}
 
@@ -938,7 +1168,7 @@ export function CustomerInvoices() {
                       <Download className="h-3.5 w-3.5 mr-1.5" />
                       {t('common.download')}
                     </Button>
-                    {selectedInvoice.status !== 'paid' && selectedInvoice.status !== 'cancelled' && selectedInvoice.status !== 'credited' && (
+                    {selectedInvoice.status !== 'paid' && selectedInvoice.status !== 'cancelled' && selectedInvoice.status !== 'credited' && selectedGateway?.provider !== 'paypal' && (
                       <Button
                         size="sm"
                         onClick={handlePayInvoice}
