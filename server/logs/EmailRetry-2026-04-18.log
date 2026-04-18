@@ -1,0 +1,1 @@
+{"timestamp":"2026-04-18T02:07:37.650Z","service":"EmailRetry","level":"INFO","message":"sendTemplateEmail(Buchung angelegt) succeeded","context":{"retryHandler":true},"data":{"attempt":1,"duration":"1017ms","messageId":"<7067a430-fd35-1c5f-fbf3-b39c369da4fd@fixithub.com>","to":"admin@example.com"},"pid":71541}

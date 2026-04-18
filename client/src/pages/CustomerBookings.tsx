@@ -22,6 +22,7 @@ import {
   Truck,
   QrCode,
   FileText,
+  Download,
   MessageSquare,
   X,
 } from "lucide-react";
@@ -61,7 +62,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { getBookings, getBookingOrders, getBooking } from "@/api/bookings";
+import { getBookings, getBookingOrders, getBooking, downloadBookingShippingLabel, downloadBookingReturnLabel } from "@/api/bookings";
 import { searchDevices, SearchResult } from "@/api/devices";
 import { getUnreadMessageCounts } from "@/api/inspectionCommunication";
 import { useToast } from "@/hooks/useToast";
@@ -814,14 +815,12 @@ export function CustomerBookings() {
                                         <FileText className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                                         <div>
                                           <span className="text-foreground/60 block text-xs">{t('bookings.label')}:</span>
-                                          <a
-                                            href={booking.returnLabelUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 text-xs"
+                                          <button
+                                            onClick={() => downloadBookingReturnLabel(booking._id, `ruecksendeetikett-${booking.bookingNumber || booking._id}.pdf`)}
+                                            className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 text-xs cursor-pointer"
                                           >
-                                            {t('common.download')} <ExternalLink className="h-2.5 w-2.5" />
-                                          </a>
+                                            {t('common.download')} <Download className="h-2.5 w-2.5" />
+                                          </button>
                                         </div>
                                       </div>
                                     )}
@@ -1736,16 +1735,13 @@ function BookingDetailDialog({
                     {booking.shippingLabelUrl && (
                       <div className="bg-[var(--gray-50,#f5f6f8)] rounded-lg p-4 border border-[var(--gray-200,#d8dce6)]">
                         <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-2 uppercase">Generiertes Versandlabel an McRepair</p>
-                        <a
-                          href={booking.shippingLabelUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-[var(--primary-blue,#1a2a5e)] text-white rounded-lg text-xs sm:text-sm font-bold hover:bg-[var(--primary-blue-dark,#0f1d45)] transition-all hover:shadow-lg"
+                        <button
+                          onClick={() => downloadBookingShippingLabel(booking._id, `versandlabel-buchung-${booking.bookingNumber || booking._id}.pdf`)}
+                          className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-[var(--primary-blue,#1a2a5e)] text-white rounded-lg text-xs sm:text-sm font-bold hover:bg-[var(--primary-blue-dark,#0f1d45)] transition-all hover:shadow-lg cursor-pointer"
                         >
-                          <FileText className="h-4 w-4 flex-shrink-0" />
-                          <span>Versandlabel zu McRepair öffnen</span>
-                          <ExternalLink className="h-4 w-4 flex-shrink-0" />
-                        </a>
+                          <Download className="h-4 w-4 flex-shrink-0" />
+                          <span>Versandlabel herunterladen (PDF)</span>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1859,16 +1855,14 @@ function BookingDetailDialog({
                           <FileText className="h-5 w-5 text-[var(--accent-yellow,#f5b800)] mt-0.5 flex-shrink-0" />
                           <div className="flex-1">
                             <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-2 uppercase">Versandetikett</p>
-                            <a
-                              href={booking.returnLabelUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-[var(--primary-blue,#1a2a5e)] text-white rounded-lg text-xs sm:text-sm font-bold hover:bg-[var(--primary-blue-dark,#0f1d45)] transition-all hover:shadow-lg"
+                            <button
+                              onClick={() => downloadBookingReturnLabel(booking._id, `ruecksendeetikett-${booking.bookingNumber || booking._id}.pdf`)}
+                              className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-[var(--primary-blue,#1a2a5e)] text-white rounded-lg text-xs sm:text-sm font-bold hover:bg-[var(--primary-blue-dark,#0f1d45)] transition-all hover:shadow-lg cursor-pointer"
                             >
                               <FileText className="h-4 w-4 flex-shrink-0" />
                               <span>PDF Herunterladen</span>
-                              <ExternalLink className="h-4 w-4 flex-shrink-0" />
-                            </a>
+                              <Download className="h-4 w-4 flex-shrink-0" />
+                            </button>
                           </div>
                         </div>
                       </div>

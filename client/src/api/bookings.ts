@@ -229,6 +229,46 @@ export const getBookingInvoices = async (bookingId: string) => {
 // DHL RETURNS & SHIPPING API FUNCTIONS
 // ============================================
 
+// Description: Download shipping label PDF for a booking
+// Endpoint: GET /api/bookings/:id/shipping-label
+// Response: PDF file blob
+export const downloadBookingShippingLabel = async (bookingId: string, filename?: string) => {
+  const response = await api.get(`/api/bookings/${bookingId}/shipping-label`, {
+    responseType: 'blob',
+    transformResponse: undefined,
+    validateStatus: (status: number) => status === 200,
+  });
+  const blob = new Blob([response.data], { type: 'application/pdf' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename || `versandlabel-buchung-${bookingId}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+};
+
+// Description: Download return label PDF for a booking
+// Endpoint: GET /api/bookings/:id/return-label
+// Response: PDF file blob
+export const downloadBookingReturnLabel = async (bookingId: string, filename?: string) => {
+  const response = await api.get(`/api/bookings/${bookingId}/return-label`, {
+    responseType: 'blob',
+    transformResponse: undefined,
+    validateStatus: (status: number) => status === 200,
+  });
+  const blob = new Blob([response.data], { type: 'application/pdf' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename || `ruecksendeetikett-${bookingId}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+};
+
 // Description: Create return label for booking (admin/staff only)
 // Endpoint: POST /api/bookings/:id/return-label
 // Request: { labelType?: 'PDF' | 'QR' | 'BOTH' }

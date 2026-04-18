@@ -446,10 +446,87 @@ router.get('/:id/invoices', requireUser, async (req, res) => {
 // DHL RETURNS & SHIPPING ROUTES
 // ============================================
 
+// Description: Download shipping label PDF for a booking
+// Endpoint: GET /api/bookings/:id/shipping-label
+// Request: {}
+// Response: PDF file download
+router.get('/:id/shipping-label', requireUser, async (req, res) => {
+  try {
+    const booking = await BookingService.getById(req.params.id)
+    if (!booking) {
+      return res.status(404).json({ success: false, error: 'Booking not found' })
+    }
+
+    const isPrivilegedUser = req.user.role === 'admin' || req.user.role === 'staff'
+    const bookingCustomerId = booking.customerId?._id?.toString?.() || booking.customerId?.toString?.()
+    if (!isPrivilegedUser && bookingCustomerId !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, error: 'Access denied' })
+    }
+
+    if (!booking.shippingLabelUrl) {
+      return res.status(404).json({ success: false, error: 'No shipping label available for this booking' })
+    }
+
+    const base64Match = booking.shippingLabelUrl.match(/^data:application\/pdf;base64,(.+)$/)
+    if (!base64Match) {
+      return res.redirect(booking.shippingLabelUrl)
+    }
+
+    const pdfBuffer = Buffer.from(base64Match[1], 'base64')
+    const filename = `versandlabel-buchung-${booking.bookingNumber || booking._id}.pdf`
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    res.setHeader('Content-Length', pdfBuffer.length)
+    return res.send(pdfBuffer)
+  } catch (error) {
+    console.error('BookingRoutes: Error downloading shipping label:', error)
+    return res.status(500).json({ success: false, error: 'Failed to download shipping label' })
+  }
+})
+
 // Description: Get outbound shipping tracking information for booking
 // Endpoint: GET /api/bookings/:id/shipping-tracking
+
+// Description: Download return label PDF for a booking
+// Endpoint: GET /api/bookings/:id/return-label
 // Request: {}
-// Response: { success: boolean, trackingNumber: string, status: string, description: string, estimatedDelivery?: string, events: Array, booking: object }
+// Response: PDF file download
+router.get('/:id/return-label', requireUser, async (req, res) => {
+  try {
+    const booking = await BookingService.getById(req.params.id)
+    if (!booking) {
+      return res.status(404).json({ success: false, error: 'Booking not found' })
+    }
+
+    const isPrivilegedUser = req.user.role === 'admin' || req.user.role === 'staff'
+    const bookingCustomerId = booking.customerId?._id?.toString?.() || booking.customerId?.toString?.()
+    if (!isPrivilegedUser && bookingCustomerId !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, error: 'Access denied' })
+    }
+
+    if (!booking.returnLabelUrl) {
+      return res.status(404).json({ success: false, error: 'No return label available for this booking' })
+    }
+
+    const base64Match = booking.returnLabelUrl.match(/^data:application\/pdf;base64,(.+)$/)
+    if (!base64Match) {
+      return res.redirect(booking.returnLabelUrl)
+    }
+
+    const pdfBuffer = Buffer.from(base64Match[1], 'base64')
+    const filename = `ruecksendeetikett-${booking.bookingNumber || booking._id}.pdf`
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    res.setHeader('Content-Length', pdfBuffer.length)
+    return res.send(pdfBuffer)
+  } catch (error) {
+    console.error('BookingRoutes: Error downloading return label:', error)
+    return res.status(500).json({ success: false, error: 'Failed to download return label' })
+  }
+})
+
+// Description: Get outbound shipping tracking information for booking
+// Endpoint: GET /api/bookings/:id/shipping-tracking
 router.get('/:id/shipping-tracking', requireUser, async (req, res) => {
   try {
     console.log('BookingRoutes: Getting shipping tracking for booking:', req.params.id)

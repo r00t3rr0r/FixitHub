@@ -11,7 +11,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { safeToNumber, formatPrice } from "@/lib/utils"
 import { OrderDetailsNavigationState } from "@/lib/orderDetailsNavigation"
 import "./OrderDetails.css"
-import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct } from "@/api/orders"
+import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct, downloadOrderShippingLabel } from "@/api/orders"
 import { getComplaint, acknowledgeComplaint, denyComplaint, acceptComplaintOffer, rejectComplaintOffer, convertAcceptedOfferToBooking, Complaint as ComplaintRecord } from "@/api/complaints"
 import { startOrderTracking, endOrderTracking } from "@/api/timeTracking"
 import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, updateOrderDevice, updateOrderStatus } from "@/api/adminOrders"
@@ -33,7 +33,7 @@ import { ConfirmUnlockDialog } from "@/components/inspection/ConfirmUnlockDialog
 import { DeviceChangeDialog } from "@/components/admin/DeviceChangeDialog"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import { generateInspectionReport, getInspection } from "@/api/deviceInspection"
-import { getBooking, updateBookingShippingStatus, updateReturnStatus } from "@/api/bookings"
+import { getBooking, updateBookingShippingStatus, updateReturnStatus, downloadBookingShippingLabel, downloadBookingReturnLabel } from "@/api/bookings"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -3750,16 +3750,13 @@ export function OrderDetails() {
                 {order.shippingLabelUrl && (
                   <div className="customer-summary-shipping-label">
                     <span>Versandlabel</span>
-                    <a
-                      href={order.shippingLabelUrl}
-                      download={`versandlabel-${order.orderNumber || order._id}.pdf`}
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      onClick={() => downloadOrderShippingLabel(order._id, `versandlabel-${order.orderNumber || order._id}.pdf`)}
                       className="customer-summary-label-download"
                     >
                       <Download className="h-3.5 w-3.5" />
-                      Versandlabel herunterladen
-                    </a>
+                      Versandlabel herunterladen (PDF)
+                    </button>
                   </div>
                 )}
               </div>
@@ -3794,16 +3791,13 @@ export function OrderDetails() {
                 {linkedBooking?.shippingLabelUrl && (
                   <div className="customer-summary-shipping-label">
                     <span>Buchungs-Versandlabel</span>
-                    <a
-                      href={linkedBooking.shippingLabelUrl}
-                      download={`booking-versandlabel-${linkedBooking.bookingNumber || linkedBooking._id}.pdf`}
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      onClick={() => downloadBookingShippingLabel(linkedBooking._id, `booking-versandlabel-${linkedBooking.bookingNumber || linkedBooking._id}.pdf`)}
                       className="customer-summary-label-download"
                     >
                       <Download className="h-3.5 w-3.5" />
-                      Buchungs-Versandlabel herunterladen
-                    </a>
+                      Buchungs-Versandlabel herunterladen (PDF)
+                    </button>
                   </div>
                 )}
                 {!linkedBooking?.shippingLabelUrl && linkedBooking?.shippingStatus && (
@@ -3831,16 +3825,13 @@ export function OrderDetails() {
                 {linkedBooking?.returnLabelUrl && (
                   <div className="customer-summary-shipping-label">
                     <span>Rücksendeetikett</span>
-                    <a
-                      href={linkedBooking.returnLabelUrl}
-                      download={`ruecksendeetikett-${linkedBooking.bookingNumber || linkedBooking._id}.pdf`}
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      onClick={() => downloadBookingReturnLabel(linkedBooking._id, `ruecksendeetikett-${linkedBooking.bookingNumber || linkedBooking._id}.pdf`)}
                       className="customer-summary-label-download"
                     >
                       <Download className="h-3.5 w-3.5" />
                       Rücksendelabel herunterladen
-                    </a>
+                    </button>
                   </div>
                 )}
                 {!linkedBooking?.returnLabelUrl && linkedBooking?.returnShipmentStatus && (

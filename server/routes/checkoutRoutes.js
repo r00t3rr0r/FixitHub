@@ -1877,7 +1877,7 @@ router.post('/guest-complete', async (req, res) => {
         deviceBrand: firstRepairOrder?.deviceBrand || '',
         deviceModel: firstRepairOrder?.deviceModel || '',
         bookingUrl: bookingTrackingPath,
-        shippingLabelUrl: booking?.shippingLabelUrl || bookingTrackingPath,
+        shippingLabelUrl: booking?.shippingLabelUrl ? bookingTrackingPath : '',
         supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
         supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
       });

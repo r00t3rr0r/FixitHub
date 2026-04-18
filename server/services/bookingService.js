@@ -486,7 +486,10 @@ class BookingService {
           }
 
           const itemSummary = await this.buildBookingOrdersSummary(savedBooking.items);
-          const shippingLabelUrl = savedBooking.shippingLabelUrl || bookingToReturn?.shippingLabelUrl || '';
+
+          // For emails, link to the bookings page (data: URLs don't work in email clients)
+          const hasLabel = !!(savedBooking.shippingLabelUrl || bookingToReturn?.shippingLabelUrl);
+          const shippingLabelUrl = hasLabel ? (await EmailService.buildSystemUrl('/bookings')) : '';
 
           const firstRepairItem = (savedBooking.items || []).find((item) => item?.type !== 'product');
           const primaryDevice = this.parseDeviceLabel(firstRepairItem?.device || '');
