@@ -1866,6 +1866,20 @@ router.post('/guest-complete', async (req, res) => {
 
       console.log('CheckoutRoutes: Sending guest booking tracking email');
       const firstRepairOrder = createdOrders.find((order) => order.deviceType !== 'Shop Products');
+
+      // Build PDF attachment from base64 data URL if available
+      const emailOptions = {};
+      if (booking?.shippingLabelUrl) {
+        const base64Match = booking.shippingLabelUrl.match(/^data:application\/pdf;base64,(.+)$/);
+        if (base64Match) {
+          emailOptions.attachments = [{
+            filename: `versandlabel-${booking.bookingNumber || booking._id}.pdf`,
+            content: Buffer.from(base64Match[1], 'base64'),
+            contentType: 'application/pdf'
+          }];
+        }
+      }
+
       let emailResult = await EmailService.sendTriggerEmail('guest_booking_created', guestInfo.email, {
         companyName: process.env.COMPANY_NAME || 'McRepair.de',
         customerName: `${guestInfo.firstName} ${guestInfo.lastName}`,
@@ -1880,7 +1894,7 @@ router.post('/guest-complete', async (req, res) => {
         shippingLabelUrl: booking?.shippingLabelUrl ? bookingTrackingPath : '',
         supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
         supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
-      });
+      }, emailOptions);
 
       if (emailResult.success) {
         console.log('CheckoutRoutes: Guest booking tracking email sent successfully');
