@@ -11,7 +11,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { safeToNumber, formatPrice } from "@/lib/utils"
 import { OrderDetailsNavigationState } from "@/lib/orderDetailsNavigation"
 import "./OrderDetails.css"
-import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct, downloadOrderShippingLabel } from "@/api/orders"
+import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct } from "@/api/orders"
 import { getComplaint, acknowledgeComplaint, denyComplaint, acceptComplaintOffer, rejectComplaintOffer, convertAcceptedOfferToBooking, Complaint as ComplaintRecord } from "@/api/complaints"
 import { startOrderTracking, endOrderTracking } from "@/api/timeTracking"
 import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, updateOrderDevice, updateOrderStatus } from "@/api/adminOrders"
@@ -2072,10 +2072,8 @@ export function OrderDetails() {
   const estimatedCompletionText = order.estimatedCompletion
     ? new Date(order.estimatedCompletion).toLocaleDateString('de-DE')
     : 'Wird aktualisiert'
-  const orderShippingStatus = String(order.shippingStatus || '').toLowerCase()
   const bookingShippingStatus = String(linkedBooking?.shippingStatus || '').toLowerCase()
   const bookingReturnStatus = String(linkedBooking?.returnShipmentStatus || '').toLowerCase()
-  const orderShippingStatusDescription = String(order.shippingStatusDescription || '').trim()
   const bookingShippingStatusDescription = String(linkedBooking?.shippingStatusDescription || '').trim()
   const bookingReturnStatusDescription = String(linkedBooking?.returnShipmentStatusDescription || '').trim()
   const buildDhlTrackingUrl = (trackingNumber: string) => `https://www.dhl.com/de-de/home/tracking/tracking-parcel.html?submit=1&tracking-id=${encodeURIComponent(trackingNumber)}`
@@ -3707,7 +3705,7 @@ export function OrderDetails() {
           </div>
         </div>
 
-        {(order.shippingAddress || order.trackingNumber || order.shippingLabelUrl || order.shippingStatus || linkedBooking?.trackingNumber || linkedBooking?.shippingLabelUrl || linkedBooking?.returnLabelUrl || linkedBooking?.shippingStatus || linkedBooking?.returnShipmentStatus) && (
+        {(order.shippingAddress || linkedBooking?.trackingNumber || linkedBooking?.shippingLabelUrl || linkedBooking?.returnLabelUrl || linkedBooking?.shippingStatus || linkedBooking?.returnShipmentStatus) && (
           <div className="customer-summary-subcard">
             <div className="customer-summary-subcard-title">
               <MapPin className="h-4 w-4" />
@@ -3718,47 +3716,6 @@ export function OrderDetails() {
                 <p>{order.shippingAddress.street}</p>
                 <p>{order.shippingAddress.zipCode} {order.shippingAddress.city}</p>
                 <p>{order.shippingAddress.country}</p>
-              </div>
-            )}
-            {(order.trackingNumber || order.shippingLabelUrl || order.shippingStatus) && (
-              <div className="customer-summary-logistics-block">
-                <div className="customer-summary-logistics-title">Auftragsversand</div>
-                {order.shippingStatus && (
-                  <Badge className={`customer-shipping-status-badge ${getShipmentStatusMeta(orderShippingStatus).className}`}>
-                    {getShipmentStatusMeta(orderShippingStatus).label}
-                  </Badge>
-                )}
-                {orderShippingStatusDescription && (
-                  <p className="customer-shipping-status-description">{orderShippingStatusDescription}</p>
-                )}
-                {order.trackingNumber && (
-                  <div className="customer-summary-tracking">
-                    <span>Tracking</span>
-                    <strong>{order.trackingNumber}</strong>
-                    {order.carrier && <p>{order.carrier}</p>}
-                    <a
-                      href={buildDhlTrackingUrl(order.trackingNumber)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="customer-summary-tracking-link"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      DHL-Sendung verfolgen
-                    </a>
-                  </div>
-                )}
-                {order.shippingLabelUrl && (
-                  <div className="customer-summary-shipping-label">
-                    <span>Versandlabel</span>
-                    <button
-                      onClick={() => downloadOrderShippingLabel(order._id, `versandlabel-${order.orderNumber || order._id}.pdf`)}
-                      className="customer-summary-label-download"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      Versandlabel herunterladen (PDF)
-                    </button>
-                  </div>
-                )}
               </div>
             )}
             {(linkedBooking?.trackingNumber || linkedBooking?.shippingLabelUrl || linkedBooking?.shippingStatus) && (
