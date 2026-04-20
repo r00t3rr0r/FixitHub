@@ -407,17 +407,20 @@ class BookingService {
 
       console.log('BookingService: Booking creation completed. Total orders:', savedBooking.orderIds.length);
 
-      // Automatically generate DHL outbound shipping label for the booking if DHL shipping is active
-      try {
-        const updatedBookingWithShipping = await this.createShippingLabelForBooking(savedBooking, {
-          preferredOrderId: repairOrderIds[0] || bookingData.orderIds[0] || null,
-        });
-
-        if (updatedBookingWithShipping) {
-          savedBooking.set(updatedBookingWithShipping.toObject ? updatedBookingWithShipping.toObject() : updatedBookingWithShipping);
+      // Versandlabel nur erzeugen, wenn mindestens eine Reparatur enthalten ist
+      if (repairOrderIds.length > 0) {
+        try {
+          const updatedBookingWithShipping = await this.createShippingLabelForBooking(savedBooking, {
+            preferredOrderId: repairOrderIds[0] || bookingData.orderIds[0] || null,
+          });
+          if (updatedBookingWithShipping) {
+            savedBooking.set(updatedBookingWithShipping.toObject ? updatedBookingWithShipping.toObject() : updatedBookingWithShipping);
+          }
+        } catch (shippingLabelError) {
+          console.error('BookingService: Error creating outbound shipping label for booking (non-fatal):', shippingLabelError.message);
         }
-      } catch (shippingLabelError) {
-        console.error('BookingService: Error creating outbound shipping label for booking (non-fatal):', shippingLabelError.message);
+      } else {
+        console.log('BookingService: No repair orders in booking – no shipping label will be generated.');
       }
 
       let bookingToReturn = savedBooking;
