@@ -72,14 +72,14 @@ class NeedListService {
       if (!part) {
         throw new Error(`Part not found: ${item.part}`);
       }
-
       enrichedItems.push({
         part: item.part,
         partNumber: part.sku || part.partNumber || 'N/A',
         partName: part.itemName || part.name || 'Unknown',
         quantity: item.quantity,
         currentStock: part.currentStock || (part.versions && part.versions.length > 0 ? part.versions[0].quantity : 0),
-        notes: item.notes || ''
+        notes: item.notes || '',
+        supplier: item.supplier || null
       });
     }
 
@@ -133,14 +133,14 @@ class NeedListService {
         if (!part) {
           throw new Error(`Part not found: ${item.part}`);
         }
-
         enrichedItems.push({
           part: item.part,
           partNumber: part.sku || part.partNumber || 'N/A',
           partName: part.itemName || part.name || 'Unknown',
           quantity: item.quantity,
           currentStock: part.currentStock || (part.versions && part.versions.length > 0 ? part.versions[0].quantity : 0),
-          notes: item.notes || ''
+          notes: item.notes || '',
+          supplier: item.supplier || null
         });
       }
       needList.items = enrichedItems;
@@ -206,6 +206,9 @@ class NeedListService {
       // Update quantity if item already exists
       needList.items[existingItemIndex].quantity += itemData.quantity;
       needList.items[existingItemIndex].notes = itemData.notes || needList.items[existingItemIndex].notes;
+      if (itemData.supplier) {
+        needList.items[existingItemIndex].supplier = itemData.supplier;
+      }
     } else {
       // Add new item
       needList.items.push({
@@ -214,7 +217,8 @@ class NeedListService {
         partName: part.itemName || part.name || 'Unknown',
         quantity: itemData.quantity,
         currentStock: part.currentStock || (part.versions && part.versions.length > 0 ? part.versions[0].quantity : 0),
-        notes: itemData.notes || ''
+        notes: itemData.notes || '',
+        supplier: itemData.supplier || null
       });
     }
 

@@ -27,6 +27,7 @@ import {
   getNeedLists,
   type NeedList,
 } from '@/api/needLists';
+import { getSuppliers, Supplier } from '@/api/epartOrders';
 import { useToast } from '@/hooks/useToast';
 
 type NeedListTargetOption = 'existing' | 'new' | 'today';
@@ -62,15 +63,27 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<PartVersion | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
 
   // Load parts on mount
   useEffect(() => {
     if (open) {
       loadParts();
+      loadSuppliers();
     } else {
       setNeedListDialogOpen(false);
     }
   }, [open]);
+
+  const loadSuppliers = async () => {
+    try {
+      const res = await getSuppliers({ isActive: true });
+      setSuppliers(res.suppliers || []);
+    } catch (error) {
+      setSuppliers([]);
+    }
+  };
 
   const loadParts = async () => {
     try {
@@ -234,11 +247,21 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
     const dateKey = getDateKey();
     const todayTag = `daily-${dateKey}`;
 
+
     try {
       setAddingToNeedList(true);
 
       let recordedNeedList: NeedList | null = null;
       let successDescription = '';
+
+      if (!selectedSupplierId) {
+        toast({
+          title: 'Fehler',
+          description: 'Bitte wähle einen Lieferanten aus',
+          variant: 'destructive',
+        });
+        return;
+      }
 
       if (needListTargetOption === 'existing') {
         if (!selectedNeedListId) {
@@ -254,6 +277,7 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
           part: selectedPart._id,
           quantity,
           notes: itemNote,
+          supplier: selectedSupplierId,
         });
 
         successDescription = `Teil wurde zur Bedarfsliste "${recordedNeedList.name}" hinzugefuegt`;
@@ -279,6 +303,7 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
               part: selectedPart._id,
               quantity,
               notes: itemNote,
+              supplier: selectedSupplierId,
             },
           ],
         });
@@ -296,6 +321,7 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
             part: selectedPart._id,
             quantity,
             notes: itemNote,
+            supplier: selectedSupplierId,
           });
 
           successDescription = `Teil wurde zur heutigen Bedarfsliste "${recordedNeedList.name}" hinzugefuegt`;
@@ -310,6 +336,7 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
                 part: selectedPart._id,
                 quantity,
                 notes: itemNote,
+                supplier: selectedSupplierId,
               },
             ],
           });
@@ -666,6 +693,31 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
           </DialogHeader>
 
           <div className="space-y-4">
+            <div>
+              <Label htmlFor="supplier-select">Lieferant</Label>
+              <Select
+                id="supplier-select"
+                value={selectedSupplierId}
+                onValueChange={setSelectedSupplierId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Lieferant auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {suppliers.length === 0 ? (
+                    <SelectItem value="" disabled>
+                      Keine Lieferanten gefunden
+                    </SelectItem>
+                  ) : (
+                    suppliers.map((supplier) => (
+                      <SelectItem key={supplier._id} value={supplier._id}>
+                        {supplier.name} {supplier.email ? `(${supplier.email})` : ''}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <Label htmlFor="need-list-target">Ziel</Label>
               <Select

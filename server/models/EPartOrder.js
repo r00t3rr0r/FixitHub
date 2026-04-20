@@ -105,6 +105,11 @@ const orderItemSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'partial', 'received', 'cancelled'],
     default: 'pending'
+  },
+  supplier: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Supplier',
+    required: false
   }
 });
 

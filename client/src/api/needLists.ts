@@ -8,6 +8,7 @@ export interface NeedListItem {
   quantity: number;
   currentStock: number;
   notes?: string;
+  supplier?: string;
 }
 
 export interface NeedList {
@@ -113,7 +114,7 @@ export const getNeedListById = async (id: string): Promise<NeedList> => {
 export const createNeedList = async (data: {
   name: string;
   description?: string;
-  items: Array<{ part: string; quantity: number; notes?: string }>;
+  items: Array<{ part: string; quantity: number; notes?: string; supplier?: string }>; // supplier hinzugefügt
   priority?: string;
   tags?: string[];
 }): Promise<NeedList> => {
@@ -137,7 +138,7 @@ export const updateNeedList = async (
   data: Partial<{
     name: string;
     description: string;
-    items: Array<{ part: string; quantity: number; notes?: string }>;
+    items: Array<{ part: string; quantity: number; notes?: string; supplier?: string }>;
     status: string;
     priority: string;
     tags: string[];
@@ -176,7 +177,7 @@ export const deleteNeedList = async (id: string): Promise<{ message: string }> =
 // Response: { needList: NeedList }
 export const addItemToNeedList = async (
   id: string,
-  item: { part: string; quantity: number; notes?: string }
+  item: { part: string; quantity: number; notes?: string; supplier?: string }
 ): Promise<NeedList> => {
   try {
     console.log('Adding item to need list:', id);

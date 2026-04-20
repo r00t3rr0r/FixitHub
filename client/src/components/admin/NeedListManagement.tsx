@@ -116,7 +116,40 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [showAddItemDialog, setShowAddItemDialog] = useState(false);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
+  const [showEditItemDialog, setShowEditItemDialog] = useState(false);
   const [selectedNeedList, setSelectedNeedList] = useState<NeedList | null>(null);
+  const [editItemData, setEditItemData] = useState<{ _id?: string; part: string; quantity: number; notes: string; supplier: string }>({ part: '', quantity: 1, notes: '', supplier: '' });
+  // Update NeedList Item
+  const handleEditItem = (item: NeedListItem) => {
+    setEditItemData({
+      _id: item._id,
+      part: item.part,
+      quantity: item.quantity,
+      notes: item.notes || '',
+      supplier: item.supplier || '',
+    });
+    setShowEditItemDialog(true);
+  };
+
+  const handleUpdateItem = async () => {
+    if (!selectedNeedList || !editItemData._id) return;
+    try {
+      // PATCH-API: updateNeedListItem(needListId, itemId, data)
+      await updateNeedList(selectedNeedList._id, {
+        items: selectedNeedList.items.map((item) =>
+          item._id === editItemData._id
+            ? { ...item, quantity: editItemData.quantity, supplier: editItemData.supplier, notes: editItemData.notes }
+            : item
+        ),
+      });
+      toast({ title: 'Success', description: 'Item updated successfully' });
+      setShowEditItemDialog(false);
+      setEditItemData({ part: '', quantity: 1, notes: '', supplier: '' });
+      loadData();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
 
   // Form data
   const [formData, setFormData] = useState({
@@ -126,14 +159,15 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
     tags: '',
   });
 
-  const [orderItems, setOrderItems] = useState<Array<{ part: string; quantity: number; notes: string }>>([
-    { part: '', quantity: 1, notes: '' },
+  const [orderItems, setOrderItems] = useState<Array<{ part: string; quantity: number; notes: string; supplier: string }>>([
+    { part: '', quantity: 1, notes: '', supplier: '' },
   ]);
 
   const [addItemData, setAddItemData] = useState({
     part: '',
     quantity: 1,
     notes: '',
+    supplier: '',
   });
 
   const [convertData, setConvertData] = useState({
@@ -912,6 +946,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                     <TableRow>
                       <TableHead>Part Number</TableHead>
                       <TableHead>Part Name</TableHead>
+                      <TableHead>Supplier</TableHead>
                       <TableHead>Quantity</TableHead>
                       <TableHead>Current Stock</TableHead>
                       <TableHead>Notes</TableHead>
@@ -919,30 +954,94 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {selectedNeedList.items.map((item) => (
-                      <TableRow key={item._id}>
-                        <TableCell>{item.partNumber}</TableCell>
-                        <TableCell>{item.partName}</TableCell>
-                        <TableCell>{item.quantity}</TableCell>
-                        <TableCell>
-                          <Badge variant={item.currentStock < item.quantity ? 'destructive' : 'default'}>
-                            {item.currentStock}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{renderNotesWithLinks(item.notes)}</TableCell>
-                        {selectedNeedList.status !== 'ordered' && (
+                    {selectedNeedList.items.map((item) => {
+                      const supplierObj = suppliers.find((s) => s._id === item.supplier);
+                      return (
+                        <TableRow key={item._id}>
+                          <TableCell>{item.partNumber}</TableCell>
+                          <TableCell>{item.partName}</TableCell>
+                          <TableCell>{supplierObj ? supplierObj.name : (item.supplier || '-')}</TableCell>
+                          <TableCell>{item.quantity}</TableCell>
                           <TableCell>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleRemoveItem(selectedNeedList._id, item._id!)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <Badge variant={item.currentStock < item.quantity ? 'destructive' : 'default'}>
+                              {item.currentStock}
+                            </Badge>
                           </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
+                          <TableCell>{renderNotesWithLinks(item.notes)}</TableCell>
+                          {selectedNeedList.status !== 'ordered' && (
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEditItem(item)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleRemoveItem(selectedNeedList._id, item._id!)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          )}
+                              {/* Edit Item Dialog */}
+                              <Dialog open={showEditItemDialog} onOpenChange={setShowEditItemDialog}>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Edit Item</DialogTitle>
+                                    <DialogDescription>Bearbeite Menge, Supplier und Notiz für dieses Teil</DialogDescription>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <div>
+                                      <Label>Supplier</Label>
+                                      <Select value={editItemData.supplier} onValueChange={(value) => setEditItemData({ ...editItemData, supplier: value })}>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Select supplier" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {suppliers.map((supplier) => (
+                                            <SelectItem key={supplier._id} value={supplier._id}>
+                                              {supplier.name}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div>
+                                      <Label>Quantity</Label>
+                                      <Input
+                                        type="number"
+                                        min="1"
+                                        value={editItemData.quantity}
+                                        onChange={(e) => setEditItemData({ ...editItemData, quantity: parseInt(e.target.value) || 1 })}
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label>Notes</Label>
+                                      <Textarea
+                                        value={editItemData.notes}
+                                        onChange={(e) => setEditItemData({ ...editItemData, notes: e.target.value })}
+                                        placeholder="Optional notes..."
+                                      />
+                                    </div>
+                                  </div>
+                                  <DialogFooter>
+                                    <Button variant="outline" onClick={() => setShowEditItemDialog(false)}>
+                                      Cancel
+                                    </Button>
+                                    <Button onClick={handleUpdateItem}>
+                                      Save
+                                    </Button>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -979,6 +1078,22 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                   {parts.map((part) => (
                     <SelectItem key={part._id} value={part._id}>
                       {part.partNumber} - {part.name} (Stock: {part.currentStock})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="add-supplier">Supplier</Label>
+              <Select value={addItemData.supplier} onValueChange={(value) => setAddItemData({ ...addItemData, supplier: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select supplier" />
+                </SelectTrigger>
+                <SelectContent>
+                  {suppliers.map((supplier) => (
+                    <SelectItem key={supplier._id} value={supplier._id}>
+                      {supplier.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
