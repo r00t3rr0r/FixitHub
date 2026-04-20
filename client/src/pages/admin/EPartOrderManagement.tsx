@@ -1926,6 +1926,7 @@ export default function EPartOrderManagement() {
                     <TableRow>
                       <TableHead className={compactTableHeadClass}>Part</TableHead>
                       <TableHead className={compactTableHeadClass}>SKU</TableHead>
+                      <TableHead className={compactTableHeadClass}>Supplier</TableHead>
                       <TableHead className={compactTableHeadClass}>Ordered</TableHead>
                       <TableHead className={compactTableHeadClass}>Received</TableHead>
                       <TableHead className={compactTableHeadClass}>Unit Price</TableHead>
@@ -1934,17 +1935,26 @@ export default function EPartOrderManagement() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {selectedOrder.items.map((item) => (
-                      <TableRow key={item._id}>
-                        <TableCell className={compactTableCellClass}>{item.partName}</TableCell>
-                        <TableCell className={compactTableCellClass}>{item.sku}</TableCell>
-                        <TableCell className={compactTableCellClass}>{item.quantity}</TableCell>
-                        <TableCell className={compactTableCellClass}>{item.receivedQuantity}</TableCell>
-                        <TableCell className={compactTableCellClass}>${item.unitPrice.toFixed(2)}</TableCell>
-                        <TableCell className={compactTableCellClass}>${item.totalPrice.toFixed(2)}</TableCell>
-                        <TableCell className={compactTableCellClass}>{getStatusBadge(item.status)}</TableCell>
-                      </TableRow>
-                    ))}
+                    {selectedOrder.items.map((item) => {
+                      let supplierName = '-';
+                      if (item.supplier && Array.isArray(suppliers)) {
+                        const supplierObj = suppliers.find((s) => s._id === item.supplier);
+                        if (supplierObj) supplierName = supplierObj.name;
+                        else supplierName = item.supplier;
+                      }
+                      return (
+                        <TableRow key={item._id}>
+                          <TableCell className={compactTableCellClass}>{item.partName}</TableCell>
+                          <TableCell className={compactTableCellClass}>{item.sku}</TableCell>
+                          <TableCell className={compactTableCellClass}>{supplierName}</TableCell>
+                          <TableCell className={compactTableCellClass}>{item.quantity}</TableCell>
+                          <TableCell className={compactTableCellClass}>{item.receivedQuantity}</TableCell>
+                          <TableCell className={compactTableCellClass}>${item.unitPrice.toFixed(2)}</TableCell>
+                          <TableCell className={compactTableCellClass}>${item.totalPrice.toFixed(2)}</TableCell>
+                          <TableCell className={compactTableCellClass}>{getStatusBadge(item.status)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
                 </div>

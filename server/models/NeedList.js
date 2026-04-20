@@ -26,6 +26,11 @@ const needListItemSchema = new mongoose.Schema({
   notes: {
     type: String,
     default: ''
+  },
+  supplier: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Supplier',
+    required: false
   }
 }, { _id: true });
 
