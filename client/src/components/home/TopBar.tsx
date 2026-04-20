@@ -6,7 +6,7 @@ import { LoginDialog } from './LoginDialog';
 
 export function TopBar() {
   const { t } = useTranslation();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const loginButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -17,9 +17,7 @@ export function TopBar() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.reload();
+    logout();
   };
 
   return (
