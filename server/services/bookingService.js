@@ -486,7 +486,24 @@ class BookingService {
           }
 
           const itemSummary = await this.buildBookingOrdersSummary(savedBooking.items);
-          const shippingLabelUrl = savedBooking.shippingLabelUrl || bookingToReturn?.shippingLabelUrl || '';
+
+          // For emails, link to the bookings page (data: URLs don't work in email clients)
+          const labelDataUrl = savedBooking.shippingLabelUrl || bookingToReturn?.shippingLabelUrl;
+          const hasLabel = !!labelDataUrl;
+          const shippingLabelUrl = hasLabel ? (await EmailService.buildSystemUrl('/bookings')) : '';
+
+          // Build PDF attachment from base64 data URL if available
+          const emailOptions = {};
+          if (hasLabel && labelDataUrl) {
+            const base64Match = labelDataUrl.match(/^data:application\/pdf;base64,(.+)$/);
+            if (base64Match) {
+              emailOptions.attachments = [{
+                filename: `versandlabel-${savedBooking.bookingNumber || savedBooking._id}.pdf`,
+                content: Buffer.from(base64Match[1], 'base64'),
+                contentType: 'application/pdf'
+              }];
+            }
+          }
 
           const firstRepairItem = (savedBooking.items || []).find((item) => item?.type !== 'product');
           const primaryDevice = this.parseDeviceLabel(firstRepairItem?.device || '');
@@ -505,7 +522,7 @@ class BookingService {
             shippingLabelUrl,
             supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
             supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
-          });
+          }, emailOptions);
         } catch (notificationError) {
           console.error('BookingService: Error sending booking created email:', notificationError.message);
         }

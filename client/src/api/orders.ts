@@ -203,6 +203,26 @@ export const getOrderById = async (orderId: string) => {
   }
 };
 
+// Description: Download shipping label PDF for an order
+// Endpoint: GET /api/orders/:id/shipping-label
+// Response: PDF file blob
+export const downloadOrderShippingLabel = async (orderId: string, filename?: string) => {
+  const response = await api.get(`/api/orders/${orderId}/shipping-label`, {
+    responseType: 'blob',
+    transformResponse: undefined,
+    validateStatus: (status: number) => status === 200,
+  });
+  const blob = new Blob([response.data], { type: 'application/pdf' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename || `versandlabel-${orderId}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+};
+
 // Description: Get order progress timeline with milestone data
 // Endpoint: GET /api/orders/:id/progress-timeline
 // Request: {}

@@ -699,7 +699,7 @@ This is an automated email. Please do not reply to this message.
    * @param {object} variables - Template variables object
    * @returns {Promise<object>} { success, messageId, error, attempts, duration }
    */
-  static async sendTemplateEmail(templateName, toEmail, variables = {}) {
+  static async sendTemplateEmail(templateName, toEmail, variables = {}, options = {}) {
     const emailInfo = {
       to: toEmail,
       templateName: templateName,
@@ -785,6 +785,10 @@ This is an automated email. Please do not reply to this message.
           replyTo: process.env.SUPPORT_EMAIL || 'support@fixithub.com'
         };
 
+        if (options.attachments && Array.isArray(options.attachments) && options.attachments.length > 0) {
+          mailOptions.attachments = options.attachments;
+        }
+
         return await transporter.sendMail(mailOptions);
       };
 
@@ -848,7 +852,7 @@ This is an automated email. Please do not reply to this message.
     }
   }
 
-  static async sendTriggerEmail(trigger, toEmail, variables = {}) {
+  static async sendTriggerEmail(trigger, toEmail, variables = {}, options = {}) {
     const templateName = this.TRIGGER_TEMPLATE_MAP[trigger];
 
     if (!templateName) {
@@ -866,7 +870,7 @@ This is an automated email. Please do not reply to this message.
 
     let lastResult = null;
     for (const candidateTemplate of candidateTemplates) {
-      const result = await this.sendTemplateEmail(candidateTemplate, toEmail, variables);
+      const result = await this.sendTemplateEmail(candidateTemplate, toEmail, variables, options);
       if (result?.success) {
         return result;
       }

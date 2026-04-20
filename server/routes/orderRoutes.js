@@ -340,8 +340,46 @@ router.post('/:id/shipping/create-label', requireUser, requireRole(['admin', 'st
 
 // Description: Get tracking information for an order
 // Endpoint: GET /api/orders/:id/tracking
+
+// Description: Download shipping label PDF for an order
+// Endpoint: GET /api/orders/:id/shipping-label
 // Request: {}
-// Response: { success: boolean, trackingNumber: string, status: string, events: Array, estimatedDelivery: Date }
+// Response: PDF file download
+router.get('/:id/shipping-label', requireUser, async (req, res) => {
+  try {
+    const order = await OrderService.getById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    const orderCustomerId = order.customerId._id ? order.customerId._id.toString() : order.customerId.toString();
+    if (orderCustomerId !== req.user._id.toString() && !['admin', 'staff'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    if (!order.shippingLabelUrl) {
+      return res.status(404).json({ success: false, error: 'No shipping label available for this order' });
+    }
+
+    const base64Match = order.shippingLabelUrl.match(/^data:application\/pdf;base64,(.+)$/);
+    if (!base64Match) {
+      return res.redirect(order.shippingLabelUrl);
+    }
+
+    const pdfBuffer = Buffer.from(base64Match[1], 'base64');
+    const filename = `versandlabel-${order.orderNumber || order._id}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    return res.send(pdfBuffer);
+  } catch (error) {
+    console.error('Error downloading shipping label:', error);
+    return res.status(500).json({ success: false, error: 'Failed to download shipping label' });
+  }
+});
+
+// Description: Get tracking information for an order
+// Endpoint: GET /api/orders/:id/tracking
 router.get('/:id/tracking', requireUser, async (req, res) => {
   console.log('Get tracking info request received for order:', req.params.id);
 

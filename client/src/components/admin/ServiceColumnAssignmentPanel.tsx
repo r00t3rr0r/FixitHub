@@ -28,7 +28,7 @@ const ServiceColumnAssignmentPanel: React.FC<ServiceColumnAssignmentPanelProps> 
   // Service fields that need to be mapped
   const serviceFields = [
     { field: 'name', label: 'Service Name', required: true, description: 'The name of the repair service' },
-    { field: 'category', label: 'Category', required: true, description: 'Service category (e.g., Screen Repair, Battery Replacement)' },
+    { field: 'category', label: 'Category', required: false, description: 'Service category (e.g., Screen Repair, Battery Replacement)' },
     { field: 'price', label: 'Price', required: true, description: 'Service price in dollars' },
     { field: 'description', label: 'Description', required: false, description: 'Detailed description of the service' },
     { field: 'estimatedTime', label: 'Estimated Time', required: false, description: 'Estimated repair time in minutes' },

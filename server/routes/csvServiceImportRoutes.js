@@ -22,17 +22,23 @@ const upload = multer({
 });
 
 /**
- * Parse CSV buffer to JSON
+ * Parse CSV buffer to JSON, auto-detects delimiter (comma or semicolon)
  * @param {Buffer} buffer - CSV file buffer
  * @returns {Promise<Array>} Parsed CSV data
  */
 const parseCSV = (buffer) => {
   return new Promise((resolve, reject) => {
     const results = [];
-    const stream = Readable.from(buffer.toString());
+    const text = buffer.toString();
+    // Auto-detect delimiter: count commas and semicolons in header
+    const firstLine = text.split(/\r?\n/)[0] || '';
+    const commaCount = (firstLine.match(/,/g) || []).length;
+    const semicolonCount = (firstLine.match(/;/g) || []).length;
+    const delimiter = semicolonCount > commaCount ? ';' : ',';
+    const stream = Readable.from(text);
 
     stream
-      .pipe(csv())
+      .pipe(csv({ separator: delimiter }))
       .on('data', (data) => results.push(data))
       .on('end', () => resolve(results))
       .on('error', (error) => reject(error));

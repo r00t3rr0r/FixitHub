@@ -20,7 +20,9 @@ import {
   getBookingInvoices,
   createReturnLabel,
   getReturnTracking,
-  updateReturnStatus
+  updateReturnStatus,
+  downloadBookingShippingLabel,
+  downloadBookingReturnLabel
 } from "@/api/bookings"
 import {
   createComplaint,
@@ -2561,12 +2563,7 @@ function BookingDetailDialog({
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => {
-                                const link = document.createElement('a')
-                                link.href = booking.shippingLabelUrl!
-                                link.download = `shipping-label-${booking.bookingNumber || booking._id}.pdf`
-                                link.click()
-                              }}
+                              onClick={() => downloadBookingShippingLabel(booking._id, `shipping-label-${booking.bookingNumber || booking._id}.pdf`)}
                             >
                               <Download className="h-4 w-4 mr-2" />
                               Versandlabel herunterladen
@@ -2676,12 +2673,7 @@ function BookingDetailDialog({
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => {
-                                const link = document.createElement('a')
-                                link.href = booking.returnLabelUrl!
-                                link.download = `return-label-${booking.bookingNumber || booking._id}.pdf`
-                                link.click()
-                              }}
+                              onClick={() => downloadBookingReturnLabel(booking._id, `return-label-${booking.bookingNumber || booking._id}.pdf`)}
                             >
                               <Download className="h-4 w-4 mr-2" />
                               Ruecksende-Label herunterladen
