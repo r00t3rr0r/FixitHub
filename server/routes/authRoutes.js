@@ -72,6 +72,36 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    // NEU: Wenn kein Passwort gesetzt ist, sende Reset-Link und verweigere Login
+    if (!userExists.password) {
+      console.log(`User ${normalizedEmail} has no password set. Sending password reset link.`);
+      // Token generieren wie in /forgot-password
+      const rawResetToken = crypto.randomBytes(48).toString('hex');
+      const hashedResetToken = crypto.createHash('sha256').update(rawResetToken).digest('hex');
+      const expiresAtDate = new Date(Date.now() + 3600000); // 1 Stunde
+      userExists.passwordResetToken = hashedResetToken;
+      userExists.passwordResetExpires = expiresAtDate;
+      await userExists.save();
+
+      // Reset-URL bauen
+      const resetBaseUrl = await EmailService.buildSystemUrl('/reset-password');
+      const resetUrl = `${resetBaseUrl}?token=${encodeURIComponent(rawResetToken)}`;
+      const expiresAt = expiresAtDate.toLocaleString('de-DE');
+
+      // E-Mail senden
+      await EmailService.sendPasswordResetEmail(
+        userExists.email,
+        userExists.firstName || 'Valued Customer',
+        resetUrl,
+        expiresAt
+      );
+
+      return sendError('Für dieses Konto ist noch kein Passwort gesetzt. Wir haben Ihnen einen Link zum Setzen eines Passworts per E-Mail gesendet.', {
+        issue: 'no_password',
+        action: 'password_reset_sent'
+      });
+    }
+
     const user = await UserService.authenticateWithPassword(normalizedEmail, password);
 
     if (user) {
@@ -86,7 +116,6 @@ router.post('/login', async (req, res) => {
     } else {
       console.log('Authentication failed for user:', email);
       console.log('This usually means password mismatch or inactive account');
-      
       // Provide debugging info in development
       const debugInfo = process.env.NODE_ENV === 'development' ? {
         issue: 'authentication_failed',
@@ -96,7 +125,6 @@ router.post('/login', async (req, res) => {
           ? 'Try running the seed endpoint to ensure test users have correct passwords'
           : 'Check if password is correct'
       } : null;
-      
       return sendError('Email or password is incorrect', debugInfo);
     }
   } catch (error) {

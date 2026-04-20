@@ -501,14 +501,16 @@ class CSVImportService {
 
     for (const userData of users) {
       try {
-        // Hash password before saving
-        const hashedPassword = await generatePasswordHash(userData.password);
+        let password = undefined;
+        if (userData.password && userData.password.trim() !== '') {
+          password = await generatePasswordHash(userData.password);
+        }
 
         const newUser = new User({
           // Required fields
           email: userData.email,
           name: userData.name,
-          password: hashedPassword,
+          password: password,
           // Basic information
           firstName: userData.firstName || '',
           lastName: userData.lastName || '',
