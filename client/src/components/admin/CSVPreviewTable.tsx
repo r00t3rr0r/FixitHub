@@ -50,7 +50,7 @@ export const CSVPreviewTable: React.FC<CSVPreviewTableProps> = ({
             </TableHeader>
             <TableBody>
               {displayData.map((row, index) => {
-                const email = row[columnMapping.email]?.toLowerCase();
+                const email = row.email?.toLowerCase?.() || row[columnMapping.email]?.toLowerCase();
                 const errors = validationMap.get(email);
                 const isValid = !errors || errors.length === 0;
 
@@ -64,7 +64,14 @@ export const CSVPreviewTable: React.FC<CSVPreviewTableProps> = ({
                       )}
                     </TableCell>
                     {mappedColumns.map(column => {
-                      const cellValue = row[columnMapping[column.key]] || '-';
+                      // Prefer validated user object property, fallback to original CSV column
+                      let cellValue = row[column.key];
+                      if (cellValue === undefined) {
+                        cellValue = row[columnMapping[column.key]];
+                      }
+                      if (cellValue === undefined || cellValue === null || cellValue === '') {
+                        cellValue = '-';
+                      }
                       return (
                         <TableCell key={column.key} className="whitespace-nowrap text-sm">
                           {cellValue}

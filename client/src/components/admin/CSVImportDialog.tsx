@@ -218,6 +218,24 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
   const handleSkipRecords = (indices: number[]) => {
     console.log('CSV Import: Marking records for skipping:', indices);
     setSkippedIndices(new Set(indices));
+    // Wenn validierte Records vorhanden sind, aktualisiere die Vorschau und gehe zum Preview-Tab
+    if (validationResult?.validatedRecords) {
+      const validRecords = validationResult.validatedRecords.filter((_, idx) => !indices.includes(idx));
+      setValidationResult({
+        ...validationResult,
+        success: true,
+        data: validRecords,
+        summary: {
+          ...validationResult.summary,
+          validRows: validRecords.length
+        }
+      });
+      setStep('preview');
+      toast({
+        title: 'Errors skipped',
+        description: `Proceeding with ${validRecords.length} valid record(s)`
+      });
+    }
   };
 
   // Handle proceeding with valid records

@@ -13,7 +13,7 @@ const schema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    required: false,
     validate: { validator: isPasswordHash, message: 'Invalid password hash' },
   },
   firstName: {
