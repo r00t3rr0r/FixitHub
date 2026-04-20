@@ -3023,5 +3023,71 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1776686016589-wlwhfa70d",
+    "timestamp": "2026-04-20T11:53:36.589Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<f3e39712-13be-9f3b-b4c7-8dc4f0a6227e@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1219,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1776686037943-qt4kk88uy",
+    "timestamp": "2026-04-20T11:53:57.943Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<4c122a20-fcbe-1ede-9e43-09cbb5db74f6@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1127,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "deviceModelImageUrl"
+      ]
+    }
   }
 ]

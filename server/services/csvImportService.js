@@ -140,6 +140,7 @@ class CSVImportService {
         password: this.generateRandomPassword()
       };
 
+
       // Map required CSV columns to user fields
       if (columnMapping.email) {
         cleanedUser.email = (row[columnMapping.email] || '').trim().toLowerCase();
@@ -174,6 +175,20 @@ class CSVImportService {
 
       if (columnMapping.company) {
         cleanedUser.company = (row[columnMapping.company] || '').trim();
+      }
+
+      // Address fields
+      if (columnMapping.street) {
+        cleanedUser.street = (row[columnMapping.street] || '').trim();
+      }
+      if (columnMapping.city) {
+        cleanedUser.city = (row[columnMapping.city] || '').trim();
+      }
+      if (columnMapping.state) {
+        cleanedUser.state = (row[columnMapping.state] || '').trim();
+      }
+      if (columnMapping.zipCode) {
+        cleanedUser.zipCode = (row[columnMapping.zipCode] || '').trim();
       }
 
       if (columnMapping.country) {
