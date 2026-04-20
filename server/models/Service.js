@@ -35,7 +35,17 @@ const serviceSchema = new mongoose.Schema({
     trim: true,
     default: ''
   },
+  manufacturerPrecise: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   model: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  modelPrecise: {
     type: String,
     trim: true,
     default: ''
