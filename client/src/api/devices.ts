@@ -1,3 +1,18 @@
+// Description: Update device model by ID
+// Endpoint: PUT /api/devices/models/:id
+// Request: { name?: string, brandId?: string, deviceType?: string, image?: string, specifications?: Record<string, any>, ... }
+// Response: { success: boolean, message: string, model: DeviceModel }
+export const updateDeviceModel = async (modelId: string, data: Partial<DeviceModel>) => {
+  try {
+    // Token aus localStorage holen (wie im AuthContext)
+    const token = localStorage.getItem('accessToken');
+    const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+    const response = await api.put(`/api/devices/models/${modelId}`, data, config);
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
 import api from './api';
 
 export interface DeviceType {

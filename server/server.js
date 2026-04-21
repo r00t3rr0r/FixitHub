@@ -457,6 +457,10 @@ app.use('/api/admin/analytics', adminAnalyticsRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 
+// Proxy Routes (mobileapi.dev)
+const proxyRoutes = require('./routes/proxyRoutes');
+app.use('/api/proxy', proxyRoutes);
+
 console.log('Routes configured successfully');
 
 // If no routes handled the request, it's a 404

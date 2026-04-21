@@ -3089,5 +3089,31 @@
         "deviceModelImageUrl"
       ]
     }
+  },
+  {
+    "id": "1776691382596-uoaw0a165",
+    "timestamp": "2026-04-20T13:23:02.596Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Passwort zuruecksetzen",
+    "subject": "Passwort fuer Ihr McRepair.de Konto zuruecksetzen",
+    "messageId": "<0b0030e9-aec8-3222-01e5-1d0c9d2db28a@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1123,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "passwordResetUrl",
+        "resetExpiresAt",
+        "supportEmail",
+        "supportPhone",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

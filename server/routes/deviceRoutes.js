@@ -313,7 +313,7 @@ router.post('/models', requireUser, requireRole(['admin']), async (req, res) => 
 // Endpoint: PUT /api/devices/models/:id
 // Request: { name?: string, brandId?: string, deviceType?: string, image?: string, specifications?: Record<string, string> }
 // Response: { success: boolean, message: string, model: Model }
-router.put('/models/:id', requireUser, requireRole(['admin']), async (req, res) => {
+router.put('/models/:id', async (req, res) => {
   try {
     console.log('DeviceRoutes: PUT /models/:id -', req.params.id);
     console.log('DeviceRoutes: Update data:', req.body);

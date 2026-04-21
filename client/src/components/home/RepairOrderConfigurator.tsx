@@ -36,6 +36,7 @@ import {
   getDeviceTypes,
   getManufacturersByDeviceType,
   getModelsByTypeAndManufacturer,
+  updateDeviceModel,
   DeviceType,
   Manufacturer,
   DeviceModel
@@ -518,10 +519,152 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   }, [modelSearchQuery, models]);
 
   // Handle model selection
-  const handleModelSelect = (model: DeviceModel) => {
-    setSelectedModel(model);
-    setModelSearchQuery(model.name);
-    setShowModelDropdown(false);
+  // Erweiterte Model-Auswahl mit Bild- und Specs-Check
+  const handleModelSelect = async (model: DeviceModel) => {
+    // Nur wenn kein Bild und keine Images vorhanden sind, hole Daten von mobileapi.dev
+    if (model.image && model.image.trim() !== '' && Array.isArray(model.images) && model.images.length > 0) {
+      setSelectedModel(model);
+      setShowModelDropdown(false);
+      return;
+    }
+    try {
+      setModelSearchQuery(model.name);
+      setShowModelDropdown(false);
+      // Proxy-URL nutzen, damit kein CORS-Problem entsteht
+      const searchUrl = `/api/proxy/mobileapi?name=${encodeURIComponent(model.name)}&page=1`;
+      const response = await fetch(searchUrl, { headers: { 'Content-Type': 'application/json' } });
+      const data = await response.json();
+      if (!data.devices || !Array.isArray(data.devices) || data.devices.length === 0) {
+        toast({ title: 'Kein Gerätebild gefunden', description: 'Für dieses Modell konnte kein Bild gefunden werden.', variant: 'destructive' });
+        setSelectedModel(model);
+        return;
+      }
+      // Bestes Match wählen
+      const best = data.devices.reduce((prev, curr) => {
+        const prevCert = parseFloat((prev.match_certainty || '0').replace('%',''));
+        const currCert = parseFloat((curr.match_certainty || '0').replace('%',''));
+        return currCert > prevCert ? curr : prev;
+      }, data.devices[0]);
+
+      // Vollständiges Mapping auf DeviceModel-Schema
+      const update: Partial<DeviceModel> = {
+        // Metadaten (Pflichtfelder immer aus dem Modell übernehmen, falls leer)
+        name: best.name && best.name.trim() ? best.name : model.name,
+        brandId: model.brandId,
+        manufacturer: best.brand && best.brand.trim() ? best.brand : model.manufacturer,
+        deviceType: best.device_type && best.device_type.trim() ? best.device_type : model.deviceType,
+        // Bild
+        image: best.image_b64 ? `data:image/jpeg;base64,${best.image_b64}` : model.image,
+        images: best.image_b64 ? [{ base64: `data:image/jpeg;base64,${best.image_b64}` }] : model.images || [],
+        // Common Problems
+        commonProblems: best.common_problems ? best.common_problems.split(',').map((s:string) => s.trim()) : model.commonProblems || [],
+        // Legacy
+        specifications: best.description ? { description: best.description } : model.specifications,
+        // Netzwerk
+        network: {
+          technology2G: best.technology_2g,
+          bands2G: best.bands_2g,
+          technology3G: best.technology_3g,
+          bands3G: best.bands_3g,
+          technology4G: best.technology_4g,
+          bands4G: best.bands_4g,
+          technology5G: best.technology_5g,
+          bands5G: best.bands_5g,
+          speed: best.network_speed,
+        },
+        // Physisch
+        physical: {
+          dimensions: best.thickness,
+          weight: best.weight,
+          build: best.body_material,
+          simType: best.sim_type,
+          simCount: best.sim_count,
+        },
+        // Display
+        display: {
+          type: best.display_type,
+          size: best.screen_size,
+          resolution: best.screen_resolution,
+          protection: best.display_protection,
+          features: best.display_features,
+        },
+        // Plattform
+        platform: {
+          os: best.os,
+          chipset: best.hardware,
+          cpu: best.cpu,
+          gpu: best.gpu,
+        },
+        // Speicher
+        memory: {
+          internal: best.memory_internal ? best.memory_internal.split(',').map((s:string) => {
+            const [ram, storage] = s.split('/').map((x:string) => x.trim());
+            return { ram, storage };
+          }) : [],
+          cardSlot: best.memory_card_slot,
+        },
+        // Hauptkamera
+        rearCamera: {
+          modules: best.main_camera,
+          features: best.main_camera_features,
+          video: best.main_camera_video,
+        },
+        // Frontkamera
+        frontCamera: {
+          modules: best.selfie_camera,
+          features: best.selfie_camera_features,
+          video: best.selfie_camera_video,
+        },
+        // Audio
+        audio: {
+          loudspeaker: best.loudspeaker,
+          jack3_5mm: best.jack,
+        },
+        // Konnektivität
+        connectivity: {
+          wlan: best.wlan,
+          bluetooth: best.bluetooth,
+          positioning: best.gps,
+          nfc: best.nfc,
+          radio: best.radio,
+          usb: best.usb,
+          infrared: best.infrared,
+          other: best.connectivity_other,
+        },
+        // Features
+        features: {
+          sensors: best.sensors,
+          special: best.special_features ? best.special_features.split(',').map((s:string) => s.trim()) : [],
+        },
+        // Akku
+        battery: {
+          type: best.battery_type,
+          charging: best.charging,
+          standbyTime: best.stand_by,
+          talkTime: best.talk_time,
+          musicPlay: best.music_play,
+        },
+        // Sonstiges
+        other: {
+          models: best.model_names ? best.model_names.split(',').map((s:string) => s.trim()) : [],
+          sarValues: {
+            head: best.sar_head,
+            body: best.sar_body,
+          },
+          price: best.price,
+          releaseDate: best.release_date,
+          colors: best.colors ? best.colors.split(',').map((c:string) => c.trim()) : [],
+        },
+        // Zähler
+        count: model.count,
+      };
+      await updateDeviceModel(model._id, update);
+      setSelectedModel({ ...model, ...update });
+      toast({ title: 'Gerätebild & Daten aktualisiert', description: 'Alle verfügbaren Spezifikationen wurden automatisch ergänzt.', variant: 'success' });
+    } catch (err) {
+      toast({ title: 'Fehler beim Gerätebild-Update', description: 'Das Bild konnte nicht automatisch ergänzt werden.', variant: 'destructive' });
+      setSelectedModel(model);
+    }
   };
 
   // Load repair services when moving to step 3
