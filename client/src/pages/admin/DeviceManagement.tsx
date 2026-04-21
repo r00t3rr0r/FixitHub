@@ -670,7 +670,8 @@ export function DeviceManagement() {
           price: '',
           releaseDate: '',
           colors: []
-        }
+        },
+        modelNumbers: []
       })
       setCommonProblemInput("")
       setIsEditMode(false)
@@ -1389,7 +1390,7 @@ export function DeviceManagement() {
                         )}
                         <CardTitle className="line-clamp-1">{model.name}</CardTitle>
                         <CardDescription className="capitalize">
-                          {model.brand?.name || 'Unknown Brand'}
+                          {brands.find(b => b._id === (model.brandId?._id || model.brandId))?.name || 'Unknown Brand'}
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
@@ -1506,6 +1507,17 @@ export function DeviceManagement() {
                     placeholder="e.g., iPhone 15 Pro"
                     disabled={isSubmitting}
                   />
+                </div>
+                <div>
+                  <Label htmlFor="modelNumbers">Model Numbers</Label>
+                  <Input
+                    id="modelNumbers"
+                    value={modelForm.modelNumbers ? modelForm.modelNumbers.join(', ') : ''}
+                    onChange={e => setModelForm({ ...modelForm, modelNumbers: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                    placeholder="e.g., A3102, A3104, SM-X200"
+                    disabled={isSubmitting}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Mehrere Modellnummern mit Komma trennen.</p>
                 </div>
                 <div>
                   <Label htmlFor="modelBrand">Brand *</Label>
@@ -2261,7 +2273,7 @@ export function DeviceManagement() {
                       <h3 className="text-3xl font-bold mb-2">{selectedModel.name}</h3>
                       <div className="flex flex-wrap gap-2 mb-4">
                         <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100">
-                          {(selectedModel as any).brand?.name || 'Unknown Brand'}
+                          {brands.find(b => b._id === ((selectedModel as any).brandId?._id || (selectedModel as any).brandId))?.name || 'Unknown Brand'}
                         </Badge>
                         <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 capitalize">
                           {selectedModel.deviceType}
@@ -2286,6 +2298,70 @@ export function DeviceManagement() {
                 </div>
 
                 {/* Basic Information */}
+                                {/* Erweiterte Felder aus mobileapi.dev */}
+                                {(selectedModel.specifications?.description || (selectedModel as any).other?.colors?.length > 0 || (selectedModel as any).memory?.internal?.length > 0 || (selectedModel as any).platform?.chipset || (selectedModel as any).other?.modelNumbers?.length > 0) && (
+                                  <div>
+                                    <h4 className="text-lg font-semibold mb-3 pb-2 border-b-2 border-fuchsia-200 dark:border-fuchsia-800 flex items-center gap-2">
+                                      <div className="w-3 h-3 bg-fuchsia-500 rounded-full"></div>
+                                      Zusätzliche Geräteinformationen
+                                    </h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      {/* Beschreibung */}
+                                      {selectedModel.specifications?.description && (
+                                        <Card className="bg-fuchsia-50 dark:bg-fuchsia-950/20 border-fuchsia-200 dark:border-fuchsia-800">
+                                          <CardContent className="pt-6">
+                                            <Label className="text-fuchsia-700 dark:text-fuchsia-300">Beschreibung</Label>
+                                            <p className="text-sm font-medium mt-1">{selectedModel.specifications.description}</p>
+                                          </CardContent>
+                                        </Card>
+                                      )}
+                                      {/* Farben */}
+                                      {(selectedModel as any).other?.colors?.length > 0 && (
+                                        <Card className="bg-fuchsia-50 dark:bg-fuchsia-950/20 border-fuchsia-200 dark:border-fuchsia-800">
+                                          <CardContent className="pt-6">
+                                            <Label className="text-fuchsia-700 dark:text-fuchsia-300">Farben</Label>
+                                            <p className="text-sm font-medium mt-1">{(selectedModel as any).other.colors.join(', ')}</p>
+                                          </CardContent>
+                                        </Card>
+                                      )}
+                                      {/* Speicher */}
+                                      {(selectedModel as any).memory?.internal?.length > 0 && (
+                                        <Card className="bg-fuchsia-50 dark:bg-fuchsia-950/20 border-fuchsia-200 dark:border-fuchsia-800">
+                                          <CardContent className="pt-6">
+                                            <Label className="text-fuchsia-700 dark:text-fuchsia-300">Speicher</Label>
+                                            <ul className="text-sm font-medium mt-1 space-y-1">
+                                              {(selectedModel as any).memory.internal.map((mem: any, idx: number) => (
+                                                <li key={idx}>{mem.ram ? `${mem.ram} / ` : ''}{mem.storage}</li>
+                                              ))}
+                                            </ul>
+                                          </CardContent>
+                                        </Card>
+                                      )}
+                                      {/* Hardware */}
+                                      {(selectedModel as any).platform?.chipset && (
+                                        <Card className="bg-fuchsia-50 dark:bg-fuchsia-950/20 border-fuchsia-200 dark:border-fuchsia-800">
+                                          <CardContent className="pt-6">
+                                            <Label className="text-fuchsia-700 dark:text-fuchsia-300">Hardware</Label>
+                                            <p className="text-sm font-medium mt-1">{(selectedModel as any).platform.chipset}</p>
+                                          </CardContent>
+                                        </Card>
+                                      )}
+                                      {/* Modellnummern */}
+                                      {(selectedModel.modelNumbers?.length > 0) && (
+                                        <Card className="bg-fuchsia-50 dark:bg-fuchsia-950/20 border-fuchsia-200 dark:border-fuchsia-800">
+                                          <CardContent className="pt-6">
+                                            <Label className="text-fuchsia-700 dark:text-fuchsia-300">Modellnummern</Label>
+                                            <ul className="text-sm font-medium mt-1 space-y-1">
+                                              {selectedModel.modelNumbers.map((num: string, idx: number) => (
+                                                <li key={idx}>{num}</li>
+                                              ))}
+                                            </ul>
+                                          </CardContent>
+                                        </Card>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                 <div>
                   <h4 className="text-lg font-semibold mb-3 pb-2 border-b-2 border-blue-200 dark:border-blue-800 flex items-center gap-2">
                     <div className="w-3 h-3 bg-blue-500 rounded-full"></div>

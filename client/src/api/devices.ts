@@ -34,6 +34,7 @@ export interface Manufacturer {
 }
 
 export interface DeviceModel {
+    modelNumbers?: string[];
   _id: string;
   name: string;
   manufacturer: string;

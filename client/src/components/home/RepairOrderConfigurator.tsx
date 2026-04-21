@@ -559,7 +559,10 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
         // Common Problems
         commonProblems: best.common_problems ? best.common_problems.split(',').map((s:string) => s.trim()) : model.commonProblems || [],
         // Legacy
-        specifications: best.description ? { description: best.description } : model.specifications,
+        specifications: {
+          ...(model.specifications || {}),
+          ...(best.description ? { description: best.description } : {}),
+        },
         // Netzwerk
         network: {
           technology2G: best.technology_2g,
@@ -597,10 +600,18 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
         },
         // Speicher
         memory: {
-          internal: best.memory_internal ? best.memory_internal.split(',').map((s:string) => {
-            const [ram, storage] = s.split('/').map((x:string) => x.trim());
-            return { ram, storage };
-          }) : [],
+          // Kombiniere memory_internal und storage zu einem Array von Objekten
+          internal: [
+            ...(best.memory_internal
+              ? best.memory_internal.split(',').map((s:string) => {
+                  const [ram, storage] = s.split('/').map((x:string) => x.trim());
+                  return { ram, storage };
+                })
+              : []),
+            ...(best.storage
+              ? best.storage.split(',').map((storage:string) => ({ storage: storage.trim() }))
+              : []),
+          ],
           cardSlot: best.memory_card_slot,
         },
         // Hauptkamera
@@ -647,6 +658,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
         // Sonstiges
         other: {
           models: best.model_names ? best.model_names.split(',').map((s:string) => s.trim()) : [],
+          modelNumbers: best.model_numbers ? best.model_numbers.split(',').map((s:string) => s.trim()) : [],
           sarValues: {
             head: best.sar_head,
             body: best.sar_body,

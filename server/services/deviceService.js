@@ -294,30 +294,51 @@ class DeviceService {
         .populate('brandId', 'name logo')
         .sort({ name: 1 });
 
-      return models.map((model) => ({
-        _id: model._id,
-        name: model.name,
-        manufacturer: model.brandId.name,
-        brandId: model.brandId._id,
-        deviceType: model.deviceType,
-        image: model.image || '',
-        commonProblems: model.commonProblems || [],
-        specifications: model.specifications || {},
-        images: model.images || [],
-        network: model.network || {},
-        physical: model.physical || {},
-        display: model.display || {},
-        platform: model.platform || {},
-        memory: model.memory || { internal: [], cardSlot: '' },
-        rearCamera: model.rearCamera || {},
-        frontCamera: model.frontCamera || {},
-        audio: model.audio || {},
-        connectivity: model.connectivity || {},
-        features: model.features || { sensors: '', special: [] },
-        battery: model.battery || {},
-        other: model.other || { models: [], sarValues: {}, colors: [] },
-        count: 1,
-      }));
+      return models.map((model) => {
+        // Spezielle Behandlung für model_numbers
+        let other = model.other || { models: [], sarValues: {}, colors: [] };
+        // Modellnummern: Priorität modelNumbers (Top-Level), dann other.modelNumbers, dann other.models
+        let modelNumbers = [];
+        if (Array.isArray(model.modelNumbers) && model.modelNumbers.length > 0) {
+          modelNumbers = model.modelNumbers;
+        } else if (Array.isArray(other.modelNumbers) && other.modelNumbers.length > 0) {
+          modelNumbers = other.modelNumbers;
+        } else if (Array.isArray(other.models) && other.models.length > 0) {
+          modelNumbers = other.models;
+        }
+        // description als plain string aus Map holen
+        let specifications = {};
+        if (model.specifications && typeof model.specifications.get === 'function') {
+          specifications = Object.fromEntries(model.specifications.entries());
+        } else {
+          specifications = model.specifications || {};
+        }
+        return {
+          _id: model._id,
+          name: model.name,
+          manufacturer: model.brandId.name,
+          brandId: model.brandId._id,
+          deviceType: model.deviceType,
+          image: model.image || '',
+          commonProblems: model.commonProblems || [],
+          specifications,
+          images: model.images || [],
+          network: model.network || {},
+          physical: model.physical || {},
+          display: model.display || {},
+          platform: model.platform || {},
+          memory: model.memory || { internal: [], cardSlot: '' },
+          rearCamera: model.rearCamera || {},
+          frontCamera: model.frontCamera || {},
+          audio: model.audio || {},
+          connectivity: model.connectivity || {},
+          features: model.features || { sensors: '', special: [] },
+          battery: model.battery || {},
+          other,
+          modelNumbers,
+          count: 1,
+        };
+      });
     } catch (error) {
       console.error('DeviceService: Error getting models by type and manufacturer:', error);
       throw error;
@@ -338,6 +359,20 @@ class DeviceService {
   // Create model (admin only)
   static async createModel(modelData) {
     try {
+      // Modellnummern aus modelData oder modelData.other übernehmen
+      let modelNumbers = [];
+      if (Array.isArray(modelData.modelNumbers) && modelData.modelNumbers.length > 0) {
+        modelNumbers = modelData.modelNumbers;
+      } else if (modelData.other && Array.isArray(modelData.other.modelNumbers) && modelData.other.modelNumbers.length > 0) {
+        modelNumbers = modelData.other.modelNumbers;
+      } else if (modelData.other && typeof modelData.other.modelNumbers === 'string') {
+        modelNumbers = modelData.other.modelNumbers.split(',').map(s => s.trim()).filter(Boolean);
+      } else if (modelData.other && Array.isArray(modelData.other.models) && modelData.other.models.length > 0) {
+        modelNumbers = modelData.other.models;
+      }
+      if (modelNumbers.length > 0) {
+        modelData.modelNumbers = modelNumbers;
+      }
       const model = new DeviceModel(modelData);
       return await model.save();
     } catch (error) {
@@ -381,6 +416,21 @@ class DeviceService {
           }
         }
       };
+
+      // Modellnummern aus updateData oder updateData.other übernehmen
+      let modelNumbers = [];
+      if (Array.isArray(updateData.modelNumbers) && updateData.modelNumbers.length > 0) {
+        modelNumbers = updateData.modelNumbers;
+      } else if (updateData.other && Array.isArray(updateData.other.modelNumbers) && updateData.other.modelNumbers.length > 0) {
+        modelNumbers = updateData.other.modelNumbers;
+      } else if (updateData.other && typeof updateData.other.modelNumbers === 'string') {
+        modelNumbers = updateData.other.modelNumbers.split(',').map(s => s.trim()).filter(Boolean);
+      } else if (updateData.other && Array.isArray(updateData.other.models) && updateData.other.models.length > 0) {
+        modelNumbers = updateData.other.models;
+      }
+      if (modelNumbers.length > 0) {
+        updateData.modelNumbers = modelNumbers;
+      }
 
       Object.keys(updateData).forEach((key) => {
         if (
@@ -452,6 +502,9 @@ class DeviceService {
         $or: [
           { name: { $regex: query, $options: 'i' } },
           { deviceType: { $regex: query, $options: 'i' } },
+          { modelNumbers: { $regex: query, $options: 'i' } },
+          { 'other.modelNumbers': { $regex: query, $options: 'i' } },
+          { 'other.models': { $regex: query, $options: 'i' } },
         ],
       })
         .limit(20)

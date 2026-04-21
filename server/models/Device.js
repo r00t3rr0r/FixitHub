@@ -21,6 +21,10 @@ const deviceModelSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  modelNumbers: [{
+    type: String,
+    trim: true
+  }],
   commonProblems: [{
     type: String,
     trim: true
