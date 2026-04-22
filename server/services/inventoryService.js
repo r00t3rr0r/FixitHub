@@ -267,6 +267,19 @@ class InventoryService {
       throw error;
     }
   }
+
+  // Hard delete ALL inventory items (used by admin bulk-delete UI)
+  static async deleteAll() {
+    console.log('InventoryService: Hard deleting ALL inventory items');
+    try {
+      const result = await Inventory.deleteMany({});
+      console.log(`InventoryService: Deleted ${result.deletedCount} inventory items`);
+      return result.deletedCount || 0;
+    } catch (error) {
+      console.error('InventoryService: Error deleting all inventory items:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = InventoryService;

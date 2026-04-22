@@ -130,6 +130,23 @@ export const deleteServiceCategory = async (categoryId: string) => {
   }
 };
 
+// Description: Delete ALL service categories (admin only, password-protected)
+// Endpoint: DELETE /api/service-categories
+// Request: { password: string }
+// Response: { success: boolean, deletedCount: number, message: string }
+export const deleteAllServiceCategories = async (password: string) => {
+  try {
+    const response = await api.delete('/api/service-categories', { data: { password } });
+    if (response.status >= 400) {
+      throw new Error(response.data?.message || `Request failed with status ${response.status}`);
+    }
+    return response.data;
+  } catch (error: any) {
+    console.error('Error deleting all categories:', error);
+    throw new Error(error?.response?.data?.message || error.message);
+  }
+};
+
 // Description: Deactivate a service category
 // Endpoint: PUT /api/service-categories/:id/deactivate
 // Request: {}

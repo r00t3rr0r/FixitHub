@@ -17,6 +17,24 @@ class ServiceService {
         query.deviceTypes = { $in: [filters.deviceType] };
       }
 
+      // Filter by precise manufacturer (case-insensitive exact match)
+      if (filters.manufacturerPrecise) {
+        query.manufacturerPrecise = new RegExp(
+          `^${String(filters.manufacturerPrecise).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+          'i'
+        );
+      }
+
+      // Filter by precise model. When set, return services that match this model
+      // OR generic services with no model assigned (so a generic "Diagnose" still shows up).
+      if (filters.modelPrecise) {
+        const escaped = String(filters.modelPrecise).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        query.$or = [
+          { modelPrecise: new RegExp(`^${escaped}$`, 'i') },
+          { modelPrecise: { $in: ['', null] } }
+        ];
+      }
+
       // Pagination setup
       const page = parseInt(pagination.page) || 1;
       const limit = parseInt(pagination.limit) || 10;
@@ -151,6 +169,18 @@ class ServiceService {
     } catch (err) {
       console.error('ServiceService: Error deleting service:', err);
       throw new Error(`Database error while deleting service: ${err.message}`);
+    }
+  }
+
+  static async deleteAll() {
+    try {
+      console.log('ServiceService: Hard deleting ALL services');
+      const result = await Service.deleteMany({});
+      console.log(`ServiceService: Deleted ${result.deletedCount} services`);
+      return result.deletedCount || 0;
+    } catch (err) {
+      console.error('ServiceService: Error deleting all services:', err);
+      throw new Error(`Database error while deleting all services: ${err.message}`);
     }
   }
 }

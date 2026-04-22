@@ -133,6 +133,25 @@ export const deleteRepairService = async (id: string) => {
   }
 };
 
+// Description: Delete ALL repair services (admin only, password-protected)
+// Endpoint: DELETE /api/services
+// Request: { password: string }
+// Response: { success: boolean, deletedCount: number, message: string }
+export const deleteAllRepairServices = async (password: string) => {
+  console.log('deleteAllRepairServices called');
+  try {
+    const response = await api.delete('/api/services', { data: { password } });
+    if (response.status >= 400) {
+      throw new Error(response.data?.error || `Request failed with status ${response.status}`);
+    }
+    console.log('deleteAllRepairServices API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('deleteAllRepairServices API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
 // Description: Get all add-on services with pagination and sorting
 // Endpoint: GET /api/addons
 // Request: { category?: string, deviceType?: string, page?: number, limit?: number, sortBy?: string, sortOrder?: 'asc' | 'desc' }
@@ -193,6 +212,24 @@ export const deleteAddOnService = async (id: string) => {
     return response.data;
   } catch (error) {
     console.error('deleteAddOnService API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Delete ALL add-on services (admin only, password-protected)
+// Endpoint: DELETE /api/addons
+// Request: { password: string }
+// Response: { success: boolean, deletedCount: number, message: string }
+export const deleteAllAddOnServices = async (password: string) => {
+  console.log('deleteAllAddOnServices called');
+  try {
+    const response = await api.delete('/api/addons', { data: { password } });
+    if (response.status >= 400) {
+      throw new Error(response.data?.error || `Request failed with status ${response.status}`);
+    }
+    return response.data;
+  } catch (error: any) {
+    console.error('deleteAllAddOnServices API error:', error);
     throw new Error(error?.response?.data?.error || error.message);
   }
 };

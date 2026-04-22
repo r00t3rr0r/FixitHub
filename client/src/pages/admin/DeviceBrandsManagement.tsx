@@ -6,12 +6,14 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/useToast"
+import DeleteAllConfirmButton from "@/components/admin/DeleteAllConfirmButton"
 import {
   getBrands,
   getBrandById,
   createBrand,
   createModel,
   updateModel,
+  deleteAllBrands,
   Brand,
 } from "@/api/brands"
 import {
@@ -513,7 +515,19 @@ export function DeviceBrandsManagement() {
         </TabsList>
 
         <TabsContent value="brands" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <DeleteAllConfirmButton
+              resourceLabel="device brands and all their models"
+              onConfirmDelete={(password) => deleteAllBrands(password)}
+              onDeleted={async () => {
+                try {
+                  const brandsResponse = await getBrands()
+                  setBrands(brandsResponse)
+                } catch (err) {
+                  console.error('Failed to refresh brands after bulk delete:', err)
+                }
+              }}
+            />
             <Button onClick={handleCreateBrand}>
               <Plus className="h-4 w-4 mr-2" />
               {t('deviceBrands.createBrand')}

@@ -143,6 +143,18 @@ class AddOnServiceService {
       throw new Error(`Database error while deleting add-on service: ${err.message}`);
     }
   }
+
+  static async deleteAll() {
+    try {
+      console.log('AddOnServiceService: Hard deleting ALL add-on services');
+      const result = await AddOnService.deleteMany({});
+      console.log(`AddOnServiceService: Deleted ${result.deletedCount} add-on services`);
+      return result.deletedCount || 0;
+    } catch (err) {
+      console.error('AddOnServiceService: Error deleting all add-on services:', err);
+      throw new Error(`Database error while deleting all add-on services: ${err.message}`);
+    }
+  }
 }
 
 module.exports = AddOnServiceService;
