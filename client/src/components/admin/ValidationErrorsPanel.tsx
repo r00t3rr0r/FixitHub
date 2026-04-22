@@ -10,7 +10,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface ValidationError {
   index: number;
-  email: string;
+  email?: string;
+  name?: string;
   errors: string[];
   data: any;
 }
@@ -21,6 +22,7 @@ interface ValidationErrorsPanelProps {
   onProceedWithValidRecords?: () => void;
   validRecordsCount?: number;
   totalRecords?: number;
+  recordLabel?: string;
 }
 
 export const ValidationErrorsPanel: React.FC<ValidationErrorsPanelProps> = ({
@@ -28,7 +30,8 @@ export const ValidationErrorsPanel: React.FC<ValidationErrorsPanelProps> = ({
   onSkipRecords,
   onProceedWithValidRecords,
   validRecordsCount = 0,
-  totalRecords = 0
+  totalRecords = 0,
+  recordLabel = 'Email'
 }) => {
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
@@ -75,11 +78,6 @@ export const ValidationErrorsPanel: React.FC<ValidationErrorsPanelProps> = ({
   };
 
   const handleProceedWithValid = () => {
-    // Skip only the selected records
-    const skippedIndices = Array.from(selectedRows).sort((a, b) => a - b);
-    if (skippedIndices.length > 0) {
-      onSkipRecords?.(skippedIndices);
-    }
     onProceedWithValidRecords?.();
   };
 
@@ -133,7 +131,7 @@ export const ValidationErrorsPanel: React.FC<ValidationErrorsPanelProps> = ({
                         aria-label="Select all"
                       />
                     </TableHead>
-                    <TableHead>Email</TableHead>
+                    <TableHead>{recordLabel}</TableHead>
                     <TableHead>Error Count</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -146,10 +144,10 @@ export const ValidationErrorsPanel: React.FC<ValidationErrorsPanelProps> = ({
                           <Checkbox
                             checked={selectedRows.has(error.index)}
                             onCheckedChange={() => toggleRowSelect(error.index)}
-                            aria-label={`Select ${error.email}`}
+                            aria-label={`Select ${error.name || error.email || `Row ${error.index + 1}`}`}
                           />
                         </TableCell>
-                        <TableCell className="font-medium">{error.email}</TableCell>
+                        <TableCell className="font-medium">{error.name || error.email || `Row ${error.index + 1}`}</TableCell>
                         <TableCell>
                           <Badge variant="destructive">{error.errors.length} error(s)</Badge>
                         </TableCell>

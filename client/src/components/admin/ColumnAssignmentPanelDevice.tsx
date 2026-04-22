@@ -11,11 +11,12 @@ interface ColumnAssignmentPanelDeviceProps {
   onMappingChange: (mapping: Record<string, string>) => void;
 }
 
-// Alle DeviceModel Felder (ohne deviceType, da Auswahl per Dropdown im Dialog)
+// Alle DeviceModel Felder
 const deviceFields = [
   { id: 'name', label: 'Model Name', required: true },
-  { id: 'brandId', label: 'Brand ID', required: true },
-  { id: 'manufacturer', label: 'Manufacturer', required: false },
+  { id: 'manufacturer', label: 'Manufacturer', required: true },
+  { id: 'deviceType', label: 'Device Type / Category', required: true },
+  { id: 'brandId', label: 'Brand ID', required: false },
   { id: 'image', label: 'Image URL', required: false },
   { id: 'modelNumbers', label: 'Model Numbers', required: false },
   { id: 'commonProblems', label: 'Common Problems', required: false },
