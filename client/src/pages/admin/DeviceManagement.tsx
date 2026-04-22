@@ -48,6 +48,7 @@ import {
   HelpCircle,
   X
 } from "lucide-react"
+import { CSVImportDevicesDialog } from '@/components/admin/CSVImportDevicesDialog';
 import {
   Select,
   SelectContent,
@@ -98,6 +99,7 @@ import {
 import "./DeviceManagement.css"
 
 export function DeviceManagement() {
+  const [showCSVImportDevicesDialog, setShowCSVImportDevicesDialog] = useState(false);
   const { t } = useTranslation()
   const [brands, setBrands] = useState<Brand[]>([])
   const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([])
@@ -889,7 +891,7 @@ export function DeviceManagement() {
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" className="gap-2">
+                <Button variant="outline" className="gap-2" onClick={() => setShowCSVImportDevicesDialog(true)}>
                   <Upload className="h-4 w-4" />
                   <span className="hidden sm:inline">Import</span>
                 </Button>
@@ -898,6 +900,17 @@ export function DeviceManagement() {
                 <p>Import devices from CSV</p>
               </TooltipContent>
             </Tooltip>
+                <CSVImportDevicesDialog
+                  open={showCSVImportDevicesDialog}
+                  onOpenChange={setShowCSVImportDevicesDialog}
+                  onImportSuccess={async () => {
+                    // Nach Import: Modelle neu laden
+                    if (selectedDeviceType !== "all" && selectedManufacturer !== "all") {
+                      const response = await getModelsByTypeAndManufacturer(selectedDeviceType, selectedManufacturer)
+                      setModels((response as any).models || [])
+                    }
+                  }}
+                />
           </div>
         </div>
 
