@@ -4,6 +4,17 @@ const Order = require('../models/Order');
 const User = require('../models/User');
 
 class MessageService {
+  // Delete all messages
+  static async deleteAllMessages() {
+    try {
+      const Message = require('../models/Message');
+      const result = await Message.deleteMany({});
+      return { success: true, deletedCount: result.deletedCount };
+    } catch (error) {
+      console.error('MessageService: Error deleting all messages:', error);
+      throw error;
+    }
+  }
   // Get all conversations for a user
   static async getConversations(userId, filters = {}, userRole = 'customer') {
     console.log('MessageService: Getting conversations for user:', userId, 'role:', userRole);

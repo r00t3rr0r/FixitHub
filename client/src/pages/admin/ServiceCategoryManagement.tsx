@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import DeleteAllConfirmButton from '@/components/admin/DeleteAllConfirmButton';
 import { useToast } from '@/hooks/useToast';
 import {
   Plus,
@@ -52,6 +53,7 @@ import {
   createServiceCategory,
   updateServiceCategory,
   deleteServiceCategory,
+  deleteAllServiceCategories,
   activateCategory,
   deactivateCategory,
   ServiceCategory,
@@ -274,14 +276,21 @@ export default function ServiceCategoryManagement() {
             Manage dynamic service categories for repair and add-on services
           </p>
         </div>
-        <Button
-          onClick={() => setShowCreateDialog(true)}
-          variant="secondary"
-          className="border-0 bg-white text-blue-700 hover:bg-blue-50"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add Category
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <DeleteAllConfirmButton
+            resourceLabel="service categories"
+            onConfirmDelete={(password) => deleteAllServiceCategories(password)}
+            onDeleted={fetchCategories}
+          />
+          <Button
+            onClick={() => setShowCreateDialog(true)}
+            variant="secondary"
+            className="border-0 bg-white text-blue-700 hover:bg-blue-50"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Category
+          </Button>
+        </div>
       </div>
 
       {/* Statistics Cards */}

@@ -9,13 +9,9 @@ class CSVDeviceImportService {
       for (const [field, col] of Object.entries(columnMapping)) {
         mappedRow[field] = row[col];
       }
-      // Always set deviceType from injected value if present
-      if (row.deviceType) {
-        mappedRow.deviceType = row.deviceType;
-      }
       return mappedRow;
     });
-    // Basic validation: name, brandId, deviceType required
+    // Basic validation: name, manufacturer, deviceType required (brandId optional, derived from manufacturer if missing)
     const validationErrors = [];
     const validatedRecords = [];
     const duplicates = [];
@@ -23,10 +19,10 @@ class CSVDeviceImportService {
     mapped.forEach((row, idx) => {
       const errors = [];
       if (!row.name) errors.push('Name fehlt');
-      if (!row.brandId) errors.push('Brand fehlt');
+      if (!row.manufacturer) errors.push('Hersteller fehlt');
       if (!row.deviceType) errors.push('Gerätetyp fehlt');
-      // Duplicate check (name+brandId+deviceType)
-      const key = `${row.name}|${row.brandId}|${row.deviceType}`;
+      // Duplicate check (name+manufacturer+deviceType)
+      const key = `${row.name}|${row.manufacturer}|${row.deviceType}`;
       if (seen.has(key)) {
         duplicates.push({ name: row.name, type: 'duplicate-in-file', message: 'Doppelter Eintrag in Datei' });
         return;
@@ -66,6 +62,14 @@ class CSVDeviceImportService {
     for (const device of devices) {
       try {
         let brandId = device.brandId;
+        // Falls keine brandId vorhanden ist, aus manufacturer ableiten
+        if (!brandId && device.manufacturer) {
+          brandId = device.manufacturer;
+        }
+        if (!brandId) {
+          results.failed.push({ name: device.name, error: 'Hersteller/Brand fehlt' });
+          continue;
+        }
         // Wenn brandId kein gültiger ObjectId-String ist, versuche Brand zu finden oder anzulegen
         if (typeof brandId === 'string' && !/^[a-f\d]{24}$/i.test(brandId)) {
           let brandDoc = await DeviceBrand.findOne({ name: brandId.trim() });

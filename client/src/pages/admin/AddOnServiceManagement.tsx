@@ -13,6 +13,7 @@ import {
   createAddOnService,
   updateAddOnService,
   deleteAddOnService,
+  deleteAllAddOnServices,
   AddOnService
 } from "@/api/services"
 import {
@@ -45,6 +46,7 @@ import {
   Upload
 } from "lucide-react"
 import AddOnCSVImportDialog from "@/components/admin/AddOnCSVImportDialog"
+import DeleteAllConfirmButton from "@/components/admin/DeleteAllConfirmButton"
 import {
   Select,
   SelectContent,
@@ -472,6 +474,11 @@ export function AddOnServiceManagement() {
             <Upload className="mr-2 h-4 w-4" />
             Import CSV
           </Button>
+          <DeleteAllConfirmButton
+            resourceLabel="add-on services"
+            onConfirmDelete={(password) => deleteAllAddOnServices(password)}
+            onDeleted={fetchAddOnServices}
+          />
           <Button
             size="sm"
             className="bg-white text-[#1a2a5e] hover:bg-[#f8f9fc]"

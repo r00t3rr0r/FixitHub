@@ -8,16 +8,26 @@ const serviceSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    required: true
+    default: ''
   },
   price: {
     type: Number,
     required: true,
     min: 0
   },
+  priceNet: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  purchasePrice: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   estimatedTime: {
     type: String,
-    required: true
+    default: ''
   },
   category: {
     type: String,
@@ -26,9 +36,13 @@ const serviceSchema = new mongoose.Schema({
     // No enum validation to allow dynamic categories
     trim: true
   },
-  deviceTypes: [{
+  color: {
     type: String,
-    required: true
+    trim: true,
+    default: ''
+  },
+  deviceTypes: [{
+    type: String
   }],
   manufacturer: {
     type: String,

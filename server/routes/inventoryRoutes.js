@@ -164,6 +164,31 @@ router.put('/:id', requireUser, requireAdminOrStaff, async (req, res) => {
   }
 });
 
+// Delete ALL inventory items (admin only, password-protected, hard delete)
+router.delete('/', requireUser, async (req, res) => {
+  console.log('Inventory: Bulk delete-all request received');
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied. Admin role required.' });
+    }
+    const DELETE_ALL_PASSWORD = process.env.SERVICE_BULK_DELETE_PASSWORD || 'mcrepairAdarDieter1369';
+    const provided = (req.body && req.body.password) ? String(req.body.password) : '';
+    if (provided !== DELETE_ALL_PASSWORD) {
+      console.warn('DELETE /api/inventory - Invalid bulk delete password attempt by user:', req.user._id);
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+    const deletedCount = await InventoryService.deleteAll();
+    return res.status(200).json({
+      success: true,
+      deletedCount,
+      message: `Successfully deleted ${deletedCount} inventory items`
+    });
+  } catch (error) {
+    console.error('Error bulk-deleting inventory items:', error);
+    return res.status(500).json({ error: error.message || 'Failed to delete inventory items' });
+  }
+});
+
 // Delete inventory item
 router.delete('/:id', requireUser, requireAdminOrStaff, async (req, res) => {
   console.log('Inventory: Delete item request received:', req.params.id);

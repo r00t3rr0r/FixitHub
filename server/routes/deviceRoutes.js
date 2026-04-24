@@ -261,6 +261,29 @@ router.get('/search', async (req, res) => {
   }
 });
 
+// Delete ALL brands (admin only, password-protected, hard delete; cascades to all models)
+router.delete('/brands', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const DELETE_ALL_PASSWORD = process.env.SERVICE_BULK_DELETE_PASSWORD || 'mcrepairAdarDieter1369';
+    const provided = (req.body && req.body.password) ? String(req.body.password) : '';
+    if (provided !== DELETE_ALL_PASSWORD) {
+      console.warn('DELETE /api/devices/brands - Invalid bulk delete password attempt by user:', req.user._id);
+      return res.status(401).json({ success: false, error: 'Invalid password' });
+    }
+    const result = await DeviceService.deleteAllBrands();
+    console.log(`DELETE /api/devices/brands - Bulk deleted ${result.deletedCount} brands and ${result.deletedModels} models by user ${req.user._id}`);
+    res.json({
+      success: true,
+      deletedCount: result.deletedCount,
+      deletedModels: result.deletedModels,
+      message: `Successfully deleted ${result.deletedCount} brands and ${result.deletedModels} models`
+    });
+  } catch (error) {
+    console.error('DELETE /api/devices/brands - Error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Create brand (admin only)
 router.post('/brands', requireUser, requireRole(['admin']), async (req, res) => {
   try {

@@ -685,10 +685,21 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
       const fetchRepairServices = async () => {
         try {
           setLoadingRepairs(true);
-          const response = await getServices({ 
+          // Filter by selected device type AND the precise model so customers only see
+          // services that actually match their phone (e.g. iPhone 15-specific repairs),
+          // plus generic services that have no model assigned.
+          const params: any = {
             deviceType: selectedDeviceType.name,
-            limit: 100 
-          });
+            limit: 200,
+          };
+          const brandName = manufacturers.find((m) => m._id === selectedBrand)?.name;
+          if (brandName) {
+            params.manufacturerPrecise = brandName;
+          }
+          if (selectedModel?.name) {
+            params.modelPrecise = selectedModel.name;
+          }
+          const response = await getServices(params);
           setRepairServices((response as any).services || []);
         } catch (error) {
           console.error('Error fetching repair services:', error);
@@ -704,7 +715,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
       fetchRepairServices();
     }
-  }, [currentStep, selectedModel, selectedDeviceType, toast, t]);
+  }, [currentStep, selectedModel, selectedDeviceType, selectedBrand, manufacturers, toast, t]);
 
   // Load add-on services when moving to step 4
   useEffect(() => {

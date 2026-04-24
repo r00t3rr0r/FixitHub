@@ -14,9 +14,10 @@ import { Separator } from '../../components/ui/separator';
 import { ScrollArea } from '../../components/ui/scroll-area';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Plus, Search, Edit, Trash2, Package, AlertTriangle, Eye, DollarSign, MapPin, Calendar, Info, ListPlus, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
-import { getParts, createInventoryItem, updatePart, deletePart, Part, PartVersion } from '../../api/parts';
+import { getParts, createInventoryItem, updatePart, deletePart, deleteAllParts, Part, PartVersion } from '../../api/parts';
 import { getNeedLists, createNeedList, addItemToNeedList, NeedList } from '../../api/needLists';
 import { PartsCSVImportDialog } from '../../components/admin/PartsCSVImportDialog';
+import DeleteAllConfirmButton from '../../components/admin/DeleteAllConfirmButton';
 import { useToast } from '../../hooks/useToast';
 
 const adminDialogHeaderClassName = "-mx-4 -mt-4 border-b border-[#2a3f7e] bg-[#1a2a5e] px-4 py-2.5 text-left text-white sm:-mx-5 sm:-mt-5 sm:px-5";
@@ -477,6 +478,11 @@ export function PartsManagement() {
             <Upload className="mr-2 h-4 w-4" />
             Import CSV
           </Button>
+          <DeleteAllConfirmButton
+            resourceLabel="parts / inventory items"
+            onConfirmDelete={(password) => deleteAllParts(password)}
+            onDeleted={fetchParts}
+          />
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
               <Button onClick={() => {

@@ -29,7 +29,6 @@ import { ColumnAssignmentPanelDevice } from './ColumnAssignmentPanelDevice';
 import { CSVPreviewTable } from './CSVPreviewTable';
 import { ValidationErrorsPanel } from './ValidationErrorsPanel';
 import { validateDeviceCSVImport, importDevicesFromCSV } from '@/api/csvDeviceImport';
-import { getDeviceTypes, DeviceType } from '@/api/devices';
 import { getBrands, Brand } from '@/api/brands';
 import { useToast } from '@/hooks/useToast';
 import { useTranslation } from 'react-i18next';
@@ -67,15 +66,10 @@ export const CSVImportDevicesDialog: React.FC<CSVImportDevicesDialogProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // State management
-  const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [selectedDeviceType, setSelectedDeviceType] = useState<string>('');
-  // Fetch device types and brands on open
+  // Fetch brands on open
   React.useEffect(() => {
     if (open) {
-      getDeviceTypes().then(res => {
-        setDeviceTypes(res.deviceTypes || []);
-      });
       getBrands().then(res => {
         setBrands(res || []);
       });
@@ -123,16 +117,21 @@ export const CSVImportDevicesDialog: React.FC<CSVImportDevicesDialogProps> = ({
       complete: (results) => {
         let rawRows = results.data;
         const columns = Object.keys((rawRows[0] as any) || {});
-        // Auto-map columns for device models
+        // Auto-map columns for device models.
+        // Strategy: try EXACT (case-insensitive) match first across all aliases of every
+        // field. Only fall back to substring matching for aliases that don't have an exact
+        // hit. This avoids picking e.g. "Artikelname" for `name` (because it contains
+        // "name") or "Category" for `deviceType` (because `category` is in its alias list)
+        // when more specific columns like "Gerätemodell_precise" / "DeviceType" exist.
         const autoMapping: Record<string, string> = {};
-        const commonMappings = {
-          name: ['name', 'modell', 'model_name'],
-          brandId: ['brandId', 'brand', 'brand_id', 'marke', 'brand_name'],
-          // deviceType intentionally omitted from mapping logic
-          manufacturer: ['manufacturer', 'hersteller'],
+        const commonMappings: Record<string, string[]> = {
+          name: ['name', 'modell', 'model', 'model_name', 'gerätemodell', 'geraetemodell', 'gerätemodell_precise', 'geraetemodell_precise'],
+          brandId: ['brandid', 'brand_id'],
+          deviceType: ['devicetype', 'device_type', 'gerätetyp', 'geraetetyp', 'devicetyp'],
+          manufacturer: ['manufacturer', 'hersteller', 'hersteller_precise', 'brand', 'marke', 'brand_name'],
           image: ['image', 'bild', 'image_url'],
-          modelNumbers: ['modelNumbers', 'model_numbers', 'modellnummern', 'modellnummer', 'model_no'],
-          commonProblems: ['commonProblems', 'common_problems', 'problems', 'probleme'],
+          modelNumbers: ['modelnumbers', 'model_numbers', 'modellnummern', 'modellnummer', 'model_no'],
+          commonProblems: ['commonproblems', 'common_problems', 'problems', 'probleme'],
           specifications: ['specifications', 'spezifikationen', 'specs'],
           images: ['images', 'device_images', 'bilder'],
           network: ['network', 'netzwerk'],
@@ -140,8 +139,8 @@ export const CSVImportDevicesDialog: React.FC<CSVImportDevicesDialogProps> = ({
           display: ['display', 'display_specs', 'anzeige'],
           platform: ['platform', 'plattform'],
           memory: ['memory', 'speicher'],
-          rearCamera: ['rearCamera', 'rear_camera', 'hauptkamera'],
-          frontCamera: ['frontCamera', 'front_camera', 'frontkamera'],
+          rearCamera: ['rearcamera', 'rear_camera', 'hauptkamera'],
+          frontCamera: ['frontcamera', 'front_camera', 'frontkamera'],
           audio: ['audio', 'audio_specs'],
           connectivity: ['connectivity', 'verbindung', 'connect_specs'],
           features: ['features', 'features_specs', 'funktionen'],
@@ -154,12 +153,36 @@ export const CSVImportDevicesDialog: React.FC<CSVImportDevicesDialogProps> = ({
           'other.releaseDate': ['release_date', 'erscheinungsdatum'],
           'other.colors': ['colors', 'farben'],
         };
-        Object.entries(commonMappings).forEach(([field, aliases]) => {
-          const foundColumn = columns.find(col =>
-            aliases.some(alias => col.toLowerCase().includes(alias.toLowerCase()))
+
+        const usedColumns = new Set<string>();
+        const findExact = (aliases: string[]) =>
+          columns.find(
+            (col) =>
+              !usedColumns.has(col) &&
+              aliases.some((alias) => col.toLowerCase() === alias.toLowerCase())
           );
-          if (foundColumn) {
-            autoMapping[field] = foundColumn;
+        const findSubstring = (aliases: string[]) =>
+          columns.find(
+            (col) =>
+              !usedColumns.has(col) &&
+              aliases.some((alias) => col.toLowerCase().includes(alias.toLowerCase()))
+          );
+
+        // Pass 1: exact matches (claim columns first so they aren't reused).
+        Object.entries(commonMappings).forEach(([field, aliases]) => {
+          const exact = findExact(aliases);
+          if (exact) {
+            autoMapping[field] = exact;
+            usedColumns.add(exact);
+          }
+        });
+        // Pass 2: substring fallback for fields that didn't get an exact hit.
+        Object.entries(commonMappings).forEach(([field, aliases]) => {
+          if (autoMapping[field]) return;
+          const sub = findSubstring(aliases);
+          if (sub) {
+            autoMapping[field] = sub;
+            usedColumns.add(sub);
           }
         });
 
@@ -208,20 +231,10 @@ export const CSVImportDevicesDialog: React.FC<CSVImportDevicesDialogProps> = ({
 
   // Handle validation
   const handleValidate = async () => {
-    if (!selectedDeviceType) {
-      toast({
-        variant: 'destructive',
-        title: 'Device Type required',
-        description: 'Please select a device type/category for import.'
-      });
-      return;
-    }
     setIsValidating(true);
     setSkippedIndices(new Set());
     try {
-      // Inject selected device type into all records
-      const patchedData = csvData.map(row => ({ ...row, deviceType: selectedDeviceType }));
-      const result = await validateDeviceCSVImport(patchedData, columnMapping, { skipDuplicates });
+      const result = await validateDeviceCSVImport(csvData, columnMapping, { skipDuplicates });
       setValidationResult(result);
       if (result.success) {
         setStep('preview');
@@ -253,7 +266,7 @@ export const CSVImportDevicesDialog: React.FC<CSVImportDevicesDialogProps> = ({
           const foundBrand = brands.find(b => b.name.toLowerCase() === brandId.trim().toLowerCase());
           if (foundBrand) brandId = foundBrand._id;
         }
-        return { ...row, deviceType: selectedDeviceType, brandId };
+        return { ...row, brandId };
       });
       // Debug: Logge die ersten 3 Records, die importiert werden sollen
       if (allRecords.length > 0) {
@@ -324,7 +337,7 @@ export const CSVImportDevicesDialog: React.FC<CSVImportDevicesDialogProps> = ({
                 <CardHeader>
                   <CardTitle>Step 1: Upload CSV File</CardTitle>
                   <CardDescription>
-                    Select a CSV file containing device model data. The file must include name, brand and device type columns.
+                    Select a CSV file containing device model data. The file must include columns for model name, manufacturer and device type.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -358,20 +371,6 @@ export const CSVImportDevicesDialog: React.FC<CSVImportDevicesDialogProps> = ({
 
             {/* Step 2: Mapping */}
             <TabsContent value="mapping" className="space-y-4">
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">Device Type / Category <span className="text-red-500">*</span></label>
-                <select
-                  className="w-full border rounded px-3 py-2"
-                  value={selectedDeviceType}
-                  onChange={e => setSelectedDeviceType(e.target.value)}
-                  required
-                >
-                  <option value="">-- Select device type --</option>
-                  {deviceTypes.map(type => (
-                    <option key={type._id} value={type._id}>{type.name}</option>
-                  ))}
-                </select>
-              </div>
               <ColumnAssignmentPanelDevice
                 csvColumns={csvColumns}
                 columnMapping={columnMapping}
@@ -391,7 +390,7 @@ export const CSVImportDevicesDialog: React.FC<CSVImportDevicesDialogProps> = ({
 
               <Button
                 onClick={handleValidate}
-                disabled={isValidating || Object.values(columnMapping).filter(v => v).length === 0 || !selectedDeviceType}
+                disabled={isValidating || !columnMapping.name || !columnMapping.manufacturer || !columnMapping.deviceType}
                 className="w-full"
               >
                 {isValidating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -427,6 +426,7 @@ export const CSVImportDevicesDialog: React.FC<CSVImportDevicesDialogProps> = ({
                     }
                   }}
                   validRecordsCount={validationResult.validatedRecords?.length || 0}
+                  recordLabel="Model Name"
                 />
               )}
             </TabsContent>

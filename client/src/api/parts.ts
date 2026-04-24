@@ -323,6 +323,23 @@ export const deletePart = async (partId: string) => {
   }
 };
 
+// Description: Delete ALL parts/inventory items (admin only, password-protected)
+// Endpoint: DELETE /api/inventory
+// Request: { password: string }
+// Response: { success: boolean, deletedCount: number, message: string }
+export const deleteAllParts = async (password: string) => {
+  try {
+    const response = await api.delete('/api/inventory', { data: { password } });
+    if (response.status >= 400) {
+      throw new Error(response.data?.error || `Request failed with status ${response.status}`);
+    }
+    return response.data;
+  } catch (error: any) {
+    console.error('Error deleting all parts:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
 // Description: Update inventory item
 // Endpoint: PUT /api/inventory/:id
 // Request: Partial<Part>

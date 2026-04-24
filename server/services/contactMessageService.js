@@ -3,6 +3,17 @@ const EmailService = require('./emailService');
 const NotificationTemplateService = require('./notificationTemplateService');
 
 class ContactMessageService {
+  // Delete all contact messages
+  static async deleteAllContactMessages() {
+    try {
+      const ContactMessage = require('../models/ContactMessage');
+      const result = await ContactMessage.deleteMany({});
+      return { success: true, deletedCount: result.deletedCount };
+    } catch (error) {
+      console.error('ContactMessageService: Error deleting all contact messages:', error);
+      throw error;
+    }
+  }
   static SUBJECT_LABELS = {
     repair: 'Reparaturanfrage',
     status: 'Statusanfrage',
