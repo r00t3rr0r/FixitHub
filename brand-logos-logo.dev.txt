@@ -1,0 +1,20 @@
+# Brand Logo URLs (logo.dev)
+
+Acer: https://img.logo.dev/name/Acer?token=pk_G3uaUGozTKi6aHDk9IlR5Q
+Apple: https://img.logo.dev/name/Apple?token=pk_G3uaUGozTKi6aHDk9IlR5Q
+Asus: https://img.logo.dev/name/Asus?token=pk_G3uaUGozTKi6aHDk9IlR5Q
+Blackberry: https://img.logo.dev/name/Blackberry?token=pk_G3uaUGozTKi6aHDk9IlR5Q
+Dell: https://img.logo.dev/name/Dell?token=pk_G3uaUGozTKi6aHDk9IlR5Q
+Google: https://img.logo.dev/name/Google?token=pk_G3uaUGozTKi6aHDk9IlR5Q
+HMD Global: https://img.logo.dev/name/HMD%20Global?token=pk_G3uaUGozTKi6aHDk9IlR5Q
+Nokia: https://img.logo.dev/name/Nokia?token=pk_G3uaUGozTKi6aHDk9IlR5Q
+HTC: https://img.logo.dev/name/HTC?token=pk_G3uaUGozTKi6aHDk9IlR5Q
+Huawei: https://img.logo.dev/name/Huawei?token=pk_G3uaUGozTKi6aHDk9IlR5Q
+LG: https://img.logo.dev/name/LG?token=pk_G3uaUGozTKi6aHDk9IlR5Q
+Lenovo: https://img.logo.dev/name/Lenovo?token=pk_G3uaUGozTKi6aHDk9IlR5Q
+Motorola: https://img.logo.dev/name/Motorola?token=pk_G3uaUGozTKi6aHDk9IlR5Q
+OnePlus: https://img.logo.dev/name/OnePlus?token=pk_G3uaUGozTKi6aHDk9IlR5Q
+Samsung: https://img.logo.dev/name/Samsung?token=pk_G3uaUGozTKi6aHDk9IlR5Q
+Sony: https://img.logo.dev/name/Sony?token=pk_G3uaUGozTKi6aHDk9IlR5Q
+Toshiba: https://img.logo.dev/name/Toshiba?token=pk_G3uaUGozTKi6aHDk9IlR5Q
+Xiaomi: https://img.logo.dev/name/Xiaomi?token=pk_G3uaUGozTKi6aHDk9IlR5Q

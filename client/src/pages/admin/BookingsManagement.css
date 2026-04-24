@@ -31,9 +31,10 @@
 }
 
 /* Extended container for wide table */
+
 .bookings-container {
-  max-width: 2200px !important;
-  width: 99% !important;
+  max-width: 100vw;
+  width: 100%;
   margin: 0 auto;
 }
 
@@ -104,23 +105,59 @@
 }
 
 /* Dedicated admin bookings list table sizing */
+
 .bookings-management-section .bookings-list-table-wrap {
   width: 100%;
+  max-width: 100vw;
   overflow-x: auto;
 }
 
+
+
 .bookings-management-section .bookings-list-table {
   width: 100%;
-  min-width: 1450px;
+  min-width: 900px;
+  max-width: 100vw;
 }
+
+/* Safari only: Verhindere Container-Overflow */
+@media not all and (min-resolution: 0.001dpcm) {
+  @supports (-webkit-touch-callout: none) {
+    .bookings-container,
+    .bookings-management-section .bookings-list-table-wrap,
+    .bookings-management-section .bookings-list-table {
+      max-width: 100vw !important;
+      overflow-x: auto !important;
+    }
+  }
+}
+
 
 .bookings-management-section .bookings-list-table .TableCell {
-  white-space: normal;
+  white-space: normal !important;
   line-height: 1.25;
+  word-break: break-word;
 }
 
+
 .bookings-management-section .bookings-list-table .TableHead {
-  white-space: nowrap;
+  white-space: nowrap !important;
+}
+/* Zusätzlicher restriktiver Safari-Fix für Container und Tabelle */
+@media not all and (min-resolution: 0.001dpcm) {
+  @supports (-webkit-touch-callout: none) {
+    .section.bookings-management-section,
+    .container.bookings-container,
+    .bookings-management-section .bookings-list-table-wrap,
+    .bookings-management-section .bookings-list-table {
+      max-width: 100vw !important;
+      overflow-x: auto !important;
+      min-width: 0 !important;
+    }
+    .bookings-management-section .bookings-list-table {
+      min-width: 900px !important;
+    }
+  }
 }
 
 /* Compact booking details dialog */
