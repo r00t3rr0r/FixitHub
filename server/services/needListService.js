@@ -4,6 +4,18 @@ const { EPartOrder } = require('../models/EPartOrder');
 
 class NeedListService {
   /**
+   * Delete all need lists
+   */
+  static async deleteAllNeedLists() {
+    try {
+      const result = await NeedList.deleteMany({});
+      return { success: true, deletedCount: result.deletedCount };
+    } catch (error) {
+      console.error('NeedListService: Error deleting all need lists:', error);
+      throw error;
+    }
+  }
+  /**
    * Get all need lists with optional filtering
    */
   static async getNeedLists(filters = {}) {

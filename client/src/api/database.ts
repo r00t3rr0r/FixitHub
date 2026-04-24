@@ -188,3 +188,53 @@ export const deleteAllRepairRequests = async () => {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// Description: Delete all notifications
+// Endpoint: POST /api/database/delete-notifications
+export const deleteAllNotifications = async () => {
+  try {
+    return await api.post('/api/database/delete-notifications');
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Delete all messages
+// Endpoint: POST /api/database/delete-messages
+export const deleteAllMessages = async () => {
+  try {
+    return await api.post('/api/database/delete-messages');
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Delete all needslists
+// Endpoint: POST /api/database/delete-needslists
+export const deleteAllNeedslists = async () => {
+  try {
+    return await api.post('/api/database/delete-needslists');
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Delete all payments
+// Endpoint: POST /api/database/delete-payments
+export const deleteAllPayments = async () => {
+  try {
+    return await api.post('/api/database/delete-payments');
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Delete all contact messages
+// Endpoint: POST /api/database/delete-contact-messages
+export const deleteAllContactMessages = async () => {
+  try {
+    return await api.post('/api/database/delete-contact-messages');
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};

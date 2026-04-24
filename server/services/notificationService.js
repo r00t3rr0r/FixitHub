@@ -5,6 +5,16 @@ const EmailService = require('./emailService');
 const NotificationTemplateService = require('./notificationTemplateService');
 
 class NotificationService {
+  // Delete all notifications
+  static async deleteAllNotifications() {
+    try {
+      const result = await Notification.deleteMany({});
+      return { success: true, deletedCount: result.deletedCount };
+    } catch (error) {
+      console.error('NotificationService: Error deleting all notifications:', error);
+      throw error;
+    }
+  }
   static getCustomerNotificationTemplateCandidates() {
     return [
       'Benachrichtigungs-Updates fuer Kunden',

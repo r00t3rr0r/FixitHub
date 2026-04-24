@@ -9,8 +9,128 @@ const { BlogPost } = require('../models/BlogPost');
 const Invoice = require('../models/Invoice');
 const Complaint = require('../models/Complaint');
 const RepairRequest = require('../models/RepairRequest');
+const Notification = require('../models/Notification');
+const Message = require('../models/Message');
+const NeedList = require('../models/NeedList');
+const Payment = require('../models/Payment');
+const ContactMessage = require('../models/ContactMessage');
 
 class DatabaseService {
+
+  // Delete all notifications
+  async deleteAllNotifications() {
+    console.log('DatabaseService: Deleting all notifications');
+    try {
+      const countBefore = await Notification.countDocuments();
+      const deleteResult = await Notification.deleteMany({});
+      const countAfter = await Notification.countDocuments();
+      return {
+        success: true,
+        message: 'All notifications deleted successfully',
+        results: {
+          before: countBefore,
+          deleted: deleteResult.deletedCount,
+          after: countAfter
+        },
+        timestamp: new Date()
+      };
+    } catch (error) {
+      console.error('DatabaseService: Error deleting notifications:', error);
+      throw new Error(`Failed to delete notifications: ${error.message}`);
+    }
+  }
+
+  // Delete all messages
+  async deleteAllMessages() {
+    console.log('DatabaseService: Deleting all messages');
+    try {
+      const countBefore = await Message.countDocuments();
+      const deleteResult = await Message.deleteMany({});
+      const countAfter = await Message.countDocuments();
+      return {
+        success: true,
+        message: 'All messages deleted successfully',
+        results: {
+          before: countBefore,
+          deleted: deleteResult.deletedCount,
+          after: countAfter
+        },
+        timestamp: new Date()
+      };
+    } catch (error) {
+      console.error('DatabaseService: Error deleting messages:', error);
+      throw new Error(`Failed to delete messages: ${error.message}`);
+    }
+  }
+
+  // Delete all needslists
+  async deleteAllNeedslists() {
+    console.log('DatabaseService: Deleting all needslists');
+    try {
+      const countBefore = await NeedList.countDocuments();
+      const deleteResult = await NeedList.deleteMany({});
+      const countAfter = await NeedList.countDocuments();
+      return {
+        success: true,
+        message: 'All needslists deleted successfully',
+        results: {
+          before: countBefore,
+          deleted: deleteResult.deletedCount,
+          after: countAfter
+        },
+        timestamp: new Date()
+      };
+    } catch (error) {
+      console.error('DatabaseService: Error deleting needslists:', error);
+      throw new Error(`Failed to delete needslists: ${error.message}`);
+    }
+  }
+
+  // Delete all payments
+  async deleteAllPayments() {
+    console.log('DatabaseService: Deleting all payments');
+    try {
+      const countBefore = await Payment.countDocuments();
+      const deleteResult = await Payment.deleteMany({});
+      const countAfter = await Payment.countDocuments();
+      return {
+        success: true,
+        message: 'All payments deleted successfully',
+        results: {
+          before: countBefore,
+          deleted: deleteResult.deletedCount,
+          after: countAfter
+        },
+        timestamp: new Date()
+      };
+    } catch (error) {
+      console.error('DatabaseService: Error deleting payments:', error);
+      throw new Error(`Failed to delete payments: ${error.message}`);
+    }
+  }
+
+  // Delete all contact messages
+  async deleteAllContactMessages() {
+    console.log('DatabaseService: Deleting all contact messages');
+    try {
+      const countBefore = await ContactMessage.countDocuments();
+      const deleteResult = await ContactMessage.deleteMany({});
+      const countAfter = await ContactMessage.countDocuments();
+      return {
+        success: true,
+        message: 'All contact messages deleted successfully',
+        results: {
+          before: countBefore,
+          deleted: deleteResult.deletedCount,
+          after: countAfter
+        },
+        timestamp: new Date()
+      };
+    } catch (error) {
+      console.error('DatabaseService: Error deleting contact messages:', error);
+      throw new Error(`Failed to delete contact messages: ${error.message}`);
+    }
+  }
   // Get database statistics
   async getDatabaseStats() {
     console.log('DatabaseService: Getting database statistics');

@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Database, Server, HardDrive, Activity, Download, Trash2, RefreshCw, Zap, Shield, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
+
 import {
   getDatabaseStats,
   getRecentOperations,
@@ -24,6 +25,11 @@ import {
   deleteAllInvoices,
   deleteAllComplaints,
   deleteAllRepairRequests,
+  deleteAllNotifications,
+  deleteAllMessages,
+  deleteAllNeedslists,
+  deleteAllPayments,
+  deleteAllContactMessages,
   type DatabaseStats,
   type DatabaseOperation,
   type DatabaseBackup,
@@ -31,7 +37,73 @@ import {
 } from '@/api/database';
 
 export function DatabaseManagement() {
-  const { t } = useTranslation()
+        const handleDeleteNotifications = async () => {
+          try {
+            setDeleteNotificationsLoading(true);
+            const response = await deleteAllNotifications();
+            toast({
+              title: t('common.success'),
+              description: `Deleted ${response.data.results.deleted} notifications`,
+            });
+            fetchDatabaseData();
+          } catch (error) {
+            console.error('Error deleting notifications:', error);
+            toast({
+              title: t('common.error'),
+              description: error.message,
+              variant: "destructive",
+            });
+          } finally {
+            setDeleteNotificationsLoading(false);
+          }
+        };
+      // Handler für Backup-Erstellung
+      const handleCreateBackup = async () => {
+        try {
+          setBackupLoading(true);
+          const response = await createDatabaseBackup();
+          toast({
+            title: t('common.success'),
+            description: response.data.message,
+          });
+          fetchDatabaseData();
+        } catch (error) {
+          console.error('Error creating backup:', error);
+          toast({
+            title: t('common.error'),
+            description: error.message,
+            variant: "destructive",
+          });
+        } finally {
+          setBackupLoading(false);
+        }
+      };
+    // Lädt alle relevanten Daten für die Seite
+    const fetchDatabaseData = async () => {
+      setLoading(true);
+      try {
+        const [statsRes, opsRes, backupsRes, healthRes] = await Promise.all([
+          getDatabaseStats(),
+          getRecentOperations(),
+          getBackupHistory(),
+          getDatabaseHealth()
+        ]);
+        setStats(statsRes.data);
+        setOperations(opsRes.data.operations || []);
+        setBackups(backupsRes.data.backups || []);
+        setHealth(healthRes.data);
+      } catch (error) {
+        toast({
+          title: t('common.error'),
+          description: error.message,
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+  const { t } = useTranslation();
+  const { toast } = useToast();
   const [stats, setStats] = useState<DatabaseStats | null>(null);
   const [operations, setOperations] = useState<DatabaseOperation[]>([]);
   const [backups, setBackups] = useState<DatabaseBackup[]>([]);
@@ -46,60 +118,102 @@ export function DatabaseManagement() {
   const [deleteRepairRequestsLoading, setDeleteRepairRequestsLoading] = useState(false);
   const [cleanupDays, setCleanupDays] = useState(90);
   const [cleanupCollections, setCleanupCollections] = useState(['logs', 'sessions', 'notifications']);
-  const { toast } = useToast();
+
+  const [deleteNotificationsLoading, setDeleteNotificationsLoading] = useState(false);
+  const [deleteMessagesLoading, setDeleteMessagesLoading] = useState(false);
+  const [deleteNeedslistsLoading, setDeleteNeedslistsLoading] = useState(false);
+  const [deletePaymentsLoading, setDeletePaymentsLoading] = useState(false);
+  const [deleteContactMessagesLoading, setDeleteContactMessagesLoading] = useState(false);
 
   useEffect(() => {
     fetchDatabaseData();
   }, []);
 
-  const fetchDatabaseData = async () => {
+  const handleDeleteMessages = async () => {
     try {
-      setLoading(true);
-      const [statsResponse, operationsResponse, backupsResponse, healthResponse] = await Promise.all([
-        getDatabaseStats(),
-        getRecentOperations(),
-        getBackupHistory(),
-        getDatabaseHealth()
-      ]);
-
-      setStats(statsResponse.data.stats);
-      setOperations(operationsResponse.data.operations);
-      setBackups(backupsResponse.data.backups);
-      setHealth(healthResponse.data.health);
-    } catch (error) {
-      console.error('Error fetching database data:', error);
-      toast({
-        title: t('common.error'),
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCreateBackup = async () => {
-    try {
-      setBackupLoading(true);
-      const response = await createDatabaseBackup();
-      
+      setDeleteMessagesLoading(true);
+      const response = await deleteAllMessages();
       toast({
         title: t('common.success'),
-        description: response.data.message,
+        description: `Deleted ${response.data.results.deleted} messages`,
       });
-      
       fetchDatabaseData();
     } catch (error) {
-      console.error('Error creating backup:', error);
+      console.error('Error deleting messages:', error);
       toast({
         title: t('common.error'),
         description: error.message,
         variant: "destructive",
       });
     } finally {
-      setBackupLoading(false);
+      setDeleteMessagesLoading(false);
     }
   };
+
+  const handleDeleteNeedslists = async () => {
+    try {
+      setDeleteNeedslistsLoading(true);
+      const response = await deleteAllNeedslists();
+      toast({
+        title: t('common.success'),
+        description: `Deleted ${response.data.results.deleted} needslists`,
+      });
+      fetchDatabaseData();
+    } catch (error) {
+      console.error('Error deleting needslists:', error);
+      toast({
+        title: t('common.error'),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteNeedslistsLoading(false);
+    }
+  };
+
+  const handleDeletePayments = async () => {
+    try {
+      setDeletePaymentsLoading(true);
+      const response = await deleteAllPayments();
+      toast({
+        title: t('common.success'),
+        description: `Deleted ${response.data.results.deleted} payments`,
+      });
+      fetchDatabaseData();
+    } catch (error) {
+      console.error('Error deleting payments:', error);
+      toast({
+        title: t('common.error'),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeletePaymentsLoading(false);
+    }
+  };
+
+  const handleDeleteContactMessages = async () => {
+    try {
+      setDeleteContactMessagesLoading(true);
+      const response = await deleteAllContactMessages();
+      toast({
+        title: t('common.success'),
+        description: `Deleted ${response.data.results.deleted} contact messages`,
+      });
+      fetchDatabaseData();
+    } catch (error) {
+      console.error('Error deleting contact messages:', error);
+      toast({
+        title: t('common.error'),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteContactMessagesLoading(false);
+    }
+  };
+
+
 
   const handleOptimizeDatabase = async () => {
     try {
@@ -299,12 +413,14 @@ export function DatabaseManagement() {
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium">Connections</p>
-                <p className="text-2xl font-bold">{health.connections.current}</p>
-                <p className="text-xs text-muted-foreground">of {health.connections.available} available</p>
+                <p className="text-2xl font-bold">{health.connections ? health.connections.current : '-'}</p>
+                <p className="text-xs text-muted-foreground">
+                  {health.connections ? `of ${health.connections.available} available` : ''}
+                </p>
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium">Memory Usage</p>
-                <p className="text-2xl font-bold">{formatBytes(health.memory.resident * 1024 * 1024)}</p>
+                <p className="text-2xl font-bold">{health.memory && typeof health.memory.resident === 'number' ? formatBytes(health.memory.resident * 1024 * 1024) : '-'}</p>
               </div>
             </div>
           </CardContent>
@@ -329,9 +445,9 @@ export function DatabaseManagement() {
                   <Database className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{formatBytes(stats.database.dataSize)}</div>
+                  <div className="text-2xl font-bold">{stats.database ? formatBytes(stats.database.dataSize) : '-'}</div>
                   <p className="text-xs text-muted-foreground">
-                    Storage: {formatBytes(stats.database.storageSize)}
+                    Storage: {stats.database ? formatBytes(stats.database.storageSize) : '-'}
                   </p>
                 </CardContent>
               </Card>
@@ -342,9 +458,9 @@ export function DatabaseManagement() {
                   <HardDrive className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{stats.database.collections}</div>
+                  <div className="text-2xl font-bold">{stats.database ? stats.database.collections : '-'}</div>
                   <p className="text-xs text-muted-foreground">
-                    {stats.database.objects.toLocaleString()} total objects
+                    {stats.database ? stats.database.objects.toLocaleString() + ' total objects' : '-'}
                   </p>
                 </CardContent>
               </Card>
@@ -355,9 +471,9 @@ export function DatabaseManagement() {
                   <Zap className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{stats.database.indexes}</div>
+                  <div className="text-2xl font-bold">{stats.database ? stats.database.indexes : '-'}</div>
                   <p className="text-xs text-muted-foreground">
-                    Size: {formatBytes(stats.database.indexSize)}
+                    Size: {stats.database ? formatBytes(stats.database.indexSize) : '-'}
                   </p>
                 </CardContent>
               </Card>
@@ -386,16 +502,22 @@ export function DatabaseManagement() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {stats?.collections.map((collection) => (
-                    <TableRow key={collection.name}>
-                      <TableCell className="font-medium">{collection.name}</TableCell>
-                      <TableCell>{collection.count.toLocaleString()}</TableCell>
-                      <TableCell>{formatBytes(collection.size)}</TableCell>
-                      <TableCell>{formatBytes(collection.avgObjSize)}</TableCell>
-                      <TableCell>{formatBytes(collection.storageSize)}</TableCell>
-                      <TableCell>{collection.indexes}</TableCell>
+                  {Array.isArray(stats?.collections) && stats.collections.length > 0 ? (
+                    stats.collections.map((collection) => (
+                      <TableRow key={collection.name}>
+                        <TableCell className="font-medium">{collection.name}</TableCell>
+                        <TableCell>{collection.count.toLocaleString()}</TableCell>
+                        <TableCell>{formatBytes(collection.size)}</TableCell>
+                        <TableCell>{formatBytes(collection.avgObjSize)}</TableCell>
+                        <TableCell>{formatBytes(collection.storageSize)}</TableCell>
+                        <TableCell>{collection.indexes}</TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground">-</TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -496,7 +618,211 @@ export function DatabaseManagement() {
         </TabsContent>
 
         <TabsContent value="maintenance" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Trash2 className="h-5 w-5" />
+                              Delete All Notifications
+                            </CardTitle>
+                            <CardDescription>
+                              Permanently delete all notifications from the database
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="destructive" disabled={deleteNotificationsLoading}>
+                                  {deleteNotificationsLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                                  Delete All Notifications
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete All Notifications?</AlertDialogTitle>
+                                  <AlertDialogDescription className="space-y-3 mt-4">
+                                    <p>
+                                      This will permanently delete ALL notifications from the database. This action cannot be undone.
+                                    </p>
+                                    <p className="font-semibold text-red-600">
+                                      ⚠️ Warning: This is a destructive operation. Make sure you have a backup before proceeding.
+                                    </p>
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                  <AlertDialogAction onClick={handleDeleteNotifications} className="bg-red-600 hover:bg-red-700">
+                                    Delete All
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Trash2 className="h-5 w-5" />
+                              Delete All Messages
+                            </CardTitle>
+                            <CardDescription>
+                              Permanently delete all messages from the database
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="destructive" disabled={deleteMessagesLoading}>
+                                  {deleteMessagesLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                                  Delete All Messages
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete All Messages?</AlertDialogTitle>
+                                  <AlertDialogDescription className="space-y-3 mt-4">
+                                    <p>
+                                      This will permanently delete ALL messages from the database. This action cannot be undone.
+                                    </p>
+                                    <p className="font-semibold text-red-600">
+                                      ⚠️ Warning: This is a destructive operation. Make sure you have a backup before proceeding.
+                                    </p>
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                  <AlertDialogAction onClick={handleDeleteMessages} className="bg-red-600 hover:bg-red-700">
+                                    Delete All
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Trash2 className="h-5 w-5" />
+                              Delete All Needslists
+                            </CardTitle>
+                            <CardDescription>
+                              Permanently delete all needslists from the database
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="destructive" disabled={deleteNeedslistsLoading}>
+                                  {deleteNeedslistsLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                                  Delete All Needslists
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete All Needslists?</AlertDialogTitle>
+                                  <AlertDialogDescription className="space-y-3 mt-4">
+                                    <p>
+                                      This will permanently delete ALL needslists from the database. This action cannot be undone.
+                                    </p>
+                                    <p className="font-semibold text-red-600">
+                                      ⚠️ Warning: This is a destructive operation. Make sure you have a backup before proceeding.
+                                    </p>
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                  <AlertDialogAction onClick={handleDeleteNeedslists} className="bg-red-600 hover:bg-red-700">
+                                    Delete All
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Trash2 className="h-5 w-5" />
+                              Delete All Payments
+                            </CardTitle>
+                            <CardDescription>
+                              Permanently delete all payments from the database
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="destructive" disabled={deletePaymentsLoading}>
+                                  {deletePaymentsLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                                  Delete All Payments
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete All Payments?</AlertDialogTitle>
+                                  <AlertDialogDescription className="space-y-3 mt-4">
+                                    <p>
+                                      This will permanently delete ALL payments from the database. This action cannot be undone.
+                                    </p>
+                                    <p className="font-semibold text-red-600">
+                                      ⚠️ Warning: This is a destructive operation. Make sure you have a backup before proceeding.
+                                    </p>
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                  <AlertDialogAction onClick={handleDeletePayments} className="bg-red-600 hover:bg-red-700">
+                                    Delete All
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Trash2 className="h-5 w-5" />
+                              Delete All Kontaktanfragen
+                            </CardTitle>
+                            <CardDescription>
+                              Permanently delete all contact messages (Kontaktanfragen) from the database
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="destructive" disabled={deleteContactMessagesLoading}>
+                                  {deleteContactMessagesLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                                  Delete All Kontaktanfragen
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete All Kontaktanfragen?</AlertDialogTitle>
+                                  <AlertDialogDescription className="space-y-3 mt-4">
+                                    <p>
+                                      This will permanently delete ALL Kontaktanfragen (contact messages) from the database. This action cannot be undone.
+                                    </p>
+                                    <p className="font-semibold text-red-600">
+                                      ⚠️ Warning: This is a destructive operation. Make sure you have a backup before proceeding.
+                                    </p>
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                  <AlertDialogAction onClick={handleDeleteContactMessages} className="bg-red-600 hover:bg-red-700">
+                                    Delete All
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </CardContent>
+                        </Card>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

@@ -213,3 +213,78 @@ router.post('/delete-repair-requests', requireUser, requireRole(['admin']), asyn
 });
 
 module.exports = router;
+
+// Delete all notifications (admin only)
+router.post('/delete-notifications', requireUser, requireRole(['admin']), async (req, res) => {
+  console.log('DatabaseRoutes: Delete all notifications request');
+  try {
+    const result = await DatabaseService.deleteAllNotifications();
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('DatabaseRoutes: Error deleting notifications:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete notifications'
+    });
+  }
+});
+
+// Delete all messages (admin only)
+router.post('/delete-messages', requireUser, requireRole(['admin']), async (req, res) => {
+  console.log('DatabaseRoutes: Delete all messages request');
+  try {
+    const result = await DatabaseService.deleteAllMessages();
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('DatabaseRoutes: Error deleting messages:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete messages'
+    });
+  }
+});
+
+// Delete all needslists (admin only)
+router.post('/delete-needslists', requireUser, requireRole(['admin']), async (req, res) => {
+  console.log('DatabaseRoutes: Delete all needslists request');
+  try {
+    const result = await DatabaseService.deleteAllNeedslists();
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('DatabaseRoutes: Error deleting needslists:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete needslists'
+    });
+  }
+});
+
+// Delete all payments (admin only)
+router.post('/delete-payments', requireUser, requireRole(['admin']), async (req, res) => {
+  console.log('DatabaseRoutes: Delete all payments request');
+  try {
+    const result = await DatabaseService.deleteAllPayments();
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('DatabaseRoutes: Error deleting payments:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete payments'
+    });
+  }
+});
+
+// Delete all contact messages (admin only)
+router.post('/delete-contact-messages', requireUser, requireRole(['admin']), async (req, res) => {
+  console.log('DatabaseRoutes: Delete all contact messages request');
+  try {
+    const result = await DatabaseService.deleteAllContactMessages();
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('DatabaseRoutes: Error deleting contact messages:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete contact messages'
+    });
+  }
+});
