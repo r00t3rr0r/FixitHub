@@ -555,6 +555,24 @@ class DeviceService {
       throw error;
     }
   }
+
+  // Hard delete ALL brands AND their associated device models (used by admin bulk-delete UI).
+  // Cascades to DeviceModel because models reference brandId.
+  static async deleteAllBrands() {
+    try {
+      console.log('DeviceService: Hard deleting ALL brands and associated models');
+      const modelsResult = await DeviceModel.deleteMany({});
+      const brandsResult = await DeviceBrand.deleteMany({});
+      console.log(`DeviceService: Deleted ${brandsResult.deletedCount} brands and ${modelsResult.deletedCount} models`);
+      return {
+        deletedCount: brandsResult.deletedCount || 0,
+        deletedModels: modelsResult.deletedCount || 0,
+      };
+    } catch (error) {
+      console.error('DeviceService: Error deleting all brands:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = DeviceService;

@@ -149,6 +149,19 @@ class ServiceCategoryService {
     }
   }
 
+  // Hard delete ALL categories (used by admin bulk-delete UI)
+  static async deleteAllCategories() {
+    try {
+      console.log('ServiceCategoryService: Hard deleting ALL categories');
+      const result = await ServiceCategory.deleteMany({});
+      console.log(`ServiceCategoryService: Deleted ${result.deletedCount} categories`);
+      return result.deletedCount || 0;
+    } catch (error) {
+      console.error('ServiceCategoryService: Error deleting all categories:', error);
+      throw new Error(`Failed to delete all categories: ${error.message}`);
+    }
+  }
+
   // Soft delete (deactivate) a category
   static async deactivateCategory(categoryId) {
     try {

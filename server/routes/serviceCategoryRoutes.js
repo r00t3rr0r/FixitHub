@@ -120,6 +120,26 @@ router.put('/:id', auth, requireAdmin, async (req, res) => {
   }
 });
 
+// Description: Delete ALL service categories (admin only, password-protected, hard delete)
+// Endpoint: DELETE /api/service-categories
+// Request: { password: string }
+// Response: { success: boolean, deletedCount: number, message: string }
+router.delete('/', auth, requireAdmin, async (req, res) => {
+  try {
+    const DELETE_ALL_PASSWORD = process.env.SERVICE_BULK_DELETE_PASSWORD || 'mcrepairAdarDieter1369';
+    const provided = (req.body && req.body.password) ? String(req.body.password) : '';
+    if (provided !== DELETE_ALL_PASSWORD) {
+      console.warn('DELETE /api/service-categories - Invalid bulk delete password attempt');
+      return res.status(401).json({ success: false, message: 'Invalid password' });
+    }
+    const deletedCount = await ServiceCategoryService.deleteAllCategories();
+    res.status(200).json({ success: true, deletedCount, message: `Successfully deleted ${deletedCount} categories` });
+  } catch (error) {
+    console.error('DELETE /api/service-categories - Error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Description: Delete a service category
 // Endpoint: DELETE /api/service-categories/:id
 // Request: {}

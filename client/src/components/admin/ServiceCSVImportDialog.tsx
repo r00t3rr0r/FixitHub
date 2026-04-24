@@ -101,28 +101,67 @@ const ServiceCSVImportDialog: React.FC<ServiceCSVImportDialogProps> = ({
         setProgress(100);
         setStep('mapping');
 
-        // Try to auto-map columns based on common names
+        // Try to auto-map columns based on common names (English + German)
         const autoMapping: Record<string, string> = {};
 
+        const norm = (s: string) => s.toLowerCase().trim().replace(/\s+/g, '_');
+
         filteredColumns.forEach((col) => {
+          const n = norm(col);
           const lowerCol = col.toLowerCase();
-          if (lowerCol.includes('name') || lowerCol === 'service') {
+
+          // Name
+          if (n === 'artikelname' || n === 'name' || n === 'service_name' || n === 'bezeichnung') {
             autoMapping['name'] = col;
-          } else if (lowerCol.includes('category')) {
+          }
+          // Category / Service type (German repair_services.csv uses "Service")
+          else if (n === 'service' || n === 'service_precise' || lowerCol.includes('category') || lowerCol.includes('kategorie')) {
             autoMapping['category'] = col;
-          } else if (lowerCol.includes('price') || lowerCol.includes('cost')) {
+          }
+          // Prices
+          else if (n === 'std._vk_brutto' || n === 'std_vk_brutto' || n === 'price_gross') {
+            autoMapping['priceGross'] = col;
+          }
+          else if (n === 'std._vk_netto' || n === 'std_vk_netto' || n === 'price_net') {
+            autoMapping['priceNet'] = col;
+          }
+          else if (n === 'ek_netto' || n.startsWith('ek_netto') || n === 'purchase_price') {
+            autoMapping['purchasePrice'] = col;
+          }
+          else if (!autoMapping['price'] && (lowerCol.includes('preis') || (lowerCol.includes('price') && !lowerCol.includes('net') && !lowerCol.includes('brutto')))) {
             autoMapping['price'] = col;
-          } else if (lowerCol.includes('description')) {
+          }
+          // Description
+          else if (lowerCol.includes('beschreibung') || lowerCol === 'description') {
             autoMapping['description'] = col;
-          } else if (lowerCol.includes('time') || lowerCol.includes('duration')) {
+          }
+          // Manufacturer / model
+          else if (n === 'hersteller_precise' || n === 'manufacturer_precise') {
+            autoMapping['manufacturerPrecise'] = col;
+          }
+          else if (n === 'hersteller' || n === 'manufacturer') {
+            autoMapping['manufacturer'] = col;
+          }
+          else if (n === 'gerätemodell_precise' || n === 'geraetemodell_precise' || n === 'model_precise') {
+            autoMapping['modelPrecise'] = col;
+          }
+          else if (n === 'gerätemodell' || n === 'geraetemodell' || n === 'modell' || n === 'model') {
+            autoMapping['model'] = col;
+          }
+          // Color
+          else if (n === 'farbe' || n === 'color') {
+            autoMapping['color'] = col;
+          }
+          // Time / difficulty / warranty / device types / status (legacy English)
+          else if (lowerCol.includes('time') || lowerCol.includes('duration') || lowerCol.includes('dauer')) {
             autoMapping['estimatedTime'] = col;
-          } else if (lowerCol.includes('difficulty') || lowerCol.includes('level')) {
+          } else if (lowerCol.includes('difficulty') || lowerCol.includes('schwierigkeit')) {
             autoMapping['difficulty'] = col;
-          } else if (lowerCol.includes('warranty')) {
+          } else if (lowerCol.includes('warranty') || lowerCol.includes('garantie')) {
             autoMapping['warrantyPeriod'] = col;
-          } else if (lowerCol.includes('device') || lowerCol.includes('type')) {
+          } else if (lowerCol.includes('devicetype') || lowerCol.includes('device_type') || lowerCol.includes('gerätetyp') || lowerCol.includes('geraetetyp')) {
             autoMapping['deviceTypes'] = col;
-          } else if (lowerCol.includes('active') || lowerCol.includes('status')) {
+          } else if (lowerCol.includes('active') || lowerCol === 'aktiv' || lowerCol === 'is_active') {
             autoMapping['isActive'] = col;
           }
         });
@@ -239,17 +278,19 @@ const ServiceCSVImportDialog: React.FC<ServiceCSVImportDialogProps> = ({
     }
   };
 
-  // Download sample CSV
+  // Download sample CSV (German repair_services.csv format with semicolon delimiter)
   const handleDownloadSample = () => {
     const sampleData = [
-      ['name', 'category', 'price', 'description', 'estimatedTime', 'difficulty', 'warrantyPeriod', 'deviceTypes', 'isActive'],
-      ['Screen Replacement', 'Screen Repair', '149.99', 'Replace damaged or cracked screen', '60', 'Medium', '90', 'Smartphone,Tablet', 'true'],
-      ['Battery Replacement', 'Battery Replacement', '79.99', 'Replace old or faulty battery', '45', 'Easy', '90', 'Smartphone,Laptop', 'true'],
-      ['Water Damage Repair', 'Water Damage', '199.99', 'Professional water damage restoration', '2 hours', 'Hard', '60', 'Smartphone,Tablet,Laptop', 'true'],
+      ['Artikelname', 'Std. VK Brutto', 'Std. VK Netto', 'EK Netto', 'Hersteller_precise', 'Gerätemodell_precise', 'Farbe', 'Service'],
+      ['Apple iPhone 15 Display Reparatur (Standard)', '129,90', '109,16', '119,02', 'Apple', 'iPhone 15', '', 'Display Reparatur (Standard)'],
+      ['Apple iPhone 15 Akkutausch', '109,90', '92,35', '17,75', 'Apple', 'iPhone 15', '', 'Akkutausch'],
+      ['Samsung Galaxy A54 (A546B) Display Reparatur Black', '189,90', '159,58', '46,90', 'Samsung', 'Galaxy A54 (A546B)', 'Black', 'Display Reparatur'],
     ];
 
-    const csv = sampleData.map((row) => row.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const csv = sampleData
+      .map((row) => row.map((c) => (String(c).includes(';') ? `"${c}"` : c)).join(';'))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

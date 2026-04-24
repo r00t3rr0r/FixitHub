@@ -27,20 +27,32 @@ const ServiceColumnAssignmentPanel: React.FC<ServiceColumnAssignmentPanelProps> 
 
   // Service fields that need to be mapped
   const serviceFields = [
-    { field: 'name', label: 'Service Name', required: true, description: 'The name of the repair service' },
-    { field: 'category', label: 'Category', required: false, description: 'Service category (e.g., Screen Repair, Battery Replacement)' },
-    { field: 'price', label: 'Price', required: true, description: 'Service price in dollars' },
-    { field: 'description', label: 'Description', required: false, description: 'Detailed description of the service' },
-    { field: 'estimatedTime', label: 'Estimated Time', required: false, description: 'Estimated repair time in minutes' },
-    { field: 'difficulty', label: 'Difficulty', required: false, description: 'Difficulty level (Easy, Medium, Hard)' },
-    { field: 'warrantyPeriod', label: 'Warranty Period', required: false, description: 'Warranty period in days' },
-    { field: 'deviceTypes', label: 'Device Types', required: false, description: 'Comma-separated list of compatible device types' },
-    { field: 'isActive', label: 'Active Status', required: false, description: 'Whether the service is active (true/false, yes/no, 1/0)' },
+    { field: 'name', label: 'Service Name (Artikelname)', required: true, description: 'Full article name (e.g. "Apple iPhone 15 Display Reparatur")' },
+    { field: 'category', label: 'Category / Service (Service)', required: true, description: 'Repair type, e.g. "Display Reparatur", "Akkutausch"' },
+    { field: 'price', label: 'Price (generic)', required: false, description: 'Generic price column. Used if no gross/net price is mapped.' },
+    { field: 'priceGross', label: 'Gross Price (Std. VK Brutto)', required: false, description: 'Sales price incl. VAT. Preferred over generic price.' },
+    { field: 'priceNet', label: 'Net Price (Std. VK Netto)', required: false, description: 'Sales price excl. VAT.' },
+    { field: 'purchasePrice', label: 'Purchase Cost (EK Netto)', required: false, description: 'Internal purchase cost.' },
+    { field: 'manufacturer', label: 'Manufacturer (Hersteller)', required: false, description: 'Brand name (e.g. Apple, Samsung).' },
+    { field: 'manufacturerPrecise', label: 'Manufacturer Precise (Hersteller_precise)', required: false, description: 'Exact brand match used by the repair configurator.' },
+    { field: 'model', label: 'Model (Gerätemodell)', required: false, description: 'Device model name.' },
+    { field: 'modelPrecise', label: 'Model Precise (Gerätemodell_precise)', required: false, description: 'Exact model match (e.g. "iPhone 15", "Galaxy A54 (A546B)"). Used to filter services per device.' },
+    { field: 'color', label: 'Color (Farbe)', required: false, description: 'Color variant for the spare part.' },
+    { field: 'description', label: 'Description', required: false, description: 'Free text description. Defaults to article name if empty.' },
+    { field: 'estimatedTime', label: 'Estimated Time', required: false, description: 'Free text (e.g. "60" min or "2 hours").' },
+    { field: 'deviceTypes', label: 'Device Types', required: false, description: 'Comma-separated list. Auto-derived from manufacturer + model if empty.' },
+    { field: 'isActive', label: 'Active Status', required: false, description: 'true/false, ja/nein, 1/0. Defaults to true.' },
   ];
 
-  // Check if all required fields are mapped
+  // Check if all required fields are mapped (price counts if any of price/gross/net is mapped)
   const requiredFields = serviceFields.filter((f) => f.required);
-  const mappedRequiredFields = requiredFields.filter((f) => columnMapping[f.field]);
+  const isFieldMapped = (f: typeof serviceFields[number]) => {
+    if (f.field === 'price') {
+      return !!(columnMapping['price'] || columnMapping['priceGross'] || columnMapping['priceNet']);
+    }
+    return !!columnMapping[f.field];
+  };
+  const mappedRequiredFields = requiredFields.filter(isFieldMapped);
   const allRequiredFieldsMapped = mappedRequiredFields.length === requiredFields.length;
 
   // Get unmapped columns
@@ -127,13 +139,12 @@ const ServiceColumnAssignmentPanel: React.FC<ServiceColumnAssignmentPanelProps> 
           <div className="space-y-2">
             <p className="font-semibold">Field Format Guide:</p>
             <ul className="list-disc list-inside space-y-1 text-sm">
-              <li><strong>Category:</strong> Screen Repair, Battery Replacement, Water Damage, Software, Hardware, Other</li>
-              <li><strong>Price:</strong> Numeric value (e.g., 99.99, $150, 75)</li>
-              <li><strong>Estimated Time:</strong> Minutes (e.g., 60) or hours (e.g., "2 hours")</li>
-              <li><strong>Difficulty:</strong> Easy, Medium, or Hard</li>
-              <li><strong>Warranty Period:</strong> Number of days (e.g., 90)</li>
-              <li><strong>Device Types:</strong> Comma-separated (e.g., "Smartphone,Tablet")</li>
-              <li><strong>Active Status:</strong> true/false, yes/no, 1/0, active/inactive</li>
+              <li><strong>Category / Service:</strong> Free text repair type, e.g. "Display Reparatur", "Akkutausch", "USB-Anschluss"</li>
+              <li><strong>Price:</strong> Numeric value, German (99,90) or English (99.90) format both supported</li>
+              <li><strong>Manufacturer / Model Precise:</strong> Used by the repair configurator to show services for the selected device</li>
+              <li><strong>Color:</strong> Optional color variant (e.g. "awesome black", "Schwarz")</li>
+              <li><strong>Device Types:</strong> Comma-separated. Auto-derived from manufacturer + model if not provided.</li>
+              <li><strong>Active Status:</strong> true/false, ja/nein, 1/0. Defaults to true.</li>
             </ul>
           </div>
         </AlertDescription>

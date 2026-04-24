@@ -14,7 +14,9 @@ router.get('/', async (req, res) => {
 
     const filters = {
       category: req.query.category,
-      deviceType: req.query.deviceType
+      deviceType: req.query.deviceType,
+      manufacturerPrecise: req.query.manufacturerPrecise,
+      modelPrecise: req.query.modelPrecise
     };
 
     const pagination = {
@@ -146,6 +148,37 @@ router.put('/:id', requireUser, async (req, res) => {
       success: false,
       error: error.message
     });
+  }
+});
+
+// Description: Delete ALL services (admin only, password-protected, hard delete)
+// Endpoint: DELETE /api/services
+// Request: { password: string }
+// Response: { success: boolean, deletedCount: number, message: string }
+router.delete('/', requireUser, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'Access denied. Admin role required.' });
+    }
+
+    const DELETE_ALL_PASSWORD = process.env.SERVICE_BULK_DELETE_PASSWORD || 'mcrepairAdarDieter1369';
+    const provided = (req.body && req.body.password) ? String(req.body.password) : '';
+
+    if (provided !== DELETE_ALL_PASSWORD) {
+      console.warn('DELETE /api/services - Invalid bulk delete password attempt by user:', req.user._id);
+      return res.status(401).json({ success: false, error: 'Invalid password' });
+    }
+
+    const deletedCount = await ServiceService.deleteAll();
+    console.log(`DELETE /api/services - Bulk deleted ${deletedCount} services by user ${req.user._id}`);
+    res.json({
+      success: true,
+      deletedCount,
+      message: `Successfully deleted ${deletedCount} services`
+    });
+  } catch (error) {
+    console.error('DELETE /api/services - Error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

@@ -134,6 +134,27 @@ router.put('/:id', requireUser, async (req, res) => {
   }
 });
 
+// DELETE /api/addons - Delete ALL add-on services (admin only, password-protected, hard delete)
+router.delete('/', requireUser, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'Access denied. Admin role required.' });
+    }
+    const DELETE_ALL_PASSWORD = process.env.SERVICE_BULK_DELETE_PASSWORD || 'mcrepairAdarDieter1369';
+    const provided = (req.body && req.body.password) ? String(req.body.password) : '';
+    if (provided !== DELETE_ALL_PASSWORD) {
+      console.warn('DELETE /api/addons - Invalid bulk delete password attempt by user:', req.user._id);
+      return res.status(401).json({ success: false, error: 'Invalid password' });
+    }
+    const deletedCount = await AddOnServiceService.deleteAll();
+    console.log(`DELETE /api/addons - Bulk deleted ${deletedCount} add-on services by user ${req.user._id}`);
+    res.json({ success: true, deletedCount, message: `Successfully deleted ${deletedCount} add-on services` });
+  } catch (error) {
+    console.error('DELETE /api/addons - Error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // DELETE /api/addons/:id - Delete add-on service (admin only)
 router.delete('/:id', requireUser, async (req, res) => {
   try {

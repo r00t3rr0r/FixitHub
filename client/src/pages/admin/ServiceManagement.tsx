@@ -13,6 +13,7 @@ import {
   createRepairService,
   updateRepairService,
   deleteRepairService,
+  deleteAllRepairServices,
   RepairService,
   PaginationResponse
 } from "@/api/services"
@@ -122,6 +123,9 @@ export function ServiceManagement() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [isCSVImportDialogOpen, setIsCSVImportDialogOpen] = useState(false)
+  const [isDeleteAllDialogOpen, setIsDeleteAllDialogOpen] = useState(false)
+  const [deleteAllPassword, setDeleteAllPassword] = useState("")
+  const [isDeletingAll, setIsDeletingAll] = useState(false)
   const [selectedService, setSelectedService] = useState<RepairService | null>(null)
   const [detailService, setDetailService] = useState<RepairService | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
@@ -479,6 +483,18 @@ export function ServiceManagement() {
             <Button variant="secondary" size="sm" className="h-8" onClick={() => setIsCSVImportDialogOpen(true)}>
               <Upload className="mr-1.5 h-3.5 w-3.5" />
             Import CSV
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-8"
+              onClick={() => {
+                setDeleteAllPassword("")
+                setIsDeleteAllDialogOpen(true)
+              }}
+            >
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+              Delete All
             </Button>
             <Button size="sm" className="h-8 bg-white text-[#1a2a5e] hover:bg-[#f5f6f8]" onClick={openCreateDialog}>
               <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -1423,6 +1439,88 @@ export function ServiceManagement() {
           setIsCSVImportDialogOpen(false)
         }}
       />
+
+      {/* Delete All Services Confirmation Dialog */}
+      <AlertDialog
+        open={isDeleteAllDialogOpen}
+        onOpenChange={(open) => {
+          if (!isDeletingAll) {
+            setIsDeleteAllDialogOpen(open)
+            if (!open) setDeleteAllPassword("")
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600">
+              Delete ALL Services?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p className="font-semibold text-red-600">
+                  WARNING: This action permanently deletes every service in the database. It cannot be undone.
+                </p>
+                <p>
+                  Enter the admin password below to confirm.
+                </p>
+                <Input
+                  type="password"
+                  placeholder="Admin password"
+                  value={deleteAllPassword}
+                  onChange={(e) => setDeleteAllPassword(e.target.value)}
+                  autoFocus
+                  disabled={isDeletingAll}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && deleteAllPassword.length > 0 && !isDeletingAll) {
+                      e.preventDefault()
+                      ;(document.getElementById("confirm-delete-all-btn") as HTMLButtonElement | null)?.click()
+                    }
+                  }}
+                />
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingAll}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              id="confirm-delete-all-btn"
+              disabled={isDeletingAll || deleteAllPassword.length === 0}
+              className="bg-red-600 hover:bg-red-700"
+              onClick={async (e) => {
+                e.preventDefault()
+                setIsDeletingAll(true)
+                try {
+                  const result = await deleteAllRepairServices(deleteAllPassword)
+                  toast({
+                    title: "All services deleted",
+                    description: `Successfully deleted ${result?.deletedCount ?? 0} services.`,
+                  })
+                  setIsDeleteAllDialogOpen(false)
+                  setDeleteAllPassword("")
+                  await fetchServices()
+                } catch (err: any) {
+                  toast({
+                    variant: "destructive",
+                    title: "Delete failed",
+                    description: err?.message || "Failed to delete services",
+                  })
+                } finally {
+                  setIsDeletingAll(false)
+                }
+              }}
+            >
+              {isDeletingAll ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Deleting...
+                </>
+              ) : (
+                "Delete All Services"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

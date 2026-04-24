@@ -230,3 +230,20 @@ export const updateBrand = async (brandId: string, brandData: Partial<Brand>): P
     throw new Error(error?.response?.data?.error || error.message || 'Failed to update brand')
   }
 }
+
+// Description: Delete ALL brands and their associated device models (admin only, password-protected)
+// Endpoint: DELETE /api/devices/brands
+// Request: { password: string }
+// Response: { success: boolean, deletedCount: number, deletedModels: number, message: string }
+export const deleteAllBrands = async (password: string): Promise<{ success: boolean; deletedCount: number; deletedModels: number; message: string }> => {
+  try {
+    const response = await api.delete('/api/devices/brands', { data: { password } })
+    if (response.status >= 400) {
+      throw new Error(response.data?.error || `Request failed with status ${response.status}`)
+    }
+    return response.data
+  } catch (error: any) {
+    console.error('Error deleting all brands:', error)
+    throw new Error(error?.response?.data?.error || error.message || 'Failed to delete all brands')
+  }
+}
