@@ -57,6 +57,19 @@ export interface DatabaseHealth {
   error?: string;
 }
 
+// --- Monitoring Metrics ---
+// Description: Get live database monitoring metrics
+// Endpoint: GET /api/database/metrics?db=<dbName>
+// Response: { metrics: { ... } }
+export const getDatabaseMonitoringMetrics = async (db?: string) => {
+  try {
+    const url = db ? `/api/database/metrics?db=${encodeURIComponent(db)}` : '/api/database/metrics';
+    return await api.get(url);
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
 // Description: Get database statistics
 // Endpoint: GET /api/database/stats
 // Request: {}

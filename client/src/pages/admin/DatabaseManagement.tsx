@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DatabaseMonitoringDashboard } from '@/components/database/DatabaseMonitoringDashboard';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -439,6 +440,8 @@ export function DatabaseManagement() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
+          {/* Interaktives Monitoring Dashboard */}
+          <DatabaseMonitoringDashboard databases={["fixithub"]} defaultDb="fixithub" />
           {stats && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card>

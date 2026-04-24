@@ -212,6 +212,18 @@ router.post('/delete-repair-requests', requireUser, requireRole(['admin']), asyn
   }
 });
 
+// --- Monitoring Metrics ---
+router.get('/metrics', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const db = req.query.db || null;
+    const metrics = await DatabaseService.getMonitoringMetrics(db);
+    res.json({ metrics });
+  } catch (e) {
+    console.error('DatabaseRoutes: Error in /metrics:', e);
+    res.status(500).json({ error: e.message || 'Failed to get metrics' });
+  }
+});
+
 module.exports = router;
 
 // Delete all notifications (admin only)
