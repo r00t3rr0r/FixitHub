@@ -52,15 +52,17 @@ class RepairRequestCommunicationService {
         communicationQuery.repairRequestId = { $in: matchingRequestIds };
       }
 
-      const totalCount = await RepairRequestCommunication.countDocuments(communicationQuery);
-
-      const communications = await RepairRequestCommunication.find(communicationQuery)
+      let communications = await RepairRequestCommunication.find(communicationQuery)
         .sort({ lastMessageAt: -1, updatedAt: -1 })
-        .skip(skip)
-        .limit(limit)
         .populate('createdBy.userId', 'name email avatar');
 
-      const repairRequestIds = communications
+      // Filtere alle Kommunikations-Threads ohne Nachrichten heraus
+      communications = communications.filter(comm => Array.isArray(comm.messages) && comm.messages.length > 0);
+
+      const totalCount = communications.length;
+      const paginatedCommunications = communications.slice(skip, skip + limit);
+
+      const repairRequestIds = paginatedCommunications
         .map((comm) => comm.repairRequestId)
         .filter(Boolean);
 
@@ -71,7 +73,7 @@ class RepairRequestCommunicationService {
 
       const requestById = new Map(repairRequests.map((request) => [request._id.toString(), request]));
 
-      const normalizedCommunications = communications.map((comm) => {
+      const normalizedCommunications = paginatedCommunications.map((comm) => {
         const repairRequestId = comm.repairRequestId ? comm.repairRequestId.toString() : null;
         const repairRequest = repairRequestId ? requestById.get(repairRequestId) : null;
 
@@ -148,7 +150,8 @@ class RepairRequestCommunicationService {
       let communication = await RepairRequestCommunication.findOne({ repairRequestId });
 
       if (!communication) {
-        communication = await this.getOrCreateCommunicationThread(repairRequestId);
+        // NICHT mehr automatisch anlegen!
+        return null;
       }
 
       // Sort messages by date
