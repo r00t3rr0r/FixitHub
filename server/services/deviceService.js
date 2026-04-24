@@ -269,6 +269,7 @@ class DeviceService {
           $group: {
             _id: '$brand._id',
             name: { $first: '$brand.name' },
+            logo: { $first: '$brand.logo' },
             deviceType: { $first: '$deviceType' },
             count: { $sum: 1 },
           },

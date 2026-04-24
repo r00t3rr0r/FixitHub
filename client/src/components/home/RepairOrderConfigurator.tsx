@@ -1191,6 +1191,13 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                     <SelectContent>
                       {manufacturers.map((manufacturer) => (
                         <SelectItem key={manufacturer._id} value={manufacturer._id}>
+                          {manufacturer.logo && (
+                            <img
+                              src={manufacturer.logo}
+                              alt={manufacturer.name + ' Logo'}
+                              style={{ width: 22, height: 22, objectFit: 'contain', display: 'inline-block', marginRight: 6, marginLeft: 0, verticalAlign: 'middle' }}
+                            />
+                          )}
                           {manufacturer.name}
                         </SelectItem>
                       ))}
