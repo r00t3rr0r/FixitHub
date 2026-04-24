@@ -135,17 +135,19 @@ class InspectionCommunicationService {
         communicationQuery.orderId = { $in: matchingOrderIds };
       }
 
-      const totalCount = await InspectionCommunication.countDocuments(communicationQuery);
-
-      const communications = await InspectionCommunication.find(communicationQuery)
+      let communications = await InspectionCommunication.find(communicationQuery)
         .sort({ lastMessageAt: -1, updatedAt: -1 })
-        .skip(skip)
-        .limit(limit)
         .populate('createdBy.userId', 'name email avatar')
         .populate('messages.senderId', 'name email role avatar')
         .populate('messages.feedbackRequest.respondedBy', 'name email');
 
-      const orderIds = communications
+      // Filtere alle Kommunikations-Threads ohne Nachrichten heraus
+      communications = communications.filter(comm => Array.isArray(comm.messages) && comm.messages.length > 0);
+
+      const totalCount = communications.length;
+      const paginatedCommunications = communications.slice(skip, skip + limit);
+
+      const orderIds = paginatedCommunications
         .map(comm => comm.orderId)
         .filter(Boolean);
 
@@ -156,7 +158,7 @@ class InspectionCommunicationService {
 
       const orderById = new Map(orders.map(order => [order._id.toString(), order]));
 
-      const normalizedCommunications = communications.map(comm => {
+      const normalizedCommunications = paginatedCommunications.map(comm => {
         const orderId = comm.orderId ? comm.orderId.toString() : null;
         const order = orderId ? orderById.get(orderId) : null;
 
@@ -590,7 +592,8 @@ class InspectionCommunicationService {
         .populate('messages.feedbackRequest.respondedBy', 'name email');
 
       if (!communication) {
-        return await this.getOrCreateCommunicationThread(orderId);
+        // NICHT mehr automatisch anlegen!
+        return null;
       }
 
       // Sort messages by createdAt in ascending order (oldest to newest)

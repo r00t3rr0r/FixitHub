@@ -133,9 +133,11 @@ export function DatabaseManagement() {
     try {
       setDeleteMessagesLoading(true);
       const response = await deleteAllMessages();
+      const msg = response.data.results?.messages;
+      const conv = response.data.results?.conversations;
       toast({
         title: t('common.success'),
-        description: `Deleted ${response.data.results.deleted} messages`,
+        description: `Deleted ${msg?.deleted ?? '-'} messages and ${conv?.deleted ?? '-'} conversations`,
       });
       fetchDatabaseData();
     } catch (error) {

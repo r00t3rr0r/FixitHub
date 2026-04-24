@@ -40,26 +40,96 @@ class DatabaseService {
     }
   }
 
-  // Delete all messages
+  // Delete all messages, conversations, complaints, contact messages
   async deleteAllMessages() {
-    console.log('DatabaseService: Deleting all messages');
+    console.log('DatabaseService: Deleting all messages, conversations, complaints, contact messages, inspection communications, and repair request communications');
+    const Conversation = require('../models/Conversation');
+    const Complaint = require('../models/Complaint');
+    const ContactMessage = require('../models/ContactMessage');
+    const InspectionCommunication = require('../models/InspectionCommunication');
+    const RepairRequestCommunication = require('../models/RepairRequestCommunication');
     try {
-      const countBefore = await Message.countDocuments();
-      const deleteResult = await Message.deleteMany({});
-      const countAfter = await Message.countDocuments();
+      const msgCountBefore = await Message.countDocuments();
+      const convCountBefore = await Conversation.countDocuments();
+      const complaintCountBefore = await Complaint.countDocuments();
+      const contactMsgCountBefore = await ContactMessage.countDocuments();
+      const inspectionCommCountBefore = await InspectionCommunication.countDocuments();
+      const repairReqCommCountBefore = await RepairRequestCommunication.countDocuments();
+
+      const msgDeleteResult = await Message.deleteMany({});
+      let convDeleteResult = await Conversation.deleteMany({});
+
+      // Danach: Alle "leeren" Conversations löschen, für die keine Messages mehr existieren
+      const allConvs = await Conversation.find({}, '_id');
+      const emptyConvIds = [];
+      for (const conv of allConvs) {
+        const msgCount = await Message.countDocuments({ conversationId: conv._id });
+        if (msgCount === 0) emptyConvIds.push(conv._id);
+      }
+      if (emptyConvIds.length > 0) {
+        const extraDelete = await Conversation.deleteMany({ _id: { $in: emptyConvIds } });
+        convDeleteResult.deletedCount += extraDelete.deletedCount;
+        console.log(`[DeleteAllMessages] Extra deleted empty conversations: ${extraDelete.deletedCount}`);
+      }
+      const complaintDeleteResult = await Complaint.deleteMany({});
+      const contactMsgDeleteResult = await ContactMessage.deleteMany({});
+      const inspectionCommDeleteResult = await InspectionCommunication.deleteMany({});
+      const repairReqCommDeleteResult = await RepairRequestCommunication.deleteMany({});
+
+      const msgCountAfter = await Message.countDocuments();
+      const convCountAfter = await Conversation.countDocuments();
+      const complaintCountAfter = await Complaint.countDocuments();
+      const contactMsgCountAfter = await ContactMessage.countDocuments();
+      const inspectionCommCountAfter = await InspectionCommunication.countDocuments();
+      const repairReqCommCountAfter = await RepairRequestCommunication.countDocuments();
+
+      console.log('[DeleteAllMessages] Remaining conversations:', convCountAfter);
+      console.log('[DeleteAllMessages] Remaining inspection communications:', inspectionCommCountAfter);
+      console.log('[DeleteAllMessages] Remaining repair request communications:', repairReqCommCountAfter);
+
       return {
         success: true,
-        message: 'All messages deleted successfully',
+        message: 'All messages, conversations, complaints, contact messages, inspection communications, and repair request communications deleted successfully',
         results: {
-          before: countBefore,
-          deleted: deleteResult.deletedCount,
-          after: countAfter
+          messages: {
+            before: msgCountBefore,
+            deleted: msgDeleteResult.deletedCount,
+            after: msgCountAfter
+          },
+          conversations: {
+            before: convCountBefore,
+            deleted: convDeleteResult.deletedCount,
+            after: convCountAfter
+          },
+          complaints: {
+            before: complaintCountBefore,
+            deleted: complaintDeleteResult.deletedCount,
+            after: complaintCountAfter
+          },
+          contactMessages: {
+            before: contactMsgCountBefore,
+            deleted: contactMsgDeleteResult.deletedCount,
+            after: contactMsgCountAfter
+          },
+          inspectionCommunications: {
+            before: inspectionCommCountBefore,
+            deleted: inspectionCommDeleteResult.deletedCount,
+            after: inspectionCommCountAfter
+          },
+          repairRequestCommunications: {
+            before: repairReqCommCountBefore,
+            deleted: repairReqCommDeleteResult.deletedCount,
+            after: repairReqCommCountAfter
+          },
+          remainingConversations: convCountAfter,
+          remainingInspectionCommunications: inspectionCommCountAfter,
+          remainingRepairRequestCommunications: repairReqCommCountAfter
         },
         timestamp: new Date()
       };
     } catch (error) {
-      console.error('DatabaseService: Error deleting messages:', error);
-      throw new Error(`Failed to delete messages: ${error.message}`);
+      console.error('DatabaseService: Error deleting all message-related collections:', error);
+      throw new Error(`Failed to delete all message-related collections: ${error.message}`);
     }
   }
 
