@@ -1356,6 +1356,12 @@
       "sensors": "Sensoren",
       "specialFeatures": "Spezielle Funktionen"
     },
+    "configurator": {
+      "searchModel": "Modell suchen",
+      "modelSearchPlaceholder": "z.B. iPhone 15 Pro...",
+      "browseOrSearch": "Durchsuchen oder tippen zum Suchen",
+      "typeToSearch": "Tippen zum Suchen"
+    },
     "nav": {
       "smartphone": "Smartphone",
       "tablet": "Tablet",

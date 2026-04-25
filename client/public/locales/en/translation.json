@@ -1358,6 +1358,12 @@
       "sensors": "Sensors",
       "specialFeatures": "Special Features"
     },
+    "configurator": {
+      "searchModel": "Search Model",
+      "modelSearchPlaceholder": "e.g. iPhone 15 Pro...",
+      "browseOrSearch": "Browse or tap to search",
+      "typeToSearch": "Tap to Search"
+    },
     "shop": {
       "title": "Featured Products",
       "subtitle": "Quality repair parts and accessories for your devices",

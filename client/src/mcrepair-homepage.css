@@ -3515,3 +3515,263 @@ ul, ol {
 .autocomplete-item.highlighted {
   background: rgba(245, 184, 0, 0.1);
 }
+
+/* Mobile Model Trigger */
+.mobile-model-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding-right: 36px;
+}
+
+/* Mobile Model Modal for Mobile & Tablet Devices (used when configurator is full-width) */
+.mobile-model-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 999999; /* Extremely high to ensure it's always on top when rendered as portal */
+  display: flex;
+  align-items: flex-end;
+  animation: fadeIn 0.2s ease-out;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  touch-action: none;
+  isolation: isolate; /* Create new stacking context */
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.mobile-model-modal {
+  background: var(--white);
+  width: 100%;
+  height: 85vh;
+  max-height: 85vh;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.mobile-model-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--gray-200);
+  flex-shrink: 0;
+}
+
+.mobile-model-modal-header h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.mobile-modal-close {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--gray-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.mobile-modal-close:hover {
+  color: var(--gray-900);
+}
+
+.mobile-model-modal-body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
+.mobile-model-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--blue-50);
+  color: var(--blue-700);
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--blue-100);
+  flex-shrink: 0;
+}
+
+.mobile-model-search-wrapper {
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--gray-200);
+  flex-shrink: 0;
+}
+
+.mobile-model-search-input {
+  flex: 1;
+  font-size: 16px !important; /* Prevent iOS zoom */
+}
+
+.mobile-search-cancel {
+  padding: 8px 16px;
+  background: var(--gray-100);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--gray-700);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mobile-search-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  margin: 12px 20px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  color: var(--gray-700);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.mobile-search-toggle-btn:hover {
+  background: var(--gray-100);
+  border-color: var(--gray-300);
+}
+
+.mobile-model-list {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto;
+  min-height: 0;
+  overscroll-behavior: contain;
+  position: relative;
+  touch-action: pan-y;
+}
+
+.mobile-model-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--gray-100);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.mobile-model-item:active {
+  background: var(--gray-50);
+}
+
+.mobile-model-item-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-model-image {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.mobile-model-name {
+  font-size: 0.95rem;
+  color: var(--gray-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-model-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--gray-500);
+  font-size: 0.9rem;
+}
+
+/* Improve autocomplete dropdown positioning on mobile */
+@media screen and (max-width: 480px) {
+  .autocomplete-dropdown {
+    max-height: min(300px, 40vh);
+    font-size: 16px; /* Prevent iOS zoom */
+  }
+  
+  .autocomplete-item {
+    padding: 12px 16px;
+    font-size: 0.9rem;
+  }
+  
+  /* Ensure mobile modal uses safe area on notched devices */
+  .mobile-model-modal {
+    height: min(85vh, calc(100vh - env(safe-area-inset-top)));
+    max-height: min(85vh, calc(100vh - env(safe-area-inset-top)));
+  }
+}
+
+/* Tablet and medium screens - optimize modal for full-width configurator */
+@media screen and (min-width: 481px) and (max-width: 1023px) {
+  .mobile-model-modal {
+    height: 80vh;
+    max-height: 80vh;
+  }
+  
+  .mobile-model-item {
+    padding: 16px 24px;
+  }
+  
+  .mobile-model-image {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .mobile-model-name {
+    font-size: 1rem;
+  }
+}
+
+/* Additional safety for very small screens */
+@media screen and (max-height: 600px) {
+  .mobile-model-modal {
+    height: 90vh;
+    max-height: 90vh;
+  }
+}
