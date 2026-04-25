@@ -1,4 +1,5 @@
 const { DeviceBrand, DeviceModel, DeviceType } = require('../models/Device');
+const Service = require('../models/Service');
 
 const slugifyDeviceType = (value = '') =>
   String(value)
@@ -397,7 +398,7 @@ class DeviceService {
         throw new Error('Model name is required and cannot be empty');
       }
 
-      const model = await DeviceModel.findOne({ _id: modelId, isActive: true });
+      const model = await DeviceModel.findOne({ _id: modelId, isActive: true }).populate('brandId', 'name');
 
       if (!model) {
         throw new Error('Model not found');
@@ -433,6 +434,8 @@ class DeviceService {
         updateData.modelNumbers = modelNumbers;
       }
 
+      const previousModelName = String(model.name || '').trim();
+
       Object.keys(updateData).forEach((key) => {
         if (
           updateData[key] &&
@@ -462,7 +465,44 @@ class DeviceService {
         }
       });
 
-      return await model.save();
+      const savedModel = await model.save();
+
+      const nextModelName = String(savedModel.name || '').trim();
+      const brandName = String(savedModel.brandId?.name || '').trim();
+
+      if (previousModelName && nextModelName && previousModelName !== nextModelName) {
+        const escapedOldName = previousModelName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const oldNameRegex = new RegExp(`^${escapedOldName}$`, 'i');
+
+        const serviceFilter = {
+          isActive: true,
+          $or: [{ modelPrecise: oldNameRegex }, { model: oldNameRegex }],
+        };
+
+        if (brandName) {
+          const escapedBrand = brandName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const brandRegex = new RegExp(`^${escapedBrand}$`, 'i');
+          serviceFilter.$and = [{ $or: [{ manufacturerPrecise: brandRegex }, { manufacturer: brandRegex }] }];
+        }
+
+        const [preciseUpdateResult, modelUpdateResult] = await Promise.all([
+          Service.updateMany(
+            { ...serviceFilter, modelPrecise: oldNameRegex },
+            { $set: { modelPrecise: nextModelName } }
+          ),
+          Service.updateMany(
+            { ...serviceFilter, model: oldNameRegex },
+            { $set: { model: nextModelName } }
+          ),
+        ]);
+
+        console.log(
+          `DeviceService: Cascaded model rename in services from "${previousModelName}" to "${nextModelName}" ` +
+          `(modelPrecise: ${preciseUpdateResult.modifiedCount || 0}, model: ${modelUpdateResult.modifiedCount || 0})`
+        );
+      }
+
+      return savedModel;
     } catch (error) {
       console.error('DeviceService: Error updating model:', error);
       throw error;
