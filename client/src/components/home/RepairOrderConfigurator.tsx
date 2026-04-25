@@ -1226,7 +1226,17 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                           className="autocomplete-item"
                           onClick={() => handleModelSelect(model)}
                         >
-                          {model.name}
+                          <div className="flex items-center gap-2">
+                            {model.image && (
+                              <img 
+                                src={model.image}
+                                alt={model.name} 
+                                className="w-6 h-6 object-contain"
+                                onError={(e) => e.currentTarget.style.display = 'none'}
+                              />
+                            )}
+                            <span>{model.name}</span>
+                          </div>
                         </div>
                       ))}
                     </div>
