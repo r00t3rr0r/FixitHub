@@ -1051,7 +1051,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           name: selectedModel.name,
           deviceType: selectedDeviceType?.name || '',
           manufacturer: manufacturers.find(m => m._id === selectedBrand)?.name || '',
-          manufacturerId: selectedBrand
+          manufacturerId: selectedBrand,
+          image: selectedModel.image
         }
       }
     });

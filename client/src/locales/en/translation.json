@@ -2704,6 +2704,7 @@
     "removeImage": "Remove image",
     "submitInfo": "After submission, our team will review your request and get back to you within 24 hours with a cost estimate and estimated repair time.",
     "cancel": "Cancel",
+    "backToConfig": "Back to Config",
     "submitting": "Sending...",
     "submitButton": "Submit Repair Request",
     "successTitle": "Success!",

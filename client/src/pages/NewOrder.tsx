@@ -79,6 +79,7 @@ interface SelectedDevice {
   deviceType: string
   manufacturer: string
   manufacturerId: string
+  image?: string
 }
 
 const getDeviceTypeIcon = (deviceType: string) => {
@@ -263,7 +264,8 @@ export function NewOrder() {
                         name: exactMatch.name,
                         deviceType: exactMatch.deviceType,
                         manufacturer: exactMatch.manufacturer,
-                        manufacturerId: exactMatch.manufacturerId
+                        manufacturerId: exactMatch.manufacturerId,
+                        image: exactMatch.image
                       })
 
                       setDeviceSearchQuery(exactMatch.displayName)
@@ -382,7 +384,8 @@ export function NewOrder() {
       name: device.name,
       deviceType: device.deviceType,
       manufacturer: device.manufacturer,
-      manufacturerId: device.manufacturerId
+      manufacturerId: device.manufacturerId,
+      image: device.image
     })
 
     setDeviceSearchQuery(device.displayName)
