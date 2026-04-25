@@ -220,12 +220,8 @@ export function NewOrder() {
 
             // Clear the session storage
             sessionStorage.removeItem('selectedDevice')
-
-            // Show success message
-            toast({
-              title: t('newOrder.deviceSelection.deviceSelected'),
-              description: t('newOrder.deviceSelection.preSelectedSuccess', { device: preSelectedDevice.name })
-            })
+            // Keine Toast-Benachrichtigung nach Geräteauswahl
+            // Entfernt: toast({ title: t('newOrder.deviceSelection.preSelectedSuccess', ...) })
           } catch (error) {
             console.error("Error processing pre-selected device:", error)
           }
@@ -293,10 +289,8 @@ export function NewOrder() {
                         setLoadingModelDetails(false)
                       })
 
-                      toast({
-                        title: t('newOrder.deviceSelection.deviceSelected'),
-                        description: t('newOrder.deviceSelection.preSelectedSuccess', { device: exactMatch.displayName })
-                      })
+                      // Keine Toast-Benachrichtigung nach Geräteauswahl
+                      // Entfernt: toast({ title: t('newOrder.deviceSelection.deviceSelected'), ... })
                     }, 100)
                   } else {
                     // Show search results for user to choose
@@ -421,6 +415,7 @@ export function NewOrder() {
     }
 
     fetchModelDetails()
+    // Keine generische Erfolgsmeldung nach Geräteauswahl
   }, [setValue])
 
   // Handle device type selection (skip if device was selected from search)

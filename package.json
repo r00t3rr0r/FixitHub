@@ -23,7 +23,8 @@
     "dotenv": "^17.4.2",
     "hover.css": "^2.3.2",
     "mongoose": "^9.5.0",
-    "papaparse": "^5.5.3"
+    "papaparse": "^5.5.3",
+    "ua-parser-js": "^2.0.9"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.1",
