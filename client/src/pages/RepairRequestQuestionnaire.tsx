@@ -73,6 +73,20 @@ export function RepairRequestQuestionnaire() {
   // Get device information from navigation state
   const [selectedDevice, setSelectedDevice] = useState<SelectedDevice | null>(location.state?.device as SelectedDevice | null)
 
+  const navigateBackToConfigurator = () => {
+    if (selectedDevice?.deviceType && selectedDevice?.manufacturer && selectedDevice?.name) {
+      sessionStorage.setItem('navDeviceSelection', JSON.stringify({
+        deviceType: selectedDevice.deviceType,
+        manufacturer: selectedDevice.manufacturer,
+        modelName: selectedDevice.name,
+        searchQuery: selectedDevice.name
+      }))
+      sessionStorage.setItem('navConfiguratorStep', '3')
+    }
+
+    navigate('/')
+  }
+
   // Device Change Dialog State
   const [showDeviceDialog, setShowDeviceDialog] = useState(false)
   const [deviceTypes, setDeviceTypes] = useState<ApiDeviceType[]>([])
@@ -224,11 +238,11 @@ export function RepairRequestQuestionnaire() {
             </div>
             <div className="flex flex-col gap-3 p-6 sm:flex-row md:p-8">
               <Button
-                onClick={() => navigate("/new-order")}
+                onClick={navigateBackToConfigurator}
                 className="rounded-full bg-[var(--primary-blue,_#1a2a5e)] text-white hover:bg-[var(--primary-blue-dark,_#14224d)]"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                {t('repairRequest.backToOrderForm')}
+                {t('repairRequest.backToConfig')}
               </Button>
             </div>
           </CardContent>
@@ -411,11 +425,11 @@ export function RepairRequestQuestionnaire() {
             <div className="relative z-10 max-w-4xl">
               <button
                 type="button"
-                onClick={() => navigate("/new-order")}
+                onClick={navigateBackToConfigurator}
                 className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/15"
               >
                 <ArrowLeft className="h-4 w-4" />
-                {t('repairRequest.backToOrderForm')}
+                {t('repairRequest.backToConfig')}
               </button>
 
               <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/90">
@@ -783,7 +797,7 @@ export function RepairRequestQuestionnaire() {
                     type="button"
                     variant="outline"
                     disabled={submitting}
-                    onClick={() => navigate('/')}
+                    onClick={navigateBackToConfigurator}
                     className="h-12 w-full rounded-full border-[rgba(26,42,94,0.16)] font-semibold text-[var(--primary-blue,_#1a2a5e)]"
                   >
                     {t('repairRequest.backToConfig')}

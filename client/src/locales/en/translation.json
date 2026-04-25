@@ -2658,7 +2658,6 @@
   "repairRequest": {
     "title": "Submit Repair Request",
     "subtitle": "Provide details about your device problem and our team will review your request",
-    "backToOrderForm": "Back to Order Form",
     "noDeviceSelected": "No Device Selected",
     "noDeviceSelectedDesc": "Please select a device first before requesting a repair.",
     "selectedDevice": "Selected Device",

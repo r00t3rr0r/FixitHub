@@ -2665,7 +2665,6 @@
   "repairRequest": {
     "title": "Reparaturanfrage stellen",
     "subtitle": "Geben Sie Details zu Ihrem Geräteproblem an und unser Team wird Ihre Anfrage prüfen",
-    "backToOrderForm": "Zurück zum Bestellformular",
     "noDeviceSelected": "Kein Gerät ausgewählt",
     "noDeviceSelectedDesc": "Bitte wählen Sie zuerst ein Gerät aus, bevor Sie eine Reparatur anfragen.",
     "selectedDevice": "Ausgewähltes Gerät",

@@ -222,6 +222,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
         if (navDeviceSelectionJson) {
           try {
             const navDeviceSelection = JSON.parse(navDeviceSelectionJson);
+            const requestedConfiguratorStep = sessionStorage.getItem('navConfiguratorStep') === '3' ? 3 : 2;
             console.log('Device selected from navigation:', navDeviceSelection);
 
             // Find the matching device type
@@ -266,6 +267,9 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 if (matchedModel) {
                   setSelectedModel(matchedModel);
                   setModelSearchQuery(matchedModel.name);
+                  if (requestedConfiguratorStep === 3) {
+                    setCurrentStep(3);
+                  }
                   
                   toast({
                     title: t('common.success'),
@@ -330,6 +334,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
             // Clear the session storage
             sessionStorage.removeItem('navDeviceSelection');
+            sessionStorage.removeItem('navConfiguratorStep');
           } catch (error) {
             console.error('Error processing nav device selection:', error);
           }
@@ -357,6 +362,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
       try {
         const navDeviceSelection = JSON.parse(navDeviceSelectionJson);
+        const requestedConfiguratorStep = sessionStorage.getItem('navConfiguratorStep') === '3' ? 3 : 2;
         console.log('Device selected from navigation (event):', navDeviceSelection);
 
         // Get current device types or wait for them to load
@@ -409,6 +415,9 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 if (matchingModel) {
                   setSelectedModel(matchingModel);
                   setModelSearchQuery(matchingModel.name);
+                  if (requestedConfiguratorStep === 3) {
+                    setCurrentStep(3);
+                  }
                   toast({
                     title: t('home.configurator.toasts.deviceSelectedTitle'),
                     description: `${matchingManufacturer.name} ${matchingModel.name}`,
@@ -447,6 +456,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
         // Clear the sessionStorage item after processing
         sessionStorage.removeItem('navDeviceSelection');
+        sessionStorage.removeItem('navConfiguratorStep');
       } catch (error) {
         console.error('Error processing navigation device selection:', error);
       }
