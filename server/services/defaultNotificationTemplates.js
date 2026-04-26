@@ -1,4 +1,4 @@
-const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 12;
+const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 14;
 
 const brand = {
   companyName: 'Mc<span style="color:#f5b800;font-weight:800;">Repair</span>.de',
@@ -657,12 +657,12 @@ function getDefaultNotificationTemplates() {
     {
       name: 'Gast Buchung Tracking',
       type: 'email',
-      subject: 'Buchung {{bookingNumber}} bestaetigt – Tracking-Link zu Ihrer Gastbestellung',
+      subject: 'Buchung {{bookingNumber}} bestätigt – Tracking-Link zu Ihrer Gastbestellung',
       content: renderEmailTemplate({
-        preheader: 'Ihre Gastbuchung wurde angelegt. Verfolgen Sie den Status jederzeit ueber den Tracking-Link.',
+        preheader: 'Ihre Gastbuchung wurde angelegt. Verfolgen Sie den Status jederzeit über den Tracking-Link.',
         eyebrow: 'Gastbestellung',
-        title: 'Ihre Gastbuchung ist bestaetigt',
-        intro: 'Hallo {{customerName}}, Ihre Buchung wurde erfolgreich angelegt. Ueber den untenstehenden Link koennen Sie den aktuellen Status Ihrer Gastbestellung jederzeit abrufen.',
+        title: 'Ihre Gastbuchung ist bestätigt',
+        intro: 'Hallo {{customerName}}, Ihre Buchung wurde erfolgreich angelegt. Über den untenstehenden Link können Sie den aktuellen Status Ihrer Gastbestellung jederzeit abrufen.',
         highlights: [
           { label: 'Buchungsnummer', value: '{{bookingNumber}}' },
           { label: 'Gesamtbetrag', value: '{{totalAmount}}', tone: 'yellow' }
@@ -670,18 +670,18 @@ function getDefaultNotificationTemplates() {
         detailRows: [
           { label: 'Buchungsnummer', value: '{{bookingNumber}}' },
           { label: 'Buchungsdatum', value: '{{bookingDate}}' },
-          { label: 'Enthaltene Auftraege', value: '{{itemSummary}}' },
+          { label: 'Enthaltene Aufträge', value: '{{itemSummary}}' },
           { label: 'Gesamtbetrag', value: '{{totalAmount}}' },
           { label: 'Status', value: '{{bookingStatus}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Bitte bewahren Sie diese E-Mail auf. Der Tracking-Link ist Ihr direkter Zugang zur Statusseite Ihrer Gastbuchung.</p><p style="margin:0;">Bei Rueckfragen zu Ihrer Buchung helfen wir Ihnen jederzeit gerne weiter.</p>',
+        body: '<p style="margin:0 0 16px 0;">Bitte bewahren Sie diese E-Mail auf. Der Tracking-Link ist Ihr direkter Zugang zur Statusseite Ihrer Gastbuchung.</p><p style="margin:0;">Bei Rückfragen zu Ihrer Buchung helfen wir Ihnen jederzeit gerne weiter.</p>',
         ctaLabel: 'Gastbuchung jetzt verfolgen',
-        ctaUrl: '{{bookingUrl}}',
+        ctaUrl: '{{trackingUrl}}',
         ctaTone: 'accent',
         secondaryCtaLabel: 'Versandlabel (PDF)',
         secondaryCtaUrl: '{{shippingLabelUrl}}',
         secondaryCtaTone: 'primary',
-        closing: 'Vielen Dank fuer Ihr Vertrauen.<br /><strong>Ihr {{companyName}} Team</strong>',
+        closing: 'Vielen Dank für Ihr Vertrauen.<br /><strong>Ihr {{companyName}} Team</strong>',
         footerNote: 'Diese Nachricht wurde automatisch nach erfolgreicher Gastbestellung versendet.'
       }),
       variables: [
@@ -692,7 +692,7 @@ function getDefaultNotificationTemplates() {
         createVariable('itemSummary', 'Nutzerfreundliche Uebersicht der enthaltenen Auftraege', true),
         createVariable('totalAmount', 'Gesamtbetrag der Buchung', true),
         createVariable('bookingStatus', 'Aktueller Buchungsstatus', true),
-        createVariable('bookingUrl', 'Direkter Gast-Tracking-Link zur Buchung', true),
+        createVariable('trackingUrl', 'Direkter Gast-Tracking-Link zur Buchung', true),
         createVariable('shippingLabelUrl', 'Direkter Download-Link zum Versandlabel als PDF'),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')
