@@ -115,6 +115,11 @@ async function getActiveSessions(minutes = 30) {
         source: { $first: '$source' },
         medium: { $first: '$medium' },
         campaign: { $first: '$campaign' },
+        is_authenticated: { $max: '$is_authenticated' },
+        user_id: { $first: '$user_id' },
+        user_email: { $first: '$user_email' },
+        user_name: { $first: '$user_name' },
+        user_role: { $first: '$user_role' },
         browser: { $first: '$browser' },
         browser_version: {
           $first: {
@@ -211,7 +216,7 @@ async function getRecentEvents(limit = 50, minutes = 30) {
   return TrackingEvent.find({ occurred_at: { $gte: since } })
     .sort({ occurred_at: -1 })
     .limit(limit)
-    .select('event_name occurred_at page_path session_id referrer source custom_data')
+    .select('event_name occurred_at page_path session_id referrer source browser device_type os ip_address ip_hash is_authenticated user_id user_email user_name user_role custom_data')
     .lean();
 }
 

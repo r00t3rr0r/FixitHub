@@ -12,6 +12,11 @@ export type TrackingEventData = {
   campaign?: string;
   session_id?: string;
   visitor_id?: string;
+  is_authenticated?: boolean;
+  user_id?: string;
+  user_email?: string;
+  user_name?: string;
+  user_role?: string;
   browser?: string;
   browser_version?: string;
   os?: string;
@@ -93,8 +98,29 @@ function getVisitorId() {
   return getPersistentId('tracking_visitor_id', TRACKING_VISITOR_COOKIE);
 }
 
+function getAuthenticatedUser() {
+  try {
+    const rawUser = localStorage.getItem('user');
+    if (!rawUser) return null;
+    const parsed = JSON.parse(rawUser);
+    if (!parsed || typeof parsed !== 'object') return null;
+    return {
+      userId: typeof parsed._id === 'string' ? parsed._id : undefined,
+      email: typeof parsed.email === 'string' ? parsed.email : undefined,
+      role: typeof parsed.role === 'string' ? parsed.role : undefined,
+      fullName:
+        typeof parsed.firstName === 'string' || typeof parsed.lastName === 'string'
+          ? [parsed.firstName, parsed.lastName].filter(Boolean).join(' ').trim() || undefined
+          : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function getBaseTrackingData(): Partial<TrackingEventData> {
   const savedDeviceInfo = getSavedDeviceInfo();
+  const authUser = getAuthenticatedUser();
   const deviceType = savedDeviceInfo
     ? (savedDeviceInfo.isMobile ? 'mobile' : savedDeviceInfo.isTablet ? 'tablet' : 'desktop')
     : undefined;
@@ -109,6 +135,11 @@ function getBaseTrackingData(): Partial<TrackingEventData> {
     campaign: getUrlParam('utm_campaign'),
     session_id: getSessionId(),
     visitor_id: getVisitorId(),
+    is_authenticated: Boolean(authUser?.userId),
+    user_id: authUser?.userId,
+    user_email: authUser?.email,
+    user_name: authUser?.fullName,
+    user_role: authUser?.role,
     language: navigator.language,
     screen_width: window.screen.width,
     screen_height: window.screen.height,

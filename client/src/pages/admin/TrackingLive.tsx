@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   liveTrackingApi,
   LiveTrackingSummary,
@@ -158,6 +158,22 @@ function SessionRow({ session, index }: SessionRowProps) {
     return session.os || 'Unknown OS';
   };
 
+  const getUserLabel = () => {
+    if (!session.is_authenticated) {
+      return 'Gast';
+    }
+
+    if (session.user_name) {
+      return session.user_name;
+    }
+
+    if (session.user_email) {
+      return session.user_email;
+    }
+
+    return 'Angemeldeter Nutzer';
+  };
+
   const getTimeAgo = (timestamp: string) => {
     const diff = Date.now() - new Date(timestamp).getTime();
     const minutes = Math.floor(diff / 60000);
@@ -182,6 +198,15 @@ function SessionRow({ session, index }: SessionRowProps) {
           </div>
           <div className="text-xs text-muted-foreground mb-1 truncate">
             {getDeviceLabel()} • {getOsLabel()}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs mb-1">
+            <Badge variant={session.is_authenticated ? 'default' : 'outline'}>
+              {session.is_authenticated ? 'Angemeldet' : 'Gast'}
+            </Badge>
+            <span className="text-muted-foreground truncate">{getUserLabel()}</span>
+            {session.user_role && (
+              <Badge variant="secondary">{session.user_role}</Badge>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
@@ -222,9 +247,10 @@ function SessionRow({ session, index }: SessionRowProps) {
 // Event Row Component
 interface EventRowProps {
   event: TrackingEvent;
+  session?: ActiveSession;
 }
 
-function EventRow({ event }: EventRowProps) {
+function EventRow({ event, session }: EventRowProps) {
   const getTimeAgo = (timestamp: string) => {
     const diff = Date.now() - new Date(timestamp).getTime();
     const seconds = Math.floor(diff / 1000);
@@ -239,21 +265,80 @@ function EventRow({ event }: EventRowProps) {
     switch (eventName) {
       case 'page_view': return 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400';
       case 'click': return 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400';
+      case 'heartbeat': return 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400';
       case 'form_submit': return 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400';
       default: return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400';
     }
   };
 
+  const isAuthenticated = event.is_authenticated ?? session?.is_authenticated ?? false;
+  const userLabel =
+    event.user_name ||
+    event.user_email ||
+    session?.user_name ||
+    session?.user_email ||
+    (isAuthenticated ? 'Angemeldeter Nutzer' : 'Gast');
+  const userRole = event.user_role || session?.user_role;
+  const sessionShort = event.session_id ? event.session_id.slice(0, 8) : 'unknown';
+  const deviceLabel =
+    event.device_type || session?.device_type || event.browser || session?.browser || event.os || session?.os;
+  const ipAddress = event.ip_address || 'Unbekannt';
+  const detailsPayload = {
+    event_name: event.event_name,
+    occurred_at: event.occurred_at,
+    page_path: event.page_path,
+    session_id: event.session_id,
+    ip_address: event.ip_address,
+    ip_hash: event.ip_hash,
+    is_authenticated: isAuthenticated,
+    user_name: event.user_name || session?.user_name,
+    user_email: event.user_email || session?.user_email,
+    user_role: userRole,
+    browser: event.browser || session?.browser,
+    os: event.os || session?.os,
+    device_type: event.device_type || session?.device_type,
+    source: event.source,
+    referrer: event.referrer,
+    custom_data: event.custom_data,
+  };
+
   return (
-    <div className="flex items-center gap-3 p-3 rounded-md hover:bg-accent/50 transition-colors">
-      <Circle className="h-2 w-2 fill-green-500 text-green-500 animate-pulse shrink-0" />
-      <Badge className={cn('shrink-0', getEventColor(event.event_name))}>
-        {event.event_name}
-      </Badge>
-      <span className="text-sm flex-1 truncate">{event.page_path || '/'}</span>
-      <span className="text-xs text-muted-foreground shrink-0">
-        {getTimeAgo(event.occurred_at)}
-      </span>
+    <div className="p-3 rounded-md hover:bg-accent/50 transition-colors space-y-2">
+      <div className="flex items-center gap-3">
+        <Circle className="h-2 w-2 fill-green-500 text-green-500 animate-pulse shrink-0" />
+        <Badge className={cn('shrink-0', getEventColor(event.event_name))}>
+          {event.event_name}
+        </Badge>
+        <span className="text-sm flex-1 truncate">{event.page_path || '/'}</span>
+        <span className="text-xs text-muted-foreground shrink-0">
+          {getTimeAgo(event.occurred_at)}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <Badge variant={isAuthenticated ? 'default' : 'outline'}>
+          {isAuthenticated ? 'Angemeldet' : 'Gast'}
+        </Badge>
+        <span className="text-muted-foreground truncate">{userLabel}</span>
+        {userRole && <Badge variant="secondary">{userRole}</Badge>}
+        <Separator orientation="vertical" className="h-3" />
+        <span className="text-muted-foreground">Session: {sessionShort}</span>
+        <Separator orientation="vertical" className="h-3" />
+        <span className="text-muted-foreground">IP: {ipAddress}</span>
+        {deviceLabel && (
+          <>
+            <Separator orientation="vertical" className="h-3" />
+            <span className="text-muted-foreground truncate">{deviceLabel}</span>
+          </>
+        )}
+      </div>
+      <details className="text-xs">
+        <summary className="cursor-pointer text-muted-foreground hover:text-foreground select-none">
+          Event-Details anzeigen
+        </summary>
+        <pre className="mt-2 whitespace-pre-wrap break-all rounded-md border bg-muted/50 p-3 text-[11px] leading-relaxed">
+          {JSON.stringify(detailsPayload, null, 2)}
+        </pre>
+      </details>
     </div>
   );
 }
@@ -277,6 +362,7 @@ export default function TrackingLive() {
   const hasAdminStream = sessions.length > 0 || events.length > 0;
   const hasPublicStream = (publicStats?.active_visitors_last_5m || 0) > 0;
   const showPublicFallback = !hasAdminStream && hasPublicStream;
+  const sessionById = useMemo(() => new Map(sessions.map((session) => [session._id, session])), [sessions]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -587,7 +673,7 @@ export default function TrackingLive() {
                 ) : (
                   <div className="space-y-2">
                     {events.map((event, idx) => (
-                      <EventRow key={`${event._id}-${idx}`} event={event} />
+                      <EventRow key={`${event._id}-${idx}`} event={event} session={sessionById.get(event.session_id)} />
                     ))}
                   </div>
                 )}

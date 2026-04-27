@@ -19,6 +19,11 @@ export type ActiveSession = {
   source: string;
   medium: string;
   campaign: string;
+  is_authenticated?: boolean;
+  user_id?: string;
+  user_email?: string;
+  user_name?: string;
+  user_role?: string;
   browser: string;
   browser_version?: string;
   device_type: string;
@@ -45,6 +50,16 @@ export type TrackingEvent = {
   session_id: string;
   referrer: string;
   source: string;
+  browser?: string;
+  device_type?: string;
+  os?: string;
+  ip_address?: string;
+  ip_hash?: string;
+  is_authenticated?: boolean;
+  user_id?: string;
+  user_email?: string;
+  user_name?: string;
+  user_role?: string;
   custom_data: any;
 };
 
