@@ -47,11 +47,11 @@ const toErrorMessage = (error: unknown): string => {
 // Endpoint: POST /api/auth/login
 // Request: { email: string, password: string }
 // Response: { _id: string, email: string, firstName: string, lastName: string, role: string, accessToken: string, refreshToken: string }
-export const login = async (email: string, password: string) => {
+export const login = async (email: string, password: string, rememberMe = false) => {
   console.log('Making login request with email:', email);
 
   try {
-    const response = await api.post('/api/auth/login', { email, password });
+    const response = await api.post('/api/auth/login', { email, password, rememberMe });
     console.log('Login response received:', response.data);
     return response.data;
   } catch (error) {

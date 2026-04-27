@@ -14,7 +14,7 @@ type User = {
 type AuthContextType = {
   isAuthenticated: boolean;
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   register: (email: string, password: string, firstName?: string, lastName?: string, phone?: string) => Promise<void>;
   logout: () => void;
   isHydrated: boolean;
@@ -42,9 +42,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const [isHydrated, setIsHydrated] = useState(false);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, rememberMe = false) => {
     try {
-      const response = await apiLogin(email, password);
+      const response = await apiLogin(email, password, rememberMe);
       if (response?._id) {
         localStorage.setItem("accessToken", "cookie-authenticated");
 

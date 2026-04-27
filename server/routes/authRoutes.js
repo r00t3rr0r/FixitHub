@@ -44,7 +44,7 @@ router.post('/login', async (req, res) => {
     });
   };
 
-  const { email, password } = req.body;
+  const { email, password, rememberMe = false } = req.body;
   const normalizedEmail = normalizeEmailAddress(email);
 
   if (!normalizedEmail || !password) {
@@ -127,7 +127,7 @@ router.post('/login', async (req, res) => {
       user.lastLoginAt = new Date();
       await user.save();
       console.log('Tokens generated and user updated');
-      setAuthCookies(res, { accessToken, refreshToken });
+      setAuthCookies(res, { accessToken, refreshToken, rememberMe: !!rememberMe });
       return res.json(serializeAuthUser(user));
     } else {
       console.log('Authentication failed for user:', email);
@@ -421,8 +421,9 @@ router.post('/refresh', async (req, res) => {
     user.refreshToken = newRefreshToken;
     await user.save();
 
+    const rememberMe = req.cookies?.remember_me === '1';
     console.log('New tokens generated for user:', user.email);
-    setAuthCookies(res, { accessToken: newAccessToken, refreshToken: newRefreshToken });
+    setAuthCookies(res, { accessToken: newAccessToken, refreshToken: newRefreshToken, rememberMe });
 
     return res.status(200).json({
       success: true,

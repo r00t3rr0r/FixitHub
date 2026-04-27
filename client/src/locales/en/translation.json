@@ -292,6 +292,7 @@
     "email": "Email Address",
     "password": "Password",
     "submit": "Sign In",
+    "rememberMe": "Remember me",
     "noAccount": "Don't have an account?",
     "register": "Register here",
     "demoAccounts": "Demo Accounts",
