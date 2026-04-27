@@ -44,7 +44,10 @@ router.post('/track', async (req, res) => {
       ...req.body,
       ip_hash,
       occurred_at: new Date(),
-      ...uaInfo
+      browser: req.body.browser || uaInfo.browser,
+      browser_version: req.body.browser_version || uaInfo.browser_version,
+      os: req.body.os || uaInfo.os,
+      device_type: req.body.device_type || uaInfo.device_type,
     };
     await createTrackingEvent(event);
     res.json({ ok: true });

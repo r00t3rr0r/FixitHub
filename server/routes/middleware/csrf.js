@@ -1,9 +1,14 @@
 const { CSRF_COOKIE_NAME, ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME } = require('../../utils/authCookies');
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+const CSRF_EXEMPT_PATHS = new Set(['/api/track']);
 
 const requireCsrfProtection = (req, res, next) => {
   if (SAFE_METHODS.has(req.method)) {
+    return next();
+  }
+
+  if (CSRF_EXEMPT_PATHS.has(req.path)) {
     return next();
   }
 

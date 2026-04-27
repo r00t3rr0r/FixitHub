@@ -116,8 +116,28 @@ async function getActiveSessions(minutes = 30) {
         medium: { $first: '$medium' },
         campaign: { $first: '$campaign' },
         browser: { $first: '$browser' },
+        browser_version: {
+          $first: {
+            $ifNull: ['$browser_version', '$custom_data.current_device_info.browserVersion']
+          }
+        },
         device_type: { $first: '$device_type' },
+        device_model: {
+          $first: {
+            $ifNull: ['$device_model', '$custom_data.current_device_info.deviceModel']
+          }
+        },
         os: { $first: '$os' },
+        os_version: {
+          $first: {
+            $ifNull: ['$os_version', '$custom_data.current_device_info.osVersion']
+          }
+        },
+        platform: {
+          $first: {
+            $ifNull: ['$platform', '$custom_data.current_device_info.platform']
+          }
+        },
         country: { $first: '$country' },
         event_count: { $sum: 1 },
         visitor_id: { $first: '$visitor_id' }

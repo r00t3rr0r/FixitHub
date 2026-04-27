@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   liveTrackingApi,
   LiveTrackingSummary,
   ActiveSession,
   TopItem,
   TrackingEvent,
+  PublicLiveStats,
 } from '../../api/liveTracking';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -134,6 +135,29 @@ function SessionRow({ session, index }: SessionRowProps) {
     return <Laptop className="h-4 w-4" />;
   };
 
+  const getDeviceLabel = () => {
+    if (session.device_model && session.device_model !== 'Unknown') {
+      return session.device_model;
+    }
+    if (session.device_type === 'mobile') return 'Mobile';
+    if (session.device_type === 'tablet') return 'Tablet';
+    return 'Desktop';
+  };
+
+  const getBrowserLabel = () => {
+    if (session.browser_version) {
+      return `${session.browser || 'Unknown Browser'} ${session.browser_version}`;
+    }
+    return session.browser || 'Unknown Browser';
+  };
+
+  const getOsLabel = () => {
+    if (session.os_version) {
+      return `${session.os || 'Unknown OS'} ${session.os_version}`;
+    }
+    return session.os || 'Unknown OS';
+  };
+
   const getTimeAgo = (timestamp: string) => {
     const diff = Date.now() - new Date(timestamp).getTime();
     const minutes = Math.floor(diff / 60000);
@@ -156,13 +180,22 @@ function SessionRow({ session, index }: SessionRowProps) {
             {getDeviceIcon(session.device_type)}
             <span className="font-medium text-sm truncate">{session.current_page || '/'}</span>
           </div>
+          <div className="text-xs text-muted-foreground mb-1 truncate">
+            {getDeviceLabel()} • {getOsLabel()}
+          </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <Globe className="h-3 w-3" />
               {session.country || 'Unknown'}
             </span>
             <Separator orientation="vertical" className="h-3" />
-            <span>{session.browser || 'Unknown Browser'}</span>
+            <span>{getBrowserLabel()}</span>
+            {session.platform && (
+              <>
+                <Separator orientation="vertical" className="h-3" />
+                <span>{session.platform}</span>
+              </>
+            )}
             {session.source && (
               <>
                 <Separator orientation="vertical" className="h-3" />
@@ -235,28 +268,37 @@ export default function TrackingLive() {
   const [topDevices, setTopDevices] = useState<TopItem[]>([]);
   const [topCountries, setTopCountries] = useState<TopItem[]>([]);
   const [events, setEvents] = useState<TrackingEvent[]>([]);
+  const [publicStats, setPublicStats] = useState<PublicLiveStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
-  const fetchData = async () => {
+  const heartbeatEvents = events.filter((event) => event.event_name === 'heartbeat').length;
+  const clickEvents = events.filter((event) => event.event_name === 'click').length;
+  const hasAdminStream = sessions.length > 0 || events.length > 0;
+  const hasPublicStream = (publicStats?.active_visitors_last_5m || 0) > 0;
+  const showPublicFallback = !hasAdminStream && hasPublicStream;
+
+  const fetchData = useCallback(async () => {
     try {
-      const [summaryData, sessionsData, eventsData] = await Promise.all([
+      const [summaryData, sessionsData, eventsData, publicStatsData] = await Promise.all([
         liveTrackingApi.getSummary(timeRange),
         liveTrackingApi.getActiveSessions(timeRange),
         liveTrackingApi.getEvents(20, timeRange),
+        liveTrackingApi.getPublicLiveStats(),
       ]);
       setSummary(summaryData);
       setSessions(sessionsData);
       setEvents(eventsData);
+      setPublicStats(publicStatsData);
       setLastUpdate(new Date());
       setIsLoading(false);
     } catch (error) {
       console.error('Failed to fetch live tracking data:', error);
       setIsLoading(false);
     }
-  };
+  }, [timeRange]);
 
-  const fetchBreakdowns = async () => {
+  const fetchBreakdowns = useCallback(async () => {
     try {
       const [pages, referrers, browsers, devices, countries] = await Promise.all([
         liveTrackingApi.getTopPages(timeRange, 10),
@@ -273,7 +315,7 @@ export default function TrackingLive() {
     } catch (error) {
       console.error('Failed to fetch breakdowns:', error);
     }
-  };
+  }, [timeRange]);
 
   useEffect(() => {
     fetchData();
@@ -285,7 +327,7 @@ export default function TrackingLive() {
     }, 10000); // Update every 10 seconds
 
     return () => clearInterval(dataInterval);
-  }, [timeRange]);
+  }, [fetchData, fetchBreakdowns]);
 
   if (isLoading) {
     return (
@@ -336,6 +378,26 @@ export default function TrackingLive() {
         </div>
       </div>
 
+      {showPublicFallback && (
+        <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
+          <CardContent className="pt-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-medium text-blue-700 dark:text-blue-300">
+                  Tracking ist aktiv, aber der Admin-Stream ist aktuell leer.
+                </p>
+                <p className="text-sm text-blue-600 dark:text-blue-400">
+                  Fallback auf den öffentlichen Live-Stream der letzten 5 Minuten.
+                </p>
+              </div>
+              <Badge variant="secondary" className="w-fit">
+                {publicStats?.active_visitors_last_5m || 0} aktive Besucher (5m)
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Metrics Grid */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
@@ -363,11 +425,35 @@ export default function TrackingLive() {
           color="purple"
         />
         <MetricCard
-          title="Events"
-          value={events.length}
-          icon={<Activity className="h-4 w-4" />}
-          description="Live Event Stream"
+          title="Klick-Events"
+          value={clickEvents}
+          icon={<MousePointer className="h-4 w-4" />}
+          description="Live Klick-Tracking"
           color="orange"
+        />
+      </div>
+
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          title="Heartbeat-Events"
+          value={heartbeatEvents}
+          icon={<Activity className="h-4 w-4" />}
+          description="Automatische Aktivitäts-Pings"
+          color="blue"
+        />
+        <MetricCard
+          title="Gesamt-Events"
+          value={events.length}
+          icon={<TrendingUp className="h-4 w-4" />}
+          description="Aktueller Live-Event-Stream"
+          color="green"
+        />
+        <MetricCard
+          title="Public Besucher (5m)"
+          value={publicStats?.active_visitors_last_5m || 0}
+          icon={<Users className="h-4 w-4" />}
+          description="Fallback-Tracking-Quelle"
+          color="purple"
         />
       </div>
 
@@ -407,6 +493,19 @@ export default function TrackingLive() {
                     <p className="text-sm text-muted-foreground mt-2">
                       Besucher werden hier angezeigt, sobald sie Ihre Website aufrufen
                     </p>
+                    {showPublicFallback && publicStats && publicStats.top_pages.length > 0 && (
+                      <div className="mt-6 text-left max-w-lg mx-auto rounded-lg border bg-card p-4">
+                        <p className="text-sm font-medium mb-3">Öffentlicher Stream: Top Seiten (5m)</p>
+                        <div className="space-y-2">
+                          {publicStats.top_pages.slice(0, 5).map((page, idx) => (
+                            <div key={`${page._id}-${idx}`} className="flex items-center justify-between text-sm">
+                              <span className="truncate pr-2">{page._id || '/'}</span>
+                              <Badge variant="secondary">{page.count}</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -479,6 +578,11 @@ export default function TrackingLive() {
                     <p className="text-sm text-muted-foreground mt-2">
                       Events werden hier in Echtzeit angezeigt
                     </p>
+                    {showPublicFallback && (
+                      <p className="text-sm text-blue-600 dark:text-blue-400 mt-3">
+                        Hinweis: Public Stream ist aktiv, der Admin-Event-Stream liefert aktuell noch keine Einträge.
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-2">
