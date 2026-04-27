@@ -194,121 +194,17 @@ const initializeDatabase = async () => {
     await connectDB();
     console.log('Database connected successfully');
 
-    // Auto-seed system configuration if it doesn't exist
-    console.log('Checking if system configuration exists...');
+    // Single-command auto-seeding: system config + notification templates,
+    // admin user, languages, homepage template, workflows, blog, FAQs, SEO.
+    console.log('Running SeedService.seedAll()...');
     try {
-      const configSeedResult = await SeedService.seedSystemConfiguration();
-      console.log('System configuration seeding result:', configSeedResult.message);
+      const results = await SeedService.seedAll();
+      Object.entries(results).forEach(([key, value]) => {
+        const msg = value && value.message ? value.message : 'ok';
+        console.log(`  - ${key}: ${msg}`);
+      });
     } catch (error) {
-      console.error('Error seeding system configuration:', error.message);
-    }
-
-    // Auto-seed service categories if they don't exist
-    console.log('Checking if service categories exist...');
-    try {
-      const categoriesSeedResult = await SeedService.seedServiceCategories();
-      console.log('Service categories seeding result:', categoriesSeedResult.message);
-    } catch (error) {
-      console.error('Error seeding service categories:', error.message);
-    }
-
-    // Auto-seed admin user if it doesn't exist
-    console.log('Checking if admin user exists...');
-    try {
-      const seedResult = await SeedService.seedAdmin();
-      console.log('Admin seeding result:', seedResult.message);
-    } catch (error) {
-      console.error('Error seeding admin user:', error.message);
-    }
-
-    // Auto-seed devices if they don't exist
-    console.log('Checking if devices exist...');
-    try {
-      const devicesSeedResult = await SeedService.seedDevices();
-      console.log('Devices seeding result:', devicesSeedResult.message);
-    } catch (error) {
-      console.error('Error seeding devices:', error.message);
-    }
-
-    // Auto-seed services if they don't exist
-    console.log('Checking if services exist...');
-    try {
-      const servicesSeedResult = await SeedService.seedServices();
-      console.log('Services seeding result:', servicesSeedResult.message);
-    } catch (error) {
-      console.error('Error seeding services:', error.message);
-    }
-
-    // Auto-seed add-on services if they don't exist
-    console.log('Checking if add-on services exist...');
-    try {
-      const addOnsSeedResult = await SeedService.seedAddOnServices();
-      console.log('Add-on services seeding result:', addOnsSeedResult.message);
-    } catch (error) {
-      console.error('Error seeding add-on services:', error.message);
-    }
-
-    // Auto-seed inventory if it doesn't exist
-    console.log('Checking if inventory exists...');
-    try {
-      const inventorySeedResult = await SeedService.seedInventory();
-      console.log('Inventory seeding result:', inventorySeedResult.message);
-    } catch (error) {
-      console.error('Error seeding inventory:', error.message);
-    }
-
-    // Auto-seed products if they don't exist
-    console.log('Checking if products exist...');
-    try {
-      const productsSeedResult = await SeedService.seedProducts();
-      console.log('Products seeding result:', productsSeedResult.message);
-    } catch (error) {
-      console.error('Error seeding products:', error.message);
-    }
-
-    // Auto-seed blog data if it doesn't exist
-    console.log('Checking if blog data exists...');
-    try {
-      const blogSeedResult = await SeedService.seedBlogData();
-      console.log('Blog seeding result:', blogSeedResult.message);
-    } catch (error) {
-      console.error('Error seeding blog data:', error.message);
-    }
-
-    // Auto-seed FAQ data if it doesn't exist
-    console.log('Checking if FAQ data exists...');
-    try {
-      const faqSeedResult = await SeedService.seedFAQData();
-      console.log('FAQ seeding result:', faqSeedResult.message);
-    } catch (error) {
-      console.error('Error seeding FAQ data:', error.message);
-    }
-
-    // Auto-seed languages if they don't exist
-    console.log('Checking if languages exist...');
-    try {
-      const languageSeedResult = await SeedService.seedLanguages();
-      console.log('Language seeding result:', languageSeedResult.message);
-    } catch (error) {
-      console.error('Error seeding languages:', error.message);
-    }
-
-    // Auto-seed homepage template if it doesn't exist
-    console.log('Checking if homepage template exists...');
-    try {
-      const homepageSeedResult = await SeedService.seedHomepageTemplate();
-      console.log('Homepage template seeding result:', homepageSeedResult.message);
-    } catch (error) {
-      console.error('Error seeding homepage template:', error.message);
-    }
-
-    // Auto-seed financial data if it doesn't exist
-    console.log('Checking if financial data exists...');
-    try {
-      const financialSeedResult = await SeedService.seedFinancialData();
-      console.log('Financial data seeding result:', financialSeedResult.message);
-    } catch (error) {
-      console.error('Error seeding financial data:', error.message);
+      console.error('Error during seedAll:', error.message);
     }
 
     console.log('Database initialization completed successfully');
