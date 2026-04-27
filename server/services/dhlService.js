@@ -41,7 +41,46 @@ class DHLService {
       DK: 'DNK'
     };
 
-    return map[normalized] || normalized;
+    if (map[normalized]) return map[normalized];
+
+    // Accept full country names too (forms sometimes send the label instead of the ISO code)
+    const nameMap = {
+      GERMANY: 'DEU',
+      DEUTSCHLAND: 'DEU',
+      NETHERLANDS: 'NLD',
+      NIEDERLANDE: 'NLD',
+      AUSTRIA: 'AUT',
+      'OESTERREICH': 'AUT',
+      'ÖSTERREICH': 'AUT',
+      SWITZERLAND: 'CHE',
+      SCHWEIZ: 'CHE',
+      BELGIUM: 'BEL',
+      BELGIEN: 'BEL',
+      LUXEMBOURG: 'LUX',
+      LUXEMBURG: 'LUX',
+      FRANCE: 'FRA',
+      FRANKREICH: 'FRA',
+      ITALY: 'ITA',
+      ITALIEN: 'ITA',
+      SPAIN: 'ESP',
+      SPANIEN: 'ESP',
+      POLAND: 'POL',
+      POLEN: 'POL',
+      'CZECH REPUBLIC': 'CZE',
+      TSCHECHIEN: 'CZE',
+      'UNITED KINGDOM': 'GBR',
+      GROSSBRITANNIEN: 'GBR',
+      IRELAND: 'IRL',
+      IRLAND: 'IRL',
+      DENMARK: 'DNK',
+      'DAENEMARK': 'DNK',
+      'DÄNEMARK': 'DNK'
+    };
+
+    if (nameMap[normalized]) return nameMap[normalized];
+
+    console.warn(`DHLService.countryCodeToIso3: Unknown country "${countryCode}" – passing through unchanged. DHL likely rejects this value.`);
+    return normalized;
   }
 
   static getParcelDEConfig(dhlIntegration) {
@@ -299,7 +338,7 @@ class DHLService {
       const dhlConfig = await this.getDHLConfig();
 
       // Retrieve order details with full customer profile including invoice address
-      const order = await Order.findById(orderId).populate('customerId', 'name email phone invoiceAddress');
+      const order = await Order.findById(orderId).populate('customerId', 'name email phone invoiceAddress paymentAddress');
 
       if (!order) {
         console.error('DHLService: Order not found:', orderId);
@@ -312,13 +351,16 @@ class DHLService {
       // Convert Mongoose subdocument to plain object to access properties
       const customer = order.customerId?.toObject ? order.customerId.toObject() : order.customerId;
       const invoiceAddress = customer?.invoiceAddress || {};
+      const paymentAddress = customer?.paymentAddress || {};
+      console.log('DHLService: Order shippingAddress:', JSON.stringify(order.shippingAddress || {}, null, 2));
       console.log('DHLService: Customer invoice address:', JSON.stringify(invoiceAddress, null, 2));
+      console.log('DHLService: Customer payment address:', JSON.stringify(paymentAddress, null, 2));
 
-      // Validate shipping address is complete, fall back to invoice address if needed
-      const receiverStreet = order.shippingAddress?.street || shipmentData.receiverAddress || invoiceAddress.street;
-      const receiverCity = order.shippingAddress?.city || shipmentData.receiverCity || invoiceAddress.city;
-      const receiverPostalCode = order.shippingAddress?.zipCode || shipmentData.receiverPostalCode || invoiceAddress.zipCode;
-      const receiverCountry = order.shippingAddress?.country || shipmentData.receiverCountry || invoiceAddress.country || 'NL';
+      // Validate shipping address is complete, fall back to payment then invoice address if needed
+      const receiverStreet = order.shippingAddress?.street || shipmentData.receiverAddress || paymentAddress.street || invoiceAddress.street;
+      const receiverCity = order.shippingAddress?.city || shipmentData.receiverCity || paymentAddress.city || invoiceAddress.city;
+      const receiverPostalCode = order.shippingAddress?.zipCode || shipmentData.receiverPostalCode || paymentAddress.zipCode || invoiceAddress.zipCode;
+      const receiverCountry = order.shippingAddress?.country || shipmentData.receiverCountry || paymentAddress.country || invoiceAddress.country || 'NL';
 
       // Check if required address fields are missing or empty
       if (!receiverStreet || receiverStreet.trim() === '') {

@@ -52,6 +52,9 @@ import {
 } from "lucide-react"
 import { addToCart, addRepairOrderToCart, Cart } from "@/api/shop"
 import { getGuestCart, clearGuestCart } from "@/utils/guestCart"
+import { CountrySelect } from "@/components/checkout/CountrySelect"
+import { DEFAULT_COUNTRY_CODE } from "@/lib/countries"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 interface CheckoutDialogProps {
   open: boolean
@@ -130,21 +133,22 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [phone, setPhone] = useState("")
+  const [accountType, setAccountType] = useState<"private" | "business">("private")
   const [company, setCompany] = useState("")
-  const [country, setCountry] = useState("")
+  const [country, setCountry] = useState(DEFAULT_COUNTRY_CODE)
   const [vatId, setVatId] = useState("")
 
   const [billingStreet, setBillingStreet] = useState("")
   const [billingCity, setBillingCity] = useState("")
   const [billingState, setBillingState] = useState("")
   const [billingZipCode, setBillingZipCode] = useState("")
-  const [billingCountry, setBillingCountry] = useState("")
+  const [billingCountry, setBillingCountry] = useState(DEFAULT_COUNTRY_CODE)
 
   const [shippingStreet, setShippingStreet] = useState("")
   const [shippingCity, setShippingCity] = useState("")
   const [shippingState, setShippingState] = useState("")
   const [shippingZipCode, setShippingZipCode] = useState("")
-  const [shippingCountry, setShippingCountry] = useState("")
+  const [shippingCountry, setShippingCountry] = useState(DEFAULT_COUNTRY_CODE)
 
   const [billingIsShipping, setBillingIsShipping] = useState(true)
   const [registerLoading, setRegisterLoading] = useState(false)
@@ -913,9 +917,9 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
         firstName,
         lastName,
         phone,
-        company,
+        company: accountType === "business" ? company : "",
         country,
-        vatId,
+        vatId: accountType === "business" ? vatId : "",
         billingAddress: {
           street: billingStreet,
           city: billingCity,
@@ -1760,21 +1764,43 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                             </div>
                           </div>
 
+                          <div className="space-y-1.5 rounded-lg border border-[#e3e8f2] bg-[#f6f8fc] p-2.5">
+                            <Label className="text-xs font-semibold text-[#1a2a5e]">{t("checkout.accountType")}</Label>
+                            <RadioGroup
+                              value={accountType}
+                              onValueChange={(v) => setAccountType(v === "business" ? "business" : "private")}
+                              className="flex flex-row gap-4"
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <RadioGroupItem id="accountType-private" value="private" />
+                                <Label htmlFor="accountType-private" className="cursor-pointer text-xs">{t("checkout.privateCustomer")}</Label>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <RadioGroupItem id="accountType-business" value="business" />
+                                <Label htmlFor="accountType-business" className="cursor-pointer text-xs">{t("checkout.businessCustomer")}</Label>
+                              </div>
+                            </RadioGroup>
+                          </div>
+
                           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                            <div className="space-y-1">
-                              <Label htmlFor="company" className="text-xs font-semibold">{t("checkout.company")}</Label>
-                              <Input id="company" value={company} onChange={(e) => setCompany(e.target.value)} className="h-8 text-sm" />
-                            </div>
+                            {accountType === "business" && (
+                              <div className="space-y-1">
+                                <Label htmlFor="company" className="text-xs font-semibold">{t("checkout.company")} <span className="text-red-500">*</span></Label>
+                                <Input id="company" value={company} onChange={(e) => setCompany(e.target.value)} className="h-8 text-sm" required={accountType === "business"} />
+                              </div>
+                            )}
                             <div className="space-y-1">
                               <Label htmlFor="country" className="text-xs font-semibold">{t("checkout.country")}</Label>
-                              <Input id="country" value={country} onChange={(e) => setCountry(e.target.value)} className="h-8 text-sm" />
+                              <CountrySelect id="country" value={country} onChange={setCountry} className="h-8 text-sm" />
                             </div>
                           </div>
 
-                          <div className="space-y-1">
-                            <Label htmlFor="vatId" className="text-xs font-semibold">{t("checkout.vatId")}</Label>
-                            <Input id="vatId" value={vatId} onChange={(e) => setVatId(e.target.value)} className="h-8 text-sm" />
-                          </div>
+                          {accountType === "business" && (
+                            <div className="space-y-1">
+                              <Label htmlFor="vatId" className="text-xs font-semibold">{t("checkout.vatId")}</Label>
+                              <Input id="vatId" value={vatId} onChange={(e) => setVatId(e.target.value)} className="h-8 text-sm" />
+                            </div>
+                          )}
 
                           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                             <div className="space-y-1">
@@ -1798,7 +1824,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                             </div>
                             <div className="space-y-1">
                               <Label htmlFor="billingCountry" className="text-xs font-semibold">{t("checkout.country")}</Label>
-                              <Input id="billingCountry" value={billingCountry} onChange={(e) => setBillingCountry(e.target.value)} className="h-8 text-sm" />
+                              <CountrySelect id="billingCountry" value={billingCountry} onChange={setBillingCountry} className="h-8 text-sm" />
                             </div>
                           </div>
 
@@ -1830,7 +1856,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                                 </div>
                                 <div className="space-y-1">
                                   <Label htmlFor="shippingCountry" className="text-xs font-semibold">{t("checkout.country")}</Label>
-                                  <Input id="shippingCountry" value={shippingCountry} onChange={(e) => setShippingCountry(e.target.value)} className="h-8 text-sm" />
+                                  <CountrySelect id="shippingCountry" value={shippingCountry} onChange={setShippingCountry} className="h-8 text-sm" />
                                 </div>
                               </div>
                             </div>
