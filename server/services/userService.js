@@ -187,6 +187,11 @@ class UserService {
     role = 'customer',
     status = 'active',
     isActive,
+    company = '',
+    country = '',
+    vatId = '',
+    invoiceAddress,
+    paymentAddress,
   }) {
     if (!email) throw new Error('Email is required');
     if (!password) throw new Error('Password is required');
@@ -209,7 +214,15 @@ class UserService {
       // Generate full name from first and last name
       const name = `${firstName} ${lastName}`.trim();
 
-      const user = new User({
+      const normalizeAddress = (addr) => ({
+        street: addr?.street || '',
+        city: addr?.city || '',
+        state: addr?.state || '',
+        zipCode: addr?.zipCode || '',
+        country: addr?.country || '',
+      });
+
+      const userPayload = {
         email: normalizedEmail,
         password: hash,
         firstName,
@@ -219,11 +232,26 @@ class UserService {
         role,
         status,
         isActive: isActive ?? status !== 'inactive',
+        company,
+        country,
+        vatId,
         // Set default avatar based on initials
         avatar: `https://via.placeholder.com/150x150/3b82f6/ffffff?text=${firstName.charAt(0)}${lastName.charAt(0)}`,
-      });
+      };
 
-      console.log(`UserService.create: Saving user to database: ${normalizedEmail}`);
+      if (invoiceAddress) {
+        userPayload.invoiceAddress = normalizeAddress(invoiceAddress);
+      }
+      if (paymentAddress) {
+        userPayload.paymentAddress = {
+          ...normalizeAddress(paymentAddress),
+          sameAsInvoice: !!paymentAddress.sameAsInvoice,
+        };
+      }
+
+      const user = new User(userPayload);
+
+      console.log(`UserService.create: Saving user to database: ${normalizedEmail} (company=${!!company}, invoiceAddress=${!!invoiceAddress}, paymentAddress=${!!paymentAddress})`);
       await user.save();
       console.log(`UserService.create: User created successfully with ID: ${user._id}, role: ${user.role}`);
       return user;

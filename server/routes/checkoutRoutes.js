@@ -1447,6 +1447,25 @@ router.post('/complete', requireUser, async (req, res) => {
     const createdOrders = [];
     const orderIds = [];
 
+    // Resolve a single shipping address that should be persisted on every order
+    // created in this checkout. Prefer paymentAddress (delivery), fall back to
+    // invoiceAddress. Without this the order detail and admin views show empty
+    // shipping fields and DHL only has the populate fallback to rely on.
+    const fallbackAddress = (() => {
+      const payment = user.paymentAddress || {};
+      const invoice = user.invoiceAddress || {};
+      const useInvoice = payment.sameAsInvoice || !payment.street;
+      const source = useInvoice ? invoice : payment;
+      return {
+        street: source.street || invoice.street || '',
+        city: source.city || invoice.city || '',
+        state: source.state || invoice.state || '',
+        zipCode: source.zipCode || invoice.zipCode || '',
+        country: source.country || invoice.country || '',
+      };
+    })();
+    console.log('CheckoutRoutes: Resolved shippingAddress for orders:', fallbackAddress);
+
     // Create orders from repair orders in the cart
     if (hasRepairOrders) {
       for (const repairOrder of cart.repairOrders) {
@@ -1491,6 +1510,9 @@ router.post('/complete', requireUser, async (req, res) => {
             progress: 0,
             paymentStatus: resolvedPaymentStatus,
             estimatedCompletion: null,
+            // Persist shipping address explicitly so admin views and DHL get the
+            // values without depending on populate fallbacks.
+            shippingAddress: fallbackAddress,
             // Device unlock information from cart
             unlockPattern: repairOrder.unlockPattern || [],
             unlockCode: repairOrder.unlockCode || '',
@@ -1558,7 +1580,8 @@ router.post('/complete', requireUser, async (req, res) => {
           priority: 'normal',
           progress: 0,
           paymentStatus: resolvedPaymentStatus,
-          estimatedCompletion: null
+          estimatedCompletion: null,
+          shippingAddress: fallbackAddress
         };
 
         console.log('CheckoutRoutes: Shop order data prepared:', shopOrderData);
