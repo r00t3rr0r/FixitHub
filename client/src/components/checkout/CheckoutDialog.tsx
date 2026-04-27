@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/contexts/AuthContext"
 import {
   registerDuringCheckout,
+  resendCheckoutVerificationEmail,
   completeGuestCheckout,
   initializeCheckout,
   completeCheckout,
@@ -147,6 +148,11 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
 
   const [billingIsShipping, setBillingIsShipping] = useState(true)
   const [registerLoading, setRegisterLoading] = useState(false)
+  const [resendVerificationLoading, setResendVerificationLoading] = useState(false)
+  const [verificationEmailSent, setVerificationEmailSent] = useState(false)
+  const [verificationEmailDialogOpen, setVerificationEmailDialogOpen] = useState(false)
+  const [verificationEmailAddress, setVerificationEmailAddress] = useState("")
+  const [resendCountdown, setResendCountdown] = useState(0)
 
   const [guestEmail, setGuestEmail] = useState("")
   const [guestFirstName, setGuestFirstName] = useState("")
@@ -268,6 +274,11 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
     setBillingAddressCityDraft("")
     setBillingAddressZipDraft("")
     setBillingAddressCountryDraft("")
+    setVerificationEmailSent(false)
+    setVerificationEmailDialogOpen(false)
+    setVerificationEmailAddress("")
+    setResendVerificationLoading(false)
+    setResendCountdown(0)
   }
 
   const hasMissingBillingAddress = (address: any) => {
@@ -479,6 +490,10 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
   const prepareAuthenticatedReview = async () => {
     try {
       setInitializingCheckout(true)
+
+      // Preserve guest cart items after verification by merging once authenticated.
+      await mergeGuestCartIntoUserCart()
+
       const response = await initializeCheckout()
       const checkoutUserInfo = (response as any).userInfo || null
       const billingAddress = checkoutUserInfo?.billingAddress || {}
@@ -522,6 +537,18 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
 
     clearGuestCart()
   }
+
+  useEffect(() => {
+    if (resendCountdown <= 0) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      setResendCountdown((prev) => Math.max(prev - 1, 0))
+    }, 1000)
+
+    return () => window.clearTimeout(timer)
+  }, [resendCountdown])
 
   useEffect(() => {
     if (!open) {
@@ -825,6 +852,15 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    if (registerLoading) {
+      return
+    }
+
+    if (verificationEmailSent) {
+      setVerificationEmailDialogOpen(true)
+      return
+    }
+
     if (!email || !password || !firstName || !lastName) {
       toast({
         title: t("common.error"),
@@ -890,17 +926,15 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
         shippingAddress: finalShippingAddress,
       })
 
-      localStorage.setItem("accessToken", response.accessToken)
-      localStorage.setItem("refreshToken", response.refreshToken)
-
-      await mergeGuestCartIntoUserCart()
-
       toast({
         title: t("common.success"),
-        description: t("checkout.accountCreatedSuccessfully"),
+        description: response?.message || "Bitte bestätigen Sie Ihre E-Mail-Adresse, um den Checkout fortzusetzen.",
       })
 
-      await prepareAuthenticatedReview()
+      setVerificationEmailAddress(email)
+      setVerificationEmailSent(true)
+      setResendCountdown(60)
+      setVerificationEmailDialogOpen(true)
     } catch (error: any) {
       toast({
         title: t("common.error"),
@@ -909,6 +943,32 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
       })
     } finally {
       setRegisterLoading(false)
+    }
+  }
+
+  const handleResendVerificationEmail = async () => {
+    if (!verificationEmailAddress || resendVerificationLoading || resendCountdown > 0) {
+      return
+    }
+
+    try {
+      setResendVerificationLoading(true)
+      const response = await resendCheckoutVerificationEmail(verificationEmailAddress)
+
+      toast({
+        title: t("common.success"),
+        description: response?.message || "Verifizierungs-E-Mail wurde erneut gesendet.",
+      })
+
+      setResendCountdown(60)
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message || "Verifizierungs-E-Mail konnte nicht erneut gesendet werden.",
+        variant: "destructive",
+      })
+    } finally {
+      setResendVerificationLoading(false)
     }
   }
 
@@ -1776,9 +1836,29 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                             </div>
                           )}
 
-                          <Button type="submit" className="h-9 w-full bg-[#f5b800] text-sm font-bold text-[#1a2a5e] hover:bg-[#e5ab00]" disabled={registerLoading}>
-                            {registerLoading ? t("common.loading") : t("checkout.createAccount")}
+                          <Button type="submit" className="h-9 w-full bg-[#f5b800] text-sm font-bold text-[#1a2a5e] hover:bg-[#e5ab00]" disabled={registerLoading || verificationEmailSent}>
+                            {registerLoading ? t("common.loading") : verificationEmailSent ? "Verifizierungs-E-Mail bereits gesendet" : t("checkout.createAccount")}
                           </Button>
+                          {verificationEmailSent && (
+                            <div className="space-y-2 rounded-md border border-[#c7e9cf] bg-[#effaf2] px-2.5 py-2 text-[11px] text-[#166534]">
+                              <p>
+                                Die Verifizierungs-E-Mail wurde gesendet. Bitte bestätigen Sie Ihre Adresse und kehren Sie dann zum Checkout zurück.
+                              </p>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="h-7 w-full border-[#8bbf9b] text-[11px] font-semibold text-[#14532d] hover:bg-[#dff3e5]"
+                                onClick={handleResendVerificationEmail}
+                                disabled={resendVerificationLoading || resendCountdown > 0}
+                              >
+                                {resendVerificationLoading
+                                  ? "Wird gesendet..."
+                                  : resendCountdown > 0
+                                    ? `Erneut senden in ${resendCountdown}s`
+                                    : "Verifizierungs-E-Mail erneut senden"}
+                              </Button>
+                            </div>
+                          )}
                           <p className="text-[10px] text-[#8b9dbf]"><span className="text-red-500">*</span> {t("checkout.requiredFieldsNote")}</p>
                         </form>
                       </CardContent>
@@ -1889,6 +1969,52 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
         </DialogContent>
       </Dialog>
 
+      <Dialog open={verificationEmailDialogOpen} onOpenChange={setVerificationEmailDialogOpen}>
+        <DialogContent className="max-w-sm rounded-xl border border-[#d8dce6] p-0">
+          <div className="border-b border-[#e7eaf1] bg-[#1a2a5e] px-4 py-3 text-white">
+            <DialogHeader className="space-y-1 text-left">
+              <DialogTitle className="flex items-center gap-2 text-base font-bold">
+                <CheckCircle2 className="h-4.5 w-4.5 text-[#8ff0a4]" />
+                Verifizierungs-E-Mail gesendet
+              </DialogTitle>
+              <DialogDescription className="text-xs text-blue-100">
+                Bitte bestätigen Sie Ihr Konto, um den Checkout fortzusetzen.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="space-y-3 px-4 py-4 text-sm text-[#1a2a5e]">
+            <p>
+              Wir haben eine Aktivierungs-E-Mail an
+              <span className="ml-1 break-all font-semibold">{verificationEmailAddress || email}</span>
+              gesendet.
+            </p>
+            <p className="text-xs text-[#5f6d86]">
+              Ein weiterer Klick auf "Konto Erstellen" sendet keine zusätzliche E-Mail.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-8 w-full border-[#b6c3dd] text-xs font-semibold text-[#1a2a5e] hover:bg-[#f2f5fb]"
+              onClick={handleResendVerificationEmail}
+              disabled={resendVerificationLoading || resendCountdown > 0}
+            >
+              {resendVerificationLoading
+                ? "Wird gesendet..."
+                : resendCountdown > 0
+                  ? `Erneut senden in ${resendCountdown}s`
+                  : "Verifizierungs-E-Mail erneut senden"}
+            </Button>
+            <Button
+              type="button"
+              className="h-9 w-full bg-[#f5b800] text-sm font-bold text-[#1a2a5e] hover:bg-[#e5ab00]"
+              onClick={() => setVerificationEmailDialogOpen(false)}
+            >
+              Verstanden
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

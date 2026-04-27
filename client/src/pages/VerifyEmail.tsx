@@ -19,6 +19,8 @@ export function VerifyEmail() {
   useEffect(() => {
     const verifyEmail = async () => {
       const token = searchParams.get('token')
+      const redirectParam = searchParams.get('redirect')
+      const source = searchParams.get('source')
 
       if (!token) {
         setError('Kein Verifizierungstoken gefunden. Der Link ist möglicherweise ungültig.')
@@ -36,10 +38,34 @@ export function VerifyEmail() {
         const data = await response.json()
 
         if (response.ok && data.success) {
+          if (data.accessToken && data.refreshToken) {
+            localStorage.setItem('accessToken', data.accessToken)
+            localStorage.setItem('refreshToken', data.refreshToken)
+          }
+
+          if (data.user) {
+            const userPayload = {
+              _id: data.user._id,
+              email: data.user.email,
+              firstName: data.user.firstName,
+              lastName: data.user.lastName,
+              role: data.user.role,
+            }
+            localStorage.setItem('user', JSON.stringify(userPayload))
+          }
+
           setSuccess(true)
           toast({ title: 'Erfolg', description: data.message || 'E-Mail-Adresse erfolgreich verifiziert!' })
+
+          const hasCheckoutSource = source === 'checkout' || redirectParam?.includes('/cart')
+          const safeRedirectTarget = redirectParam && redirectParam.startsWith('/') ? redirectParam : '/login'
+
           setTimeout(() => {
-            navigate('/login')
+            if (hasCheckoutSource) {
+              window.location.href = safeRedirectTarget
+              return
+            }
+            navigate(safeRedirectTarget)
           }, 3000)
         } else {
           setError(data.message || 'Die E-Mail-Verificarung ist fehlgeschlagen. Der Token ist möglicherweise abgelaufen.')

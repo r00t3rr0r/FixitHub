@@ -122,10 +122,23 @@ export const initializeCheckout = async () => {
 // Description: Register guest user with extended profile during checkout
 // Endpoint: POST /api/checkout/register
 // Request: { email, password, firstName, lastName, phone, company, country, vatId, billingAddress, shippingAddress }
-// Response: { success: boolean, message: string, user: User, accessToken: string, refreshToken: string }
+// Response: { success: boolean, message: string, user: User, requiresEmailVerification: boolean }
 export const registerDuringCheckout = async (data: CheckoutRegistrationData) => {
   try {
     const response = await api.post('/api/checkout/register', data);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Resend checkout verification email
+// Endpoint: POST /api/checkout/resend-verification-email
+// Request: { email: string }
+// Response: { success: boolean, message: string }
+export const resendCheckoutVerificationEmail = async (email: string) => {
+  try {
+    const response = await api.post('/api/checkout/resend-verification-email', { email });
     return response.data;
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);

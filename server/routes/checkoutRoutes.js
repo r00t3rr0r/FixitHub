@@ -10,7 +10,29 @@ const EmailService = require('../services/emailService');
 const FinancialService = require('../services/financialService');
 const Service = require('../models/Service');
 const Payment = require('../models/Payment');
+const jwt = require('jsonwebtoken');
 const normalizeEmailAddress = (email) => String(email || '').trim().toLowerCase();
+
+const buildCheckoutVerificationUrl = async (user) => {
+  const verificationToken = jwt.sign(
+    { userId: user._id, email: user.email },
+    process.env.JWT_SECRET || 'default_secret',
+    { expiresIn: '7d' }
+  );
+
+  const verificationBaseUrl = await EmailService.buildSystemUrl('/verify-email');
+  const redirectPath = encodeURIComponent('/cart?checkout=1');
+  return `${verificationBaseUrl}?token=${verificationToken}&redirect=${redirectPath}&source=checkout`;
+};
+
+const sendCheckoutVerificationEmail = async (user) => {
+  const verificationUrl = await buildCheckoutVerificationUrl(user);
+  return EmailService.sendRegistrationEmail(
+    user.email,
+    user.firstName || 'Valued Customer',
+    verificationUrl
+  );
+};
 
 const sanitizeMoney = (value) => {
   const numeric = Number(value || 0);
@@ -1192,10 +1214,10 @@ router.post('/initialize', requireUser, async (req, res) => {
   }
 });
 
-// Description: Register guest user with extended profile during checkout
+// Description: Register guest user with extended profile during checkout and send verification email
 // Endpoint: POST /api/checkout/register
 // Request: { email, password, firstName, lastName, phone, company, country, vatId, billingAddress: { street, city, state, zipCode, country }, shippingAddress: { street, city, state, zipCode, country } }
-// Response: { success: boolean, message: string, user: User, accessToken: string, refreshToken: string }
+// Response: { success: boolean, message: string, user: User, requiresEmailVerification: boolean }
 router.post('/register', async (req, res) => {
   try {
     console.log('CheckoutRoutes: Guest registration during checkout');
@@ -1224,64 +1246,110 @@ router.post('/register', async (req, res) => {
       });
     }
 
+    let user;
+
     // Check if user already exists
     const existingUser = await UserService.getByEmail(normalizedEmail);
     if (existingUser) {
-      console.log('CheckoutRoutes: User already exists:', normalizedEmail);
-      return res.status(400).json({
-        success: false,
-        error: 'User with this email already exists. Please login instead.'
-      });
-    }
+      const canReuseInactiveCustomer =
+        existingUser.role === 'customer' &&
+        existingUser.status === 'inactive' &&
+        existingUser.isActive === false;
 
-    // Create user with extended profile
-    const userData = {
-      email: normalizedEmail,
-      password,
-      firstName,
-      lastName,
-      phone: phone || '',
-      role: 'customer',
-      company: company || '',
-      country: country || '',
-      vatId: vatId || '',
-      invoiceAddress: {
+      if (!canReuseInactiveCustomer) {
+        console.log('CheckoutRoutes: User already exists and cannot be reused:', normalizedEmail);
+        return res.status(400).json({
+          success: false,
+          error: 'User with this email already exists. Please login instead.'
+        });
+      }
+
+      existingUser.firstName = firstName || '';
+      existingUser.lastName = lastName || '';
+      existingUser.name = `${firstName || ''} ${lastName || ''}`.trim();
+      existingUser.phone = phone || '';
+      existingUser.company = company || '';
+      existingUser.country = country || '';
+      existingUser.vatId = vatId || '';
+      existingUser.invoiceAddress = {
         street: billingAddress?.street || '',
         city: billingAddress?.city || '',
         state: billingAddress?.state || '',
         zipCode: billingAddress?.zipCode || '',
         country: billingAddress?.country || ''
-      },
-      paymentAddress: {
+      };
+      existingUser.paymentAddress = {
         street: shippingAddress?.street || '',
         city: shippingAddress?.city || '',
         state: shippingAddress?.state || '',
         zipCode: shippingAddress?.zipCode || '',
         country: shippingAddress?.country || '',
         sameAsInvoice: false
+      };
+      existingUser.status = 'inactive';
+      existingUser.isActive = false;
+      existingUser.refreshToken = null;
+      existingUser.passwordResetToken = null;
+      existingUser.passwordResetExpires = null;
+
+      user = await UserService.setPassword(existingUser, password);
+      console.log('CheckoutRoutes: Reused inactive customer account for checkout:', normalizedEmail);
+    }
+
+    if (!user) {
+      // Create user with extended profile
+      const userData = {
+        email: normalizedEmail,
+        password,
+        firstName,
+        lastName,
+        phone: phone || '',
+        role: 'customer',
+        status: 'inactive',
+        isActive: false,
+        company: company || '',
+        country: country || '',
+        vatId: vatId || '',
+        invoiceAddress: {
+          street: billingAddress?.street || '',
+          city: billingAddress?.city || '',
+          state: billingAddress?.state || '',
+          zipCode: billingAddress?.zipCode || '',
+          country: billingAddress?.country || ''
+        },
+        paymentAddress: {
+          street: shippingAddress?.street || '',
+          city: shippingAddress?.city || '',
+          state: shippingAddress?.state || '',
+          zipCode: shippingAddress?.zipCode || '',
+          country: shippingAddress?.country || '',
+          sameAsInvoice: false
+        }
+      };
+
+      console.log('CheckoutRoutes: Creating new checkout user:', normalizedEmail);
+      user = await UserService.create(userData);
+    }
+
+    try {
+      const emailResult = await sendCheckoutVerificationEmail(user);
+
+      if (emailResult.success) {
+        console.log('CheckoutRoutes: Verification email sent successfully to:', user.email);
+      } else {
+        console.error('CheckoutRoutes: Failed to send verification email:', emailResult.error);
       }
-    };
+    } catch (emailError) {
+      console.error('CheckoutRoutes: Error sending verification email:', emailError.message);
+    }
 
-    console.log('CheckoutRoutes: Creating new user:', normalizedEmail);
-    const user = await UserService.create(userData);
-
-    // Generate tokens for auto-login
-    const { generateAccessToken, generateRefreshToken } = require('../utils/auth');
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-
-    // Update user with refresh token
-    user.refreshToken = refreshToken;
-    await user.save();
-
-    console.log('CheckoutRoutes: User created and logged in successfully:', email);
+    console.log('CheckoutRoutes: Checkout account registration completed (verification required):', email);
 
     res.json({
       success: true,
-      message: 'Account created successfully',
+      message: 'Account registration successful. Please verify your email to continue checkout.',
       user: user.toObject(),
-      accessToken,
-      refreshToken
+      requiresEmailVerification: true
     });
   } catch (error) {
     console.error('CheckoutRoutes: Error during guest registration:', error);
@@ -1577,6 +1645,61 @@ router.post('/complete', requireUser, async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message
+    });
+  }
+});
+
+// Description: Resend checkout verification email for inactive customer account
+// Endpoint: POST /api/checkout/resend-verification-email
+// Request: { email }
+// Response: { success: boolean, message: string }
+router.post('/resend-verification-email', async (req, res) => {
+  try {
+    const normalizedEmail = normalizeEmailAddress(req.body?.email);
+
+    if (!normalizedEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required'
+      });
+    }
+
+    const user = await UserService.getByEmail(normalizedEmail);
+
+    if (!user || user.role !== 'customer') {
+      return res.status(404).json({
+        success: false,
+        error: 'Customer account not found for this email.'
+      });
+    }
+
+    if (user.status === 'active' || user.isActive === true) {
+      return res.status(400).json({
+        success: false,
+        error: 'This account is already verified. Please login instead.'
+      });
+    }
+
+    const emailResult = await sendCheckoutVerificationEmail(user);
+
+    if (!emailResult?.success) {
+      return res.status(500).json({
+        success: false,
+        error: emailResult?.error || 'Failed to resend verification email.'
+      });
+    }
+
+    console.log('CheckoutRoutes: Verification email resent to:', normalizedEmail);
+
+    return res.json({
+      success: true,
+      message: 'Verification email sent again. Please check your inbox.'
+    });
+  } catch (error) {
+    console.error('CheckoutRoutes: Error resending verification email:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to resend verification email.'
     });
   }
 });
