@@ -9,9 +9,22 @@ const { generatePasswordHash } = require('../utils/password.js');
 const { generateAccessToken, generateRefreshToken } = require('../utils/auth.js');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
+const {
+  REFRESH_COOKIE_NAME,
+  setAuthCookies,
+  rotateCsrfCookie,
+  clearAuthCookies,
+} = require('../utils/authCookies');
 
 const router = express.Router();
 const normalizeEmailAddress = (email) => String(email || '').trim().toLowerCase();
+const serializeAuthUser = (user) => ({
+  _id: user._id,
+  email: user.email,
+  firstName: user.firstName,
+  lastName: user.lastName,
+  role: user.role,
+});
 
 router.post('/login', async (req, res) => {
   console.log('Login request received:', { 
@@ -111,9 +124,11 @@ router.post('/login', async (req, res) => {
       const refreshToken = generateRefreshToken(user);
 
       user.refreshToken = refreshToken;
+      user.lastLoginAt = new Date();
       await user.save();
       console.log('Tokens generated and user updated');
-      return res.json({...user.toObject(), accessToken, refreshToken});
+      setAuthCookies(res, { accessToken, refreshToken });
+      return res.json(serializeAuthUser(user));
     } else {
       console.log('Authentication failed for user:', email);
       console.log('This usually means password mismatch or inactive account');
@@ -237,17 +252,19 @@ router.post('/register', async (req, res, next) => {
 router.post('/logout', async (req, res) => {
   console.log('Logout request received:', req.body);
 
-  const { email } = req.body;
-  const normalizedEmail = normalizeEmailAddress(email);
+  const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME];
 
-  const user = await User.findOne({ email: normalizedEmail });
-  if (user) {
-    user.refreshToken = null;
-    await user.save();
-    console.log('User logged out successfully:', normalizedEmail);
+  if (refreshToken) {
+    const user = await User.findOne({ refreshToken });
+    if (user) {
+      user.refreshToken = null;
+      await user.save();
+      console.log('User logged out successfully:', user.email);
+    }
   }
 
-  res.status(200).json({ message: 'User logged out successfully.' });
+  clearAuthCookies(res);
+  res.status(200).json({ success: true, message: 'User logged out successfully.' });
 });
 
 // Verify email and activate account endpoint
@@ -339,6 +356,7 @@ router.post('/verify-email', async (req, res) => {
     const refreshToken = generateRefreshToken(user);
     user.refreshToken = refreshToken;
     await user.save();
+    setAuthCookies(res, { accessToken, refreshToken });
 
     console.log(`[${requestId}] Email verified and account activated for user: ${email} (_id=${user._id})`);
 
@@ -346,15 +364,7 @@ router.post('/verify-email', async (req, res) => {
       success: true,
       code: 'VERIFIED',
       message: 'E-Mail-Adresse erfolgreich verifiziert! Ihr Konto ist jetzt aktiv.',
-      accessToken,
-      refreshToken,
-      user: {
-        _id: user._id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role
-      }
+      user: serializeAuthUser(user)
     });
   } catch (error) {
     console.error(`[${requestId}] Unexpected error verifying email:`, error);
@@ -369,7 +379,7 @@ router.post('/verify-email', async (req, res) => {
 router.post('/refresh', async (req, res) => {
   console.log('Token refresh request received');
 
-  const { refreshToken } = req.body;
+  const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME];
 
   if (!refreshToken) {
     console.log('No refresh token provided');
@@ -412,18 +422,16 @@ router.post('/refresh', async (req, res) => {
     await user.save();
 
     console.log('New tokens generated for user:', user.email);
+    setAuthCookies(res, { accessToken: newAccessToken, refreshToken: newRefreshToken });
 
-    // Return new tokens
     return res.status(200).json({
       success: true,
-      data: {
-        accessToken: newAccessToken,
-        refreshToken: newRefreshToken
-      }
+      user: serializeAuthUser(user)
     });
 
   } catch (error) {
     console.error(`Token refresh error: ${error.message}`);
+    clearAuthCookies(res);
 
     if (error.name === 'TokenExpiredError') {
       return res.status(403).json({
@@ -441,7 +449,8 @@ router.post('/refresh', async (req, res) => {
 
 router.get('/me', requireUser, async (req, res) => {
   console.log('Get user profile request received');
-  return res.status(200).json(req.user);
+  rotateCsrfCookie(res);
+  return res.status(200).json(serializeAuthUser(req.user));
 });
 
 /**

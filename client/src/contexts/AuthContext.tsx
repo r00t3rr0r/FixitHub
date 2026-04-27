@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { login as apiLogin, register as apiRegister } from "../api/auth";
+import { login as apiLogin, register as apiRegister, getCurrentUser, logout as apiLogout } from "../api/auth";
 import { mergeGuestCartWithUserCart } from "../utils/guestCart";
 import { addToCart, addRepairOrderToCart } from "../api/shop";
 
@@ -45,9 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       const response = await apiLogin(email, password);
-      if (response?.refreshToken || response?.accessToken) {
-        localStorage.setItem("refreshToken", response.refreshToken);
-        localStorage.setItem("accessToken", response.accessToken);
+      if (response?._id) {
+        localStorage.setItem("accessToken", "cookie-authenticated");
 
         // Extract user information from response
         const userData: User = {
@@ -79,7 +78,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error('Login failed');
       }
     } catch (error: any) {
-      localStorage.removeItem("refreshToken");
       localStorage.removeItem("accessToken");
       localStorage.removeItem("user");
       setUser(null);
@@ -94,7 +92,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await apiRegister(email, password, firstName, lastName, phone);
       console.log('Registration successful:', response);
     } catch (error: any) {
-      localStorage.removeItem("refreshToken");
       localStorage.removeItem("accessToken");
       localStorage.removeItem("user");
       setUser(null);
@@ -104,17 +101,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("user");
-    setUser(null);
-    setIsAuthenticated(false);
-    window.location.reload();
+    void (async () => {
+      try {
+        await apiLogout();
+      } catch (error) {
+        console.error('AuthContext: Logout request failed:', error);
+      } finally {
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("user");
+        setUser(null);
+        setIsAuthenticated(false);
+        window.location.reload();
+      }
+    })();
   };
 
   // Initialize auth state on mount
   useEffect(() => {
-    setIsHydrated(true);
+    let isMounted = true;
+
+    const hydrateAuth = async () => {
+      try {
+        const userData = await getCurrentUser();
+        if (!isMounted) {
+          return;
+        }
+
+        localStorage.setItem('accessToken', 'cookie-authenticated');
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+        setIsAuthenticated(true);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('user');
+        setUser(null);
+        setIsAuthenticated(false);
+      } finally {
+        if (isMounted) {
+          setIsHydrated(true);
+        }
+      }
+    };
+
+    hydrateAuth();
 
     // Cross-tab logout: detect when another tab removes the access token
     const handleStorageChange = (e: StorageEvent) => {
@@ -130,13 +163,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAuthenticated(false);
       setUser(null);
       localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
     };
 
     window.addEventListener("storage", handleStorageChange);
     window.addEventListener('auth-logout', handleAuthLogout);
     return () => {
+      isMounted = false;
       window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener('auth-logout', handleAuthLogout);
     };

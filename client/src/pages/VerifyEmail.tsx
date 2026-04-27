@@ -33,6 +33,7 @@ export function VerifyEmail() {
       try {
         const response = await fetch('/api/auth/verify-email', {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token })
         })
@@ -40,11 +41,6 @@ export function VerifyEmail() {
         const data = await response.json()
 
         if (response.ok && data.success) {
-          if (data.accessToken && data.refreshToken) {
-            localStorage.setItem('accessToken', data.accessToken)
-            localStorage.setItem('refreshToken', data.refreshToken)
-          }
-
           if (data.user) {
             const userPayload = {
               _id: data.user._id,
@@ -53,6 +49,7 @@ export function VerifyEmail() {
               lastName: data.user.lastName,
               role: data.user.role,
             }
+            localStorage.setItem('accessToken', 'cookie-authenticated')
             localStorage.setItem('user', JSON.stringify(userPayload))
           }
 

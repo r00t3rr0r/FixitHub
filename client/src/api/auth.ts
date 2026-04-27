@@ -111,6 +111,15 @@ export const logout = async () => {
   }
 };
 
+export const getCurrentUser = async () => {
+  try {
+    const response = await api.get('/api/auth/me');
+    return response.data;
+  } catch (error) {
+    throw new Error(toErrorMessage(error));
+  }
+};
+
 export const forgotPassword = async (email: string) => {
   try {
     const response = await api.post('/api/auth/forgot-password', { email });
