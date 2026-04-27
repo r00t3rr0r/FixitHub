@@ -29,6 +29,7 @@ export interface DeviceTypeInput {
 export interface Manufacturer {
   _id: string;
   name: string;
+  logo?: string;
   deviceType: string;
   count: number;
 }
