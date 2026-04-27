@@ -2665,7 +2665,6 @@
   "repairRequest": {
     "title": "Reparaturanfrage stellen",
     "subtitle": "Geben Sie Details zu Ihrem Geräteproblem an und unser Team wird Ihre Anfrage prüfen",
-    "backToOrderForm": "Zurück zum Bestellformular",
     "noDeviceSelected": "Kein Gerät ausgewählt",
     "noDeviceSelectedDesc": "Bitte wählen Sie zuerst ein Gerät aus, bevor Sie eine Reparatur anfragen.",
     "selectedDevice": "Ausgewähltes Gerät",
@@ -2711,6 +2710,7 @@
     "removeImage": "Bild entfernen",
     "submitInfo": "Nach Einreichung wird unser Team Ihre Anfrage prüfen und sich innerhalb von 24 Stunden mit einem Kostenvoranschlag und der geschätzten Reparaturzeit bei Ihnen melden.",
     "cancel": "Abbrechen",
+    "backToConfig": "Zurück zum Konfigurator",
     "submitting": "Wird gesendet...",
     "submitButton": "Reparaturanfrage absenden",
     "successTitle": "Erfolg!",

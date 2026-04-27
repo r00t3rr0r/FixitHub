@@ -105,7 +105,7 @@ export function UnlockPatternInput({
           >
             <RadioGroupItem value="pattern" id="pattern-method" />
             <span className="font-medium text-sm" style={{ color: '#2d3748' }}>
-              Entsperrcode
+              Entsperrmuster
             </span>
           </label>
 
@@ -116,7 +116,7 @@ export function UnlockPatternInput({
           >
             <RadioGroupItem value="code" id="code-method" />
             <span className="font-medium text-sm" style={{ color: '#2d3748' }}>
-              PIN/Code
+              Entsperrcode
             </span>
           </label>
 
@@ -139,7 +139,7 @@ export function UnlockPatternInput({
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Lock className="h-4 w-4" style={{ color: '#1a2a5e' }} />
-              <h3 className="font-semibold text-sm" style={{ color: '#1a2a5e' }}>Entsperrcode eingeben</h3>
+              <h3 className="font-semibold text-sm" style={{ color: '#1a2a5e' }}>Entsperrmuster eingeben</h3>
             </div>
 
             {/* 3x3 Pattern Grid */}
@@ -180,7 +180,7 @@ export function UnlockPatternInput({
             {/* Pattern Sequence Display */}
             {selectedPattern.length > 0 && (
               <div className="p-2 rounded-md bg-blue-50 text-center">
-                <p className="text-xs text-gray-600 mb-0.5">Entsperrcode:</p>
+                <p className="text-xs text-gray-600 mb-0.5">Entsperrmuster:</p>
                 <p className="text-sm font-mono font-semibold break-words" style={{ color: '#1a2a5e' }}>
                   {selectedPattern.join(" → ")}
                 </p>

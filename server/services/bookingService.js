@@ -547,6 +547,10 @@ class BookingService {
       return booking;
     }
 
+    const mode = await this.getBookingShippingLabelMode();
+    if (mode === 'dummy') {
+      return this.createDummyShippingLabelForBooking(booking);
+    }
     return this.createLiveShippingLabelForBooking(booking, options);
   }
 

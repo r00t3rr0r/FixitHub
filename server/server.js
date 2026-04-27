@@ -135,6 +135,8 @@ console.log('Loading contact routes...');
 const contactRoutes = require("./routes/contactRoutes");
 console.log('Loading admin contact routes...');
 const adminContactRoutes = require("./routes/adminContactRoutes");
+console.log('Loading admin live tracking routes...');
+const adminLiveTrackingRoutes = require("./routes/adminLiveTrackingRoutes");
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -457,6 +459,11 @@ app.use('/api/admin/analytics', adminAnalyticsRoutes);
 // Seed Routes
 app.use('/api/seed', seedRoutes);
 
+// Tracking Routes
+const trackingRoutes = require('./routes/tracking');
+app.use('/api', trackingRoutes);
+// Admin Live Tracking Routes
+app.use('/api/admin/live-tracking', adminLiveTrackingRoutes);
 // Proxy Routes (mobileapi.dev)
 const proxyRoutes = require('./routes/proxyRoutes');
 app.use('/api/proxy', proxyRoutes);

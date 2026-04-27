@@ -597,6 +597,68 @@ class DatabaseService {
       throw new Error(`Failed to delete repair requests: ${error.message}`);
     }
   }
+
+  // --- Monitoring Metrics ---
+  /**
+   * Returns live database metrics for dashboard monitoring
+   * @param {string} dbName
+   * @returns {Promise<Object>}
+   */
+  async getMonitoringMetrics(dbName = null) {
+    // Only MongoDB supported here
+    const db = mongoose.connection.db;
+    const admin = db.admin();
+    // Connection count
+    const serverStatus = await admin.command({ serverStatus: 1 });
+    // Query execution times (latencyStats, if enabled)
+    let queryStats = {};
+    try {
+      queryStats = await db.command({ latencyStats: 1 });
+    } catch (e) {
+      // Not all MongoDBs support this
+      queryStats = {};
+    }
+    // Collection stats
+    const collections = await db.listCollections().toArray();
+    let totalRows = 0;
+    let tableCount = collections.length;
+    for (const col of collections) {
+      const c = db.collection(col.name);
+      totalRows += await c.countDocuments();
+    }
+    // Cache hit ratio (wiredTiger only)
+    let cacheHitRatio = null;
+    if (serverStatus.wiredTiger && serverStatus.wiredTiger.cache) {
+      const wt = serverStatus.wiredTiger.cache;
+      if (wt['cache lookups'] && wt['cache hits']) {
+        cacheHitRatio = Math.round((wt['cache hits'] / wt['cache lookups']) * 10000) / 100;
+      }
+    }
+    // Index usage (estimate)
+    let indexUsage = null;
+    if (serverStatus.indexCounters && serverStatus.indexCounters.accesses) {
+      const idx = serverStatus.indexCounters;
+      indexUsage = idx.accesses > 0 ? Math.round((idx.hits / idx.accesses) * 10000) / 100 : null;
+    }
+    // Query execution time percentiles
+    let queryP95 = null, queryP99 = null;
+    if (serverStatus.opLatencies && serverStatus.opLatencies.reads) {
+      queryP95 = serverStatus.opLatencies.reads['95thPercentileMs'] || null;
+      queryP99 = serverStatus.opLatencies.reads['99thPercentileMs'] || null;
+    }
+    // DB size
+    const stats = await db.stats();
+    return {
+      connectionCount: serverStatus.connections ? serverStatus.connections.current : null,
+      queryExecutionTimeP95: queryP95,
+      queryExecutionTimeP99: queryP99,
+      cacheHitRatio,
+      indexUsage,
+      dbSize: stats.dataSize ? Math.round(stats.dataSize / 1024 / 1024) : null,
+      tableCount,
+      rowCount: totalRows,
+    };
+  }
 }
 
 module.exports = new DatabaseService();

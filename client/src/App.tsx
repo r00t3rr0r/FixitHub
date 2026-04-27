@@ -62,6 +62,7 @@ import { DeviceManagement } from "./pages/admin/DeviceManagement"
 import { ComplaintsManagement } from "./pages/admin/ComplaintsManagement"
 import { EmailAdministration } from "./pages/admin/EmailAdministration"
 import EPartOrderManagement from "./pages/admin/EPartOrderManagement"
+import TrackingLive from "./pages/admin/TrackingLive"
 import { InspectionWorkflow } from "./pages/inspection/InspectionWorkflow"
 import { RepairRequestQuestionnaire } from "./pages/RepairRequestQuestionnaire"
 import { RepairRequestsManagement } from "./pages/admin/RepairRequestsManagement"
@@ -81,6 +82,7 @@ import Newsletter from "./pages/Newsletter"
 import { Sitemap } from "./pages/Sitemap"
 import { ShippingAndPayment } from "./pages/ShippingAndPayment"
 import { BatteryDisposal } from "./pages/BatteryDisposal"
+import { PageTracker } from "./components/PageTracker"
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -96,6 +98,7 @@ function App() {
       <ThemeProvider defaultTheme="light" storageKey="ui-theme">
         <Router>
           <ScrollToTop />
+          <PageTracker />
           {/* Public routes - accessible to all users */}
           <Routes>
             {/* Home page as default landing page for all users */}
@@ -273,6 +276,9 @@ function App() {
             </Route>
             <Route path="/admin/email" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<EmailAdministration />} />
+            </Route>
+            <Route path="/admin/live-tracking" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
+              <Route index element={<TrackingLive />} />
             </Route>
             <Route path="/admin/database" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<DatabaseManagement />} />

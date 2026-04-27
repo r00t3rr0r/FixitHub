@@ -18,9 +18,13 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "axios": "^1.15.2",
     "concurrently": "^9.1.0",
+    "dotenv": "^17.4.2",
     "hover.css": "^2.3.2",
-    "papaparse": "^5.5.3"
+    "mongoose": "^9.5.0",
+    "papaparse": "^5.5.3",
+    "ua-parser-js": "^2.0.9"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.1",

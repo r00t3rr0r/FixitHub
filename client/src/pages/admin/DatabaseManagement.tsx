@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { deleteAllBrands } from '@/api/brands';
+import { useToast } from '@/hooks/useToast';
+import { DatabaseMonitoringDashboard } from '@/components/database/DatabaseMonitoringDashboard';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,8 +14,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Database, Server, HardDrive, Activity, Download, Trash2, RefreshCw, Zap, Shield, Clock } from 'lucide-react';
-import { useToast } from '@/hooks/useToast';
-
 import {
   getDatabaseStats,
   getRecentOperations,
@@ -35,8 +36,30 @@ import {
   type DatabaseBackup,
   type DatabaseHealth
 } from '@/api/database';
-
 export function DatabaseManagement() {
+  // State für Geräte-Löschfunktion
+  const [deleteDevicesLoading, setDeleteDevicesLoading] = useState(false);
+  const [deleteDevicesPassword, setDeleteDevicesPassword] = useState('');
+  const [deleteDevicesError, setDeleteDevicesError] = useState<string | null>(null);
+
+  // Handler für das Löschen aller Brands/Device Types/Models
+  const handleDeleteAllDevices = async () => {
+    setDeleteDevicesError(null);
+    setDeleteDevicesLoading(true);
+    try {
+      const response = await deleteAllBrands(deleteDevicesPassword);
+      toast({
+        title: t('common.success'),
+        description: response.message || 'Alle Geräte-Daten wurden gelöscht.',
+      });
+      setDeleteDevicesPassword('');
+      fetchDatabaseData();
+    } catch (error: any) {
+      setDeleteDevicesError(error.message || 'Fehler beim Löschen der Geräte-Daten.');
+    } finally {
+      setDeleteDevicesLoading(false);
+    }
+  };
         const handleDeleteNotifications = async () => {
           try {
             setDeleteNotificationsLoading(true);
@@ -439,6 +462,8 @@ export function DatabaseManagement() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
+          {/* Interaktives Monitoring Dashboard */}
+          <DatabaseMonitoringDashboard databases={["fixithub"]} defaultDb="fixithub" />
           {stats && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card>
@@ -620,6 +645,63 @@ export function DatabaseManagement() {
         </TabsContent>
 
         <TabsContent value="maintenance" className="space-y-4">
+          {/* Geräte-Daten (Brands, Device Types, Models) löschen */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5" />
+                Alle Geräte-Daten löschen
+              </CardTitle>
+              <CardDescription>
+                Löscht unwiderruflich alle Brands, Device Types und Device Models. Nach dem Löschen sind alle Werte auf der /admin/devices Seite entfernt.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" disabled={deleteDevicesLoading}>
+                    {deleteDevicesLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                    Alle Geräte-Daten löschen
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Alle Geräte-Daten wirklich löschen?</AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-3 mt-4">
+                      <p>
+                        Dies löscht <b>alle Brands, Device Types und Device Models</b> aus der Datenbank. Diese Aktion kann nicht rückgängig gemacht werden.
+                      </p>
+                      <p className="font-semibold text-red-600">
+                        ⚠️ Achtung: Dies ist eine destruktive Operation. Bitte vorher ein Backup anlegen!
+                      </p>
+                      <div className="space-y-2">
+                        <Label htmlFor="deleteDevicesPassword">Admin-Passwort zur Bestätigung</Label>
+                        <Input
+                          id="deleteDevicesPassword"
+                          type="password"
+                          value={deleteDevicesPassword}
+                          onChange={e => setDeleteDevicesPassword(e.target.value)}
+                          placeholder="Admin-Passwort eingeben"
+                          disabled={deleteDevicesLoading}
+                        />
+                        {deleteDevicesError && <div className="text-red-600 text-sm">{deleteDevicesError}</div>}
+                      </div>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDeleteAllDevices}
+                      className="bg-red-600 hover:bg-red-700"
+                      disabled={deleteDevicesLoading || !deleteDevicesPassword}
+                    >
+                      Löschen
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </CardContent>
+          </Card>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                         <Card>
                           <CardHeader>

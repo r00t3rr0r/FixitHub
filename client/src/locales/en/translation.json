@@ -2658,7 +2658,6 @@
   "repairRequest": {
     "title": "Submit Repair Request",
     "subtitle": "Provide details about your device problem and our team will review your request",
-    "backToOrderForm": "Back to Order Form",
     "noDeviceSelected": "No Device Selected",
     "noDeviceSelectedDesc": "Please select a device first before requesting a repair.",
     "selectedDevice": "Selected Device",
@@ -2704,6 +2703,7 @@
     "removeImage": "Remove image",
     "submitInfo": "After submission, our team will review your request and get back to you within 24 hours with a cost estimate and estimated repair time.",
     "cancel": "Cancel",
+    "backToConfig": "Back to Config",
     "submitting": "Sending...",
     "submitButton": "Submit Repair Request",
     "successTitle": "Success!",

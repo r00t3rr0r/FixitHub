@@ -91,6 +91,41 @@ class SystemConfigService {
       // Added automatically via missingTemplates push above.
     }
 
+    if (previousVersion < 13) {
+      // Version 13: fix umlauts in 'Gast Buchung Tracking' email template.
+      const guestTrackingKey = normalizeTemplateKey({ type: 'email', name: 'Gast Buchung Tracking' });
+      const defaultGuestTemplate = defaultTemplates.find(
+        (template) => normalizeTemplateKey(template) === guestTrackingKey
+      );
+      const existingGuestTemplate = (config.notificationTemplates || []).find(
+        (template) => normalizeTemplateKey(template) === guestTrackingKey
+      );
+
+      if (defaultGuestTemplate && existingGuestTemplate) {
+        existingGuestTemplate.subject = defaultGuestTemplate.subject;
+        existingGuestTemplate.content = defaultGuestTemplate.content;
+        config.markModified('notificationTemplates');
+      }
+    }
+
+    if (previousVersion < 14) {
+      // Version 14: use trackingUrl as primary CTA variable in 'Gast Buchung Tracking'.
+      const guestTrackingKey = normalizeTemplateKey({ type: 'email', name: 'Gast Buchung Tracking' });
+      const defaultGuestTemplate = defaultTemplates.find(
+        (template) => normalizeTemplateKey(template) === guestTrackingKey
+      );
+      const existingGuestTemplate = (config.notificationTemplates || []).find(
+        (template) => normalizeTemplateKey(template) === guestTrackingKey
+      );
+
+      if (defaultGuestTemplate && existingGuestTemplate) {
+        existingGuestTemplate.subject = defaultGuestTemplate.subject;
+        existingGuestTemplate.content = defaultGuestTemplate.content;
+        existingGuestTemplate.variables = defaultGuestTemplate.variables;
+        config.markModified('notificationTemplates');
+      }
+    }
+
     if (previousVersion < 12) {
       // Version 12: show device model image (with placeholder fallback) in order-related and booking pickup templates.
       const managedTemplateNames = [

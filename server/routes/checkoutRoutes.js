@@ -1890,6 +1890,7 @@ router.post('/guest-complete', async (req, res) => {
         bookingStatus: booking?.status || 'pending',
         deviceBrand: firstRepairOrder?.deviceBrand || '',
         deviceModel: firstRepairOrder?.deviceModel || '',
+        trackingUrl: bookingTrackingPath,
         bookingUrl: bookingTrackingPath,
         shippingLabelUrl: booking?.shippingLabelUrl ? bookingTrackingPath : '',
         supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',

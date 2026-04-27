@@ -3115,5 +3115,126 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1777117762689-gzdhz6m2j",
+    "timestamp": "2026-04-25T11:49:22.689Z",
+    "to": "christenne@gmx.de",
+    "templateName": "Gast Buchung Tracking",
+    "subject": "Buchung BKG-2026-0001 bestaetigt – Tracking-Link zu Ihrer Gastbestellung",
+    "messageId": "<b9ceedb4-0ba2-59fb-affb-4eac81986778@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1977,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1777118851630-hxrcm0m8h",
+    "timestamp": "2026-04-25T12:07:31.630Z",
+    "to": "dieter.senf@icloud.com",
+    "templateName": "Gast Buchung Tracking",
+    "subject": "Buchung BKG-2026-0002 bestätigt – Tracking-Link zu Ihrer Gastbestellung",
+    "messageId": "<5eaa672e-7958-fe0a-cacb-f96b4d2ab89f@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2643,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1777119432762-psgw29fxo",
+    "timestamp": "2026-04-25T12:17:12.762Z",
+    "to": "r00t3rr0r@icloud.com",
+    "templateName": "Gast Buchung Tracking",
+    "subject": "Buchung BKG-2026-0003 bestätigt – Tracking-Link zu Ihrer Gastbestellung",
+    "messageId": "<e1532469-b78a-e9a6-1a64-8540c3e4acff@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1526,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1777120940214-73bvhw6c0",
+    "timestamp": "2026-04-25T12:42:20.214Z",
+    "to": "guest.tracking.test+20260425@example.com",
+    "templateName": "Gast Buchung Tracking",
+    "subject": "Buchung BKG-2026-0004 bestätigt – Tracking-Link zu Ihrer Gastbestellung",
+    "messageId": "<1af12285-d9aa-b155-4c79-5ef20c578acd@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2077,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "trackingUrl",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

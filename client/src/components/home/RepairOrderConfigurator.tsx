@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
@@ -30,7 +31,8 @@ import {
   Droplets,
   Plus,
   X,
-  Info
+  Info,
+  Search
 } from 'lucide-react';
 import {
   getDeviceTypes,
@@ -180,6 +182,9 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   const [modelSearchQuery, setModelSearchQuery] = useState('');
   const [filteredModels, setFilteredModels] = useState<DeviceModel[]>([]);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
+  const [showMobileModelModal, setShowMobileModelModal] = useState(false);
+  const [isMobileSearchActive, setIsMobileSearchActive] = useState(false);
+  const modelInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (previousStepRef.current === currentStep) {
@@ -217,6 +222,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
         if (navDeviceSelectionJson) {
           try {
             const navDeviceSelection = JSON.parse(navDeviceSelectionJson);
+            const requestedConfiguratorStep = sessionStorage.getItem('navConfiguratorStep') === '3' ? 3 : 2;
             console.log('Device selected from navigation:', navDeviceSelection);
 
             // Find the matching device type
@@ -261,6 +267,9 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 if (matchedModel) {
                   setSelectedModel(matchedModel);
                   setModelSearchQuery(matchedModel.name);
+                  if (requestedConfiguratorStep === 3) {
+                    setCurrentStep(3);
+                  }
                   
                   toast({
                     title: t('common.success'),
@@ -325,6 +334,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
             // Clear the session storage
             sessionStorage.removeItem('navDeviceSelection');
+            sessionStorage.removeItem('navConfiguratorStep');
           } catch (error) {
             console.error('Error processing nav device selection:', error);
           }
@@ -352,6 +362,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
       try {
         const navDeviceSelection = JSON.parse(navDeviceSelectionJson);
+        const requestedConfiguratorStep = sessionStorage.getItem('navConfiguratorStep') === '3' ? 3 : 2;
         console.log('Device selected from navigation (event):', navDeviceSelection);
 
         // Get current device types or wait for them to load
@@ -404,6 +415,9 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 if (matchingModel) {
                   setSelectedModel(matchingModel);
                   setModelSearchQuery(matchingModel.name);
+                  if (requestedConfiguratorStep === 3) {
+                    setCurrentStep(3);
+                  }
                   toast({
                     title: t('home.configurator.toasts.deviceSelectedTitle'),
                     description: `${matchingManufacturer.name} ${matchingModel.name}`,
@@ -442,6 +456,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
         // Clear the sessionStorage item after processing
         sessionStorage.removeItem('navDeviceSelection');
+        sessionStorage.removeItem('navConfiguratorStep');
       } catch (error) {
         console.error('Error processing navigation device selection:', error);
       }
@@ -518,18 +533,85 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     setFilteredModels(filtered);
   }, [modelSearchQuery, models]);
 
+  // Detect if mobile modal should be used (small screens or horizontal full-width layout)
+  const [useMobileModal, setUseMobileModal] = useState(false);
+  
+  useEffect(() => {
+    const checkScreenSize = () => {
+      // Use mobile modal for:
+      // 1. Very small screens (height < 600px or width < 480px)
+      // 2. Tablets and smaller devices where configurator takes full width (width < 1024px)
+      const shouldUseMobileModal = 
+        window.innerHeight < 600 || 
+        window.innerWidth < 480 ||
+        window.innerWidth < 1024;
+      setUseMobileModal(shouldUseMobileModal);
+    };
+    
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  // Prevent body scroll when mobile modal is open
+  useEffect(() => {
+    if (showMobileModelModal) {
+      // Save current scroll position
+      const scrollY = window.scrollY;
+      
+      // Prevent body scroll
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      
+      return () => {
+        // Restore body scroll
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        
+        // Restore scroll position
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [showMobileModelModal]);
+
+  // Handle opening model selection on mobile
+  const handleMobileModelClick = () => {
+    if (useMobileModal) {
+      setShowMobileModelModal(true);
+      setIsMobileSearchActive(false);
+    } else {
+      setShowModelDropdown(true);
+    }
+  };
+
+  // Handle closing mobile modal
+  const closeMobileModelModal = () => {
+    setShowMobileModelModal(false);
+    setIsMobileSearchActive(false);
+    setModelSearchQuery('');
+  };
+
   // Handle model selection
   // Erweiterte Model-Auswahl mit Bild- und Specs-Check
   const handleModelSelect = async (model: DeviceModel) => {
     // Nur wenn kein Bild und keine Images vorhanden sind, hole Daten von mobileapi.dev
     if (model.image && model.image.trim() !== '' && Array.isArray(model.images) && model.images.length > 0) {
       setSelectedModel(model);
+      setModelSearchQuery(model.name);
       setShowModelDropdown(false);
+      setShowMobileModelModal(false);
+      setIsMobileSearchActive(false);
       return;
     }
     try {
       setModelSearchQuery(model.name);
       setShowModelDropdown(false);
+      setShowMobileModelModal(false);
+      setIsMobileSearchActive(false);
       // Proxy-URL nutzen, damit kein CORS-Problem entsteht
       const searchUrl = `/api/proxy/mobileapi?name=${encodeURIComponent(model.name)}&page=1`;
       const response = await fetch(searchUrl, { headers: { 'Content-Type': 'application/json' } });
@@ -979,7 +1061,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           name: selectedModel.name,
           deviceType: selectedDeviceType?.name || '',
           manufacturer: manufacturers.find(m => m._id === selectedBrand)?.name || '',
-          manufacturerId: selectedBrand
+          manufacturerId: selectedBrand,
+          image: selectedModel.image
         }
       }
     });
@@ -1191,6 +1274,13 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                     <SelectContent>
                       {manufacturers.map((manufacturer) => (
                         <SelectItem key={manufacturer._id} value={manufacturer._id}>
+                          {manufacturer.logo && (
+                            <img
+                              src={manufacturer.logo}
+                              alt={manufacturer.name + ' Logo'}
+                              style={{ width: 22, height: 22, objectFit: 'contain', display: 'inline-block', marginRight: 6, marginLeft: 0, verticalAlign: 'middle' }}
+                            />
+                          )}
                           {manufacturer.name}
                         </SelectItem>
                       ))}
@@ -1199,30 +1289,58 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 </div>
 
                 <div className="config-select-wrapper autocomplete-wrapper">
-                  <label htmlFor="modelInput">{t('home.configurator.searchModel')}</label>
-                  <Input
-                    type="text"
-                    className="config-input"
-                    id="modelInput"
-                    placeholder={loadingModels ? t('home.configurator.loadingModels') : t('home.configurator.modelSearchPlaceholder')}
-                    value={modelSearchQuery}
-                    onChange={(e) => setModelSearchQuery(e.target.value)}
-                    onFocus={() => setShowModelDropdown(true)}
-                    autoComplete="off"
-                    disabled={!selectedBrand || loadingModels}
-                  />
-                  {showModelDropdown && filteredModels.length > 0 && (
-                    <div className="autocomplete-dropdown open">
-                      {filteredModels.map((model) => (
-                        <div
-                          key={model._id}
-                          className="autocomplete-item"
-                          onClick={() => handleModelSelect(model)}
-                        >
-                          {model.name}
-                        </div>
-                      ))}
+                  <label htmlFor="modelInput">{t('home.configurator.searchModel', 'Modell suchen')}</label>
+                  {useMobileModal ? (
+                    <div 
+                      className="config-input mobile-model-trigger"
+                      onClick={handleMobileModelClick}
+                      style={{ 
+                        cursor: !selectedBrand || loadingModels ? 'not-allowed' : 'pointer',
+                        opacity: !selectedBrand || loadingModels ? 0.6 : 1
+                      }}
+                    >
+                      {selectedModel ? selectedModel.name : (loadingModels ? t('home.deviceSelection.loadingModels') : t('home.configurator.modelSearchPlaceholder', 'z.B. iPhone 15 Pro...'))}
+                      <Search className="mobile-search-icon" style={{ width: 16, height: 16, position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
                     </div>
+                  ) : (
+                    <>
+                      <Input
+                        ref={modelInputRef}
+                        type="text"
+                        className="config-input"
+                        id="modelInput"
+                        placeholder={loadingModels ? t('home.deviceSelection.loadingModels') : t('home.configurator.modelSearchPlaceholder', 'z.B. iPhone 15 Pro...')}
+                        value={modelSearchQuery}
+                        onChange={(e) => setModelSearchQuery(e.target.value)}
+                        onFocus={() => setShowModelDropdown(true)}
+                        autoComplete="off"
+                        inputMode="search"
+                        disabled={!selectedBrand || loadingModels}
+                      />
+                      {showModelDropdown && filteredModels.length > 0 && (
+                        <div className="autocomplete-dropdown open">
+                          {filteredModels.map((model) => (
+                            <div
+                              key={model._id}
+                              className="autocomplete-item"
+                              onClick={() => handleModelSelect(model)}
+                            >
+                              <div className="flex items-center gap-2">
+                                {model.image && (
+                                  <img 
+                                    src={model.image}
+                                    alt={model.name} 
+                                    className="w-6 h-6 object-contain"
+                                    onError={(e) => e.currentTarget.style.display = 'none'}
+                                  />
+                                )}
+                                <span>{model.name}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -2209,6 +2327,105 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     </div>
 
     <VorabdiagnoseModal isOpen={showDiagnoseModal} onClose={() => setShowDiagnoseModal(false)} />
+    
+    {/* Mobile Model Selection Modal for Mobile & Tablet Devices - Rendered as Portal */}
+    {showMobileModelModal && useMobileModal && createPortal(
+      <div 
+        className="mobile-model-modal-overlay" 
+        onClick={closeMobileModelModal}
+        onTouchMove={(e) => e.preventDefault()}
+      >
+        <div 
+          className="mobile-model-modal" 
+          onClick={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+        >
+          <div className="mobile-model-modal-header">
+            <h3>{t('home.configurator.searchModel', 'Modell suchen')}</h3>
+            <button onClick={closeMobileModelModal} className="mobile-modal-close">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          <div className="mobile-model-modal-body">
+            {/* Search Toggle */}
+            {!isMobileSearchActive && (
+              <div className="mobile-model-info">
+                <Info className="w-4 h-4" />
+                <span>{t('home.configurator.browseOrSearch', 'Durchsuchen oder tippen zum Suchen')}</span>
+              </div>
+            )}
+            
+            {/* Search Input - Only show when active */}
+            {isMobileSearchActive && (
+              <div className="mobile-model-search-wrapper">
+                <Input
+                  ref={modelInputRef}
+                  type="text"
+                  className="mobile-model-search-input"
+                  placeholder={t('home.configurator.modelSearchPlaceholder', 'z.B. iPhone 15 Pro...')}
+                  value={modelSearchQuery}
+                  onChange={(e) => setModelSearchQuery(e.target.value)}
+                  autoFocus
+                  inputMode="search"
+                />
+                <button 
+                  onClick={() => {
+                    setIsMobileSearchActive(false);
+                    setModelSearchQuery('');
+                  }}
+                  className="mobile-search-cancel"
+                >
+                  {t('common.cancel')}
+                </button>
+              </div>
+            )}
+            
+            {/* Toggle Search Button */}
+            {!isMobileSearchActive && (
+              <button 
+                onClick={() => setIsMobileSearchActive(true)}
+                className="mobile-search-toggle-btn"
+              >
+                <Search className="w-4 h-4" />
+                {t('home.configurator.typeToSearch', 'Tippen zum Suchen')}
+              </button>
+            )}
+            
+            {/* Model List */}
+            <div className="mobile-model-list">
+              {filteredModels.length > 0 ? (
+                filteredModels.map((model) => (
+                  <div
+                    key={model._id}
+                    className="mobile-model-item"
+                    onClick={() => handleModelSelect(model)}
+                  >
+                    <div className="mobile-model-item-content">
+                      {model.image && (
+                        <img 
+                          src={model.image}
+                          alt={model.name} 
+                          className="mobile-model-image"
+                          onError={(e) => e.currentTarget.style.display = 'none'}
+                        />
+                      )}
+                      <span className="mobile-model-name">{model.name}</span>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                  </div>
+                ))
+              ) : (
+                <div className="mobile-model-empty">
+                  {loadingModels ? t('home.deviceSelection.loadingModels') : t('home.deviceSelection.noModelsFound')}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
     </>
   );
 }

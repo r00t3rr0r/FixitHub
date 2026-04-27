@@ -46,6 +46,7 @@
     "@types/leaflet": "^1.9.21",
     "@types/react-beautiful-dnd": "^13.1.8",
     "axios": "^1.7.8",
+    "chart.js": "^4.5.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
