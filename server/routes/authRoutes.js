@@ -307,13 +307,25 @@ router.post('/verify-email', async (req, res) => {
     // Activate account
     user.status = 'active';
     user.isActive = true;
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    user.refreshToken = refreshToken;
     await user.save();
 
     console.log('Email verified and account activated for user:', email);
 
     return res.status(200).json({
       success: true,
-      message: 'Email verified successfully! Your account is now active. You can log in.'
+      message: 'Email verified successfully! Your account is now active.',
+      accessToken,
+      refreshToken,
+      user: {
+        _id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role
+      }
     });
   } catch (error) {
     console.error('Error verifying email:', error);

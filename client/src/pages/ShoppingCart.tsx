@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -121,6 +121,7 @@ const groupRepairOrders = (repairOrders?: any[]) => {
 
 export function ShoppingCartPage() {
   const { t } = useTranslation()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [cart, setCart] = useState<Cart | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null)
@@ -158,6 +159,18 @@ export function ShoppingCartPage() {
 
     fetchCart()
   }, [toast, t])
+
+  useEffect(() => {
+    if (searchParams.get('checkout') !== '1') {
+      return
+    }
+
+    setCheckoutDialogOpen(true)
+
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('checkout')
+    setSearchParams(nextParams, { replace: true })
+  }, [searchParams, setSearchParams])
 
   const isUserAuthenticated = () => Boolean(localStorage.getItem("accessToken"))
 

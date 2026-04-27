@@ -3236,5 +3236,80 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1777281583741-74kl7t786",
+    "timestamp": "2026-04-27T09:19:43.741Z",
+    "to": "dieter.senf@icloud.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei McRepair.de - bitte Konto aktivieren",
+    "messageId": "<a79fc38a-4507-520b-bac8-8a4a06186021@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1516,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1777281595821-28m19tje2",
+    "timestamp": "2026-04-27T09:19:55.821Z",
+    "to": "dieter.senf@icloud.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei McRepair.de - bitte Konto aktivieren",
+    "messageId": "<07e58a2d-48a1-5a9c-22da-35beab4afa87@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1019,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1777282872345-1gt9i90i2",
+    "timestamp": "2026-04-27T09:41:12.345Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei McRepair.de - bitte Konto aktivieren",
+    "messageId": "<fa567f79-3fdc-52d8-f69b-aef66347ce4e@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1340,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]
