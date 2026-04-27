@@ -7,6 +7,8 @@ import { Footer } from '@/components/Footer'
 import { CheckCircle, AlertCircle, Loader } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { mergeGuestCartWithUserCart } from '@/utils/guestCart'
+import { addToCart, addRepairOrderToCart } from '@/api/shop'
 
 export function VerifyEmail() {
   const [searchParams] = useSearchParams()
@@ -52,6 +54,16 @@ export function VerifyEmail() {
               role: data.user.role,
             }
             localStorage.setItem('user', JSON.stringify(userPayload))
+          }
+
+          // Merge guest cart (localStorage) into the freshly activated user's server cart.
+          // Without this, services chosen before registration are lost after verification.
+          try {
+            await mergeGuestCartWithUserCart({ addToCart, addRepairOrderToCart })
+            console.log('VerifyEmail: Guest cart merged into user cart')
+          } catch (mergeError) {
+            console.error('VerifyEmail: Failed to merge guest cart:', mergeError)
+            // Non-fatal: continue with verification success flow
           }
 
           setSuccess(true)
