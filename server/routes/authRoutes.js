@@ -8,6 +8,7 @@ const User = require('../models/User.js');
 const { generatePasswordHash } = require('../utils/password.js');
 const { generateAccessToken, generateRefreshToken } = require('../utils/auth.js');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 
 const router = express.Router();
 const normalizeEmailAddress = (email) => String(email || '').trim().toLowerCase();
@@ -251,15 +252,19 @@ router.post('/logout', async (req, res) => {
 
 // Verify email and activate account endpoint
 router.post('/verify-email', async (req, res) => {
-  console.log('Verify email request received');
+  const requestId = `verify-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  const dbName = mongoose?.connection?.name || mongoose?.connection?.db?.databaseName || 'unknown';
+  console.log(`[${requestId}] Verify email request received (env=${process.env.NODE_ENV || 'unknown'}, db=${dbName})`);
 
   try {
     const { token } = req.body;
 
     if (!token) {
+      console.warn(`[${requestId}] Missing verification token in request body`);
       return res.status(400).json({
         success: false,
-        message: 'Verification token is required'
+        code: 'TOKEN_MISSING',
+        message: 'Der Verifizierungslink ist unvollständig. Bitte verwenden Sie den Link aus Ihrer E-Mail.'
       });
     }
 
@@ -270,37 +275,60 @@ router.post('/verify-email', async (req, res) => {
         process.env.JWT_SECRET || 'default_secret'
       );
     } catch (verifyError) {
-      console.error('Token verification failed:', verifyError.message);
+      console.error(`[${requestId}] Token verification failed (${verifyError.name}): ${verifyError.message}`);
+      const isExpired = verifyError.name === 'TokenExpiredError';
       return res.status(400).json({
         success: false,
-        message: 'Verification token is invalid or has expired. Please register again.'
+        code: isExpired ? 'TOKEN_EXPIRED' : 'TOKEN_INVALID',
+        message: isExpired
+          ? 'Dieser Verifizierungslink ist abgelaufen. Bitte registrieren Sie sich erneut, um einen neuen Link zu erhalten.'
+          : 'Dieser Verifizierungslink ist ungültig. Bitte registrieren Sie sich erneut.'
       });
     }
 
     const { userId, email } = decoded;
+    console.log(`[${requestId}] Token decoded successfully: userId=${userId}, email=${email}`);
 
-    // Find user and verify token
-    const user = await User.findById(userId);
+    // Find user by id; fall back to email lookup in case the _id changed (e.g., DB reset/reseed)
+    let user = await User.findById(userId);
+    let lookupSource = 'id';
+
+    if (!user && email) {
+      user = await User.findOne({ email: String(email).trim().toLowerCase() });
+      if (user) {
+        lookupSource = 'email-fallback';
+        console.warn(`[${requestId}] User not found by id ${userId}, but matched by email ${email} -> _id=${user._id}. Likely DB reset or id rotation.`);
+      }
+    }
 
     if (!user) {
+      console.error(`[${requestId}] No user found for verification (userId=${userId}, email=${email}, db=${dbName}). Possible causes: database was reset/reseeded, account was deleted, or token was issued against a different environment.`);
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        code: 'USER_NOT_FOUND',
+        message: 'Zu diesem Verifizierungslink wurde kein Konto gefunden. Möglicherweise wurde Ihr Konto gelöscht oder der Link gehört zu einer anderen Umgebung. Bitte registrieren Sie sich erneut.',
+        actions: { canRegisterAgain: true }
       });
     }
 
+    console.log(`[${requestId}] User resolved via ${lookupSource}: _id=${user._id}, email=${user.email}, status=${user.status}, isActive=${user.isActive}`);
+
     if (user.email !== email) {
+      console.warn(`[${requestId}] Email mismatch: token.email=${email} vs user.email=${user.email}`);
       return res.status(400).json({
         success: false,
-        message: 'Email mismatch. Token is invalid.'
+        code: 'EMAIL_MISMATCH',
+        message: 'Die E-Mail-Adresse im Verifizierungslink stimmt nicht mit dem Konto überein. Bitte registrieren Sie sich erneut.'
       });
     }
 
     // Repeated verification attempts should return a failure message
     if (user.status === 'active') {
+      console.log(`[${requestId}] Account already active for ${email}`);
       return res.status(400).json({
         success: false,
-        message: 'Email has already been verified.'
+        code: 'ALREADY_VERIFIED',
+        message: 'Ihre E-Mail-Adresse wurde bereits verifiziert. Sie können sich anmelden.'
       });
     }
 
@@ -312,11 +340,12 @@ router.post('/verify-email', async (req, res) => {
     user.refreshToken = refreshToken;
     await user.save();
 
-    console.log('Email verified and account activated for user:', email);
+    console.log(`[${requestId}] Email verified and account activated for user: ${email} (_id=${user._id})`);
 
     return res.status(200).json({
       success: true,
-      message: 'Email verified successfully! Your account is now active.',
+      code: 'VERIFIED',
+      message: 'E-Mail-Adresse erfolgreich verifiziert! Ihr Konto ist jetzt aktiv.',
       accessToken,
       refreshToken,
       user: {
@@ -328,10 +357,11 @@ router.post('/verify-email', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error verifying email:', error);
+    console.error(`[${requestId}] Unexpected error verifying email:`, error);
     return res.status(500).json({
       success: false,
-      message: error.message || 'Failed to verify email'
+      code: 'INTERNAL_ERROR',
+      message: 'Bei der Verifizierung ist ein unerwarteter Fehler aufgetreten. Bitte versuchen Sie es später erneut.'
     });
   }
 });
