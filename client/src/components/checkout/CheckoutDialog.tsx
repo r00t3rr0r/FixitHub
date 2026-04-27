@@ -1567,7 +1567,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                             id="accept-terms"
                             checked={acceptTerms}
                             onCheckedChange={(checked) => setAcceptTerms(checked === true)}
-                            className="mt-0.5"
+                            className="mt-0.5 h-5 w-5 border-2 border-[#1a2a5e] bg-white ring-2 ring-[#2a3f7e] ring-offset-1 ring-offset-white shadow-sm data-[state=checked]:border-[#0f1d45] data-[state=checked]:bg-[#1a2a5e] data-[state=checked]:text-white focus-visible:ring-[#1a2a5e]"
                           />
                           <Label htmlFor="accept-terms" className="cursor-pointer text-xs leading-snug text-[#4b5b79]">
                             {t("checkout.acceptTermsPrefix")}{" "}

@@ -62,6 +62,34 @@ const extractTokensFromRefreshResponse = (responseData: any) => {
   };
 };
 
+// Shared refresh promise — prevents parallel refresh calls when multiple requests get 401 simultaneously
+let pendingRefresh: Promise<string> | null = null;
+
+const doTokenRefresh = async (): Promise<string> => {
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken || refreshToken === 'null' || refreshToken === 'undefined') {
+    throw new Error('No refresh token available');
+  }
+
+  console.log('[API] Sending refresh token request');
+  const response = await localApi.post(`/api/auth/refresh`, { refreshToken });
+
+  if (response.status >= 400) {
+    throw new Error(`Token refresh failed: ${response.status}`);
+  }
+
+  const { accessToken: newAccessToken, refreshToken: newRefreshToken } = extractTokensFromRefreshResponse(response.data);
+
+  if (!newAccessToken || !newRefreshToken) {
+    throw new Error('Invalid response from refresh token endpoint');
+  }
+
+  localStorage.setItem('accessToken', newAccessToken);
+  localStorage.setItem('refreshToken', newRefreshToken);
+  console.log('[API] Tokens refreshed successfully');
+  return newAccessToken;
+};
+
 const setupInterceptors = (apiInstance: typeof axios) => {
   apiInstance.interceptors.request.use(
     (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
@@ -105,36 +133,14 @@ const setupInterceptors = (apiInstance: typeof axios) => {
         originalRequest._retry = true;
 
         try {
-          const refreshToken = localStorage.getItem('refreshToken');
-          if (!refreshToken || refreshToken === 'null' || refreshToken === 'undefined') {
-            throw new Error('No refresh token available');
+          // Reuse an in-flight refresh if one is already running (prevents parallel token rotations)
+          if (!pendingRefresh) {
+            pendingRefresh = doTokenRefresh().finally(() => { pendingRefresh = null; });
           }
-
-          console.log('[API] Sending refresh token request');
-          const response = await localApi.post(`/api/auth/refresh`, {
-            refreshToken,
-          });
-
-          if (response.status >= 400) {
-            throw new Error(`Token refresh failed: ${response.status}`);
-          }
-
-          const { accessToken: newAccessToken, refreshToken: newRefreshToken } = extractTokensFromRefreshResponse(response.data);
-
-          if (!newAccessToken || !newRefreshToken) {
-            throw new Error('Invalid response from refresh token endpoint');
-          }
-
-          localStorage.setItem('accessToken', newAccessToken);
-          localStorage.setItem('refreshToken', newRefreshToken);
-          console.log('[API] Tokens refreshed successfully');
+          const newAccessToken = await pendingRefresh;
 
           if (originalRequest.headers) {
             originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-          }
-
-          if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${localStorage.getItem('accessToken')}`;
           }
           console.log(`[API] Retrying original request: ${originalRequest.url}`);
           return getApiInstance(originalRequest.url || '')(originalRequest);
