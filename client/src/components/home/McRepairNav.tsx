@@ -91,6 +91,7 @@ export function McRepairNav() {
   const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
   const mobileMenuCloseTimerRef = useRef<NodeJS.Timeout | null>(null);
   const scrollLockTopRef = useRef(0);
+  const skipNextScrollRestoreRef = useRef(false);
   const navInnerRef = useRef<HTMLDivElement | null>(null);
   const navLogoRef = useRef<HTMLAnchorElement | null>(null);
   const navLinksRef = useRef<HTMLDivElement | null>(null);
@@ -437,6 +438,14 @@ export function McRepairNav() {
 
   // Prevent background scroll when mobile menu is open/closing (mobile-safe, incl. iOS)
   useEffect(() => {
+    // On route changes, make sure mobile menu state is reset and do not restore old scroll position.
+    skipNextScrollRestoreRef.current = true;
+    setMobileMenuOpen(false);
+    setMobileMenuClosing(false);
+    setMobileCategoryOpen(null);
+  }, [location.pathname, location.search, location.hash]);
+
+  useEffect(() => {
     if (mobileMenuOpen || mobileMenuClosing) {
       scrollLockTopRef.current = window.scrollY;
       document.documentElement.style.overflow = 'hidden';
@@ -457,10 +466,11 @@ export function McRepairNav() {
       document.body.style.width = '';
       document.body.style.overflow = '';
       document.body.classList.remove('mobile-menu-open');
-      if (top) {
+      if (top && !skipNextScrollRestoreRef.current) {
         const restoredY = Math.abs(parseInt(top, 10)) || scrollLockTopRef.current;
         window.scrollTo(0, restoredY);
       }
+      skipNextScrollRestoreRef.current = false;
       setMobileCategoryOpen(null);
     }
 
