@@ -2449,7 +2449,17 @@
     "paymentPending": "Zahlung ausstehend",
     "processing": "In Bearbeitung",
     "completed": "Abgeschlossen",
-    "cancelled": "Storniert"
+    "cancelled": "Storniert",
+    "in-progress": "In Bearbeitung",
+    "quality-check": "Qualitätsprüfung",
+    "ready-for-pickup": "Abholbereit",
+    "label-created": "Label erstellt",
+    "in-transit": "In Versand",
+    "delivered": "Geliefert",
+    "failed": "Fehlgeschlagen",
+    "unpaid": "Unbezahlt",
+    "partially-paid": "Teilweise bezahlt",
+    "paid": "Bezahlt"
   },
   "orderSummary": {
     "orderNumber": "Auftragsnummer",

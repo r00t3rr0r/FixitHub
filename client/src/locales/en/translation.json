@@ -2442,7 +2442,17 @@
     "paymentPending": "Payment Pending",
     "processing": "Processing",
     "completed": "Completed",
-    "cancelled": "Cancelled"
+    "cancelled": "Cancelled",
+    "in-progress": "In Progress",
+    "quality-check": "Quality Check",
+    "ready-for-pickup": "Ready for Pickup",
+    "label-created": "Label Created",
+    "in-transit": "In Transit",
+    "delivered": "Delivered",
+    "failed": "Failed",
+    "unpaid": "Unpaid",
+    "partially-paid": "Partially Paid",
+    "paid": "Paid"
   },
   "orderSummary": {
     "orderNumber": "Order Number",
