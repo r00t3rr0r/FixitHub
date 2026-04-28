@@ -193,6 +193,38 @@ const isAuthenticated = () => {
   return !!localStorage.getItem('accessToken');
 };
 
+// Helper function to calculate cart totals correctly (Tax 19% on subtotal after discount)
+const calculateCartTotals = (subtotal: number, discount: number = 0) => {
+  const subtotalAfterDiscount = Math.max(0, subtotal - discount);
+  const tax = Number((subtotalAfterDiscount * 0.19).toFixed(2));
+  const total = Number((subtotalAfterDiscount + tax).toFixed(2));
+  return { subtotal: Number(subtotal.toFixed(2)), tax, total, discount };
+};
+
+// Helper function to create guest cart object with correct calculations
+const createGuestCartObject = (guestCart: GuestCart, discount: number = 0) => {
+  const { subtotal, tax, total } = calculateCartTotals(guestCart.totalCost, discount);
+  return {
+    _id: 'guest-cart',
+    user: 'guest',
+    items: guestCart.items.map(item => ({
+      _id: item._id,
+      productId: item.product,
+      quantity: item.quantity,
+      price: item.product.price
+    })),
+    repairOrders: guestCart.repairOrders,
+    subtotal,
+    tax,
+    total,
+    totalItems: guestCart.itemCount,
+    discount: discount > 0 ? discount : undefined,
+    promoCode: undefined,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+};
+
 // Description: Get user's cart (handles both authenticated and guest users)
 // Endpoint: GET /api/cart (authenticated) or localStorage (guest)
 // Request: {}
@@ -210,23 +242,7 @@ export const getCart = async () => {
       const guestCart = getGuestCartFromStorage();
       return {
         success: true,
-        cart: {
-          _id: 'guest-cart',
-          user: 'guest',
-          items: guestCart.items.map(item => ({
-            _id: item._id,
-            productId: item.product,
-            quantity: item.quantity,
-            price: item.product.price
-          })),
-          repairOrders: guestCart.repairOrders,
-          subtotal: guestCart.totalCost,
-          tax: 0,
-          total: guestCart.totalCost,
-          totalItems: guestCart.itemCount,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
+        cart: createGuestCartObject(guestCart)
       };
     }
   } catch (error) {
@@ -255,23 +271,7 @@ export const addToCart = async (data: { productId: string; quantity: number; pro
       return {
         success: true,
         message: 'Item added to cart successfully',
-        cart: {
-          _id: 'guest-cart',
-          user: 'guest',
-          items: guestCart.items.map(item => ({
-            _id: item._id,
-            productId: item.product,
-            quantity: item.quantity,
-            price: item.product.price
-          })),
-          repairOrders: guestCart.repairOrders,
-          subtotal: guestCart.totalCost,
-          tax: 0,
-          total: guestCart.totalCost,
-          totalItems: guestCart.itemCount,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
+        cart: createGuestCartObject(guestCart)
       };
     }
   } catch (error) {
@@ -294,23 +294,7 @@ export const updateCartItem = async (productId: string, quantity: number) => {
       return {
         success: true,
         message: 'Cart updated successfully',
-        cart: {
-          _id: 'guest-cart',
-          user: 'guest',
-          items: guestCart.items.map(item => ({
-            _id: item._id,
-            productId: item.product,
-            quantity: item.quantity,
-            price: item.product.price
-          })),
-          repairOrders: guestCart.repairOrders,
-          subtotal: guestCart.totalCost,
-          tax: 0,
-          total: guestCart.totalCost,
-          totalItems: guestCart.itemCount,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
+        cart: createGuestCartObject(guestCart)
       };
     }
   } catch (error) {
@@ -333,23 +317,7 @@ export const removeFromCart = async (productId: string) => {
       return {
         success: true,
         message: 'Item removed from cart',
-        cart: {
-          _id: 'guest-cart',
-          user: 'guest',
-          items: guestCart.items.map(item => ({
-            _id: item._id,
-            productId: item.product,
-            quantity: item.quantity,
-            price: item.product.price
-          })),
-          repairOrders: guestCart.repairOrders,
-          subtotal: guestCart.totalCost,
-          tax: 0,
-          total: guestCart.totalCost,
-          totalItems: guestCart.itemCount,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
+        cart: createGuestCartObject(guestCart)
       };
     }
   } catch (error) {
@@ -435,23 +403,7 @@ export const addRepairOrderToCart = async (repairOrderData: RepairOrderData) => 
       return {
         success: true,
         message: 'Repair order added to cart successfully',
-        cart: {
-          _id: 'guest-cart',
-          user: 'guest',
-          items: guestCart.items.map(item => ({
-            _id: item._id,
-            productId: item.product,
-            quantity: item.quantity,
-            price: item.product.price
-          })),
-          repairOrders: guestCart.repairOrders,
-          subtotal: guestCart.totalCost,
-          tax: 0,
-          total: guestCart.totalCost,
-          totalItems: guestCart.itemCount,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
+        cart: createGuestCartObject(guestCart)
       };
     }
   } catch (error) {
@@ -474,23 +426,7 @@ export const removeRepairOrderFromCart = async (repairOrderId: string) => {
       return {
         success: true,
         message: 'Repair order removed from cart',
-        cart: {
-          _id: 'guest-cart',
-          user: 'guest',
-          items: guestCart.items.map(item => ({
-            _id: item._id,
-            productId: item.product,
-            quantity: item.quantity,
-            price: item.product.price
-          })),
-          repairOrders: guestCart.repairOrders,
-          subtotal: guestCart.totalCost,
-          tax: 0,
-          total: guestCart.totalCost,
-          totalItems: guestCart.itemCount,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
+        cart: createGuestCartObject(guestCart)
       };
     }
   } catch (error) {

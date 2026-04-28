@@ -168,6 +168,9 @@ class CartService {
         });
       }
 
+      // Validate promo code after cart update
+      await this.validatePromoCodeForCart(cart);
+
       await cart.save();
       await cart.populate('items.productId');
 
@@ -201,6 +204,9 @@ class CartService {
         cart.items[itemIndex].quantity = quantity;
       }
 
+      // Validate promo code after cart update
+      await this.validatePromoCodeForCart(cart);
+
       await cart.save();
 
       console.log('CartService: Cart item updated successfully');
@@ -222,6 +228,10 @@ class CartService {
       }
 
       cart.items = cart.items.filter(item => item._id.toString() !== itemId);
+      
+      // Validate promo code after cart update
+      await this.validatePromoCodeForCart(cart);
+
       await cart.save();
 
       console.log('CartService: Item removed from cart successfully');
@@ -366,6 +376,9 @@ class CartService {
 
       cart.repairOrders.push(newRepairOrder);
 
+      // Validate promo code after cart update
+      await this.validatePromoCodeForCart(cart);
+
       await cart.save();
       await cart.populate('repairOrders.services');
       await cart.populate('items.productId');
@@ -400,6 +413,10 @@ class CartService {
       }
 
       cart.repairOrders = cart.repairOrders.filter(order => order._id.toString() !== repairOrderId);
+      
+      // Validate promo code after cart update
+      await this.validatePromoCodeForCart(cart);
+
       await cart.save();
 
       console.log('CartService: Repair order removed from cart successfully');
@@ -407,6 +424,81 @@ class CartService {
     } catch (error) {
       console.error('CartService: Error removing repair order from cart:', error);
       throw error;
+    }
+  }
+
+  // Validate and reapply promo code (called after cart updates)
+  static async validatePromoCodeForCart(cart) {
+    if (!cart.promoCode || !cart.promoCodeId) {
+      return; // No promo code to validate
+    }
+
+    try {
+      const promo = await PromoCode.findById(cart.promoCodeId);
+      if (!promo) {
+        console.log('CartService: Promo code not found, removing');
+        cart.promoCode = '';
+        cart.promoCodeId = null;
+        cart.discountType = '';
+        cart.discountValue = 0;
+        cart.discount = 0;
+        return;
+      }
+
+      // Check if promo is still active
+      const now = new Date();
+      const isActive = String(promo.status || '').toLowerCase() === 'active';
+      const notExpired = !promo.endDate || now <= promo.endDate;
+      const notStarted = !promo.startDate || now >= promo.startDate;
+
+      if (!isActive || !notExpired || !notStarted) {
+        console.log('CartService: Promo code expired or inactive, removing');
+        cart.promoCode = '';
+        cart.promoCodeId = null;
+        cart.discountType = '';
+        cart.discountValue = 0;
+        cart.discount = 0;
+        return;
+      }
+
+      // Check minimum order value
+      const subtotal = this.calculateCartSubtotal(cart);
+      const minimumOrderValue = Number(promo.rules?.minimumOrderValue || 0);
+      if (subtotal < minimumOrderValue) {
+        console.log('CartService: Cart subtotal below minimum, removing discount');
+        cart.promoCode = '';
+        cart.promoCodeId = null;
+        cart.discountType = '';
+        cart.discountValue = 0;
+        cart.discount = 0;
+        return;
+      }
+
+      // Recalculate discount
+      const newDiscountAmount = this.calculateDiscountAmount({
+        discountType: promo.discountType,
+        discountValue: promo.value,
+        subtotal,
+      });
+
+      if (newDiscountAmount > 0) {
+        cart.discount = newDiscountAmount;
+        console.log('CartService: Promo code still valid, discount updated:', newDiscountAmount);
+      } else {
+        console.log('CartService: Promo code produces no discount, removing');
+        cart.promoCode = '';
+        cart.promoCodeId = null;
+        cart.discountType = '';
+        cart.discountValue = 0;
+        cart.discount = 0;
+      }
+    } catch (error) {
+      console.error('CartService: Error validating promo code:', error);
+      cart.promoCode = '';
+      cart.promoCodeId = null;
+      cart.discountType = '';
+      cart.discountValue = 0;
+      cart.discount = 0;
     }
   }
 

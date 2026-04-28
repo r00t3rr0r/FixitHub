@@ -202,21 +202,23 @@ cartSchema.pre('save', async function(next) {
     totalItems += 1;
   });
 
-  this.subtotal = subtotal;
+  this.subtotal = Number(subtotal.toFixed(2));
   this.totalItems = totalItems;
 
-  // Calculate tax (8% for example)
-  this.tax = subtotal * 0.08;
-
   // Apply discount
-  const discountAmount = this.discount || 0;
+  const discountAmount = Number(this.discount || 0);
+  const subtotalAfterDiscount = Math.max(0, this.subtotal - discountAmount);
 
-  // Calculate total
-  this.total = subtotal + this.tax - discountAmount;
+  // Calculate tax on the amount AFTER discount (standard practice)
+  // Tax rate: 19% (German VAT standard)
+  this.tax = Number((subtotalAfterDiscount * 0.19).toFixed(2));
+
+  // Calculate total: subtotal - discount + tax
+  this.total = Number((subtotalAfterDiscount + this.tax).toFixed(2));
 
   this.updatedAt = new Date();
 
-  console.log('Cart pre-save: Calculated totals - subtotal:', this.subtotal, 'tax:', this.tax, 'total:', this.total, 'repair orders:', this.repairOrders.length);
+  console.log('Cart pre-save: Calculated totals - subtotal:', this.subtotal, 'discount:', discountAmount, 'tax:', this.tax, 'total:', this.total, 'repair orders:', this.repairOrders.length);
   next();
 });
 

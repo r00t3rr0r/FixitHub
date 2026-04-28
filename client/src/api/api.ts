@@ -93,8 +93,21 @@ const setupInterceptors = (apiInstance: typeof axios) => {
     (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
       const accessToken = localStorage.getItem('accessToken');
 
-      if (isJwtLike(accessToken) && config.headers) {
-        config.headers.Authorization = `Bearer ${accessToken}`;
+      // If we have a token stored (either JWT or marker value), ensure Authorization header is set
+      // If it's not a JWT, the browser will still send cookies with credentials: true
+      // But we'll try to send it as Bearer token just in case
+      if (accessToken && accessToken !== 'null' && accessToken !== 'undefined') {
+        if (config.headers) {
+          // Always set Authorization header if we have a token, regardless of whether it's JWT-like
+          if (isJwtLike(accessToken)) {
+            config.headers.Authorization = `Bearer ${accessToken}`;
+            console.log('[API] JWT token attached to Authorization header');
+          } else if (accessToken === 'cookie-authenticated') {
+            // For cookie-authenticated sessions, the Authorization header is not needed
+            // The browser will send the cookie automatically with credentials: true
+            console.log('[API] Cookie-authenticated session - relying on HTTP-only cookie');
+          }
+        }
       }
 
       if (config.headers && shouldAttachCsrfToken(config.method)) {
