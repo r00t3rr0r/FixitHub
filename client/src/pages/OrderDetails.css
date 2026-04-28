@@ -942,7 +942,7 @@
 .order-total-cost .amount {
   font-size: 2.25rem;
   font-weight: 800;
-  color: var(--primary-blue, #1a2a5e);
+  color: #ffffff;
   line-height: 1.1;
   margin-bottom: 4px;
   letter-spacing: -0.5px;
@@ -3055,6 +3055,7 @@
 
 .admin-order-workspace .order-total-cost .amount {
   font-size: 0.9rem;
+  color: var(--primary-blue, #1a2a5e);
 }
 
 .admin-order-workspace .order-total-cost .label {
