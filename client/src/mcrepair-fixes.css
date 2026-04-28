@@ -58,7 +58,7 @@ html, body {
 }
 
 .config-step-indicator .step-label {
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
 }
 
 /* Override Card component styles that might cause issues */
@@ -91,10 +91,10 @@ html, body {
   }
 
   .config-steps {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px 8px;
-    padding: 0;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 8px 0 0;
   }
 
   .config-step-indicator {
@@ -102,10 +102,14 @@ html, body {
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
   }
 
   .config-step-indicator:not(:last-child)::after {
-    display: none;
+    display: block;
   }
 
   .config-nav {
@@ -142,20 +146,22 @@ html, body {
   }
 
   .config-steps {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 2px;
+    padding-top: 8px;
   }
 
   .config-step-indicator {
-    padding: 8px 6px;
-    border: 1px solid rgba(26, 42, 94, 0.08);
-    border-radius: 12px;
-    background: #f8f9fc;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
   }
 
   .config-step-indicator.active {
-    background: rgba(245, 184, 0, 0.12);
-    border-color: rgba(245, 184, 0, 0.5);
+    background: transparent;
+    border-color: transparent;
   }
 
   .config-step-indicator .step-num {
@@ -163,8 +169,11 @@ html, body {
   }
 
   .config-step-indicator .step-label {
-    font-size: 0.65rem;
-    line-height: 1.25;
+    font-size: 0.58rem;
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .config-nav {
@@ -210,7 +219,14 @@ html, body {
   }
 
   .config-steps {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 1px;
+    padding-top: 8px;
+  }
+
+  .config-step-indicator .step-label {
+    font-size: 0.5rem;
   }
 
   .device-grid,
