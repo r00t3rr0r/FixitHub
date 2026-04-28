@@ -1849,6 +1849,10 @@
       "back": "Zurück",
       "next": "Weiter",
       "loadingRepairs": "Lade Reparaturen...",
+      "categoryFilter": {
+        "label": "Nach Kategorie filtern",
+        "all": "Alle"
+      },
       "repairFrom": "ab {{price}} €",
       "noRepairs": "Keine Reparaturen für dieses Gerät verfügbar",
       "diagnosisHint": "Nicht sicher, was kaputt ist?",
