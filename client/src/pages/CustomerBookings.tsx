@@ -61,7 +61,6 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { getBookings, getBookingOrders, getBooking, downloadBookingShippingLabel, downloadBookingReturnLabel } from "@/api/bookings";
 import { searchDevices, SearchResult } from "@/api/devices";
 import { getUnreadMessageCounts } from "@/api/inspectionCommunication";
@@ -594,7 +593,7 @@ export function CustomerBookings() {
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-0 px-0">
-              <ScrollArea className="w-full">
+              <div className="bookings-list-table-wrap">
                 <Table className="bookings-list-table">
                   <TableHeader>
                     <TableRow className="bg-slate-50 hover:bg-slate-50 border-b-2 border-slate-200">
@@ -860,7 +859,7 @@ export function CustomerBookings() {
                               ) : expandedOrdersData[booking._id] && expandedOrdersData[booking._id].length > 0 ? (
                                 <div className="space-y-1.5">
                                   <h4 className="font-semibold text-xs mb-1.5 text-foreground/70">{t('bookings.ordersAndRepairs')}</h4>
-                                  <div className="border rounded-md overflow-hidden orders-sub-table-wrap">
+                                  <div className="border rounded-md overflow-x-auto overflow-y-hidden orders-sub-table-wrap">
                                     <Table className="text-xs orders-sub-table">
                                       <TableHeader>
                                         <TableRow className="bg-muted/40">
@@ -1105,7 +1104,7 @@ export function CustomerBookings() {
                   ))}
                 </TableBody>
               </Table>
-            </ScrollArea>
+              </div>
 
             {/* Pagination Controls */}
             {filteredBookings.length > 0 && totalBookings > itemsPerPage && (
