@@ -2245,9 +2245,10 @@
 
 .customer-summary-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  align-items: baseline;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 6px;
   padding-bottom: 8px;
   border-bottom: 1px solid #edf1f7;
 }
@@ -2257,8 +2258,13 @@
   color: #64748b;
 }
 
+.customer-summary-row span::after {
+  content: ':';
+  margin-left: 2px;
+}
+
 .customer-summary-row strong {
-  text-align: right;
+  text-align: left;
   font-size: 0.92rem;
   color: #13213f;
 }
@@ -4220,4 +4226,36 @@
   .cudlg-contact-btn, .cudlg-request-label { justify-content: center; }
   .cudlg-footer { flex-direction: column-reverse; }
   .cudlg-btn-cancel, .cudlg-btn-confirm { width: 100%; justify-content: center; }
+}
+
+@media (max-width: 360px) {
+  .customer-order-summary-card .order-section-description {
+    font-size: 0.76rem;
+    line-height: 1.35;
+  }
+
+  .customer-summary-list {
+    gap: 4px;
+  }
+
+  .customer-summary-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding-bottom: 6px;
+  }
+
+  .customer-summary-row span {
+    font-size: 0.74rem;
+    line-height: 1.2;
+  }
+
+  .customer-summary-row strong {
+    text-align: left;
+    font-size: 0.84rem;
+    line-height: 1.25;
+    word-break: break-word;
+  }
 }
