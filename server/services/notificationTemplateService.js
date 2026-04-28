@@ -26,6 +26,7 @@ class NotificationTemplateService {
       console.log(`NotificationTemplateService: Rendering template "${templateName}" for channel "${channelType}"`);
       
       const config = await SystemConfigService.getSystemConfiguration();
+      const normalizedVariables = await this.normalizeLinkVariables(variables, config);
       const templates = config.notificationTemplates || [];
 
       // Find template by exact or normalized name and active flag
@@ -48,8 +49,8 @@ class NotificationTemplateService {
       }
 
       // Substitute variables in subject and content
-      const subject = this.substituteVariables(template.subject || '', variables);
-      const content = this.substituteVariables(template.content, variables);
+      const subject = this.substituteVariables(template.subject || '', normalizedVariables);
+      const content = this.substituteVariables(template.content, normalizedVariables);
 
       // For email, also generate plain text version
       let plainText = null;
@@ -147,6 +148,33 @@ class NotificationTemplateService {
     });
 
     return result;
+  }
+
+  static async normalizeLinkVariables(variables = {}, config = null) {
+    const normalizedVariables = { ...variables };
+    const urlKeyPattern = /(url|link)$/i;
+
+    const baseUrl = await SystemConfigService.getTemplateLinkBaseUrl(config);
+    if (baseUrl && !normalizedVariables.baseUrl) {
+      normalizedVariables.baseUrl = baseUrl;
+    }
+
+    for (const [key, rawValue] of Object.entries(normalizedVariables)) {
+      if (typeof rawValue !== 'string') {
+        continue;
+      }
+
+      const trimmedValue = rawValue.trim();
+      if (!trimmedValue) {
+        continue;
+      }
+
+      if (urlKeyPattern.test(key) || /^https?:\/\//i.test(trimmedValue) || trimmedValue.startsWith('/')) {
+        normalizedVariables[key] = await SystemConfigService.buildTemplateUrl(trimmedValue, config);
+      }
+    }
+
+    return normalizedVariables;
   }
 
   /**

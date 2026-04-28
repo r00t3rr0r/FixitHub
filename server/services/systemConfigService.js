@@ -10,8 +10,248 @@ function normalizeTemplateKey(template) {
 }
 
 class SystemConfigService {
+  static LOCALHOST_TEMPLATE_BASE_URL = 'http://localhost:5173';
+
+  static DEFAULT_PRODUCTION_TEMPLATE_BASE_URL = 'https://50mj9v47-5173.euw.devtunnels.ms';
+
+  static normalizeBaseUrl(value) {
+    const raw = String(value || '').trim();
+    if (!raw) {
+      return '';
+    }
+
+    const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+
+    try {
+      const parsed = new URL(withProtocol);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        return '';
+      }
+      return `${parsed.protocol}//${parsed.host}`;
+    } catch (error) {
+      return '';
+    }
+  }
+
+  static sanitizeTemplateLinkSettings(settings = {}, { strict = false } = {}) {
+    const mode = settings.mode === 'production' ? 'production' : 'localhost';
+    const localhostBaseUrl =
+      this.normalizeBaseUrl(settings.localhostBaseUrl || this.LOCALHOST_TEMPLATE_BASE_URL) ||
+      this.LOCALHOST_TEMPLATE_BASE_URL;
+
+    const requestedProduction = String(
+      settings.productionBaseUrl || this.DEFAULT_PRODUCTION_TEMPLATE_BASE_URL
+    ).trim();
+
+    const productionBaseUrl = this.normalizeBaseUrl(requestedProduction);
+    if (!productionBaseUrl && strict) {
+      throw new Error('Invalid production base URL. Please provide a valid http:// or https:// URL.');
+    }
+
+    return {
+      mode,
+      localhostBaseUrl,
+      productionBaseUrl: productionBaseUrl || this.DEFAULT_PRODUCTION_TEMPLATE_BASE_URL,
+    };
+  }
+
+  static collectKnownTemplateHosts(templateLinkSettings) {
+    const hosts = new Set();
+
+    const addHostFromUrl = (urlLike) => {
+      const normalized = this.normalizeBaseUrl(urlLike);
+      if (!normalized) return;
+
+      try {
+        hosts.add(new URL(normalized).host.toLowerCase());
+      } catch (error) {
+        // ignore invalid URL values while collecting migration candidates
+      }
+    };
+
+    addHostFromUrl(templateLinkSettings.localhostBaseUrl);
+    addHostFromUrl(templateLinkSettings.productionBaseUrl);
+    addHostFromUrl(this.LOCALHOST_TEMPLATE_BASE_URL);
+    addHostFromUrl(this.DEFAULT_PRODUCTION_TEMPLATE_BASE_URL);
+    addHostFromUrl(process.env.FRONTEND_URL);
+    addHostFromUrl(process.env.CLIENT_URL);
+    addHostFromUrl(process.env.PUBLIC_APP_URL);
+    addHostFromUrl(process.env.WEBSITE_URL);
+    addHostFromUrl(process.env.APP_URL);
+
+    return hosts;
+  }
+
+  static rewriteTemplateLinksToBasePlaceholder(text, knownHosts) {
+    const source = String(text || '');
+    if (!source) {
+      return source;
+    }
+
+    const urlRegex = /https?:\/\/[^\s"'<>]+/gi;
+
+    return source.replace(urlRegex, (matchedUrl) => {
+      try {
+        const parsed = new URL(matchedUrl);
+        if (!knownHosts.has(String(parsed.host || '').toLowerCase())) {
+          return matchedUrl;
+        }
+
+        const suffix = `${parsed.pathname || ''}${parsed.search || ''}${parsed.hash || ''}`;
+        return `{{baseUrl}}${suffix || ''}`;
+      } catch (error) {
+        return matchedUrl;
+      }
+    });
+  }
+
+  static migrateTemplateLinksToCentralBaseUrl(config) {
+    if (!config || !Array.isArray(config.notificationTemplates) || config.notificationTemplates.length === 0) {
+      return false;
+    }
+
+    const templateLinkSettings = this.sanitizeTemplateLinkSettings(config.templateLinkSettings || {});
+    const knownHosts = this.collectKnownTemplateHosts(templateLinkSettings);
+    let changed = false;
+
+    for (const template of config.notificationTemplates) {
+      const nextSubject = this.rewriteTemplateLinksToBasePlaceholder(template.subject || '', knownHosts);
+      const nextContent = this.rewriteTemplateLinksToBasePlaceholder(template.content || '', knownHosts);
+
+      if ((template.subject || '') !== nextSubject) {
+        template.subject = nextSubject;
+        changed = true;
+      }
+
+      if ((template.content || '') !== nextContent) {
+        template.content = nextContent;
+        changed = true;
+      }
+
+      if (
+        nextSubject.includes('{{baseUrl}}') ||
+        nextContent.includes('{{baseUrl}}')
+      ) {
+        template.variables = Array.isArray(template.variables) ? template.variables : [];
+        const hasBaseUrlVariable = template.variables.some((variable) => variable?.name === 'baseUrl');
+
+        if (!hasBaseUrlVariable) {
+          template.variables.push({
+            name: 'baseUrl',
+            description: 'Zentrale Basis-URL fuer Template-Links',
+            required: false,
+          });
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) {
+      config.markModified('notificationTemplates');
+    }
+
+    return changed;
+  }
+
+  static normalizeTemplateLinkPlaceholdersForTemplate(templateData = {}, templateLinkSettings = {}) {
+    const normalizedTemplateData = { ...templateData };
+    const knownHosts = this.collectKnownTemplateHosts(
+      this.sanitizeTemplateLinkSettings(templateLinkSettings || {})
+    );
+
+    const hasSubject = Object.prototype.hasOwnProperty.call(normalizedTemplateData, 'subject');
+    const hasContent = Object.prototype.hasOwnProperty.call(normalizedTemplateData, 'content');
+
+    const nextSubject = hasSubject
+      ? this.rewriteTemplateLinksToBasePlaceholder(normalizedTemplateData.subject || '', knownHosts)
+      : '';
+    const nextContent = hasContent
+      ? this.rewriteTemplateLinksToBasePlaceholder(normalizedTemplateData.content || '', knownHosts)
+      : '';
+
+    if (hasSubject) {
+      normalizedTemplateData.subject = nextSubject;
+    }
+    if (hasContent) {
+      normalizedTemplateData.content = nextContent;
+    }
+
+    if (nextSubject.includes('{{baseUrl}}') || nextContent.includes('{{baseUrl}}')) {
+      const variables = Array.isArray(normalizedTemplateData.variables)
+        ? [...normalizedTemplateData.variables]
+        : [];
+      const hasBaseUrlVariable = variables.some((variable) => variable?.name === 'baseUrl');
+
+      if (!hasBaseUrlVariable) {
+        variables.push({
+          name: 'baseUrl',
+          description: 'Zentrale Basis-URL fuer Template-Links',
+          required: false,
+        });
+      }
+
+      normalizedTemplateData.variables = variables;
+    }
+
+    return normalizedTemplateData;
+  }
+
+  static async getTemplateLinkBaseUrl(configInput = null) {
+    const config = configInput || await this.getSystemConfiguration();
+    const settings = this.sanitizeTemplateLinkSettings(config?.templateLinkSettings || {});
+    return settings.mode === 'production' ? settings.productionBaseUrl : settings.localhostBaseUrl;
+  }
+
+  static async buildTemplateUrl(pathOrUrl = '', configInput = null) {
+    const value = String(pathOrUrl || '').trim();
+    if (!value) {
+      return '';
+    }
+
+    const config = configInput || await this.getSystemConfiguration();
+    const settings = this.sanitizeTemplateLinkSettings(config?.templateLinkSettings || {});
+    const activeBaseUrl = settings.mode === 'production' ? settings.productionBaseUrl : settings.localhostBaseUrl;
+    const normalizedBase = activeBaseUrl.endsWith('/') ? activeBaseUrl.slice(0, -1) : activeBaseUrl;
+
+    if (/^https?:\/\//i.test(value)) {
+      try {
+        const parsed = new URL(value);
+        const knownHosts = this.collectKnownTemplateHosts(settings);
+        const host = String(parsed.host || '').toLowerCase();
+
+        if (knownHosts.has(host)) {
+          const suffix = `${parsed.pathname || ''}${parsed.search || ''}${parsed.hash || ''}`;
+          return `${normalizedBase}${suffix}`;
+        }
+      } catch (error) {
+        return value;
+      }
+
+      return value;
+    }
+
+    const normalizedPath = value.startsWith('/') ? value : `/${value}`;
+
+    return `${normalizedBase}${normalizedPath}`;
+  }
+
   static async applyDefaultNotificationTemplatesIfNeeded(config) {
-    if (!config || config.notificationTemplateDefaultsVersion >= DEFAULT_NOTIFICATION_TEMPLATE_VERSION) {
+    if (!config) {
+      return config;
+    }
+
+    const normalizedTemplateLinkSettings = this.sanitizeTemplateLinkSettings(config.templateLinkSettings || {});
+    if (JSON.stringify(config.templateLinkSettings || {}) !== JSON.stringify(normalizedTemplateLinkSettings)) {
+      config.templateLinkSettings = normalizedTemplateLinkSettings;
+      config.markModified('templateLinkSettings');
+    }
+
+    const migratedTemplateLinks = this.migrateTemplateLinksToCentralBaseUrl(config);
+
+    if (config.notificationTemplateDefaultsVersion >= DEFAULT_NOTIFICATION_TEMPLATE_VERSION) {
+      if (config.isModified('templateLinkSettings') || migratedTemplateLinks) {
+        await config.save();
+      }
       return config;
     }
 
@@ -187,13 +427,27 @@ class SystemConfigService {
     console.log('SystemConfigService: Updating system configuration');
 
     try {
+      const normalizedUpdates = { ...updates };
+      if (Object.prototype.hasOwnProperty.call(normalizedUpdates, 'templateLinkSettings')) {
+        normalizedUpdates.templateLinkSettings = this.sanitizeTemplateLinkSettings(
+          normalizedUpdates.templateLinkSettings || {},
+          { strict: true }
+        );
+      }
+
       let config = await SystemConfiguration.findOne();
       
       if (!config) {
-        config = new SystemConfiguration(updates);
+        config = new SystemConfiguration(normalizedUpdates);
       } else {
-        Object.assign(config, updates);
+        Object.assign(config, normalizedUpdates);
       }
+
+      if (!config.templateLinkSettings) {
+        config.templateLinkSettings = this.sanitizeTemplateLinkSettings({});
+      }
+
+      this.migrateTemplateLinksToCentralBaseUrl(config);
 
       const savedConfig = await config.save();
       console.log('SystemConfigService: Configuration updated successfully');
@@ -223,8 +477,12 @@ class SystemConfigService {
 
     try {
       const config = await this.getSystemConfiguration();
+      const normalizedTemplateData = this.normalizeTemplateLinkPlaceholdersForTemplate(
+        templateData,
+        config.templateLinkSettings
+      );
 
-      config.notificationTemplates.push(templateData);
+      config.notificationTemplates.push(normalizedTemplateData);
       config.markModified('notificationTemplates'); // Mark nested document as modified
       const savedConfig = await config.save();
 
@@ -250,7 +508,12 @@ class SystemConfigService {
         throw new Error('Notification template not found');
       }
 
-      Object.assign(template, updates);
+      const normalizedUpdates = this.normalizeTemplateLinkPlaceholdersForTemplate(
+        updates,
+        config.templateLinkSettings
+      );
+
+      Object.assign(template, normalizedUpdates);
       config.markModified('notificationTemplates'); // Mark nested document as modified
       await config.save();
 

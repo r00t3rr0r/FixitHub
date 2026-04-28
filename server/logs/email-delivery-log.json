@@ -3747,5 +3747,88 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1777366674492-nfji8hypf",
+    "timestamp": "2026-04-28T08:57:54.492Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Gast Buchung Tracking",
+    "subject": "Buchung BKG-2026-0005 bestätigt – Tracking-Link zu Ihrer Gastbestellung",
+    "messageId": "<b22faddc-beed-9532-682f-3c1d8e0233ee@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3034,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "trackingUrl",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1777369061344-d7x1uplpa",
+    "timestamp": "2026-04-28T09:37:41.344Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei McRepair.de - bitte Konto aktivieren",
+    "messageId": "<5941cf1c-ea27-5c42-f807-e93aa31f6864@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1018,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1777369181035-bgyrrilnr",
+    "timestamp": "2026-04-28T09:39:41.035Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei McRepair.de - bitte Konto aktivieren",
+    "messageId": "<1ef727d5-3e06-8730-978b-371f78be2921@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1072,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

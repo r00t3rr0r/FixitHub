@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -49,24 +49,15 @@ import {
   Mail,
   CheckCircle,
   AlertCircle,
-  Clock,
   Users,
   ShoppingCart,
   Image,
-  Upload,
-  Lock,
-  Eye,
-  EyeOff,
   Home,
   BookOpen,
   Store,
   Search,
   Globe,
-  Palette,
   Layout,
-  Type,
-  Video,
-  Camera,
   FileImage,
   Zap
 } from "lucide-react"
@@ -121,6 +112,71 @@ const getTemplateTypeLabel = (type: NotificationTemplate['type']) => {
   return 'Push'
 }
 
+const DEFAULT_LOCALHOST_TEMPLATE_BASE_URL = 'http://localhost:5173'
+const DEFAULT_PRODUCTION_TEMPLATE_BASE_URL = 'https://50mj9v47-5173.euw.devtunnels.ms'
+
+const normalizeBaseUrl = (value: string) => {
+  const trimmed = String(value || '').trim()
+  if (!trimmed) return ''
+
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+
+  try {
+    const parsed = new URL(withProtocol)
+    if (!['http:', 'https:'].includes(parsed.protocol)) return ''
+    return `${parsed.protocol}//${parsed.host}`
+  } catch {
+    return ''
+  }
+}
+
+const getTemplateLinkSettingsForUi = (config: SystemConfig) => {
+  const settings = config.templateLinkSettings || {
+    mode: 'localhost' as const,
+    localhostBaseUrl: DEFAULT_LOCALHOST_TEMPLATE_BASE_URL,
+    productionBaseUrl: DEFAULT_PRODUCTION_TEMPLATE_BASE_URL,
+  }
+
+  return {
+    mode: settings.mode === 'production' ? 'production' : 'localhost',
+    localhostBaseUrl: settings.localhostBaseUrl || DEFAULT_LOCALHOST_TEMPLATE_BASE_URL,
+    productionBaseUrl: settings.productionBaseUrl || DEFAULT_PRODUCTION_TEMPLATE_BASE_URL,
+  }
+}
+
+const getNormalizedTemplateLinkSettings = (config: SystemConfig) => {
+  const settings = getTemplateLinkSettingsForUi(config)
+
+  return {
+    mode: settings.mode === 'production' ? 'production' : 'localhost',
+    localhostBaseUrl: normalizeBaseUrl(settings.localhostBaseUrl) || DEFAULT_LOCALHOST_TEMPLATE_BASE_URL,
+    productionBaseUrl: normalizeBaseUrl(settings.productionBaseUrl) || DEFAULT_PRODUCTION_TEMPLATE_BASE_URL,
+  }
+}
+
+type IntegrationTestResult = {
+  success?: boolean
+  message?: string
+  debug?: {
+    environment?: string
+    authFlow?: string
+    tokenEndpoint?: string
+    probeEndpoint?: string
+    hasClientId?: boolean
+    hasClientSecret?: boolean
+    [key: string]: unknown
+  }
+  [key: string]: unknown
+}
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+
+  return fallback
+}
+
 export function SystemConfiguration() {
   const { t } = useTranslation()
   const [config, setConfig] = useState<SystemConfig | null>(null)
@@ -131,8 +187,7 @@ export function SystemConfiguration() {
   const [clearingCache, setClearingCache] = useState(false)
   const [runningSecurityScan, setRunningSecurityScan] = useState(false)
   const [testingIntegration, setTestingIntegration] = useState<string | null>(null)
-  const [testingEmailSettings, setTestingEmailSettings] = useState(false)
-  const [testResultModal, setTestResultModal] = useState<any>(null)
+  const [testResultModal, setTestResultModal] = useState<IntegrationTestResult | null>(null)
   const [showTestResultModal, setShowTestResultModal] = useState(false)
 
   // Template test dialog
@@ -154,10 +209,6 @@ export function SystemConfiguration() {
 
   const { toast } = useToast()
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
   const toIntegrationPayload = (integration: Integration): Omit<Integration, '_id'> => ({
     name: integration.name,
     type: integration.type,
@@ -173,7 +224,7 @@ export function SystemConfiguration() {
     testStatus: integration.testStatus,
   })
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       console.log("SystemConfiguration: Loading system configuration data...")
       const [configResponse, templatesResponse, integrationsResponse] = await Promise.all([
@@ -182,39 +233,71 @@ export function SystemConfiguration() {
         getIntegrations()
       ])
 
-      setConfig(configResponse.config)
+      const normalizedConfig = {
+        ...configResponse.config,
+        templateLinkSettings: getNormalizedTemplateLinkSettings(configResponse.config),
+      }
+
+      setConfig(normalizedConfig)
       setTemplates(templatesResponse.templates)
       setIntegrations(integrationsResponse.integrations)
       console.log("SystemConfiguration: Data loaded successfully")
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("SystemConfiguration: Error loading data:", error)
       toast({
         title: "Error",
-        description: error.message || "Failed to load system configuration",
+        description: getErrorMessage(error, "Failed to load system configuration"),
         variant: "destructive"
       })
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const handleSaveConfig = async () => {
     if (!config) return
 
+    const normalizedTemplateLinkSettings = getNormalizedTemplateLinkSettings(config)
+    const normalizedProductionBaseUrl = normalizeBaseUrl(normalizedTemplateLinkSettings.productionBaseUrl)
+
+    if (!normalizedProductionBaseUrl) {
+      toast({
+        title: "Ungueltige Production-URL",
+        description: "Bitte geben Sie eine gueltige URL mit http:// oder https:// ein.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    const payload: SystemConfig = {
+      ...config,
+      templateLinkSettings: {
+        ...normalizedTemplateLinkSettings,
+        productionBaseUrl: normalizedProductionBaseUrl,
+      }
+    }
+
     setSaving(true)
     try {
       console.log("SystemConfiguration: Saving configuration...")
-      const response = await updateSystemConfig(config)
-      setConfig(response.config)
+      const response = await updateSystemConfig(payload)
+      setConfig({
+        ...response.config,
+        templateLinkSettings: getNormalizedTemplateLinkSettings(response.config),
+      })
       toast({
         title: "Success",
         description: "System configuration updated successfully"
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("SystemConfiguration: Error saving config:", error)
       toast({
         title: "Error",
-        description: error.message || "Failed to save configuration",
+        description: getErrorMessage(error, "Failed to save configuration"),
         variant: "destructive"
       })
     } finally {
@@ -231,11 +314,11 @@ export function SystemConfiguration() {
         title: "Success",
         description: "System cache cleared successfully"
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("SystemConfiguration: Error clearing cache:", error)
       toast({
         title: "Error",
-        description: error.message || "Failed to clear cache",
+        description: getErrorMessage(error, "Failed to clear cache"),
         variant: "destructive"
       })
     } finally {
@@ -252,11 +335,11 @@ export function SystemConfiguration() {
         title: "Success",
         description: "Security scan completed successfully"
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("SystemConfiguration: Error running security scan:", error)
       toast({
         title: "Error",
-        description: error.message || "Failed to run security scan",
+        description: getErrorMessage(error, "Failed to run security scan"),
         variant: "destructive"
       })
     } finally {
@@ -287,7 +370,7 @@ export function SystemConfiguration() {
         const response = await updateNotificationTemplate(editingTemplate._id, templateData)
         setTemplates(prev => prev.map(t => t._id === editingTemplate._id ? response.template : t))
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("SystemConfiguration: Error saving template:", error)
       throw error
     }
@@ -318,8 +401,8 @@ export function SystemConfiguration() {
       } else {
         toast({ title: "Fehler", description: data.message || data.error || "Senden fehlgeschlagen", variant: "destructive" })
       }
-    } catch (error: any) {
-      toast({ title: "Verbindungsfehler", description: error.message || "Unbekannter Fehler", variant: "destructive" })
+    } catch (error: unknown) {
+      toast({ title: "Verbindungsfehler", description: getErrorMessage(error, "Unbekannter Fehler"), variant: "destructive" })
     } finally {
       setSendingTemplateTest(false)
     }
@@ -334,11 +417,11 @@ export function SystemConfiguration() {
         title: "Success",
         description: "Template deleted successfully"
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("SystemConfiguration: Error deleting template:", error)
       toast({
         title: "Error",
-        description: error.message || "Failed to delete template",
+        description: getErrorMessage(error, "Failed to delete template"),
         variant: "destructive"
       })
     }
@@ -367,7 +450,7 @@ export function SystemConfiguration() {
         const response = await updateIntegration(editingIntegration._id, integrationData)
         setIntegrations(prev => prev.map(i => i._id === editingIntegration._id ? response.integration : i))
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("SystemConfiguration: Error saving integration:", error)
       throw error
     }
@@ -382,11 +465,11 @@ export function SystemConfiguration() {
         title: "Success",
         description: "Integration deleted successfully"
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("SystemConfiguration: Error deleting integration:", error)
       toast({
         title: "Error",
-        description: error.message || "Failed to delete integration",
+        description: getErrorMessage(error, "Failed to delete integration"),
         variant: "destructive"
       })
     }
@@ -422,11 +505,11 @@ export function SystemConfiguration() {
           variant: "destructive"
         })
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("SystemConfiguration: Error testing integration:", error)
       toast({
         title: "Error",
-        description: error.message || "Failed to test integration",
+        description: getErrorMessage(error, "Failed to test integration"),
         variant: "destructive"
       })
     } finally {
@@ -452,67 +535,13 @@ export function SystemConfiguration() {
         title: 'Success',
         description: `Booking label mode set to ${bookingLabelMode}`,
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       setIntegrations((prev) => prev.map((item) => item._id === integration._id ? integration : item))
       toast({
         title: 'Error',
-        description: error.message || 'Failed to update booking label mode',
+        description: getErrorMessage(error, 'Failed to update booking label mode'),
         variant: 'destructive'
       })
-    }
-  }
-
-  const handleTestEmailSettings = async () => {
-    if (!config?.emailSettings?.smtpHost) {
-      toast({
-        title: "Error",
-        description: "SMTP Host is required",
-        variant: "destructive"
-      })
-      return
-    }
-
-    setTestingEmailSettings(true)
-    try {
-      console.log("SystemConfiguration: Testing email settings...")
-      const response = await fetch('/api/system-config/email/test', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          smtpHost: config.emailSettings.smtpHost,
-          smtpPort: config.emailSettings.smtpPort,
-          smtpUsername: config.emailSettings.smtpUsername,
-          smtpPassword: config.emailSettings.smtpPassword,
-          requiresAuthentication: config.emailSettings.requiresAuthentication,
-          requiresTLS: config.emailSettings.requiresTLS
-        })
-      })
-
-      const result = await response.json()
-
-      if (result.success) {
-        toast({
-          title: "Success",
-          description: result.message || "Email configuration is valid"
-        })
-      } else {
-        toast({
-          title: "Test Failed",
-          description: result.message || "Email configuration test failed",
-          variant: "destructive"
-        })
-      }
-    } catch (error: any) {
-      console.error("SystemConfiguration: Error testing email settings:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to test email settings",
-        variant: "destructive"
-      })
-    } finally {
-      setTestingEmailSettings(false)
     }
   }
 
@@ -802,6 +831,107 @@ export function SystemConfiguration() {
             </CardContent>
           </Card>
 
+          <Card>
+            <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Globe className="h-5 w-5" />
+                Zentrale Link-Basis fuer Templates
+              </CardTitle>
+              <CardDescription className="text-blue-100 text-xs mt-1">
+                Alle Template-Links werden zentral erzeugt. Wechseln Sie zwischen Localhost und Production-URL.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setConfig((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            templateLinkSettings: {
+                              ...getTemplateLinkSettingsForUi(prev),
+                              mode: 'localhost',
+                            },
+                          }
+                        : null
+                    )
+                  }
+                  className={`px-3 py-2 text-sm font-semibold rounded-lg border transition-colors ${
+                    getTemplateLinkSettingsForUi(config).mode === 'localhost'
+                      ? 'bg-[#1a2a5e] text-white border-[#1a2a5e]'
+                      : 'bg-white text-[#1a2a5e] border-[#d8dce6] hover:bg-[#eef3ff]'
+                  }`}
+                >
+                  Localhost
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setConfig((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            templateLinkSettings: {
+                              ...getTemplateLinkSettingsForUi(prev),
+                              mode: 'production',
+                            },
+                          }
+                        : null
+                    )
+                  }
+                  className={`px-3 py-2 text-sm font-semibold rounded-lg border transition-colors ${
+                    getTemplateLinkSettingsForUi(config).mode === 'production'
+                      ? 'bg-[#1a2a5e] text-white border-[#1a2a5e]'
+                      : 'bg-white text-[#1a2a5e] border-[#d8dce6] hover:bg-[#eef3ff]'
+                  }`}
+                >
+                  Production
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="templateProductionBaseUrl">Production Base URL</Label>
+                <Input
+                  id="templateProductionBaseUrl"
+                  value={getTemplateLinkSettingsForUi(config).productionBaseUrl}
+                  onChange={(e) =>
+                    setConfig((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            templateLinkSettings: {
+                              ...getTemplateLinkSettingsForUi(prev),
+                              productionBaseUrl: e.target.value,
+                            },
+                          }
+                        : null
+                    )
+                  }
+                  placeholder={DEFAULT_PRODUCTION_TEMPLATE_BASE_URL}
+                />
+                {!!getTemplateLinkSettingsForUi(config).productionBaseUrl &&
+                !normalizeBaseUrl(getTemplateLinkSettingsForUi(config).productionBaseUrl) ? (
+                  <p className="text-xs text-red-600">Bitte eine gueltige URL mit http:// oder https:// eingeben.</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Standard: {DEFAULT_PRODUCTION_TEMPLATE_BASE_URL}
+                  </p>
+                )}
+              </div>
+
+              <div className="rounded-lg border border-[#d8dce6] bg-[#f8f9fc] p-3">
+                <p className="text-xs text-muted-foreground">Aktive Template-Basis-URL</p>
+                <p className="text-sm font-semibold text-[#1a2a5e] break-all">
+                  {getTemplateLinkSettingsForUi(config).mode === 'production'
+                    ? normalizeBaseUrl(getTemplateLinkSettingsForUi(config).productionBaseUrl) || DEFAULT_PRODUCTION_TEMPLATE_BASE_URL
+                    : getTemplateLinkSettingsForUi(config).localhostBaseUrl}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Notification Templates */}
           <Card>
             <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white rounded-t-lg p-4">
@@ -1026,7 +1156,7 @@ export function SystemConfiguration() {
                     className="p-4 text-sm"
                     dangerouslySetInnerHTML={{ 
                       __html: (() => {
-                        let content = testingTemplate.content;
+                        const content = testingTemplate.content;
                         // Sample values for replacing placeholders
                         const sampleValues: Record<string, string> = {
                           customerName: 'Max Mustermann',
