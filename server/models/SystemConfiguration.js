@@ -156,6 +156,22 @@ const systemConfigurationSchema = new mongoose.Schema({
     }
   },
 
+  templateLinkSettings: {
+    mode: {
+      type: String,
+      enum: ['localhost', 'production'],
+      default: 'localhost'
+    },
+    localhostBaseUrl: {
+      type: String,
+      default: 'http://localhost:5173'
+    },
+    productionBaseUrl: {
+      type: String,
+      default: 'https://50mj9v47-5173.euw.devtunnels.ms'
+    }
+  },
+
   // Notification Templates
   notificationTemplates: [notificationTemplateSchema],
   notificationTemplateDefaultsVersion: {

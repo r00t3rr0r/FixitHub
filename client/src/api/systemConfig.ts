@@ -112,6 +112,11 @@ export interface SystemConfig {
     paymentNotifications: boolean;
     systemAlerts: boolean;
   };
+  templateLinkSettings: {
+    mode: 'localhost' | 'production';
+    localhostBaseUrl: string;
+    productionBaseUrl: string;
+  };
   workflowSettings: {
     autoAssignment: boolean;
     requireApproval: boolean;

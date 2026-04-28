@@ -97,6 +97,17 @@ class EmailService {
     const candidates = [];
 
     try {
+      const systemConfigBaseUrl = await SystemConfigService.getTemplateLinkBaseUrl();
+      if (systemConfigBaseUrl) {
+        candidates.push(systemConfigBaseUrl);
+      }
+    } catch (error) {
+      this.logger.warn('Unable to resolve templateLinkSettings base URL from system configuration', {
+        error: error.message
+      });
+    }
+
+    try {
       const websiteSettings = await WebsiteSettings.findOne()
         .select('customDomain')
         .lean();
@@ -116,12 +127,12 @@ class EmailService {
       process.env.WEBSITE_URL,
       process.env.APP_URL,
       process.env.SERVER_URL,
-      'http://localhost:5173'
+      SystemConfigService.LOCALHOST_TEMPLATE_BASE_URL
     );
 
     const resolvedBaseUrl = candidates
       .map((candidate) => this.normalizeBaseUrl(candidate))
-      .find(Boolean) || 'http://localhost:5173';
+      .find(Boolean) || SystemConfigService.LOCALHOST_TEMPLATE_BASE_URL;
 
     this.systemBaseUrlCache = {
       value: resolvedBaseUrl,
@@ -132,25 +143,16 @@ class EmailService {
   }
 
   static async buildSystemUrl(pathOrUrl = '') {
-    const value = String(pathOrUrl || '').trim();
-    if (!value) {
-      return '';
-    }
-
-    if (/^https?:\/\//i.test(value)) {
-      return value;
-    }
-
-    const baseUrl = await this.getSystemBaseUrl();
-    const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-    const normalizedPath = value.startsWith('/') ? value : `/${value}`;
-
-    return `${normalizedBase}${normalizedPath}`;
+    return SystemConfigService.buildTemplateUrl(pathOrUrl);
   }
 
   static async normalizeTemplateVariables(variables = {}) {
     const normalizedVariables = { ...variables };
     const urlKeyPattern = /(url|link)$/i;
+    const systemBaseUrl = await this.getSystemBaseUrl();
+    if (systemBaseUrl && !normalizedVariables.baseUrl) {
+      normalizedVariables.baseUrl = systemBaseUrl;
+    }
 
     for (const [key, rawValue] of Object.entries(normalizedVariables)) {
       if (typeof rawValue !== 'string') {

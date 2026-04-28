@@ -32,6 +32,9 @@ router.put('/', requireUser, requireRole(['admin']), async (req, res) => {
   try {
     const config = await SystemConfigService.updateSystemConfiguration(req.body);
 
+    // Clear email link cache so template links use updated base URL settings immediately.
+    EmailService.systemBaseUrlCache = { value: null, expiresAt: 0 };
+
     return res.status(200).json({
       success: true,
       config,
@@ -39,7 +42,8 @@ router.put('/', requireUser, requireRole(['admin']), async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating system configuration:', error);
-    return res.status(500).json({
+    const statusCode = /invalid production base url/i.test(error.message || '') ? 400 : 500;
+    return res.status(statusCode).json({
       error: error.message || 'Failed to update system configuration'
     });
   }

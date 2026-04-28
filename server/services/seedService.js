@@ -98,6 +98,11 @@ class SeedService {
         adminEmail: 'admin@fixithub.com',
         timezone: 'UTC',
         maintenanceMode: false,
+        templateLinkSettings: {
+          mode: 'localhost',
+          localhostBaseUrl: 'http://localhost:5173',
+          productionBaseUrl: 'https://50mj9v47-5173.euw.devtunnels.ms',
+        },
         integrations: [],
         notificationTemplates: getDefaultNotificationTemplates(),
         notificationTemplateDefaultsVersion: DEFAULT_NOTIFICATION_TEMPLATE_VERSION,
