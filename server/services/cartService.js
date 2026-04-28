@@ -1,7 +1,108 @@
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
+const PromoCode = require('../models/PromoCode');
+const PromoCodeRedemption = require('../models/PromoCodeRedemption');
 
 class CartService {
+  static calculateCartSubtotal(cart) {
+    let subtotal = 0;
+
+    const items = Array.isArray(cart?.items) ? cart.items : [];
+    const repairOrders = Array.isArray(cart?.repairOrders) ? cart.repairOrders : [];
+
+    for (const item of items) {
+      const unitPrice = Number(item?.productId?.price || item?.productId?.priceAtOrder || 0);
+      const quantity = Number(item?.quantity || 0);
+      subtotal += unitPrice * quantity;
+    }
+
+    for (const repairOrder of repairOrders) {
+      subtotal += Number(repairOrder?.totalCost || 0);
+    }
+
+    return Number(subtotal.toFixed(2));
+  }
+
+  static calculateDiscountAmount({ discountType, discountValue, subtotal }) {
+    const safeSubtotal = Math.max(0, Number(subtotal || 0));
+    const safeDiscountValue = Math.max(0, Number(discountValue || 0));
+
+    if (safeSubtotal <= 0) return 0;
+
+    if (discountType === 'percentage') {
+      return Number(Math.min(safeSubtotal, safeSubtotal * (safeDiscountValue / 100)).toFixed(2));
+    }
+
+    if (discountType === 'fixed_amount') {
+      return Number(Math.min(safeSubtotal, safeDiscountValue).toFixed(2));
+    }
+
+    return 0;
+  }
+
+  static async resolvePromoCodeForCheckout({ promoCode, subtotal, customerId = null }) {
+    const normalizedCode = String(promoCode || '').trim().toUpperCase();
+    if (!normalizedCode) {
+      return null;
+    }
+
+    const promo = await PromoCode.findOne({ code: normalizedCode });
+    if (!promo) {
+      throw new Error('Invalid promo code');
+    }
+
+    if (!['active'].includes(String(promo.status || '').toLowerCase())) {
+      throw new Error('Promo code is not active');
+    }
+
+    const now = new Date();
+    if (promo.startDate && now < promo.startDate) {
+      throw new Error('Promo code is not active yet');
+    }
+    if (promo.endDate && now > promo.endDate) {
+      throw new Error('Promo code is expired');
+    }
+
+    const minimumOrderValue = Number(promo.rules?.minimumOrderValue || 0);
+    if (subtotal < minimumOrderValue) {
+      throw new Error(`Minimum order value for this promo code is ${minimumOrderValue}`);
+    }
+
+    const usageLimitTotal = Number(promo.rules?.usageLimitTotal || 0);
+    if (usageLimitTotal > 0 && Number(promo.usageCount || 0) >= usageLimitTotal) {
+      throw new Error('Promo code usage limit reached');
+    }
+
+    const usageLimitPerCustomer = Number(promo.rules?.usageLimitPerCustomer || 0);
+    if (usageLimitPerCustomer > 0 && customerId) {
+      const customerUsages = await PromoCodeRedemption.countDocuments({
+        promoCodeId: promo._id,
+        customerId,
+      });
+
+      if (customerUsages >= usageLimitPerCustomer) {
+        throw new Error('Promo code usage limit per customer reached');
+      }
+    }
+
+    const discountAmount = this.calculateDiscountAmount({
+      discountType: promo.discountType,
+      discountValue: promo.value,
+      subtotal,
+    });
+
+    if (discountAmount <= 0) {
+      throw new Error('Promo code does not produce a valid discount');
+    }
+
+    return {
+      promo,
+      discountAmount,
+      discountType: promo.discountType,
+      discountValue: Number(promo.value || 0),
+    };
+  }
+
   // Get user's cart
   static async getCart(userId) {
     console.log('CartService: Getting cart for user:', userId);
@@ -141,21 +242,22 @@ class CartService {
         throw new Error('Cart not found');
       }
 
-      // Mock promo code validation - in real app this would check a promo codes table
-      const validPromoCodes = {
-        'SAVE10': { discount: 0.10, type: 'percentage' },
-        'SAVE20': { discount: 0.20, type: 'percentage' },
-        'WELCOME': { discount: 15, type: 'fixed' }
-      };
+      const subtotal = this.calculateCartSubtotal(cart);
+      const resolvedPromo = await this.resolvePromoCodeForCheckout({
+        promoCode,
+        subtotal,
+        customerId: userId,
+      });
 
-      const promo = validPromoCodes[promoCode.toUpperCase()];
-      if (!promo) {
+      if (!resolvedPromo) {
         throw new Error('Invalid promo code');
       }
 
-      cart.promoCode = promoCode.toUpperCase();
-      cart.discountType = promo.type;
-      cart.discountValue = promo.discount;
+      cart.promoCode = resolvedPromo.promo.code;
+      cart.promoCodeId = resolvedPromo.promo._id;
+      cart.discountType = resolvedPromo.discountType;
+      cart.discountValue = resolvedPromo.discountValue;
+      cart.discount = resolvedPromo.discountAmount;
 
       await cart.save();
 
@@ -163,7 +265,7 @@ class CartService {
       return {
         success: true,
         message: 'Promo code applied successfully',
-        discount: promo.discount,
+        discount: resolvedPromo.discountAmount,
         cart
       };
     } catch (error) {
@@ -184,9 +286,11 @@ class CartService {
 
       cart.items = [];
       cart.repairOrders = [];
-      cart.promoCode = undefined;
-      cart.discountType = undefined;
-      cart.discountValue = undefined;
+      cart.promoCode = '';
+      cart.promoCodeId = null;
+      cart.discountType = '';
+      cart.discountValue = 0;
+      cart.discount = 0;
 
       await cart.save();
 
@@ -304,6 +408,33 @@ class CartService {
       console.error('CartService: Error removing repair order from cart:', error);
       throw error;
     }
+  }
+
+  static async consumePromoCodeRedemption({ promoCode, customerId = null, orderId = null, orderAmount = 0, discountAmount = 0, metadata = {} }) {
+    const normalizedCode = String(promoCode || '').trim().toUpperCase();
+    if (!normalizedCode) return null;
+
+    const promo = await PromoCode.findOne({ code: normalizedCode });
+    if (!promo) {
+      throw new Error('Promo code not found for redemption');
+    }
+
+    const redemption = await PromoCodeRedemption.create({
+      promoCodeId: promo._id,
+      code: promo.code,
+      customerId: customerId || null,
+      orderId: orderId || null,
+      orderAmount: Number(orderAmount || 0),
+      discountAmount: Number(discountAmount || 0),
+      metadata,
+    });
+
+    promo.usageCount = Number(promo.usageCount || 0) + 1;
+    promo.discountVolume = Number(promo.discountVolume || 0) + Number(discountAmount || 0);
+    promo.revenueAttributed = Number(promo.revenueAttributed || 0) + Math.max(0, Number(orderAmount || 0) - Number(discountAmount || 0));
+    await promo.save();
+
+    return { promo, redemption };
   }
 }
 

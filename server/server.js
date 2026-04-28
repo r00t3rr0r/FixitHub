@@ -139,6 +139,8 @@ console.log('Loading admin contact routes...');
 const adminContactRoutes = require("./routes/adminContactRoutes");
 console.log('Loading admin live tracking routes...');
 const adminLiveTrackingRoutes = require("./routes/adminLiveTrackingRoutes");
+console.log('Loading marketing promo routes...');
+const marketingPromoRoutes = require('./routes/marketingPromoRoutes');
 
 console.log('Loading database config...');
 const { connectDB } = require("./config/database");
@@ -371,6 +373,8 @@ const trackingRoutes = require('./routes/tracking');
 app.use('/api', trackingRoutes);
 // Admin Live Tracking Routes
 app.use('/api/admin/live-tracking', adminLiveTrackingRoutes);
+// Marketing/Promo Admin Routes
+app.use('/api/admin/marketing-promo', marketingPromoRoutes);
 // Proxy Routes (mobileapi.dev)
 const proxyRoutes = require('./routes/proxyRoutes');
 app.use('/api/proxy', proxyRoutes);

@@ -120,7 +120,7 @@ router.post('/promo', requireUser, async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('CartRoutes: Error applying promo code:', error);
-    res.status(500).json({
+    res.status(400).json({
       success: false,
       error: error.message
     });

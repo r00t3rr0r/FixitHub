@@ -1418,6 +1418,32 @@ router.post('/complete', requireUser, async (req, res) => {
 
     console.log('CheckoutRoutes: Found', cart.repairOrders?.length || 0, 'repair orders and', cart.items?.length || 0, 'shop products in cart');
 
+    let appliedPromoData = null;
+    if (String(cart.promoCode || '').trim()) {
+      try {
+        const promoSubtotal = Number(cart.subtotal || CartService.calculateCartSubtotal(cart));
+        appliedPromoData = await CartService.resolvePromoCodeForCheckout({
+          promoCode: cart.promoCode,
+          subtotal: promoSubtotal,
+          customerId: req.user._id,
+        });
+      } catch (promoError) {
+        return res.status(400).json({
+          success: false,
+          error: promoError.message || 'Invalid promo code'
+        });
+      }
+
+      if (appliedPromoData) {
+        cart.promoCode = appliedPromoData.promo.code;
+        cart.promoCodeId = appliedPromoData.promo._id;
+        cart.discountType = appliedPromoData.discountType;
+        cart.discountValue = appliedPromoData.discountValue;
+        cart.discount = appliedPromoData.discountAmount;
+        await cart.save();
+      }
+    }
+
     // Helper function to parse estimated time string to minutes
     const parseEstimatedTime = (timeString) => {
       if (typeof timeString === 'number') {
@@ -1628,11 +1654,29 @@ router.post('/complete', requireUser, async (req, res) => {
       // This is a graceful degradation scenario
     }
 
+    if (appliedPromoData && Number(cart.discount || 0) > 0 && createdOrders.length > 0) {
+      try {
+        const totalOrderAmount = createdOrders.reduce((sum, order) => sum + Number(order.totalCost || 0), 0);
+        await CartService.consumePromoCodeRedemption({
+          promoCode: appliedPromoData.promo.code,
+          customerId: req.user._id,
+          orderId: createdOrders[0]._id,
+          orderAmount: totalOrderAmount,
+          discountAmount: Number(cart.discount || 0),
+          metadata: {
+            bookingId: booking?._id || null,
+            orderIds,
+            source: 'checkout-complete',
+          },
+        });
+      } catch (promoProcessingError) {
+        console.error('CheckoutRoutes: Error processing promo redemption (non-fatal):', promoProcessingError);
+      }
+    }
+
     // Clear the cart after successful order creation
     try {
-      cart.repairOrders = [];
-      cart.items = [];
-      await cart.save();
+      await CartService.clearCart(req.user._id);
       console.log('CheckoutRoutes: Cart cleared successfully');
     } catch (clearError) {
       console.error('CheckoutRoutes: Error clearing cart:', clearError);
@@ -1951,6 +1995,24 @@ router.post('/guest-complete', async (req, res) => {
       });
     }
 
+    let guestPromoData = null;
+    const normalizedGuestPromoCode = String(cartData?.promoCode || '').trim().toUpperCase();
+    if (normalizedGuestPromoCode) {
+      try {
+        const guestSubtotal = createdOrders.reduce((sum, order) => sum + Number(order.totalCost || 0), 0);
+        guestPromoData = await CartService.resolvePromoCodeForCheckout({
+          promoCode: normalizedGuestPromoCode,
+          subtotal: guestSubtotal,
+          customerId: null,
+        });
+      } catch (promoError) {
+        return res.status(400).json({
+          success: false,
+          error: promoError.message || 'Invalid promo code'
+        });
+      }
+    }
+
     // Create booking to consolidate all guest orders
     console.log('CheckoutRoutes: Creating booking for guest orders:', createdOrders.length);
     let booking = null;
@@ -1960,8 +2022,8 @@ router.post('/guest-complete', async (req, res) => {
         customerId: null,
         guestInfo: guestUserData,
         orderIds: orderIds.map(id => new mongoose.Types.ObjectId(id)),
-        discount: 0,
-        appliedPromoCode: '',
+        discount: Number(guestPromoData?.discountAmount || 0),
+        appliedPromoCode: guestPromoData?.promo?.code || '',
         status: 'pending',
         billingStatus: resolvedBillingStatus,
         paymentStatus: resolvedPaymentStatus,
@@ -1970,6 +2032,27 @@ router.post('/guest-complete', async (req, res) => {
       console.log('CheckoutRoutes: Guest booking created successfully:', booking._id);
     } catch (bookingError) {
       console.error('CheckoutRoutes: Error creating guest booking:', bookingError);
+    }
+
+    if (guestPromoData && createdOrders.length > 0) {
+      try {
+        const guestTotalAmount = createdOrders.reduce((sum, order) => sum + Number(order.totalCost || 0), 0);
+        await CartService.consumePromoCodeRedemption({
+          promoCode: guestPromoData.promo.code,
+          customerId: null,
+          orderId: createdOrders[0]._id,
+          orderAmount: guestTotalAmount,
+          discountAmount: Number(guestPromoData.discountAmount || 0),
+          metadata: {
+            bookingId: booking?._id || null,
+            orderIds,
+            source: 'guest-checkout-complete',
+            guestEmail: guestInfo.email,
+          },
+        });
+      } catch (promoProcessingError) {
+        console.error('CheckoutRoutes: Error processing guest promo redemption (non-fatal):', promoProcessingError);
+      }
     }
 
     // Create success message

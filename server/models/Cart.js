@@ -117,6 +117,21 @@ const cartSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  promoCodeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PromoCode',
+    default: null,
+  },
+  discountType: {
+    type: String,
+    enum: ['percentage', 'fixed_amount', ''],
+    default: '',
+  },
+  discountValue: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
   discount: {
     type: Number,
     default: 0,
