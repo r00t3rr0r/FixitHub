@@ -433,6 +433,72 @@ class MarketingPromoService {
       }));
   }
 
+  static applyNewsletterPlaceholders(text, placeholders = {}) {
+    if (!text) return '';
+
+    return String(text).replace(/{{\s*(\w+)\s*}}/g, (match, variableName) => {
+      if (!Object.prototype.hasOwnProperty.call(placeholders, variableName)) {
+        return match;
+      }
+
+      const value = placeholders[variableName];
+      if (value === undefined || value === null) {
+        return '';
+      }
+
+      return String(value);
+    });
+  }
+
+  static buildPromoCodeData(promoCodes = []) {
+    const validCodes = (promoCodes || [])
+      .map((promo) => String(promo?.code || '').trim())
+      .filter(Boolean);
+
+    const text = validCodes.join(', ');
+    const html = validCodes.length > 0
+      ? `<ul>${validCodes.map((code) => `<li><strong>${code}</strong></li>`).join('')}</ul>`
+      : '';
+
+    return {
+      text,
+      html,
+      primary: validCodes[0] || '',
+    };
+  }
+
+  static ensurePromoFallbackInContent(content, promoCodeText) {
+    if (!promoCodeText) {
+      return content;
+    }
+
+    if (/{{\s*(promoCodes|promoCodesHtml|primaryPromoCode)\s*}}/i.test(content)) {
+      return content;
+    }
+
+    return `${content}<p><strong>Promo-Code(s):</strong> ${promoCodeText}</p>`;
+  }
+
+  static buildNewsletterPlaceholderMap({ newsletter, recipientName, promoCodeData, nowLabel, effectiveDate, ctaUrl }) {
+    const normalizedRecipientName = String(recipientName || '').trim() || 'Kunde';
+    const firstName = normalizedRecipientName.split(' ').filter(Boolean)[0] || normalizedRecipientName;
+
+    return {
+      customerName: normalizedRecipientName,
+      firstName,
+      companyName: process.env.COMPANY_NAME || 'FixitHub',
+      newsletterName: newsletter.internalName || '',
+      newsletterSubject: newsletter.subject || '',
+      currentDate: nowLabel,
+      currentYear: String(new Date().getFullYear()),
+      effectiveDate,
+      ctaUrl,
+      primaryPromoCode: promoCodeData.primary,
+      promoCodes: promoCodeData.text,
+      promoCodesHtml: promoCodeData.html,
+    };
+  }
+
   static async sendNewsletterTest(id, testEmail, context) {
     const newsletter = await Newsletter.findById(id)
       .populate('promoCodeIds', 'code')
@@ -441,19 +507,45 @@ class MarketingPromoService {
     if (!newsletter) throw new Error('Newsletter wurde nicht gefunden.');
     if (!String(testEmail || '').includes('@')) throw new Error('Gueltige Test-E-Mail ist erforderlich.');
 
-    const promoCodeText = (newsletter.promoCodeIds || []).map((promo) => promo.code).filter(Boolean).join(', ');
+    const nowLabel = new Date().toLocaleString('de-DE');
+    const effectiveDate = newsletter.scheduledAt ? new Date(newsletter.scheduledAt).toLocaleString('de-DE') : nowLabel;
+    const ctaUrl = await EmailService.buildSystemUrl('/newsletter');
+    const promoCodeData = this.buildPromoCodeData(newsletter.promoCodeIds || []);
+    const placeholders = this.buildNewsletterPlaceholderMap({
+      newsletter,
+      recipientName: 'Test Empfaenger',
+      promoCodeData,
+      nowLabel,
+      effectiveDate,
+      ctaUrl,
+    });
+
+    const contentTemplate = this.ensurePromoFallbackInContent(newsletter.content, promoCodeData.text);
+    const resolvedSubject = this.applyNewsletterPlaceholders(newsletter.subject, placeholders);
+    const resolvedPreheader = this.applyNewsletterPlaceholders(
+      newsletter.preheader || `Testversand: ${newsletter.internalName}`,
+      placeholders
+    );
+    const resolvedBody = this.applyNewsletterPlaceholders(contentTemplate, placeholders);
 
     const result = await EmailService.sendTemplateEmail(NEWSLETTER_TEMPLATE_NAME, testEmail, {
       companyName: process.env.COMPANY_NAME || 'FixitHub',
       customerName: 'Test Empfaenger',
-      notificationTitle: newsletter.subject,
-      notificationPreview: newsletter.preheader || `Testversand: ${newsletter.internalName}`,
+      firstName: placeholders.firstName,
+      notificationTitle: resolvedSubject,
+      notificationPreview: resolvedPreheader,
       notificationTopic: 'Newsletter-Test',
-      notificationBody: `${newsletter.content}${promoCodeText ? `<p><strong>Promo-Code(s):</strong> ${promoCodeText}</p>` : ''}`,
-      notificationDate: new Date().toLocaleString('de-DE'),
-      effectiveDate: newsletter.scheduledAt ? new Date(newsletter.scheduledAt).toLocaleString('de-DE') : new Date().toLocaleString('de-DE'),
+      notificationBody: resolvedBody,
+      newsletterSubject: resolvedSubject,
+      currentDate: nowLabel,
+      currentYear: String(new Date().getFullYear()),
+      notificationDate: nowLabel,
+      effectiveDate,
       ctaLabel: 'Im Browser oeffnen',
-      ctaUrl: await EmailService.buildSystemUrl('/newsletter'),
+      ctaUrl,
+      primaryPromoCode: promoCodeData.primary,
+      promoCodes: promoCodeData.text,
+      promoCodesHtml: promoCodeData.html,
       supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789',
     });
@@ -544,23 +636,47 @@ class MarketingPromoService {
 
     let sent = 0;
     let failed = 0;
-    const promoCodeText = (newsletter.promoCodeIds || []).map((promo) => promo.code).filter(Boolean).join(', ');
+    const nowLabel = new Date().toLocaleString('de-DE');
+    const effectiveDate = newsletter.scheduledAt ? new Date(newsletter.scheduledAt).toLocaleString('de-DE') : nowLabel;
+    const ctaUrl = await EmailService.buildSystemUrl('/newsletter');
+    const promoCodeData = this.buildPromoCodeData(newsletter.promoCodeIds || []);
+    const contentTemplate = this.ensurePromoFallbackInContent(newsletter.content, promoCodeData.text);
 
     for (let i = 0; i < recipients.length; i += batchSize) {
       const batch = recipients.slice(i, i + batchSize);
 
       const batchResults = await Promise.all(batch.map(async (recipient) => {
+        const placeholders = this.buildNewsletterPlaceholderMap({
+          newsletter,
+          recipientName: recipient.customerName,
+          promoCodeData,
+          nowLabel,
+          effectiveDate,
+          ctaUrl,
+        });
+
+        const resolvedSubject = this.applyNewsletterPlaceholders(newsletter.subject, placeholders);
+        const resolvedPreview = this.applyNewsletterPlaceholders(newsletter.preheader || newsletter.subject, placeholders);
+        const resolvedBody = this.applyNewsletterPlaceholders(contentTemplate, placeholders);
+
         const result = await EmailService.sendTemplateEmail(NEWSLETTER_TEMPLATE_NAME, recipient.email, {
           companyName: process.env.COMPANY_NAME || 'FixitHub',
           customerName: recipient.customerName,
-          notificationTitle: newsletter.subject,
-          notificationPreview: newsletter.preheader || newsletter.subject,
+          firstName: placeholders.firstName,
+          notificationTitle: resolvedSubject,
+          notificationPreview: resolvedPreview,
           notificationTopic: 'Newsletter',
-          notificationBody: `${newsletter.content}${promoCodeText ? `<p><strong>Promo-Code(s):</strong> ${promoCodeText}</p>` : ''}`,
-          notificationDate: new Date().toLocaleString('de-DE'),
-          effectiveDate: newsletter.scheduledAt ? new Date(newsletter.scheduledAt).toLocaleString('de-DE') : new Date().toLocaleString('de-DE'),
+          notificationBody: resolvedBody,
+          newsletterSubject: resolvedSubject,
+          currentDate: nowLabel,
+          currentYear: String(new Date().getFullYear()),
+          notificationDate: nowLabel,
+          effectiveDate,
           ctaLabel: 'Mehr erfahren',
-          ctaUrl: await EmailService.buildSystemUrl('/newsletter'),
+          ctaUrl,
+          primaryPromoCode: promoCodeData.primary,
+          promoCodes: promoCodeData.text,
+          promoCodesHtml: promoCodeData.html,
           supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
           supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789',
         });
