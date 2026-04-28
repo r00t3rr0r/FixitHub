@@ -142,6 +142,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   const [selectedModel, setSelectedModel] = useState<DeviceModel | null>(null);
   const [selectedRepairs, setSelectedRepairs] = useState<RepairService[]>([]);
   const [selectedAddOns, setSelectedAddOns] = useState<AddOnService[]>([]);
+  const [selectedRepairCategory, setSelectedRepairCategory] = useState<string>('all');
 
   // Unlock code/pattern state (NEW)
   const [unlockPattern, setUnlockPattern] = useState<string[]>([]);
@@ -783,6 +784,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           }
           const response = await getServices(params);
           setRepairServices((response as any).services || []);
+          setSelectedRepairCategory('all');
         } catch (error) {
           console.error('Error fetching repair services:', error);
           toast({
@@ -912,6 +914,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     setSelectedModel(null);
     setSelectedRepairs([]);
     setSelectedAddOns([]);
+    setSelectedRepairCategory('all');
     setManufacturers([]);
     setModels([]);
     setRepairServices([]);
@@ -1023,6 +1026,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     setSelectedModel(null);
     setSelectedRepairs([]);
     setSelectedAddOns([]);
+    setSelectedRepairCategory('all');
     setUnlockPattern([]);
     setUnlockCode('');
     setNoDeviceLock(false);
@@ -1365,14 +1369,94 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           {/* STEP 3: Repair Type */}
           {currentStep === 3 && (
             <div className="config-step-content active" data-step="3">
+              {/* Category filter chips - shown right below the step indicators */}
+              {(() => {
+                const categories = Array.from(
+                  new Set(
+                    repairServices
+                      .map((s) => (s.category || '').trim())
+                      .filter((c) => c.length > 0)
+                  )
+                ).sort((a, b) => a.localeCompare(b));
+
+                if (loadingRepairs || categories.length <= 1) {
+                  return null;
+                }
+
+                return (
+                  <>
+                    {/* Desktop / tablet: chip row */}
+                    <div className="repair-category-bar" role="tablist" aria-label={t('home.configurator.categoryFilter.label')}>
+                      <button
+                        type="button"
+                        role="tab"
+                        aria-selected={selectedRepairCategory === 'all'}
+                        className={`repair-category-chip ${selectedRepairCategory === 'all' ? 'active' : ''}`}
+                        onClick={() => setSelectedRepairCategory('all')}
+                      >
+                        {t('home.configurator.categoryFilter.all')}
+                      </button>
+                      {categories.map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          role="tab"
+                          aria-selected={selectedRepairCategory === cat}
+                          className={`repair-category-chip ${selectedRepairCategory === cat ? 'active' : ''}`}
+                          onClick={() => setSelectedRepairCategory(cat)}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Mobile: native dropdown */}
+                    <div className="repair-category-select-wrapper">
+                      <label htmlFor="repairCategorySelect" className="sr-only">
+                        {t('home.configurator.categoryFilter.label')}
+                      </label>
+                      <select
+                        id="repairCategorySelect"
+                        className="repair-category-select"
+                        value={selectedRepairCategory}
+                        onChange={(e) => setSelectedRepairCategory(e.target.value)}
+                        aria-label={t('home.configurator.categoryFilter.label')}
+                      >
+                        <option value="all">{t('home.configurator.categoryFilter.all')}</option>
+                        {categories.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                );
+              })()}
+
               {/* Repair Selection Grid - Now displayed first */}
               <div className="repair-grid">
                 {loadingRepairs ? (
                   <div className="col-span-full text-center py-8 text-muted-foreground">
                     {t('home.configurator.loadingRepairs')}
                   </div>
-                ) : repairServices.length > 0 ? (
-                  repairServices.map((service) => (
+                ) : (() => {
+                  const visibleServices =
+                    selectedRepairCategory === 'all'
+                      ? repairServices
+                      : repairServices.filter(
+                          (s) => (s.category || '').trim() === selectedRepairCategory
+                        );
+
+                  if (visibleServices.length === 0) {
+                    return (
+                      <div className="col-span-full text-center py-8 text-muted-foreground">
+                        {t('home.configurator.noRepairs')}
+                      </div>
+                    );
+                  }
+
+                  return visibleServices.map((service) => (
                     <div
                       key={service._id}
                       className={`repair-card ${selectedRepairs.find(s => s._id === service._id) ? 'selected' : ''}`}
@@ -1389,12 +1473,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         </div>
                       )}
                     </div>
-                  ))
-                ) : (
-                  <div className="col-span-full text-center py-8 text-muted-foreground">
-                    {t('home.configurator.noRepairs')}
-                  </div>
-                )}
+                  ));
+                })()}
               </div>
 
               {/* Vorabdiagnose hint */}
