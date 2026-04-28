@@ -1845,6 +1845,10 @@
       "back": "Back",
       "next": "Next",
       "loadingRepairs": "Loading repairs...",
+      "categoryFilter": {
+        "label": "Filter by category",
+        "all": "All"
+      },
       "repairFrom": "from {{price}} €",
       "noRepairs": "No repairs available for this device",
       "diagnosisHint": "Not sure what is broken?",

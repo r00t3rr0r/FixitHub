@@ -1031,6 +1031,111 @@ ul, ol {
   gap: 10px;
 }
 
+/* Step 3 repair list: keep configurator compact by scrolling long lists internally */
+.config-step-content[data-step="3"] .repair-grid {
+  max-height: 420px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.25) transparent;
+}
+
+.config-step-content[data-step="3"] .repair-grid::-webkit-scrollbar {
+  width: 8px;
+}
+
+.config-step-content[data-step="3"] .repair-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.config-step-content[data-step="3"] .repair-grid::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 999px;
+}
+
+.config-step-content[data-step="3"] .repair-grid::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.35);
+}
+
+/* Repair category filter chips (Step 3) */
+.repair-category-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.repair-category-chip {
+  appearance: none;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: var(--white, #fff);
+  color: var(--text-dark, #1f2937);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+}
+
+.repair-category-chip:hover {
+  border-color: var(--accent-yellow, #f5b800);
+  background: rgba(245, 184, 0, 0.08);
+}
+
+.repair-category-chip.active {
+  background: var(--primary-blue, #1e3a8a);
+  color: var(--white, #fff);
+  border-color: var(--primary-blue, #1e3a8a);
+  box-shadow: 0 2px 6px rgba(30, 58, 138, 0.18);
+}
+
+/* Mobile dropdown variant of the category filter */
+.repair-category-select-wrapper {
+  display: none;
+  margin: 0 0 16px 0;
+}
+
+.repair-category-select {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: var(--white, #fff);
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 10 13 14 9'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 18px 18px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
+  padding: 10px 40px 10px 14px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-dark, #1f2937);
+  cursor: pointer;
+}
+
+.repair-category-select:focus {
+  outline: none;
+  border-color: var(--accent-yellow, #f5b800);
+  box-shadow: 0 0 0 3px rgba(245, 184, 0, 0.15);
+}
+
+/* On mobile: swap chip row for a native dropdown */
+@media (max-width: 768px) {
+  .repair-category-bar {
+    display: none;
+  }
+
+  .repair-category-select-wrapper {
+    display: block;
+  }
+}
+
 /* ---- Device Preview Panel (floating side panel on desktop, inline on mobile) ---- */
 .device-preview-panel {
   position: absolute;
