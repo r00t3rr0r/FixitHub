@@ -2385,6 +2385,8 @@
     "noBookingsDescription": "You don't have any bookings yet. Create a new order to get started.",
     "progress": "Progress",
     "viewOrders": "View Orders",
+    "orderCommunication": "Order Communication",
+    "communicateWithSupport": "Communicate with our support team about your repair order",
     "errorFetchingBookings": "Failed to fetch bookings",
     "errorFetchingOrders": "Failed to fetch orders for this booking"
   },

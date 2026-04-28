@@ -2392,6 +2392,8 @@
     "noBookingsDescription": "Sie haben noch keine Buchungen. Erstellen Sie einen neuen Auftrag, um loszulegen.",
     "progress": "Fortsch.",
     "viewOrders": "Aufträge anzeigen",
+    "orderCommunication": "Auftragskommunikation",
+    "communicateWithSupport": "Kommunizieren Sie mit unserem Support-Team über Ihren Reparaturauftrag",
     "errorFetchingBookings": "Fehler beim Abrufen der Buchungen",
     "errorFetchingOrders": "Fehler beim Abrufen der Aufträge für diese Buchung"
   },
