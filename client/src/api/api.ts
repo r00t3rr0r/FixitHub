@@ -2,8 +2,27 @@ import axios, { AxiosRequestConfig, AxiosError, InternalAxiosRequestConfig, Axio
 import JSONbig from 'json-bigint';
 
 
+const AUTH_MARKER_VALUE = 'cookie-authenticated';
+const CSRF_COOKIE_NAME = 'csrf_token';
+
+const readCookie = (name: string): string | null => {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+};
+
+const shouldAttachCsrfToken = (method?: string) => {
+  const normalizedMethod = (method || 'get').toUpperCase();
+  return !['GET', 'HEAD', 'OPTIONS'].includes(normalizedMethod);
+};
+
+const isJwtLike = (value: string | null) => {
+  return Boolean(value && value.split('.').length === 3);
+};
+
 
 const localApi = axios.create({
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -54,52 +73,35 @@ const isRefreshTokenEndpoint = (url: string): boolean => {
   return url.includes("/api/auth/refresh");
 };
 
-const extractTokensFromRefreshResponse = (responseData: any) => {
-  const tokenContainer = responseData?.data ?? responseData;
-  return {
-    accessToken: tokenContainer?.accessToken,
-    refreshToken: tokenContainer?.refreshToken,
-  };
-};
-
 // Shared refresh promise — prevents parallel refresh calls when multiple requests get 401 simultaneously
-let pendingRefresh: Promise<string> | null = null;
+let pendingRefresh: Promise<void> | null = null;
 
-const doTokenRefresh = async (): Promise<string> => {
-  const refreshToken = localStorage.getItem('refreshToken');
-  if (!refreshToken || refreshToken === 'null' || refreshToken === 'undefined') {
-    throw new Error('No refresh token available');
-  }
-
+const doTokenRefresh = async (): Promise<void> => {
   console.log('[API] Sending refresh token request');
-  const response = await localApi.post(`/api/auth/refresh`, { refreshToken });
+  const response = await localApi.post(`/api/auth/refresh`, {});
 
   if (response.status >= 400) {
     throw new Error(`Token refresh failed: ${response.status}`);
   }
 
-  const { accessToken: newAccessToken, refreshToken: newRefreshToken } = extractTokensFromRefreshResponse(response.data);
-
-  if (!newAccessToken || !newRefreshToken) {
-    throw new Error('Invalid response from refresh token endpoint');
-  }
-
-  localStorage.setItem('accessToken', newAccessToken);
-  localStorage.setItem('refreshToken', newRefreshToken);
+  localStorage.setItem('accessToken', AUTH_MARKER_VALUE);
   console.log('[API] Tokens refreshed successfully');
-  return newAccessToken;
 };
 
 const setupInterceptors = (apiInstance: typeof axios) => {
   apiInstance.interceptors.request.use(
     (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
-
-      // Always read the latest token from localStorage to ensure auth persistence
       const accessToken = localStorage.getItem('accessToken');
-      
-      // Only add Authorization header if token is valid (not null, undefined, or string "null")
-      if (accessToken && accessToken !== 'null' && accessToken !== 'undefined' && config.headers) {
+
+      if (isJwtLike(accessToken) && config.headers) {
         config.headers.Authorization = `Bearer ${accessToken}`;
+      }
+
+      if (config.headers && shouldAttachCsrfToken(config.method)) {
+        const csrfToken = readCookie(CSRF_COOKIE_NAME);
+        if (csrfToken) {
+          config.headers['X-CSRF-Token'] = csrfToken;
+        }
       }
 
       return config;
@@ -137,16 +139,11 @@ const setupInterceptors = (apiInstance: typeof axios) => {
           if (!pendingRefresh) {
             pendingRefresh = doTokenRefresh().finally(() => { pendingRefresh = null; });
           }
-          const newAccessToken = await pendingRefresh;
-
-          if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-          }
+          await pendingRefresh;
           console.log(`[API] Retrying original request: ${originalRequest.url}`);
           return getApiInstance(originalRequest.url || '')(originalRequest);
         } catch (err) {
           console.error('[API] Token refresh failed:', err);
-          localStorage.removeItem('refreshToken');
           localStorage.removeItem('accessToken');
           localStorage.removeItem('user');
           // Dispatch event so AuthContext can react

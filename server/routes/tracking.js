@@ -20,6 +20,23 @@ function hashIp(ip) {
   return crypto.createHash('sha256').update(shortIp + salt).digest('hex');
 }
 
+function normalizeIp(rawIp) {
+  if (!rawIp || typeof rawIp !== 'string') return '';
+  let ip = rawIp.trim();
+
+  // Strip IPv4-mapped IPv6 prefix
+  if (ip.startsWith('::ffff:')) {
+    ip = ip.replace('::ffff:', '');
+  }
+
+  // Keep only first value if a comma-separated list slips through
+  if (ip.includes(',')) {
+    ip = ip.split(',')[0].trim();
+  }
+
+  return ip;
+}
+
 function parseUserAgent(ua) {
   const parser = new UAParser(ua);
   const result = parser.getResult();
@@ -36,15 +53,20 @@ router.post('/track', async (req, res) => {
     if (!validateTrackingPayload(req.body)) {
       return res.status(400).json({ error: 'Invalid payload' });
     }
-    const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.connection.remoteAddress;
-    const ip_hash = hashIp(ip);
+    const rawIp = req.headers['x-forwarded-for']?.split(',')[0] || req.connection.remoteAddress;
+    const ip_address = normalizeIp(rawIp);
+    const ip_hash = hashIp(ip_address);
     const ua = req.headers['user-agent'] || '';
     const uaInfo = parseUserAgent(ua);
     const event = {
       ...req.body,
+      ip_address,
       ip_hash,
       occurred_at: new Date(),
-      ...uaInfo
+      browser: req.body.browser || uaInfo.browser,
+      browser_version: req.body.browser_version || uaInfo.browser_version,
+      os: req.body.os || uaInfo.os,
+      device_type: req.body.device_type || uaInfo.device_type,
     };
     await createTrackingEvent(event);
     res.json({ ok: true });

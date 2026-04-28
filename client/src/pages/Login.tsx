@@ -15,6 +15,7 @@ import { Eye, EyeOff, LogIn, User, Shield, Wrench, Copy } from "lucide-react"
 interface LoginForm {
   email: string
   password: string
+  rememberMe: boolean
 }
 
 const exampleLogins = [
@@ -48,7 +49,10 @@ export function Login() {
   const { t } = useTranslation()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm<LoginForm>()
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<LoginForm>({
+    defaultValues: { rememberMe: false }
+  })
+  const rememberMe = watch('rememberMe')
   const { login, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -93,7 +97,7 @@ export function Login() {
     try {
       setIsLoading(true)
       console.log('Login form: Attempting login with email:', data.email)
-      await login(data.email, data.password)
+      await login(data.email, data.password, data.rememberMe)
       console.log('Login form: Login successful')
 
       // Get the updated user from localStorage to check role
@@ -229,7 +233,17 @@ export function Login() {
                   {errors.password && (
                     <p className="text-sm text-red-500">{errors.password.message}</p>
                   )}
-                  <div className="text-right">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        {...register('rememberMe')}
+                        className="w-4 h-4 accent-blue-600 cursor-pointer"
+                      />
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {t('login.rememberMe', 'Angemeldet bleiben')}
+                      </span>
+                    </label>
                     <Link
                       to="/forgot-password"
                       className="text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors"

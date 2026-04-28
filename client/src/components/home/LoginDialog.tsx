@@ -20,6 +20,7 @@ export function LoginDialog({ isOpen, onClose, anchorElement, onLoginSuccess }: 
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ top: 0, right: 0 });
@@ -93,7 +94,7 @@ export function LoginDialog({ isOpen, onClose, anchorElement, onLoginSuccess }: 
 
     try {
       setIsLoading(true);
-      await login(email, password);
+      await login(email, password, rememberMe);
       
       toast({
         title: t('login.success', 'Success'),
@@ -190,6 +191,16 @@ export function LoginDialog({ isOpen, onClose, anchorElement, onLoginSuccess }: 
           </div>
 
           <div className="form-actions">
+            <label className="remember-me-label">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                disabled={isLoading}
+                className="remember-me-checkbox"
+              />
+              <span>{t('login.rememberMe', 'Angemeldet bleiben')}</span>
+            </label>
             <Link to="/forgot-password" className="forgot-password" onClick={onClose}>
               {t('login.forgotPassword', 'Passwort vergessen?')}
             </Link>

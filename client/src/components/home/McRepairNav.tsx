@@ -38,14 +38,27 @@ import {
   getManufacturersByDeviceType,
   getModelsByTypeAndManufacturer,
   DeviceType,
-  DeviceModel
+  DeviceModel,
+  Manufacturer
 } from '@/api/devices';
 
 interface DeviceMenuData {
-  smartphone: { [manufacturer: string]: string[] };
-  tablet: { [manufacturer: string]: string[] };
-  notebook: { [manufacturer: string]: string[] };
-  konsole: { [manufacturer: string]: string[] };
+  smartphone: { [manufacturer: string]: DeviceMenuModel[] };
+  tablet: { [manufacturer: string]: DeviceMenuModel[] };
+  notebook: { [manufacturer: string]: DeviceMenuModel[] };
+  konsole: { [manufacturer: string]: DeviceMenuModel[] };
+}
+
+interface DeviceMenuModel {
+  name: string;
+  image?: string;
+}
+
+interface DeviceBrandIconData {
+  smartphone: { [manufacturer: string]: string | undefined };
+  tablet: { [manufacturer: string]: string | undefined };
+  notebook: { [manufacturer: string]: string | undefined };
+  konsole: { [manufacturer: string]: string | undefined };
 }
 
 export function McRepairNav() {
@@ -68,6 +81,12 @@ export function McRepairNav() {
     notebook: {},
     konsole: {}
   });
+  const [brandIconData, setBrandIconData] = useState<DeviceBrandIconData>({
+    smartphone: {},
+    tablet: {},
+    notebook: {},
+    konsole: {}
+  });
   const [loadingDevices, setLoadingDevices] = useState(true);
   const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
   const mobileMenuCloseTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -76,6 +95,57 @@ export function McRepairNav() {
   const navLogoRef = useRef<HTMLAnchorElement | null>(null);
   const navLinksRef = useRef<HTMLDivElement | null>(null);
   const navRightRef = useRef<HTMLDivElement | null>(null);
+
+  const resolveModelImage = (model: DeviceModel): string | undefined => {
+    const directImage = model.image?.trim();
+    if (directImage) {
+      if (
+        directImage.startsWith('http://') ||
+        directImage.startsWith('https://') ||
+        directImage.startsWith('/') ||
+        directImage.startsWith('data:')
+      ) {
+        return directImage;
+      }
+      return `data:image/jpeg;base64,${directImage}`;
+    }
+
+    const urlImage = model.images?.find((img) => img?.url?.trim())?.url?.trim();
+    if (urlImage) {
+      return urlImage;
+    }
+
+    const base64Image = model.images?.find((img) => img?.base64?.trim())?.base64?.trim();
+    if (base64Image) {
+      if (base64Image.startsWith('data:')) {
+        return base64Image;
+      }
+      return `data:image/jpeg;base64,${base64Image}`;
+    }
+
+    return undefined;
+  };
+
+  const resolveBrandIcon = (logo?: string): string | undefined => {
+    const normalizedLogo = logo?.trim();
+    if (!normalizedLogo) {
+      return undefined;
+    }
+
+    if (
+      normalizedLogo.startsWith('http://') ||
+      normalizedLogo.startsWith('https://') ||
+      normalizedLogo.startsWith('/') ||
+      normalizedLogo.startsWith('data:')
+    ) {
+      return normalizedLogo;
+    }
+
+    return `data:image/jpeg;base64,${normalizedLogo}`;
+  };
+
+  const getBrandIcon = (category: keyof DeviceMenuData, manufacturer: string): string | undefined =>
+    brandIconData[category]?.[manufacturer];
 
   useEffect(() => {
     const handleScroll = () => {
@@ -180,73 +250,7 @@ export function McRepairNav() {
           notebook: {},
           konsole: {}
         };
-
-        // Map device type names to menu categories
-        const categoryMap: { [key: string]: keyof DeviceMenuData } = {
-          'smartphone': 'smartphone',
-          'tablet': 'tablet',
-          'notebook': 'notebook',
-          'laptop': 'notebook',
-          'konsole': 'konsole',
-          'console': 'konsole',
-          'gaming console': 'konsole'
-        };
-
-        // Load manufacturers and models for each device type
-        for (const deviceType of deviceTypes) {
-          const category = categoryMap[deviceType.name.toLowerCase()];
-          if (!category) continue;
-
-          try {
-            const manufacturersResponse = await getManufacturersByDeviceType(deviceType._id);
-            const manufacturers = (manufacturersResponse as any).manufacturers || [];
-
-            for (const manufacturer of manufacturers) {
-              try {
-                const modelsResponse = await getModelsByTypeAndManufacturer(
-                  deviceType._id,
-                  manufacturer._id
-                );
-                const models = (modelsResponse as any).models || [];
-
-                // Only take first 3 models for the dropdown menu
-                const modelNames = models.slice(0, 3).map((m: DeviceModel) => m.name);
-
-                if (modelNames.length > 0) {
-                  if (!menuData[category][manufacturer.name]) {
-                    menuData[category][manufacturer.name] = [];
-                  }
-                  menuData[category][manufacturer.name] = modelNames;
-                }
-              } catch (error) {
-                console.error(`Error loading models for ${manufacturer.name}:`, error);
-              }
-            }
-          } catch (error) {
-            console.error(`Error loading manufacturers for ${deviceType.name}:`, error);
-          }
-        }
-
-        setDeviceMenuData(menuData);
-      } catch (error) {
-        console.error('Error loading device menu data:', error);
-      } finally {
-        setLoadingDevices(false);
-      }
-    };
-
-    loadDeviceMenuData();
-  }, []);
-
-  // Load device menu data from API
-  useEffect(() => {
-    const loadDeviceMenuData = async () => {
-      try {
-        setLoadingDevices(true);
-        const response = await getDeviceTypes();
-        const deviceTypes = (response as any).deviceTypes || [];
-
-        const menuData: DeviceMenuData = {
+        const iconData: DeviceBrandIconData = {
           smartphone: {},
           tablet: {},
           notebook: {},
@@ -271,10 +275,12 @@ export function McRepairNav() {
 
           try {
             const manufacturersResponse = await getManufacturersByDeviceType(deviceType._id);
-            const manufacturers = (manufacturersResponse as any).manufacturers || [];
+            const manufacturers: Manufacturer[] = (manufacturersResponse as any).manufacturers || [];
 
             for (const manufacturer of manufacturers) {
               try {
+                iconData[category][manufacturer.name] = resolveBrandIcon(manufacturer.logo);
+
                 const modelsResponse = await getModelsByTypeAndManufacturer(
                   deviceType._id,
                   manufacturer._id
@@ -282,13 +288,16 @@ export function McRepairNav() {
                 const models = (modelsResponse as any).models || [];
 
                 // Only take first 3 models for the dropdown menu
-                const modelNames = models.slice(0, 3).map((m: DeviceModel) => m.name);
+                const menuModels = models.slice(0, 3).map((m: DeviceModel) => ({
+                  name: m.name,
+                  image: resolveModelImage(m)
+                }));
 
-                if (modelNames.length > 0) {
+                if (menuModels.length > 0) {
                   if (!menuData[category][manufacturer.name]) {
                     menuData[category][manufacturer.name] = [];
                   }
-                  menuData[category][manufacturer.name] = modelNames;
+                  menuData[category][manufacturer.name] = menuModels;
                 }
               } catch (error) {
                 console.error(`Error loading models for ${manufacturer.name}:`, error);
@@ -300,6 +309,91 @@ export function McRepairNav() {
         }
 
         setDeviceMenuData(menuData);
+        setBrandIconData(iconData);
+      } catch (error) {
+        console.error('Error loading device menu data:', error);
+      } finally {
+        setLoadingDevices(false);
+      }
+    };
+
+    loadDeviceMenuData();
+  }, []);
+
+  // Load device menu data from API
+  useEffect(() => {
+    const loadDeviceMenuData = async () => {
+      try {
+        setLoadingDevices(true);
+        const response = await getDeviceTypes();
+        const deviceTypes = (response as any).deviceTypes || [];
+
+        const menuData: DeviceMenuData = {
+          smartphone: {},
+          tablet: {},
+          notebook: {},
+          konsole: {}
+        };
+        const iconData: DeviceBrandIconData = {
+          smartphone: {},
+          tablet: {},
+          notebook: {},
+          konsole: {}
+        };
+
+        // Map device type names to menu categories
+        const categoryMap: { [key: string]: keyof DeviceMenuData } = {
+          'smartphone': 'smartphone',
+          'tablet': 'tablet',
+          'notebook': 'notebook',
+          'laptop': 'notebook',
+          'konsole': 'konsole',
+          'console': 'konsole',
+          'gaming console': 'konsole'
+        };
+
+        // Load manufacturers and models for each device type
+        for (const deviceType of deviceTypes) {
+          const category = categoryMap[deviceType.name.toLowerCase()];
+          if (!category) continue;
+
+          try {
+            const manufacturersResponse = await getManufacturersByDeviceType(deviceType._id);
+            const manufacturers: Manufacturer[] = (manufacturersResponse as any).manufacturers || [];
+
+            for (const manufacturer of manufacturers) {
+              try {
+                iconData[category][manufacturer.name] = resolveBrandIcon(manufacturer.logo);
+
+                const modelsResponse = await getModelsByTypeAndManufacturer(
+                  deviceType._id,
+                  manufacturer._id
+                );
+                const models = (modelsResponse as any).models || [];
+
+                // Only take first 3 models for the dropdown menu
+                const menuModels = models.slice(0, 3).map((m: DeviceModel) => ({
+                  name: m.name,
+                  image: resolveModelImage(m)
+                }));
+
+                if (menuModels.length > 0) {
+                  if (!menuData[category][manufacturer.name]) {
+                    menuData[category][manufacturer.name] = [];
+                  }
+                  menuData[category][manufacturer.name] = menuModels;
+                }
+              } catch (error) {
+                console.error(`Error loading models for ${manufacturer.name}:`, error);
+              }
+            }
+          } catch (error) {
+            console.error(`Error loading manufacturers for ${deviceType.name}:`, error);
+          }
+        }
+
+        setDeviceMenuData(menuData);
+        setBrandIconData(iconData);
       } catch (error) {
         console.error('Error loading device menu data:', error);
       } finally {
@@ -510,15 +604,41 @@ export function McRepairNav() {
       <div className="nav-mobile-dropdown">
         {manufacturers.map(([manufacturer, models]) => (
           <div key={manufacturer} className="nav-mobile-dropdown-group">
-            <div className="nav-mobile-dropdown-title">{manufacturer}</div>
+            <div className="nav-mobile-dropdown-title">
+              <span className="nav-brand-header-content">
+                {getBrandIcon(category, manufacturer) ? (
+                  <img
+                    src={getBrandIcon(category, manufacturer)}
+                    alt={manufacturer}
+                    className="nav-brand-icon"
+                    loading="lazy"
+                  />
+                ) : (
+                  <span className="nav-brand-icon-fallback" aria-hidden="true" />
+                )}
+                <span>{manufacturer}</span>
+              </span>
+            </div>
             {models.map((model) => (
               <Link
-                key={model}
+                key={model.name}
                 to="/"
                 className="nav-mobile-dropdown-link"
-                onClick={() => handleDeviceClick(category, manufacturer, model)}
+                onClick={() => handleDeviceClick(category, manufacturer, model.name)}
               >
-                {model}
+                <span className="nav-model-link-content">
+                  {model.image ? (
+                    <img
+                      src={model.image}
+                      alt={model.name}
+                      className="nav-model-thumb"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span className="nav-model-thumb-fallback" aria-hidden="true" />
+                  )}
+                  <span>{model.name}</span>
+                </span>
               </Link>
             ))}
             <Link
@@ -596,15 +716,41 @@ export function McRepairNav() {
         <div className="nav-dropdown-inner">
           {manufacturers.map(([manufacturer, models]) => (
             <div key={manufacturer} className="nav-dropdown-column">
-              <div className="nav-dropdown-header">{manufacturer}</div>
+              <div className="nav-dropdown-header">
+                <span className="nav-brand-header-content">
+                  {getBrandIcon(category, manufacturer) ? (
+                    <img
+                      src={getBrandIcon(category, manufacturer)}
+                      alt={manufacturer}
+                      className="nav-brand-icon"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span className="nav-brand-icon-fallback" aria-hidden="true" />
+                  )}
+                  <span>{manufacturer}</span>
+                </span>
+              </div>
               <ul className="nav-dropdown-list">
                 {models.map((model) => (
-                  <li key={model}>
+                  <li key={model.name}>
                     <Link 
                       to="/"
-                      onClick={() => handleDeviceClick(category, manufacturer, model)}
+                      onClick={() => handleDeviceClick(category, manufacturer, model.name)}
                     >
-                      {model}
+                      <span className="nav-model-link-content">
+                        {model.image ? (
+                          <img
+                            src={model.image}
+                            alt={model.name}
+                            className="nav-model-thumb"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className="nav-model-thumb-fallback" aria-hidden="true" />
+                        )}
+                        <span>{model.name}</span>
+                      </span>
                     </Link>
                   </li>
                 ))}

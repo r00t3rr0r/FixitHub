@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
+const { requireUser } = require('./middleware/auth');
 const {
   getAdminSummary,
   getActiveSessions,
@@ -22,7 +22,7 @@ const requireAdmin = (req, res, next) => {
 };
 
 // GET /api/admin/live-tracking/summary
-router.get('/summary', auth, requireAdmin, async (req, res) => {
+router.get('/summary', requireUser, requireAdmin, async (req, res) => {
   try {
     const minutes = parseInt(req.query.minutes) || 30;
     console.log('[Admin Live Tracking] Summary request - minutes:', minutes, 'user:', req.user?.email);
@@ -36,7 +36,7 @@ router.get('/summary', auth, requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/live-tracking/active-sessions
-router.get('/active-sessions', auth, requireAdmin, async (req, res) => {
+router.get('/active-sessions', requireUser, requireAdmin, async (req, res) => {
   try {
     const minutes = parseInt(req.query.minutes) || 30;
     console.log('[Admin Live Tracking] Active sessions request - minutes:', minutes);
@@ -50,7 +50,7 @@ router.get('/active-sessions', auth, requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/live-tracking/top-pages
-router.get('/top-pages', auth, requireAdmin, async (req, res) => {
+router.get('/top-pages', requireUser, requireAdmin, async (req, res) => {
   try {
     const minutes = parseInt(req.query.minutes) || 30;
     const limit = parseInt(req.query.limit) || 10;
@@ -63,7 +63,7 @@ router.get('/top-pages', auth, requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/live-tracking/top-referrers
-router.get('/top-referrers', auth, requireAdmin, async (req, res) => {
+router.get('/top-referrers', requireUser, requireAdmin, async (req, res) => {
   try {
     const minutes = parseInt(req.query.minutes) || 30;
     const limit = parseInt(req.query.limit) || 10;
@@ -76,7 +76,7 @@ router.get('/top-referrers', auth, requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/live-tracking/top-browsers
-router.get('/top-browsers', auth, requireAdmin, async (req, res) => {
+router.get('/top-browsers', requireUser, requireAdmin, async (req, res) => {
   try {
     const minutes = parseInt(req.query.minutes) || 30;
     const limit = parseInt(req.query.limit) || 10;
@@ -89,7 +89,7 @@ router.get('/top-browsers', auth, requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/live-tracking/top-devices
-router.get('/top-devices', auth, requireAdmin, async (req, res) => {
+router.get('/top-devices', requireUser, requireAdmin, async (req, res) => {
   try {
     const minutes = parseInt(req.query.minutes) || 30;
     const limit = parseInt(req.query.limit) || 10;
@@ -102,7 +102,7 @@ router.get('/top-devices', auth, requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/live-tracking/top-countries
-router.get('/top-countries', auth, requireAdmin, async (req, res) => {
+router.get('/top-countries', requireUser, requireAdmin, async (req, res) => {
   try {
     const minutes = parseInt(req.query.minutes) || 30;
     const limit = parseInt(req.query.limit) || 10;
@@ -115,7 +115,7 @@ router.get('/top-countries', auth, requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/live-tracking/events
-router.get('/events', auth, requireAdmin, async (req, res) => {
+router.get('/events', requireUser, requireAdmin, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 50;
     const minutes = parseInt(req.query.minutes) || 30;
@@ -128,7 +128,7 @@ router.get('/events', auth, requireAdmin, async (req, res) => {
 });
 
 // GET /api/admin/live-tracking/session/:sessionId
-router.get('/session/:sessionId', auth, requireAdmin, async (req, res) => {
+router.get('/session/:sessionId', requireUser, requireAdmin, async (req, res) => {
   try {
     const sessionDetail = await getSessionDetail(req.params.sessionId);
     if (!sessionDetail) {

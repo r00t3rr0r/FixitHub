@@ -19,9 +19,18 @@ export type ActiveSession = {
   source: string;
   medium: string;
   campaign: string;
+  is_authenticated?: boolean;
+  user_id?: string;
+  user_email?: string;
+  user_name?: string;
+  user_role?: string;
   browser: string;
+  browser_version?: string;
   device_type: string;
+  device_model?: string;
   os: string;
+  os_version?: string;
+  platform?: string;
   country: string;
   event_count: number;
   visitor_id: string;
@@ -41,6 +50,16 @@ export type TrackingEvent = {
   session_id: string;
   referrer: string;
   source: string;
+  browser?: string;
+  device_type?: string;
+  os?: string;
+  ip_address?: string;
+  ip_hash?: string;
+  is_authenticated?: boolean;
+  user_id?: string;
+  user_email?: string;
+  user_name?: string;
+  user_role?: string;
   custom_data: any;
 };
 
@@ -70,6 +89,14 @@ export type SessionDetail = {
   }>;
 };
 
+export type PublicLiveStats = {
+  active_visitors_last_5m: number;
+  top_pages: TopItem[];
+  top_referrers: TopItem[];
+  top_browsers: TopItem[];
+  top_devices: TopItem[];
+};
+
 export const liveTrackingApi = {
   getSummary: async (minutes = 30): Promise<LiveTrackingSummary> => {
     console.log('[API] getSummary - minutes:', minutes);
@@ -93,7 +120,7 @@ export const liveTrackingApi = {
     console.log('[API] getActiveSessions - minutes:', minutes);
     const response = await api.get(`/api/admin/live-tracking/active-sessions?minutes=${minutes}`);
     console.log('[API] getActiveSessions - response:', response.status, 'data length:', Array.isArray(response.data) ? response.data.length : 'not array');
-    if (response.status !== 200 || !Array.isArray(response.data) || response.data.error) {
+    if (response.status !== 200 || !Array.isArray(response.data) || (response.data as { error?: unknown })?.error) {
       console.warn('[API] getActiveSessions - returning empty array', response.data?.error);
       return [];
     }
@@ -102,7 +129,7 @@ export const liveTrackingApi = {
 
   getTopPages: async (minutes = 30, limit = 10): Promise<TopItem[]> => {
     const response = await api.get(`/api/admin/live-tracking/top-pages?minutes=${minutes}&limit=${limit}`);
-    if (response.status !== 200 || !Array.isArray(response.data) || response.data.error) {
+    if (response.status !== 200 || !Array.isArray(response.data) || (response.data as { error?: unknown })?.error) {
       return [];
     }
     return response.data;
@@ -110,7 +137,7 @@ export const liveTrackingApi = {
 
   getTopReferrers: async (minutes = 30, limit = 10): Promise<TopItem[]> => {
     const response = await api.get(`/api/admin/live-tracking/top-referrers?minutes=${minutes}&limit=${limit}`);
-    if (response.status !== 200 || !Array.isArray(response.data) || response.data.error) {
+    if (response.status !== 200 || !Array.isArray(response.data) || (response.data as { error?: unknown })?.error) {
       return [];
     }
     return response.data;
@@ -118,7 +145,7 @@ export const liveTrackingApi = {
 
   getTopBrowsers: async (minutes = 30, limit = 10): Promise<TopItem[]> => {
     const response = await api.get(`/api/admin/live-tracking/top-browsers?minutes=${minutes}&limit=${limit}`);
-    if (response.status !== 200 || !Array.isArray(response.data) || response.data.error) {
+    if (response.status !== 200 || !Array.isArray(response.data) || (response.data as { error?: unknown })?.error) {
       return [];
     }
     return response.data;
@@ -126,7 +153,7 @@ export const liveTrackingApi = {
 
   getTopDevices: async (minutes = 30, limit = 10): Promise<TopItem[]> => {
     const response = await api.get(`/api/admin/live-tracking/top-devices?minutes=${minutes}&limit=${limit}`);
-    if (response.status !== 200 || !Array.isArray(response.data) || response.data.error) {
+    if (response.status !== 200 || !Array.isArray(response.data) || (response.data as { error?: unknown })?.error) {
       return [];
     }
     return response.data;
@@ -134,7 +161,7 @@ export const liveTrackingApi = {
 
   getTopCountries: async (minutes = 30, limit = 10): Promise<TopItem[]> => {
     const response = await api.get(`/api/admin/live-tracking/top-countries?minutes=${minutes}&limit=${limit}`);
-    if (response.status !== 200 || !Array.isArray(response.data) || response.data.error) {
+    if (response.status !== 200 || !Array.isArray(response.data) || (response.data as { error?: unknown })?.error) {
       return [];
     }
     return response.data;
@@ -143,7 +170,7 @@ export const liveTrackingApi = {
   getEvents: async (limit = 50, minutes = 30): Promise<TrackingEvent[]> => {
     const response = await api.get(`/api/admin/live-tracking/events?limit=${limit}&minutes=${minutes}`);
     console.log('[API] getEvents - response:', response.status, 'data length:', Array.isArray(response.data) ? response.data.length : 'not array');
-    if (response.status !== 200 || !Array.isArray(response.data) || response.data.error) {
+    if (response.status !== 200 || !Array.isArray(response.data) || (response.data as { error?: unknown })?.error) {
       console.warn('[API] getEvents - returning empty array', response.data?.error);
       return [];
     }
@@ -156,5 +183,19 @@ export const liveTrackingApi = {
       throw new Error('Failed to load session detail');
     }
     return response.data;
+  },
+
+  getPublicLiveStats: async (): Promise<PublicLiveStats | null> => {
+    const response = await api.get('/api/tracking/live');
+    if (response.status !== 200 || !response.data || response.data.error) {
+      return null;
+    }
+    return {
+      active_visitors_last_5m: response.data.active_visitors_last_5m || 0,
+      top_pages: Array.isArray(response.data.top_pages) ? response.data.top_pages : [],
+      top_referrers: Array.isArray(response.data.top_referrers) ? response.data.top_referrers : [],
+      top_browsers: Array.isArray(response.data.top_browsers) ? response.data.top_browsers : [],
+      top_devices: Array.isArray(response.data.top_devices) ? response.data.top_devices : [],
+    };
   },
 };

@@ -473,9 +473,13 @@ const normalizeOrderDetailPreferences = (value: unknown): OrderDetailColumnPrefe
     const definition = knownColumns.get(candidateId)
     if (!definition || seen.has(candidateId)) continue
 
+    const rawVisible = (entry as OrderDetailColumnPreference & { visible?: unknown }).visible
+    const normalizedVisible =
+      typeof rawVisible === "string" ? rawVisible.toLowerCase() === "true" : Boolean(rawVisible)
+
     normalized.push({
       id: candidateId,
-      visible: definition.required ? true : Boolean((entry as OrderDetailColumnPreference).visible),
+      visible: definition.required ? true : normalizedVisible,
     })
     seen.add(candidateId)
   }
@@ -838,9 +842,13 @@ const normalizeColumnPreferences = (value: unknown): ProfitabilityColumnPreferen
     const definition = knownColumns.get(candidateId)
     if (!definition || seen.has(candidateId)) continue
 
+    const rawVisible = (entry as ProfitabilityColumnPreference & { visible?: unknown }).visible
+    const normalizedVisible =
+      typeof rawVisible === "string" ? rawVisible.toLowerCase() === "true" : Boolean(rawVisible)
+
     normalized.push({
       id: candidateId,
-      visible: definition.required ? true : Boolean((entry as ProfitabilityColumnPreference).visible),
+      visible: definition.required ? true : normalizedVisible,
     })
     seen.add(candidateId)
   }
@@ -1086,6 +1094,26 @@ export function Analytics() {
   })
   const [orderDetailDraft, setOrderDetailDraft] = useState<OrderDetailColumnPreference[]>(orderDetailPreferences)
 
+  const persistColumnPreferences = (preferences: ProfitabilityColumnPreference[]) => {
+    if (typeof window === "undefined") return
+
+    try {
+      window.localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(preferences))
+    } catch {
+      // no-op: keep runtime state even if localStorage is unavailable
+    }
+  }
+
+  const persistOrderDetailPreferences = (preferences: OrderDetailColumnPreference[]) => {
+    if (typeof window === "undefined") return
+
+    try {
+      window.localStorage.setItem(ORDER_DETAIL_COLUMN_STORAGE_KEY, JSON.stringify(preferences))
+    } catch {
+      // no-op: keep runtime state even if localStorage is unavailable
+    }
+  }
+
   const loadReport = async (showToast = false) => {
     try {
       if (showToast) {
@@ -1127,14 +1155,22 @@ export function Analytics() {
   }, [])
 
   useEffect(() => {
-    if (typeof window === "undefined") return
-    window.localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(columnPreferences))
+    persistColumnPreferences(columnPreferences)
   }, [columnPreferences])
 
   useEffect(() => {
-    if (typeof window === "undefined") return
-    window.localStorage.setItem(ORDER_DETAIL_COLUMN_STORAGE_KEY, JSON.stringify(orderDetailPreferences))
+    persistOrderDetailPreferences(orderDetailPreferences)
   }, [orderDetailPreferences])
+
+  useEffect(() => {
+    if (!columnsOpen) return
+    setColumnDraft(columnPreferences)
+  }, [columnsOpen, columnPreferences])
+
+  useEffect(() => {
+    if (!orderColumnsOpen) return
+    setOrderDetailDraft(orderDetailPreferences)
+  }, [orderColumnsOpen, orderDetailPreferences])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -1350,7 +1386,10 @@ export function Analytics() {
   }
 
   const applyColumnPreferences = () => {
-    setColumnPreferences(normalizeColumnPreferences(columnDraft))
+    const nextPreferences = normalizeColumnPreferences(columnDraft)
+    setColumnPreferences(nextPreferences)
+    setColumnDraft(nextPreferences)
+    persistColumnPreferences(nextPreferences)
     setColumnsOpen(false)
   }
 
@@ -1384,7 +1423,10 @@ export function Analytics() {
   }
 
   const applyOrderDetailPreferences = () => {
-    setOrderDetailPreferences(normalizeOrderDetailPreferences(orderDetailDraft))
+    const nextPreferences = normalizeOrderDetailPreferences(orderDetailDraft)
+    setOrderDetailPreferences(nextPreferences)
+    setOrderDetailDraft(nextPreferences)
+    persistOrderDetailPreferences(nextPreferences)
     setOrderColumnsOpen(false)
   }
 
@@ -1895,14 +1937,14 @@ export function Analytics() {
                   </div>
 
                   <div className="analytics-columns-item-actions">
-                    <label className="analytics-columns-toggle">
+                    <div className="analytics-columns-toggle">
                       <Checkbox
                         checked={definition.required ? true : column.visible}
                         disabled={definition.required}
                         onCheckedChange={(checked) => setDraftColumnVisibility(column.id, checked === true)}
                       />
                       <span>{definition.required ? "Fixiert" : column.visible ? "Sichtbar" : "Ausgeblendet"}</span>
-                    </label>
+                    </div>
 
                     <Button type="button" variant="outline" size="icon" onClick={() => moveDraftColumn(index, -1)} disabled={index === 0}>
                       <span className="sr-only">Nach oben</span>
@@ -1965,14 +2007,14 @@ export function Analytics() {
                   </div>
 
                   <div className="analytics-columns-item-actions">
-                    <label className="analytics-columns-toggle">
+                    <div className="analytics-columns-toggle">
                       <Checkbox
                         checked={definition.required ? true : column.visible}
                         disabled={definition.required}
                         onCheckedChange={(checked) => setOrderDetailDraftVisibility(column.id, checked === true)}
                       />
                       <span>{definition.required ? "Fixiert" : column.visible ? "Sichtbar" : "Ausgeblendet"}</span>
-                    </label>
+                    </div>
 
                     <Button type="button" variant="outline" size="icon" onClick={() => moveOrderDetailDraftColumn(index, -1)} disabled={index === 0}>
                       <span className="sr-only">Nach oben</span>

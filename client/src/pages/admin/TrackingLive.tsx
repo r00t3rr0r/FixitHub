@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   liveTrackingApi,
   LiveTrackingSummary,
   ActiveSession,
   TopItem,
   TrackingEvent,
+  PublicLiveStats,
 } from '../../api/liveTracking';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -134,6 +135,45 @@ function SessionRow({ session, index }: SessionRowProps) {
     return <Laptop className="h-4 w-4" />;
   };
 
+  const getDeviceLabel = () => {
+    if (session.device_model && session.device_model !== 'Unknown') {
+      return session.device_model;
+    }
+    if (session.device_type === 'mobile') return 'Mobile';
+    if (session.device_type === 'tablet') return 'Tablet';
+    return 'Desktop';
+  };
+
+  const getBrowserLabel = () => {
+    if (session.browser_version) {
+      return `${session.browser || 'Unknown Browser'} ${session.browser_version}`;
+    }
+    return session.browser || 'Unknown Browser';
+  };
+
+  const getOsLabel = () => {
+    if (session.os_version) {
+      return `${session.os || 'Unknown OS'} ${session.os_version}`;
+    }
+    return session.os || 'Unknown OS';
+  };
+
+  const getUserLabel = () => {
+    if (!session.is_authenticated) {
+      return 'Gast';
+    }
+
+    if (session.user_name) {
+      return session.user_name;
+    }
+
+    if (session.user_email) {
+      return session.user_email;
+    }
+
+    return 'Angemeldeter Nutzer';
+  };
+
   const getTimeAgo = (timestamp: string) => {
     const diff = Date.now() - new Date(timestamp).getTime();
     const minutes = Math.floor(diff / 60000);
@@ -156,13 +196,31 @@ function SessionRow({ session, index }: SessionRowProps) {
             {getDeviceIcon(session.device_type)}
             <span className="font-medium text-sm truncate">{session.current_page || '/'}</span>
           </div>
+          <div className="text-xs text-muted-foreground mb-1 truncate">
+            {getDeviceLabel()} • {getOsLabel()}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs mb-1">
+            <Badge variant={session.is_authenticated ? 'default' : 'outline'}>
+              {session.is_authenticated ? 'Angemeldet' : 'Gast'}
+            </Badge>
+            <span className="text-muted-foreground truncate">{getUserLabel()}</span>
+            {session.user_role && (
+              <Badge variant="secondary">{session.user_role}</Badge>
+            )}
+          </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <Globe className="h-3 w-3" />
               {session.country || 'Unknown'}
             </span>
             <Separator orientation="vertical" className="h-3" />
-            <span>{session.browser || 'Unknown Browser'}</span>
+            <span>{getBrowserLabel()}</span>
+            {session.platform && (
+              <>
+                <Separator orientation="vertical" className="h-3" />
+                <span>{session.platform}</span>
+              </>
+            )}
             {session.source && (
               <>
                 <Separator orientation="vertical" className="h-3" />
@@ -189,9 +247,10 @@ function SessionRow({ session, index }: SessionRowProps) {
 // Event Row Component
 interface EventRowProps {
   event: TrackingEvent;
+  session?: ActiveSession;
 }
 
-function EventRow({ event }: EventRowProps) {
+function EventRow({ event, session }: EventRowProps) {
   const getTimeAgo = (timestamp: string) => {
     const diff = Date.now() - new Date(timestamp).getTime();
     const seconds = Math.floor(diff / 1000);
@@ -206,21 +265,80 @@ function EventRow({ event }: EventRowProps) {
     switch (eventName) {
       case 'page_view': return 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400';
       case 'click': return 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400';
+      case 'heartbeat': return 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400';
       case 'form_submit': return 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400';
       default: return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400';
     }
   };
 
+  const isAuthenticated = event.is_authenticated ?? session?.is_authenticated ?? false;
+  const userLabel =
+    event.user_name ||
+    event.user_email ||
+    session?.user_name ||
+    session?.user_email ||
+    (isAuthenticated ? 'Angemeldeter Nutzer' : 'Gast');
+  const userRole = event.user_role || session?.user_role;
+  const sessionShort = event.session_id ? event.session_id.slice(0, 8) : 'unknown';
+  const deviceLabel =
+    event.device_type || session?.device_type || event.browser || session?.browser || event.os || session?.os;
+  const ipAddress = event.ip_address || 'Unbekannt';
+  const detailsPayload = {
+    event_name: event.event_name,
+    occurred_at: event.occurred_at,
+    page_path: event.page_path,
+    session_id: event.session_id,
+    ip_address: event.ip_address,
+    ip_hash: event.ip_hash,
+    is_authenticated: isAuthenticated,
+    user_name: event.user_name || session?.user_name,
+    user_email: event.user_email || session?.user_email,
+    user_role: userRole,
+    browser: event.browser || session?.browser,
+    os: event.os || session?.os,
+    device_type: event.device_type || session?.device_type,
+    source: event.source,
+    referrer: event.referrer,
+    custom_data: event.custom_data,
+  };
+
   return (
-    <div className="flex items-center gap-3 p-3 rounded-md hover:bg-accent/50 transition-colors">
-      <Circle className="h-2 w-2 fill-green-500 text-green-500 animate-pulse shrink-0" />
-      <Badge className={cn('shrink-0', getEventColor(event.event_name))}>
-        {event.event_name}
-      </Badge>
-      <span className="text-sm flex-1 truncate">{event.page_path || '/'}</span>
-      <span className="text-xs text-muted-foreground shrink-0">
-        {getTimeAgo(event.occurred_at)}
-      </span>
+    <div className="p-3 rounded-md hover:bg-accent/50 transition-colors space-y-2">
+      <div className="flex items-center gap-3">
+        <Circle className="h-2 w-2 fill-green-500 text-green-500 animate-pulse shrink-0" />
+        <Badge className={cn('shrink-0', getEventColor(event.event_name))}>
+          {event.event_name}
+        </Badge>
+        <span className="text-sm flex-1 truncate">{event.page_path || '/'}</span>
+        <span className="text-xs text-muted-foreground shrink-0">
+          {getTimeAgo(event.occurred_at)}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <Badge variant={isAuthenticated ? 'default' : 'outline'}>
+          {isAuthenticated ? 'Angemeldet' : 'Gast'}
+        </Badge>
+        <span className="text-muted-foreground truncate">{userLabel}</span>
+        {userRole && <Badge variant="secondary">{userRole}</Badge>}
+        <Separator orientation="vertical" className="h-3" />
+        <span className="text-muted-foreground">Session: {sessionShort}</span>
+        <Separator orientation="vertical" className="h-3" />
+        <span className="text-muted-foreground">IP: {ipAddress}</span>
+        {deviceLabel && (
+          <>
+            <Separator orientation="vertical" className="h-3" />
+            <span className="text-muted-foreground truncate">{deviceLabel}</span>
+          </>
+        )}
+      </div>
+      <details className="text-xs">
+        <summary className="cursor-pointer text-muted-foreground hover:text-foreground select-none">
+          Event-Details anzeigen
+        </summary>
+        <pre className="mt-2 whitespace-pre-wrap break-all rounded-md border bg-muted/50 p-3 text-[11px] leading-relaxed">
+          {JSON.stringify(detailsPayload, null, 2)}
+        </pre>
+      </details>
     </div>
   );
 }
@@ -235,28 +353,38 @@ export default function TrackingLive() {
   const [topDevices, setTopDevices] = useState<TopItem[]>([]);
   const [topCountries, setTopCountries] = useState<TopItem[]>([]);
   const [events, setEvents] = useState<TrackingEvent[]>([]);
+  const [publicStats, setPublicStats] = useState<PublicLiveStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
-  const fetchData = async () => {
+  const heartbeatEvents = events.filter((event) => event.event_name === 'heartbeat').length;
+  const clickEvents = events.filter((event) => event.event_name === 'click').length;
+  const hasAdminStream = sessions.length > 0 || events.length > 0;
+  const hasPublicStream = (publicStats?.active_visitors_last_5m || 0) > 0;
+  const showPublicFallback = !hasAdminStream && hasPublicStream;
+  const sessionById = useMemo(() => new Map(sessions.map((session) => [session._id, session])), [sessions]);
+
+  const fetchData = useCallback(async () => {
     try {
-      const [summaryData, sessionsData, eventsData] = await Promise.all([
+      const [summaryData, sessionsData, eventsData, publicStatsData] = await Promise.all([
         liveTrackingApi.getSummary(timeRange),
         liveTrackingApi.getActiveSessions(timeRange),
         liveTrackingApi.getEvents(20, timeRange),
+        liveTrackingApi.getPublicLiveStats(),
       ]);
       setSummary(summaryData);
       setSessions(sessionsData);
       setEvents(eventsData);
+      setPublicStats(publicStatsData);
       setLastUpdate(new Date());
       setIsLoading(false);
     } catch (error) {
       console.error('Failed to fetch live tracking data:', error);
       setIsLoading(false);
     }
-  };
+  }, [timeRange]);
 
-  const fetchBreakdowns = async () => {
+  const fetchBreakdowns = useCallback(async () => {
     try {
       const [pages, referrers, browsers, devices, countries] = await Promise.all([
         liveTrackingApi.getTopPages(timeRange, 10),
@@ -273,7 +401,7 @@ export default function TrackingLive() {
     } catch (error) {
       console.error('Failed to fetch breakdowns:', error);
     }
-  };
+  }, [timeRange]);
 
   useEffect(() => {
     fetchData();
@@ -285,7 +413,7 @@ export default function TrackingLive() {
     }, 10000); // Update every 10 seconds
 
     return () => clearInterval(dataInterval);
-  }, [timeRange]);
+  }, [fetchData, fetchBreakdowns]);
 
   if (isLoading) {
     return (
@@ -336,6 +464,26 @@ export default function TrackingLive() {
         </div>
       </div>
 
+      {showPublicFallback && (
+        <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
+          <CardContent className="pt-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-medium text-blue-700 dark:text-blue-300">
+                  Tracking ist aktiv, aber der Admin-Stream ist aktuell leer.
+                </p>
+                <p className="text-sm text-blue-600 dark:text-blue-400">
+                  Fallback auf den öffentlichen Live-Stream der letzten 5 Minuten.
+                </p>
+              </div>
+              <Badge variant="secondary" className="w-fit">
+                {publicStats?.active_visitors_last_5m || 0} aktive Besucher (5m)
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Metrics Grid */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
@@ -363,11 +511,35 @@ export default function TrackingLive() {
           color="purple"
         />
         <MetricCard
-          title="Events"
-          value={events.length}
-          icon={<Activity className="h-4 w-4" />}
-          description="Live Event Stream"
+          title="Klick-Events"
+          value={clickEvents}
+          icon={<MousePointer className="h-4 w-4" />}
+          description="Live Klick-Tracking"
           color="orange"
+        />
+      </div>
+
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          title="Heartbeat-Events"
+          value={heartbeatEvents}
+          icon={<Activity className="h-4 w-4" />}
+          description="Automatische Aktivitäts-Pings"
+          color="blue"
+        />
+        <MetricCard
+          title="Gesamt-Events"
+          value={events.length}
+          icon={<TrendingUp className="h-4 w-4" />}
+          description="Aktueller Live-Event-Stream"
+          color="green"
+        />
+        <MetricCard
+          title="Public Besucher (5m)"
+          value={publicStats?.active_visitors_last_5m || 0}
+          icon={<Users className="h-4 w-4" />}
+          description="Fallback-Tracking-Quelle"
+          color="purple"
         />
       </div>
 
@@ -407,6 +579,19 @@ export default function TrackingLive() {
                     <p className="text-sm text-muted-foreground mt-2">
                       Besucher werden hier angezeigt, sobald sie Ihre Website aufrufen
                     </p>
+                    {showPublicFallback && publicStats && publicStats.top_pages.length > 0 && (
+                      <div className="mt-6 text-left max-w-lg mx-auto rounded-lg border bg-card p-4">
+                        <p className="text-sm font-medium mb-3">Öffentlicher Stream: Top Seiten (5m)</p>
+                        <div className="space-y-2">
+                          {publicStats.top_pages.slice(0, 5).map((page, idx) => (
+                            <div key={`${page._id}-${idx}`} className="flex items-center justify-between text-sm">
+                              <span className="truncate pr-2">{page._id || '/'}</span>
+                              <Badge variant="secondary">{page.count}</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -479,11 +664,16 @@ export default function TrackingLive() {
                     <p className="text-sm text-muted-foreground mt-2">
                       Events werden hier in Echtzeit angezeigt
                     </p>
+                    {showPublicFallback && (
+                      <p className="text-sm text-blue-600 dark:text-blue-400 mt-3">
+                        Hinweis: Public Stream ist aktiv, der Admin-Event-Stream liefert aktuell noch keine Einträge.
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {events.map((event, idx) => (
-                      <EventRow key={`${event._id}-${idx}`} event={event} />
+                      <EventRow key={`${event._id}-${idx}`} event={event} session={sessionById.get(event.session_id)} />
                     ))}
                   </div>
                 )}

@@ -1,11 +1,14 @@
 const jwt = require('jsonwebtoken');
 const User = require('../../models/User');
+const { ACCESS_COOKIE_NAME } = require('../../utils/authCookies');
 
 const auth = async (req, res, next) => {
   try {
     console.log('Auth middleware: Checking authentication');
 
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+    const cookieToken = req.cookies?.[ACCESS_COOKIE_NAME];
+    const headerToken = req.header('Authorization')?.replace('Bearer ', '');
+    const token = cookieToken || headerToken;
 
     if (!token || token === 'null' || token === 'undefined') {
       console.log('Auth middleware: No token provided');

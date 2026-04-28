@@ -14,6 +14,8 @@ console.log('Loading mongoose...');
 const mongoose = require("mongoose");
 console.log('Loading express...');
 const express = require("express");
+console.log('Loading cookie parser...');
+const cookieParser = require('cookie-parser');
 console.log('Loading session...');
 const session = require("express-session");
 console.log('Loading MongoStore...');
@@ -144,6 +146,7 @@ console.log('Loading SeedService...');
 const SeedService = require("./services/seedService");
 console.log('Loading cors...');
 const cors = require("cors");
+const { requireCsrfProtection } = require('./routes/middleware/csrf');
 
 if (!process.env.DATABASE_URL) {
   console.error("Error: DATABASE_URL variables in .env missing.");
@@ -153,6 +156,9 @@ if (!process.env.DATABASE_URL) {
 console.log('Creating Express app...');
 const app = express();
 const port = process.env.PORT || 3000;
+const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+
+app.set('trust proxy', 1);
 
 // Pretty-print JSON responses
 app.enable('json spaces');
@@ -160,10 +166,15 @@ app.enable('json spaces');
 app.enable('strict routing');
 
 console.log('Setting up middleware...');
-app.use(cors({}));
+app.use(cors({
+  origin: clientUrl,
+  credentials: true,
+}));
 // Increase payload size limits to handle large file uploads and data payloads
+app.use(cookieParser());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(requireCsrfProtection);
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

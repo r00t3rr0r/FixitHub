@@ -389,7 +389,29 @@
 
 .login-dialog-form .form-actions {
   margin-bottom: 20px;
-  text-align: right;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.login-dialog-form .remember-me-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #555);
+  font-family: var(--font-main);
+  user-select: none;
+}
+
+.login-dialog-form .remember-me-checkbox {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--primary-blue);
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 .login-dialog-form .forgot-password {
