@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { TopBar } from '@/components/home/TopBar';
@@ -11,7 +11,6 @@ import { ShopSection } from '@/components/home/ShopSectionSimple';
 import { BlogSection } from '@/components/home/BlogSection';
 import { Footer } from '@/components/Footer';
 import { CookieBanner } from '@/components/CookieBanner';
-import { MobileCTAFab } from '@/components/home/MobileCTAFab';
 import { ScrollToTopButton } from '@/components/home/ScrollToTopButton';
 import { saveDeviceInfo } from '@/utils/deviceDetection';
 
@@ -62,9 +61,6 @@ export function Home() {
 
       {/* Cookie Consent Banner */}
       <CookieBanner />
-
-      {/* Mobile Floating CTA Button */}
-      <MobileCTAFab />
 
       {/* Desktop Scroll to Top Button */}
       <ScrollToTopButton />

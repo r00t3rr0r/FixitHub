@@ -89,6 +89,7 @@ import { Sitemap } from "./pages/Sitemap"
 import { ShippingAndPayment } from "./pages/ShippingAndPayment"
 import { BatteryDisposal } from "./pages/BatteryDisposal"
 import { PageTracker } from "./components/PageTracker"
+import { GlobalScrollToTopButton } from "./components/GlobalScrollToTopButton"
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -105,6 +106,7 @@ function App() {
         <Router>
           <ScrollToTop />
           <PageTracker />
+          <GlobalScrollToTopButton />
           {/* Public routes - accessible to all users */}
           <Routes>
             {/* Home page as default landing page for all users */}
