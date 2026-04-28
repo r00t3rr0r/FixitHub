@@ -63,6 +63,12 @@ import { ComplaintsManagement } from "./pages/admin/ComplaintsManagement"
 import { EmailAdministration } from "./pages/admin/EmailAdministration"
 import EPartOrderManagement from "./pages/admin/EPartOrderManagement"
 import TrackingLive from "./pages/admin/TrackingLive"
+import { MarketingPromoOverview } from "./pages/admin/marketing-promo/MarketingPromoOverview"
+import { MarketingPromoNewsletters } from "./pages/admin/marketing-promo/MarketingPromoNewsletters"
+import { MarketingPromoPromoCodes } from "./pages/admin/marketing-promo/MarketingPromoPromoCodes"
+import { MarketingPromoSegments } from "./pages/admin/marketing-promo/MarketingPromoSegments"
+import { MarketingPromoReports } from "./pages/admin/marketing-promo/MarketingPromoReports"
+import { MarketingPromoSettingsPage } from "./pages/admin/marketing-promo/MarketingPromoSettings"
 import { InspectionWorkflow } from "./pages/inspection/InspectionWorkflow"
 import { RepairRequestQuestionnaire } from "./pages/RepairRequestQuestionnaire"
 import { RepairRequestsManagement } from "./pages/admin/RepairRequestsManagement"
@@ -279,6 +285,24 @@ function App() {
             </Route>
             <Route path="/admin/live-tracking" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<TrackingLive />} />
+            </Route>
+            <Route path="/admin/marketing-promo" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
+              <Route index element={<MarketingPromoOverview />} />
+            </Route>
+            <Route path="/admin/marketing-promo/newsletters" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
+              <Route index element={<MarketingPromoNewsletters />} />
+            </Route>
+            <Route path="/admin/marketing-promo/promo-codes" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
+              <Route index element={<MarketingPromoPromoCodes />} />
+            </Route>
+            <Route path="/admin/marketing-promo/segments" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
+              <Route index element={<MarketingPromoSegments />} />
+            </Route>
+            <Route path="/admin/marketing-promo/reports" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
+              <Route index element={<MarketingPromoReports />} />
+            </Route>
+            <Route path="/admin/marketing-promo/settings" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
+              <Route index element={<MarketingPromoSettingsPage />} />
             </Route>
             <Route path="/admin/database" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<DatabaseManagement />} />

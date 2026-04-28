@@ -31,7 +31,8 @@ import {
   Boxes,
   BookMarked,
   Mail,
-  Activity
+  Activity,
+  Megaphone
 } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { getNotifications } from "@/api/notifications"
@@ -48,6 +49,7 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
   const [userManagementOpen, setUserManagementOpen] = useState(false)
   const [orderManagementOpen, setOrderManagementOpen] = useState(false)
   const [contentManagementOpen, setContentManagementOpen] = useState(false)
+  const [marketingPromoOpen, setMarketingPromoOpen] = useState(false)
   const [systemManagementOpen, setSystemManagementOpen] = useState(false)
 
   useEffect(() => {
@@ -241,6 +243,32 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
         </NavItem>
         <NavItem to="/admin/seo" icon={Search}>
           {t('admin.menu.seoManagement')}
+        </NavItem>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Marketing/Promo"
+        icon={Megaphone}
+        isOpen={marketingPromoOpen}
+        onToggle={() => setMarketingPromoOpen(!marketingPromoOpen)}
+      >
+        <NavItem to="/admin/marketing-promo" icon={Megaphone}>
+          Uebersicht
+        </NavItem>
+        <NavItem to="/admin/marketing-promo/newsletters" icon={Mail}>
+          Newsletter
+        </NavItem>
+        <NavItem to="/admin/marketing-promo/promo-codes" icon={DollarSign}>
+          Promo Codes
+        </NavItem>
+        <NavItem to="/admin/marketing-promo/segments" icon={Layers}>
+          Segmente
+        </NavItem>
+        <NavItem to="/admin/marketing-promo/reports" icon={BarChart3}>
+          Reports
+        </NavItem>
+        <NavItem to="/admin/marketing-promo/settings" icon={Settings}>
+          Einstellungen
         </NavItem>
       </CollapsibleSection>
 

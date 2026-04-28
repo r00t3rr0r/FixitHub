@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { requireUser } = require('./middleware/auth');
+const { requireUser, optionalAuth } = require('./middleware/auth');
 const CartService = require('../services/cartService');
 
 // Get user's cart
@@ -102,8 +102,10 @@ router.delete('/remove/:itemId', requireUser, async (req, res) => {
   }
 });
 
-// Apply promo code
-router.post('/promo', requireUser, async (req, res) => {
+// Apply promo code (works for both authenticated and guest users)
+// For authenticated users, applies to their saved cart
+// For guest users, just validates and returns discount info
+router.post('/promo', optionalAuth, async (req, res) => {
   try {
     console.log('CartRoutes: Applying promo code:', req.body);
     const { promoCode } = req.body;
@@ -115,12 +117,62 @@ router.post('/promo', requireUser, async (req, res) => {
       });
     }
     
-    const result = await CartService.applyPromoCode(req.user._id, promoCode);
-    
-    res.json(result);
+    // Check if user is authenticated
+    if (req.user) {
+      // Authenticated user: apply to their cart
+      console.log('CartRoutes: Applying promo code for authenticated user:', req.user._id);
+      const result = await CartService.applyPromoCode(req.user._id, promoCode);
+      res.json(result);
+    } else {
+      // Guest user: just validate the promo code
+      console.log('CartRoutes: Validating promo code for guest user');
+      const Cart = require('../models/Cart');
+      const PromoCode = require('../models/PromoCode');
+      
+      const normalizedCode = String(promoCode || '').trim().toUpperCase();
+      const promo = await PromoCode.findOne({ code: normalizedCode });
+      
+      if (!promo) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid promo code'
+        });
+      }
+      
+      if (!['active'].includes(String(promo.status || '').toLowerCase())) {
+        return res.status(400).json({
+          success: false,
+          error: 'Promo code is not active'
+        });
+      }
+      
+      const now = new Date();
+      if (promo.startDate && now < promo.startDate) {
+        return res.status(400).json({
+          success: false,
+          error: 'Promo code is not active yet'
+        });
+      }
+      if (promo.endDate && now > promo.endDate) {
+        return res.status(400).json({
+          success: false,
+          error: 'Promo code is expired'
+        });
+      }
+      
+      // For guest users, return the promo code info (but don't save it)
+      res.json({
+        success: true,
+        message: 'Promo code validated successfully',
+        promoCode: promo.code,
+        discountType: promo.discountType,
+        discountValue: Number(promo.value || 0),
+        note: 'Guest user: discount will be applied at checkout'
+      });
+    }
   } catch (error) {
     console.error('CartRoutes: Error applying promo code:', error);
-    res.status(500).json({
+    res.status(400).json({
       success: false,
       error: error.message
     });

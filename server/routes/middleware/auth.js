@@ -48,6 +48,43 @@ const auth = async (req, res, next) => {
   }
 };
 
+// Middleware to optionally authenticate user (doesn't fail if no token)
+const optionalAuth = async (req, res, next) => {
+  try {
+    console.log('OptionalAuth middleware: Checking for optional authentication');
+
+    const cookieToken = req.cookies?.[ACCESS_COOKIE_NAME];
+    const headerToken = req.header('Authorization')?.replace('Bearer ', '');
+    const token = cookieToken || headerToken;
+
+    if (!token || token === 'null' || token === 'undefined') {
+      console.log('OptionalAuth middleware: No token provided, continuing as guest');
+      return next(); // Continue without user
+    }
+
+    console.log('OptionalAuth middleware: Token found, verifying...');
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('OptionalAuth middleware: Token decoded:', decoded);
+    console.log('OptionalAuth middleware: Token verified for user ID:', decoded.sub);
+
+    const user = await User.findById(decoded.sub).select('-password');
+
+    if (!user) {
+      console.log('OptionalAuth middleware: User not found for ID:', decoded.sub);
+      return next(); // Continue without user
+    }
+
+    console.log('OptionalAuth middleware: User authenticated:', user.email);
+    req.user = user;
+    next();
+  } catch (error) {
+    console.warn('OptionalAuth middleware: Authentication failed:', error.message);
+    // Continue without user even if auth fails
+    next();
+  }
+};
+
 // Middleware to require user authentication
 const requireUser = auth;
 
@@ -75,4 +112,4 @@ const requireAdmin = [auth, requireRole(['admin'])];
 // Middleware to require staff role (composite: auth + role check)
 const requireStaff = [auth, requireRole(['admin', 'staff'])];
 
-module.exports = { auth, requireUser, requireRole, requireAdmin, requireStaff };
+module.exports = { auth, requireUser, optionalAuth, requireRole, requireAdmin, requireStaff };
