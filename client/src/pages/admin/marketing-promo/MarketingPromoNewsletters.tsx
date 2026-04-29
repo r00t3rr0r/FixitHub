@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Plus, Send, Copy, Archive, CalendarClock } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Plus, Send, Copy, Archive, CalendarClock, Eye, Wand2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/useToast'
 import {
@@ -14,11 +15,13 @@ import {
   createNewsletter,
   duplicateNewsletter,
   listNewsletters,
+  listPromoCodes,
   listSegments,
   scheduleNewsletter,
   sendNewsletterNow,
   testSendNewsletter,
   updateNewsletter,
+  type PromoCode,
   type MarketingSegment,
   type Newsletter,
 } from '@/api/marketingPromo'
@@ -32,8 +35,22 @@ const DEFAULT_FORM = {
   templateName: 'Allgemeine Systemnachricht',
   status: 'draft',
   segmentId: 'none',
+  promoCodeIds: [] as string[],
   scheduledAt: '',
 }
+
+const PLACEHOLDER_TOKENS = [
+  { token: '{{customerName}}', label: 'Kundenname', target: 'content' },
+  { token: '{{firstName}}', label: 'Vorname', target: 'content' },
+  { token: '{{companyName}}', label: 'Firma', target: 'content' },
+  { token: '{{newsletterSubject}}', label: 'Betreff', target: 'content' },
+  { token: '{{currentDate}}', label: 'Datum', target: 'content' },
+  { token: '{{primaryPromoCode}}', label: 'Haupt-Promo-Code', target: 'content' },
+  { token: '{{promoCodes}}', label: 'Alle Promo-Codes', target: 'content' },
+  { token: '{{promoCodesHtml}}', label: 'Promo-Code-Liste (HTML)', target: 'content' },
+  { token: '{{customerName}}', label: 'Kundenname', target: 'subject' },
+  { token: '{{primaryPromoCode}}', label: 'Haupt-Promo-Code', target: 'subject' },
+]
 
 export function MarketingPromoNewsletters() {
   const { toast } = useToast()
@@ -44,6 +61,7 @@ export function MarketingPromoNewsletters() {
 
   const [rows, setRows] = useState<Newsletter[]>([])
   const [segments, setSegments] = useState<MarketingSegment[]>([])
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
@@ -57,16 +75,102 @@ export function MarketingPromoNewsletters() {
   const [scheduleById, setScheduleById] = useState<Record<string, string>>({})
 
   const segmentOptions = useMemo(() => segments.filter((item) => item.status === 'active'), [segments])
+  const activePromoCodes = useMemo(() => promoCodes.filter((item) => item.status === 'active'), [promoCodes])
+  const selectedPromoCodes = useMemo(
+    () => activePromoCodes.filter((item) => form.promoCodeIds.includes(item._id)),
+    [activePromoCodes, form.promoCodeIds]
+  )
+
+  const previewValues = useMemo(() => {
+    const fullName = 'Max Mustermann'
+    const firstName = 'Max'
+    const promoCodeText = selectedPromoCodes.map((item) => item.code).join(', ')
+    const promoCodeHtml = selectedPromoCodes.length > 0
+      ? `<ul style="margin:12px 0 0 20px;padding:0;">${selectedPromoCodes
+        .map((item) => `<li><strong>${item.code}</strong>${item.description ? ` - ${item.description}` : ''}</li>`)
+        .join('')}</ul>`
+      : ''
+
+    return {
+      customerName: fullName,
+      firstName,
+      companyName: 'FixitHub',
+      newsletterSubject: form.subject || 'Ihr Newsletter-Betreff',
+      currentDate: new Date().toLocaleDateString('de-DE'),
+      currentYear: String(new Date().getFullYear()),
+      primaryPromoCode: selectedPromoCodes[0]?.code || '',
+      promoCodes: promoCodeText,
+      promoCodesHtml: promoCodeHtml,
+    }
+  }, [form.subject, selectedPromoCodes])
+
+  const replacePlaceholders = useCallback((input: string) => {
+    if (!input) return ''
+    return input.replace(/{{\s*(\w+)\s*}}/g, (match, variableName) => {
+      const value = previewValues[variableName as keyof typeof previewValues]
+      if (value === undefined || value === null || value === '') {
+        return match
+      }
+      return String(value)
+    })
+  }, [previewValues])
+
+  const previewSubject = replacePlaceholders(form.subject || 'Ihr Newsletter-Betreff')
+  const previewPreheader = replacePlaceholders(form.preheader || 'Kurzer Vorschautext fuer den Posteingang.')
+
+  const previewBodyHtml = useMemo(() => {
+    const rawContent = String(form.content || '').trim()
+    const baseHtml = rawContent
+      ? rawContent
+      : '<p style="margin:0;">Hier erscheint Ihre Newsletter-Nachricht. Nutzen Sie Platzhalter und Promo-Codes fuer personalisierte Kampagnen.</p>'
+
+    const contentWithPromoFallback = selectedPromoCodes.length > 0 && !/{{\s*(promoCodes|promoCodesHtml|primaryPromoCode)\s*}}/i.test(baseHtml)
+      ? `${baseHtml}<p style="margin:16px 0 0 0;"><strong>Promo-Code(s):</strong> ${selectedPromoCodes.map((item) => item.code).join(', ')}</p>`
+      : baseHtml
+
+    const normalizedHtml = /<[^>]+>/.test(contentWithPromoFallback)
+      ? contentWithPromoFallback
+      : contentWithPromoFallback
+        .split('\n')
+        .filter((line) => line.trim().length > 0)
+        .map((line) => `<p style="margin:0 0 12px 0;">${line}</p>`)
+        .join('')
+
+    return replacePlaceholders(normalizedHtml)
+  }, [form.content, selectedPromoCodes, previewValues])
+
+  const insertPlaceholder = (token: string, target: 'content' | 'subject') => {
+    if (target === 'subject') {
+      setForm((prev) => ({ ...prev, subject: prev.subject ? `${prev.subject} ${token}` : token }))
+      return
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      content: prev.content ? `${prev.content}\n${token}` : token,
+    }))
+  }
+
+  const togglePromoCodeSelection = (promoCodeId: string, checked: boolean) => {
+    setForm((prev) => ({
+      ...prev,
+      promoCodeIds: checked
+        ? Array.from(new Set([...prev.promoCodeIds, promoCodeId]))
+        : prev.promoCodeIds.filter((id) => id !== promoCodeId),
+    }))
+  }
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const [newsletterResponse, segmentResponse] = await Promise.all([
+      const [newsletterResponse, segmentResponse, promoCodeResponse] = await Promise.all([
         listNewsletters({ search, status, limit: 100 }),
         listSegments({ status: 'active', limit: 100 }),
+        listPromoCodes({ status: 'active', limit: 100 }),
       ])
       setRows(newsletterResponse.rows)
       setSegments(segmentResponse.rows)
+      setPromoCodes(promoCodeResponse.rows)
     } catch (error: unknown) {
       console.error('Failed loading newsletters:', error)
       toast({
@@ -99,6 +203,7 @@ export function MarketingPromoNewsletters() {
       templateName: item.templateName || 'Allgemeine Systemnachricht',
       status: item.status || 'draft',
       segmentId: item.segmentId?._id || 'none',
+      promoCodeIds: item.promoCodeIds?.map((promoCode) => promoCode._id) || [],
       scheduledAt: item.scheduledAt ? String(item.scheduledAt).slice(0, 16) : '',
     })
     setIsDialogOpen(true)
@@ -115,6 +220,7 @@ export function MarketingPromoNewsletters() {
         templateName: form.templateName,
         status: form.status,
         segmentId: form.segmentId === 'none' ? null : form.segmentId,
+        promoCodeIds: form.promoCodeIds,
       }
 
       if (editing?._id) {
@@ -244,41 +350,160 @@ export function MarketingPromoNewsletters() {
                   Neuer Newsletter
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+              <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-6xl">
                 <DialogHeader>
                   <DialogTitle>{editing ? 'Newsletter bearbeiten' : 'Newsletter erstellen'}</DialogTitle>
                 </DialogHeader>
 
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-2">
-                    <Label>Interner Name</Label>
-                    <Input value={form.internalName} onChange={(e) => setForm((prev) => ({ ...prev, internalName: e.target.value }))} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Betreff</Label>
-                    <Input value={form.subject} onChange={(e) => setForm((prev) => ({ ...prev, subject: e.target.value }))} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Preheader</Label>
-                    <Input value={form.preheader} onChange={(e) => setForm((prev) => ({ ...prev, preheader: e.target.value }))} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Segment</Label>
-                    <Select value={form.segmentId} onValueChange={(value) => setForm((prev) => ({ ...prev, segmentId: value }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Kein Segment</SelectItem>
-                        {segmentOptions.map((segment) => (
-                          <SelectItem key={segment._id} value={segment._id}>{segment.internalName}</SelectItem>
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+                  <div className="space-y-5">
+                    <div className="rounded-lg border border-slate-200 p-4">
+                      <div className="mb-3 flex items-center gap-2">
+                        <Wand2 className="h-4 w-4 text-slate-600" />
+                        <p className="text-sm font-semibold text-slate-900">Kampagnen-Setup</p>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="space-y-2 md:col-span-2">
+                          <Label>Interner Name</Label>
+                          <Input value={form.internalName} onChange={(e) => setForm((prev) => ({ ...prev, internalName: e.target.value }))} />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <Label>Betreff</Label>
+                          <Input value={form.subject} onChange={(e) => setForm((prev) => ({ ...prev, subject: e.target.value }))} />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <Label>Preheader</Label>
+                          <Input value={form.preheader} onChange={(e) => setForm((prev) => ({ ...prev, preheader: e.target.value }))} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>E-Mail-Template</Label>
+                          <Select value={form.templateName} onValueChange={(value) => setForm((prev) => ({ ...prev, templateName: value }))}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Allgemeine Systemnachricht">Allgemeine Systemnachricht</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Status</Label>
+                          <Select value={form.status} onValueChange={(value) => setForm((prev) => ({ ...prev, status: value }))}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="draft">draft</SelectItem>
+                              <SelectItem value="scheduled">scheduled</SelectItem>
+                              <SelectItem value="archived">archived</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <Label>Segment</Label>
+                          <Select value={form.segmentId} onValueChange={(value) => setForm((prev) => ({ ...prev, segmentId: value }))}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Kein Segment</SelectItem>
+                              {segmentOptions.map((segment) => (
+                                <SelectItem key={segment._id} value={segment._id}>{segment.internalName}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-slate-200 p-4">
+                      <p className="mb-3 text-sm font-semibold text-slate-900">Wichtige Platzhalter</p>
+                      <div className="flex flex-wrap gap-2">
+                        {PLACEHOLDER_TOKENS.map((placeholder) => (
+                          <Button
+                            key={`${placeholder.target}-${placeholder.token}`}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => insertPlaceholder(placeholder.token, placeholder.target as 'content' | 'subject')}
+                          >
+                            {placeholder.label}: {placeholder.token}
+                          </Button>
                         ))}
-                      </SelectContent>
-                    </Select>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-slate-200 p-4">
+                      <p className="mb-3 text-sm font-semibold text-slate-900">Promo-Codes einbinden</p>
+                      {activePromoCodes.length === 0 ? (
+                        <p className="text-xs text-slate-500">Keine aktiven Promo-Codes verfuegbar.</p>
+                      ) : (
+                        <div className="grid max-h-40 grid-cols-1 gap-2 overflow-y-auto pr-1 md:grid-cols-2">
+                          {activePromoCodes.map((promoCode) => {
+                            const checked = form.promoCodeIds.includes(promoCode._id)
+                            return (
+                              <label key={promoCode._id} className="flex cursor-pointer items-start gap-2 rounded border border-slate-200 px-2 py-2">
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={(value) => togglePromoCodeSelection(promoCode._id, value === true)}
+                                />
+                                <span className="text-xs leading-5 text-slate-700">
+                                  <strong>{promoCode.code}</strong>
+                                  <br />
+                                  {promoCode.internalName}
+                                </span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Inhalt (HTML oder Text)</Label>
+                      <Textarea rows={12} value={form.content} onChange={(e) => setForm((prev) => ({ ...prev, content: e.target.value }))} />
+                      <p className="text-xs text-slate-500">
+                        Tipp: Bei Text ohne HTML werden Zeilen automatisch in Absaetze fuer die Vorschau umgewandelt.
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Inhalt</Label>
-                    <Textarea rows={10} value={form.content} onChange={(e) => setForm((prev) => ({ ...prev, content: e.target.value }))} />
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                      <Eye className="h-4 w-4" />
+                      Live-Vorschau
+                    </div>
+
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                      <div className="h-2 bg-amber-400" />
+                      <div className="bg-slate-900 px-5 py-5 text-white">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">Newsletter</p>
+                        <p className="mt-2 text-xl font-bold">FixitHub</p>
+                        <div className="mt-4 h-1 w-16 rounded-full bg-amber-400" />
+                      </div>
+
+                      <div className="space-y-4 bg-slate-50 px-5 py-5">
+                        <div className="rounded-lg border border-slate-200 bg-white p-4">
+                          <p className="text-xs uppercase tracking-wide text-slate-500">Betreff</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-900">{previewSubject}</p>
+                          <p className="mt-2 text-xs text-slate-500">{previewPreheader}</p>
+                        </div>
+
+                        <div className="rounded-lg border border-slate-200 bg-white p-4">
+                          <div
+                            className="prose prose-sm max-w-none text-slate-700"
+                            dangerouslySetInnerHTML={{ __html: previewBodyHtml }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {selectedPromoCodes.length > 0 && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                        Ausgewaehlte Promo-Codes: {selectedPromoCodes.map((item) => item.code).join(', ')}
+                      </div>
+                    )}
                   </div>
                 </div>
 

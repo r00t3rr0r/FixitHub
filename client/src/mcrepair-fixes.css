@@ -43,6 +43,24 @@ html, body {
   box-sizing: border-box;
 }
 
+.configurator-container,
+.configurator-body,
+.config-step-content,
+.config-select-group,
+.config-result,
+.config-result-grid,
+.config-nav,
+.hero-layout > *,
+.config-step-indicator,
+.device-card,
+.repair-card {
+  min-width: 0;
+}
+
+.config-step-indicator .step-label {
+  overflow-wrap: normal;
+}
+
 /* Override Card component styles that might cause issues */
 .configurator > div {
   padding: 0 !important;
@@ -64,6 +82,51 @@ html, body {
     padding: 0 16px;
   }
 
+  .configurator-body {
+    padding: 20px;
+  }
+
+  .config-step-content {
+    padding: 10px 0;
+  }
+
+  .config-steps {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 8px 0 0;
+  }
+
+  .config-step-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .config-step-indicator:not(:last-child)::after {
+    display: block;
+  }
+
+  .config-nav {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .config-nav-btn {
+    flex: 1 1 calc(50% - 5px);
+    justify-content: center;
+  }
+
+  .config-nav-btn.next,
+  .config-nav-btn.back {
+    margin-left: 0;
+  }
+
   .steps-grid {
     grid-template-columns: 1fr 1fr !important;
   }
@@ -78,8 +141,98 @@ html, body {
 }
 
 @media (max-width: 480px) {
+  .configurator-body {
+    padding: 16px;
+  }
+
+  .config-steps {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 2px;
+    padding-top: 8px;
+  }
+
+  .config-step-indicator {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .config-step-indicator.active {
+    background: transparent;
+    border-color: transparent;
+  }
+
+  .config-step-indicator .step-num {
+    margin-bottom: 4px;
+  }
+
+  .config-step-indicator .step-label {
+    font-size: 0.58rem;
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .config-nav {
+    flex-direction: column;
+  }
+
+  .config-nav-btn {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .device-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .config-result {
+    padding: 18px;
+  }
+
+  .config-result-item .value {
+    font-size: 1.1rem;
+  }
+
+  .config-step5-additional-panel [style*="grid-template-columns: repeat(3, minmax(0, 1fr))"],
+  .config-step5-additional-panel [style*="grid-template-columns: repeat(3, 1fr)"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
   .steps-grid,
   .shop-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .container,
+  .hero-layout {
+    padding: 0 12px;
+  }
+
+  .configurator-body {
+    padding: 14px;
+  }
+
+  .config-steps {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 1px;
+    padding-top: 8px;
+  }
+
+  .config-step-indicator .step-label {
+    font-size: 0.5rem;
+  }
+
+  .device-grid,
+  .config-result-grid,
+  .config-step5-additional-panel [style*="grid-template-columns: repeat(3, minmax(0, 1fr))"],
+  .config-step5-additional-panel [style*="grid-template-columns: repeat(3, 1fr)"] {
     grid-template-columns: 1fr !important;
   }
 }

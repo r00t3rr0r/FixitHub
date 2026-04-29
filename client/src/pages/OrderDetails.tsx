@@ -3846,21 +3846,6 @@ export function OrderDetails() {
           </ul>
         </div>
 
-        <div className="customer-support-actions">
-          <Button variant="outline" size="sm" onClick={() => scrollToSection('order-progress')}>
-            <Clock className="h-3.5 w-3.5 mr-1.5" />
-            Fortschritt ansehen
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => scrollToSection('order-device-info')}>
-            <Smartphone className="h-3.5 w-3.5 mr-1.5" />
-            Gerätedetails öffnen
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => scrollToSection('order-customer-messages')}>
-            <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
-            Nachricht schreiben
-          </Button>
-        </div>
-
         <div className="customer-support-note">
           <Shield className="h-4 w-4" />
           <p>
@@ -4008,9 +3993,9 @@ export function OrderDetails() {
       {renderRepairProgressCard()}
 
       <div className="customer-order-secondary">
-        {renderCustomerSummaryCard()}
-        {renderCustomerSupportCard()}
         {renderCustomerMessagesCard()}
+        {renderCustomerSupportCard()}
+        {renderCustomerSummaryCard()}
       </div>
 
       <Dialog open={repairDetailsPopupOpen} onOpenChange={setRepairDetailsPopupOpen}>
@@ -4260,7 +4245,7 @@ export function OrderDetails() {
               {order.paymentStatus}
             </span>
             <div className="order-total-cost">
-              <div className="amount">${safeToNumber(order.totalCost).toFixed(2)}</div>
+              <div className="amount">{safeToNumber(order.totalCost).toFixed(2)} €</div>
               <div className="label">Gesamt</div>
             </div>
             {!isStaffOrAdmin && order.status === 'completed' && !order.hasComplaint && (

@@ -2157,6 +2157,7 @@
     "clickAssignWorkflow": "Klicken Sie auf \"Arbeitsablauf zuweisen\", um Schritte für diesen Auftrag hinzuzufügen",
     "repairProgress": "Reparaturfortschritt",
     "overallProgress": "Gesamtfortschritt",
+    "currentProgress": "Aktueller Fortschritt",
     "estimatedCompletion": "Geschätzte Fertigstellung:",
     "repairTimeline": "Reparatur-Zeitstrahl",
     "orderReceived": "Auftrag erhalten",
@@ -2392,6 +2393,8 @@
     "noBookingsDescription": "Sie haben noch keine Buchungen. Erstellen Sie einen neuen Auftrag, um loszulegen.",
     "progress": "Fortsch.",
     "viewOrders": "Aufträge anzeigen",
+    "orderCommunication": "Auftragskommunikation",
+    "communicateWithSupport": "Kommunizieren Sie mit unserem Support-Team über Ihren Reparaturauftrag",
     "errorFetchingBookings": "Fehler beim Abrufen der Buchungen",
     "errorFetchingOrders": "Fehler beim Abrufen der Aufträge für diese Buchung"
   },
@@ -2447,7 +2450,17 @@
     "paymentPending": "Zahlung ausstehend",
     "processing": "In Bearbeitung",
     "completed": "Abgeschlossen",
-    "cancelled": "Storniert"
+    "cancelled": "Storniert",
+    "in-progress": "In Bearbeitung",
+    "quality-check": "Qualitätsprüfung",
+    "ready-for-pickup": "Abholbereit",
+    "label-created": "Label erstellt",
+    "in-transit": "In Versand",
+    "delivered": "Geliefert",
+    "failed": "Fehlgeschlagen",
+    "unpaid": "Unbezahlt",
+    "partially-paid": "Teilweise bezahlt",
+    "paid": "Bezahlt"
   },
   "orderSummary": {
     "orderNumber": "Auftragsnummer",

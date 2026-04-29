@@ -61,7 +61,6 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { getBookings, getBookingOrders, getBooking, downloadBookingShippingLabel, downloadBookingReturnLabel } from "@/api/bookings";
 import { searchDevices, SearchResult } from "@/api/devices";
 import { getUnreadMessageCounts } from "@/api/inspectionCommunication";
@@ -594,7 +593,7 @@ export function CustomerBookings() {
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-0 px-0">
-              <ScrollArea className="w-full">
+              <div className="bookings-list-table-wrap">
                 <Table className="bookings-list-table">
                   <TableHeader>
                     <TableRow className="bg-slate-50 hover:bg-slate-50 border-b-2 border-slate-200">
@@ -761,7 +760,7 @@ export function CustomerBookings() {
                                     <div className="info-item">
                                       <div className="info-label">{t('bookings.returnStatus')}</div>
                                       <Badge className={getReturnShipmentStatusColor(booking.returnShipmentStatus)}>
-                                        {booking.returnShipmentStatus}
+                                        {t(`status.${booking.returnShipmentStatus}`)}
                                       </Badge>
                                     </div>
                                   )}
@@ -796,7 +795,7 @@ export function CustomerBookings() {
                                     </span>
                                     {booking.returnShipmentStatus && (
                                       <Badge className={getReturnShipmentStatusColor(booking.returnShipmentStatus)}>
-                                        {booking.returnShipmentStatus}
+                                        {t(`status.${booking.returnShipmentStatus}`)}
                                       </Badge>
                                     )}
                                   </div>
@@ -860,7 +859,7 @@ export function CustomerBookings() {
                               ) : expandedOrdersData[booking._id] && expandedOrdersData[booking._id].length > 0 ? (
                                 <div className="space-y-1.5">
                                   <h4 className="font-semibold text-xs mb-1.5 text-foreground/70">{t('bookings.ordersAndRepairs')}</h4>
-                                  <div className="border rounded-md overflow-hidden orders-sub-table-wrap">
+                                  <div className="border rounded-md overflow-x-auto overflow-y-hidden orders-sub-table-wrap">
                                     <Table className="text-xs orders-sub-table">
                                       <TableHeader>
                                         <TableRow className="bg-muted/40">
@@ -869,7 +868,7 @@ export function CustomerBookings() {
                                           <TableHead className="h-7 text-xs font-semibold text-foreground/70">{t('bookings.device')}</TableHead>
                                           <TableHead className="h-7 text-xs font-semibold text-foreground/70">{t('bookings.services')}</TableHead>
                                           <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-center">{t('bookings.progressShort')}</TableHead>
-                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">Status</TableHead>
+                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">{t('common.status')}</TableHead>
                                           <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-center">{t('bookings.messages')}</TableHead>
                                           <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-right">{t('bookings.costShort')}</TableHead>
                                         </TableRow>
@@ -941,7 +940,7 @@ export function CustomerBookings() {
                                             </TableCell>
                                             <TableCell className="py-1" data-label="Status">
                                               <Badge className={`${getOrderStatusColor(item.status || 'pending')} text-xs`}>
-                                                {item.status || 'pending'}
+                                                {t(`status.${item.status || 'pending'}`)}
                                               </Badge>
                                             </TableCell>
                                             <TableCell className="text-center py-1" data-label="Nachrichten">
@@ -992,7 +991,7 @@ export function CustomerBookings() {
                                         <div className="orders-sub-card-head">
                                           <div className="orders-sub-card-order">{item.orderNumber}</div>
                                           <Badge className={`${getOrderStatusColor(item.status || 'pending')} text-xs`}>
-                                            {item.status || 'pending'}
+                                            {t(`status.${item.status || 'pending'}`)}
                                           </Badge>
                                         </div>
 
@@ -1105,7 +1104,7 @@ export function CustomerBookings() {
                   ))}
                 </TableBody>
               </Table>
-            </ScrollArea>
+              </div>
 
             {/* Pagination Controls */}
             {filteredBookings.length > 0 && totalBookings > itemsPerPage && (
@@ -1528,11 +1527,11 @@ function BookingDetailDialog({
                 <div className="space-y-2 sm:space-y-3">
                   <div>
                     <p className="text-[10px] sm:text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-1 sm:mb-2 uppercase">Aktuell</p>
-                    <Badge className={`${getStatusColor(booking.status)} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>{booking.status}</Badge>
+                    <Badge className={`${getStatusColor(booking.status)} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>{t(`status.${booking.status}`)}</Badge>
                   </div>
                   <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
                     <p className="text-[10px] sm:text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-1 sm:mb-2 uppercase">Abrechnung</p>
-                    <Badge className={`${getBillingStatusColor(booking.billingStatus)} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>{booking.billingStatus}</Badge>
+                    <Badge className={`${getBillingStatusColor(booking.billingStatus)} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>{t(`status.${booking.billingStatus}`)}</Badge>
                   </div>
                 </div>
               </div>
@@ -1611,7 +1610,7 @@ function BookingDetailDialog({
                         </div>
                       </div>
                       <Badge className={`${getStatusColor(item.status || 'pending')} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>
-                        {item.status || 'pending'}
+                        {t(`status.${item.status || 'pending'}`)}
                       </Badge>
                     </div>
 
@@ -1824,7 +1823,7 @@ function BookingDetailDialog({
                     </h3>
                     {booking.returnShipmentStatus && (
                       <Badge className={`${getReturnShipmentStatusColor(booking.returnShipmentStatus)} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1 flex-shrink-0`}>
-                        {booking.returnShipmentStatus}
+                        {t(`status.${booking.returnShipmentStatus}`)}
                       </Badge>
                     )}
                   </div>

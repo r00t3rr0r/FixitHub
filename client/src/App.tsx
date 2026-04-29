@@ -89,12 +89,33 @@ import { Sitemap } from "./pages/Sitemap"
 import { ShippingAndPayment } from "./pages/ShippingAndPayment"
 import { BatteryDisposal } from "./pages/BatteryDisposal"
 import { PageTracker } from "./components/PageTracker"
+import { GlobalScrollToTopButton } from "./components/GlobalScrollToTopButton"
 
 function ScrollToTop() {
-  const { pathname } = useLocation()
+  const { pathname, search, hash } = useLocation()
+
   useEffect(() => {
-    window.scrollTo(0, 0)
-  }, [pathname])
+    // Some very small mobile viewports can keep the previous scroll offset on route transitions.
+    // Reset immediately and once more on the next frame/tick to ensure we land at the top.
+    const scrollToTop = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" })
+      document.documentElement.scrollTop = 0
+      document.body.scrollTop = 0
+    }
+
+    scrollToTop()
+
+    const frameId = window.requestAnimationFrame(scrollToTop)
+    const timeoutId = window.setTimeout(scrollToTop, 0)
+    const lateTimeoutId = window.setTimeout(scrollToTop, 220)
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+      window.clearTimeout(timeoutId)
+      window.clearTimeout(lateTimeoutId)
+    }
+  }, [pathname, search, hash])
+
   return null
 }
 
@@ -105,6 +126,7 @@ function App() {
         <Router>
           <ScrollToTop />
           <PageTracker />
+          <GlobalScrollToTopButton />
           {/* Public routes - accessible to all users */}
           <Routes>
             {/* Home page as default landing page for all users */}

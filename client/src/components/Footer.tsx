@@ -6,6 +6,12 @@ import { Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
 export function Footer() {
   const { t } = useTranslation();
 
+  const handleMobileSafeTopReset = () => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  };
+
   return (
     <footer className="footer">
       <div className="container">
@@ -55,12 +61,12 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="/partner-werden">
+                <Link to="/partner-werden" onClick={handleMobileSafeTopReset}>
                   {t('home.footer.becomePartner', 'Partner werden')}
                 </Link>
               </li>
               <li>
-                <Link to="/newsletter">
+                <Link to="/newsletter" onClick={handleMobileSafeTopReset}>
                   {t('home.footer.newsletter', 'Newsletter')}
                 </Link>
               </li>

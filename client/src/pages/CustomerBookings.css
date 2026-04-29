@@ -140,6 +140,31 @@
   color: var(--primary-blue);
 }
 
+/* Main bookings table wrapper: ensures horizontal scrolling on medium widths */
+.bookings-list-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.bookings-list-table {
+  width: 100%;
+  min-width: 980px;
+  table-layout: auto;
+}
+
+.bookings-list-table td,
+.bookings-list-table th {
+  min-width: 0;
+}
+
+@media (max-width: 1024px) {
+  .bookings-list-table {
+    min-width: 900px;
+  }
+}
+
 /* Responsive Design - Mobile First */
 @media (max-width: 768px) {
   .progress-container {
@@ -169,6 +194,10 @@
 
   .expanded-section {
     padding: 1rem;
+  }
+
+  .bookings-list-table {
+    min-width: 820px;
   }
 }
 
@@ -380,6 +409,14 @@
   .bookings-filter-bar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .bookings-list-table-wrap {
+    overflow-x: visible;
+  }
+
+  .bookings-list-table {
+    min-width: 0;
   }
 
   /* Convert main bookings table to card layout */
