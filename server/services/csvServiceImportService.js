@@ -11,17 +11,31 @@ const CSV_COLUMN_MAP = {
   'name': 'name',
   'bezeichnung': 'name',
   'artikelname': 'name',
+  // Service / category details
+  'service': 'service',
+  'service_precise': 'service',
   // Category / Service type
   'category': 'category',
   'kategorie': 'category',
-  'service': 'category',
-  'service_precise': 'category',
+  // Device type
+  'devicetype': 'deviceType',
+  'device_type': 'deviceType',
+  'gerätetyp': 'deviceType',
+  'geraetetyp': 'deviceType',
   // Price
   'preis': 'price',
   'price': 'price',
+  'std._vk_brutto_kategorie': 'priceGrossCategory',
+  'std_vk_brutto_kategorie': 'priceGrossCategory',
+  'std._vk_brutto_jtl': 'priceGrossJtl',
+  'std_vk_brutto_jtl': 'priceGrossJtl',
   'std._vk_brutto': 'priceGross',
   'std_vk_brutto': 'priceGross',
   'price_gross': 'priceGross',
+  'std._vk_netto_kategorie': 'priceNetCategory',
+  'std_vk_netto_kategorie': 'priceNetCategory',
+  'std._vk_netto_jtl': 'priceNetJtl',
+  'std_vk_netto_jtl': 'priceNetJtl',
   'std._vk_netto': 'priceNet',
   'std_vk_netto': 'priceNet',
   'price_net': 'priceNet',
@@ -31,9 +45,26 @@ const CSV_COLUMN_MAP = {
   'ek_netto_(fur_gld)': 'purchasePrice',
   'ek_netto_fur_gld': 'purchasePrice',
   'purchase_price': 'purchasePrice',
+  'uvp': 'msrp',
+  'steuerklasse': 'taxClass',
+  '_quelle': 'source',
   // Description
+  'kurzbeschreibung': 'shortDescription',
   'beschreibung': 'description',
   'description': 'description',
+  'druck_kurzbeschreibung': 'printShortDescription',
+  'druck_beschreibung': 'printDescription',
+  'anmerkung': 'note',
+  // Search / SEO
+  'suchbegriffe': 'searchKeywords',
+  'seo_name_(suchmaschinenname)': 'seoName',
+  'seo_name': 'seoName',
+  'seo_titel-tag': 'seoTitleTag',
+  'seo_titel_tag': 'seoTitleTag',
+  'seo_meta-keywords': 'seoMetaKeywords',
+  'seo_meta_keywords': 'seoMetaKeywords',
+  'seo_meta-description': 'seoMetaDescription',
+  'seo_meta_description': 'seoMetaDescription',
   // Time
   'dauer': 'estimatedTime',
   'estimated_time': 'estimatedTime',
@@ -291,26 +322,49 @@ class CSVServiceImportService {
     const trim = (v) => (typeof v === 'string' ? v.trim() : v);
 
     cleaned.name = trim(readField('name')) || '';
+    cleaned.service = trim(readField('service')) || '';
     cleaned.category = trim(readField('category')) || '';
+    cleaned.deviceType = trim(readField('deviceType')) || '';
+    cleaned.shortDescription = trim(readField('shortDescription')) || '';
     cleaned.description = trim(readField('description')) || '';
+    cleaned.printShortDescription = trim(readField('printShortDescription')) || '';
+    cleaned.printDescription = trim(readField('printDescription')) || '';
+    cleaned.note = trim(readField('note')) || '';
+    cleaned.searchKeywords = trim(readField('searchKeywords')) || '';
+    cleaned.seoName = trim(readField('seoName')) || '';
+    cleaned.seoTitleTag = trim(readField('seoTitleTag')) || '';
+    cleaned.seoMetaKeywords = trim(readField('seoMetaKeywords')) || '';
+    cleaned.seoMetaDescription = trim(readField('seoMetaDescription')) || '';
     cleaned.estimatedTime = trim(readField('estimatedTime')) || '';
     cleaned.manufacturer = trim(readField('manufacturer')) || '';
     cleaned.manufacturerPrecise = trim(readField('manufacturerPrecise')) || '';
     cleaned.model = trim(readField('model')) || '';
     cleaned.modelPrecise = trim(readField('modelPrecise')) || '';
     cleaned.color = trim(readField('color')) || '';
+    cleaned.taxClass = trim(readField('taxClass')) || '';
+    cleaned.source = trim(readField('source')) || '';
 
     // Prices: support gross / net / generic price
+    const grossCategory = parseLocalizedNumber(readField('priceGrossCategory'));
+    const grossJtl = parseLocalizedNumber(readField('priceGrossJtl'));
     const gross = parseLocalizedNumber(readField('priceGross'));
+    const netCategory = parseLocalizedNumber(readField('priceNetCategory'));
+    const netJtl = parseLocalizedNumber(readField('priceNetJtl'));
     const net = parseLocalizedNumber(readField('priceNet'));
     const generic = parseLocalizedNumber(readField('price'));
     const purchase = parseLocalizedNumber(readField('purchasePrice'));
+    const msrp = parseLocalizedNumber(readField('msrp'));
 
     let price = !isNaN(gross) ? gross : (!isNaN(generic) ? generic : (!isNaN(net) ? net : NaN));
     if (price === 0 && !isNaN(net) && net > 0) price = net; // gross may be 0 in source
     cleaned.price = isNaN(price) ? NaN : price;
+    cleaned.priceGrossCategory = isNaN(grossCategory) ? 0 : grossCategory;
+    cleaned.priceGrossJtl = isNaN(grossJtl) ? 0 : grossJtl;
     cleaned.priceNet = isNaN(net) ? 0 : net;
+    cleaned.priceNetCategory = isNaN(netCategory) ? 0 : netCategory;
+    cleaned.priceNetJtl = isNaN(netJtl) ? 0 : netJtl;
     cleaned.purchasePrice = isNaN(purchase) ? 0 : purchase;
+    cleaned.msrp = isNaN(msrp) ? 0 : msrp;
 
     // isActive
     const activeRaw = readField('isActive');
@@ -334,9 +388,16 @@ class CSVServiceImportService {
       cleaned.deviceTypes = dt ? [dt] : [];
     }
 
+    if (!cleaned.deviceType && cleaned.deviceTypes.length > 0) {
+      cleaned.deviceType = cleaned.deviceTypes[0];
+    }
+
     // Description fallback so the model never sees an empty required field.
     if (!cleaned.description) {
-      cleaned.description = cleaned.name;
+      cleaned.description = cleaned.shortDescription || cleaned.name;
+    }
+    if (!cleaned.shortDescription) {
+      cleaned.shortDescription = cleaned.description || cleaned.name;
     }
 
     return cleaned;
