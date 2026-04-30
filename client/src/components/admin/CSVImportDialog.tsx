@@ -91,11 +91,11 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
+    if (file.size > 100 * 1024 * 1024) {
       toast({
         variant: 'destructive',
         title: 'File too large',
-        description: 'CSV file must be smaller than 10MB'
+        description: 'CSV file must be smaller than 100MB'
       });
       return;
     }
@@ -359,7 +359,7 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
                   >
                     <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                     <p className="text-lg font-medium mb-2">Click to upload or drag and drop</p>
-                    <p className="text-sm text-muted-foreground">CSV file up to 10MB</p>
+                    <p className="text-sm text-muted-foreground">CSV file up to 100MB</p>
                     <Input
                       ref={fileInputRef}
                       type="file"

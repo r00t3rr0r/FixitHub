@@ -174,8 +174,8 @@ app.use(cors({
 }));
 // Increase payload size limits to handle large file uploads and data payloads
 app.use(cookieParser());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ extended: true, limit: '200mb' }));
 app.use(requireCsrfProtection);
 
 // Serve uploaded files
@@ -397,7 +397,7 @@ app.use((err, req, res, next) => {
     console.error('Payload size exceeded - Request entity too large');
     console.error(`Content-Length: ${req.headers['content-length']} bytes`);
     return res.status(413).json({
-      error: 'Request entity too large. Maximum payload size is 50MB.',
+      error: 'Request entity too large. Maximum payload size is 200MB.',
       details: err.message
     });
   }
@@ -405,7 +405,7 @@ app.use((err, req, res, next) => {
   if (err.code === 'PayloadTooLargeError' || err.type === 'entity.too.large') {
     console.error('Payload size error detected during body parsing');
     return res.status(413).json({
-      error: 'Request payload exceeds maximum size limit of 50MB.',
+      error: 'Request payload exceeds maximum size limit of 200MB.',
       details: err.message
     });
   }
