@@ -8,7 +8,15 @@ const requireAdmin = [requireUser, requireRole(['admin'])];
 router.get('/profitability', requireAdmin, async (req, res) => {
   try {
     const limit = Number(req.query.limit) || 200;
-    const report = await ProfitabilityService.getProfitabilityReport({ limit });
+    const startDate = req.query.startDate || null;
+    const endDate = req.query.endDate || null;
+    const projectedWorkdays = req.query.projectedWorkdays || null;
+    const report = await ProfitabilityService.getProfitabilityReport({
+      limit,
+      startDate,
+      endDate,
+      projectedWorkdays,
+    });
 
     return res.status(200).json({
       success: true,

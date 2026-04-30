@@ -4,11 +4,23 @@ export type ProfitabilityOrderRow = {
   id: string
   orderId: string
   orderNumber: string
+  invoiceDate?: string
+  invoiceNumber?: string
+  orderDate?: string
+  externalOrderNumber?: string
+  internalOrderNumber?: string
   serviceType: string
   status: string
   progress: number
   paymentLabel: string
+  paymentType?: string
   warrantyLabel: string
+  companyName?: string
+  contactPerson?: string
+  customerGroup?: string
+  technician?: string
+  grossAmount?: number
+  netAmount?: number
   netRevenue: number
   directCosts: number
   materialCost: number
@@ -21,6 +33,21 @@ export type ProfitabilityOrderRow = {
   otherOperatingCost: number
   profit: number
   marginPercent: number
+  technicianCost?: number
+  shippingCost?: number
+  additionalCost?: number
+  packagingCost?: number
+  paymentFee?: number
+  gatewayProvider?: string
+  gatewayFeeRate?: number
+  gatewayFeePercentLabel?: string
+  gatewayFeeSource?: string
+  totalCosts?: number
+  contributionMargin?: number
+  profitability?: number
+  target30Percent?: number
+  contributionVsTarget?: number
+  ppCredit?: number
   plannedHours: number
   actualHours: number
   trackedHours: number
@@ -34,7 +61,14 @@ export type ProfitabilityBookingRow = {
   id: string
   bookingNumber: string
   bookingDate: string
+  invoiceDate?: string
+  invoiceNumber?: string
+  orderDate?: string
+  externalOrderNumber?: string
+  internalOrderNumber?: string
   customerName: string
+  companyName?: string
+  contactPerson?: string
   customerGroup: string
   customerGroupName: string
   customerGroupKey: string
@@ -47,8 +81,13 @@ export type ProfitabilityBookingRow = {
   customerGroupFinancialCreditLimit: number
   serviceType: string
   paymentLabel: string
+  paymentType?: string
   warrantyLabel: string
   status: string
+  description?: string
+  technician?: string
+  grossAmount?: number
+  netAmount?: number
   netRevenue: number
   directCosts: number
   materialCost: number
@@ -61,6 +100,21 @@ export type ProfitabilityBookingRow = {
   otherOperatingCost: number
   profit: number
   marginPercent: number
+  technicianCost?: number
+  shippingCost?: number
+  additionalCost?: number
+  packagingCost?: number
+  paymentFee?: number
+  gatewayProvider?: string
+  gatewayFeeRate?: number
+  gatewayFeePercentLabel?: string
+  gatewayFeeSource?: string
+  totalCosts?: number
+  contributionMargin?: number
+  profitability?: number
+  target30Percent?: number
+  contributionVsTarget?: number
+  ppCredit?: number
   plannedHours: number
   actualHours: number
   hourlyRate: number
@@ -107,8 +161,14 @@ export type ProfitabilitySettings = {
   otherCosts: {
     packagingRate: number
     paymentFeeRate: number
+    paymentFeeFixedAmount?: number
     flatShippingCostPerBooking: number
     warrantyReserveRate: number
+  }
+  accounting?: {
+    vatRate: number
+    targetGrossMarginRate: number
+    defaultProjectionWorkdays: number
   }
   warranty: {
     keywords: string[]
@@ -166,13 +226,55 @@ export type ProfitabilityReportResponse = {
   success: boolean
   rows: ProfitabilityBookingRow[]
   summary: ProfitabilitySummary
+  periodSummary?: {
+    totals: Record<string, number>
+    workdays: number
+    range: { startDate: string | null; endDate: string | null }
+    perWorkday: Record<string, number>
+    projection: Record<string, number>
+  }
+  dailySummary?: Array<{
+    periodKey: string
+    totals: Record<string, number>
+    workdays: number
+    range: { startDate: string | null; endDate: string | null }
+    perWorkday: Record<string, number>
+    projection: Record<string, number>
+  }>
+  monthlySummary?: Array<{
+    periodKey: string
+    totals: Record<string, number>
+    workdays: number
+    range: { startDate: string | null; endDate: string | null }
+    perWorkday: Record<string, number>
+    projection: Record<string, number>
+  }>
+  calculationMeta?: {
+    vatRate: number
+    targetGrossMarginRate: number
+    projectionWorkdays: number
+    configurableFormulas: {
+      paymentFeeModel: string
+      dynamicAdditionalCosts: string
+    }
+  }
   settings: ProfitabilitySettings
   settingsMeta: ProfitabilitySettingsMeta
 }
 
-export const getProfitabilityReport = async (limit = 200): Promise<ProfitabilityReportResponse> => {
+export type ProfitabilityReportParams = {
+  limit?: number
+  startDate?: string | null
+  endDate?: string | null
+}
+
+export const getProfitabilityReport = async (params: ProfitabilityReportParams = {}): Promise<ProfitabilityReportResponse> => {
+  const { limit = 200, startDate, endDate } = params
+  const query = new URLSearchParams({ limit: String(limit) })
+  if (startDate) query.set('startDate', startDate)
+  if (endDate) query.set('endDate', endDate)
   try {
-    const response = await api.get(`/api/admin/analytics/profitability?limit=${limit}`)
+    const response = await api.get(`/api/admin/analytics/profitability?${query.toString()}`)
     return response.data
   } catch (error: any) {
     console.error('Error fetching profitability report:', error)
