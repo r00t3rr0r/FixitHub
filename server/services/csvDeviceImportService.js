@@ -1,6 +1,28 @@
 
 const { DeviceModel, DeviceBrand } = require('../models/Device');
 
+const parseListValue = (value) => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(/[,;\n]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+const pickField = (row, keys = []) => {
+  for (const key of keys) {
+    if (row[key] !== undefined && row[key] !== null) {
+      return row[key];
+    }
+  }
+  return undefined;
+};
+
 class CSVDeviceImportService {
   static async validateDeviceCSVImport(csvData, columnMapping, options = {}) {
     // Map CSV columns to device model fields
@@ -90,17 +112,25 @@ class CSVDeviceImportService {
           continue;
         }
         // Create new device model
+        const modelNumbers = parseListValue(pickField(device, ['modelNumbers', 'modellnummern']));
+        const synonyms = parseListValue(pickField(device, ['synonyms', 'synonyme']));
+
         const newModel = new DeviceModel({
           name: device.name,
           brandId: brandId,
           deviceType: device.deviceType,
           image: device.image,
-          commonProblems: device.commonProblems ? device.commonProblems.split(/[,;\n]/).map(s => s.trim()).filter(Boolean) : [],
+          series: pickField(device, ['series', 'serie']) || undefined,
+          year: pickField(device, ['year', 'jahr']) || undefined,
+          slug: pickField(device, ['slug']) || undefined,
+          modelNumbers,
+          synonyms,
+          commonProblems: parseListValue(device.commonProblems),
           specifications: device.specifications,
           other: {
-            releaseDate: device.releaseDate,
-            price: device.price,
-            colors: device.colors ? device.colors.split(/[,;\n]/).map(s => s.trim()).filter(Boolean) : []
+            releaseDate: pickField(device, ['releaseDate', 'other.releaseDate']),
+            price: pickField(device, ['price', 'other.price']),
+            colors: parseListValue(pickField(device, ['colors', 'other.colors']))
           }
         });
         await newModel.save();

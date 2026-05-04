@@ -21,7 +21,24 @@ const deviceModelSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  series: {
+    type: String,
+    trim: true
+  },
+  year: {
+    type: String,
+    trim: true
+  },
+  slug: {
+    type: String,
+    trim: true,
+    lowercase: true
+  },
   modelNumbers: [{
+    type: String,
+    trim: true
+  }],
+  synonyms: [{
     type: String,
     trim: true
   }],
