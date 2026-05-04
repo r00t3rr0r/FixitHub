@@ -71,6 +71,7 @@ const getModelImage = (model: any, fallbackImage?: string) => {
 const normalizeSearchText = (value: string | undefined | null) =>
   String(value || '')
     .toLowerCase()
+    .replace(/[,_;:/]+/g, ' ')
     .trim();
 
 const getSearchTokens = (value: string) =>
@@ -157,8 +158,6 @@ const deviceImages: Record<string, string> = {
   tablet: '/images/tablet_mu.png',
   notebook: '/images/notebook_mu.png',
   laptop: '/images/notebook_mu.png',
-  konsole: '/images/console_mu.png',
-  'gaming-console': '/images/console_mu.png',
 };
 
 // Common problems per device type
@@ -186,18 +185,6 @@ const deviceProblems: Record<string, string[]> = {
     'Akku hält nur kurz',
     'Gerät überhitzt schnell',
     'Tastatur reagiert verzögert',
-  ],
-  konsole: [
-    'HDMI-Ausgang ohne Signal',
-    'Konsole wird sehr laut',
-    'Laufwerk liest Discs nicht',
-    'Gerät startet nicht zuverlässig',
-  ],
-  'gaming-console': [
-    'HDMI-Ausgang ohne Signal',
-    'Konsole wird sehr laut',
-    'Laufwerk liest Discs nicht',
-    'Gerät startet nicht zuverlässig',
   ],
 };
 
@@ -1445,7 +1432,12 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                                     onError={(e) => e.currentTarget.style.display = 'none'}
                                   />
                                 )}
-                                <span>{model.name}</span>
+                                <span>
+                                  {model.name}
+                                  {model.modelNumbers && model.modelNumbers.length > 0 && (
+                                    <span className="text-xs italic text-muted-foreground ml-1">({model.modelNumbers.join(', ')})</span>
+                                  )}
+                                </span>
                               </div>
                             </div>
                           ))}
@@ -2597,7 +2589,12 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                           onError={(e) => e.currentTarget.style.display = 'none'}
                         />
                       )}
-                      <span className="mobile-model-name">{model.name}</span>
+                      <span className="mobile-model-name">
+                        {model.name}
+                        {model.modelNumbers && model.modelNumbers.length > 0 && (
+                          <span className="text-xs italic opacity-60 ml-1">({model.modelNumbers.join(', ')})</span>
+                        )}
+                      </span>
                     </div>
                     <ChevronRight className="w-5 h-5 text-gray-400" />
                   </div>

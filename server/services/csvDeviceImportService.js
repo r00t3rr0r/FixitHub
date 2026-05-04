@@ -14,6 +14,42 @@ const parseListValue = (value) => {
   return [];
 };
 
+const parseModelNumbersValue = (value) => {
+  if (Array.isArray(value)) {
+    return Array.from(
+      new Set(value.map((item) => String(item).trim()).filter(Boolean))
+    );
+  }
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim();
+
+    const splitByPrimaryDelimiters = trimmedValue
+      .split(/[;\n|]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    if (splitByPrimaryDelimiters.length > 1) {
+      return Array.from(new Set(splitByPrimaryDelimiters));
+    }
+
+    const commaParts = trimmedValue
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    const shouldSplitByComma =
+      commaParts.length > 1 &&
+      commaParts.every((part) => /^[a-z0-9._\-+/]+$/i.test(part) && /\d/.test(part));
+
+    if (shouldSplitByComma) {
+      return Array.from(new Set(commaParts));
+    }
+
+    return trimmedValue ? [trimmedValue] : [];
+  }
+  return [];
+};
+
 const pickField = (row, keys = []) => {
   for (const key of keys) {
     if (row[key] !== undefined && row[key] !== null) {
@@ -29,7 +65,29 @@ class CSVDeviceImportService {
     const mapped = csvData.map(row => {
       const mappedRow = {};
       for (const [field, col] of Object.entries(columnMapping)) {
-        mappedRow[field] = row[col];
+        let mappedValue = row[col];
+
+        // PapaParse stores overflow columns in __parsed_extra when CSV rows contain
+        // unquoted commas. For model numbers we stitch those pieces back together.
+        if (
+          field === 'modelNumbers' &&
+          Array.isArray(row.__parsed_extra) &&
+          row.__parsed_extra.length > 0
+        ) {
+          const extra = row.__parsed_extra
+            .map((part) => String(part || '').trim())
+            .filter(Boolean)
+            .join(', ');
+
+          if (extra) {
+            mappedValue = [mappedValue, extra]
+              .filter((part) => part !== undefined && part !== null && String(part).trim() !== '')
+              .map((part) => String(part).trim())
+              .join(', ');
+          }
+        }
+
+        mappedRow[field] = mappedValue;
       }
       return mappedRow;
     });
@@ -112,7 +170,7 @@ class CSVDeviceImportService {
           continue;
         }
         // Create new device model
-        const modelNumbers = parseListValue(pickField(device, ['modelNumbers', 'modellnummern']));
+        const modelNumbers = parseModelNumbersValue(pickField(device, ['modelNumbers', 'modellnummern']));
         const synonyms = parseListValue(pickField(device, ['synonyms', 'synonyme']));
 
         const newModel = new DeviceModel({

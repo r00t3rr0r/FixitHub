@@ -38,7 +38,6 @@ import {
   Monitor,
   Tablet,
   Watch,
-  Gamepad2,
   Search,
   X,
   Lock,
@@ -100,8 +99,6 @@ const getDeviceTypeIcon = (deviceType: string) => {
       return <Monitor className="h-5 w-5" />
     case 'smartwatch':
       return <Watch className="h-5 w-5" />
-    case 'gaming-console':
-      return <Gamepad2 className="h-5 w-5" />
     default:
       return <Package className="h-5 w-5" />
   }

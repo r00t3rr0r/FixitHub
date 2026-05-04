@@ -158,6 +158,7 @@ export function DeviceManagement() {
     brandId: '',
     deviceType: '',
     image: '',
+    modelNumbers: [] as string[],
     commonProblems: [] as string[],
     specifications: {} as Record<string, string>,
     // Comprehensive specification categories
@@ -455,6 +456,7 @@ export function DeviceManagement() {
       brandId: '',
       deviceType: '',
       image: '',
+      modelNumbers: [],
       commonProblems: [],
       specifications: {},
       images: [],
@@ -495,12 +497,18 @@ export function DeviceManagement() {
 
       // Load full model details
       const fullModel: any = model
+      const resolvedModelNumbers = Array.isArray(fullModel.modelNumbers) && fullModel.modelNumbers.length > 0
+        ? fullModel.modelNumbers
+        : (Array.isArray(fullModel.other?.modelNumbers) && fullModel.other.modelNumbers.length > 0
+            ? fullModel.other.modelNumbers
+            : (Array.isArray(fullModel.other?.models) ? fullModel.other.models : []))
 
       setModelForm({
         name: fullModel.name || '',
         brandId: fullModel.brand?._id || fullModel.brandId || '',
         deviceType: fullModel.deviceType || '',
         image: fullModel.image || '',
+        modelNumbers: resolvedModelNumbers,
         commonProblems: fullModel.commonProblems || [],
         specifications: fullModel.specifications || {},
         images: fullModel.images || [],
@@ -2312,7 +2320,7 @@ export function DeviceManagement() {
 
                 {/* Basic Information */}
                                 {/* Erweiterte Felder aus mobileapi.dev */}
-                                {(selectedModel.specifications?.description || (selectedModel as any).other?.colors?.length > 0 || (selectedModel as any).memory?.internal?.length > 0 || (selectedModel as any).platform?.chipset || (selectedModel as any).other?.modelNumbers?.length > 0) && (
+                                {(selectedModel.specifications?.description || (selectedModel as any).other?.colors?.length > 0 || (selectedModel as any).memory?.internal?.length > 0 || (selectedModel as any).platform?.chipset || selectedModel.modelNumbers?.length > 0 || (selectedModel as any).other?.modelNumbers?.length > 0 || (selectedModel as any).other?.models?.length > 0) && (
                                   <div>
                                     <h4 className="text-lg font-semibold mb-3 pb-2 border-b-2 border-fuchsia-200 dark:border-fuchsia-800 flex items-center gap-2">
                                       <div className="w-3 h-3 bg-fuchsia-500 rounded-full"></div>

@@ -133,7 +133,7 @@ export const CSVImportDevicesDialog: React.FC<CSVImportDevicesDialogProps> = ({
           series: ['series', 'serie'],
           year: ['year', 'jahr', 'release_year', 'releaseyear'],
           slug: ['slug'],
-          modelNumbers: ['modelnumbers', 'model_numbers', 'modellnummern', 'modellnummer', 'model_no'],
+          modelNumbers: ['modelnumbers', 'model_numbers', 'model numbers', 'model-numbers', 'modellnummern', 'modell nummern', 'modellnummer', 'model_no'],
           synonyms: ['synonyms', 'synonyme', 'aliases', 'alias'],
           commonProblems: ['commonproblems', 'common_problems', 'problems', 'probleme'],
           specifications: ['specifications', 'spezifikationen', 'specs'],

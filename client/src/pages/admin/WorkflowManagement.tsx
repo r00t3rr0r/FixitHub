@@ -80,7 +80,6 @@ export function WorkflowManagement() {
     'Tablet', 
     'Laptop',
     'Desktop',
-    'Gaming Console',
     'Smart Watch',
     'Headphones',
     'Camera'
