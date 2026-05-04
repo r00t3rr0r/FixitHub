@@ -68,6 +68,89 @@ const getModelImage = (model: any, fallbackImage?: string) => {
   return fallbackImage || '';
 };
 
+const normalizeSearchText = (value: string | undefined | null) =>
+  String(value || '')
+    .toLowerCase()
+    .trim();
+
+const getSearchTokens = (value: string) =>
+  normalizeSearchText(value)
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+const getModelSearchScore = (model: DeviceModel, queryTokens: string[]) => {
+  const normalizedName = normalizeSearchText(model.name);
+  const normalizedSeries = normalizeSearchText(model.series);
+  const normalizedModelNumbers = (Array.isArray(model.modelNumbers) ? model.modelNumbers : [])
+    .map((value) => normalizeSearchText(value))
+    .filter(Boolean);
+  const normalizedSynonyms = (Array.isArray(model.synonyms) ? model.synonyms : [])
+    .map((value) => normalizeSearchText(value))
+    .filter(Boolean);
+
+  let score = 0;
+
+  for (const token of queryTokens) {
+    if (normalizedName === token) {
+      score += 120;
+      continue;
+    }
+
+    if (normalizedName.startsWith(token)) {
+      score += 90;
+      continue;
+    }
+
+    if (normalizedName.includes(token)) {
+      score += 70;
+      continue;
+    }
+
+    if (normalizedSeries === token) {
+      score += 60;
+      continue;
+    }
+
+    if (normalizedSeries.includes(token)) {
+      score += 45;
+      continue;
+    }
+
+    if (normalizedModelNumbers.some((value) => value === token)) {
+      score += 50;
+      continue;
+    }
+
+    if (normalizedModelNumbers.some((value) => value.includes(token))) {
+      score += 35;
+      continue;
+    }
+
+    if (normalizedSynonyms.some((value) => value === token)) {
+      score += 30;
+      continue;
+    }
+
+    if (normalizedSynonyms.some((value) => value.includes(token))) {
+      score += 20;
+    }
+  }
+
+  const fullQuery = queryTokens.join(' ');
+  if (fullQuery) {
+    if (normalizedName === fullQuery) {
+      score += 300;
+    } else if (normalizedName.startsWith(fullQuery)) {
+      score += 180;
+    } else if (normalizedName.includes(fullQuery)) {
+      score += 120;
+    }
+  }
+
+  return score;
+};
+
 // Device images based on device type
 const deviceImages: Record<string, string> = {
   smartphone: '/images/smartphone_mu.png',
@@ -523,14 +606,38 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
   // Handle model search/filter
   useEffect(() => {
-    if (modelSearchQuery.length < 1) {
+    const queryTokens = getSearchTokens(modelSearchQuery);
+    if (queryTokens.length < 1) {
       setFilteredModels(models);
       return;
     }
 
-    const filtered = models.filter(model =>
-      model.name.toLowerCase().includes(modelSearchQuery.toLowerCase())
-    );
+    const filtered = models.filter((model) => {
+      const searchableValues = [
+        model.name,
+        model.series,
+        ...(Array.isArray(model.modelNumbers) ? model.modelNumbers : []),
+        ...(Array.isArray(model.synonyms) ? model.synonyms : []),
+      ];
+
+      const normalizedValues = searchableValues
+        .map((value) => normalizeSearchText(value))
+        .filter(Boolean);
+
+      return queryTokens.every((token) =>
+        normalizedValues.some((value) => value.includes(token))
+      );
+    });
+
+    filtered.sort((left, right) => {
+      const scoreDifference = getModelSearchScore(right, queryTokens) - getModelSearchScore(left, queryTokens);
+      if (scoreDifference !== 0) {
+        return scoreDifference;
+      }
+
+      return left.name.localeCompare(right.name, 'de', { sensitivity: 'base' });
+    });
+
     setFilteredModels(filtered);
   }, [modelSearchQuery, models]);
 
