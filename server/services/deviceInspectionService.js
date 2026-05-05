@@ -320,6 +320,11 @@ class DeviceInspectionService {
   // Create customer notification for failed tests
   static async _createCustomerNotification(inspection, technicianId) {
     try {
+      if (inspection.customerNotificationCreated) {
+        console.log(`[DeviceInspection] Customer failed-test notification already created, skipping duplicate`);
+        return;
+      }
+
       console.log(`[DeviceInspection] Creating customer notification for failed tests`);
 
       const failedTestsText = inspection.failedTestDetails
@@ -357,6 +362,8 @@ class DeviceInspectionService {
         throw new Error('Inspection not found');
       }
 
+      const wasAlreadyCompleted = inspection.status === 'completed';
+
       inspection.status = 'completed';
       inspection.completedAt = new Date();
       inspection.isRepairable = isRepairable;
@@ -381,6 +388,11 @@ class DeviceInspectionService {
 
       await inspection.save();
       console.log(`[DeviceInspection] Inspection completed: ${inspection._id}`);
+
+      if (wasAlreadyCompleted) {
+        console.log(`[DeviceInspection] Inspection was already completed, skipping duplicate diagnosis email`);
+        return inspection;
+      }
 
       // Send customer notification email asynchronously (non-blocking)
       setImmediate(async () => {

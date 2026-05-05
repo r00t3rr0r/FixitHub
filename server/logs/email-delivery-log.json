@@ -4072,5 +4072,273 @@
         "deviceModelImageUrl"
       ]
     }
+  },
+  {
+    "id": "1777977509521-ihwqyw7js",
+    "timestamp": "2026-05-05T10:38:29.521Z",
+    "to": "adarozerr@gmail.com",
+    "templateName": "Diagnose abgeschlossen",
+    "subject": "Diagnose abgeschlossen: Auftrag ORD-2026-001 – Apple iPhone 15 Pro Max",
+    "messageId": "<b348336c-d1fa-4dfa-970d-e3dc4efa8860@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 967,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "diagnosisResult",
+        "diagnosisCompletedAt",
+        "deviceCondition",
+        "recommendedAction",
+        "orderUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1777977679917-mqu43xk6v",
+    "timestamp": "2026-05-05T10:41:19.917Z",
+    "to": "adarozerr@gmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<3884adaf-f12a-d08f-0072-2841f590964f@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1088,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1777977780676-8uwby1t4j",
+    "timestamp": "2026-05-05T10:43:00.676Z",
+    "to": "adarozerr@gmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<80fecd4f-e02b-19ee-b95f-36cdd26850ec@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1426,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1777977833105-6mo3cyo6t",
+    "timestamp": "2026-05-05T10:43:53.105Z",
+    "to": "adarozerr@gmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<4fc36a5f-2525-685d-cf7a-5ffbcd7171b8@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1071,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1777977882726-v840s11xp",
+    "timestamp": "2026-05-05T10:44:42.726Z",
+    "to": "adarozerr@gmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<9822d71d-7265-c32e-0a48-70e50e7d9246@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1187,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1777977887786-cx27lzwdn",
+    "timestamp": "2026-05-05T10:44:47.786Z",
+    "to": "adarozerr@gmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<c59189f6-2270-fadf-2f88-3a38d907c4b7@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1378,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1777977893930-jgyl3zdw4",
+    "timestamp": "2026-05-05T10:44:53.930Z",
+    "to": "adarozerr@gmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<273246a6-617f-4df6-69e2-3659fabc426b@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 995,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1777977895365-hj1lumstv",
+    "timestamp": "2026-05-05T10:44:55.365Z",
+    "to": "adarozerr@gmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<9edb61a2-9c45-af4a-1a8c-04e78c635ad4@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1378,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
   }
 ]
